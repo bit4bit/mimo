@@ -15,10 +15,13 @@ let userRepository: any;
 let ensureMimoHome: any;
 
 describe("User Repository Integration Test", () => {
-  const testHome = join(tmpdir(), `mimo-test-${Date.now()}`);
+  let testHome: string;
 
   beforeEach(async () => {
+    // Generate unique test home for each test
+    testHome = join(tmpdir(), `mimo-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     process.env.MIMO_HOME = testHome;
+    
     // Re-import to get fresh module with new env
     const pathsModule = await import("../src/config/paths.ts");
     ensureMimoHome = pathsModule.ensureMimoHome;

@@ -1,6 +1,6 @@
 import { join } from "path";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
-import { getUserPath, Paths } from "../config/paths.js";
+import { getUserPath, getPaths } from "../config/paths.js";
 import { dump, load } from "js-yaml";
 
 export interface UserCredentials {
@@ -62,6 +62,7 @@ export class UserRepository {
   }
 
   async listUsers(): Promise<User[]> {
+    const Paths = getPaths();
     if (!existsSync(Paths.users)) {
       return [];
     }
