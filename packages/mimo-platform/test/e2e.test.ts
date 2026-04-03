@@ -87,7 +87,9 @@ describe("Integration Tests", () => {
       
       expect(typeof agentService.generateAgentToken).toBe("function");
       expect(typeof agentService.verifyAgentToken).toBe("function");
-      expect(typeof agentService.spawnAgent).toBe("function");
+      expect(typeof agentService.createAgent).toBe("function");
+      expect(typeof agentService.handleAgentConnect).toBe("function");
+      expect(typeof agentService.handleAgentDisconnect).toBe("function");
     });
   });
 

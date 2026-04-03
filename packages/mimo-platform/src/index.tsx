@@ -7,6 +7,7 @@ import sessions from "./sessions/routes";
 import { agentService } from "./agents/service.js";
 import { fileSyncService } from "./sync/service.js";
 import { chatService } from "./sessions/chat.js";
+import { sessionRepository } from "./sessions/repository.js";
 import { LandingPage } from "./components/LandingPage.js";
 import { projectRepository } from "./projects/repository.js";
 
@@ -175,50 +176,52 @@ async function handleAgentMessage(ws, data) {
       break;
     case "acp_response":
       // Handle ACP response and broadcast to chat
-      if (ws.data.agentId) {
-        const agent = await agentService.getAgentStatus(ws.data.agentId);
-        if (agent) {
-          // Broadcast to all chat clients in session
-          const subscribers = chatSessions.get(agent.sessionId);
-          if (subscribers) {
-            subscribers.forEach(client => {
-              if (client.readyState === 1) { // WebSocket.OPEN
-                client.send(JSON.stringify({
-                  type: 'message',
-                  role: 'assistant',
-                  content: data.content,
-                  timestamp: new Date().toISOString(),
-                }));
-              }
-            });
-          }
-          
-          // Save to history
-          await chatService.saveMessage(agent.sessionId, {
-            role: 'assistant',
-            content: data.content,
-            timestamp: new Date().toISOString(),
-          });
-        }
+      // Agent must specify which session this is for
+      const sessionId = data.sessionId;
+      if (!sessionId) {
+        console.log("No sessionId in acp_response");
+        return;
       }
+      
+      // Broadcast to all chat clients in session
+      const subscribers = chatSessions.get(sessionId);
+      if (subscribers) {
+        subscribers.forEach(client => {
+          if (client.readyState === 1) { // WebSocket.OPEN
+            client.send(JSON.stringify({
+              type: 'message',
+              role: 'assistant',
+              content: data.content,
+              timestamp: new Date().toISOString(),
+            }));
+          }
+        });
+      }
+      
+      // Save to history
+      await chatService.saveMessage(sessionId, {
+        role: 'assistant',
+        content: data.content,
+        timestamp: new Date().toISOString(),
+      });
       break;
     case "file_changed":
       console.log("File changed:", data.files);
       
-      const agentId = ws.data.agentId;
-      if (agentId) {
-        const agent = await agentService.getAgentStatus(agentId);
-        if (agent) {
-          const changes = data.files.map((file) => ({
-            path: file.path,
-            isNew: file.isNew,
-            deleted: file.deleted,
-          }));
-          
-          await fileSyncService.initializeSession(agent.sessionId, "", "");
-          await fileSyncService.handleFileChanges(agent.sessionId, changes);
-        }
+      const fileSessionId = data.sessionId;
+      if (!fileSessionId) {
+        console.log("No sessionId in file_changed");
+        return;
       }
+      
+      const changes = data.files.map((file) => ({
+        path: file.path,
+        isNew: file.isNew,
+        deleted: file.deleted,
+      }));
+      
+      await fileSyncService.initializeSession(fileSessionId, "", "");
+      await fileSyncService.handleFileChanges(fileSessionId, changes);
       break;
     default:
       console.log("Unknown agent message type:", data.type);
@@ -253,14 +256,18 @@ async function handleChatMessage(ws, data) {
         });
       }
       
-      // Forward to agent if connected
-      const agents = await agentService.listAgentsBySession(sessionId);
-      const connectedAgent = agents.find(a => a.status === 'connected');
-      
-      if (connectedAgent) {
-        // Send to agent via its WebSocket
-        // This would need agent WebSocket tracking
-        console.log(`Forwarding message to agent ${connectedAgent.id}`);
+      // Get session to find assigned agent
+      const session = await sessionRepository.findById(sessionId);
+      if (session?.assignedAgentId) {
+        // Forward to agent if connected
+        const ws = agentService.getAgentConnection(session.assignedAgentId);
+        if (ws && ws.readyState === 1) {
+          ws.send(JSON.stringify({
+            type: 'user_message',
+            sessionId: sessionId,
+            content: data.content,
+          }));
+        }
       }
       break;
       
@@ -277,9 +284,5 @@ async function handleChatMessage(ws, data) {
   }
 }
 
-// Run cleanup periodically
-setInterval(() => {
-  agentService.cleanupDeadAgents();
-}, 30000); // Every 30 seconds
-
+// Server is ready
 console.log(`Server running at http://localhost:${server.port}`);

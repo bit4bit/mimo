@@ -11,6 +11,7 @@ interface Session {
   name: string;
   status: "active" | "paused" | "closed";
   worktreePath: string;
+  assignedAgentId?: string;
   createdAt: Date;
 }
 
@@ -22,9 +23,9 @@ interface ChatMessage {
 
 interface Agent {
   id: string;
-  status: "starting" | "connected" | "failed" | "killed" | "died";
-  pid?: number;
+  status: "online" | "offline";
   startedAt: Date;
+  lastActivityAt?: Date;
 }
 
 interface FileChange {
@@ -36,13 +37,12 @@ interface SessionDetailProps {
   project: Project;
   session: Session;
   chatHistory: ChatMessage[];
-  activeAgent?: Agent;
+  agent?: Agent;
   changes?: FileChange[];
   hasConflicts?: boolean;
 }
 
 function renderFileTree(changes: FileChange[]) {
-  // Group files by directory
   const fileTree: Map<string, { name: string; status: FileChange["status"] }[]> = new Map();
   
   for (const change of changes) {
@@ -56,7 +56,6 @@ function renderFileTree(changes: FileChange[]) {
     fileTree.get(dir)!.push({ name: fileName, status: change.status });
   }
   
-  // Sort directories
   const sortedDirs = Array.from(fileTree.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   
   return (
@@ -98,47 +97,42 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   project,
   session,
   chatHistory,
-  activeAgent,
+  agent,
   changes = [],
   hasConflicts = false,
 }) => {
   return (
     <Layout title={`${session.name} - ${project.name}`} showStatusLine={true} sessionId={session.id}>
       <div class="session-container">
-        {/* Header */}
         <div class="session-header-bar">
           <div>
             <h1>{session.name}</h1>
             <span style="color: #888; font-size: 12px;">
               Project: {project.name} | Status: {session.status}
-              {activeAgent && (
-                <span class={`agent-status agent-status-${activeAgent.status}`}>
-                  | Agent: {activeAgent.status}
-                  {activeAgent.pid && ` (PID: ${activeAgent.pid})`}
+              {agent && (
+                <span class={`agent-status agent-status-${agent.status}`}>
+                  | Agent: {agent.id.slice(0, 8)}... ({agent.status === "online" ? "🟢" : "🔴"} {agent.status})
                 </span>
+              )}
+              {!agent && (
+                <span style="color: #666;">| No agent assigned</span>
               )}
             </span>
           </div>
           <div style="display: flex; gap: 10px;">
-            {activeAgent && (
-              <form method="POST" action={`/agents/${activeAgent.id}/kill`}>
-                <button type="submit" class="btn-danger">Kill Agent</button>
-              </form>
+            {agent && (
+              <a href={`/agents/${agent.id}`} class="btn-secondary">Agent Details</a>
             )}
-            {!activeAgent && (
-              <form method="POST" action={`/sessions/${session.id}/agent`}>
-                <button type="submit" class="btn-primary">Start Agent</button>
-              </form>
+            {!agent && (
+              <a href="/agents/new" class="btn-primary">Create Agent</a>
             )}
-            <a href={`/sessions?projectId=${project.id}`} class="btn-secondary">
+            <a href={`/projects/${project.id}/sessions`} class="btn-secondary">
               Back to Sessions
             </a>
           </div>
         </div>
 
-        {/* Three Buffer Layout */}
         <div class="buffers-container">
-          {/* Left Buffer - Files */}
           <div class="buffer buffer-left">
             <div class="buffer-header">Files</div>
             <div class="buffer-content">
@@ -148,7 +142,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             </div>
           </div>
 
-          {/* Center Buffer - Chat */}
           <div class="buffer buffer-center">
             <div class="buffer-header">Chat</div>
             <div class="buffer-content" id="chat-messages">
@@ -185,7 +178,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             </div>
           </div>
 
-          {/* Right Buffer - Changes */}
           <div class="buffer buffer-right">
             <div class="buffer-header">
               Changes
@@ -213,7 +205,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           </div>
         </div>
 
-        {/* Actions */}
         <div style="padding: 15px; border-top: 1px solid #444; display: flex; justify-content: space-between; align-items: center;">
           <div style="display: flex; gap: 10px;">
             <button type="button" id="commit-btn" class="btn-primary">
@@ -234,7 +225,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         </div>
       </div>
 
-      {/* Commit Dialog Modal */}
       <div id="commit-dialog" class="modal" style="display: none;">
         <div class="modal-content">
           <h3>Commit Changes</h3>
@@ -346,21 +336,34 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           font-size: 11px;
           text-transform: uppercase;
         }
-        .agent-status-starting {
-          background: #665c00;
-          color: #ffd43b;
-        }
-        .agent-status-connected {
+        .agent-status-online {
           background: #0b3d0b;
           color: #51cf66;
         }
-        .agent-status-failed, .agent-status-died {
+        .agent-status-offline {
           background: #3d0b0b;
           color: #ff6b6b;
         }
-        .agent-status-killed {
+        .btn-primary, .btn-secondary, .btn-danger {
+          padding: 6px 12px;
+          border: none;
+          cursor: pointer;
+          font-family: monospace;
+          font-size: 12px;
+          text-decoration: none;
+          border-radius: 3px;
+        }
+        .btn-primary {
+          background: #74c0fc;
+          color: #1a1a1a;
+        }
+        .btn-secondary {
           background: #3d3d3d;
-          color: #888;
+          color: #d4d4d4;
+        }
+        .btn-danger {
+          background: #ff6b6b;
+          color: #1a1a1a;
         }
         .changes-list {
           padding: 10px;

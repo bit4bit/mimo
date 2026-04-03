@@ -5,20 +5,14 @@ import { dump, load } from "js-yaml";
 import crypto from "crypto";
 
 export type AgentStatus = 
-  | "starting" 
-  | "connected" 
-  | "failed" 
-  | "killed" 
-  | "died";
+  | "online" 
+  | "offline";
 
 export interface Agent {
   id: string;
-  sessionId: string;
-  projectId: string;
   owner: string;
   token: string;
   status: AgentStatus;
-  pid?: number;
   startedAt: Date;
   updatedAt: Date;
   lastActivityAt?: Date;
@@ -26,22 +20,16 @@ export interface Agent {
 
 export interface AgentData {
   id: string;
-  sessionId: string;
-  projectId: string;
   owner: string;
   token: string;
   status: AgentStatus;
-  pid?: number;
   startedAt: string;
   updatedAt: string;
   lastActivityAt?: string;
 }
 
 export interface CreateAgentInput {
-  sessionId: string;
-  projectId: string;
   owner: string;
-  token: string;
 }
 
 export class AgentRepository {
@@ -68,11 +56,9 @@ export class AgentRepository {
     const now = new Date().toISOString();
     const agentData: AgentData = {
       id,
-      sessionId: input.sessionId,
-      projectId: input.projectId,
       owner: input.owner,
-      token: input.token,
-      status: "starting",
+      token: crypto.randomUUID(), // Temporary placeholder, service will update with JWT
+      status: "offline",
       startedAt: now,
       updatedAt: now,
     };
@@ -108,7 +94,7 @@ export class AgentRepository {
     };
   }
 
-  async findBySessionId(sessionId: string): Promise<Agent[]> {
+  async findByStatus(status: AgentStatus): Promise<Agent[]> {
     const Paths = getPaths();
     if (!existsSync(Paths.agents)) {
       return [];
@@ -123,7 +109,7 @@ export class AgentRepository {
         if (existsSync(agentFile)) {
           const content = readFileSync(agentFile, "utf-8");
           const data = load(content) as AgentData;
-          if (data.sessionId === sessionId) {
+          if (data.status === status) {
             agents.push({
               ...data,
               startedAt: new Date(data.startedAt),
@@ -200,10 +186,6 @@ export class AgentRepository {
 
   async updateStatus(agentId: string, status: AgentStatus): Promise<Agent | null> {
     return this.update(agentId, { status });
-  }
-
-  async updatePid(agentId: string, pid: number): Promise<Agent | null> {
-    return this.update(agentId, { pid });
   }
 
   async updateLastActivity(agentId: string): Promise<Agent | null> {

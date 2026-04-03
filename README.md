@@ -8,6 +8,8 @@ MIMO (Minimal IDE for Modern Operations) is a platform that enables AI-assisted 
 
 ## Features
 
+- **Public Landing Page**: View platform overview and public projects without authentication
+- **Project Descriptions**: Add optional descriptions to projects for better discoverability
 - **Emacs-Style Interface**: Three-buffer layout with customizable keybindings
 - **Session-Based Development**: Work with isolated worktrees for each development session
 - **File Synchronization**: Automatic sync between agent worktree and original repository
@@ -83,6 +85,15 @@ This creates `dist/mimo-agent` which is used by the platform.
 
 ## Usage
 
+### Public Landing Page
+
+When you first navigate to `http://localhost:3000`, you'll see a public landing page displaying:
+- Platform overview and features
+- List of all public projects (names, descriptions, owners, repo types)
+- Login and Register buttons
+
+Clicking on a project card will redirect you to login if not authenticated, or take you directly to the project detail if authenticated.
+
 ### Authentication
 
 1. Navigate to `http://localhost:3000/auth/register`
@@ -91,10 +102,11 @@ This creates `dist/mimo-agent` which is used by the platform.
 
 ### Creating a Project
 
-1. Click "New Project" on the projects page
+1. Click "Create Project" on the projects page
 2. Enter project name
-3. Provide Git or Fossil repository URL
-4. The system imports/clones the repository
+3. Add an optional description (recommended ~200 chars, max 500)
+4. Provide Git or Fossil repository URL
+5. The system imports/clones the repository
 
 ### Starting a Session
 

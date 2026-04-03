@@ -88,9 +88,11 @@ router.get("/new", async (c: Context) => {
     return c.text("Project not found", 404);
   }
 
+  const agents = await agentService.listAgentsByOwner(username);
+
   return c.html(
     <Layout title="New Session">
-      <SessionCreatePage project={project} />
+      <SessionCreatePage project={project} agents={agents} />
     </Layout>
   );
 });
@@ -105,6 +107,7 @@ router.post("/", async (c: Context) => {
   const body = await c.req.parseBody();
   const name = body.name as string;
   const projectId = (body.projectId as string) || getProjectId(c);
+  const assignedAgentId = (body.assignedAgentId as string) || null;
 
   if (!name || !projectId) {
     return c.text("Name and project ID required", 400);
@@ -121,6 +124,7 @@ router.post("/", async (c: Context) => {
     projectId: projectId as string,
     owner: username,
     worktreePath: "", // Will be set by repository
+    assignedAgentId: assignedAgentId || undefined,
   });
 
   // Initialize worktree from Fossil repository
@@ -156,9 +160,11 @@ router.get("/:id", async (c: Context) => {
   // Get chat history
   const chatHistory = await chatService.loadHistory(sessionId);
   
-  // Get agent status
-  const agents = await agentService.listAgentsBySession(sessionId);
-  const activeAgent = agents.find(a => a.status === "connected");
+  // Get assigned agent if any
+  let agent = undefined;
+  if (session.assignedAgentId) {
+    agent = await agentRepository.findById(session.assignedAgentId);
+  }
 
   // Get file changes
   const { fileSyncService } = await import("../sync/service.js");
@@ -171,48 +177,12 @@ router.get("/:id", async (c: Context) => {
         session={session}
         project={project}
         chatHistory={chatHistory}
-        activeAgent={activeAgent}
+        agent={agent}
         changes={changeSet.files}
         hasConflicts={hasConflicts}
       />
     </Layout>
   );
-});
-
-// POST /sessions/:id/agent or /projects/:projectId/sessions/:id/agent - Spawn an agent
-router.post("/:id/agent", async (c: Context) => {
-  const username = await getAuthUsername(c);
-  if (!username) {
-    return c.redirect("/auth/login");
-  }
-
-  const sessionId = c.req.param("id");
-  const session = await sessionRepository.findById(sessionId);
-  
-  if (!session || session.owner !== username) {
-    return c.text("Session not found", 404);
-  }
-
-  // Check if there's already an active agent
-  const existingAgents = await agentService.listAgentsBySession(sessionId);
-  const activeAgent = existingAgents.find(a => a.status === "connected" || a.status === "starting");
-  
-  if (activeAgent) {
-    return c.redirect(`/sessions/${sessionId}`);
-  }
-
-  try {
-    await agentService.spawnAgent({
-      sessionId,
-      projectId: session.projectId,
-      owner: username,
-    });
-  } catch (error) {
-    console.error("Failed to spawn agent:", error);
-    // Error is handled by service - it updates status and adds chat message
-  }
-
-  return c.redirect(`/projects/${session.projectId}/sessions/${sessionId}`);
 });
 
 // POST /sessions/:id/cancel - Cancel current ACP request
@@ -248,10 +218,7 @@ router.post("/:id/delete", async (c: Context) => {
     return c.text("Session not found", 404);
   }
 
-  // Kill any active agents
-  await agentService.killAgentsBySession(sessionId);
-
-  // Delete session
+  // Delete session (agent is independent, not affected)
   await sessionRepository.delete(session.projectId, sessionId);
 
   return c.redirect(`/projects/${session.projectId}/sessions`);

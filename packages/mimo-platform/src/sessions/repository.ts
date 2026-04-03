@@ -10,6 +10,7 @@ export interface Session {
   projectId: string;
   owner: string;
   worktreePath: string;
+  assignedAgentId?: string;
   status: "active" | "paused" | "closed";
   createdAt: Date;
   updatedAt: Date;
@@ -21,6 +22,7 @@ export interface SessionData {
   projectId: string;
   owner: string;
   worktreePath: string;
+  assignedAgentId?: string;
   status: "active" | "paused" | "closed";
   createdAt: string;
   updatedAt: string;
@@ -31,6 +33,7 @@ export interface CreateSessionInput {
   projectId: string;
   owner: string;
   worktreePath: string;
+  assignedAgentId?: string;
 }
 
 export class SessionRepository {
@@ -72,6 +75,7 @@ export class SessionRepository {
       projectId: input.projectId,
       owner: input.owner,
       worktreePath,
+      assignedAgentId: input.assignedAgentId,
       status: "active",
       createdAt: now,
       updatedAt: now,
@@ -156,6 +160,43 @@ export class SessionRepository {
             createdAt: new Date(data.createdAt),
             updatedAt: new Date(data.updatedAt),
           });
+        }
+      }
+    }
+
+    return sessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async findByAssignedAgentId(agentId: string): Promise<Session[]> {
+    const Paths = getPaths();
+    if (!existsSync(Paths.projects)) {
+      return [];
+    }
+
+    const projectEntries = readdirSync(Paths.projects, { withFileTypes: true });
+    const sessions: Session[] = [];
+
+    for (const projectEntry of projectEntries) {
+      if (projectEntry.isDirectory()) {
+        const sessionsDir = join(Paths.projects, projectEntry.name, "sessions");
+        if (existsSync(sessionsDir)) {
+          const entries = readdirSync(sessionsDir, { withFileTypes: true });
+          for (const entry of entries) {
+            if (entry.isDirectory()) {
+              const sessionFile = join(sessionsDir, entry.name, "session.yaml");
+              if (existsSync(sessionFile)) {
+                const content = readFileSync(sessionFile, "utf-8");
+                const data = load(content) as SessionData;
+                if (data.assignedAgentId === agentId) {
+                  sessions.push({
+                    ...data,
+                    createdAt: new Date(data.createdAt),
+                    updatedAt: new Date(data.updatedAt),
+                  });
+                }
+              }
+            }
+          }
         }
       }
     }
