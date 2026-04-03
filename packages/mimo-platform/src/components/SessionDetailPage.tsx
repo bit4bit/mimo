@@ -215,12 +215,13 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
 
         {/* Actions */}
         <div style="padding: 15px; border-top: 1px solid #444; display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <button type="button" id="commit-btn" class="btn-primary" style="margin-right: 10px;">
-              Commit (C-x c)
+          <div style="display: flex; gap: 10px;">
+            <button type="button" id="commit-btn" class="btn-primary">
+              Commit
             </button>
-            <span id="commit-status" style="color: #888; font-size: 12px;"></span>
+            <a href="/config" class="btn-secondary">Settings</a>
           </div>
+          <span id="commit-status" style="color: #888; font-size: 12px;"></span>
           <form
             method="POST"
             action={`/projects/${project.id}/sessions/${session.id}/delete`}
