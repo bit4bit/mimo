@@ -214,7 +214,13 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         </div>
 
         {/* Actions */}
-        <div style="padding: 15px; border-top: 1px solid #444;">
+        <div style="padding: 15px; border-top: 1px solid #444; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <button type="button" id="commit-btn" class="btn-primary" style="margin-right: 10px;">
+              Commit (C-x c)
+            </button>
+            <span id="commit-status" style="color: #888; font-size: 12px;"></span>
+          </div>
           <form
             method="POST"
             action={`/projects/${project.id}/sessions/${session.id}/delete`}
@@ -224,6 +230,24 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               Delete Session
             </button>
           </form>
+        </div>
+      </div>
+
+      {/* Commit Dialog Modal */}
+      <div id="commit-dialog" class="modal" style="display: none;">
+        <div class="modal-content">
+          <h3>Commit Changes</h3>
+          <textarea 
+            id="commit-message" 
+            placeholder="Enter commit message..."
+            rows="3"
+            style="width: 100%; margin: 10px 0; padding: 8px; background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; font-family: monospace;"
+          ></textarea>
+          <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" id="commit-cancel" class="btn-secondary">Cancel</button>
+            <button type="button" id="commit-confirm" class="btn-primary">Commit & Push</button>
+          </div>
+          <div id="commit-error" style="color: #ff6b6b; margin-top: 10px; font-size: 12px;"></div>
         </div>
       </div>
 
@@ -404,6 +428,29 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         .file-name-new { color: #74c0fc; }
         .file-name-deleted { color: #ff6b6b; }
         .file-name-conflict { color: #ff8585; }
+        .modal {
+          position: fixed;
+          z-index: 1000;
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 100%;
+          background-color: rgba(0, 0, 0, 0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .modal-content {
+          background: #2d2d2d;
+          border: 1px solid #444;
+          padding: 20px;
+          width: 90%;
+          max-width: 500px;
+          border-radius: 4px;
+        }
+        .modal-content h3 {
+          margin: 0 0 15px 0;
+        }
       `}</style>
     </Layout>
   );

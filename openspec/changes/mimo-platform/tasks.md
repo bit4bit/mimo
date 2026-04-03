@@ -111,13 +111,13 @@
 
 ## 10. Commit and Push
 
-- [ ] 10.1 Implement Fossil commit from session worktree
-- [ ] 10.2 Build commit message input UI
-- [ ] 10.3 Create export to Git functionality (for Git repos)
-- [ ] 10.4 Implement push to Git remote
-- [ ] 10.5 Implement push to Fossil remote
-- [ ] 10.6 Add push confirmation dialog
-- [ ] 10.7 Handle push errors and conflicts with detailed messages
+- [x] 10.1 Implement Fossil commit from session worktree
+- [x] 10.2 Build commit message input UI
+- [x] 10.3 Create export to Git functionality (for Git repos)
+- [x] 10.4 Implement push to Git remote
+- [x] 10.5 Implement push to Fossil remote
+- [x] 10.6 Add push confirmation dialog
+- [x] 10.7 Handle push errors and conflicts with detailed messages
 
 ## 11. mimo-agent (TypeScript/Bun)
 

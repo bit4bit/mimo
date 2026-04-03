@@ -33,6 +33,10 @@ app.route("/agents", agents);
 import syncRoutes from "./sync/routes";
 app.route("/sync", syncRoutes);
 
+// Commit routes (protected)
+import commitRoutes from "./commits/routes";
+app.route("/commits", commitRoutes);
+
 // Health check
 app.get("/health", (c) => {
   console.log("Health check hit");

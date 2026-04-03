@@ -150,6 +150,41 @@ export class VCS {
     };
   }
 
+  async getStatus(workDir: string): Promise<VCSResult> {
+    const result = await this.execCommand(["fossil", "changes"], workDir);
+    return {
+      success: result.success,
+      output: result.output,
+      error: result.error || undefined,
+    };
+  }
+
+  async commit(workDir: string, message: string): Promise<VCSResult> {
+    const result = await this.execCommand(
+      ["fossil", "commit", "-m", message],
+      workDir
+    );
+
+    return {
+      success: result.success,
+      output: result.output,
+      error: result.error || undefined,
+    };
+  }
+
+  async getCommitHistory(workDir: string, limit: number = 10): Promise<VCSResult> {
+    const result = await this.execCommand(
+      ["fossil", "timeline", "-n", limit.toString()],
+      workDir
+    );
+
+    return {
+      success: result.success,
+      output: result.output,
+      error: result.error || undefined,
+    };
+  }
+
   async setupSessionWorktree(
     projectId: string,
     sessionId: string,
