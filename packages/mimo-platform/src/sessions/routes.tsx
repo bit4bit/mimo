@@ -7,6 +7,7 @@ import { projectRepository } from "../projects/repository.js";
 import { agentService } from "../agents/service.js";
 import { chatService } from "./chat.js";
 import { vcs } from "../vcs/index.js";
+import { verifyToken } from "../auth/jwt.js";
 import { Layout } from "../components/Layout.js";
 import { SessionDetailPage } from "../components/SessionDetailPage.js";
 import { SessionCreatePage } from "../components/SessionCreatePage.js";
@@ -14,6 +15,25 @@ import { SessionListPage } from "../components/SessionListPage.js";
 import type { Context } from "hono";
 
 const router = new Hono();
+
+// Helper to get authenticated username from cookie
+async function getAuthUsername(c: Context): Promise<string | null> {
+  const cookieHeader = c.req.header("Cookie");
+  const usernameMatch = cookieHeader?.match(/username=([^;]+)/);
+  const username = usernameMatch ? usernameMatch[1] : null;
+  if (username) return username;
+  
+  // Also check JWT token
+  const tokenMatch = cookieHeader?.match(/token=([^;]+)/);
+  const token = tokenMatch ? tokenMatch[1] : null;
+  
+  if (token) {
+    const payload = await verifyToken(token);
+    if (payload) return payload.username;
+  }
+  
+  return null;
+}
 
 // Helper to get projectId from either URL param or query param
 function getProjectId(c: Context): string | null {
@@ -27,7 +47,7 @@ function getProjectId(c: Context): string | null {
 
 // GET /sessions or /projects/:projectId/sessions - List sessions for a project
 router.get("/", async (c: Context) => {
-  const username = getCookie(c, "username");
+  const username = await getAuthUsername(c);
   if (!username) {
     return c.redirect("/auth/login");
   }
@@ -53,7 +73,7 @@ router.get("/", async (c: Context) => {
 
 // GET /sessions/new or /projects/:projectId/sessions/new - Create session form
 router.get("/new", async (c: Context) => {
-  const username = getCookie(c, "username");
+  const username = await getAuthUsername(c);
   if (!username) {
     return c.redirect("/auth/login");
   }
@@ -77,7 +97,7 @@ router.get("/new", async (c: Context) => {
 
 // POST /sessions or /projects/:projectId/sessions - Create new session
 router.post("/", async (c: Context) => {
-  const username = getCookie(c, "username");
+  const username = await getAuthUsername(c);
   if (!username) {
     return c.redirect("/auth/login");
   }
@@ -116,7 +136,7 @@ router.post("/", async (c: Context) => {
 
 // GET /sessions/:id or /projects/:projectId/sessions/:id - View session detail
 router.get("/:id", async (c: Context) => {
-  const username = getCookie(c, "username");
+  const username = await getAuthUsername(c);
   if (!username) {
     return c.redirect("/auth/login");
   }
@@ -140,6 +160,11 @@ router.get("/:id", async (c: Context) => {
   const agents = await agentService.listAgentsBySession(sessionId);
   const activeAgent = agents.find(a => a.status === "connected");
 
+  // Get file changes
+  const { fileSyncService } = await import("../sync/service.js");
+  const changeSet = await fileSyncService.getChangeSet(sessionId);
+  const hasConflicts = changeSet.hasConflicts;
+
   return c.html(
     <Layout title={session.name}>
       <SessionDetailPage 
@@ -147,6 +172,8 @@ router.get("/:id", async (c: Context) => {
         project={project}
         chatHistory={chatHistory}
         activeAgent={activeAgent}
+        changes={changeSet.files}
+        hasConflicts={hasConflicts}
       />
     </Layout>
   );
@@ -154,7 +181,7 @@ router.get("/:id", async (c: Context) => {
 
 // POST /sessions/:id/agent or /projects/:projectId/sessions/:id/agent - Spawn an agent
 router.post("/:id/agent", async (c: Context) => {
-  const username = getCookie(c, "username");
+  const username = await getAuthUsername(c);
   if (!username) {
     return c.redirect("/auth/login");
   }
@@ -190,7 +217,7 @@ router.post("/:id/agent", async (c: Context) => {
 
 // POST /sessions/:id/cancel - Cancel current ACP request
 router.post("/:id/cancel", async (c: Context) => {
-  const username = getCookie(c, "username");
+  const username = await getAuthUsername(c);
   if (!username) {
     return c.redirect("/auth/login");
   }
@@ -209,7 +236,7 @@ router.post("/:id/cancel", async (c: Context) => {
 
 // POST /sessions/:id/delete or /projects/:projectId/sessions/:id/delete - Delete session
 router.post("/:id/delete", async (c: Context) => {
-  const username = getCookie(c, "username");
+  const username = await getAuthUsername(c);
   if (!username) {
     return c.redirect("/auth/login");
   }
@@ -228,6 +255,110 @@ router.post("/:id/delete", async (c: Context) => {
   await sessionRepository.delete(session.projectId, sessionId);
 
   return c.redirect(`/projects/${session.projectId}/sessions`);
+});
+
+// GET /sessions/:id/files - Get file tree for a session
+router.get("/:id/files", async (c: Context) => {
+  const username = await getAuthUsername(c);
+  if (!username) {
+    return c.redirect("/auth/login");
+  }
+
+  const sessionId = c.req.param("id");
+  const session = await sessionRepository.findById(sessionId);
+  
+  if (!session || session.owner !== username) {
+    return c.text("Session not found", 404);
+  }
+
+  // Scan filesystem directly for files
+  const { readdirSync, statSync } = await import("fs");
+  const { join, relative } = await import("path");
+  
+  const fileTree: { [key: string]: string[] } = {};
+  
+  function scanDir(dirPath: string, basePath: string) {
+    if (!statSync(dirPath, { throwIfNoEntry: false })) {
+      return;
+    }
+    
+    const entries = readdirSync(dirPath, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = join(dirPath, entry.name);
+      const relPath = relative(basePath, fullPath);
+      
+      if (entry.isDirectory()) {
+        scanDir(fullPath, basePath);
+      } else {
+        const parts = relPath.split("/");
+        const fileName = parts.pop() || "";
+        const dir = parts.length > 0 ? parts.join("/") : "(root)";
+        
+        if (!fileTree[dir]) {
+          fileTree[dir] = [];
+        }
+        fileTree[dir].push(fileName);
+      }
+    }
+  }
+  
+  try {
+    scanDir(session.worktreePath, session.worktreePath);
+  } catch (error) {
+    console.error("Error scanning worktree:", error);
+  }
+
+  // Return HTML file tree
+  let html = `<!DOCTYPE html>
+<html>
+<head><title>File Tree</title></head>
+<body>
+<div class="file-tree">
+`;
+
+  for (const [dir, files] of Object.entries(fileTree)) {
+    html += `  <div class="dir">${dir}/</div>\n`;
+    for (const file of files) {
+      html += `    <div class="file">${file}</div>\n`;
+    }
+  }
+
+  html += `</div>
+</body>
+</html>`;
+
+  return c.html(html);
+});
+
+// POST /sessions/:id/chat - Save a chat message
+router.post("/:id/chat", async (c: Context) => {
+  const username = await getAuthUsername(c);
+  if (!username) {
+    return c.redirect("/auth/login");
+  }
+
+  const sessionId = c.req.param("id");
+  const session = await sessionRepository.findById(sessionId);
+
+  if (!session || session.owner !== username) {
+    return c.text("Session not found", 404);
+  }
+
+  const body = await c.req.parseBody();
+  const message = body.message as string;
+
+  if (!message) {
+    return c.text("Message required", 400);
+  }
+
+  await chatService.saveMessage(sessionId, {
+    role: "user",
+    content: message,
+    timestamp: new Date().toISOString(),
+  });
+
+  return c.json({ success: true });
 });
 
 export default router;

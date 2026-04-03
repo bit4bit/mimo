@@ -5,6 +5,7 @@ import projects from "./projects/routes";
 import agents from "./agents/routes";
 import sessions from "./sessions/routes";
 import { agentService } from "./agents/service.js";
+import { fileSyncService } from "./sync/service.js";
 
 const app = new Hono();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
@@ -23,6 +24,10 @@ app.route("/sessions", sessions);
 
 // Agent routes (protected)
 app.route("/agents", agents);
+
+// File sync routes (protected)
+import syncRoutes from "./sync/routes";
+app.route("/sync", syncRoutes);
 
 // Health check
 app.get("/health", (c) => {
@@ -60,7 +65,27 @@ const server = Bun.serve({
             break;
           case "file_changed":
             // File change notification from agent
-            console.log("File changed:", data.path);
+            console.log("File changed:", data.files);
+            
+            // Get session ID from the agent connection
+            const agentId = ws.data.agentId;
+            if (agentId) {
+              const agent = await agentService.getAgentStatus(agentId);
+              if (agent) {
+                // Convert files array to FileChange objects
+                const changes = data.files.map((file: { path: string; isNew?: boolean; deleted?: boolean }) => ({
+                  path: file.path,
+                  isNew: file.isNew,
+                  deleted: file.deleted,
+                }));
+                
+                // Initialize session sync if not already done
+                await fileSyncService.initializeSession(agent.sessionId, "", "");
+                
+                // Handle the file changes
+                await fileSyncService.handleFileChanges(agent.sessionId, changes);
+              }
+            }
             break;
           default:
             console.log("Unknown message type:", data.type);

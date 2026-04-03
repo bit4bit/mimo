@@ -27,11 +27,71 @@ interface Agent {
   startedAt: Date;
 }
 
+interface FileChange {
+  path: string;
+  status: "clean" | "modified" | "new" | "deleted" | "conflict";
+}
+
 interface SessionDetailProps {
   project: Project;
   session: Session;
   chatHistory: ChatMessage[];
   activeAgent?: Agent;
+  changes?: FileChange[];
+  hasConflicts?: boolean;
+}
+
+function renderFileTree(changes: FileChange[]) {
+  // Group files by directory
+  const fileTree: Map<string, { name: string; status: FileChange["status"] }[]> = new Map();
+  
+  for (const change of changes) {
+    const parts = change.path.split("/");
+    const fileName = parts.pop() || "";
+    const dir = parts.length > 0 ? parts.join("/") : "(root)";
+    
+    if (!fileTree.has(dir)) {
+      fileTree.set(dir, []);
+    }
+    fileTree.get(dir)!.push({ name: fileName, status: change.status });
+  }
+  
+  // Sort directories
+  const sortedDirs = Array.from(fileTree.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  
+  return (
+    <div class="file-tree">
+      {sortedDirs.map(([dir, files]) => (
+        <div key={dir} class="file-tree-dir">
+          <div class="file-tree-dir-name">{dir}/</div>
+          <div class="file-tree-files">
+            {files.map((file) => (
+              <div key={file.name} class="file-tree-file">
+                <span class={`file-indicator file-indicator-${file.status}`}>
+                  {file.status === "modified" && "[M]"}
+                  {file.status === "new" && "[?]"}
+                  {file.status === "deleted" && "[D]"}
+                  {file.status === "conflict" && "[!]"}
+                  {file.status === "clean" && "   "}
+                </span>
+                <span class={`file-name file-name-${file.status}`}>{file.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function getStatusIcon(status: FileChange["status"]): string {
+  switch (status) {
+    case "modified": return "M";
+    case "new": return "?";
+    case "deleted": return "D";
+    case "conflict": return "!";
+    default: return " ";
+  }
 }
 
 export const SessionDetailPage: FC<SessionDetailProps> = ({
@@ -39,6 +99,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   session,
   chatHistory,
   activeAgent,
+  changes = [],
+  hasConflicts = false,
 }) => {
   return (
     <Layout title={`${session.name} - ${project.name}`}>
@@ -123,14 +185,28 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
 
           {/* Right Buffer - Changes */}
           <div class="buffer buffer-right">
-            <div class="buffer-header">Changes</div>
+            <div class="buffer-header">
+              Changes
+              {hasConflicts && <span class="conflict-badge">Conflicts Detected!</span>}
+            </div>
             <div class="buffer-content">
-              <div style="padding: 10px; color: #888;">
-                <p>No changes detected</p>
-                <p style="font-size: 12px; margin-top: 10px;">
-                  Modified files will appear here
-                </p>
-              </div>
+              {changes.length === 0 ? (
+                <div style="padding: 10px; color: #888;">
+                  <p>No changes detected</p>
+                  <p style="font-size: 12px; margin-top: 10px;">
+                    Modified files will appear here
+                  </p>
+                </div>
+              ) : (
+                <div class="changes-list">
+                  {changes.map((change) => (
+                    <div key={change.path} class={`change-item change-${change.status}`}>
+                      <span class="change-indicator">[{getStatusIcon(change.status)}]</span>
+                      <span class="change-path">{change.path}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -259,6 +335,73 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           background: #3d3d3d;
           color: #888;
         }
+        .changes-list {
+          padding: 10px;
+        }
+        .change-item {
+          padding: 4px 0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-family: monospace;
+          font-size: 12px;
+        }
+        .change-indicator {
+          width: 20px;
+          text-align: center;
+        }
+        .change-modified .change-indicator { color: #ffd43b; }
+        .change-new .change-indicator { color: #74c0fc; }
+        .change-deleted .change-indicator { color: #ff6b6b; }
+        .change-conflict .change-indicator { color: #ff8585; background: #3d0b0b; }
+        .change-path {
+          color: #d4d4d4;
+        }
+        .conflict-badge {
+          margin-left: 10px;
+          padding: 2px 6px;
+          background: #ff6b6b;
+          color: #1a1a1a;
+          font-size: 10px;
+          text-transform: uppercase;
+          border-radius: 3px;
+        }
+        .file-tree {
+          padding: 10px;
+        }
+        .file-tree-dir {
+          margin-bottom: 10px;
+        }
+        .file-tree-dir-name {
+          color: #888;
+          font-size: 11px;
+          text-transform: uppercase;
+          margin-bottom: 4px;
+        }
+        .file-tree-files {
+          margin-left: 10px;
+        }
+        .file-tree-file {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-family: monospace;
+          font-size: 12px;
+          padding: 2px 0;
+        }
+        .file-indicator {
+          width: 24px;
+          text-align: center;
+          font-family: monospace;
+        }
+        .file-indicator-modified { color: #ffd43b; }
+        .file-indicator-new { color: #74c0fc; }
+        .file-indicator-deleted { color: #ff6b6b; }
+        .file-indicator-conflict { color: #ff8585; background: #3d0b0b; }
+        .file-name-modified { color: #ffd43b; }
+        .file-name-new { color: #74c0fc; }
+        .file-name-deleted { color: #ff6b6b; }
+        .file-name-conflict { color: #ff8585; }
       `}</style>
     </Layout>
   );
