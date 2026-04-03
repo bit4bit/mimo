@@ -119,21 +119,55 @@ router.post("/", async (c: Context) => {
     return c.text("Project not found", 404);
   }
 
-  // Create session with worktree
+  // Create session with upstream and checkout directories
   const session = await sessionRepository.create({
     name: name as string,
     projectId: projectId as string,
     owner: username,
-    worktreePath: "", // Will be set by repository
     assignedAgentId: assignedAgentId || undefined,
   });
 
-  // Initialize worktree from Fossil repository
+  // Initialize repository: clone → import to fossil → open checkout
   try {
-    await vcs.setupSessionWorktree(projectId, session.id, session.worktreePath);
+    // Step 1: Clone repository to upstream/
+    const cloneResult = await vcs.cloneRepository(
+      project.repoUrl,
+      project.repoType,
+      session.upstreamPath
+    );
+    
+    if (!cloneResult.success) {
+      await sessionRepository.delete(projectId, session.id);
+      return c.text(`Failed to clone repository: ${cloneResult.error}`, 500);
+    }
+
+    // Step 2: Import to fossil proxy (repo.fossil)
+    const fossilPath = `${session.upstreamPath}/../repo.fossil`;
+    const importResult = await vcs.importToFossil(
+      session.upstreamPath,
+      project.repoType,
+      fossilPath
+    );
+    
+    if (!importResult.success) {
+      await sessionRepository.delete(projectId, session.id);
+      return c.text(`Failed to import to fossil: ${importResult.error}`, 500);
+    }
+
+    // Step 3: Open fossil checkout
+    const checkoutResult = await vcs.openFossilCheckout(
+      fossilPath,
+      session.checkoutPath
+    );
+    
+    if (!checkoutResult.success) {
+      await sessionRepository.delete(projectId, session.id);
+      return c.text(`Failed to open checkout: ${checkoutResult.error}`, 500);
+    }
   } catch (error) {
-    console.error("Failed to setup worktree:", error);
-    // Don't fail - user can still see the session
+    console.error("Failed to setup session:", error);
+    await sessionRepository.delete(projectId, session.id);
+    return c.text("Failed to setup session repository", 500);
   }
 
   return c.redirect(`/projects/${projectId}/sessions/${session.id}`);
@@ -270,9 +304,9 @@ router.get("/:id/files", async (c: Context) => {
   }
   
   try {
-    scanDir(session.worktreePath, session.worktreePath);
+    scanDir(session.checkoutPath, session.checkoutPath);
   } catch (error) {
-    console.error("Error scanning worktree:", error);
+    console.error("Error scanning checkout:", error);
   }
 
   // Return HTML file tree

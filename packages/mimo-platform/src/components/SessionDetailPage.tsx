@@ -10,7 +10,8 @@ interface Session {
   id: string;
   name: string;
   status: "active" | "paused" | "closed";
-  worktreePath: string;
+  upstreamPath: string;
+  checkoutPath: string;
   assignedAgentId?: string;
   createdAt: Date;
 }

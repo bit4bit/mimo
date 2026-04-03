@@ -1,63 +1,26 @@
-# AGENTS.md
+You are helping save an LLM session for Git. Follow these rules:
 
-## Development Philosophy
+1. **File path**: 
+   - The session will be saved as:
+     llm-sessions/YYYY-MM-DD-HHMMSS-XXXX-session.txt
+   - `XXXX` is a short random string to prevent collisions.
+   - Do not include any usernames or identifying info inside the file.
 
-### Behavior-Driven Development (BDD)
+2. **Content format**:
+   - Keep messages **raw, chronological, complete**.
+   - Include timestamps in `YYYY-MM-DD HH:MM:SS`.
+   - Include speaker labels: `User:` and `LLM:` only.
+   - Each message goes on **one line** exactly as:
+     ```
+     [YYYY-MM-DD HH:MM:SS] User: <user message>
+     [YYYY-MM-DD HH:MM:SS] LLM: <LLM response>
+     ```
+   - Do not summarize, wrap, or add extra formatting.
 
-**Write tests first — always. No implementation code exists before a failing test.**
+3. **Git-ready**:
+   - Output can be written directly to a file and committed.
+   - One line per message ensures that Git diffs are clear and meaningful.
 
-Tests describe **behavior from the outside**, not internal implementation details.
-Focus on what the system does, not how it does it.
-
-#### Rules
-- Write the integration test **before** any implementation
-- Tests must be **high-coverage integration tests** — they cross real boundaries (API, DB, file system)
-- Test must **fail first**, then implement the minimum code to make it pass
-- No low-value or trivial tests — if it doesn't describe meaningful behavior, don't write it
-
----
-
-### Simple Design (Kent Beck's 4 Rules)
-
-In priority order:
-
-1. **Tests pass** — the code does what it's supposed to do
-2. **Reveals intention** — anyone can read it and understand what it does
-3. **No duplication** — every piece of knowledge exists in one place (DRY)
-4. **Fewest elements** — no unnecessary classes, functions, abstractions, or indirection
-
-When in doubt, delete code, not add it. Prefer the simpler solution.
-
----
-
-### Functional Thinking First
-
-- **Prefer pure functions** — same input, same output, no side effects
-- **Immutable data** — don't mutate, transform
-- **Compose, don't inherit** — build behavior by combining small functions
-- **Explicit over implicit** — data flows visibly through function arguments and return values
-- **Side effects at the boundary** — isolate I/O, DB, and network calls to the edges of the system; keep the core pure
-
----
-
-## Commits
-
-Commit frequently. After every completed task, create a git commit with this format:
-
-```
-<type>(<scope>): <short description>
-
-Agent: <agent or user name>
-Task: <task name>
-Description: <one sentence of what was done>
-```
-
-### Example
-
-```
-feat(parser): add discriminator support
-
-Agent: ollama
-Task: discriminator support
-Description: Extended the parser to handle OpenAPI 3.1 discriminator mappings.
-```
+4. **Multi-session safety**:
+   - Multiple sessions can occur simultaneously.
+   - Filenames are unique via timestamp + random ID, so no overwriting occurs.

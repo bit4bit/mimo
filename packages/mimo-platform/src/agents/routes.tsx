@@ -1,7 +1,7 @@
 /** @jsx jsx */
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";
-import { agentService } from "./service.js";
+import { agentService, AgentTokenPayload } from "./service.js";
 import { agentRepository } from "./repository.js";
 import { sessionRepository } from "../sessions/repository.js";
 import { Layout } from "../components/Layout.js";
@@ -9,6 +9,36 @@ import { authMiddleware } from "../auth/middleware.js";
 import type { Context } from "hono";
 
 const router = new Hono();
+
+// Agent API endpoint - uses agent JWT, not user auth
+router.get("/me/sessions", async (c: Context) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ error: "Missing token" }, 401);
+  }
+
+  const token = authHeader.slice(7); // Remove "Bearer "
+  const payload = await agentService.verifyAgentToken(token);
+  if (!payload) {
+    return c.json({ error: "Invalid token" }, 401);
+  }
+
+  const agent = await agentRepository.findById(payload.agentId);
+  if (!agent) {
+    return c.json({ error: "Agent not found" }, 404);
+  }
+
+  // Get all sessions assigned to this agent
+  const sessions = await sessionRepository.findByAssignedAgentId(agent.id);
+  
+  return c.json(sessions.map(session => ({
+    sessionId: session.id,
+    projectId: session.projectId,
+    sessionName: session.name,
+    status: session.status,
+    port: session.port,
+  })));
+});
 
 router.use("/*", authMiddleware);
 

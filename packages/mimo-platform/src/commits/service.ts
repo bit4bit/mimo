@@ -46,10 +46,10 @@ export class CommitService {
       };
     }
 
-    const worktreePath = session.worktreePath;
+    const checkoutPath = session.checkoutPath;
 
     // Check for changes first
-    const statusResult = await vcs.getStatus(worktreePath);
+    const statusResult = await vcs.getStatus(checkoutPath);
     if (!statusResult.success) {
       return {
         success: false,
@@ -70,7 +70,7 @@ export class CommitService {
     }
 
     // Commit the changes
-    const commitResult = await vcs.commit(worktreePath, message);
+    const commitResult = await vcs.commit(checkoutPath, message);
     
     if (!commitResult.success) {
       return {
@@ -104,8 +104,8 @@ export class CommitService {
       };
     }
 
-    const worktreePath = session.worktreePath;
-    const pushResult = await vcs.sync(worktreePath, "push");
+    const checkoutPath = session.checkoutPath;
+    const pushResult = await vcs.sync(checkoutPath, "push");
 
     if (pushResult.success) {
       return {
@@ -215,7 +215,7 @@ export class CommitService {
       };
     }
 
-    const result = await vcs.getStatus(session.worktreePath);
+    const result = await vcs.getStatus(session.checkoutPath);
     return {
       success: result.success,
       output: result.output,
@@ -232,7 +232,7 @@ export class CommitService {
       };
     }
 
-    const result = await vcs.getCommitHistory(session.worktreePath, limit);
+    const result = await vcs.getCommitHistory(session.checkoutPath, limit);
     
     if (!result.success) {
       return {

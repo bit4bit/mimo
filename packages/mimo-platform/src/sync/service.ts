@@ -29,8 +29,8 @@ export interface ChangeSet {
 
 export interface FileSyncState {
   sessionId: string;
-  originalRepoPath: string;
-  sessionWorktreePath: string;
+  upstreamPath: string;
+  checkoutPath: string;
   changes: Map<string, FileChange>;
   baselineChecksums: Map<string, string>; // Track original checksums at last sync
   lastSyncAt?: Date;
@@ -42,26 +42,24 @@ export class FileSyncService {
 
   async initializeSession(
     sessionId: string,
-    sessionWorktreePath: string,
-    originalRepoPath?: string
+    checkoutPath: string,
+    upstreamPath?: string
   ): Promise<void> {
-    // Get original repo path from session if not provided
-    if (!originalRepoPath) {
+    // Get paths from session if not provided
+    if (!upstreamPath || !checkoutPath) {
       const session = await sessionRepository.findById(sessionId);
       if (!session) {
         throw new Error(`Session ${sessionId} not found`);
       }
       
-      // Original repo is stored in the project's worktrees directory
-      const { getProjectPath } = await import("../config/paths.js");
-      const projectPath = getProjectPath(session.projectId);
-      originalRepoPath = join(projectPath, "original");
+      upstreamPath = upstreamPath || session.upstreamPath;
+      checkoutPath = checkoutPath || session.checkoutPath;
     }
 
     const syncState: FileSyncState = {
       sessionId,
-      originalRepoPath,
-      sessionWorktreePath,
+      upstreamPath,
+      checkoutPath,
       changes: new Map(),
       baselineChecksums: new Map(),
     };
@@ -72,7 +70,7 @@ export class FileSyncService {
     this.pendingChanges.set(sessionId, []);
 
     // Scan current state
-    await this.scanSessionWorktree(sessionId);
+    await this.scanSessionCheckout(sessionId);
   }
 
   async handleFileChanges(
@@ -95,8 +93,8 @@ export class FileSyncService {
         status = "new";
       } else {
         // Check if file exists in original repo
-        const originalPath = join(syncState!.originalRepoPath, change.path);
-        const sessionPath = join(syncState!.sessionWorktreePath, change.path);
+        const originalPath = join(syncState!.upstreamPath, change.path);
+        const sessionPath = join(syncState!.checkoutPath, change.path);
         
         if (!existsSync(originalPath) && existsSync(sessionPath)) {
           status = "new";
@@ -122,7 +120,7 @@ export class FileSyncService {
     }
 
     // Sync changes to original repo
-    await this.syncChangesToOriginal(sessionId, fileChanges);
+    await this.syncChangesToUpstream(sessionId, fileChanges);
 
     return fileChanges;
   }
@@ -138,7 +136,7 @@ export class FileSyncService {
     // Skip conflict check for new files
     if (agentStatus === "new") return null;
 
-    const originalPath = join(syncState.originalRepoPath, filePath);
+    const originalPath = join(syncState.upstreamPath, filePath);
     
     // If file doesn't exist in original, no conflict
     if (!existsSync(originalPath)) {
@@ -146,7 +144,7 @@ export class FileSyncService {
     }
 
     // Get checksums
-    const sessionPath = join(syncState.sessionWorktreePath, filePath);
+    const sessionPath = join(syncState.checkoutPath, filePath);
     
     if (!existsSync(sessionPath)) {
       // File was deleted in session but exists in original
@@ -175,7 +173,7 @@ export class FileSyncService {
     return null;
   }
 
-  private async syncChangesToOriginal(
+  private async syncChangesToUpstream(
     sessionId: string, 
     changes: FileChange[]
   ): Promise<void> {
@@ -188,8 +186,8 @@ export class FileSyncService {
         continue;
       }
 
-      const sessionPath = join(syncState.sessionWorktreePath, change.path);
-      const originalPath = join(syncState.originalRepoPath, change.path);
+      const sessionPath = join(syncState.checkoutPath, change.path);
+      const originalPath = join(syncState.upstreamPath, change.path);
 
       try {
         if (change.status === "deleted") {
@@ -239,10 +237,10 @@ export class FileSyncService {
 
     // Scan original repo for changes
     await this.scanDirectory(
-      syncState.originalRepoPath,
-      syncState.originalRepoPath,
+      syncState.upstreamPath,
+      syncState.upstreamPath,
       async (originalPath, relativePath) => {
-        const sessionPath = join(syncState.sessionWorktreePath, relativePath);
+        const sessionPath = join(syncState.checkoutPath, relativePath);
         
         // Check if file exists in session
         if (!existsSync(sessionPath)) {
@@ -322,8 +320,8 @@ export class FileSyncService {
       throw new Error(`Session ${sessionId} not initialized`);
     }
 
-    const sessionPath = join(syncState.sessionWorktreePath, filePath);
-    const originalPath = join(syncState.originalRepoPath, filePath);
+    const sessionPath = join(syncState.checkoutPath, filePath);
+    const originalPath = join(syncState.upstreamPath, filePath);
 
     if (resolution === "session") {
       // Keep session version
@@ -386,14 +384,14 @@ export class FileSyncService {
     return change?.status || "clean";
   }
 
-  async scanSessionWorktree(sessionId: string): Promise<void> {
+  async scanSessionCheckout(sessionId: string): Promise<void> {
     const syncState = this.syncStates.get(sessionId);
     if (!syncState) return;
 
     // First scan the original repo to establish baseline
     await this.scanDirectory(
-      syncState.originalRepoPath,
-      syncState.originalRepoPath,
+      syncState.upstreamPath,
+      syncState.upstreamPath,
       async (fullPath, relativePath) => {
         const checksum = await this.calculateChecksum(fullPath);
         syncState.baselineChecksums.set(relativePath, checksum);
@@ -402,8 +400,8 @@ export class FileSyncService {
 
     // Then scan session worktree
     await this.scanDirectory(
-      syncState.sessionWorktreePath,
-      syncState.sessionWorktreePath,
+      syncState.checkoutPath,
+      syncState.checkoutPath,
       async (fullPath, relativePath) => {
         const fileChange: FileChange = {
           path: relativePath,
@@ -445,7 +443,7 @@ export class FileSyncService {
     const syncState = this.syncStates.get(sessionId);
     if (!syncState) return {};
 
-    const sessionPath = join(syncState.sessionWorktreePath, filePath);
+    const sessionPath = join(syncState.checkoutPath, filePath);
     
     if (!existsSync(sessionPath)) {
       return {};

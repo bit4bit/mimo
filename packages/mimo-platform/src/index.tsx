@@ -6,11 +6,13 @@ import agents from "./agents/routes";
 import sessions from "./sessions/routes";
 import dashboard from "./dashboard/routes";
 import { agentService } from "./agents/service.js";
+import { agentRepository } from "./agents/repository.js";
 import { fileSyncService } from "./sync/service.js";
 import { chatService } from "./sessions/chat.js";
 import { sessionRepository } from "./sessions/repository.js";
 import { LandingPage } from "./components/LandingPage.js";
 import { projectRepository } from "./projects/repository.js";
+import { fossilServerManager } from "./vcs/fossil-server.js";
 
 const app = new Hono();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
@@ -205,6 +207,37 @@ const server = Bun.serve({
         
         await agentService.handleAgentConnect(payload.agentId, ws);
         console.log(`Agent ${payload.agentId} connected`);
+
+        // Start Fossil servers for assigned sessions
+        const agent = await agentRepository.findById(payload.agentId);
+        if (agent && agent.sessionIds && agent.sessionIds.length > 0) {
+          const sessionsReady = [];
+          
+          for (const sessionId of agent.sessionIds) {
+            const session = await sessionRepository.findById(sessionId);
+            if (session && session.status === "active") {
+              const fossilPath = `${session.upstreamPath}/../repo.fossil`;
+              const result = await fossilServerManager.startServer(sessionId, fossilPath);
+              
+              if ('port' in result) {
+                // Update session with port
+                await sessionRepository.update(sessionId, { port: result.port });
+                sessionsReady.push({
+                  sessionId,
+                  port: result.port,
+              });
+              }
+            }
+          }
+          
+          // Send session_ready message to agent
+          if (sessionsReady.length > 0) {
+            ws.send(JSON.stringify({
+              type: 'session_ready',
+              sessions: sessionsReady,
+            }));
+          }
+        }
       }
     },
     async close(ws) {
@@ -225,6 +258,24 @@ const server = Bun.serve({
         if (agentId) {
           await agentService.handleAgentDisconnect(agentId);
           console.log(`Agent ${agentId} disconnected`);
+
+          // Stop Fossil servers for assigned sessions after grace period
+          const agent = await agentRepository.findById(agentId);
+          if (agent && agent.sessionIds && agent.sessionIds.length > 0) {
+            // 30-second grace period for unexpected disconnects
+            setTimeout(async () => {
+              // Check if agent reconnected
+              if (!agentService.isAgentOnline(agentId)) {
+                // Agent didn't reconnect, stop all servers
+                for (const sessionId of agent.sessionIds) {
+                  if (fossilServerManager.isServerRunning(sessionId)) {
+                    await fossilServerManager.stopServer(sessionId);
+                    console.log(`Stopped Fossil server for session ${sessionId}`);
+                  }
+                }
+              }
+            }, 30000);
+          }
         }
       }
     },

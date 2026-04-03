@@ -12,6 +12,7 @@ export interface Agent {
   id: string;
   owner: string;
   token: string;
+  sessionIds: string[];
   status: AgentStatus;
   startedAt: Date;
   updatedAt: Date;
@@ -22,6 +23,7 @@ export interface AgentData {
   id: string;
   owner: string;
   token: string;
+  sessionIds: string[];
   status: AgentStatus;
   startedAt: string;
   updatedAt: string;
@@ -58,6 +60,7 @@ export class AgentRepository {
       id,
       owner: input.owner,
       token: crypto.randomUUID(), // Temporary placeholder, service will update with JWT
+      sessionIds: [],
       status: "offline",
       startedAt: now,
       updatedAt: now,
@@ -190,6 +193,25 @@ export class AgentRepository {
 
   async updateLastActivity(agentId: string): Promise<Agent | null> {
     return this.update(agentId, { lastActivityAt: new Date().toISOString() });
+  }
+
+  async assignSession(agentId: string, sessionId: string): Promise<Agent | null> {
+    const agent = await this.findById(agentId);
+    if (!agent) return null;
+    
+    if (!agent.sessionIds.includes(sessionId)) {
+      const updatedSessionIds = [...agent.sessionIds, sessionId];
+      return this.update(agentId, { sessionIds: updatedSessionIds });
+    }
+    return agent;
+  }
+
+  async unassignSession(agentId: string, sessionId: string): Promise<Agent | null> {
+    const agent = await this.findById(agentId);
+    if (!agent) return null;
+    
+    const updatedSessionIds = agent.sessionIds.filter(id => id !== sessionId);
+    return this.update(agentId, { sessionIds: updatedSessionIds });
   }
 
   async delete(agentId: string): Promise<void> {

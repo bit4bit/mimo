@@ -9,9 +9,11 @@ export interface Session {
   name: string;
   projectId: string;
   owner: string;
-  worktreePath: string;
+  upstreamPath: string;
+  checkoutPath: string;
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
+  port?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -21,9 +23,11 @@ export interface SessionData {
   name: string;
   projectId: string;
   owner: string;
-  worktreePath: string;
+  upstreamPath: string;
+  checkoutPath: string;
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
+  port?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,7 +36,6 @@ export interface CreateSessionInput {
   name: string;
   projectId: string;
   owner: string;
-  worktreePath: string;
   assignedAgentId?: string;
 }
 
@@ -45,27 +48,37 @@ export class SessionRepository {
     return join(this.getSessionPath(projectId, sessionId), "session.yaml");
   }
 
-  private generateId(): string {
-    return crypto.randomUUID();
+  private getUpstreamPath(projectId: string, sessionId: string): string {
+    return join(this.getSessionPath(projectId, sessionId), "upstream");
   }
 
-  private getWorktreePath(projectId: string, sessionId: string): string {
-    return join(getPaths().projects, projectId, "worktrees", sessionId);
+  private getCheckoutPath(projectId: string, sessionId: string): string {
+    return join(this.getSessionPath(projectId, sessionId), "checkout");
+  }
+
+  private generateId(): string {
+    return crypto.randomUUID();
   }
 
   async create(input: CreateSessionInput): Promise<Session> {
     const id = this.generateId();
     const sessionPath = this.getSessionPath(input.projectId, id);
-    const worktreePath = this.getWorktreePath(input.projectId, id);
+    const upstreamPath = this.getUpstreamPath(input.projectId, id);
+    const checkoutPath = this.getCheckoutPath(input.projectId, id);
     
     // Create session directory
     if (!existsSync(sessionPath)) {
       mkdirSync(sessionPath, { recursive: true });
     }
 
-    // Create worktree directory
-    if (!existsSync(worktreePath)) {
-      mkdirSync(worktreePath, { recursive: true });
+    // Create upstream directory
+    if (!existsSync(upstreamPath)) {
+      mkdirSync(upstreamPath, { recursive: true });
+    }
+
+    // Create checkout directory
+    if (!existsSync(checkoutPath)) {
+      mkdirSync(checkoutPath, { recursive: true });
     }
 
     const now = new Date().toISOString();
@@ -74,7 +87,8 @@ export class SessionRepository {
       name: input.name,
       projectId: input.projectId,
       owner: input.owner,
-      worktreePath,
+      upstreamPath,
+      checkoutPath,
       assignedAgentId: input.assignedAgentId,
       status: "active",
       createdAt: now,
@@ -227,15 +241,7 @@ export class SessionRepository {
   async delete(projectId: string, sessionId: string): Promise<void> {
     const sessionPath = this.getSessionPath(projectId, sessionId);
     
-    // Get session to find worktree path
-    const session = await this.findByProjectAndId(projectId, sessionId);
-    
-    if (session && existsSync(session.worktreePath)) {
-      // Delete worktree directory
-      this.deleteDirectoryRecursive(session.worktreePath);
-    }
-    
-    // Delete session directory
+    // Delete entire session directory (includes upstream/, checkout/, repo.fossil, session.yaml)
     if (existsSync(sessionPath)) {
       this.deleteDirectoryRecursive(sessionPath);
     }
