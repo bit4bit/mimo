@@ -1,0 +1,453 @@
+import { describe, it, expect, beforeEach } from "bun:test";
+import { Hono } from "hono";
+import { tmpdir } from "os";
+import { join } from "path";
+import { rmSync, existsSync, readFileSync, mkdirSync, writeFileSync } from "fs";
+import bcrypt from "bcrypt";
+
+// Re-import modules after setting up environment
+let sessionRoutes: any;
+let sessionRepository: any;
+let chatService: any;
+let userRepository: any;
+let projectRepository: any;
+let generateToken: any;
+
+describe("Session Management Integration Tests", () => {
+  const testHome = join(tmpdir(), `mimo-session-test-${Date.now()}`);
+
+  beforeEach(async () => {
+    // Set up fresh environment
+    process.env.MIMO_HOME = testHome;
+    process.env.JWT_SECRET = "test-secret-key-for-testing";
+
+    // Clean up from previous run
+    try {
+      rmSync(testHome, { recursive: true, force: true });
+    } catch {}
+
+    // Re-import to get fresh modules
+    const pathsModule = await import("../src/config/paths.ts");
+    pathsModule.ensureMimoHome();
+
+    const userModule = await import("../src/auth/user.ts");
+    userRepository = userModule.userRepository;
+
+    const projectModule = await import("../src/projects/repository.ts");
+    projectRepository = projectModule.projectRepository;
+
+    const sessionModule = await import("../src/sessions/repository.ts");
+    sessionRepository = sessionModule.sessionRepository;
+
+    const chatModule = await import("../src/sessions/chat.ts");
+    chatService = chatModule.chatService;
+
+    const jwtModule = await import("../src/auth/jwt.ts");
+    generateToken = jwtModule.generateToken;
+
+    const routesModule = await import("../src/sessions/routes.tsx");
+    sessionRoutes = routesModule.default;
+  });
+
+  describe("Session Creation", () => {
+    it("should create a new session for a project", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      // Create user and project
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await generateToken("testuser");
+
+      const formData = new URLSearchParams();
+      formData.append("name", "Feature Branch Session");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: formData.toString(),
+      });
+
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toMatch(
+        /^\/projects\/[^\/]+\/sessions\/[^\/]+$/
+      );
+
+      // Verify session was created
+      const sessions = await sessionRepository.listByProject(project.id);
+      expect(sessions.length).toBe(1);
+      expect(sessions[0].name).toBe("Feature Branch Session");
+    });
+
+    it("should reject session creation without name", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams().toString(),
+      });
+
+      expect(res.status).toBe(400);
+    });
+
+    it("should create session worktree", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "Test Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      // Get session from location header
+      const location = res.headers.get("location") || "";
+      const sessionId = location.split("/").pop();
+      const session = await sessionRepository.findById(sessionId!);
+
+      expect(session).not.toBeNull();
+      expect(session?.worktreePath).toBeDefined();
+    });
+  });
+
+  describe("Session Listing", () => {
+    it("should list all sessions for a project", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      // Create sessions
+      await sessionRepository.create({
+        name: "Session 1",
+        projectId: project.id,
+        owner: "testuser",
+        worktreePath: "/tmp/work1",
+      });
+
+      await sessionRepository.create({
+        name: "Session 2",
+        projectId: project.id,
+        owner: "testuser",
+        worktreePath: "/tmp/work2",
+      });
+
+      const token = await generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        headers: { Cookie: `token=${token}` },
+      });
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("Session 1");
+      expect(html).toContain("Session 2");
+    });
+
+    it("should show empty state", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        headers: { Cookie: `token=${token}` },
+      });
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("No sessions");
+    });
+  });
+
+  describe("Session View", () => {
+    it("should show session with three-buffer layout", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Active Session",
+        projectId: project.id,
+        owner: "testuser",
+        worktreePath: join(testHome, "worktrees", "session-1"),
+      });
+
+      const token = await generateToken("testuser");
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}`,
+        {
+          headers: { Cookie: `token=${token}` },
+        }
+      );
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      // Three-buffer layout elements
+      expect(html).toContain("Files");
+      expect(html).toContain("Chat");
+      expect(html).toContain("Changes");
+    });
+
+    it("should return 404 for non-existent session", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await generateToken("testuser");
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/non-existent-id`,
+        {
+          headers: { Cookie: `token=${token}` },
+        }
+      );
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe("Session Deletion", () => {
+    it("should delete session with cleanup", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Session To Delete",
+        projectId: project.id,
+        owner: "testuser",
+        worktreePath: join(testHome, "worktrees", "to-delete"),
+      });
+
+      // Create worktree directory
+      mkdirSync(session.worktreePath, { recursive: true });
+      expect(existsSync(session.worktreePath)).toBe(true);
+
+      const token = await generateToken("testuser");
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/delete`,
+        {
+          method: "POST",
+          headers: { Cookie: `token=${token}` },
+        }
+      );
+
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toContain(`/projects/${project.id}`);
+
+      // Verify session and worktree were deleted
+      const sessions = await sessionRepository.listByProject(project.id);
+      expect(sessions.length).toBe(0);
+      expect(existsSync(session.worktreePath)).toBe(false);
+    });
+  });
+
+  describe("Chat History", () => {
+    it("should save chat message to JSONL", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Chat Session",
+        projectId: project.id,
+        owner: "testuser",
+        worktreePath: join(testHome, "worktrees", "chat-session"),
+      });
+
+      const token = await generateToken("testuser");
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Cookie: `token=${token}`,
+          },
+          body: new URLSearchParams({ message: "Hello, agent!" }).toString(),
+        }
+      );
+
+      expect(res.status).toBe(200);
+
+      // Verify message was saved
+      const messages = await chatService.loadHistory(session.id);
+      expect(messages.length).toBe(1);
+      expect(messages[0].content).toBe("Hello, agent!");
+      expect(messages[0].role).toBe("user");
+    });
+
+    it("should load chat history", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "History Session",
+        projectId: project.id,
+        owner: "testuser",
+        worktreePath: join(testHome, "worktrees", "history-session"),
+      });
+
+      // Add messages directly
+      await chatService.saveMessage(session.id, {
+        role: "user",
+        content: "Question 1",
+        timestamp: new Date().toISOString(),
+      });
+
+      await chatService.saveMessage(session.id, {
+        role: "assistant",
+        content: "Answer 1",
+        timestamp: new Date().toISOString(),
+      });
+
+      const token = await generateToken("testuser");
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}`,
+        {
+          headers: { Cookie: `token=${token}` },
+        }
+      );
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("Question 1");
+      expect(html).toContain("Answer 1");
+    });
+  });
+
+  describe("File Tree", () => {
+    it("should show file tree with change indicators", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "File Session",
+        projectId: project.id,
+        owner: "testuser",
+        worktreePath: join(testHome, "worktrees", "file-session"),
+      });
+
+      // Create some files in worktree
+      mkdirSync(join(session.worktreePath, "src"), { recursive: true });
+      writeFileSync(join(session.worktreePath, "README.md"), "# Project");
+      writeFileSync(join(session.worktreePath, "src", "index.ts"), "// code");
+
+      const token = await generateToken("testuser");
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/files`,
+        {
+          headers: { Cookie: `token=${token}` },
+        }
+      );
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("README.md");
+      expect(html).toContain("src");
+    });
+  });
+});

@@ -4,6 +4,7 @@ import { authMiddleware } from "../auth/middleware";
 import { ProjectsListPage } from "../components/ProjectsListPage";
 import { ProjectDetailPage } from "../components/ProjectDetailPage";
 import { ProjectCreatePage } from "../components/ProjectCreatePage";
+import sessions from "../sessions/routes";
 
 const projects = new Hono();
 
@@ -92,5 +93,8 @@ projects.post("/:id/delete", authMiddleware, async (c) => {
   await projectRepository.delete(id);
   return c.redirect("/projects", 302);
 });
+
+// Nested session routes
+projects.route("/:projectId/sessions", sessions);
 
 export default projects;

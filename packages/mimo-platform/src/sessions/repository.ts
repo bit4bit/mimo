@@ -1,0 +1,225 @@
+import { join } from "path";
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from "fs";
+import { getPaths } from "../config/paths.js";
+import { dump, load } from "js-yaml";
+import crypto from "crypto";
+
+export interface Session {
+  id: string;
+  name: string;
+  projectId: string;
+  owner: string;
+  worktreePath: string;
+  status: "active" | "paused" | "closed";
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SessionData {
+  id: string;
+  name: string;
+  projectId: string;
+  owner: string;
+  worktreePath: string;
+  status: "active" | "paused" | "closed";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSessionInput {
+  name: string;
+  projectId: string;
+  owner: string;
+  worktreePath: string;
+}
+
+export class SessionRepository {
+  private getSessionPath(projectId: string, sessionId: string): string {
+    return join(getPaths().projects, projectId, "sessions", sessionId);
+  }
+
+  private getSessionFilePath(projectId: string, sessionId: string): string {
+    return join(this.getSessionPath(projectId, sessionId), "session.yaml");
+  }
+
+  private generateId(): string {
+    return crypto.randomUUID();
+  }
+
+  private getWorktreePath(projectId: string, sessionId: string): string {
+    return join(getPaths().projects, projectId, "worktrees", sessionId);
+  }
+
+  async create(input: CreateSessionInput): Promise<Session> {
+    const id = this.generateId();
+    const sessionPath = this.getSessionPath(input.projectId, id);
+    const worktreePath = this.getWorktreePath(input.projectId, id);
+    
+    // Create session directory
+    if (!existsSync(sessionPath)) {
+      mkdirSync(sessionPath, { recursive: true });
+    }
+
+    // Create worktree directory
+    if (!existsSync(worktreePath)) {
+      mkdirSync(worktreePath, { recursive: true });
+    }
+
+    const now = new Date().toISOString();
+    const sessionData: SessionData = {
+      id,
+      name: input.name,
+      projectId: input.projectId,
+      owner: input.owner,
+      worktreePath,
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    writeFileSync(
+      this.getSessionFilePath(input.projectId, id),
+      dump(sessionData),
+      "utf-8"
+    );
+
+    return {
+      ...sessionData,
+      createdAt: new Date(sessionData.createdAt),
+      updatedAt: new Date(sessionData.updatedAt),
+    };
+  }
+
+  async findById(sessionId: string): Promise<Session | null> {
+    // Search across all projects for the session
+    const Paths = getPaths();
+    if (!existsSync(Paths.projects)) {
+      return null;
+    }
+
+    const projectEntries = readdirSync(Paths.projects, { withFileTypes: true });
+    
+    for (const projectEntry of projectEntries) {
+      if (projectEntry.isDirectory()) {
+        const sessionsDir = join(Paths.projects, projectEntry.name, "sessions");
+        if (existsSync(sessionsDir)) {
+          const sessionFile = join(sessionsDir, sessionId, "session.yaml");
+          if (existsSync(sessionFile)) {
+            const content = readFileSync(sessionFile, "utf-8");
+            const data = load(content) as SessionData;
+            return {
+              ...data,
+              createdAt: new Date(data.createdAt),
+              updatedAt: new Date(data.updatedAt),
+            };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  async findByProjectAndId(projectId: string, sessionId: string): Promise<Session | null> {
+    const filePath = this.getSessionFilePath(projectId, sessionId);
+    if (!existsSync(filePath)) {
+      return null;
+    }
+
+    const content = readFileSync(filePath, "utf-8");
+    const data = load(content) as SessionData;
+    
+    return {
+      ...data,
+      createdAt: new Date(data.createdAt),
+      updatedAt: new Date(data.updatedAt),
+    };
+  }
+
+  async listByProject(projectId: string): Promise<Session[]> {
+    const sessionsDir = join(getPaths().projects, projectId, "sessions");
+    if (!existsSync(sessionsDir)) {
+      return [];
+    }
+
+    const entries = readdirSync(sessionsDir, { withFileTypes: true });
+    const sessions: Session[] = [];
+
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const sessionFile = join(sessionsDir, entry.name, "session.yaml");
+        if (existsSync(sessionFile)) {
+          const content = readFileSync(sessionFile, "utf-8");
+          const data = load(content) as SessionData;
+          sessions.push({
+            ...data,
+            createdAt: new Date(data.createdAt),
+            updatedAt: new Date(data.updatedAt),
+          });
+        }
+      }
+    }
+
+    return sessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async update(sessionId: string, updates: Partial<Omit<SessionData, "id" | "createdAt">>): Promise<Session | null> {
+    const session = await this.findById(sessionId);
+    if (!session) return null;
+
+    const updatedData: SessionData = {
+      ...session,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const filePath = this.getSessionFilePath(session.projectId, sessionId);
+    writeFileSync(filePath, dump(updatedData), "utf-8");
+
+    return {
+      ...updatedData,
+      createdAt: new Date(updatedData.createdAt),
+      updatedAt: new Date(updatedData.updatedAt),
+    };
+  }
+
+  async delete(projectId: string, sessionId: string): Promise<void> {
+    const sessionPath = this.getSessionPath(projectId, sessionId);
+    
+    // Get session to find worktree path
+    const session = await this.findByProjectAndId(projectId, sessionId);
+    
+    if (session && existsSync(session.worktreePath)) {
+      // Delete worktree directory
+      this.deleteDirectoryRecursive(session.worktreePath);
+    }
+    
+    // Delete session directory
+    if (existsSync(sessionPath)) {
+      this.deleteDirectoryRecursive(sessionPath);
+    }
+  }
+
+  private deleteDirectoryRecursive(dirPath: string): void {
+    if (!existsSync(dirPath)) return;
+
+    const entries = readdirSync(dirPath, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const entryPath = join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        this.deleteDirectoryRecursive(entryPath);
+      } else {
+        unlinkSync(entryPath);
+      }
+    }
+
+    rmdirSync(dirPath);
+  }
+
+  async exists(projectId: string, sessionId: string): Promise<boolean> {
+    return existsSync(this.getSessionFilePath(projectId, sessionId));
+  }
+}
+
+export const sessionRepository = new SessionRepository();

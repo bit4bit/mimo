@@ -3,27 +3,12 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync } from "fs";
 
-// Import after setting up test environment
-let Paths: any;
-let ensureMimoHome: any;
-let getUserPath: any;
-let getProjectPath: any;
-let getSessionPath: any;
-let getAgentPath: any;
-
 describe("Filesystem Paths Integration Test", () => {
-  const testHome = join(tmpdir(), `mimo-test-${Date.now()}`);
+  let testHome: string;
 
   beforeEach(async () => {
+    testHome = join(tmpdir(), `mimo-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     process.env.MIMO_HOME = testHome;
-    // Re-import to get fresh module with new env
-    const module = await import("../src/config/paths.ts");
-    Paths = module.Paths;
-    ensureMimoHome = module.ensureMimoHome;
-    getUserPath = module.getUserPath;
-    getProjectPath = module.getProjectPath;
-    getSessionPath = module.getSessionPath;
-    getAgentPath = module.getAgentPath;
   });
 
   afterEach(() => {
@@ -33,34 +18,42 @@ describe("Filesystem Paths Integration Test", () => {
     delete process.env.MIMO_HOME;
   });
 
-  test("should use MIMO_HOME environment variable", () => {
-    expect(Paths.root).toBe(testHome);
+  test("should use MIMO_HOME environment variable", async () => {
+    const { getPaths } = await import("../src/config/paths.ts");
+    const paths = getPaths();
+    expect(paths.root).toBe(testHome);
   });
 
-  test("should create all directories on ensureMimoHome", () => {
+  test("should create all directories on ensureMimoHome", async () => {
+    const { ensureMimoHome, getPaths } = await import("../src/config/paths.ts");
+    const paths = getPaths();
     ensureMimoHome();
-    expect(existsSync(Paths.root)).toBe(true);
-    expect(existsSync(Paths.users)).toBe(true);
-    expect(existsSync(Paths.projects)).toBe(true);
-    expect(existsSync(Paths.agents)).toBe(true);
+    expect(existsSync(paths.root)).toBe(true);
+    expect(existsSync(paths.users)).toBe(true);
+    expect(existsSync(paths.projects)).toBe(true);
+    expect(existsSync(paths.agents)).toBe(true);
   });
 
-  test("should return correct user path", () => {
+  test("should return correct user path", async () => {
+    const { getUserPath } = await import("../src/config/paths.ts");
     const userPath = getUserPath("alice");
     expect(userPath).toBe(join(testHome, "users", "alice"));
   });
 
-  test("should return correct project path", () => {
+  test("should return correct project path", async () => {
+    const { getProjectPath } = await import("../src/config/paths.ts");
     const projectPath = getProjectPath("my-app");
     expect(projectPath).toBe(join(testHome, "projects", "my-app"));
   });
 
-  test("should return correct session path", () => {
+  test("should return correct session path", async () => {
+    const { getSessionPath } = await import("../src/config/paths.ts");
     const sessionPath = getSessionPath("my-app", "session-1");
     expect(sessionPath).toBe(join(testHome, "projects", "my-app", "sessions", "session-1"));
   });
 
-  test("should return correct agent path", () => {
+  test("should return correct agent path", async () => {
+    const { getAgentPath } = await import("../src/config/paths.ts");
     const agentPath = getAgentPath("agent-123");
     expect(agentPath).toBe(join(testHome, "agents", "agent-123"));
   });
