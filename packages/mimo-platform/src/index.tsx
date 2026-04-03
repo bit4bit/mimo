@@ -4,6 +4,7 @@ import protectedRoutes from "./protected/routes";
 import projects from "./projects/routes";
 import agents from "./agents/routes";
 import sessions from "./sessions/routes";
+import dashboard from "./dashboard/routes";
 import { agentService } from "./agents/service.js";
 import { fileSyncService } from "./sync/service.js";
 import { chatService } from "./sessions/chat.js";
@@ -20,12 +21,21 @@ const chatSessions = new Map();
 // Auth routes
 app.route("/auth", auth);
 
+// Dashboard (protected)
+app.route("/dashboard", dashboard);
+
 // Landing page (public)
 app.get("/", async (c) => {
   const publicProjects = await projectRepository.listAllPublic();
   const user = c.get("user") as { username: string } | undefined;
   const isAuthenticated = !!user;
   const username = user?.username;
+  
+  // If authenticated, redirect to dashboard
+  if (isAuthenticated) {
+    return c.redirect("/dashboard");
+  }
+  
   return c.html(<LandingPage projects={publicProjects} isAuthenticated={isAuthenticated} username={username} />);
 });
 
