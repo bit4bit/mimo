@@ -214,6 +214,26 @@ export class AgentRepository {
     return this.update(agentId, { sessionIds: updatedSessionIds });
   }
 
+  async setSessionAssignment(agentId: string, sessionId: string, sessionRepo: any): Promise<boolean> {
+    // Update agent's sessionIds
+    const agent = await this.assignSession(agentId, sessionId);
+    if (!agent) return false;
+    
+    // Update session's assignedAgentId
+    await sessionRepo.update(sessionId, { assignedAgentId: agentId });
+    return true;
+  }
+
+  async unsetSessionAssignment(agentId: string, sessionId: string, sessionRepo: any): Promise<boolean> {
+    // Update agent's sessionIds
+    const agent = await this.unassignSession(agentId, sessionId);
+    if (!agent) return false;
+    
+    // Update session's assignedAgentId
+    await sessionRepo.update(sessionId, { assignedAgentId: null });
+    return true;
+  }
+
   async delete(agentId: string): Promise<void> {
     const agentPath = this.getAgentPath(agentId);
     if (existsSync(agentPath)) {
