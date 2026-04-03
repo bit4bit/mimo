@@ -86,18 +86,18 @@
 
 ## 8. Emacs-Style UI
 
-- [ ] 8.1 Create base HTML layout with three vertical buffers
-- [ ] 8.2 Implement keybinding system (C-x, C-c prefixes) in vanilla JS
-- [ ] 8.3 Add C-c C-c for cancel current request
-- [ ] 8.4 Add C-x c for commit and push
-- [ ] 8.5 Add C-x C-f for find file
-- [ ] 8.6 Add C-x p for switch project
-- [ ] 8.7 Add C-x s for switch session
-- [ ] 8.8 Add C-x h/j/l for buffer focus (left/center/right)
-- [ ] 8.9 Build status line component
-- [ ] 8.10 Implement buffer switching
-- [ ] 8.11 Create file tree component with [M]/[?]/[!] indicators
-- [ ] 8.12 Load keybindings from ~/.mimo/config.yaml
+- [x] 8.1 Create base HTML layout with three vertical buffers
+- [x] 8.2 Implement keybinding system (C-x, C-c prefixes) in vanilla JS
+- [x] 8.3 Add C-c C-c for cancel current request
+- [x] 8.4 Add C-x c for commit and push
+- [x] 8.5 Add C-x C-f for find file
+- [x] 8.6 Add C-x p for switch project
+- [x] 8.7 Add C-x s for switch session
+- [x] 8.8 Add C-x h/j/l for buffer focus (left/center/right)
+- [x] 8.9 Build status line component
+- [x] 8.10 Implement buffer switching
+- [x] 8.11 Create file tree component with [M]/[?]/[!] indicators
+- [x] 8.12 Load keybindings from ~/.mimo/config.yaml
 
 ## 9. Chat System
 

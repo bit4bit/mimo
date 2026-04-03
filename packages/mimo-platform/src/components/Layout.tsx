@@ -1,17 +1,24 @@
 import type { FC } from "hono/jsx";
+import { configService } from "../config/service.js";
 
 interface LayoutProps {
   title: string;
   children: any;
+  showStatusLine?: boolean;
+  sessionId?: string;
 }
 
-export const Layout: FC<LayoutProps> = ({ title, children }) => {
+export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = false, sessionId }) => {
+  const keybindings = configService.getKeybindings();
+  
   return (
     <html lang="en">
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{title} | MIMO</title>
+        <script dangerouslySetInnerHTML={{ __html: `window.MIMO_KEYBINDINGS = ${JSON.stringify(keybindings)}; window.MIMO_SESSION_ID = "${sessionId || ''}";` }} />
+        <script src="/js/keybindings.js" defer></script>
         <style>{`
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { 
@@ -125,10 +132,102 @@ export const Layout: FC<LayoutProps> = ({ title, children }) => {
           .empty-state p { margin-bottom: 20px; color: #888; }
           .project-details { background: #2d2d2d; border: 1px solid #444; padding: 20px; }
           .detail-row { margin-bottom: 15px; }
-          .detail-row label { display: block; color: #888; margin-bottom: 5px; font-size: 12px; text-transform: uppercase; }
-        `}</style>
-      </head>
-      <body>{children}</body>
+           .detail-row label { display: block; color: #888; margin-bottom: 5px; font-size: 12px; text-transform: uppercase; }
+           
+           /* Buffer Focus Styles */
+           .buffer-focused {
+             box-shadow: inset 0 0 0 2px #74c0fc;
+           }
+           
+           /* Status Line Styles */
+           .status-line {
+             display: flex;
+             align-items: center;
+             padding: 8px 15px;
+             background: #252525;
+             border-top: 1px solid #444;
+             font-size: 12px;
+             color: #888;
+           }
+           
+           .status-line-key {
+             color: #d4d4d4;
+             font-weight: bold;
+           }
+           
+           .status-line-divider {
+             margin: 0 10px;
+             color: #555;
+           }
+           
+           /* Modal Styles */
+           .mimo-modal {
+             position: fixed;
+             top: 0;
+             left: 0;
+             width: 100%;
+             height: 100%;
+             background: rgba(0, 0, 0, 0.8);
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             z-index: 1000;
+           }
+           
+           .mimo-modal-content {
+             background: #2d2d2d;
+             border: 1px solid #444;
+             padding: 20px;
+             min-width: 400px;
+             max-width: 600px;
+           }
+           
+           .mimo-modal-header {
+             font-size: 14px;
+             color: #fff;
+             margin-bottom: 15px;
+             padding-bottom: 10px;
+             border-bottom: 1px solid #444;
+           }
+           
+           .mimo-modal-input {
+             width: 100%;
+             background: #1a1a1a;
+             border: 1px solid #555;
+             color: #d4d4d4;
+             padding: 10px;
+             font-family: monospace;
+             font-size: 14px;
+           }
+           
+           .mimo-modal-results {
+             margin-top: 10px;
+             max-height: 300px;
+             overflow-y: auto;
+           }
+         `}</style>
+       </head>
+       <body>
+         {children}
+         {showStatusLine && (
+           <div class="status-line">
+             <span class="status-line-message"></span>
+             <div style="margin-left: auto; display: flex; gap: 15px;">
+               <span><span class="status-line-key">{keybindings.cancel_request}</span> cancel</span>
+               <span class="status-line-divider">|</span>
+               <span><span class="status-line-key">{keybindings.commit}</span> commit</span>
+               <span class="status-line-divider">|</span>
+               <span><span class="status-line-key">{keybindings.find_file}</span> find-file</span>
+               <span class="status-line-divider">|</span>
+               <span><span class="status-line-key">{keybindings.switch_project}</span> project</span>
+               <span class="status-line-divider">|</span>
+               <span><span class="status-line-key">{keybindings.switch_session}</span> session</span>
+               <span class="status-line-divider">|</span>
+               <span><span class="status-line-key">{keybindings.focus_left}</span>/<span class="status-line-key">{keybindings.focus_center}</span>/<span class="status-line-key">{keybindings.focus_right}</span> focus</span>
+             </div>
+           </div>
+         )}
+       </body>
     </html>
   );
 };

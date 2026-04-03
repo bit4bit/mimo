@@ -103,7 +103,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   hasConflicts = false,
 }) => {
   return (
-    <Layout title={`${session.name} - ${project.name}`}>
+    <Layout title={`${session.name} - ${project.name}`} showStatusLine={true} sessionId={session.id}>
       <div class="session-container">
         {/* Header */}
         <div class="session-header-bar">
