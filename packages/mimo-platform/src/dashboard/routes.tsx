@@ -14,7 +14,7 @@ dashboard.get("/", async (c) => {
   const username = user.username;
 
   // Get user's projects
-  const projects = await projectRepository.findByOwner(username);
+  const projects = await projectRepository.listByOwner(username);
 
   // Get user's agents
   const agents = await agentRepository.findByOwner(username);

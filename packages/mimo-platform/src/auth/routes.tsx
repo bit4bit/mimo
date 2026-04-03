@@ -34,7 +34,7 @@ auth.post("/register", async (c) => {
   const passwordHash = await bcrypt.hash(password, 10);
   await userRepository.create(username, passwordHash);
 
-  return c.redirect("/auth/login", 302);
+  return c.redirect("/auth/login");
 });
 
 // GET /auth/login - Show login page
@@ -73,8 +73,8 @@ auth.post("/login", async (c) => {
     `token=${token}; HttpOnly; Path=/; Max-Age=604800; SameSite=Strict`
   );
 
-  // Redirect to projects page
-  return c.redirect("/projects");
+  // Redirect to dashboard
+  return c.redirect("/dashboard");
 });
 
 // GET /auth/logout - Clear session
