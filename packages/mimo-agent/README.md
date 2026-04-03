@@ -1,6 +1,6 @@
 # mimo-agent
 
-A TypeScript/Bun agent that connects to mimo-platform and provides file watching and ACP proxy functionality.
+A TypeScript/Bun agent that connects to mimo-platform, manages multiple sessions, clones from Fossil proxy servers, and spawns ACP processes per session.
 
 ## Installation
 
@@ -29,7 +29,7 @@ This creates `dist/mimo-agent` which is a self-contained executable.
 
 - `--token`: JWT token for authentication (required)
 - `--platform`: WebSocket URL of the mimo-platform (required)
-- `--workdir`: Working directory to watch for changes (optional, defaults to current directory)
+- `--workdir`: Base working directory for session checkouts (optional, defaults to current directory)
 
 ### Example
 
@@ -37,80 +37,196 @@ This creates `dist/mimo-agent` which is a self-contained executable.
 ./dist/mimo-agent \
   --token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... \
   --platform ws://localhost:3000/ws/agent \
-  --workdir /home/user/projects/my-app
+  --workdir /home/user/work
+```
+
+## Architecture
+
+### Multi-Session Model
+
+mimo-agent supports **multiple concurrent sessions**, each with its own:
+- Fossil checkout directory (cloned from platform's fossil proxy)
+- ACP process (spawned in the checkout directory)
+- File watcher (for change notifications)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        mimo-platform                             │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                 WebSocket Server (/ws/agent)               │   │
+│  └──────────────────────────┬──────────────────────────────┘   │
+└─────────────────────────────┼───────────────────────────────────┘
+                              │
+                              │ WebSocket + JWT Auth
+                              │
+┌─────────────────────────────┼───────────────────────────────────┐
+│                             │                                   │
+│  ┌──────────────────────────▼──────────────────────────────┐   │
+│  │                    mimo-agent                            │   │
+│  │  ┌─────────────────────────────────────────────────┐   │   │
+│  │  │            sessions: Map<sessionId, Session>     │   │   │
+│  │  │                                                   │   │   │
+│  │  │  Session {                                        │   │   │
+│  │  │    sessionId: string                             │   │   │
+│  │  │    checkoutPath: string   <- relative to workdir│   │   │
+│  │  │    fossilUrl: string                             │   │   │
+│  │  │    acpProcess: ChildProcess | null               │   │   │
+│  │  │    fileWatcher: FSWatcher | null                 │   │   │
+│  │  │  }                                                │   │   │
+│  │  └─────────────────────────────────────────────────┘   │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+### Session Bootstrap Flow
+
+```
+Agent connects → Platform sends session_ready → Agent clones fossil → Agent spawns ACP
+     │                    │                           │                    │
+     │                    │                           │                    │
+     └────────────────────┘                           └────────────────────┘
+                    │
+                    ▼
+        ┌───────────────────────────────────────────────────┐
+        │          session_ready message                     │
+        │  {                                                │
+        │    "type": "session_ready",                       │
+        │    "platformUrl": "http://localhost:3000",        │
+        │    "sessions": [                                  │
+        │      {                                            │
+        │        "sessionId": "uuid-1",                     │
+        │        "port": 8080                               │
+        │      }                                            │
+        │    ]                                              │
+        │  }                                                │
+        └───────────────────────────────────────────────────┘
+```
+
+### Checkout Path
+
+The agent uses a simple convention: `{workdir}/{sessionId}`
+
+- If agent is started with `--workdir /home/user/work`
+- And receives session with `sessionId: "abc-123"`
+- Checkout will be at `/home/user/work/abc-123`
+
+No path coordination needed between platform and agent.
+
+## Protocol
+
+### Handshake
+
+1. **Agent sends `agent_ready`:**
+   ```json
+   {
+     "type": "agent_ready",
+     "workdir": "/home/user/work",
+     "timestamp": "2024-01-15T10:30:00Z"
+   }
+   ```
+
+2. **Platform responds with `session_ready`:**
+   ```json
+   {
+     "type": "session_ready",
+     "platformUrl": "http://localhost:3000",
+     "sessions": [
+       {
+         "sessionId": "session-uuid",
+         "port": 8080,
+         "checkoutPath": "projects/abc/sessions/1/checkout"
+       }
+     ]
+   }
+   ```
+
+3. **Agent bootstraps each session:**
+   - Clones from fossil: `fossil clone http://localhost:8080 checkoutPath`
+   - Starts file watcher in checkout directory
+   - Sends `agent_sessions_ready`:
+
+   ```json
+   {
+     "type": "agent_sessions_ready",
+     "sessionIds": ["session-uuid-1", "session-uuid-2"],
+     "timestamp": "2024-01-15T10:30:05Z"
+   }
+   ```
+
+### File Changes
+
+```json
+{
+  "type": "file_changed",
+  "sessionId": "session-uuid",
+  "files": [
+    { "path": "src/app.js", "isNew": false, "deleted": false }
+  ],
+  "timestamp": "2024-01-15T10:35:00Z"
+}
+```
+
+### ACP Communication
+
+```json
+// Platform -> Agent
+{
+  "type": "acp_request",
+  "sessionId": "session-uuid",
+  "command": "opencode",
+  "args": ["--prompt", "Add dark mode"]
+}
+
+// Agent -> Platform
+{
+  "type": "acp_response",
+  "sessionId": "session-uuid",
+  "content": "I'll help you add dark mode...",
+  "timestamp": "2024-01-15T10:36:00Z"
+}
+```
+
+### Error Handling
+
+```json
+{
+  "type": "session_error",
+  "sessionId": "session-uuid",
+  "error": "Failed to clone fossil repository: connection refused",
+  "timestamp": "2024-01-15T10:30:02Z"
+}
 ```
 
 ## Features
 
+### Multi-Session Support
+- Maintains map of sessions with individual checkouts
+- Routes messages to correct session by sessionId
+- Spawns separate ACP process per session
+- Independent file watcher per session
+
+### Fossil Clone
+- Clones from platform's fossil proxy server on session_ready
+- Opens existing checkout if already present (reconnection scenario)
+- Relative checkout paths from workdir
+
 ### File Watching
-- Watches the working directory recursively for file changes
+- Watches checkout directory recursively for each session
 - Debounces changes (500ms) to batch rapid modifications
-- Reports changes to the platform via WebSocket
+- Reports changes to platform with sessionId
 - Ignores hidden files and common directories (node_modules, __pycache__)
 
-### ACP Proxy
-- Receives ACP requests from the platform
-- Spawns ACP agent process and proxies stdio
+### ACP Integration
+- Uses `@agentclientprotocol/sdk` for ACP communication
+- Spawns ACP process in session checkout directory
+- Proxies stdin/stdout between platform and ACP
 - Supports request cancellation (SIGTERM)
 
 ### Reconnection
 - Automatically reconnects on WebSocket disconnect
 - Exponential backoff (max 5 attempts)
-- Buffers changes during disconnect
-
-## Protocol
-
-### WebSocket Messages
-
-**From Agent to Platform:**
-
-```json
-{
-  "type": "agent_ready",
-  "timestamp": "2024-01-15T10:30:00Z"
-}
-```
-
-```json
-{
-  "type": "file_changed",
-  "files": [
-    { "path": "src/app.js", "isNew": false },
-    { "path": "src/new.ts", "isNew": true }
-  ],
-  "timestamp": "2024-01-15T10:30:00Z"
-}
-```
-
-```json
-{
-  "type": "acp_response",
-  "content": "Response content...",
-  "timestamp": "2024-01-15T10:30:00Z"
-}
-```
-
-**From Platform to Agent:**
-
-```json
-{
-  "type": "ping"
-}
-```
-
-```json
-{
-  "type": "acp_request",
-  "command": "echo",
-  "args": ["Hello, World!"]
-}
-```
-
-```json
-{
-  "type": "cancel_request"
-}
-```
+- Opens existing checkouts on reconnect (no re-clone)
 
 ## Development
 
@@ -120,34 +236,34 @@ bun run dev
 
 # Run tests
 bun test
+
+# Build standalone binary
+bun run build
 ```
 
-## Architecture
+## Troubleshooting
 
-```
-┌─────────────────────────────────────┐
-│           mimo-platform             │
-│  ┌─────────────────────────────┐  │
-│  │   WebSocket Server            │  │
-│  │   (/ws/agent)                 │  │
-│  └────────────┬────────────────┘  │
-└───────────────┼─────────────────────┘
-                │
-                │ WebSocket + JWT Auth
-                │
-┌───────────────┼─────────────────────┐
-│               │                     │
-│  ┌────────────▼────────────────┐   │
-│  │       mimo-agent            │   │
-│  │  ┌──────────────────────┐   │   │
-│  │  │  File Watcher        │   │   │
-│  │  │  (fs.watch)          │   │   │
-│  │  └──────────────────────┘   │   │
-│  │  ┌──────────────────────┐   │   │
-│  │  │  ACP Process         │   │   │
-│  │  │  (Bun.spawn)         │   │   │
-│  │  └──────────────────────┘   │   │
-│  └──────────────────────────────┘   │
-│                                     │
-└─────────────────────────────────────┘
-```
+### Clone Failures
+
+1. **"Failed to clone fossil repository"**
+   - Check that fossil server is running on the specified port
+   - Verify platformUrl is correct and accessible
+   - Check network connectivity
+
+2. **"Session not found"**
+   - Session may have been deleted while agent was disconnected
+   - Agent should handle session_error and continue with other sessions
+
+3. **"Checkout already exists"**
+   - Agent will attempt to open existing checkout on reconnect
+   - If corrupted, delete the checkout directory manually
+
+### Platform Issues
+
+1. **"Workdir not received"**
+   - Ensure `workdir` field is sent in `agent_ready`
+   - Platform uses workdir to compute relative checkout paths
+
+2. **"Unknown session"**
+   - Session may not be assigned to this agent
+   - Check that session's `assignedAgentId` matches agent's ID

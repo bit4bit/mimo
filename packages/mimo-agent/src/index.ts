@@ -1,12 +1,20 @@
 import { WebSocket } from "ws";
-import { spawn, ChildProcess } from "child_process";
-import { watch } from "fs";
-import { join, relative } from "path";
+import { spawn, ChildProcess, execSync } from "child_process";
+import { watch, existsSync, mkdirSync } from "fs";
+import { join } from "path";
 
 interface AgentConfig {
   token: string;
   platform: string;
   workDir: string;
+}
+
+interface SessionInfo {
+  sessionId: string;
+  checkoutPath: string;
+  fossilUrl: string;
+  acpProcess: ChildProcess | null;
+  fileWatcher: ReturnType<typeof watch> | null;
 }
 
 interface FileChange {
@@ -18,8 +26,7 @@ interface FileChange {
 class MimoAgent {
   private ws: WebSocket | null = null;
   private config: AgentConfig;
-  private acpProcess: ChildProcess | null = null;
-  private fileWatcher: ReturnType<typeof watch> | null = null;
+  private sessions: Map<string, SessionInfo> = new Map();
   private pendingChanges: FileChange[] = [];
   private changeTimeout: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
@@ -65,9 +72,6 @@ class MimoAgent {
     console.log(`[mimo-agent] Platform: ${this.config.platform}`);
     console.log(`[mimo-agent] WorkDir: ${this.config.workDir}`);
 
-    // Start file watcher
-    this.startFileWatcher();
-
     // Connect to platform
     await this.connect();
 
@@ -87,14 +91,12 @@ class MimoAgent {
         console.log("[mimo-agent] Connected to platform");
         this.reconnectAttempts = 0;
         
-        // Send agent_ready message
+        // Send agent_ready message with workdir
         this.send({
           type: "agent_ready",
+          workdir: this.config.workDir,
           timestamp: new Date().toISOString(),
         });
-
-        // Send any pending changes
-        this.flushPendingChanges();
         
         resolve();
       });
@@ -133,16 +135,24 @@ class MimoAgent {
         this.send({ type: "pong" });
         break;
 
+      case "session_ready":
+        this.handleSessionReady(message);
+        break;
+
       case "acp_request":
         this.handleAcpRequest(message);
         break;
 
       case "cancel_request":
-        this.handleCancelRequest();
+        this.handleCancelRequest(message);
         break;
 
       case "file_sync_request":
         this.handleFileSyncRequest(message);
+        break;
+
+      case "user_message":
+        this.handleUserMessage(message);
         break;
 
       default:
@@ -150,63 +160,270 @@ class MimoAgent {
     }
   }
 
-  private handleAcpRequest(message: any): void {
-    if (this.acpProcess) {
-      console.log("[mimo-agent] ACP process already running, terminating...");
-      this.acpProcess.kill();
+  private async handleSessionReady(message: any): Promise<void> {
+    const { platformUrl, sessions } = message;
+    
+    if (!sessions || sessions.length === 0) {
+      console.log("[mimo-agent] No sessions assigned");
+      return;
     }
 
-    console.log("[mimo-agent] Starting ACP process...");
+    console.log(`[mimo-agent] Received ${sessions.length} session(s)`);
+
+    const sessionIds: string[] = [];
+
+    for (const session of sessions) {
+      const { sessionId, port } = session;
+      
+      try {
+        // Checkout path is {workdir}/{sessionId}
+        const checkoutPath = join(this.config.workDir, sessionId);
+        const fossilUrl = `${platformUrl.replace('ws://', 'http://').replace('wss://', 'https://')}:${port}`;
+        
+        console.log(`[mimo-agent] Setting up session ${sessionId}`);
+        console.log(`[mimo-agent]   Fossil URL: ${fossilUrl}`);
+        console.log(`[mimo-agent]   Checkout: ${checkoutPath}`);
+
+        // Clone from fossil server
+        if (existsSync(join(checkoutPath, ".fossil"))) {
+          console.log(`[mimo-agent]   Opening existing checkout`);
+          // Checkout already exists, open it
+          try {
+            execSync(`fossil open`, {
+              cwd: checkoutPath,
+              stdio: "pipe",
+            });
+          } catch {
+            // Already open, that's fine
+          }
+        } else {
+          console.log(`[mimo-agent]   Cloning from fossil`);
+          // Clone from fossil server
+          const repoPath = join(checkoutPath, "..", `${sessionId}.fossil`);
+          
+          // Clone repository
+          execSync(`fossil clone ${fossilUrl} ${repoPath}`, {
+            stdio: "pipe",
+          });
+          
+          // Create checkout directory and open
+          if (!existsSync(checkoutPath)) {
+            mkdirSync(checkoutPath, { recursive: true });
+          }
+          
+          execSync(`fossil open ${repoPath}`, {
+            cwd: checkoutPath,
+            stdio: "pipe",
+          });
+        }
+
+        // Store session info
+        this.sessions.set(sessionId, {
+          sessionId,
+          checkoutPath,
+          fossilUrl,
+          acpProcess: null,
+          fileWatcher: null,
+        });
+
+        // Start file watcher for this session
+        this.startFileWatcher(sessionId, checkoutPath);
+
+        sessionIds.push(sessionId);
+        console.log(`[mimo-agent] Session ${sessionId} ready`);
+      } catch (error) {
+        console.error(`[mimo-agent] Failed to setup session ${sessionId}:`, error);
+        this.send({
+          type: "session_error",
+          sessionId,
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+
+    // Send confirmation to platform
+    this.send({
+      type: "agent_sessions_ready",
+      sessionIds,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  private startFileWatcher(sessionId: string, checkoutPath: string): void {
+    console.log(`[mimo-agent] Starting file watcher for session ${sessionId}`);
+
+    const watcher = watch(
+      checkoutPath,
+      { recursive: true },
+      (eventType: string, filename: string | null) => {
+        if (!filename) return;
+        
+        // Skip hidden files and common ignore patterns
+        if (filename.startsWith(".") || filename.includes("/.") || 
+            filename.includes("node_modules") || filename.includes("__pycache__") ||
+            filename.endsWith(".tmp") || filename.endsWith("~")) {
+          return;
+        }
+
+        const change: FileChange = {
+          path: filename,
+          isNew: eventType === "rename",
+          deleted: false,
+        };
+
+        this.pendingChanges.push(change);
+        
+        if (this.changeTimeout) {
+          clearTimeout(this.changeTimeout);
+        }
+        
+        this.changeTimeout = setTimeout(() => {
+          this.flushPendingChanges(sessionId);
+        }, 500);
+      }
+    );
+
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.fileWatcher = watcher;
+    }
+  }
+
+  private flushPendingChanges(sessionId: string): void {
+    if (this.pendingChanges.length === 0) return;
+
+    const changes = [...this.pendingChanges];
+    this.pendingChanges = [];
+
+    // Deduplicate changes
+    const uniqueChanges = new Map<string, FileChange>();
+    for (const change of changes) {
+      uniqueChanges.set(change.path, change);
+    }
+
+    this.send({
+      type: "file_changed",
+      sessionId,
+      files: Array.from(uniqueChanges.values()),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  private handleAcpRequest(message: any): void {
+    const sessionId = message.sessionId;
+    if (!sessionId) {
+      console.log("[mimo-agent] No sessionId in acp_request");
+      return;
+    }
+
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      console.log(`[mimo-agent] Unknown session ${sessionId}`);
+      return;
+    }
+
+    // Kill existing ACP process if any
+    if (session.acpProcess) {
+      console.log(`[mimo-agent] ACP process already running for ${sessionId}, terminating...`);
+      session.acpProcess.kill();
+    }
+
+    console.log(`[mimo-agent] Starting ACP process for session ${sessionId}`);
     
-    // Spawn ACP agent (this would be the actual ACP SDK agent)
-    // For now, we'll simulate with a basic command
+    // Spawn ACP agent in checkout directory
     const acpCommand = message.command || "echo";
     const acpArgs = message.args || ["Simulated ACP response"];
 
-    this.acpProcess = spawn(acpCommand, acpArgs, {
-      cwd: this.config.workDir,
+    session.acpProcess = spawn(acpCommand, acpArgs, {
+      cwd: session.checkoutPath,
       stdio: ["pipe", "pipe", "pipe"],
     });
 
     // Proxy stdout to platform
-    this.acpProcess.stdout?.on("data", (data: Buffer) => {
+    session.acpProcess.stdout?.on("data", (data: Buffer) => {
       this.send({
         type: "acp_response",
+        sessionId,
         content: data.toString(),
         timestamp: new Date().toISOString(),
       });
     });
 
     // Handle stderr
-    this.acpProcess.stderr?.on("data", (data: Buffer) => {
-      console.error("[mimo-agent] ACP stderr:", data.toString());
+    session.acpProcess.stderr?.on("data", (data: Buffer) => {
+      console.error(`[mimo-agent] ACP stderr (${sessionId}):`, data.toString());
     });
 
     // Handle process exit
-    this.acpProcess.on("close", (code: number | null) => {
-      console.log(`[mimo-agent] ACP process exited with code ${code}`);
-      this.acpProcess = null;
+    session.acpProcess.on("close", (code: number | null) => {
+      console.log(`[mimo-agent] ACP process exited for ${sessionId} with code ${code}`);
+      if (session) {
+        session.acpProcess = null;
+      }
     });
   }
 
-  private handleCancelRequest(): void {
-    if (this.acpProcess) {
-      console.log("[mimo-agent] Cancelling ACP request...");
-      this.acpProcess.kill("SIGTERM");
-      this.acpProcess = null;
+  private handleCancelRequest(message: any): void {
+    const sessionId = message.sessionId;
+    if (!sessionId) {
+      console.log("[mimo-agent] No sessionId in cancel_request");
+      return;
+    }
+
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      console.log(`[mimo-agent] Unknown session ${sessionId}`);
+      return;
+    }
+
+    if (session.acpProcess) {
+      console.log(`[mimo-agent] Cancelling ACP request for ${sessionId}...`);
+      session.acpProcess.kill("SIGTERM");
+      session.acpProcess = null;
       
       this.send({
         type: "acp_cancelled",
+        sessionId,
         timestamp: new Date().toISOString(),
       });
     } else {
-      console.log("[mimo-agent] No active ACP request to cancel");
+      console.log(`[mimo-agent] No active ACP request for ${sessionId}`);
     }
   }
 
   private handleFileSyncRequest(message: any): void {
-    // Respond with current file state if needed
-    console.log("[mimo-agent] File sync request received");
+    const sessionId = message.sessionId;
+    console.log(`[mimo-agent] File sync request received for session ${sessionId || "unknown"}`);
+  }
+
+  private handleUserMessage(message: any): void {
+    const sessionId = message.sessionId;
+    const content = message.content;
+
+    if (!sessionId) {
+      console.log("[mimo-agent] No sessionId in user_message");
+      return;
+    }
+
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      console.log(`[mimo-agent] Unknown session ${sessionId}`);
+      this.send({
+        type: "error_response",
+        sessionId,
+        error: `Unknown session: ${sessionId}`,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // Forward to ACP process if running
+    if (session.acpProcess && session.acpProcess.stdin) {
+      session.acpProcess.stdin.write(content + "\n");
+    } else {
+      console.log(`[mimo-agent] No ACP process for session ${sessionId}`);
+    }
   }
 
   private handleDisconnect(): void {
@@ -226,68 +443,10 @@ class MimoAgent {
     }
   }
 
-  private startFileWatcher(): void {
-    console.log("[mimo-agent] Starting file watcher...");
-
-    this.fileWatcher = watch(
-      this.config.workDir,
-      { recursive: true },
-      (eventType: string, filename: string | null) => {
-        if (!filename) return;
-        
-        // Skip hidden files and common ignore patterns
-        if (filename.startsWith(".") || filename.includes("/.") || 
-            filename.includes("node_modules") || filename.includes("__pycache__") ||
-            filename.endsWith(".tmp") || filename.endsWith("~")) {
-          return;
-        }
-
-        const filePath = filename;
-        const change: FileChange = {
-          path: filePath,
-          isNew: eventType === "rename",
-          deleted: false, // We'll detect deletions differently
-        };
-
-        // Buffer changes to batch them
-        this.pendingChanges.push(change);
-        
-        // Debounce changes
-        if (this.changeTimeout) {
-          clearTimeout(this.changeTimeout);
-        }
-        
-        this.changeTimeout = setTimeout(() => {
-          this.flushPendingChanges();
-        }, 500);
-      }
-    );
-  }
-
-  private flushPendingChanges(): void {
-    if (this.pendingChanges.length === 0) return;
-
-    const changes = [...this.pendingChanges];
-    this.pendingChanges = [];
-
-    // Deduplicate changes
-    const uniqueChanges = new Map<string, FileChange>();
-    for (const change of changes) {
-      uniqueChanges.set(change.path, change);
-    }
-
-    this.send({
-      type: "file_changed",
-      files: Array.from(uniqueChanges.values()),
-      timestamp: new Date().toISOString(),
-    });
-  }
-
   private send(message: any): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
     } else {
-      // Buffer message if not connected
       console.log("[mimo-agent] WebSocket not connected, message buffered");
     }
   }
@@ -296,14 +455,15 @@ class MimoAgent {
     const shutdown = () => {
       console.log("[mimo-agent] Shutting down gracefully...");
       
-      // Kill ACP process if running
-      if (this.acpProcess) {
-        this.acpProcess.kill("SIGTERM");
-      }
-
-      // Close file watcher
-      if (this.fileWatcher) {
-        this.fileWatcher.close();
+      // Kill all ACP processes
+      for (const [sessionId, session] of this.sessions) {
+        if (session.acpProcess) {
+          console.log(`[mimo-agent] Killing ACP process for ${sessionId}`);
+          session.acpProcess.kill("SIGTERM");
+        }
+        if (session.fileWatcher) {
+          session.fileWatcher.close();
+        }
       }
 
       // Close WebSocket
@@ -316,7 +476,7 @@ class MimoAgent {
 
     process.on("SIGTERM", shutdown);
     process.on("SIGINT", shutdown);
-    process.on("SIGUSR2", shutdown); // For Windows
+    process.on("SIGUSR2", shutdown);
 
     // Handle uncaught errors
     process.on("uncaughtException", (error) => {

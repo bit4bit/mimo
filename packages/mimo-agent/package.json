@@ -10,7 +10,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "@agentclientprotocol/sdk": "^0.18.0"
   },
   "devDependencies": {
     "@types/ws": "^8.5.10",

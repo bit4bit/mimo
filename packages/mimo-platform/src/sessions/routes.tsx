@@ -127,7 +127,8 @@ router.post("/", async (c: Context) => {
     assignedAgentId: assignedAgentId || undefined,
   });
 
-  // Initialize repository: clone → import to fossil → open checkout
+  // Initialize repository: clone → import to fossil
+  // Note: checkout is created by agent when it receives session_ready
   try {
     // Step 1: Clone repository to upstream/
     const cloneResult = await vcs.cloneRepository(
@@ -152,17 +153,6 @@ router.post("/", async (c: Context) => {
     if (!importResult.success) {
       await sessionRepository.delete(projectId, session.id);
       return c.text(`Failed to import to fossil: ${importResult.error}`, 500);
-    }
-
-    // Step 3: Open fossil checkout
-    const checkoutResult = await vcs.openFossilCheckout(
-      fossilPath,
-      session.checkoutPath
-    );
-    
-    if (!checkoutResult.success) {
-      await sessionRepository.delete(projectId, session.id);
-      return c.text(`Failed to open checkout: ${checkoutResult.error}`, 500);
     }
   } catch (error) {
     console.error("Failed to setup session:", error);

@@ -13,7 +13,7 @@ export interface Session {
   checkoutPath: string;
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
-  port?: number;
+  port: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,7 +27,7 @@ export interface SessionData {
   checkoutPath: string;
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
-  port?: number;
+  port: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -91,6 +91,7 @@ export class SessionRepository {
       checkoutPath,
       assignedAgentId: input.assignedAgentId,
       status: "active",
+      port: null,
       createdAt: now,
       updatedAt: now,
     };

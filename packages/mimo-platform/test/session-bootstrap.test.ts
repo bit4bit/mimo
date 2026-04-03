@@ -159,6 +159,20 @@ describe("Session Bootstrap Integration Tests", () => {
       expect(loaded?.checkoutPath).toBe(session.checkoutPath);
     });
 
+    it("should store port as null on creation", async () => {
+      const session = await sessionRepository.create({
+        name: "Port Test",
+        projectId: "test-project",
+        owner: "testuser",
+      });
+
+      expect(session.port).toBeNull();
+
+      // Load the session again
+      const loaded = await sessionRepository.findById(session.id);
+      expect(loaded?.port).toBeNull();
+    });
+
     it("should delete session directory including upstream and checkout", async () => {
       const session = await sessionRepository.create({
         name: "Delete Test",
@@ -180,7 +194,7 @@ describe("Session Bootstrap Integration Tests", () => {
   });
 
   describe("Full Bootstrap Flow", () => {
-    it("should bootstrap a session from Git repository", async () => {
+    it("should bootstrap a session from Git repository (repo.fossil only, no checkout)", async () => {
       const vcs = new VCS();
       const projectId = "full-bootstrap-test";
       const projectPath = join(testHome, "projects", projectId);
@@ -210,15 +224,14 @@ describe("Session Bootstrap Integration Tests", () => {
       );
       expect(importResult.success).toBe(true);
 
-      // Open checkout
-      const checkoutResult = await vcs.openFossilCheckout(
-        fossilPath,
-        session.checkoutPath
-      );
-      expect(checkoutResult.success).toBe(true);
+      // Verify fossil repo exists
+      expect(existsSync(fossilPath)).toBe(true);
 
-      // Verify files exist in checkout
-      expect(existsSync(join(session.checkoutPath, "README"))).toBe(true);
+      // Verify session has port: null (not assigned yet)
+      const loaded = await sessionRepository.findById(session.id);
+      expect(loaded?.port).toBeNull();
+
+      // Note: Checkout is NOT created by platform - agent will create it
     }, 60000);
   });
 });

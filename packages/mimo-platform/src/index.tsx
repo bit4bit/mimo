@@ -13,6 +13,7 @@ import { sessionRepository } from "./sessions/repository.js";
 import { LandingPage } from "./components/LandingPage.js";
 import { projectRepository } from "./projects/repository.js";
 import { fossilServerManager } from "./vcs/fossil-server.js";
+import { relative } from "path";
 
 const app = new Hono();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
@@ -204,40 +205,10 @@ const server = Bun.serve({
 
         ws.data.connectionType = 'agent';
         ws.data.agentId = payload.agentId;
+        ws.data.authenticated = true;  // Mark as authenticated, waiting for agent_ready
         
         await agentService.handleAgentConnect(payload.agentId, ws);
-        console.log(`Agent ${payload.agentId} connected`);
-
-        // Start Fossil servers for assigned sessions
-        const agent = await agentRepository.findById(payload.agentId);
-        if (agent && agent.sessionIds && agent.sessionIds.length > 0) {
-          const sessionsReady = [];
-          
-          for (const sessionId of agent.sessionIds) {
-            const session = await sessionRepository.findById(sessionId);
-            if (session && session.status === "active") {
-              const fossilPath = `${session.upstreamPath}/../repo.fossil`;
-              const result = await fossilServerManager.startServer(sessionId, fossilPath);
-              
-              if ('port' in result) {
-                // Update session with port
-                await sessionRepository.update(sessionId, { port: result.port });
-                sessionsReady.push({
-                  sessionId,
-                  port: result.port,
-              });
-              }
-            }
-          }
-          
-          // Send session_ready message to agent
-          if (sessionsReady.length > 0) {
-            ws.send(JSON.stringify({
-              type: 'session_ready',
-              sessions: sessionsReady,
-            }));
-          }
-        }
+        console.log(`Agent ${payload.agentId} connected, waiting for agent_ready`);
       }
     },
     async close(ws) {
@@ -289,7 +260,63 @@ async function handleAgentMessage(ws, data) {
       ws.send(JSON.stringify({ type: "pong" }));
       break;
     case "agent_ready":
-      console.log("Agent ready:", data.agentId);
+      console.log("[agent] Agent ready:", data.agentId, "workdir:", data.workdir);
+      
+      // Store workdir for relative path computation
+      const agentId = ws.data.agentId;
+      if (data.workdir) {
+        agentService.handleAgentConnect(agentId, ws, data.workdir);
+      }
+      
+      // Start Fossil servers for assigned sessions
+      const agent = await agentRepository.findById(agentId);
+      console.log("[agent] Found agent:", agent?.id, "sessions:", agent?.sessionIds);
+      
+      if (agent && agent.sessionIds && agent.sessionIds.length > 0) {
+        const sessionsReady = [];
+        const workdir = agentService.getAgentWorkdir(agentId);
+        console.log("[agent] Workdir:", workdir);
+        
+        for (const sessionId of agent.sessionIds) {
+          const session = await sessionRepository.findById(sessionId);
+          console.log("[agent] Session:", sessionId, "status:", session?.status, "found:", !!session);
+          
+          if (session && session.status === "active") {
+            const fossilPath = `${session.upstreamPath}/../repo.fossil`;
+            console.log("[agent] Starting fossil server for session:", sessionId, "fossil:", fossilPath);
+            
+            const result = await fossilServerManager.startServer(sessionId, fossilPath);
+            console.log("[agent] Fossil server result:", result);
+            
+            if ('port' in result) {
+              // Update session with port
+              await sessionRepository.update(sessionId, { port: result.port });
+              
+              sessionsReady.push({
+                sessionId,
+                port: result.port,
+              });
+            } else {
+              console.error("[agent] Failed to start fossil server:", result.error);
+            }
+          }
+        }
+        
+        // Send session_ready message to agent
+        if (sessionsReady.length > 0) {
+          const message = {
+            type: 'session_ready',
+            platformUrl: `http://localhost:${PORT}`,
+            sessions: sessionsReady,
+          };
+          console.log("[agent] Sending session_ready:", JSON.stringify(message));
+          ws.send(JSON.stringify(message));
+        } else {
+          console.log("[agent] No sessions ready to send");
+        }
+      } else {
+        console.log("[agent] No sessions assigned to agent");
+      }
       break;
     case "acp_response":
       // Handle ACP response and broadcast to chat

@@ -1,0 +1,16 @@
+[2026-04-04 02:45:00] User: commit and push, but ignore node_modules always, also commit AGENTS.md changes
+[2026-04-04 02:45:01] LLM: I'll help you commit the changes, excluding node_modules and including AGENTS.md.
+
+Staged files:
+- .gitignore
+- AGENTS.md
+- openspec/changes/agent-fossil-session-handoff/ (new)
+- packages/mimo-agent/README.md
+- packages/mimo-agent/bun.lock
+- packages/mimo-agent/package.json
+- packages/mimo-agent/src/
+- packages/mimo-agent/test/
+- packages/mimo-platform/src/
+- packages/mimo-platform/test/
+
+Ready to commit. Commit message?

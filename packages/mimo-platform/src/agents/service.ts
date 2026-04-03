@@ -16,6 +16,7 @@ export interface CreateAgentInput {
 export class AgentService {
   private activeConnections: Map<string, WebSocket> = new Map();
   private currentAcpRequest: Map<string, AbortController> = new Map();
+  private agentWorkdirs: Map<string, string> = new Map();
 
   constructor(
     private repository: AgentRepository = agentRepository
@@ -57,7 +58,7 @@ export class AgentService {
     }
   }
 
-  async handleAgentConnect(agentId: string, ws: WebSocket): Promise<void> {
+  async handleAgentConnect(agentId: string, ws: WebSocket, workdir?: string): Promise<void> {
     const agent = await this.repository.findById(agentId);
     if (!agent) {
       ws.close(1008, "Agent not found");
@@ -65,8 +66,15 @@ export class AgentService {
     }
 
     this.activeConnections.set(agentId, ws);
+    if (workdir) {
+      this.agentWorkdirs.set(agentId, workdir);
+    }
     await this.repository.updateStatus(agentId, "online");
     await this.repository.updateLastActivity(agentId);
+  }
+
+  getAgentWorkdir(agentId: string): string | undefined {
+    return this.agentWorkdirs.get(agentId);
   }
 
   async handleAgentDisconnect(agentId: string): Promise<void> {
