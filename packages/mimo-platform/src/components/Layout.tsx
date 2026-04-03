@@ -19,6 +19,7 @@ export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = fals
         <title>{title} | MIMO</title>
         <script dangerouslySetInnerHTML={{ __html: `window.MIMO_KEYBINDINGS = ${JSON.stringify(keybindings)}; window.MIMO_SESSION_ID = "${sessionId || ''}";` }} />
         <script src="/js/keybindings.js" defer></script>
+        {sessionId && <script src="/js/chat.js" defer></script>}
         <style>{`
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { 

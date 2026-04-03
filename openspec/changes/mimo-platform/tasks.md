@@ -76,13 +76,13 @@
 
 ## 7. File Synchronization
 
-- [ ] 7.1 Build file change listener (WebSocket from agent)
-- [ ] 7.2 Implement file copy from session worktree to original repo
-- [ ] 7.3 Create conflict detection logic
-- [ ] 7.4 Build conflict resolution UI
-- [ ] 7.5 Implement batch sync on reconnect
-- [ ] 7.6 Add file deletion handling
-- [ ] 7.7 Build manual sync from original repo to session
+- [x] 7.1 Build file change listener (WebSocket from agent)
+- [x] 7.2 Implement file copy from session worktree to original repo
+- [x] 7.3 Create conflict detection logic
+- [x] 7.4 Build conflict resolution UI
+- [x] 7.5 Implement batch sync on reconnect
+- [x] 7.6 Add file deletion handling
+- [x] 7.7 Build manual sync from original repo to session
 
 ## 8. Emacs-Style UI
 
@@ -101,13 +101,13 @@
 
 ## 9. Chat System
 
-- [ ] 9.1 Create Chat service module
-- [ ] 9.2 Build message serialization to JSONL
-- [ ] 9.3 Implement chat history loading (streaming from JSONL)
-- [ ] 9.4 Create chat input component
-- [ ] 9.5 Build chat message display (user/agent)
-- [ ] 9.6 Implement streaming message display (WebSocket)
-- [ ] 9.7 Add chat replay functionality
+- [x] 9.1 Create Chat service module
+- [x] 9.2 Build message serialization to JSONL
+- [x] 9.3 Implement chat history loading (streaming from JSONL)
+- [x] 9.4 Create chat input component
+- [x] 9.5 Build chat message display (user/agent)
+- [x] 9.6 Implement streaming message display (WebSocket)
+- [x] 9.7 Add chat replay functionality
 
 ## 10. Commit and Push
 

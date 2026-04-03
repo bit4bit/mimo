@@ -32,6 +32,7 @@ export interface FileSyncState {
   originalRepoPath: string;
   sessionWorktreePath: string;
   changes: Map<string, FileChange>;
+  baselineChecksums: Map<string, string>; // Track original checksums at last sync
   lastSyncAt?: Date;
 }
 
@@ -62,6 +63,7 @@ export class FileSyncService {
       originalRepoPath,
       sessionWorktreePath,
       changes: new Map(),
+      baselineChecksums: new Map(),
     };
 
     this.syncStates.set(sessionId, syncState);
@@ -150,9 +152,9 @@ export class FileSyncService {
       // File was deleted in session but exists in original
       // Check if original was modified since last sync
       const originalChecksum = await this.calculateChecksum(originalPath);
-      const lastSyncChecksum = syncState.changes.get(filePath)?.checksum;
+      const baselineChecksum = syncState.baselineChecksums.get(filePath);
       
-      if (lastSyncChecksum && originalChecksum !== lastSyncChecksum) {
+      if (baselineChecksum && originalChecksum !== baselineChecksum) {
         return "conflict";
       }
       return null;
@@ -161,12 +163,12 @@ export class FileSyncService {
     // Compare checksums
     const originalChecksum = await this.calculateChecksum(originalPath);
     const sessionChecksum = await this.calculateChecksum(sessionPath);
-    const lastSyncChecksum = syncState.changes.get(filePath)?.checksum;
+    const baselineChecksum = syncState.baselineChecksums.get(filePath);
 
     // If original changed since last sync and agent also changed it, it's a conflict
-    if (lastSyncChecksum && 
-        originalChecksum !== lastSyncChecksum && 
-        sessionChecksum !== lastSyncChecksum) {
+    if (baselineChecksum && 
+        originalChecksum !== baselineChecksum && 
+        sessionChecksum !== baselineChecksum) {
       return "conflict";
     }
 
@@ -194,6 +196,8 @@ export class FileSyncService {
           if (existsSync(originalPath)) {
             unlinkSync(originalPath);
           }
+          // Remove from baseline
+          syncState.baselineChecksums.delete(change.path);
         } else if (change.status === "new" || change.status === "modified") {
           // Ensure directory exists
           const originalDir = dirname(originalPath);
@@ -210,6 +214,10 @@ export class FileSyncService {
               const fs = require("fs");
               fs.utimesSync(originalPath, change.lastModified, change.lastModified);
             }
+            
+            // Update baseline checksum
+            const newChecksum = await this.calculateChecksum(sessionPath);
+            syncState.baselineChecksums.set(change.path, newChecksum);
           }
         }
       } catch (error) {
@@ -259,12 +267,15 @@ export class FileSyncService {
           // File exists in both - check if different
           const originalChecksum = await this.calculateChecksum(originalPath);
           const sessionChecksum = await this.calculateChecksum(sessionPath);
+          const baselineChecksum = syncState.baselineChecksums.get(relativePath);
           
           if (originalChecksum !== sessionChecksum) {
-            // Check if session file is modified by agent
-            const existingChange = syncState.changes.get(relativePath);
+            // Check if session file is modified by agent (differs from baseline)
+            const sessionModified = baselineChecksum && sessionChecksum !== baselineChecksum;
+            // Check if original file is modified
+            const originalModified = baselineChecksum && originalChecksum !== baselineChecksum;
             
-            if (existingChange?.status === "modified" || existingChange?.status === "new") {
+            if (sessionModified && originalModified) {
               // Conflict! Both changed
               const conflictChange: FileChange = {
                 path: relativePath,
@@ -275,8 +286,12 @@ export class FileSyncService {
               syncState.changes.set(relativePath, conflictChange);
               changes.push(conflictChange);
             } else {
-              // Only original changed - copy to session
+              // Only original changed or only session changed (not both)
+              // Copy from original to session
               copyFileSync(originalPath, sessionPath);
+              
+              // Update baseline
+              syncState.baselineChecksums.set(relativePath, originalChecksum);
               
               const fileChange: FileChange = {
                 path: relativePath,
@@ -375,6 +390,17 @@ export class FileSyncService {
     const syncState = this.syncStates.get(sessionId);
     if (!syncState) return;
 
+    // First scan the original repo to establish baseline
+    await this.scanDirectory(
+      syncState.originalRepoPath,
+      syncState.originalRepoPath,
+      async (fullPath, relativePath) => {
+        const checksum = await this.calculateChecksum(fullPath);
+        syncState.baselineChecksums.set(relativePath, checksum);
+      }
+    );
+
+    // Then scan session worktree
     await this.scanDirectory(
       syncState.sessionWorktreePath,
       syncState.sessionWorktreePath,

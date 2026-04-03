@@ -170,15 +170,17 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 ))
               )}
             </div>
-            <div class="chat-input">
-              <form method="POST" action={`/projects/${project.id}/sessions/${session.id}/chat`}>
+            <div class="chat-input" id="chat-form">
+              <form>
                 <input
                   type="text"
+                  id="chat-input"
                   name="message"
                   placeholder="Type a message..."
                   autocomplete="off"
                 />
                 <button type="submit">Send</button>
+                <span class="chat-connection-status" title="Connection status"></span>
               </form>
             </div>
           </div>

@@ -6,9 +6,13 @@ import agents from "./agents/routes";
 import sessions from "./sessions/routes";
 import { agentService } from "./agents/service.js";
 import { fileSyncService } from "./sync/service.js";
+import { chatService } from "./sessions/chat.js";
 
 const app = new Hono();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+
+// Track active chat sessions
+const chatSessions = new Map();
 
 // Auth routes
 app.route("/auth", auth);
@@ -45,50 +49,21 @@ const server = Bun.serve({
   fetch: app.fetch,
   port: PORT,
   websocket: {
-    // WebSocket handler for agent connections
+    // WebSocket handler for different connection types
     async message(ws, message) {
       try {
         const data = JSON.parse(message as string);
+        const connectionType = ws.data?.connectionType;
         
-        // Handle different message types from agent
-        switch (data.type) {
-          case "ping":
-            ws.send(JSON.stringify({ type: "pong" }));
+        switch (connectionType) {
+          case 'agent':
+            await handleAgentMessage(ws, data);
             break;
-          case "agent_ready":
-            // Agent is ready to receive requests
-            console.log("Agent ready:", data.agentId);
-            break;
-          case "acp_response":
-            // ACP response from agent
-            // Forward to chat via session WebSocket
-            break;
-          case "file_changed":
-            // File change notification from agent
-            console.log("File changed:", data.files);
-            
-            // Get session ID from the agent connection
-            const agentId = ws.data.agentId;
-            if (agentId) {
-              const agent = await agentService.getAgentStatus(agentId);
-              if (agent) {
-                // Convert files array to FileChange objects
-                const changes = data.files.map((file: { path: string; isNew?: boolean; deleted?: boolean }) => ({
-                  path: file.path,
-                  isNew: file.isNew,
-                  deleted: file.deleted,
-                }));
-                
-                // Initialize session sync if not already done
-                await fileSyncService.initializeSession(agent.sessionId, "", "");
-                
-                // Handle the file changes
-                await fileSyncService.handleFileChanges(agent.sessionId, changes);
-              }
-            }
+          case 'chat':
+            await handleChatMessage(ws, data);
             break;
           default:
-            console.log("Unknown message type:", data.type);
+            console.log("Unknown connection type");
         }
       } catch (error) {
         console.error("WebSocket message error:", error);
@@ -96,37 +71,186 @@ const server = Bun.serve({
     },
     async open(ws) {
       const url = new URL(ws.data.url);
-      const token = url.searchParams.get("token");
+      const type = url.pathname.split('/')[2]; // /ws/chat or /ws/agent
       
-      if (!token) {
-        ws.close(1008, "Missing token");
-        return;
-      }
+      if (type === 'chat') {
+        // Chat connection
+        const sessionId = url.pathname.split('/')[3];
+        ws.data.connectionType = 'chat';
+        ws.data.sessionId = sessionId;
+        
+        // Add to session subscribers
+        if (!chatSessions.has(sessionId)) {
+          chatSessions.set(sessionId, new Set());
+        }
+        chatSessions.get(sessionId).add(ws);
+        
+        // Send chat history
+        const history = await chatService.loadHistory(sessionId);
+        ws.send(JSON.stringify({
+          type: 'history',
+          messages: history,
+        }));
+        
+        console.log(`Chat client connected to session ${sessionId}`);
+      } else {
+        // Agent connection
+        const token = url.searchParams.get("token");
+        
+        if (!token) {
+          ws.close(1008, "Missing token");
+          return;
+        }
 
-      // Verify agent token
-      const payload = await agentService.verifyAgentToken(token);
-      if (!payload) {
-        ws.close(1008, "Invalid token");
-        return;
-      }
+        const payload = await agentService.verifyAgentToken(token);
+        if (!payload) {
+          ws.close(1008, "Invalid token");
+          return;
+        }
 
-      // Store agent ID in WebSocket data
-      ws.data.agentId = payload.agentId;
-      
-      // Handle agent connection
-      await agentService.handleAgentConnect(payload.agentId, ws);
-      
-      console.log(`Agent ${payload.agentId} connected`);
+        ws.data.connectionType = 'agent';
+        ws.data.agentId = payload.agentId;
+        
+        await agentService.handleAgentConnect(payload.agentId, ws);
+        console.log(`Agent ${payload.agentId} connected`);
+      }
     },
     async close(ws) {
-      const agentId = ws.data.agentId;
-      if (agentId) {
-        await agentService.handleAgentDisconnect(agentId);
-        console.log(`Agent ${agentId} disconnected`);
+      const connectionType = ws.data?.connectionType;
+      
+      if (connectionType === 'chat') {
+        // Remove from session subscribers
+        const sessionId = ws.data.sessionId;
+        if (chatSessions.has(sessionId)) {
+          chatSessions.get(sessionId).delete(ws);
+          if (chatSessions.get(sessionId).size === 0) {
+            chatSessions.delete(sessionId);
+          }
+        }
+        console.log(`Chat client disconnected from session ${sessionId}`);
+      } else if (connectionType === 'agent') {
+        const agentId = ws.data.agentId;
+        if (agentId) {
+          await agentService.handleAgentDisconnect(agentId);
+          console.log(`Agent ${agentId} disconnected`);
+        }
       }
     },
   },
 });
+
+// Handle agent messages
+async function handleAgentMessage(ws, data) {
+  switch (data.type) {
+    case "ping":
+      ws.send(JSON.stringify({ type: "pong" }));
+      break;
+    case "agent_ready":
+      console.log("Agent ready:", data.agentId);
+      break;
+    case "acp_response":
+      // Handle ACP response and broadcast to chat
+      if (ws.data.agentId) {
+        const agent = await agentService.getAgentStatus(ws.data.agentId);
+        if (agent) {
+          // Broadcast to all chat clients in session
+          const subscribers = chatSessions.get(agent.sessionId);
+          if (subscribers) {
+            subscribers.forEach(client => {
+              if (client.readyState === 1) { // WebSocket.OPEN
+                client.send(JSON.stringify({
+                  type: 'message',
+                  role: 'assistant',
+                  content: data.content,
+                  timestamp: new Date().toISOString(),
+                }));
+              }
+            });
+          }
+          
+          // Save to history
+          await chatService.saveMessage(agent.sessionId, {
+            role: 'assistant',
+            content: data.content,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+      break;
+    case "file_changed":
+      console.log("File changed:", data.files);
+      
+      const agentId = ws.data.agentId;
+      if (agentId) {
+        const agent = await agentService.getAgentStatus(agentId);
+        if (agent) {
+          const changes = data.files.map((file) => ({
+            path: file.path,
+            isNew: file.isNew,
+            deleted: file.deleted,
+          }));
+          
+          await fileSyncService.initializeSession(agent.sessionId, "", "");
+          await fileSyncService.handleFileChanges(agent.sessionId, changes);
+        }
+      }
+      break;
+    default:
+      console.log("Unknown agent message type:", data.type);
+  }
+}
+
+// Handle chat messages
+async function handleChatMessage(ws, data) {
+  const sessionId = ws.data.sessionId;
+  
+  switch (data.type) {
+    case "send_message":
+      // Save user message
+      await chatService.saveMessage(sessionId, {
+        role: 'user',
+        content: data.content,
+        timestamp: new Date().toISOString(),
+      });
+      
+      // Broadcast to all clients in session
+      const subscribers = chatSessions.get(sessionId);
+      if (subscribers) {
+        subscribers.forEach(client => {
+          if (client.readyState === 1) {
+            client.send(JSON.stringify({
+              type: 'message',
+              role: 'user',
+              content: data.content,
+              timestamp: new Date().toISOString(),
+            }));
+          }
+        });
+      }
+      
+      // Forward to agent if connected
+      const agents = await agentService.listAgentsBySession(sessionId);
+      const connectedAgent = agents.find(a => a.status === 'connected');
+      
+      if (connectedAgent) {
+        // Send to agent via its WebSocket
+        // This would need agent WebSocket tracking
+        console.log(`Forwarding message to agent ${connectedAgent.id}`);
+      }
+      break;
+      
+    case "request_replay":
+      const history = await chatService.loadHistory(sessionId);
+      ws.send(JSON.stringify({
+        type: 'history',
+        messages: history,
+      }));
+      break;
+      
+    default:
+      console.log("Unknown chat message type:", data.type);
+  }
+}
 
 // Run cleanup periodically
 setInterval(() => {
