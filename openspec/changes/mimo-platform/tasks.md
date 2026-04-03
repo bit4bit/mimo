@@ -121,18 +121,18 @@
 
 ## 11. mimo-agent (TypeScript/Bun)
 
-- [ ] 11.1 Set up Bun project with TypeScript (packages/mimo-agent/)
-- [ ] 11.2 Add @agentclientprotocol/sdk dependency
-- [ ] 11.3 Implement CLI argument parsing (--token, --platform)
-- [ ] 11.4 Build WebSocket client for platform connection (ws library)
-- [ ] 11.5 Implement Fossil clone from platform
-- [ ] 11.6 Create ACP agent spawning (Bun.spawn) and stdio proxy
-- [ ] 11.7 Build file watcher (Bun.watch native)
-- [ ] 11.8 Implement change reporting to platform
-- [ ] 11.9 Implement ACP request cancellation handling
-- [ ] 11.10 Add graceful shutdown handling
-- [ ] 11.11 Create single-file build (`bun build --compile`)
-- [ ] 11.12 Write agent documentation
+- [x] 11.1 Set up Bun project with TypeScript (packages/mimo-agent/)
+- [x] 11.2 Add @agentclientprotocol/sdk dependency
+- [x] 11.3 Implement CLI argument parsing (--token, --platform)
+- [x] 11.4 Build WebSocket client for platform connection (ws library)
+- [x] 11.5 Implement Fossil clone from platform
+- [x] 11.6 Create ACP agent spawning (Bun.spawn) and stdio proxy
+- [x] 11.7 Build file watcher (Bun.watch native)
+- [x] 11.8 Implement change reporting to platform
+- [x] 11.9 Implement ACP request cancellation handling
+- [x] 11.10 Add graceful shutdown handling
+- [x] 11.11 Create single-file build (`bun build --compile`)
+- [x] 11.12 Write agent documentation
 
 ## 12. Configuration System
 

@@ -1,0 +1,22 @@
+{
+  "name": "mimo-agent",
+  "version": "0.1.0",
+  "description": "mimo-platform agent - proxies ACP protocol and watches file changes",
+  "module": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build --compile src/index.ts --outfile dist/mimo-agent",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "bun-types": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
