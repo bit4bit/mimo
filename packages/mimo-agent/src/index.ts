@@ -234,14 +234,19 @@ class MimoAgent {
           });
         }
 
-        // Store session info
-        this.sessions.set(sessionId, {
+        // Store session info (will update acpProcess after spawn)
+        const sessionInfo: SessionInfo = {
           sessionId,
           checkoutPath,
           fossilUrl,
           acpProcess: null,
           fileWatcher: null,
-        });
+        };
+        this.sessions.set(sessionId, sessionInfo);
+
+        // Spawn ACP process in checkout directory
+        console.log(`[mimo-agent]   Spawning ACP process (opencode acp)`);
+        this.spawnAcpProcess(sessionInfo);
 
         // Start file watcher for this session
         this.startFileWatcher(sessionId, checkoutPath);
@@ -327,6 +332,53 @@ class MimoAgent {
     });
   }
 
+  private spawnAcpProcess(session: SessionInfo): void {
+    if (session.acpProcess) {
+      console.log(`[mimo-agent] Terminating existing ACP process for ${session.sessionId}`);
+      session.acpProcess.kill();
+      session.acpProcess = null;
+    }
+
+    const acpCommand = "opencode";
+    const acpArgs = ["acp"];
+
+    console.log(`[mimo-agent] Spawning ACP: ${acpCommand} ${acpArgs.join(" ")}`);
+    console.log(`[mimo-agent]   Working directory: ${session.checkoutPath}`);
+
+    session.acpProcess = spawn(acpCommand, acpArgs, {
+      cwd: session.checkoutPath,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    session.acpProcess.stdout?.on("data", (data: Buffer) => {
+      this.send({
+        type: "acp_response",
+        sessionId: session.sessionId,
+        content: data.toString(),
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    session.acpProcess.stderr?.on("data", (data: Buffer) => {
+      console.error(`[mimo-agent] ACP stderr (${session.sessionId}):`, data.toString());
+    });
+
+    session.acpProcess.on("close", (code: number | null) => {
+      console.log(`[mimo-agent] ACP process exited for ${session.sessionId} with code ${code}`);
+      session.acpProcess = null;
+    });
+
+    session.acpProcess.on("error", (err: Error) => {
+      console.error(`[mimo-agent] ACP process error for ${session.sessionId}:`, err.message);
+      this.send({
+        type: "session_error",
+        sessionId: session.sessionId,
+        error: `ACP process error: ${err.message}`,
+        timestamp: new Date().toISOString(),
+      });
+    });
+  }
+
   private handleAcpRequest(message: any): void {
     const sessionId = message.sessionId;
     if (!sessionId) {
@@ -340,45 +392,8 @@ class MimoAgent {
       return;
     }
 
-    // Kill existing ACP process if any
-    if (session.acpProcess) {
-      console.log(`[mimo-agent] ACP process already running for ${sessionId}, terminating...`);
-      session.acpProcess.kill();
-    }
-
-    console.log(`[mimo-agent] Starting ACP process for session ${sessionId}`);
-    
-    // Spawn ACP agent in checkout directory
-    const acpCommand = message.command || "echo";
-    const acpArgs = message.args || ["Simulated ACP response"];
-
-    session.acpProcess = spawn(acpCommand, acpArgs, {
-      cwd: session.checkoutPath,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-
-    // Proxy stdout to platform
-    session.acpProcess.stdout?.on("data", (data: Buffer) => {
-      this.send({
-        type: "acp_response",
-        sessionId,
-        content: data.toString(),
-        timestamp: new Date().toISOString(),
-      });
-    });
-
-    // Handle stderr
-    session.acpProcess.stderr?.on("data", (data: Buffer) => {
-      console.error(`[mimo-agent] ACP stderr (${sessionId}):`, data.toString());
-    });
-
-    // Handle process exit
-    session.acpProcess.on("close", (code: number | null) => {
-      console.log(`[mimo-agent] ACP process exited for ${sessionId} with code ${code}`);
-      if (session) {
-        session.acpProcess = null;
-      }
-    });
+    console.log(`[mimo-agent] Received acp_request for session ${sessionId}`);
+    this.spawnAcpProcess(session);
   }
 
   private handleCancelRequest(message: any): void {

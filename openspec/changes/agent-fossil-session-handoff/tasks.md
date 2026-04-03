@@ -65,11 +65,11 @@
 
 ## 11. Integration Tests
 
-- [ ] 11.1 Test full flow: session creation → agent connect → fossil start → session_ready → agent bootstrap
-- [ ] 11.2 Test agent reconnect with existing checkout (no re-clone)
-- [ ] 11.3 Test multi-session agent (3 sessions, multiple ACP processes)
-- [ ] 11.4 Test session deletion while agent connected (cleanup fossil server, notify agent)
-- [ ] 11.5 Test checkout path outside workdir scenario
+- [x] 11.1 Test full flow: session creation → agent connect → fossil start → session_ready → agent bootstrap
+- [x] 11.2 Test agent reconnect with existing checkout (no re-clone)
+- [x] 11.3 Test multi-session agent (3 sessions, multiple ACP processes)
+- [x] 11.4 Test session deletion while agent connected (cleanup fossil server, notify agent)
+- [x] 11.5 Test checkout path outside workdir scenario
 
 ## 12. Documentation
 
