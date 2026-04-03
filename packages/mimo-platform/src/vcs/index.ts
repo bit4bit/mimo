@@ -255,11 +255,7 @@ export class VCS {
   ): Promise<VCSResult> {
     if (repoType === "git") {
       // Import from Git to Fossil using git fast-export
-      // First create the fossil repo
-      const initResult = await this.createFossilRepo(fossilPath);
-      if (!initResult.success) {
-        return initResult;
-      }
+      // fossil import --git creates the repo automatically
       
       // Use git fast-export piped to fossil import
       // We need to run: git fast-export --all | fossil import --git fossilPath
