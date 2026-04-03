@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import { sessionRepository } from "./repository.js";
 import { projectRepository } from "../projects/repository.js";
+import { agentRepository } from "../agents/repository.js";
 import { agentService } from "../agents/service.js";
 import { chatService } from "./chat.js";
 import { vcs } from "../vcs/index.js";
@@ -172,16 +173,14 @@ router.get("/:id", async (c: Context) => {
   const hasConflicts = changeSet.hasConflicts;
 
   return c.html(
-    <Layout title={session.name}>
-      <SessionDetailPage 
-        session={session}
-        project={project}
-        chatHistory={chatHistory}
-        agent={agent}
-        changes={changeSet.files}
-        hasConflicts={hasConflicts}
-      />
-    </Layout>
+    <SessionDetailPage 
+      session={session}
+      project={project}
+      chatHistory={chatHistory}
+      agent={agent}
+      changes={changeSet.files}
+      hasConflicts={hasConflicts}
+    />
   );
 });
 

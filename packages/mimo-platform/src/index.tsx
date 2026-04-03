@@ -82,7 +82,63 @@ app.notFound((c) => {
 });
 
 const server = Bun.serve({
-  fetch: app.fetch,
+  async fetch(req: Request, server: any) {
+    const url = new URL(req.url);
+    
+    // Handle WebSocket upgrade requests
+    if (req.headers.get("upgrade") === "websocket") {
+      const type = url.pathname.split('/')[2]; // /ws/agent or /ws/chat
+      
+      if (type === 'agent') {
+        const token = url.searchParams.get("token");
+        if (!token) {
+          return new Response("Missing token", { status: 400 });
+        }
+        
+        const payload = await agentService.verifyAgentToken(token);
+        if (!payload) {
+          return new Response("Invalid token", { status: 401 });
+        }
+        
+        const upgraded = server.upgrade(req, {
+          data: {
+            connectionType: 'agent',
+            agentId: payload.agentId,
+            url: req.url
+          }
+        });
+        
+        if (!upgraded) {
+          return new Response("WebSocket upgrade failed", { status: 500 });
+        }
+        return undefined;
+      }
+      
+      if (type === 'chat') {
+        const sessionId = url.pathname.split('/')[3];
+        if (!sessionId) {
+          return new Response("Missing sessionId", { status: 400 });
+        }
+        
+        const upgraded = server.upgrade(req, {
+          data: {
+            connectionType: 'chat',
+            sessionId,
+            url: req.url
+          }
+        });
+        
+        if (!upgraded) {
+          return new Response("WebSocket upgrade failed", { status: 500 });
+        }
+        return undefined;
+      }
+      
+      return new Response("Unknown WebSocket endpoint", { status: 404 });
+    }
+    
+    return app.fetch(req);
+  },
   port: PORT,
   websocket: {
     // WebSocket handler for different connection types
