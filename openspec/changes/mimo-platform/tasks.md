@@ -2,63 +2,63 @@
 
 ## 1. Platform Project Setup
 
-- [ ] 1.1 Initialize Bun project with TypeScript (`bun init`)
-- [ ] 1.2 Add Hono dependency (`bun add hono`)
-- [ ] 1.3 Add @hono/node-server for Bun compatibility
-- [ ] 1.4 Configure TypeScript compiler options (tsconfig.json)
-- [ ] 1.5 Set up filesystem paths for ~/.mimo/ storage
-- [ ] 1.6 Create project structure (src/, public/, etc.)
-- [ ] 1.7 Set up development scripts (bun run dev, bun run build)
-- [ ] 1.8 Create basic Hono server with JSX support
-- [ ] 1.9 Set up JSX factory for Hono
+- [x] 1.1 Initialize Bun project with TypeScript (`bun init`)
+- [x] 1.2 Add Hono dependency (`bun add hono`)
+- [x] 1.3 Add @hono/node-server for Bun compatibility
+- [x] 1.4 Configure TypeScript compiler options (tsconfig.json)
+- [x] 1.5 Set up filesystem paths for ~/.mimo/ storage
+- [x] 1.6 Create project structure (src/, public/, etc.)
+- [x] 1.7 Set up development scripts (bun run dev, bun run build)
+- [x] 1.8 Create basic Hono server with JSX support
+- [x] 1.9 Set up JSX factory for Hono
 
 ## 2. Authentication System
 
-- [ ] 2.1 Create filesystem-based user storage (users/<name>/credentials.yaml)
-- [ ] 2.2 Add bcrypt dependency for password hashing
-- [ ] 2.3 Implement JWT token generation and validation (jose or jsonwebtoken)
-- [ ] 2.4 Build login endpoint (POST /api/auth/login)
-- [ ] 2.5 Build registration endpoint (POST /api/auth/register)
-- [ ] 2.6 Create JWT middleware for protected routes
-- [ ] 2.7 Implement logout endpoint
-- [ ] 2.8 Build login/registration pages using Hono JSX
+- [x] 2.1 Create filesystem-based user storage (users/<name>/credentials.yaml)
+- [x] 2.2 Add bcrypt dependency for password hashing
+- [x] 2.3 Implement JWT token generation and validation (jose or jsonwebtoken)
+- [x] 2.4 Build login endpoint (POST /api/auth/login)
+- [x] 2.5 Build registration endpoint (POST /api/auth/register)
+- [x] 2.6 Create JWT middleware for protected routes
+- [x] 2.7 Implement logout endpoint
+- [x] 2.8 Build login/registration pages using Hono JSX
 
 ## 3. Project Management
 
-- [ ] 3.1 Create Project service module for CRUD operations
-- [ ] 3.2 Build project filesystem structure (projects/<id>/)
-- [ ] 3.3 Implement project.yaml serialization (js-yaml)
-- [ ] 3.4 Create REST endpoints (GET, POST, DELETE /api/projects)
-- [ ] 3.5 Build project list HTML page
-- [ ] 3.6 Build project creation form
-- [ ] 3.7 Add Git/Fossil URL validation
-- [ ] 3.8 Implement project deletion with cleanup
-- [ ] 3.9 Create project switcher UI component
+- [x] 3.1 Create Project service module for CRUD operations
+- [x] 3.2 Build project filesystem structure (projects/<id>/)
+- [x] 3.3 Implement project.yaml serialization (js-yaml)
+- [x] 3.4 Create REST endpoints (GET, POST, DELETE /api/projects)
+- [x] 3.5 Build project list HTML page
+- [x] 3.6 Build project creation form
+- [x] 3.7 Add Git/Fossil URL validation
+- [x] 3.8 Implement project deletion with cleanup
+- [x] 3.9 Create project switcher UI component
 
 ## 4. VCS Integration
 
-- [ ] 4.1 Install Fossil CLI dependency check
-- [ ] 4.2 Build VCS abstraction module (Git/Fossil operations)
-- [ ] 4.3 Implement Git import to Fossil (`fossil import --git`)
-- [ ] 4.4 Implement Fossil clone operation
-- [ ] 4.5 Create Fossil server management module
-- [ ] 4.6 Build port auto-assignment logic (8000-9000 range)
-- [ ] 4.7 Implement Fossil server lifecycle (start/stop via spawn)
-- [ ] 4.8 Add Fossil server health checks
+- [x] 4.1 Install Fossil CLI dependency check
+- [x] 4.2 Build VCS abstraction module (Git/Fossil operations)
+- [x] 4.3 Implement Git import to Fossil (`fossil import --git`)
+- [x] 4.4 Implement Fossil clone operation
+- [x] 4.5 Create Fossil server management module
+- [x] 4.6 Build port auto-assignment logic (8000-9000 range)
+- [x] 4.7 Implement Fossil server lifecycle (start/stop via spawn)
+- [x] 4.8 Add Fossil server health checks
 
 ## 5. Session Management
 
-- [ ] 5.1 Create Session service module
-- [ ] 5.2 Build session filesystem structure (projects/<id>/sessions/<id>/)
-- [ ] 5.3 Implement session.yaml serialization
-- [ ] 5.4 Create REST endpoints for session CRUD
-- [ ] 5.5 Build session view with three-buffer layout using Hono JSX
-- [ ] 5.6 Implement JSONL chat history storage
-- [ ] 5.7 Build WebSocket endpoint for chat streaming (/ws/session/:id)
-- [ ] 5.8 Create file tree component with change indicators
-- [ ] 5.9 Implement file diff viewer with syntax highlighting
-- [ ] 5.10 Add session deletion with full cleanup
-- [ ] 5.11 Build session reconnect logic
+- [x] 5.1 Create Session service module
+- [x] 5.2 Build session filesystem structure (projects/<id>/sessions/<id>/)
+- [x] 5.3 Implement session.yaml serialization
+- [x] 5.4 Create REST endpoints for session CRUD
+- [x] 5.5 Build session view with three-buffer layout using Hono JSX
+- [x] 5.6 Implement JSONL chat history storage
+- [x] 5.7 Build WebSocket endpoint for chat streaming (/ws/session/:id)
+- [x] 5.8 Create file tree component with change indicators
+- [x] 5.9 Implement file diff viewer with syntax highlighting
+- [x] 5.10 Add session deletion with full cleanup
+- [x] 5.11 Build session reconnect logic
 
 ## 6. Agent Lifecycle
 
@@ -144,17 +144,17 @@
 
 ## 13. Integration and Testing
 
-- [ ] 13.1 End-to-end test: full user flow
-- [ ] 13.2 Test authentication (login/logout)
-- [ ] 13.3 Test project CRUD operations
-- [ ] 13.4 Test session lifecycle
-- [ ] 13.5 Test agent spawning and communication
-- [ ] 13.6 Test file synchronization
-- [ ] 13.7 Test commit and push flows
-- [ ] 13.8 Test disconnect/reconnect scenarios
-- [ ] 13.9 Test error handling and recovery
-- [ ] 13.10 Performance testing with large chat histories
-- [ ] 13.11 Test ACP request cancellation
+- [x] 13.1 End-to-end test: full user flow
+- [x] 13.2 Test authentication (login/logout)
+- [x] 13.3 Test project CRUD operations
+- [x] 13.4 Test session lifecycle
+- [x] 13.5 Test agent spawning and communication
+- [x] 13.6 Test file synchronization
+- [x] 13.7 Test commit and push flows
+- [x] 13.8 Test disconnect/reconnect scenarios
+- [x] 13.9 Test error handling and recovery
+- [x] 13.10 Performance testing with large chat histories
+- [x] 13.11 Test ACP request cancellation
 
 ## 14. Documentation
 
