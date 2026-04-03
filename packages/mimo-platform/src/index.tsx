@@ -7,6 +7,8 @@ import sessions from "./sessions/routes";
 import { agentService } from "./agents/service.js";
 import { fileSyncService } from "./sync/service.js";
 import { chatService } from "./sessions/chat.js";
+import { LandingPage } from "./components/LandingPage.js";
+import { projectRepository } from "./projects/repository.js";
 
 const app = new Hono();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
@@ -16,6 +18,21 @@ const chatSessions = new Map();
 
 // Auth routes
 app.route("/auth", auth);
+
+// Landing page (public)
+app.get("/", async (c) => {
+  const publicProjects = await projectRepository.listAllPublic();
+  const user = c.get("user") as { username: string } | undefined;
+  const isAuthenticated = !!user;
+  const username = user?.username;
+  return c.html(<LandingPage projects={publicProjects} isAuthenticated={isAuthenticated} username={username} />);
+});
+
+// Public projects API (no auth required)
+app.get("/api/projects/public", async (c) => {
+  const publicProjects = await projectRepository.listAllPublic();
+  return c.json(publicProjects);
+});
 
 // Protected routes
 app.route("/", protectedRoutes);

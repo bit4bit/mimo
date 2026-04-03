@@ -287,4 +287,96 @@ describe("Project Management Integration Tests", () => {
       expect(html).toContain('action="/projects"');
     });
   });
+
+  describe("Project Description", () => {
+    it("should create project with description", async () => {
+      const app = new Hono();
+      app.route("/projects", projectRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const { generateToken } = await import("../src/auth/jwt.ts");
+      const token = await generateToken("testuser");
+
+      const formData = new URLSearchParams();
+      formData.append("name", "Project with Description");
+      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoType", "git");
+      formData.append("description", "A test project description");
+
+      const res = await app.request("/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: formData.toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const projects = await projectRepository.listAll();
+      expect(projects.length).toBe(1);
+      expect(projects[0].name).toBe("Project with Description");
+      expect(projects[0].description).toBe("A test project description");
+    });
+
+    it("should create project without description (backwards compatible)", async () => {
+      const app = new Hono();
+      app.route("/projects", projectRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const { generateToken } = await import("../src/auth/jwt.ts");
+      const token = await generateToken("testuser");
+
+      const formData = new URLSearchParams();
+      formData.append("name", "Project Without Description");
+      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoType", "git");
+
+      const res = await app.request("/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: formData.toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const projects = await projectRepository.listAll();
+      expect(projects.length).toBe(1);
+      expect(projects[0].name).toBe("Project Without Description");
+      expect(projects[0].description).toBeUndefined();
+    });
+
+    it("should reject description longer than 500 characters", async () => {
+      const app = new Hono();
+      app.route("/projects", projectRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const { generateToken } = await import("../src/auth/jwt.ts");
+      const token = await generateToken("testuser");
+
+      const longDescription = "a".repeat(501);
+      const formData = new URLSearchParams();
+      formData.append("name", "Test Project");
+      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoType", "git");
+      formData.append("description", longDescription);
+
+      const res = await app.request("/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: formData.toString(),
+      });
+
+      expect(res.status).toBe(400);
+      const html = await res.text();
+      expect(html).toContain("500 characters or less");
+    });
+  });
 });

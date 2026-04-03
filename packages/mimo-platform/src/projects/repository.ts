@@ -11,6 +11,16 @@ export interface Project {
   repoType: "git" | "fossil";
   owner: string;
   createdAt: Date;
+  description?: string;
+}
+
+export interface PublicProject {
+  id: string;
+  name: string;
+  description?: string;
+  repoType: "git" | "fossil";
+  owner: string;
+  createdAt: string;
 }
 
 export interface ProjectData {
@@ -20,6 +30,7 @@ export interface ProjectData {
   repoType: "git" | "fossil";
   owner: string;
   createdAt: string;
+  description?: string;
 }
 
 export interface CreateProjectInput {
@@ -27,6 +38,7 @@ export interface CreateProjectInput {
   repoUrl: string;
   repoType: "git" | "fossil";
   owner: string;
+  description?: string;
 }
 
 export class ProjectRepository {
@@ -43,6 +55,10 @@ export class ProjectRepository {
   }
 
   async create(input: CreateProjectInput): Promise<Project> {
+    if (input.description && input.description.length > 500) {
+      throw new Error("Description must be 500 characters or less");
+    }
+
     const id = this.generateId();
     const projectPath = this.getProjectPath(id);
     
@@ -57,6 +73,7 @@ export class ProjectRepository {
       repoType: input.repoType,
       owner: input.owner,
       createdAt: new Date().toISOString(),
+      ...(input.description && { description: input.description }),
     };
 
     writeFileSync(
@@ -140,6 +157,18 @@ export class ProjectRepository {
     return projects;
   }
 
+  async listAllPublic(): Promise<PublicProject[]> {
+    const projects = await this.listAll();
+    return projects.map(project => ({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      repoType: project.repoType,
+      owner: project.owner,
+      createdAt: project.createdAt.toISOString(),
+    }));
+  }
+
   async delete(id: string): Promise<void> {
     const projectPath = this.getProjectPath(id);
     
@@ -166,6 +195,38 @@ export class ProjectRepository {
 
   async exists(id: string): Promise<boolean> {
     return existsSync(this.getProjectFilePath(id));
+  }
+
+  async update(id: string, updates: { name?: string; repoUrl?: string; repoType?: "git" | "fossil"; description?: string }): Promise<Project> {
+    const project = await this.findById(id);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    if (updates.description && updates.description.length > 500) {
+      throw new Error("Description must be 500 characters or less");
+    }
+
+    const updatedData: ProjectData = {
+      id: project.id,
+      name: updates.name || project.name,
+      repoUrl: updates.repoUrl || project.repoUrl,
+      repoType: updates.repoType || project.repoType,
+      owner: project.owner,
+      createdAt: project.createdAt.toISOString(),
+      description: updates.description,
+    };
+
+    writeFileSync(
+      this.getProjectFilePath(id),
+      dump(updatedData),
+      "utf-8"
+    );
+
+    return {
+      ...updatedData,
+      createdAt: new Date(updatedData.createdAt),
+    };
   }
 }
 

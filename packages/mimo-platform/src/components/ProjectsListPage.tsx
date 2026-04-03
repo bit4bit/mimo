@@ -8,11 +8,17 @@ interface Project {
   repoType: "git" | "fossil";
   owner: string;
   createdAt: Date;
+  description?: string;
 }
 
 interface ProjectsListProps {
   projects: Project[];
 }
+
+const truncateText = (text: string, maxLength: number): string => {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + "...";
+};
 
 export const ProjectsListPage: FC<ProjectsListProps> = ({ projects }) => {
   return (
@@ -37,6 +43,9 @@ export const ProjectsListPage: FC<ProjectsListProps> = ({ projects }) => {
                     {project.name}
                   </a>
                   <span class={`repo-type ${project.repoType}`}>{project.repoType}</span>
+                </div>
+                <div style="color: #888; margin: 8px 0; font-size: 14px;">
+                  {project.description ? truncateText(project.description, 200) : <span style="color: #666;">No description</span>}
                 </div>
                 <div class="project-meta">
                   <span>{project.repoUrl}</span>

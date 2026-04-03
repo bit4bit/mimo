@@ -17,6 +17,11 @@ export const ProjectCreatePage: FC<ProjectCreateProps> = ({ error }) => {
           </div>
 
           <div class="form-group">
+            <label>Description (optional, max 500 chars, recommended ~200)</label>
+            <textarea name="description" rows="3" placeholder="Describe your project..." style="background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%;"></textarea>
+          </div>
+
+          <div class="form-group">
             <label>Repository URL</label>
             <input type="url" name="repoUrl" required placeholder="https://github.com/user/repo.git" />
             <small>Git or Fossil repository URL</small>

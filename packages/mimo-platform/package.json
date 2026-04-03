@@ -1,14 +1,14 @@
 {
   "name": "mimo-platform",
-  "module": "src/index.ts",
+  "module": "src/index.tsx",
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run --watch src/index.ts",
-    "start": "bun run src/index.ts",
+    "dev": "bun run --watch src/index.tsx",
+    "start": "bun run src/index.tsx",
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "build": "bun build src/index.ts --outdir dist --target bun",
+    "build": "bun build src/index.tsx --outdir dist --target bun",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

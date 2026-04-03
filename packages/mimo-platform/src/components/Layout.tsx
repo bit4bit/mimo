@@ -136,6 +136,38 @@ export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = fals
           .detail-row { margin-bottom: 15px; }
            .detail-row label { display: block; color: #888; margin-bottom: 5px; font-size: 12px; text-transform: uppercase; }
            
+           .session-list { display: flex; flex-direction: column; gap: 10px; }
+           .session-card { 
+             background: #2d2d2d; 
+             border: 1px solid #444; 
+             padding: 12px;
+             cursor: pointer;
+           }
+           .session-card:hover { background: #353535; }
+           .session-header { 
+             display: flex; 
+             justify-content: space-between; 
+             align-items: center;
+             margin-bottom: 8px;
+           }
+           .session-name { 
+             font-weight: bold; 
+             font-size: 14px;
+             color: #74c0fc;
+             text-decoration: none;
+           }
+           .session-name:hover { text-decoration: underline; }
+           .session-status { 
+             font-size: 11px; 
+             text-transform: uppercase; 
+             padding: 2px 6px; 
+             border-radius: 3px;
+           }
+           .session-status.active { background: #2d5a2d; color: #6bff6b; }
+           .session-status.paused { background: #5a5a2d; color: #ffff6b; }
+           .session-status.closed { background: #5a2d2d; color: #ff6b6b; }
+           .session-meta { color: #888; font-size: 12px; }
+           
            /* Buffer Focus Styles */
            .buffer-focused {
              box-shadow: inset 0 0 0 2px #74c0fc;
