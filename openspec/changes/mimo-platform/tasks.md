@@ -62,17 +62,17 @@
 
 ## 6. Agent Lifecycle
 
-- [ ] 6.1 Create Agent service module
-- [ ] 6.2 Build agent filesystem structure (agents/<id>/)
-- [ ] 6.3 Implement JWT token generation for agents
-- [ ] 6.4 Create agent process spawning (Bun.spawn)
-- [ ] 6.5 Build WebSocket endpoint for agent connections (/ws/agent)
-- [ ] 6.6 Implement agent authentication via JWT
-- [ ] 6.7 Create agent status tracking
-- [ ] 6.8 Build agent list page
-- [ ] 6.9 Implement ACP request cancellation (C-c C-c)
-- [ ] 6.10 Implement agent termination command
-- [ ] 6.11 Add agent crash detection and cleanup
+- [x] 6.1 Create Agent service module
+- [x] 6.2 Build agent filesystem structure (agents/<id>/)
+- [x] 6.3 Implement JWT token generation for agents
+- [x] 6.4 Create agent process spawning (Bun.spawn)
+- [x] 6.5 Build WebSocket endpoint for agent connections (/ws/agent)
+- [x] 6.6 Implement agent authentication via JWT
+- [x] 6.7 Create agent status tracking
+- [x] 6.8 Build agent list page
+- [x] 6.9 Implement ACP request cancellation (C-c C-c)
+- [x] 6.10 Implement agent termination command
+- [x] 6.11 Add agent crash detection and cleanup
 
 ## 7. File Synchronization
 
