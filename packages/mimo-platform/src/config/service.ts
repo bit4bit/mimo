@@ -20,7 +20,7 @@ export interface Config {
   fontFamily?: string;
 }
 
-const defaultConfig: Config = {
+export const defaultConfig: Config = {
   keybindings: {
     cancel_request: "C-c C-c",
     commit: "C-x c",

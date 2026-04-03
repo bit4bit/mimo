@@ -136,11 +136,11 @@
 
 ## 12. Configuration System
 
-- [ ] 12.1 Create config.yaml loader/parser
-- [ ] 12.2 Define default configuration structure
-- [ ] 12.3 Implement keybinding customization
-- [ ] 12.4 Add config validation
-- [ ] 12.5 Create config editor UI
+- [x] 12.1 Create config.yaml loader/parser
+- [x] 12.2 Define default configuration structure
+- [x] 12.3 Implement keybinding customization
+- [x] 12.4 Add config validation
+- [x] 12.5 Create config editor UI
 
 ## 13. Integration and Testing
 
@@ -158,10 +158,10 @@
 
 ## 14. Documentation
 
-- [ ] 14.1 Write README with installation instructions
-- [ ] 14.2 Document Emacs keybindings
-- [ ] 14.3 Create architecture diagram
-- [ ] 14.4 Write deployment guide
-- [ ] 14.5 Document mimo-agent usage
-- [ ] 14.6 Create troubleshooting guide
-- [ ] 14.7 Document configuration options
+- [x] 14.1 Write README with installation instructions
+- [x] 14.2 Document Emacs keybindings
+- [x] 14.3 Create architecture diagram
+- [x] 14.4 Write deployment guide
+- [x] 14.5 Document mimo-agent usage
+- [x] 14.6 Create troubleshooting guide
+- [x] 14.7 Document configuration options
