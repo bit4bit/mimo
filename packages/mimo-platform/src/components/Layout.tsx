@@ -234,15 +234,57 @@ export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = fals
              font-size: 14px;
            }
            
-           .mimo-modal-results {
-             margin-top: 10px;
-             max-height: 300px;
-             overflow-y: auto;
-           }
-         `}</style>
-       </head>
-       <body>
-         {children}
+            .mimo-modal-results {
+              margin-top: 10px;
+              max-height: 300px;
+              overflow-y: auto;
+            }
+            
+            /* Top Navigation */
+            .top-nav {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              padding: 10px 20px;
+              background: #252525;
+              border-bottom: 1px solid #444;
+            }
+            .nav-brand a {
+              font-size: 18px;
+              font-weight: bold;
+              color: #74c0fc;
+              text-decoration: none;
+            }
+            .nav-brand a:hover {
+              color: #a0d8ff;
+            }
+            .nav-links {
+              display: flex;
+              gap: 20px;
+            }
+            .nav-links a {
+              color: #888;
+              text-decoration: none;
+              font-size: 14px;
+            }
+            .nav-links a:hover {
+              color: #d4d4d4;
+            }
+          `}</style>
+        </head>
+        <body>
+          <nav class="top-nav">
+            <div class="nav-brand">
+              <a href="/dashboard">MIMO</a>
+            </div>
+            <div class="nav-links">
+              <a href="/dashboard">Dashboard</a>
+              <a href="/projects">Projects</a>
+              <a href="/agents">Agents</a>
+              <a href="/auth/logout">Logout</a>
+            </div>
+          </nav>
+          {children}
          {showStatusLine && (
            <div class="status-line">
              <span class="status-line-message"></span>
