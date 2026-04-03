@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import auth from "./auth/routes";
 import protectedRoutes from "./protected/routes";
+import projects from "./projects/routes";
 
 const app = new Hono();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
@@ -10,6 +11,9 @@ app.route("/auth", auth);
 
 // Protected routes
 app.route("/", protectedRoutes);
+
+// Project routes (protected)
+app.route("/projects", projects);
 
 // Health check
 app.get("/health", (c) => {
