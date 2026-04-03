@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, expect, beforeEach, jest } from "bun:test";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -44,6 +44,12 @@ describe("Session Management Integration Tests", () => {
 
     const jwtModule = await import("../src/auth/jwt.ts");
     generateToken = jwtModule.generateToken;
+
+    // Mock VCS methods to avoid actual git/fossil operations in these tests
+    const vcsModule = await import("../src/vcs/index.ts");
+    vcsModule.vcs.cloneRepository = async () => ({ success: true });
+    vcsModule.vcs.importToFossil = async () => ({ success: true });
+    vcsModule.vcs.openFossilCheckout = async () => ({ success: true });
 
     const routesModule = await import("../src/sessions/routes.tsx");
     sessionRoutes = routesModule.default;
@@ -114,7 +120,7 @@ describe("Session Management Integration Tests", () => {
       expect(res.status).toBe(400);
     });
 
-    it("should create session worktree", async () => {
+    it("should create session with upstream and checkout directories", async () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
@@ -145,7 +151,8 @@ describe("Session Management Integration Tests", () => {
       const session = await sessionRepository.findById(sessionId!);
 
       expect(session).not.toBeNull();
-      expect(session?.worktreePath).toBeDefined();
+      expect(session?.checkoutPath).toBeDefined();
+      expect(session?.upstreamPath).toBeDefined();
     });
   });
 
@@ -162,19 +169,17 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      // Create sessions
+      // Create sessions (worktreePath is no longer needed, dirs created automatically)
       await sessionRepository.create({
         name: "Session 1",
         projectId: project.id,
         owner: "testuser",
-        worktreePath: "/tmp/work1",
       });
 
       await sessionRepository.create({
         name: "Session 2",
         projectId: project.id,
         owner: "testuser",
-        worktreePath: "/tmp/work2",
       });
 
       const token = await generateToken("testuser");
@@ -230,7 +235,6 @@ describe("Session Management Integration Tests", () => {
         name: "Active Session",
         projectId: project.id,
         owner: "testuser",
-        worktreePath: join(testHome, "worktrees", "session-1"),
       });
 
       const token = await generateToken("testuser");
@@ -292,12 +296,11 @@ describe("Session Management Integration Tests", () => {
         name: "Session To Delete",
         projectId: project.id,
         owner: "testuser",
-        worktreePath: join(testHome, "worktrees", "to-delete"),
       });
 
-      // Create worktree directory
-      mkdirSync(session.worktreePath, { recursive: true });
-      expect(existsSync(session.worktreePath)).toBe(true);
+      // Create checkout directory (simulating repository setup)
+      mkdirSync(session.checkoutPath, { recursive: true });
+      expect(existsSync(session.checkoutPath)).toBe(true);
 
       const token = await generateToken("testuser");
 
@@ -312,10 +315,10 @@ describe("Session Management Integration Tests", () => {
       expect(res.status).toBe(302);
       expect(res.headers.get("location")).toContain(`/projects/${project.id}`);
 
-      // Verify session and worktree were deleted
+      // Verify session and directories were deleted
       const sessions = await sessionRepository.listByProject(project.id);
       expect(sessions.length).toBe(0);
-      expect(existsSync(session.worktreePath)).toBe(false);
+      expect(existsSync(session.checkoutPath)).toBe(false);
     });
   });
 
@@ -336,7 +339,6 @@ describe("Session Management Integration Tests", () => {
         name: "Chat Session",
         projectId: project.id,
         owner: "testuser",
-        worktreePath: join(testHome, "worktrees", "chat-session"),
       });
 
       const token = await generateToken("testuser");
@@ -378,7 +380,6 @@ describe("Session Management Integration Tests", () => {
         name: "History Session",
         projectId: project.id,
         owner: "testuser",
-        worktreePath: join(testHome, "worktrees", "history-session"),
       });
 
       // Add messages directly
@@ -427,13 +428,12 @@ describe("Session Management Integration Tests", () => {
         name: "File Session",
         projectId: project.id,
         owner: "testuser",
-        worktreePath: join(testHome, "worktrees", "file-session"),
       });
 
-      // Create some files in worktree
-      mkdirSync(join(session.worktreePath, "src"), { recursive: true });
-      writeFileSync(join(session.worktreePath, "README.md"), "# Project");
-      writeFileSync(join(session.worktreePath, "src", "index.ts"), "// code");
+      // Create some files in checkout
+      mkdirSync(join(session.checkoutPath, "src"), { recursive: true });
+      writeFileSync(join(session.checkoutPath, "README.md"), "# Project");
+      writeFileSync(join(session.checkoutPath, "src", "index.ts"), "// code");
 
       const token = await generateToken("testuser");
 

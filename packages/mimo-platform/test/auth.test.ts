@@ -125,7 +125,7 @@ describe("Authentication Integration Tests", () => {
       });
 
       expect(res.status).toBe(302);
-      expect(res.headers.get("location")).toBe("/projects");
+      expect(res.headers.get("location")).toBe("/dashboard");
 
       // Check cookie was set
       const setCookie = res.headers.get("set-cookie");

@@ -62,14 +62,12 @@ describe("Project Sessions Link Integration Tests", () => {
         name: "Feature Implementation",
         projectId: project.id,
         owner: "testuser",
-        worktreePath: "",
       });
 
       await sessionRepository.create({
         name: "Bug Fix",
         projectId: project.id,
         owner: "testuser",
-        worktreePath: "",
       });
 
       const res = await app.request(`/projects/${project.id}`, {
@@ -142,7 +140,6 @@ describe("Project Sessions Link Integration Tests", () => {
         name: "Test Session",
         projectId: project.id,
         owner: "testuser",
-        worktreePath: "",
       });
 
       const res = await app.request(`/projects/${project.id}`, {
@@ -170,7 +167,6 @@ describe("Project Sessions Link Integration Tests", () => {
         name: "First Session",
         projectId: project.id,
         owner: "testuser",
-        worktreePath: "",
       });
 
       // Small delay to ensure different timestamps
@@ -180,7 +176,6 @@ describe("Project Sessions Link Integration Tests", () => {
         name: "Second Session",
         projectId: project.id,
         owner: "testuser",
-        worktreePath: "",
       });
 
       const res = await app.request(`/projects/${project.id}`, {
