@@ -254,19 +254,55 @@ export class VCS {
     fossilPath: string
   ): Promise<VCSResult> {
     if (repoType === "git") {
-      // Import from Git to Fossil
+      // Import from Git to Fossil using git fast-export
       // First create the fossil repo
       const initResult = await this.createFossilRepo(fossilPath);
       if (!initResult.success) {
         return initResult;
       }
       
-      // Import from git bundle or directory
-      const gitDir = `${upstreamPath}/.git`;
-      const result = await this.execCommand(
-        ["fossil", "import", "--git", gitDir, fossilPath],
-        upstreamPath
-      );
+      // Use git fast-export piped to fossil import
+      // We need to run: git fast-export --all | fossil import --git fossilPath
+      const result = await new Promise<{ success: boolean; output: string; error: string }>((resolve) => {
+        const { spawn } = require("child_process");
+        
+        const gitExport = spawn("git", ["fast-export", "--all"], { cwd: upstreamPath });
+        const fossilImport = spawn("fossil", ["import", "--git", fossilPath], { cwd: upstreamPath });
+        
+        let stdout = "";
+        let stderr = "";
+        
+        gitExport.stdout.pipe(fossilImport.stdin);
+        
+        fossilImport.stdout.on("data", (data) => {
+          stdout += data.toString();
+        });
+        
+        fossilImport.stderr.on("data", (data) => {
+          stderr += data.toString();
+        });
+        
+        gitExport.stderr.on("data", (data) => {
+          stderr += data.toString();
+        });
+        
+        fossilImport.on("close", (code) => {
+          resolve({
+            success: code === 0,
+            output: stdout,
+            error: stderr,
+          });
+        });
+        
+        gitExport.on("error", (err) => {
+          fossilImport.kill();
+          resolve({
+            success: false,
+            output: "",
+            error: `Git fast-export failed: ${err.message}`,
+          });
+        });
+      });
       
       return {
         success: result.success,
