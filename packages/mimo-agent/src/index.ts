@@ -178,30 +178,47 @@ class MimoAgent {
       try {
         // Checkout path is {workdir}/{sessionId}
         const checkoutPath = join(this.config.workDir, sessionId);
-        const fossilUrl = `${platformUrl.replace('ws://', 'http://').replace('wss://', 'https://')}:${port}`;
+        // Parse platformUrl to get just the host, then add port
+        const platformHost = platformUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+        const fossilUrl = `http://${platformHost.split(':')[0]}:${port}/`;
         
         console.log(`[mimo-agent] Setting up session ${sessionId}`);
         console.log(`[mimo-agent]   Fossil URL: ${fossilUrl}`);
         console.log(`[mimo-agent]   Checkout: ${checkoutPath}`);
 
         // Clone from fossil server
-        if (existsSync(join(checkoutPath, ".fossil"))) {
-          console.log(`[mimo-agent]   Opening existing checkout`);
-          // Checkout already exists, open it
+        const repoPath = join(checkoutPath, "..", `${sessionId}.fossil`);
+        
+        if (existsSync(repoPath)) {
+          console.log(`[mimo-agent]   Fossil repo already exists, opening checkout`);
+          // Create checkout directory if needed
+          if (!existsSync(checkoutPath)) {
+            mkdirSync(checkoutPath, { recursive: true });
+          }
+          
+          // Open existing repo
+          try {
+            execSync(`fossil open ${repoPath}`, {
+              cwd: checkoutPath,
+              stdio: "pipe",
+            });
+          } catch {
+            // Already open or other error, continue
+          }
+        } else if (existsSync(join(checkoutPath, ".fossil"))) {
+          console.log(`[mimo-agent]   Checkout already exists, ensuring open`);
+          // Checkout already exists, make sure it's open
           try {
             execSync(`fossil open`, {
               cwd: checkoutPath,
               stdio: "pipe",
             });
           } catch {
-            // Already open, that's fine
+            // Already open or other error, continue
           }
         } else {
           console.log(`[mimo-agent]   Cloning from fossil`);
           // Clone from fossil server
-          const repoPath = join(checkoutPath, "..", `${sessionId}.fossil`);
-          
-          // Clone repository
           execSync(`fossil clone ${fossilUrl} ${repoPath}`, {
             stdio: "pipe",
           });

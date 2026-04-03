@@ -255,12 +255,16 @@ const server = Bun.serve({
 
 // Handle agent messages
 async function handleAgentMessage(ws, data) {
+  console.log("[agent] Received message:", data.type, data);
+  process.stdout?.write?.(""); // Flush stdout
+  
   switch (data.type) {
     case "ping":
       ws.send(JSON.stringify({ type: "pong" }));
       break;
     case "agent_ready":
       console.log("[agent] Agent ready:", data.agentId, "workdir:", data.workdir);
+      process.stdout?.write?.(""); // Flush stdout
       
       // Store workdir for relative path computation
       const agentId = ws.data.agentId;
@@ -268,25 +272,31 @@ async function handleAgentMessage(ws, data) {
         agentService.handleAgentConnect(agentId, ws, data.workdir);
       }
       
-      // Start Fossil servers for assigned sessions
-      const agent = await agentRepository.findById(agentId);
-      console.log("[agent] Found agent:", agent?.id, "sessions:", agent?.sessionIds);
+      // Start Fossil servers for sessions assigned to this agent
+      // Note: Sessions are assigned via assignedAgentId, not in agent.sessionIds
+      const sessions = await sessionRepository.findByAssignedAgentId(agentId);
+      console.log("[agent] Found", sessions.length, "sessions assigned to agent", agentId);
+      process.stdout?.write?.(""); // Flush stdout
       
-      if (agent && agent.sessionIds && agent.sessionIds.length > 0) {
+      if (sessions.length > 0) {
         const sessionsReady = [];
         const workdir = agentService.getAgentWorkdir(agentId);
         console.log("[agent] Workdir:", workdir);
+        process.stdout?.write?.(""); // Flush stdout
         
-        for (const sessionId of agent.sessionIds) {
-          const session = await sessionRepository.findById(sessionId);
-          console.log("[agent] Session:", sessionId, "status:", session?.status, "found:", !!session);
+        for (const session of sessions) {
+          const sessionId = session.id;
+          console.log("[agent] Session:", sessionId, "status:", session.status);
+          process.stdout?.write?.(""); // Flush stdout
           
-          if (session && session.status === "active") {
+          if (session.status === "active") {
             const fossilPath = `${session.upstreamPath}/../repo.fossil`;
             console.log("[agent] Starting fossil server for session:", sessionId, "fossil:", fossilPath);
+            process.stdout?.write?.(""); // Flush stdout
             
             const result = await fossilServerManager.startServer(sessionId, fossilPath);
             console.log("[agent] Fossil server result:", result);
+            process.stdout?.write?.(""); // Flush stdout
             
             if ('port' in result) {
               // Update session with port
@@ -310,6 +320,7 @@ async function handleAgentMessage(ws, data) {
             sessions: sessionsReady,
           };
           console.log("[agent] Sending session_ready:", JSON.stringify(message));
+          process.stdout?.write?.(""); // Flush stdout
           ws.send(JSON.stringify(message));
         } else {
           console.log("[agent] No sessions ready to send");
@@ -367,8 +378,14 @@ async function handleAgentMessage(ws, data) {
       await fileSyncService.initializeSession(fileSessionId, "", "");
       await fileSyncService.handleFileChanges(fileSessionId, changes);
       break;
+    case "session_error":
+      console.log("[agent] Session error:", data.sessionId, data.error);
+      break;
+    case "agent_sessions_ready":
+      console.log("[agent] Agent sessions ready:", data.sessionIds);
+      break;
     default:
-      console.log("Unknown agent message type:", data.type);
+      console.log("[agent] Unknown message type:", data.type);
   }
 }
 

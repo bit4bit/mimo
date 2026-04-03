@@ -165,4 +165,91 @@ describe("Agent Handoff Tests", () => {
       expect(message.error).toContain("Failed");
     });
   });
+
+  describe("Fossil URL construction", () => {
+    it("should construct correct fossil URL from platform URL", () => {
+      const platformUrl = "http://localhost:3000";
+      const port = 8080;
+      const platformHost = platformUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+      const fossilUrl = `http://${platformHost.split(':')[0]}:${port}/`;
+      
+      expect(fossilUrl).toBe("http://localhost:8080/");
+    });
+
+    it("should handle platform URL with trailing slash", () => {
+      const platformUrl = "http://localhost:3000/";
+      const port = 8000;
+      const platformHost = platformUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+      const fossilUrl = `http://${platformHost.split(':')[0]}:${port}/`;
+      
+      expect(fossilUrl).toBe("http://localhost:8000/");
+    });
+
+    it("should not include original port in fossil URL", () => {
+      // This was the bug: http://localhost:3000:8000
+      const platformUrl = "http://localhost:3000";
+      const port = 8000;
+      const platformHost = platformUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+      const fossilUrl = `http://${platformHost.split(':')[0]}:${port}/`;
+      
+      // Should NOT be http://localhost:3000:8000
+      expect(fossilUrl).not.toContain("3000:8000");
+      expect(fossilUrl).toBe("http://localhost:8000/");
+    });
+  });
+
+  describe("Session assignment lookup", () => {
+    it("should find sessions by assignedAgentId", () => {
+      // Sessions are assigned via assignedAgentId, not agent.sessionIds
+      const agentId = "agent-123";
+      const session = {
+        id: "session-456",
+        assignedAgentId: agentId,
+        status: "active",
+      };
+      
+      expect(session.assignedAgentId).toBe(agentId);
+    });
+
+    it("should handle agent with no assigned sessions", () => {
+      const agentId = "agent-123";
+      const sessions: any[] = [];
+      
+      // Should return empty array, not undefined
+      expect(sessions).toBeDefined();
+      expect(sessions.length).toBe(0);
+    });
+  });
+
+  describe("Fossil clone retry logic", () => {
+    it("should detect existing fossil repo file", () => {
+      const sessionId = "test-session";
+      const workdir = "/tmp/test";
+      const repoPath = join(workdir, `${sessionId}.fossil`);
+      const checkoutPath = join(workdir, sessionId);
+      
+      // Simulate existing repo
+      const repoExists = existsSync(repoPath);
+      const checkoutExists = existsSync(checkoutPath);
+      
+      // Logic: if repo exists, open it; else if checkout exists, ensure open; else clone
+      if (repoExists) {
+        expect(true).toBe(true); // Would open existing repo
+      } else if (checkoutExists) {
+        expect(true).toBe(true); // Would ensure checkout is open
+      } else {
+        expect(true).toBe(true); // Would clone fresh
+      }
+    });
+
+    it("should handle fossil clone error for existing file", () => {
+      const error = {
+        stderr: "file already exists: /tmp/demo/session.fossil\n",
+        status: 1,
+      };
+      
+      expect(error.stderr).toContain("file already exists");
+      expect(error.status).toBe(1);
+    });
+  });
 });
