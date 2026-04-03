@@ -20,16 +20,25 @@ interface ChatMessage {
   timestamp: string;
 }
 
+interface Agent {
+  id: string;
+  status: "starting" | "connected" | "failed" | "killed" | "died";
+  pid?: number;
+  startedAt: Date;
+}
+
 interface SessionDetailProps {
   project: Project;
   session: Session;
   chatHistory: ChatMessage[];
+  activeAgent?: Agent;
 }
 
 export const SessionDetailPage: FC<SessionDetailProps> = ({
   project,
   session,
   chatHistory,
+  activeAgent,
 }) => {
   return (
     <Layout title={`${session.name} - ${project.name}`}>
@@ -40,10 +49,26 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             <h1>{session.name}</h1>
             <span style="color: #888; font-size: 12px;">
               Project: {project.name} | Status: {session.status}
+              {activeAgent && (
+                <span class={`agent-status agent-status-${activeAgent.status}`}>
+                  | Agent: {activeAgent.status}
+                  {activeAgent.pid && ` (PID: ${activeAgent.pid})`}
+                </span>
+              )}
             </span>
           </div>
-          <div>
-            <a href={`/projects/${project.id}/sessions`} class="btn-secondary">
+          <div style="display: flex; gap: 10px;">
+            {activeAgent && (
+              <form method="POST" action={`/agents/${activeAgent.id}/kill`}>
+                <button type="submit" class="btn-danger">Kill Agent</button>
+              </form>
+            )}
+            {!activeAgent && (
+              <form method="POST" action={`/sessions/${session.id}/agent`}>
+                <button type="submit" class="btn-primary">Start Agent</button>
+              </form>
+            )}
+            <a href={`/sessions?projectId=${project.id}`} class="btn-secondary">
               Back to Sessions
             </a>
           </div>
@@ -210,6 +235,29 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         .message-content {
           white-space: pre-wrap;
           word-break: break-word;
+        }
+        .agent-status {
+          margin-left: 10px;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-size: 11px;
+          text-transform: uppercase;
+        }
+        .agent-status-starting {
+          background: #665c00;
+          color: #ffd43b;
+        }
+        .agent-status-connected {
+          background: #0b3d0b;
+          color: #51cf66;
+        }
+        .agent-status-failed, .agent-status-died {
+          background: #3d0b0b;
+          color: #ff6b6b;
+        }
+        .agent-status-killed {
+          background: #3d3d3d;
+          color: #888;
         }
       `}</style>
     </Layout>

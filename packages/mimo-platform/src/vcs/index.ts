@@ -149,4 +149,36 @@ export class VCS {
       error: result.error || undefined,
     };
   }
+
+  async setupSessionWorktree(
+    projectId: string,
+    sessionId: string,
+    worktreePath: string
+  ): Promise<VCSResult> {
+    const { getProjectPath } = await import("../config/paths.js");
+    const projectPath = getProjectPath(projectId);
+    const fossilPath = `${projectPath}/repo.fossil`;
+
+    // Ensure worktree directory exists
+    const { mkdirSync } = await import("fs");
+    try {
+      mkdirSync(worktreePath, { recursive: true });
+    } catch {
+      // Directory might already exist
+    }
+
+    // Check if fossil repo exists
+    const { existsSync } = await import("fs");
+    if (!existsSync(fossilPath)) {
+      return {
+        success: false,
+        error: "Project fossil repository not found",
+      };
+    }
+
+    // Open the fossil repo in the worktree
+    return await this.openFossil(fossilPath, worktreePath);
+  }
 }
+
+export const vcs = new VCS();

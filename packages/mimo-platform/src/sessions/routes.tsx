@@ -1,192 +1,233 @@
+/** @jsx jsx */
+import { jsx } from "hono/jsx";
 import { Hono } from "hono";
-import { sessionRepository } from "../sessions/repository";
-import { chatService } from "../sessions/chat";
-import { projectRepository } from "../projects/repository";
-import { authMiddleware } from "../auth/middleware";
-import { SessionListPage } from "../components/SessionListPage";
-import { SessionDetailPage } from "../components/SessionDetailPage";
-import { SessionCreatePage } from "../components/SessionCreatePage";
+import { getCookie } from "hono/cookie";
+import { sessionRepository } from "./repository.js";
+import { projectRepository } from "../projects/repository.js";
+import { agentService } from "../agents/service.js";
+import { chatService } from "./chat.js";
+import { vcs } from "../vcs/index.js";
+import { Layout } from "../components/Layout.js";
+import { SessionDetailPage } from "../components/SessionDetailPage.js";
+import { SessionCreatePage } from "../components/SessionCreatePage.js";
+import { SessionListPage } from "../components/SessionListPage.js";
+import type { Context } from "hono";
 
-const sessions = new Hono();
+const router = new Hono();
 
-// List sessions for a project (GET /projects/:projectId/sessions)
-sessions.get("/", authMiddleware, async (c) => {
+// Helper to get projectId from either URL param or query param
+function getProjectId(c: Context): string | null {
+  // Try URL param first (for nested routes)
   const projectId = c.req.param("projectId");
-  const user = c.get("user") as { username: string };
+  if (projectId) return projectId;
+  
+  // Fall back to query param (for flat routes)
+  return c.req.query("projectId");
+}
 
-  // Verify project exists and belongs to user
-  const project = await projectRepository.findById(projectId);
-  if (!project || project.owner !== user.username) {
-    return c.notFound();
+// GET /sessions or /projects/:projectId/sessions - List sessions for a project
+router.get("/", async (c: Context) => {
+  const username = getCookie(c, "username");
+  if (!username) {
+    return c.redirect("/auth/login");
   }
 
-  const sessionsList = await sessionRepository.listByProject(projectId);
-  return c.html(<SessionListPage project={project} sessions={sessionsList} />);
-});
-
-// Show create form (GET /projects/:projectId/sessions/new)
-sessions.get("/new", authMiddleware, async (c) => {
-  const projectId = c.req.param("projectId");
-  const user = c.get("user") as { username: string };
-
-  const project = await projectRepository.findById(projectId);
-  if (!project || project.owner !== user.username) {
-    return c.notFound();
+  const projectId = getProjectId(c);
+  if (!projectId) {
+    return c.text("Project ID required", 400);
   }
 
-  return c.html(<SessionCreatePage project={project} />);
+  const project = await projectRepository.findById(projectId);
+  if (!project || project.owner !== username) {
+    return c.text("Project not found", 404);
+  }
+
+  const sessions = await sessionRepository.listByProject(projectId);
+  
+  return c.html(
+    <Layout title={`Sessions - ${project.name}`}>
+      <SessionListPage project={project} sessions={sessions} />
+    </Layout>
+  );
 });
 
-// Create session (POST /projects/:projectId/sessions)
-sessions.post("/", authMiddleware, async (c) => {
-  const projectId = c.req.param("projectId");
-  const user = c.get("user") as { username: string };
+// GET /sessions/new or /projects/:projectId/sessions/new - Create session form
+router.get("/new", async (c: Context) => {
+  const username = getCookie(c, "username");
+  if (!username) {
+    return c.redirect("/auth/login");
+  }
+
+  const projectId = getProjectId(c);
+  if (!projectId) {
+    return c.text("Project ID required", 400);
+  }
 
   const project = await projectRepository.findById(projectId);
-  if (!project || project.owner !== user.username) {
-    return c.notFound();
+  if (!project || project.owner !== username) {
+    return c.text("Project not found", 404);
+  }
+
+  return c.html(
+    <Layout title="New Session">
+      <SessionCreatePage project={project} />
+    </Layout>
+  );
+});
+
+// POST /sessions or /projects/:projectId/sessions - Create new session
+router.post("/", async (c: Context) => {
+  const username = getCookie(c, "username");
+  if (!username) {
+    return c.redirect("/auth/login");
   }
 
   const body = await c.req.parseBody();
   const name = body.name as string;
+  const projectId = (body.projectId as string) || getProjectId(c);
 
-  if (!name) {
-    return c.html(<SessionCreatePage project={project} error="Session name is required" />, 400);
+  if (!name || !projectId) {
+    return c.text("Name and project ID required", 400);
   }
 
+  const project = await projectRepository.findById(projectId);
+  if (!project || project.owner !== username) {
+    return c.text("Project not found", 404);
+  }
+
+  // Create session with worktree
   const session = await sessionRepository.create({
-    name,
-    projectId,
-    owner: user.username,
+    name: name as string,
+    projectId: projectId as string,
+    owner: username,
     worktreePath: "", // Will be set by repository
   });
 
-  return c.redirect(`/projects/${projectId}/sessions/${session.id}`, 302);
+  // Initialize worktree from Fossil repository
+  try {
+    await vcs.setupSessionWorktree(projectId, session.id, session.worktreePath);
+  } catch (error) {
+    console.error("Failed to setup worktree:", error);
+    // Don't fail - user can still see the session
+  }
+
+  return c.redirect(`/projects/${projectId}/sessions/${session.id}`);
 });
 
-// View session (GET /projects/:projectId/sessions/:id)
-sessions.get("/:id", authMiddleware, async (c) => {
-  const projectId = c.req.param("projectId");
+// GET /sessions/:id or /projects/:projectId/sessions/:id - View session detail
+router.get("/:id", async (c: Context) => {
+  const username = getCookie(c, "username");
+  if (!username) {
+    return c.redirect("/auth/login");
+  }
+
   const sessionId = c.req.param("id");
-  const user = c.get("user") as { username: string };
-
-  const project = await projectRepository.findById(projectId);
-  if (!project || project.owner !== user.username) {
-    return c.notFound();
+  const session = await sessionRepository.findById(sessionId);
+  
+  if (!session || session.owner !== username) {
+    return c.text("Session not found", 404);
   }
 
-  const session = await sessionRepository.findByProjectAndId(projectId, sessionId);
-  if (!session) {
-    return c.notFound();
+  const project = await projectRepository.findById(session.projectId);
+  if (!project) {
+    return c.text("Project not found", 404);
   }
 
+  // Get chat history
   const chatHistory = await chatService.loadHistory(sessionId);
+  
+  // Get agent status
+  const agents = await agentService.listAgentsBySession(sessionId);
+  const activeAgent = agents.find(a => a.status === "connected");
 
   return c.html(
-    <SessionDetailPage 
-      project={project} 
-      session={session} 
-      chatHistory={chatHistory}
-    />
+    <Layout title={session.name}>
+      <SessionDetailPage 
+        session={session}
+        project={project}
+        chatHistory={chatHistory}
+        activeAgent={activeAgent}
+      />
+    </Layout>
   );
 });
 
-// Add chat message (POST /projects/:projectId/sessions/:id/chat)
-sessions.post("/:id/chat", authMiddleware, async (c) => {
-  const projectId = c.req.param("projectId");
+// POST /sessions/:id/agent or /projects/:projectId/sessions/:id/agent - Spawn an agent
+router.post("/:id/agent", async (c: Context) => {
+  const username = getCookie(c, "username");
+  if (!username) {
+    return c.redirect("/auth/login");
+  }
+
   const sessionId = c.req.param("id");
-  const user = c.get("user") as { username: string };
-
-  const project = await projectRepository.findById(projectId);
-  if (!project || project.owner !== user.username) {
-    return c.notFound();
+  const session = await sessionRepository.findById(sessionId);
+  
+  if (!session || session.owner !== username) {
+    return c.text("Session not found", 404);
   }
 
-  const session = await sessionRepository.findByProjectAndId(projectId, sessionId);
-  if (!session) {
-    return c.notFound();
+  // Check if there's already an active agent
+  const existingAgents = await agentService.listAgentsBySession(sessionId);
+  const activeAgent = existingAgents.find(a => a.status === "connected" || a.status === "starting");
+  
+  if (activeAgent) {
+    return c.redirect(`/sessions/${sessionId}`);
   }
 
-  const body = await c.req.parseBody();
-  const message = body.message as string;
-
-  if (message) {
-    await chatService.saveMessage(sessionId, {
-      role: "user",
-      content: message,
-      timestamp: new Date().toISOString(),
+  try {
+    await agentService.spawnAgent({
+      sessionId,
+      projectId: session.projectId,
+      owner: username,
     });
+  } catch (error) {
+    console.error("Failed to spawn agent:", error);
+    // Error is handled by service - it updates status and adds chat message
   }
 
-  return c.json({ success: true });
+  return c.redirect(`/projects/${session.projectId}/sessions/${sessionId}`);
 });
 
-// Delete session (POST /projects/:projectId/sessions/:id/delete)
-sessions.post("/:id/delete", authMiddleware, async (c) => {
-  const projectId = c.req.param("projectId");
+// POST /sessions/:id/cancel - Cancel current ACP request
+router.post("/:id/cancel", async (c: Context) => {
+  const username = getCookie(c, "username");
+  if (!username) {
+    return c.redirect("/auth/login");
+  }
+
   const sessionId = c.req.param("id");
-  const user = c.get("user") as { username: string };
-
-  const project = await projectRepository.findById(projectId);
-  if (!project || project.owner !== user.username) {
-    return c.notFound();
+  const session = await sessionRepository.findById(sessionId);
+  
+  if (!session || session.owner !== username) {
+    return c.text("Session not found", 404);
   }
 
-  const session = await sessionRepository.findByProjectAndId(projectId, sessionId);
-  if (!session) {
-    return c.notFound();
-  }
-
-  await sessionRepository.delete(projectId, sessionId);
-  return c.redirect(`/projects/${projectId}/sessions`, 302);
+  const cancelled = await agentService.cancelCurrentRequest(sessionId);
+  
+  return c.json({ success: cancelled });
 });
 
-// Get file tree (GET /projects/:projectId/sessions/:id/files)
-sessions.get("/:id/files", authMiddleware, async (c) => {
-  const projectId = c.req.param("projectId");
+// POST /sessions/:id/delete or /projects/:projectId/sessions/:id/delete - Delete session
+router.post("/:id/delete", async (c: Context) => {
+  const username = getCookie(c, "username");
+  if (!username) {
+    return c.redirect("/auth/login");
+  }
+
   const sessionId = c.req.param("id");
-  const user = c.get("user") as { username: string };
-
-  const project = await projectRepository.findById(projectId);
-  if (!project || project.owner !== user.username) {
-    return c.notFound();
+  const session = await sessionRepository.findById(sessionId);
+  
+  if (!session || session.owner !== username) {
+    return c.text("Session not found", 404);
   }
 
-  const session = await sessionRepository.findByProjectAndId(projectId, sessionId);
-  if (!session) {
-    return c.notFound();
-  }
+  // Kill any active agents
+  await agentService.killAgentsBySession(sessionId);
 
-  // Simple file listing
-  const files = listFiles(session.worktreePath);
+  // Delete session
+  await sessionRepository.delete(session.projectId, sessionId);
 
-  return c.json({ files });
+  return c.redirect(`/projects/${session.projectId}/sessions`);
 });
 
-function listFiles(dirPath: string, prefix = ""): Array<{ path: string; type: "file" | "dir" }> {
-  const { existsSync, readdirSync, statSync } = require("fs");
-  const { join } = require("path");
-
-  if (!existsSync(dirPath)) {
-    return [];
-  }
-
-  const entries = readdirSync(dirPath, { withFileTypes: true });
-  const files: Array<{ path: string; type: "file" | "dir" }> = [];
-
-  for (const entry of entries) {
-    if (entry.name.startsWith(".")) continue; // Skip hidden files
-
-    const fullPath = join(prefix, entry.name);
-    if (entry.isDirectory()) {
-      files.push({ path: fullPath, type: "dir" });
-      files.push(...listFiles(join(dirPath, entry.name), fullPath));
-    } else {
-      files.push({ path: fullPath, type: "file" });
-    }
-  }
-
-  return files;
-}
-
-export default sessions;
+export default router;
