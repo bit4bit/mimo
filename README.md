@@ -166,11 +166,41 @@ Edit via the web UI at `/config` or directly in the file.
 │       └── sessions/
 │           └── {session-id}/
 │               ├── session.yaml
-│               └── chat.jsonl
+│               ├── chat.jsonl
+│               ├── repo.fossil       # Fossil proxy for agent sync
+│               ├── upstream/         # Original repository clone
+│               └── agent-workspace/  # Agent working directory (plain files)
 └── agents/
     └── {agent-id}/
         └── agent.yaml
 ```
+
+### Session Directory Structure
+
+Each session directory contains:
+
+- `session.yaml` - Session metadata (name, status, port, agentWorkspacePath, upstreamPath)
+- `chat.jsonl` - Chat message history
+- `repo.fossil` - Fossil proxy repository for agent synchronization
+- `upstream/` - Clone of the original repository (Git or Fossil)
+- `agent-workspace/` - Working directory where agent makes edits (plain files, not a repository)
+
+**Note:** The `agent-workspace/` was previously called `checkout/` but was renamed to clarify its purpose as a working directory rather than a repository checkout.
+
+## Commit and Push Flow
+
+When you click "Commit" in a session, the system performs a 4-step commit flow:
+
+1. **Sync** (`fossil up`) - Synchronizes the agent-workspace with the latest changes from repo.fossil
+2. **Copy** (clean slate) - Copies all files from agent-workspace to upstream/ directory, removing old files
+3. **Commit** - Commits changes in the upstream/ directory with message "Mimo commit at <timestamp>"
+4. **Push** - Pushes the commit to the remote repository
+
+The commit flow preserves VCS metadata (`.git/` or `.fossil`) during the copy operation.
+
+### Breaking Changes
+
+**Old sessions need recreation**: Sessions created before the agent-workspace rename (v1.x) stored `checkoutPath` in session.yaml. These sessions will need to be recreated to work with the new commit flow.
 
 ## Development
 

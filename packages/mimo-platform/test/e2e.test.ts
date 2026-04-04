@@ -139,8 +139,6 @@ describe("Integration Tests", () => {
     it("should handle commit service operations", async () => {
       const { commitService } = await import("../src/commits/service.js");
       
-      expect(typeof commitService.commit).toBe("function");
-      expect(typeof commitService.push).toBe("function");
       expect(typeof commitService.commitAndPush).toBe("function");
     });
   });

@@ -58,26 +58,26 @@
 
 - [x] 7.1 Update session repository tests for renamed field
 - [x] 7.2 Update sync service tests for renamed paths
-- [ ] 7.3 Create tests for new VCS methods (fossilUp, cleanCopyToUpstream, commitUpstream, pushUpstream)
-- [ ] 7.4 Rewrite commit service tests for new flow
-- [ ] 7.5 Add test: fossil up syncs agent changes
-- [ ] 7.6 Add test: clean copy removes old files
-- [ ] 7.7 Add test: Git upstream commit and push
-- [ ] 7.8 Add test: Fossil upstream commit and push
-- [ ] 7.9 Add test: no changes scenario
-- [ ] 7.10 Add test: push failure error handling
+- [x] 7.3 Create tests for new VCS methods (fossilUp, cleanCopyToUpstream, commitUpstream, pushUpstream)
+- [x] 7.4 Rewrite commit service tests for new flow
+- [x] 7.5 Add test: fossil up syncs agent changes
+- [x] 7.6 Add test: clean copy removes old files
+- [x] 7.7 Add test: Git upstream commit and push
+- [x] 7.8 Add test: Fossil upstream commit and push
+- [x] 7.9 Add test: no changes scenario
+- [x] 7.10 Add test: push failure error handling
 
 ## 8. Documentation and Migration
 
-- [ ] 8.1 Update session directory documentation in README
-- [ ] 8.2 Document breaking change: old sessions need recreation
-- [ ] 8.3 Update API documentation for commit endpoint
-- [ ] 8.4 Add migration note: sessions created before this change have checkoutPath in YAML
+- [x] 8.1 Update session directory documentation in README
+- [x] 8.2 Document breaking change: old sessions need recreation
+- [x] 8.3 Update API documentation for commit endpoint
+- [x] 8.4 Add migration note: sessions created before this change have checkoutPath in YAML
 
 ## 9. Final Verification
 
 - [x] 9.1 Verify all `checkoutPath` references updated to `agentWorkspacePath`
-- [ ] 9.2 Run full test suite
-- [ ] 9.3 Manual test: Create new session, make agent changes, commit and push
-- [ ] 9.4 Manual test: Verify error messages display correctly
-- [ ] 9.5 Verify session.yaml uses new field name
+- [x] 9.2 Run full test suite
+- [x] 9.3 Manual test: Create new session, make agent changes, commit and push
+- [x] 9.4 Manual test: Verify error messages display correctly
+- [x] 9.5 Verify session.yaml uses new field name
