@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { serveStatic } from "hono/bun";
 import auth from "./auth/routes";
 import protectedRoutes from "./protected/routes";
 import projects from "./projects/routes";
@@ -17,6 +18,9 @@ import { relative } from "path";
 
 const app = new Hono();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+
+// Serve static files from public/
+app.use("/js/*", serveStatic({ root: "./public" }));
 
 // Track active chat sessions
 const chatSessions = new Map();
@@ -329,8 +333,35 @@ async function handleAgentMessage(ws, data) {
         console.log("[agent] No sessions assigned to agent");
       }
       break;
+    case "thought_start":
+    case "thought_chunk":
+    case "thought_end":
+    case "message_chunk":
+    case "usage_update":
+      // Forward structured ACP updates to chat clients
+      const updateSessionId = data.sessionId;
+      if (!updateSessionId) {
+        console.log(`No sessionId in ${data.type}`);
+        return;
+      }
+      
+      const updateSubscribers = chatSessions.get(updateSessionId);
+      if (updateSubscribers) {
+        updateSubscribers.forEach(client => {
+          if (client.readyState === 1) { // WebSocket.OPEN
+            client.send(JSON.stringify({
+              type: data.type,
+              content: data.content,
+              usage: data.usage,
+              timestamp: new Date().toISOString(),
+            }));
+          }
+        });
+      }
+      break;
+    
     case "acp_response":
-      // Handle ACP response and broadcast to chat
+      // Legacy: Handle simple ACP response and broadcast to chat
       // Agent must specify which session this is for
       const sessionId = data.sessionId;
       if (!sessionId) {

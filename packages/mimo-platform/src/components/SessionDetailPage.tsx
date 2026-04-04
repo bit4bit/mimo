@@ -176,6 +176,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 <button type="submit">Send</button>
                 <span class="chat-connection-status" title="Connection status"></span>
               </form>
+              <div id="chat-usage" class="chat-usage" style="display: none; font-size: 0.75em; color: #666; margin-top: 4px; text-align: right;"></div>
             </div>
           </div>
 

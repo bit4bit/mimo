@@ -5,8 +5,10 @@
   // Chat WebSocket connection
   let chatSocket = null;
   let currentSessionId = null;
-  let messageBuffer = '';
-  let currentStreamingMessage = null;
+  let currentThoughtElement = null;
+  let currentThoughtContent = null;
+  let currentMessageElement = null;
+  let currentMessageContent = null;
 
   // Initialize chat for a session
   function initChat(sessionId) {
@@ -58,25 +60,31 @@
 
   // Handle incoming WebSocket messages
   function handleWebSocketMessage(data) {
+    console.log('[CHAT] Received message type:', data.type, data);
+    
     switch (data.type) {
+      case 'thought_start':
+        startThoughtSection();
+        break;
+        
+      case 'thought_chunk':
+        appendThoughtChunk(data.content);
+        break;
+        
+      case 'thought_end':
+        endThoughtSection();
+        break;
+        
+      case 'message_chunk':
+        appendMessageChunk(data.content);
+        break;
+        
+      case 'usage_update':
+        updateUsageDisplay(data.usage);
+        break;
+        
       case 'message':
-        if (data.streaming) {
-          handleStreamingMessage(data);
-        } else {
-          addMessageToChat(data);
-        }
-        break;
-        
-      case 'stream_start':
-        startStreamingMessage(data);
-        break;
-        
-      case 'stream_chunk':
-        appendStreamingChunk(data);
-        break;
-        
-      case 'stream_end':
-        endStreamingMessage(data);
+        addMessageToChat(data);
         break;
         
       case 'error':
@@ -175,89 +183,141 @@
     scrollToBottom();
   }
 
-  // Start a streaming message
-  function startStreamingMessage(data) {
+  // Start a thought section (collapsible)
+  function startThoughtSection() {
     const chatContainer = document.querySelector('#chat-messages');
     if (!chatContainer) return;
     
-    // Create streaming message element
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'message message-assistant streaming';
-    messageDiv.dataset.streamId = data.streamId;
+    // Create thought container
+    const thoughtDiv = document.createElement('div');
+    thoughtDiv.className = 'message message-thought thought-collapsed';
     
     const header = document.createElement('div');
-    header.className = 'message-header';
-    header.textContent = 'Agent';
+    header.className = 'thought-header';
+    header.innerHTML = '<span class="thought-toggle">▶</span> Thinking...';
+    header.style.cursor = 'pointer';
+    header.style.fontSize = '0.85em';
+    header.style.color = '#666';
+    header.style.padding = '8px';
+    header.style.background = '#f5f5f5';
+    header.style.borderRadius = '4px';
     
     const content = document.createElement('div');
-    content.className = 'message-content';
+    content.className = 'thought-content';
+    content.style.display = 'none';
+    content.style.padding = '8px';
+    content.style.fontSize = '0.9em';
+    content.style.color = '#555';
+    content.style.background = '#fafafa';
+    content.style.borderLeft = '3px solid #ddd';
     
-    const indicator = document.createElement('span');
-    indicator.className = 'streaming-indicator';
-    indicator.textContent = '...';
+    // Toggle visibility on header click
+    header.addEventListener('click', () => {
+      const isVisible = content.style.display !== 'none';
+      content.style.display = isVisible ? 'none' : 'block';
+      header.querySelector('.thought-toggle').textContent = isVisible ? '▶' : '▼';
+      thoughtDiv.classList.toggle('thought-collapsed', isVisible);
+      thoughtDiv.classList.toggle('thought-expanded', !isVisible);
+    });
     
-    messageDiv.appendChild(header);
-    messageDiv.appendChild(content);
-    messageDiv.appendChild(indicator);
+    thoughtDiv.appendChild(header);
+    thoughtDiv.appendChild(content);
     
-    chatContainer.appendChild(messageDiv);
-    scrollToBottom();
-    
-    currentStreamingMessage = {
-      element: messageDiv,
-      content: content,
-      buffer: '',
-    };
-  }
-
-  // Append a chunk to streaming message
-  function appendStreamingChunk(data) {
-    if (!currentStreamingMessage) return;
-    
-    currentStreamingMessage.buffer += data.chunk;
-    currentStreamingMessage.content.textContent = currentStreamingMessage.buffer;
-    scrollToBottom();
-  }
-
-  // Handle streaming message updates
-  function handleStreamingMessage(data) {
-    if (!currentStreamingMessage) {
-      // Start new streaming message
-      startStreamingMessage({
-        streamId: data.id || Date.now().toString(),
-      });
+    // Remove "no messages" placeholder if exists
+    const placeholder = chatContainer.querySelector('.no-messages');
+    if (placeholder) {
+      placeholder.remove();
     }
     
-    appendStreamingChunk({ chunk: data.content });
+    chatContainer.appendChild(thoughtDiv);
+    scrollToBottom();
+    
+    currentThoughtElement = thoughtDiv;
+    currentThoughtContent = content;
   }
 
-  // End streaming message
-  function endStreamingMessage(data) {
-    if (!currentStreamingMessage) return;
+  // Append a chunk to the thought section
+  function appendThoughtChunk(text) {
+    if (!currentThoughtContent) return;
+    currentThoughtContent.textContent += text;
+    scrollToBottom();
+  }
+
+  // End the thought section
+  function endThoughtSection() {
+    if (!currentThoughtElement) return;
     
-    // Remove streaming indicator
-    const indicator = currentStreamingMessage.element.querySelector('.streaming-indicator');
+    // Update header to show completion
+    const header = currentThoughtElement.querySelector('.thought-header');
+    if (header) {
+      header.innerHTML = '<span class="thought-toggle">▶</span> Thought process';
+    }
+    
+    currentThoughtElement = null;
+    currentThoughtContent = null;
+  }
+
+  // Append a chunk to the assistant message
+  function appendMessageChunk(text) {
+    const chatContainer = document.querySelector('#chat-messages');
+    if (!chatContainer) return;
+    
+    // Create message element if doesn't exist
+    if (!currentMessageElement) {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message message-assistant streaming';
+      
+      const header = document.createElement('div');
+      header.className = 'message-header';
+      header.textContent = 'Agent';
+      
+      const content = document.createElement('div');
+      content.className = 'message-content';
+      
+      const indicator = document.createElement('span');
+      indicator.className = 'streaming-indicator';
+      indicator.textContent = '●';
+      
+      messageDiv.appendChild(header);
+      messageDiv.appendChild(content);
+      messageDiv.appendChild(indicator);
+      
+      chatContainer.appendChild(messageDiv);
+      scrollToBottom();
+      
+      currentMessageElement = messageDiv;
+      currentMessageContent = content;
+    }
+    
+    currentMessageContent.textContent += text;
+    scrollToBottom();
+  }
+
+  // End the message stream
+  function endMessageStream() {
+    if (!currentMessageElement) return;
+    
+    const indicator = currentMessageElement.querySelector('.streaming-indicator');
     if (indicator) {
       indicator.remove();
     }
     
-    // Remove streaming class
-    currentStreamingMessage.element.classList.remove('streaming');
-    
-    currentStreamingMessage = null;
+    currentMessageElement.classList.remove('streaming');
+    currentMessageElement = null;
+    currentMessageContent = null;
   }
 
-  // Load chat history
-  function loadChatHistory(messages) {
-    const chatContainer = document.querySelector('#chat-messages');
-    if (!chatContainer) return;
+  // Update usage display
+  function updateUsageDisplay(usage) {
+    const usageEl = document.querySelector('#chat-usage');
+    if (!usageEl) return;
     
-    // Clear existing
-    chatContainer.innerHTML = '';
-    
-    messages.forEach(msg => {
-      addMessageToChat(msg);
-    });
+    if (usage && usage.amount !== undefined) {
+      usageEl.textContent = `Cost: $${(usage.amount / 100).toFixed(4)}`;
+    } else {
+      usageEl.textContent = '';
+    }
+    usageEl.style.display = 'block';
   }
 
   // Scroll chat to bottom
@@ -293,6 +353,132 @@
     errorDiv.appendChild(content);
     chatContainer.appendChild(errorDiv);
     scrollToBottom();
+  }
+
+  // Load chat history
+  function loadChatHistory(messages) {
+    const chatContainer = document.querySelector('#chat-messages');
+    if (!chatContainer) return;
+    
+    // Clear existing messages
+    chatContainer.innerHTML = '';
+    
+    // Track current thought and message for grouping
+    let currentThoughtText = '';
+    let currentMessageText = '';
+    let inThought = false;
+    let inMessage = false;
+    
+    messages.forEach(msg => {
+      // Skip available_commands_update in history
+      if (msg.content && msg.content.includes('available_commands_update')) {
+        return;
+      }
+      
+      // Try to parse JSON content for assistant messages
+      if (msg.role === 'assistant' && msg.content) {
+        try {
+          const parsed = JSON.parse(msg.content);
+          if (parsed.update) {
+            const updateType = parsed.update.sessionUpdate;
+            const text = parsed.update.content?.text || '';
+            
+            // Handle thought chunks
+            if (updateType === 'agent_thought_chunk') {
+              if (!inThought) {
+                inThought = true;
+                currentThoughtText = '';
+              }
+              currentThoughtText += text;
+              return; // Skip adding as individual message
+            }
+            
+            // Handle message chunks
+            if (updateType === 'agent_message_chunk') {
+              if (inThought) {
+                // End thought section first
+                addThoughtToChat(chatContainer, currentThoughtText);
+                inThought = false;
+                currentThoughtText = '';
+              }
+              if (!inMessage) {
+                inMessage = true;
+                currentMessageText = '';
+              }
+              currentMessageText += text;
+              return; // Skip adding as individual message
+            }
+            
+            // Handle usage
+            if (updateType === 'usage_update') {
+              updateUsageDisplay(parsed.update.cost || {});
+              return;
+            }
+            
+            // Skip other types
+            return;
+          }
+        } catch (e) {
+          // Not JSON, display as-is
+        }
+      }
+      
+      // User message or unparseable content
+      addMessageToChat(msg);
+    });
+    
+    // Add any pending thought
+    if (inThought && currentThoughtText) {
+      addThoughtToChat(chatContainer, currentThoughtText);
+    }
+    
+    // Add any pending message
+    if (inMessage && currentMessageText) {
+      addMessageToChat({
+        role: 'assistant',
+        content: currentMessageText,
+      });
+    }
+    
+    scrollToBottom();
+  }
+
+  // Add thought section to chat
+  function addThoughtToChat(container, text) {
+    if (!text || !text.trim()) return;
+    
+    const thoughtDiv = document.createElement('div');
+    thoughtDiv.className = 'message message-thought';
+    
+    const header = document.createElement('div');
+    header.className = 'thought-header';
+    header.innerHTML = '<span class="thought-toggle">▶</span> Thought process';
+    header.style.cursor = 'pointer';
+    header.style.fontSize = '0.85em';
+    header.style.color = '#666';
+    header.style.padding = '8px';
+    header.style.background = '#f5f5f5';
+    header.style.borderRadius = '4px';
+    
+    const content = document.createElement('div');
+    content.className = 'thought-content';
+    content.textContent = text;
+    content.style.display = 'none';
+    content.style.padding = '8px';
+    content.style.fontSize = '0.9em';
+    content.style.color = '#555';
+    content.style.background = '#fafafa';
+    content.style.borderLeft = '3px solid #ddd';
+    
+    header.addEventListener('click', () => {
+      const isVisible = content.style.display !== 'none';
+      content.style.display = isVisible ? 'none' : 'block';
+      header.querySelector('.thought-toggle').textContent = isVisible ? '▶' : '▼';
+    });
+    
+    thoughtDiv.appendChild(header);
+    thoughtDiv.appendChild(content);
+    container.appendChild(thoughtDiv);
   }
 
   // Request chat replay

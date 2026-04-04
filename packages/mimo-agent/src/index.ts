@@ -2,6 +2,8 @@ import { WebSocket } from "ws";
 import { spawn, ChildProcess, execSync } from "child_process";
 import { watch, existsSync, mkdirSync } from "fs";
 import { join } from "path";
+import * as acp from "@agentclientprotocol/sdk";
+import { Readable, Writable } from "node:stream";
 
 interface AgentConfig {
   token: string;
@@ -15,6 +17,9 @@ interface SessionInfo {
   fossilUrl: string;
   acpProcess: ChildProcess | null;
   fileWatcher: ReturnType<typeof watch> | null;
+  acpConnection?: acp.ClientSideConnection;
+  acpSessionId?: string;
+  currentThoughtBuffer?: string;
 }
 
 interface FileChange {
@@ -345,30 +350,131 @@ class MimoAgent {
     console.log(`[mimo-agent] Spawning ACP: ${acpCommand} ${acpArgs.join(" ")}`);
     console.log(`[mimo-agent]   Working directory: ${session.checkoutPath}`);
 
-    session.acpProcess = spawn(acpCommand, acpArgs, {
+    const process = spawn(acpCommand, acpArgs, {
       cwd: session.checkoutPath,
       stdio: ["pipe", "pipe", "pipe"],
     });
+    session.acpProcess = process;
 
-    session.acpProcess.stdout?.on("data", (data: Buffer) => {
-      this.send({
-        type: "acp_response",
-        sessionId: session.sessionId,
-        content: data.toString(),
-        timestamp: new Date().toISOString(),
+    // Create ACP stream for stdio
+    const input = Writable.toWeb(process.stdin!);
+    const output = Readable.toWeb(process.stdout!);
+    const stream = acp.ndJsonStream(input, output);
+
+    // Create client-side connection
+    const client: acp.Client = {
+      requestPermission: async (params) => {
+        // Auto-approve for now - you might want to route this to the platform
+        return {
+          outcome: { outcome: "approved", optionId: "allow" },
+        };
+      },
+      sessionUpdate: async (params) => {
+        const update = params.update as any;
+        const updateType = update?.sessionUpdate;
+
+        // Skip available_commands_update for now
+        if (updateType === "available_commands_update") {
+          return;
+        }
+
+        // Parse and route different update types
+        if (updateType === "agent_thought_chunk") {
+          // Group thoughts - send start on first chunk
+          if (!session.currentThoughtBuffer) {
+            session.currentThoughtBuffer = "";
+            this.send({
+              type: "thought_start",
+              sessionId: session.sessionId,
+              timestamp: new Date().toISOString(),
+            });
+          }
+          session.currentThoughtBuffer += update.content?.text || "";
+          this.send({
+            type: "thought_chunk",
+            sessionId: session.sessionId,
+            content: update.content?.text || "",
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+
+        if (updateType === "agent_message_chunk") {
+          // If we were buffering thoughts, end them first
+          if (session.currentThoughtBuffer) {
+            this.send({
+              type: "thought_end",
+              sessionId: session.sessionId,
+              timestamp: new Date().toISOString(),
+            });
+            session.currentThoughtBuffer = "";
+          }
+          this.send({
+            type: "message_chunk",
+            sessionId: session.sessionId,
+            content: update.content?.text || "",
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+
+        if (updateType === "usage_update") {
+          this.send({
+            type: "usage_update",
+            sessionId: session.sessionId,
+            usage: update.cost || {},
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+
+        // Fallback for other update types - send minimal info
+        this.send({
+          type: "acp_response",
+          sessionId: session.sessionId,
+          content: updateType || "update",
+          timestamp: new Date().toISOString(),
+        });
+      },
+    };
+
+    session.acpConnection = new acp.ClientSideConnection(() => client, stream);
+
+    // Initialize the ACP connection
+    session.acpConnection
+      .initialize({
+        protocolVersion: acp.PROTOCOL_VERSION,
+        clientInfo: { name: "mimo-agent", version: "0.1.0" },
+      })
+      .then((response) => {
+        console.log(`[mimo-agent] ACP initialized for ${session.sessionId}:`, response.protocolVersion);
+        
+        // Create session - mcpServers is required by schema
+        return session.acpConnection!.newSession({
+          cwd: session.checkoutPath,
+          mcpServers: [],
+        });
+      })
+      .then((sessionResponse) => {
+        session.acpSessionId = sessionResponse.sessionId;
+        console.log(`[mimo-agent] ACP session created: ${sessionResponse.sessionId}`);
+      })
+      .catch((err) => {
+        console.error(`[mimo-agent] ACP init error for ${session.sessionId}:`, err);
       });
-    });
 
-    session.acpProcess.stderr?.on("data", (data: Buffer) => {
+    process.stderr?.on("data", (data: Buffer) => {
       console.error(`[mimo-agent] ACP stderr (${session.sessionId}):`, data.toString());
     });
 
-    session.acpProcess.on("close", (code: number | null) => {
+    process.on("close", (code: number | null) => {
       console.log(`[mimo-agent] ACP process exited for ${session.sessionId} with code ${code}`);
       session.acpProcess = null;
+      session.acpConnection = undefined;
+      session.acpSessionId = undefined;
     });
 
-    session.acpProcess.on("error", (err: Error) => {
+    process.on("error", (err: Error) => {
       console.error(`[mimo-agent] ACP process error for ${session.sessionId}:`, err.message);
       this.send({
         type: "session_error",
@@ -450,11 +556,30 @@ class MimoAgent {
       return;
     }
 
-    // Forward to ACP process if running
-    if (session.acpProcess && session.acpProcess.stdin) {
-      session.acpProcess.stdin.write(content + "\n");
+    // Send prompt via ACP connection
+    if (session.acpConnection && session.acpSessionId) {
+      console.log(`[mimo-agent] Sending prompt to ACP for session ${sessionId}`);
+      session.acpConnection
+        .prompt({
+          sessionId: session.acpSessionId,
+          prompt: [
+            { type: "text", text: content },
+          ],
+        })
+        .then((response) => {
+          console.log(`[mimo-agent] Prompt completed: ${response.stopReason}`);
+        })
+        .catch((err) => {
+          console.error(`[mimo-agent] Prompt error:`, err);
+          this.send({
+            type: "error_response",
+            sessionId,
+            error: `ACP prompt error: ${err.message}`,
+            timestamp: new Date().toISOString(),
+          });
+        });
     } else {
-      console.log(`[mimo-agent] No ACP process for session ${sessionId}`);
+      console.log(`[mimo-agent] No ACP connection for session ${sessionId}`);
     }
   }
 
