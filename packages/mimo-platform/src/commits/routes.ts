@@ -10,61 +10,33 @@ const router = new Hono();
 // Apply auth middleware to all routes
 router.use("/*", authMiddleware);
 
-// POST /commits/:sessionId - Commit changes
-router.post("/:sessionId", async (c: Context) => {
-  const sessionId = c.req.param("sessionId");
-  const { message } = await c.req.json() as { message: string };
-  
-  if (!message || message.trim().length === 0) {
-    return c.json({
-      success: false,
-      error: "Commit message is required",
-    }, 400);
-  }
-  
-  const result = await commitService.commit(sessionId, message);
-  return c.json(result);
-});
-
-// POST /commits/:sessionId/push - Push changes
-router.post("/:sessionId/push", async (c: Context) => {
-  const sessionId = c.req.param("sessionId");
-  
-  const result = await commitService.push(sessionId);
-  return c.json(result);
-});
-
 // POST /commits/:sessionId/commit-and-push - Commit and push
+// The commit message is automatically generated: "Mimo commit at <timestamp>"
 router.post("/:sessionId/commit-and-push", async (c: Context) => {
   const sessionId = c.req.param("sessionId");
-  const { message } = await c.req.json() as { message: string };
   
-  if (!message || message.trim().length === 0) {
-    return c.json({
-      success: false,
-      error: "Commit message is required",
-    }, 400);
-  }
-  
-  const result = await commitService.commitAndPush(sessionId, message);
-  return c.json(result);
+  // Note: Message parameter is accepted for backwards compatibility but ignored
+  // The commit message is automatically generated with timestamp
+  const result = await commitService.commitAndPush(sessionId);
+  return c.json({
+    success: result.success,
+    message: result.message,
+    error: result.error,
+    step: result.step,
+  });
 });
 
-// GET /commits/:sessionId/status - Get repository status
-router.get("/:sessionId/status", async (c: Context) => {
+// POST /commits/:sessionId - Alias for commit-and-push
+router.post("/:sessionId", async (c: Context) => {
   const sessionId = c.req.param("sessionId");
   
-  const result = await commitService.getStatus(sessionId);
-  return c.json(result);
-});
-
-// GET /commits/:sessionId/history - Get commit history
-router.get("/:sessionId/history", async (c: Context) => {
-  const sessionId = c.req.param("sessionId");
-  const limit = parseInt(c.req.query("limit") || "10");
-  
-  const result = await commitService.getCommitHistory(sessionId, limit);
-  return c.json(result);
+  const result = await commitService.commitAndPush(sessionId);
+  return c.json({
+    success: result.success,
+    message: result.message,
+    error: result.error,
+    step: result.step,
+  });
 });
 
 export default router;

@@ -10,7 +10,7 @@ export interface Session {
   projectId: string;
   owner: string;
   upstreamPath: string;
-  checkoutPath: string;
+  agentWorkspacePath: string;
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
   port: number | null;
@@ -24,7 +24,7 @@ export interface SessionData {
   projectId: string;
   owner: string;
   upstreamPath: string;
-  checkoutPath: string;
+  agentWorkspacePath: string;
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
   port: number | null;
@@ -52,8 +52,8 @@ export class SessionRepository {
     return join(this.getSessionPath(projectId, sessionId), "upstream");
   }
 
-  private getCheckoutPath(projectId: string, sessionId: string): string {
-    return join(this.getSessionPath(projectId, sessionId), "checkout");
+  private getAgentWorkspacePath(projectId: string, sessionId: string): string {
+    return join(this.getSessionPath(projectId, sessionId), "agent-workspace");
   }
 
   private generateId(): string {
@@ -64,8 +64,8 @@ export class SessionRepository {
     const id = this.generateId();
     const sessionPath = this.getSessionPath(input.projectId, id);
     const upstreamPath = this.getUpstreamPath(input.projectId, id);
-    const checkoutPath = this.getCheckoutPath(input.projectId, id);
-    
+    const agentWorkspacePath = this.getAgentWorkspacePath(input.projectId, id);
+
     // Create session directory
     if (!existsSync(sessionPath)) {
       mkdirSync(sessionPath, { recursive: true });
@@ -76,9 +76,9 @@ export class SessionRepository {
       mkdirSync(upstreamPath, { recursive: true });
     }
 
-    // Create checkout directory
-    if (!existsSync(checkoutPath)) {
-      mkdirSync(checkoutPath, { recursive: true });
+    // Create agent-workspace directory
+    if (!existsSync(agentWorkspacePath)) {
+      mkdirSync(agentWorkspacePath, { recursive: true });
     }
 
     const now = new Date().toISOString();
@@ -88,7 +88,7 @@ export class SessionRepository {
       projectId: input.projectId,
       owner: input.owner,
       upstreamPath,
-      checkoutPath,
+      agentWorkspacePath,
       assignedAgentId: input.assignedAgentId,
       status: "active",
       port: null,
@@ -126,8 +126,13 @@ export class SessionRepository {
           if (existsSync(sessionFile)) {
             const content = readFileSync(sessionFile, "utf-8");
             const data = load(content) as SessionData;
-            return {
+            // Handle migration from checkoutPath to agentWorkspacePath
+            const sessionData = {
               ...data,
+              agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
+            };
+            return {
+              ...sessionData,
               createdAt: new Date(data.createdAt),
               updatedAt: new Date(data.updatedAt),
             };
@@ -147,9 +152,14 @@ export class SessionRepository {
 
     const content = readFileSync(filePath, "utf-8");
     const data = load(content) as SessionData;
-    
-    return {
+    // Handle migration from checkoutPath to agentWorkspacePath
+    const sessionData = {
       ...data,
+      agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
+    };
+
+    return {
+      ...sessionData,
       createdAt: new Date(data.createdAt),
       updatedAt: new Date(data.updatedAt),
     };
@@ -170,8 +180,13 @@ export class SessionRepository {
         if (existsSync(sessionFile)) {
           const content = readFileSync(sessionFile, "utf-8");
           const data = load(content) as SessionData;
-          sessions.push({
+          // Handle migration from checkoutPath to agentWorkspacePath
+          const sessionData = {
             ...data,
+            agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
+          };
+          sessions.push({
+            ...sessionData,
             createdAt: new Date(data.createdAt),
             updatedAt: new Date(data.updatedAt),
           });
@@ -202,9 +217,14 @@ export class SessionRepository {
               if (existsSync(sessionFile)) {
                 const content = readFileSync(sessionFile, "utf-8");
                 const data = load(content) as SessionData;
+                // Handle migration from checkoutPath to agentWorkspacePath
+                const sessionData = {
+                  ...data,
+                  agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
+                };
                 if (data.assignedAgentId === agentId) {
                   sessions.push({
-                    ...data,
+                    ...sessionData,
                     createdAt: new Date(data.createdAt),
                     updatedAt: new Date(data.updatedAt),
                   });
@@ -242,7 +262,7 @@ export class SessionRepository {
   async delete(projectId: string, sessionId: string): Promise<void> {
     const sessionPath = this.getSessionPath(projectId, sessionId);
     
-    // Delete entire session directory (includes upstream/, checkout/, repo.fossil, session.yaml)
+    // Delete entire session directory (includes upstream/, agent-workspace/, repo.fossil, session.yaml)
     if (existsSync(sessionPath)) {
       this.deleteDirectoryRecursive(sessionPath);
     }

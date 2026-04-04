@@ -30,7 +30,7 @@ export interface ChangeSet {
 export interface FileSyncState {
   sessionId: string;
   upstreamPath: string;
-  checkoutPath: string;
+  agentWorkspacePath: string;
   changes: Map<string, FileChange>;
   baselineChecksums: Map<string, string>; // Track original checksums at last sync
   lastSyncAt?: Date;
@@ -42,24 +42,24 @@ export class FileSyncService {
 
   async initializeSession(
     sessionId: string,
-    checkoutPath: string,
+    agentWorkspacePath: string,
     upstreamPath?: string
   ): Promise<void> {
     // Get paths from session if not provided
-    if (!upstreamPath || !checkoutPath) {
+    if (!upstreamPath || !agentWorkspacePath) {
       const session = await sessionRepository.findById(sessionId);
       if (!session) {
         throw new Error(`Session ${sessionId} not found`);
       }
       
       upstreamPath = upstreamPath || session.upstreamPath;
-      checkoutPath = checkoutPath || session.checkoutPath;
+      agentWorkspacePath = agentWorkspacePath || session.agentWorkspacePath;
     }
 
     const syncState: FileSyncState = {
       sessionId,
       upstreamPath,
-      checkoutPath,
+      agentWorkspacePath,
       changes: new Map(),
       baselineChecksums: new Map(),
     };
@@ -94,7 +94,7 @@ export class FileSyncService {
       } else {
         // Check if file exists in original repo
         const originalPath = join(syncState!.upstreamPath, change.path);
-        const sessionPath = join(syncState!.checkoutPath, change.path);
+        const sessionPath = join(syncState!.agentWorkspacePath, change.path);
         
         if (!existsSync(originalPath) && existsSync(sessionPath)) {
           status = "new";
@@ -144,7 +144,7 @@ export class FileSyncService {
     }
 
     // Get checksums
-    const sessionPath = join(syncState.checkoutPath, filePath);
+    const sessionPath = join(syncState.agentWorkspacePath, filePath);
     
     if (!existsSync(sessionPath)) {
       // File was deleted in session but exists in original
@@ -186,7 +186,7 @@ export class FileSyncService {
         continue;
       }
 
-      const sessionPath = join(syncState.checkoutPath, change.path);
+      const sessionPath = join(syncState.agentWorkspacePath, change.path);
       const originalPath = join(syncState.upstreamPath, change.path);
 
       try {
@@ -240,7 +240,7 @@ export class FileSyncService {
       syncState.upstreamPath,
       syncState.upstreamPath,
       async (originalPath, relativePath) => {
-        const sessionPath = join(syncState.checkoutPath, relativePath);
+        const sessionPath = join(syncState.agentWorkspacePath, relativePath);
         
         // Check if file exists in session
         if (!existsSync(sessionPath)) {
@@ -320,7 +320,7 @@ export class FileSyncService {
       throw new Error(`Session ${sessionId} not initialized`);
     }
 
-    const sessionPath = join(syncState.checkoutPath, filePath);
+    const sessionPath = join(syncState.agentWorkspacePath, filePath);
     const originalPath = join(syncState.upstreamPath, filePath);
 
     if (resolution === "session") {
@@ -400,8 +400,8 @@ export class FileSyncService {
 
     // Then scan session worktree
     await this.scanDirectory(
-      syncState.checkoutPath,
-      syncState.checkoutPath,
+      syncState.agentWorkspacePath,
+      syncState.agentWorkspacePath,
       async (fullPath, relativePath) => {
         const fileChange: FileChange = {
           path: relativePath,
@@ -443,7 +443,7 @@ export class FileSyncService {
     const syncState = this.syncStates.get(sessionId);
     if (!syncState) return {};
 
-    const sessionPath = join(syncState.checkoutPath, filePath);
+    const sessionPath = join(syncState.agentWorkspacePath, filePath);
     
     if (!existsSync(sessionPath)) {
       return {};

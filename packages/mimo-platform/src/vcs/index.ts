@@ -322,21 +322,21 @@ export class VCS {
 
   async openFossilCheckout(
     fossilPath: string,
-    checkoutPath: string
+    targetPath: string
   ): Promise<VCSResult> {
     const { mkdirSync } = await import("fs");
     
-    // Ensure checkout directory exists
+    // Ensure target directory exists
     try {
-      mkdirSync(checkoutPath, { recursive: true });
+      mkdirSync(targetPath, { recursive: true });
     } catch {
       // Directory might already exist
     }
     
-    // Open the fossil repo in the checkout directory
+    // Open the fossil repo in the target directory
     const result = await this.execCommand(
       ["fossil", "open", fossilPath],
-      checkoutPath
+      targetPath
     );
     
     return {
@@ -446,6 +446,213 @@ export class VCS {
 
     // Open the fossil repo in the worktree
     return await this.openFossil(fossilPath, worktreePath);
+  }
+
+  // New methods for commit flow
+
+  async fossilUp(agentWorkspacePath: string): Promise<VCSResult> {
+    const result = await this.execCommand(["fossil", "up"], agentWorkspacePath);
+    return {
+      success: result.success,
+      output: result.output,
+      error: result.error || undefined,
+    };
+  }
+
+  async cleanCopyToUpstream(
+    agentWorkspacePath: string,
+    upstreamPath: string
+  ): Promise<VCSResult> {
+    const { readdirSync, statSync, copyFileSync, mkdirSync, unlinkSync, rmdirSync } = await import("fs");
+    const { join } = await import("path");
+
+    try {
+      // Get list of files to preserve (VCS directories)
+      const preserveItems = [".git", ".fossil"];
+      const itemsToPreserve: string[] = [];
+
+      // Check what exists in upstream that we need to preserve
+      if (existsSync(upstreamPath)) {
+        const entries = readdirSync(upstreamPath);
+        for (const entry of entries) {
+          if (preserveItems.includes(entry)) {
+            itemsToPreserve.push(entry);
+          }
+        }
+      }
+
+      // Create a temporary directory to hold preserved items
+      const { mkdtempSync } = await import("fs");
+      const { tmpdir } = await import("os");
+      const tempDir = mkdtempSync(join(tmpdir(), "mimo-preserve-"));
+
+      // Move preserved items to temp
+      for (const item of itemsToPreserve) {
+        const sourcePath = join(upstreamPath, item);
+        const tempPath = join(tempDir, item);
+        if (statSync(sourcePath).isDirectory()) {
+          // Use rename for directories
+          const { renameSync } = await import("fs");
+          renameSync(sourcePath, tempPath);
+        } else {
+          const { renameSync } = await import("fs");
+          renameSync(sourcePath, tempPath);
+        }
+      }
+
+      // Delete all remaining items in upstream
+      const deleteRecursive = (dirPath: string) => {
+        if (!existsSync(dirPath)) return;
+        const entries = readdirSync(dirPath, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = join(dirPath, entry.name);
+          if (entry.isDirectory()) {
+            deleteRecursive(fullPath);
+            rmdirSync(fullPath);
+          } else {
+            unlinkSync(fullPath);
+          }
+        }
+      };
+
+      deleteRecursive(upstreamPath);
+
+      // Ensure upstream directory exists
+      if (!existsSync(upstreamPath)) {
+        mkdirSync(upstreamPath, { recursive: true });
+      }
+
+      // Restore preserved items
+      for (const item of itemsToPreserve) {
+        const tempPath = join(tempDir, item);
+        const destPath = join(upstreamPath, item);
+        const { renameSync } = await import("fs");
+        renameSync(tempPath, destPath);
+      }
+
+      // Clean up temp directory
+      rmdirSync(tempDir);
+
+      // Copy all files from agent-workspace to upstream
+      const copyRecursive = (source: string, dest: string) => {
+        if (!existsSync(source)) return;
+
+        const entries = readdirSync(source, { withFileTypes: true });
+        for (const entry of entries) {
+          // Skip hidden files and VCS directories
+          if (entry.name.startsWith(".")) continue;
+
+          const sourcePath = join(source, entry.name);
+          const destPath = join(dest, entry.name);
+
+          if (entry.isDirectory()) {
+            if (!existsSync(destPath)) {
+              mkdirSync(destPath, { recursive: true });
+            }
+            copyRecursive(sourcePath, destPath);
+          } else {
+            copyFileSync(sourcePath, destPath);
+          }
+        }
+      };
+
+      copyRecursive(agentWorkspacePath, upstreamPath);
+
+      return {
+        success: true,
+        output: "Files copied successfully",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to copy files: ${error}`,
+      };
+    }
+  }
+
+  async commitUpstream(
+    upstreamPath: string,
+    repoType: "git" | "fossil"
+  ): Promise<VCSResult> {
+    const message = `Mimo commit at ${new Date().toISOString()}`;
+
+    if (repoType === "git") {
+      // Git: add all and commit
+      const addResult = await this.execCommand(["git", "add", "-A"], upstreamPath);
+      if (!addResult.success) {
+        return {
+          success: false,
+          output: addResult.output,
+          error: addResult.error || "Failed to stage changes",
+        };
+      }
+
+      const commitResult = await this.execCommand(
+        ["git", "commit", "-m", message],
+        upstreamPath
+      );
+
+      // Check if nothing to commit
+      if (commitResult.error?.includes("nothing to commit") || 
+          commitResult.output?.includes("nothing to commit")) {
+        return {
+          success: true,
+          output: "No changes to commit",
+        };
+      }
+
+      return {
+        success: commitResult.success,
+        output: commitResult.output,
+        error: commitResult.error || undefined,
+      };
+    } else {
+      // Fossil: addremove and commit
+      const addResult = await this.execCommand(["fossil", "addremove"], upstreamPath);
+      if (!addResult.success) {
+        return {
+          success: false,
+          output: addResult.output,
+          error: addResult.error || "Failed to stage changes",
+        };
+      }
+
+      const commitResult = await this.execCommand(
+        ["fossil", "commit", "-m", message],
+        upstreamPath
+      );
+
+      return {
+        success: commitResult.success,
+        output: commitResult.output,
+        error: commitResult.error || undefined,
+      };
+    }
+  }
+
+  async pushUpstream(
+    upstreamPath: string,
+    repoType: "git" | "fossil",
+    branch?: string
+  ): Promise<VCSResult> {
+    if (repoType === "git") {
+      const pushArgs = branch ? ["push", "origin", branch] : ["push", "origin"];
+      const result = await this.execCommand(["git", ...pushArgs], upstreamPath);
+
+      return {
+        success: result.success,
+        output: result.output,
+        error: result.error || undefined,
+      };
+    } else {
+      const result = await this.execCommand(["fossil", "push"], upstreamPath);
+
+      return {
+        success: result.success,
+        output: result.output,
+        error: result.error || undefined,
+      };
+    }
   }
 }
 

@@ -151,7 +151,7 @@ describe("Session Management Integration Tests", () => {
       const session = await sessionRepository.findById(sessionId!);
 
       expect(session).not.toBeNull();
-      expect(session?.checkoutPath).toBeDefined();
+      expect(session?.agentWorkspacePath).toBeDefined();
       expect(session?.upstreamPath).toBeDefined();
     });
   });
@@ -299,8 +299,8 @@ describe("Session Management Integration Tests", () => {
       });
 
       // Create checkout directory (simulating repository setup)
-      mkdirSync(session.checkoutPath, { recursive: true });
-      expect(existsSync(session.checkoutPath)).toBe(true);
+      mkdirSync(session.agentWorkspacePath, { recursive: true });
+      expect(existsSync(session.agentWorkspacePath)).toBe(true);
 
       const token = await generateToken("testuser");
 
@@ -318,7 +318,7 @@ describe("Session Management Integration Tests", () => {
       // Verify session and directories were deleted
       const sessions = await sessionRepository.listByProject(project.id);
       expect(sessions.length).toBe(0);
-      expect(existsSync(session.checkoutPath)).toBe(false);
+      expect(existsSync(session.agentWorkspacePath)).toBe(false);
     });
   });
 
@@ -431,9 +431,9 @@ describe("Session Management Integration Tests", () => {
       });
 
       // Create some files in checkout
-      mkdirSync(join(session.checkoutPath, "src"), { recursive: true });
-      writeFileSync(join(session.checkoutPath, "README.md"), "# Project");
-      writeFileSync(join(session.checkoutPath, "src", "index.ts"), "// code");
+      mkdirSync(join(session.agentWorkspacePath, "src"), { recursive: true });
+      writeFileSync(join(session.agentWorkspacePath, "README.md"), "# Project");
+      writeFileSync(join(session.agentWorkspacePath, "src", "index.ts"), "// code");
 
       const token = await generateToken("testuser");
 

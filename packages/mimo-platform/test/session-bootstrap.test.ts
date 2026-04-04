@@ -76,7 +76,7 @@ describe("Session Bootstrap Integration Tests", () => {
       const vcs = new VCS();
       const upstreamPath = join(testHome, "checkout-test");
       const fossilPath = join(testHome, "checkout-test.fossil");
-      const checkoutPath = join(testHome, "checkout");
+      const agentWorkspacePath = join(testHome, "checkout");
       
       // Create a simple git repo
       mkdirSync(upstreamPath, { recursive: true });
@@ -89,10 +89,10 @@ describe("Session Bootstrap Integration Tests", () => {
       await vcs.importToFossil(upstreamPath, "git", fossilPath);
       
       // Open checkout
-      const result = await vcs.openFossilCheckout(fossilPath, checkoutPath);
+      const result = await vcs.openFossilCheckout(fossilPath, agentWorkspacePath);
       
       expect(result.success).toBe(true);
-      expect(existsSync(join(checkoutPath, "README.md"))).toBe(true);
+      expect(existsSync(join(agentWorkspacePath, "README.md"))).toBe(true);
     }, 15000);
 
     it("should fail on invalid Git URL", async () => {
@@ -137,14 +137,14 @@ describe("Session Bootstrap Integration Tests", () => {
       expect(session).toBeDefined();
       expect(session.id).toBeDefined();
       expect(session.upstreamPath).toBeDefined();
-      expect(session.checkoutPath).toBeDefined();
+      expect(session.agentWorkspacePath).toBeDefined();
       
       // Verify directories were created
       expect(existsSync(session.upstreamPath)).toBe(true);
-      expect(existsSync(session.checkoutPath)).toBe(true);
+      expect(existsSync(session.agentWorkspacePath)).toBe(true);
     });
 
-    it("should store upstreamPath and checkoutPath in session.yaml", async () => {
+    it("should store upstreamPath and agentWorkspacePath in session.yaml", async () => {
       const session = await sessionRepository.create({
         name: "Path Test",
         projectId: "test-project",
@@ -156,7 +156,7 @@ describe("Session Bootstrap Integration Tests", () => {
       
       expect(loaded).not.toBeNull();
       expect(loaded?.upstreamPath).toBe(session.upstreamPath);
-      expect(loaded?.checkoutPath).toBe(session.checkoutPath);
+      expect(loaded?.agentWorkspacePath).toBe(session.agentWorkspacePath);
     });
 
     it("should store port as null on creation", async () => {
@@ -182,7 +182,7 @@ describe("Session Bootstrap Integration Tests", () => {
 
       // Verify paths exist
       expect(existsSync(session.upstreamPath)).toBe(true);
-      expect(existsSync(session.checkoutPath)).toBe(true);
+      expect(existsSync(session.agentWorkspacePath)).toBe(true);
 
       // Delete
       await sessionRepository.delete("test-project", session.id);

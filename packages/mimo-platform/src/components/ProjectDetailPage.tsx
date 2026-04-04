@@ -17,7 +17,7 @@ interface Session {
   projectId: string;
   owner: string;
   upstreamPath: string;
-  checkoutPath: string;
+  agentWorkspacePath: string;
   status: "active" | "paused" | "closed";
   createdAt: Date;
   updatedAt: Date;

@@ -11,7 +11,7 @@ interface Session {
   name: string;
   status: "active" | "paused" | "closed";
   upstreamPath: string;
-  checkoutPath: string;
+  agentWorkspacePath: string;
   assignedAgentId?: string;
   createdAt: Date;
 }

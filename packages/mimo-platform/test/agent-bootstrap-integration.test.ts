@@ -128,7 +128,7 @@ describe("Agent Bootstrap Integration Tests", () => {
       const sessionId = "reconnect-session";
       const workdir = join(testHome, "agent-workdir");
       const repoPath = join(workdir, `${sessionId}.fossil`);
-      const checkoutPath = join(workdir, sessionId);
+      const agentWorkspacePath = join(workdir, sessionId);
 
       mkdirSync(workdir, { recursive: true });
 
@@ -136,25 +136,25 @@ describe("Agent Bootstrap Integration Tests", () => {
 
       expect(existsSync(repoPath)).toBe(true);
 
-      mkdirSync(checkoutPath, { recursive: true });
-      execSync(`fossil open ${repoPath} --workdir ${checkoutPath}`, { cwd: checkoutPath, stdio: "pipe" });
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      execSync(`fossil open ${repoPath} --workdir ${agentWorkspacePath}`, { cwd: agentWorkspacePath, stdio: "pipe" });
 
-      expect(existsSync(repoPath) || existsSync(join(checkoutPath, "_FOSSIL_")) || existsSync(join(checkoutPath, ".fslckout"))).toBe(true);
+      expect(existsSync(repoPath) || existsSync(join(agentWorkspacePath, "_FOSSIL_")) || existsSync(join(agentWorkspacePath, ".fslckout"))).toBe(true);
     });
 
     it("should skip clone when checkout already exists", async () => {
       const sessionId = "existing-checkout";
       const workdir = join(testHome, "agent-workdir-exist");
-      const checkoutPath = join(workdir, sessionId);
-      const fossilDir = join(checkoutPath, ".fossil");
+      const agentWorkspacePath = join(workdir, sessionId);
+      const fossilDir = join(agentWorkspacePath, ".fossil");
 
-      mkdirSync(checkoutPath, { recursive: true });
+      mkdirSync(agentWorkspacePath, { recursive: true });
       mkdirSync(fossilDir, { recursive: true });
 
       const checkoutExists = existsSync(fossilDir);
       expect(checkoutExists).toBe(true);
 
-      const repoPath = join(checkoutPath, "..", `${sessionId}.fossil`);
+      const repoPath = join(agentWorkspacePath, "..", `${sessionId}.fossil`);
       const repoExists = existsSync(repoPath);
       expect(repoExists).toBe(false);
     });
@@ -253,18 +253,18 @@ describe("Agent Bootstrap Integration Tests", () => {
   describe("11.5: Checkout path outside workdir", () => {
     it("should handle relative path computation for paths outside workdir", () => {
       const workdir = "/home/user/work";
-      const checkoutPath = "/tmp/sessions/abc-123";
+      const agentWorkspacePath = "/tmp/sessions/abc-123";
       
-      const relativePath = relative(workdir, checkoutPath);
+      const relativePath = relative(workdir, agentWorkspacePath);
       
       expect(relativePath.startsWith("..")).toBe(true);
     });
 
     it("should compute correct relative path inside workdir", () => {
       const workdir = "/home/user/work";
-      const checkoutPath = "/home/user/work/session-abc";
+      const agentWorkspacePath = "/home/user/work/session-abc";
       
-      const relativePath = relative(workdir, checkoutPath);
+      const relativePath = relative(workdir, agentWorkspacePath);
       
       expect(relativePath).toBe("session-abc");
       expect(relativePath.startsWith("..")).toBe(false);
@@ -273,9 +273,9 @@ describe("Agent Bootstrap Integration Tests", () => {
     it("should derive checkout path from workdir and sessionId", () => {
       const workdir = join(testHome, "agent-work");
       const sessionId = "test-session-123";
-      const checkoutPath = join(workdir, sessionId);
+      const agentWorkspacePath = join(workdir, sessionId);
       
-      expect(checkoutPath).toBe(join(testHome, "agent-work", "test-session-123"));
+      expect(agentWorkspacePath).toBe(join(testHome, "agent-work", "test-session-123"));
     });
   });
 });

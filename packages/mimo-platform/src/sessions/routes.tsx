@@ -301,7 +301,7 @@ router.get("/:id/files", async (c: Context) => {
   }
   
   try {
-    scanDir(session.checkoutPath, session.checkoutPath);
+    scanDir(session.agentWorkspacePath, session.agentWorkspacePath);
   } catch (error) {
     console.error("Error scanning checkout:", error);
   }
