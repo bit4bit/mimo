@@ -2,6 +2,19 @@
 (function() {
   'use strict';
 
+// Add blinking cursor animation
+if (!document.getElementById('chat-animations')) {
+  const style = document.createElement('style');
+  style.id = 'chat-animations';
+  style.textContent = `
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 // Chat WebSocket connection
 let chatSocket = null;
 let currentSessionId = null;
@@ -397,7 +410,23 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
       currentMessageElement.querySelector('.message-content')?.appendChild(responseContent);
     }
     
+    // Remove cursor if exists
+    const existingCursor = responseContent.querySelector('.typing-cursor');
+    if (existingCursor) {
+      existingCursor.remove();
+    }
+    
+    // Append text
     responseContent.textContent += text;
+    
+    // Add blinking cursor at end
+    const cursor = document.createElement('span');
+    cursor.className = 'typing-cursor';
+    cursor.textContent = '▋';
+    cursor.style.color = '#51cf66';
+    cursor.style.animation = 'blink 1s infinite';
+    responseContent.appendChild(cursor);
+    
     scrollToBottom();
   }
 
@@ -405,9 +434,19 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
   function endMessageStream() {
     if (!currentMessageElement) return;
     
+    // Remove streaming indicator
     const indicator = currentMessageElement.querySelector('.streaming-indicator');
     if (indicator) {
       indicator.remove();
+    }
+    
+    // Remove typing cursor
+    const responseContent = currentMessageElement.querySelector('.message-response');
+    if (responseContent) {
+      const cursor = responseContent.querySelector('.typing-cursor');
+      if (cursor) {
+        cursor.remove();
+      }
     }
     
     currentMessageElement.classList.remove('streaming');
