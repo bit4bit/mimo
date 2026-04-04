@@ -190,7 +190,7 @@ class MimoAgent {
     const sessionIds: string[] = [];
 
     for (const session of sessions) {
-      const { sessionId, port, fossilUser, fossilPassword } = session;
+      const { sessionId, port, agentWorkspaceUser, agentWorkspacePassword } = session;
 
       try {
         const checkoutPath = join(this.config.workDir, sessionId);
@@ -200,14 +200,14 @@ class MimoAgent {
         const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
 
         // Setup checkout directory with credentials
-        await this.setupCheckout(sessionId, checkoutPath, fossilUrl, fossilUser, fossilPassword);
+        await this.setupCheckout(sessionId, checkoutPath, fossilUrl, agentWorkspaceUser, agentWorkspacePassword);
 
         // Create session with credentials
         const sessionInfo = await this.sessionManager.createSession(
           sessionId,
           fossilUrl,
-          fossilUser,
-          fossilPassword
+          agentWorkspaceUser,
+          agentWorkspacePassword
         );
 
         // Spawn ACP process
@@ -240,8 +240,8 @@ class MimoAgent {
     sessionId: string,
     checkoutPath: string,
     fossilUrl: string,
-    fossilUser?: string,
-    fossilPassword?: string
+    agentWorkspaceUser?: string,
+    agentWorkspacePassword?: string
   ): Promise<void> {
     const repoPath = join(checkoutPath, "..", `${sessionId}.fossil`);
 
@@ -266,10 +266,10 @@ class MimoAgent {
       console.log(`[mimo-agent]   Cloning from fossil`);
       // Use credentials in URL if available
       let cloneUrl = fossilUrl;
-      if (fossilUser && fossilPassword) {
+      if (agentWorkspaceUser && agentWorkspacePassword) {
         const url = new URL(fossilUrl);
-        url.username = fossilUser;
-        url.password = fossilPassword;
+        url.username = agentWorkspaceUser;
+        url.password = agentWorkspacePassword;
         cloneUrl = url.toString();
       }
       execSync(`fossil clone ${cloneUrl} ${repoPath}`, { stdio: "pipe" });

@@ -158,9 +158,9 @@ router.post("/", async (c: Context) => {
     }
 
     // Step 3: Create fossil user for agent access
-    const fossilUser = `agent-${session.id.slice(0, 8)}`;
-    const fossilPassword = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
-    const userResult = await vcs.createFossilUser(fossilPath, fossilUser, fossilPassword);
+    const agentWorkspaceUser = `agent-${session.id.slice(0, 8)}`;
+    const agentWorkspacePassword = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+    const userResult = await vcs.createFossilUser(fossilPath, agentWorkspaceUser, agentWorkspacePassword);
     
     if (!userResult.success) {
       console.error("[session] Failed to create fossil user:", userResult.error);
@@ -169,8 +169,8 @@ router.post("/", async (c: Context) => {
     
     // Save credentials to session
     await sessionRepository.update(session.id, {
-      fossilUser,
-      fossilPassword,
+      agentWorkspaceUser,
+      agentWorkspacePassword,
     });
   } catch (error) {
     console.error("Failed to setup session:", error);

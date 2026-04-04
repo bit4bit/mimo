@@ -14,8 +14,8 @@ export interface Session {
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
   port: number | null;
-  fossilUser?: string;
-  fossilPassword?: string;
+  agentWorkspaceUser?: string;
+  agentWorkspacePassword?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,8 +30,8 @@ export interface SessionData {
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
   port: number | null;
-  fossilUser?: string;
-  fossilPassword?: string;
+  agentWorkspaceUser?: string;
+  agentWorkspacePassword?: string;
   createdAt: string;
   updatedAt: string;
 }

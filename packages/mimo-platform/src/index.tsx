@@ -324,8 +324,8 @@ async function handleAgentMessage(ws, data) {
               sessionsReady.push({
                 sessionId,
                 port: result.port,
-                fossilUser: sessionWithCreds?.fossilUser,
-                fossilPassword: sessionWithCreds?.fossilPassword,
+                agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
+                agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
               });
             } else {
               console.error("[agent] Failed to start fossil server:", result.error);
