@@ -2,6 +2,7 @@
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
+import crypto from "crypto";
 import { sessionRepository } from "./repository.js";
 import { projectRepository } from "../projects/repository.js";
 import { agentRepository } from "../agents/repository.js";
@@ -155,6 +156,22 @@ router.post("/", async (c: Context) => {
       await sessionRepository.delete(projectId, session.id);
       return c.text(`Failed to import to fossil: ${importResult.error}`, 500);
     }
+
+    // Step 3: Create fossil user for agent access
+    const fossilUser = `agent-${session.id.slice(0, 8)}`;
+    const fossilPassword = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+    const userResult = await vcs.createFossilUser(fossilPath, fossilUser, fossilPassword);
+    
+    if (!userResult.success) {
+      console.error("[session] Failed to create fossil user:", userResult.error);
+      // Non-fatal - session can still work, just log the error
+    }
+    
+    // Save credentials to session
+    await sessionRepository.update(session.id, {
+      fossilUser,
+      fossilPassword,
+    });
   } catch (error) {
     console.error("Failed to setup session:", error);
     await sessionRepository.delete(projectId, session.id);

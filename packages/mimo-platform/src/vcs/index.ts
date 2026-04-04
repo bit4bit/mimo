@@ -50,6 +50,49 @@ export class VCS {
     };
   }
 
+  async createFossilUser(
+    repoPath: string,
+    username: string,
+    password: string
+  ): Promise<VCSResult> {
+    // Create user with DEV capabilities (d - develop, i - check-in, o - check-out)
+    const result = await this.execCommand([
+      "fossil",
+      "user",
+      "new",
+      username,
+      username,
+      password,
+      "-R",
+      repoPath,
+    ]);
+
+    if (result.success) {
+      // Set capabilities to DEV (d=develop, i=check-in, o=check-out)
+      const capResult = await this.execCommand([
+        "fossil",
+        "user",
+        "capabilities",
+        username,
+        "dio",
+        "-R",
+        repoPath,
+      ]);
+
+      return {
+        success: capResult.success,
+        output: capResult.output,
+        error: capResult.error || undefined,
+      };
+    }
+
+    return {
+      success: false,
+      output: result.output,
+      error: result.error || "Failed to create user",
+    };
+  }
+
   async openFossil(repoPath: string, workDir: string): Promise<VCSResult> {
     const result = await this.execCommand(
       ["fossil", "open", repoPath],

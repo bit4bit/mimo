@@ -1,0 +1,8 @@
+[2026-04-05 01:52:00] User: the agent-workspace fossil server should run without authentication, anyone is allowed to commit to it
+[2026-04-05 01:52:10] User: --public will not work, we need the following - agent-workspace create a fossil user and password with dev capabilities - share this credentials to mimo-agent when the session is created - mimo-agent will use the credentials to clone the repository so it gain write/read access
+[2026-04-05 01:52:15] LLM: I understand. Let me implement the fossil credential provisioning system.
+[2026-04-05 01:53:00] LLM: Added createFossilUser method to VCS class with DEV capabilities (d=develop, i=check-in, o=check-out).
+[2026-04-05 01:54:00] LLM: Modified session creation to create fossil user and store credentials (fossilUser, fossilPassword) in session.
+[2026-04-05 01:55:00] LLM: Updated session_ready message to include credentials.
+[2026-04-05 01:56:00] LLM: Updated mimo-agent to use credentials for fossil clone via HTTP Basic Auth in URL.
+[2026-04-05 01:57:00] LLM: All tests pass. Ready to commit.

@@ -318,9 +318,14 @@ async function handleAgentMessage(ws, data) {
               // Update session with port
               await sessionRepository.update(sessionId, { port: result.port });
               
+              // Get session with credentials
+              const sessionWithCreds = await sessionRepository.findById(sessionId);
+              
               sessionsReady.push({
                 sessionId,
                 port: result.port,
+                fossilUser: sessionWithCreds?.fossilUser,
+                fossilPassword: sessionWithCreds?.fossilPassword,
               });
             } else {
               console.error("[agent] Failed to start fossil server:", result.error);

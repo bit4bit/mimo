@@ -30,7 +30,9 @@ export class SessionManager {
 
   async createSession(
     sessionId: string,
-    fossilUrl: string
+    fossilUrl: string,
+    fossilUser?: string,
+    fossilPassword?: string
   ): Promise<SessionInfo> {
     const checkoutPath = join(this.workDir, sessionId);
 
@@ -48,6 +50,8 @@ export class SessionManager {
       sessionId,
       checkoutPath,
       fossilUrl,
+      fossilUser,
+      fossilPassword,
       acpProcess: null,
       fileWatcher: null,
     };

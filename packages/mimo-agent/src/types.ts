@@ -23,6 +23,8 @@ export interface SessionInfo {
   sessionId: string;
   checkoutPath: string;
   fossilUrl: string;
+  fossilUser?: string;
+  fossilPassword?: string;
   acpProcess: ChildProcess | null;
   fileWatcher: ReturnType<typeof watch> | null;
   acpSessionId?: string;
