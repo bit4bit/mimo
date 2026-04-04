@@ -213,7 +213,57 @@
     
     const content = document.createElement('div');
     content.className = 'message-content';
-    content.textContent = message.content;
+    
+    // Parse thought toggle HTML if present
+    if (message.content.includes('<details>')) {
+      // Match the entire details block including newlines
+      const detailsMatch = message.content.match(/<details>\s*<summary>(.+?)<\/summary>\s*([\s\S]*?)<\/details>/);
+      if (detailsMatch) {
+        // Extract thought content (everything between </summary> and </details>)
+        const thoughtText = detailsMatch[2].trim();
+        
+        // Get the rest of the message (after </details>), removing leading newlines
+        const restContent = message.content.replace(/<details>[\s\S]*?<\/details>/, '').replace(/^\s*\n+/, '');
+        
+        // Thought toggle
+        const thoughtToggle = document.createElement('div');
+        thoughtToggle.className = 'message message-thought thought-collapsed';
+        
+        const thoughtHeader = document.createElement('div');
+        thoughtHeader.className = 'message-header';
+        thoughtHeader.innerHTML = '<span class="thought-toggle">▶</span> Thought Process';
+        thoughtHeader.style.cursor = 'pointer';
+        
+        const thoughtContentDiv = document.createElement('div');
+        thoughtContentDiv.className = 'message-content';
+        thoughtContentDiv.style.display = 'none';
+        thoughtContentDiv.textContent = thoughtText;
+        
+        thoughtHeader.addEventListener('click', () => {
+          const isVisible = thoughtContentDiv.style.display !== 'none';
+          thoughtContentDiv.style.display = isVisible ? 'none' : 'block';
+          thoughtToggle.classList.toggle('thought-collapsed', isVisible);
+          thoughtToggle.classList.toggle('thought-expanded', !isVisible);
+          thoughtHeader.querySelector('.thought-toggle').textContent = isVisible ? '▶' : '▼';
+        });
+        
+        thoughtToggle.appendChild(thoughtHeader);
+        thoughtToggle.appendChild(thoughtContentDiv);
+        content.appendChild(thoughtToggle);
+        
+        // Rest of message
+        if (restContent) {
+          const mainContent = document.createElement('div');
+          mainContent.style.marginTop = '10px';
+          mainContent.textContent = restContent;
+          content.appendChild(mainContent);
+        }
+      } else {
+        content.textContent = message.content;
+      }
+    } else {
+      content.textContent = message.content;
+    }
     
     messageDiv.appendChild(header);
     messageDiv.appendChild(content);

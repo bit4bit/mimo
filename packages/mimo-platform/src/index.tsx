@@ -27,6 +27,10 @@ import { sessionStateService } from "./sessions/state.js";
 // Track active chat sessions
 const chatSessions = new Map();
 
+// Track streaming message and thought buffers per session
+const streamingBuffers = new Map<string, string>();
+const thoughtBuffers = new Map<string, string>();
+
 // Auth routes
 app.route("/auth", auth);
 
@@ -336,29 +340,155 @@ async function handleAgentMessage(ws, data) {
       }
       break;
     case "thought_start":
-    case "thought_chunk":
-    case "thought_end":
-    case "message_chunk":
-    case "usage_update":
-      // Forward structured ACP updates to chat clients
-      const updateSessionId = data.sessionId;
-      if (!updateSessionId) {
-        console.log(`No sessionId in ${data.type}`);
-        return;
+      {
+        const startSessionId = data.sessionId;
+        if (!startSessionId) {
+          console.log("No sessionId in thought_start");
+          return;
+        }
+        
+        // Start new thought buffer
+        thoughtBuffers.set(startSessionId, "");
+        
+        // Forward to clients
+        const subscribers = chatSessions.get(startSessionId);
+        if (subscribers) {
+          subscribers.forEach(client => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify({
+                type: data.type,
+                timestamp: new Date().toISOString(),
+              }));
+            }
+          });
+        }
       }
+      break;
       
-      const updateSubscribers = chatSessions.get(updateSessionId);
-      if (updateSubscribers) {
-        updateSubscribers.forEach(client => {
-          if (client.readyState === 1) { // WebSocket.OPEN
-            client.send(JSON.stringify({
-              type: data.type,
-              content: data.content,
-              usage: data.usage,
-              timestamp: new Date().toISOString(),
-            }));
+    case "thought_chunk":
+      {
+        const chunkSessionId = data.sessionId;
+        if (!chunkSessionId) {
+          console.log("No sessionId in thought_chunk");
+          return;
+        }
+        
+        // Accumulate thought chunks
+        const currentThoughtBuffer = thoughtBuffers.get(chunkSessionId) || "";
+        thoughtBuffers.set(chunkSessionId, currentThoughtBuffer + (data.content || ""));
+        
+        // Forward to clients
+        const thoughtChunkSubscribers = chatSessions.get(chunkSessionId);
+        if (thoughtChunkSubscribers) {
+          thoughtChunkSubscribers.forEach(client => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify({
+                type: data.type,
+                content: data.content,
+                timestamp: new Date().toISOString(),
+              }));
+            }
+          });
+        }
+      }
+      break;
+      
+    case "thought_end":
+      {
+        const endSessionId = data.sessionId;
+        if (!endSessionId) {
+          console.log("No sessionId in thought_end");
+          return;
+        }
+        
+        // Forward to clients
+        const endSubscribers = chatSessions.get(endSessionId);
+        if (endSubscribers) {
+          endSubscribers.forEach(client => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify({
+                type: data.type,
+                timestamp: new Date().toISOString(),
+              }));
+            }
+          });
+        }
+      }
+      break;
+      
+    case "message_chunk":
+      {
+        const msgSessionId = data.sessionId;
+        if (!msgSessionId) {
+          console.log("No sessionId in message_chunk");
+          return;
+        }
+        
+        // Accumulate message chunks
+        const currentBuffer = streamingBuffers.get(msgSessionId) || "";
+        streamingBuffers.set(msgSessionId, currentBuffer + (data.content || ""));
+        
+        // Forward to clients
+        const msgSubscribers = chatSessions.get(msgSessionId);
+        if (msgSubscribers) {
+          msgSubscribers.forEach(client => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify({
+                type: data.type,
+                content: data.content,
+                timestamp: new Date().toISOString(),
+              }));
+            }
+          });
+        }
+      }
+      break;
+      
+    case "usage_update":
+      {
+        const usageSessionId = data.sessionId;
+        if (!usageSessionId) {
+          console.log("No sessionId in usage_update");
+          return;
+        }
+        
+        // Get accumulated message and thoughts
+        const messageContent = streamingBuffers.get(usageSessionId);
+        const thoughtContent = thoughtBuffers.get(usageSessionId);
+        
+        if (messageContent || thoughtContent) {
+          // Save assistant response with optional thoughts
+          let fullContent = messageContent || "";
+          
+          // Prepend thoughts if present
+          if (thoughtContent) {
+            fullContent = `<details><summary>Thought Process</summary>${thoughtContent}</details>\n\n${fullContent}`;
+            thoughtBuffers.delete(usageSessionId);
           }
-        });
+          
+          await chatService.saveMessage(usageSessionId, {
+            role: "assistant",
+            content: fullContent,
+            timestamp: new Date().toISOString(),
+          });
+          
+          // Clear buffer
+          streamingBuffers.delete(usageSessionId);
+        }
+        
+        // Forward usage update to clients
+        const usageSubscribers = chatSessions.get(usageSessionId);
+        if (usageSubscribers) {
+          usageSubscribers.forEach(client => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify({
+                type: data.type,
+                usage: data.usage,
+                timestamp: new Date().toISOString(),
+              }));
+            }
+          });
+        }
       }
       break;
     
