@@ -23,7 +23,7 @@ describe("Commit Service Tests", () => {
     mkdirSync(join(testHome, "projects"), { recursive: true });
 
     const commitModule = await import("../src/commits/service.ts");
-    CommitService = commitService = commitModule.commitService;
+    CommitService = commitModule.commitService;
 
     const sessionModule = await import("../src/sessions/repository.ts");
     SessionRepository = sessionModule.SessionRepository;
@@ -78,14 +78,14 @@ describe("Commit Service Tests", () => {
       await vcs.execCommand(["fossil", "commit", "-m", "Agent commit"], agentWorkspacePath);
 
       // Run commit and push
-      const result = await commitService.commitAndPush(session.id);
+      const result = await CommitService.commitAndPush(session.id);
 
       expect(result.success).toBe(true);
       expect(result.message).toContain("committed and pushed");
     }, 30000);
 
     it("should fail gracefully when session not found", async () => {
-      const result = await commitService.commitAndPush("nonexistent-session-id");
+      const result = await CommitService.commitAndPush("nonexistent-session-id");
 
       expect(result.success).toBe(false);
       expect(result.message).toBe("Session not found");
@@ -102,7 +102,7 @@ describe("Commit Service Tests", () => {
         owner: "testuser",
       });
 
-      const result = await commitService.commitAndPush(session.id);
+      const result = await CommitService.commitAndPush(session.id);
 
       expect(result.success).toBe(false);
       expect(result.message).toBe("Project not found");
@@ -145,11 +145,12 @@ describe("Commit Service Tests", () => {
 
       // Don't add any files - this should result in "no changes"
 
-      const result = await commitService.commitAndPush(session.id);
+      const result = await CommitService.commitAndPush(session.id);
 
-      // Should succeed but report no changes
+      // When no changes, the service returns success=true with message "No changes to commit"
+      // This is expected behavior - no changes is not an error
       expect(result.success).toBe(true);
-      expect(result.output).toContain("nothing to commit");
+      expect(result.message).toContain("No changes to commit");
     }, 30000);
   });
 });

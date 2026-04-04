@@ -80,12 +80,12 @@ export class CommitService {
     const commitResult = await vcs.commitUpstream(session.upstreamPath, repoType);
     if (!commitResult.success) {
       // Check if no changes
-      if (commitResult.output?.includes("nothing to commit")) {
+      if (commitResult.output?.includes("nothing to commit") ||
+          commitResult.output?.includes("No changes to commit")) {
         return {
-          success: false,
+          success: true,
           message: "No changes to commit",
-          error: "No changes to commit",
-          step: "commit",
+          step: null,
         };
       }
       return {
@@ -96,13 +96,13 @@ export class CommitService {
       };
     }
 
-    // Check if actually committed (not "nothing to commit")
-    if (commitResult.output?.includes("nothing to commit")) {
+    // Check if actually committed (not "nothing to commit" or "No changes")
+    if (commitResult.output?.includes("nothing to commit") ||
+        commitResult.output?.includes("No changes to commit")) {
       return {
-        success: false,
+        success: true,
         message: "No changes to commit",
-        error: "No changes to commit",
-        step: "commit",
+        step: null,
       };
     }
 

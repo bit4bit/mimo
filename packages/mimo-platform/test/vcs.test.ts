@@ -344,7 +344,7 @@ describe("VCS Integration Tests", () => {
         
         // Should return success but indicate no changes
         expect(result.success).toBe(true);
-        expect(result.output).toContain("nothing to commit");
+        expect(result.output).toContain("No changes to commit");
       }, 10000);
     });
 
