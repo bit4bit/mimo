@@ -271,12 +271,33 @@ class MimoAgent {
         url.username = agentWorkspaceUser;
         url.password = agentWorkspacePassword;
         cloneUrl = url.toString();
+        console.log(`[mimo-agent]   Using authenticated URL: ${url.protocol}//${url.username}:****@${url.host}/`);
       }
       execSync(`fossil clone ${cloneUrl} ${repoPath}`, { stdio: "pipe" });
       if (!existsSync(checkoutPath)) {
         mkdirSync(checkoutPath, { recursive: true });
       }
-      execSync(`fossil open ${repoPath}`, { cwd: checkoutPath, stdio: "pipe" });
+      // Open without sync first, then set remote with credentials
+      execSync(`fossil open --nosync ${repoPath}`, { cwd: checkoutPath, stdio: "pipe" });
+      // Set remote URL with credentials for future syncs
+      execSync(`fossil remote-url ${cloneUrl}`, { cwd: checkoutPath, stdio: "pipe" });
+      // Set local password to match server password (fossil creates local admin with random password)
+      if (agentWorkspaceUser && agentWorkspacePassword) {
+        execSync(
+          `fossil user password ${agentWorkspaceUser} ${agentWorkspacePassword}`,
+          { cwd: checkoutPath, stdio: "pipe" }
+        );
+        // Add a named remote "server" with credentials embedded
+        execSync(
+          `fossil remote add server ${cloneUrl}`,
+          { cwd: checkoutPath, stdio: "pipe" }
+        );
+        // Do an initial sync using the named remote with credentials
+        execSync(
+          `fossil sync server`,
+          { cwd: checkoutPath, stdio: "pipe" }
+        );
+      }
     }
   }
 
