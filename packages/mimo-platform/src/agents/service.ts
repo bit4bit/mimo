@@ -53,7 +53,7 @@ export class AgentService {
     const token = await new SignJWT(tokenPayload)
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
-      .setExpirationTime("24h")
+      .setExpirationTime("1y")
       .sign(AGENT_SECRET);
 
     return token;
@@ -68,7 +68,8 @@ export class AgentService {
         projectId: payload.projectId as string | undefined,
         owner: payload.owner as string,
       };
-    } catch {
+    } catch (error) {
+      console.error("[verifyAgentToken] Token verification failed:", error?.message || error);
       return null;
     }
   }

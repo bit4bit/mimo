@@ -105,13 +105,17 @@ const server = Bun.serve({
       if (type === 'agent') {
         const token = url.searchParams.get("token");
         if (!token) {
+          console.log("[WS] Missing token");
           return new Response("Missing token", { status: 400 });
         }
         
         const payload = await agentService.verifyAgentToken(token);
         if (!payload) {
+          console.log("[WS] Invalid token");
           return new Response("Invalid token", { status: 401 });
         }
+        
+        console.log("[WS] Token verified, agentId:", payload.agentId);
         
         const upgraded = server.upgrade(req, {
           data: {
@@ -122,8 +126,10 @@ const server = Bun.serve({
         });
         
         if (!upgraded) {
+          console.log("[WS] WebSocket upgrade failed");
           return new Response("WebSocket upgrade failed", { status: 500 });
         }
+        console.log("[WS] WebSocket upgraded successfully for agent:", payload.agentId);
         return undefined;
       }
       
