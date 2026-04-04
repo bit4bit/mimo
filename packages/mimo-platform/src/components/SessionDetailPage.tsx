@@ -299,7 +299,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         .session-container {
           display: flex;
           flex-direction: column;
-          height: 100vh;
+          flex: 1;
+          min-height: 0;
         }
         .session-header-bar {
           display: flex;

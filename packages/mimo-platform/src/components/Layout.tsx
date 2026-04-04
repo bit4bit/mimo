@@ -22,15 +22,18 @@ export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = fals
         {sessionId && <script src="/js/chat.js" defer></script>}
         {sessionId && <script src="/js/commit.js" defer></script>}
         <style>{`
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { 
-            font-family: monospace; 
-            background: #1a1a1a; 
-            color: #d4d4d4; 
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-          }
+           * { margin: 0; padding: 0; box-sizing: border-box; }
+           html, body { 
+             height: 100%;
+             overflow: hidden;
+           }
+           body { 
+             font-family: monospace; 
+             background: #1a1a1a; 
+             color: #d4d4d4; 
+             display: flex;
+             flex-direction: column;
+           }
           .container { 
             max-width: 400px; 
             margin: 50px auto; 
@@ -322,7 +325,9 @@ export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = fals
               <a href="/auth/logout">Logout</a>
             </div>
           </nav>
+          <main style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
           {children}
+          </main>
          {showStatusLine && (
            <div class="status-line">
              <span class="status-line-message"></span>
