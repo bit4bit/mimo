@@ -34,6 +34,12 @@
     chatSocket.onopen = () => {
       console.log('Chat WebSocket connected');
       showConnectionStatus('connected');
+      
+      // Request current state from agent
+      chatSocket.send(JSON.stringify({
+        type: 'request_state',
+        sessionId: currentSessionId,
+      }));
     };
     
     chatSocket.onmessage = (event) => {
@@ -99,6 +105,35 @@
         
       case 'history':
         loadChatHistory(data.messages);
+        break;
+
+      case 'session_initialized':
+        // Initialize model and mode selectors
+        console.log('[INIT] session_initialized received:', data);
+        if (data.modelState) {
+          updateModelSelector(data.modelState);
+        } else {
+          console.log('[INIT] No modelState in message');
+        }
+        if (data.modeState) {
+          updateModeSelector(data.modeState);
+        } else {
+          console.log('[INIT] No modeState in message');
+        }
+        break;
+
+      case 'model_state':
+        // Update model selector
+        if (data.modelState) {
+          updateModelSelector(data.modelState);
+        }
+        break;
+
+      case 'mode_state':
+        // Update mode selector
+        if (data.modeState) {
+          updateModeSelector(data.modeState);
+        }
         break;
     }
   }
@@ -536,6 +571,22 @@
       }
     },
     replay: replayChat,
+    setModel: (modelId) => {
+      if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+        chatSocket.send(JSON.stringify({
+          type: 'set_model',
+          modelId: modelId,
+        }));
+      }
+    },
+    setMode: (modeId) => {
+      if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+        chatSocket.send(JSON.stringify({
+          type: 'set_mode',
+          modeId: modeId,
+        }));
+      }
+    },
   };
 
   // Auto-initialize if session ID is available
@@ -543,5 +594,118 @@
     if (window.MIMO_SESSION_ID) {
       initChat(window.MIMO_SESSION_ID);
     }
+    
+    // Set up model/mode selector event listeners
+    setupSelectorListeners();
   });
+  
+  // Set up selector event listeners
+  function setupSelectorListeners() {
+    const modelSelector = document.querySelector('#model-selector');
+    const modeSelector = document.querySelector('#mode-selector');
+    
+    if (modelSelector) {
+      modelSelector.addEventListener('change', (e) => {
+        const modelId = e.target.value;
+        const currentId = e.target.dataset.current;
+        
+        if (modelId !== currentId) {
+          e.target.dataset.current = modelId;
+          if (window.MIMO_CHAT && window.MIMO_CHAT.setModel) {
+            window.MIMO_CHAT.setModel(modelId);
+          }
+        }
+      });
+    }
+    
+    if (modeSelector) {
+      modeSelector.addEventListener('change', (e) => {
+        const modeId = e.target.value;
+        const currentId = e.target.dataset.current;
+        
+        if (modeId !== currentId) {
+          e.target.dataset.current = modeId;
+          if (window.MIMO_CHAT && window.MIMO_CHAT.setMode) {
+            window.MIMO_CHAT.setMode(modeId);
+          }
+        }
+      });
+    }
+  }
+  
+  // Update model selector
+  function updateModelSelector(modelState) {
+    console.log('[MODEL] Updating with state:', modelState);
+    const selector = document.querySelector('#model-selector');
+    const container = document.querySelector('#model-selector-container');
+    
+    if (!selector || !container) {
+      console.log('[MODEL] Elements not found');
+      return;
+    }
+    
+    if (!modelState || !modelState.availableModels || modelState.availableModels.length === 0) {
+      console.log('[MODEL] No data available');
+      return;
+    }
+    
+    // Enable and populate
+    console.log('[MODEL] Populating with', modelState.availableModels.length, 'options');
+    container.style.opacity = '1';
+    selector.disabled = false;
+    
+    // Clear and rebuild options
+    selector.innerHTML = '';
+    modelState.availableModels.forEach((model) => {
+      const option = document.createElement('option');
+      option.value = model.value;
+      option.textContent = model.name;
+      option.title = model.description || model.name;
+      if (model.value === modelState.currentModelId) {
+        option.selected = true;
+      }
+      selector.appendChild(option);
+    });
+    
+    selector.dataset.current = modelState.currentModelId;
+    container.title = modelState.currentModelId;
+  }
+
+  // Update mode selector
+  function updateModeSelector(modeState) {
+    console.log('[MODE] Updating with state:', modeState);
+    const selector = document.querySelector('#mode-selector');
+    const container = document.querySelector('#mode-selector-container');
+    
+    if (!selector || !container) {
+      console.log('[MODE] Elements not found');
+      return;
+    }
+    
+    if (!modeState || !modeState.availableModes || modeState.availableModes.length === 0) {
+      console.log('[MODE] No data available');
+      return;
+    }
+    
+    // Enable and populate
+    console.log('[MODE] Populating with', modeState.availableModes.length, 'options');
+    container.style.opacity = '1';
+    selector.disabled = false;
+    
+    // Clear and rebuild options
+    selector.innerHTML = '';
+    modeState.availableModes.forEach((mode) => {
+      const option = document.createElement('option');
+      option.value = mode.value;
+      option.textContent = mode.name;
+      option.title = mode.description || mode.name;
+      if (mode.value === modeState.currentModeId) {
+        option.selected = true;
+      }
+      selector.appendChild(option);
+    });
+    
+    selector.dataset.current = modeState.currentModeId;
+    container.title = modeState.currentModeId;
+  }
 })();

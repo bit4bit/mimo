@@ -270,6 +270,44 @@ export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = fals
             .nav-links a:hover {
               color: #d4d4d4;
             }
+            
+            /* Model/Mode Selectors */
+            .selector-container {
+              display: flex;
+              align-items: center;
+              gap: 5px;
+              background: #2d2d2d;
+              border: 1px solid #444;
+              padding: 4px 8px;
+              border-radius: 4px;
+            }
+            .selector-label {
+              color: #888;
+              font-size: 11px;
+              text-transform: uppercase;
+            }
+            .selector-dropdown {
+              background: #1a1a1a;
+              border: 1px solid #555;
+              color: #d4d4d4;
+              padding: 4px 8px;
+              font-family: monospace;
+              font-size: 12px;
+              cursor: pointer;
+              min-width: 120px;
+            }
+            .selector-dropdown:hover {
+              border-color: #666;
+            }
+            .selector-dropdown:focus {
+              outline: none;
+              border-color: #888;
+            }
+            .selector-dropdown option {
+              background: #2d2d2d;
+              color: #d4d4d4;
+              padding: 4px;
+            }
           `}</style>
         </head>
         <body>

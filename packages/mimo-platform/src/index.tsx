@@ -22,6 +22,8 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 // Serve static files from public/
 app.use("/js/*", serveStatic({ root: "./public" }));
 
+import { sessionStateService } from "./sessions/state.js";
+
 // Track active chat sessions
 const chatSessions = new Map();
 
@@ -415,6 +417,81 @@ async function handleAgentMessage(ws, data) {
     case "agent_sessions_ready":
       console.log("[agent] Agent sessions ready:", data.sessionIds);
       break;
+    case "session_initialized":
+      // Store model/mode state from agent
+      if (data.sessionId) {
+        if (data.modelState) {
+          sessionStateService.setModelState(data.sessionId, data.modelState);
+          console.log(`[agent] Session ${data.sessionId} model state:`, data.modelState.currentModelId);
+        }
+        if (data.modeState) {
+          sessionStateService.setModeState(data.sessionId, data.modeState);
+          console.log(`[agent] Session ${data.sessionId} mode state:`, data.modeState.currentModeId);
+        }
+        
+        // Broadcast to chat clients
+        const initSubscribers = chatSessions.get(data.sessionId);
+        if (initSubscribers) {
+          const initMessage: any = {
+            type: 'session_initialized',
+            sessionId: data.sessionId,
+            timestamp: new Date().toISOString(),
+          };
+          if (data.modelState) {
+            initMessage.modelState = data.modelState;
+          }
+          if (data.modeState) {
+            initMessage.modeState = data.modeState;
+          }
+          
+          initSubscribers.forEach((client: WebSocket) => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify(initMessage));
+            }
+          });
+        }
+      }
+      break;
+    case "model_state":
+      // Update and broadcast model state
+      if (data.sessionId && data.modelState) {
+        sessionStateService.setModelState(data.sessionId, data.modelState);
+        
+        const modelSubscribers = chatSessions.get(data.sessionId);
+        if (modelSubscribers) {
+          modelSubscribers.forEach((client: WebSocket) => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify({
+                type: 'model_state',
+                sessionId: data.sessionId,
+                modelState: data.modelState,
+                timestamp: new Date().toISOString(),
+              }));
+            }
+          });
+        }
+      }
+      break;
+    case "mode_state":
+      // Update and broadcast mode state
+      if (data.sessionId && data.modeState) {
+        sessionStateService.setModeState(data.sessionId, data.modeState);
+        
+        const modeSubscribers = chatSessions.get(data.sessionId);
+        if (modeSubscribers) {
+          modeSubscribers.forEach((client: WebSocket) => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify({
+                type: 'mode_state',
+                sessionId: data.sessionId,
+                modeState: data.modeState,
+                timestamp: new Date().toISOString(),
+              }));
+            }
+          });
+        }
+      }
+      break;
     default:
       console.log("[agent] Unknown message type:", data.type);
   }
@@ -432,7 +509,7 @@ async function handleChatMessage(ws, data) {
         content: data.content,
         timestamp: new Date().toISOString(),
       });
-      
+
       // Broadcast to all clients in session
       const subscribers = chatSessions.get(sessionId);
       if (subscribers) {
@@ -447,7 +524,7 @@ async function handleChatMessage(ws, data) {
           }
         });
       }
-      
+
       // Get session to find assigned agent
       const session = await sessionRepository.findById(sessionId);
       if (session?.assignedAgentId) {
@@ -458,6 +535,50 @@ async function handleChatMessage(ws, data) {
             type: 'user_message',
             sessionId: sessionId,
             content: data.content,
+          }));
+        }
+      }
+      break;
+
+    case "set_model":
+      // Forward model change to agent
+      const modelSession = await sessionRepository.findById(sessionId);
+      if (modelSession?.assignedAgentId) {
+        const agentWs = agentService.getAgentConnection(modelSession.assignedAgentId);
+        if (agentWs && agentWs.readyState === 1) {
+          agentWs.send(JSON.stringify({
+            type: 'set_model',
+            sessionId: sessionId,
+            modelId: data.modelId,
+          }));
+        }
+      }
+      break;
+
+    case "set_mode":
+      // Forward mode change to agent
+      const modeSession = await sessionRepository.findById(sessionId);
+      if (modeSession?.assignedAgentId) {
+        const modeAgentWs = agentService.getAgentConnection(modeSession.assignedAgentId);
+        if (modeAgentWs && modeAgentWs.readyState === 1) {
+          modeAgentWs.send(JSON.stringify({
+            type: 'set_mode',
+            sessionId: sessionId,
+            modeId: data.modeId,
+          }));
+        }
+      }
+      break;
+
+    case "request_state":
+      // Forward state request to agent
+      const stateSession = await sessionRepository.findById(sessionId);
+      if (stateSession?.assignedAgentId) {
+        const stateAgentWs = agentService.getAgentConnection(stateSession.assignedAgentId);
+        if (stateAgentWs && stateAgentWs.readyState === 1) {
+          stateAgentWs.send(JSON.stringify({
+            type: 'request_state',
+            sessionId: sessionId,
           }));
         }
       }

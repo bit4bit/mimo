@@ -13,6 +13,7 @@ import { Layout } from "../components/Layout.js";
 import { SessionDetailPage } from "../components/SessionDetailPage.js";
 import { SessionCreatePage } from "../components/SessionCreatePage.js";
 import { SessionListPage } from "../components/SessionListPage.js";
+import { sessionStateService } from "./state.js";
 import type { Context } from "hono";
 
 const router = new Hono();
@@ -196,6 +197,10 @@ router.get("/:id", async (c: Context) => {
   const changeSet = await fileSyncService.getChangeSet(sessionId);
   const hasConflicts = changeSet.hasConflicts;
 
+  // Get model/mode state from in-memory store
+  const modelState = sessionStateService.getModelState(sessionId);
+  const modeState = sessionStateService.getModeState(sessionId);
+
   return c.html(
     <SessionDetailPage 
       session={session}
@@ -204,6 +209,8 @@ router.get("/:id", async (c: Context) => {
       agent={agent}
       changes={changeSet.files}
       hasConflicts={hasConflicts}
+      modelState={modelState}
+      modeState={modeState}
     />
   );
 });

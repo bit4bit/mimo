@@ -20,6 +20,20 @@ interface SessionInfo {
   acpConnection?: acp.ClientSideConnection;
   acpSessionId?: string;
   currentThoughtBuffer?: string;
+  modelState?: ModelState;
+  modeState?: ModeState;
+}
+
+interface ModelState {
+  currentModelId: string;
+  availableModels: Array<{ value: string; name: string; description?: string }>;
+  optionId: string;
+}
+
+interface ModeState {
+  currentModeId: string;
+  availableModes: Array<{ value: string; name: string; description?: string }>;
+  optionId: string;
 }
 
 interface FileChange {
@@ -158,6 +172,18 @@ class MimoAgent {
 
       case "user_message":
         this.handleUserMessage(message);
+        break;
+
+      case "set_model":
+        this.handleSetModel(message);
+        break;
+
+      case "set_mode":
+        this.handleSetMode(message);
+        break;
+
+      case "request_state":
+        this.handleRequestState(message);
         break;
 
       default:
@@ -462,6 +488,69 @@ class MimoAgent {
       .then((sessionResponse) => {
         session.acpSessionId = sessionResponse.sessionId;
         console.log(`[mimo-agent] ACP session created: ${sessionResponse.sessionId}`);
+        
+        // Extract model and mode state from configOptions
+        if (sessionResponse.configOptions) {
+          const modelConfig = sessionResponse.configOptions.find(
+            (opt) => opt.category === "model" && opt.type === "select"
+          );
+          const modeConfig = sessionResponse.configOptions.find(
+            (opt) => opt.category === "mode" && opt.type === "select"
+          );
+          
+          if (modelConfig && modelConfig.type === "select") {
+            const selectOptions = modelConfig.currentValue ? [modelConfig.currentValue] : [];
+            const availableOptions = Array.isArray(modelConfig.options)
+              ? modelConfig.options.map((opt: any) => ({
+                  value: opt.value,
+                  name: opt.name,
+                  description: opt.description,
+                }))
+              : [];
+            
+            // Default to first option if no current value
+            const currentModelId = modelConfig.currentValue || (availableOptions[0]?.value ?? "");
+            
+            session.modelState = {
+              currentModelId,
+              availableModels: availableOptions,
+              optionId: modelConfig.id,
+            };
+            
+            console.log(`[mimo-agent] Model state: ${currentModelId} (${availableOptions.length} available)`);
+          }
+          
+          if (modeConfig && modeConfig.type === "select") {
+            const availableOptions = Array.isArray(modeConfig.options)
+              ? modeConfig.options.map((opt: any) => ({
+                  value: opt.value,
+                  name: opt.name,
+                  description: opt.description,
+                }))
+              : [];
+            
+            // Default to first option if no current value
+            const currentModeId = modeConfig.currentValue || (availableOptions[0]?.value ?? "");
+            
+            session.modeState = {
+              currentModeId,
+              availableModes: availableOptions,
+              optionId: modeConfig.id,
+            };
+            
+            console.log(`[mimo-agent] Mode state: ${currentModeId} (${availableOptions.length} available)`);
+          }
+        }
+        
+        // Always send session initialized message (even if no configOptions)
+        this.send({
+          type: "session_initialized",
+          sessionId: session.sessionId,
+          modelState: session.modelState,
+          modeState: session.modeState,
+          timestamp: new Date().toISOString(),
+        });
+        console.log(`[mimo-agent] Sent session_initialized for ${session.sessionId}`);
       })
       .catch((err) => {
         console.error(`[mimo-agent] ACP init error for ${session.sessionId}:`, err);
@@ -585,6 +674,129 @@ class MimoAgent {
     } else {
       console.log(`[mimo-agent] No ACP connection for session ${sessionId}`);
     }
+  }
+
+  private async handleSetModel(message: any): Promise<void> {
+    const { sessionId, modelId } = message;
+    console.log(`[mimo-agent] Set model request for session ${sessionId}: ${modelId}`);
+
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      console.log(`[mimo-agent] Unknown session ${sessionId}`);
+      return;
+    }
+
+    if (!session.acpConnection || !session.acpSessionId) {
+      console.log(`[mimo-agent] No ACP connection for session ${sessionId}`);
+      return;
+    }
+
+    if (!session.modelState) {
+      console.log(`[mimo-agent] No model state for session ${sessionId}`);
+      return;
+    }
+
+    try {
+      // Call setSessionConfigOption on ACP
+      await session.acpConnection.setSessionConfigOption({
+        sessionId: session.acpSessionId,
+        optionId: session.modelState.optionId,
+        value: modelId,
+      });
+
+      // Update local state
+      session.modelState.currentModelId = modelId;
+
+      // Notify platform of the change
+      this.send({
+        type: "model_state",
+        sessionId,
+        modelState: session.modelState,
+        timestamp: new Date().toISOString(),
+      });
+
+      console.log(`[mimo-agent] Model changed to ${modelId}`);
+    } catch (err: any) {
+      console.error(`[mimo-agent] Failed to set model:`, err);
+      this.send({
+        type: "error_response",
+        sessionId,
+        error: `Failed to set model: ${err.message}`,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  private async handleSetMode(message: any): Promise<void> {
+    const { sessionId, modeId } = message;
+    console.log(`[mimo-agent] Set mode request for session ${sessionId}: ${modeId}`);
+
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      console.log(`[mimo-agent] Unknown session ${sessionId}`);
+      return;
+    }
+
+    if (!session.acpConnection || !session.acpSessionId) {
+      console.log(`[mimo-agent] No ACP connection for session ${sessionId}`);
+      return;
+    }
+
+    if (!session.modeState) {
+      console.log(`[mimo-agent] No mode state for session ${sessionId}`);
+      return;
+    }
+
+    try {
+      // Call setSessionConfigOption on ACP
+      await session.acpConnection.setSessionConfigOption({
+        sessionId: session.acpSessionId,
+        optionId: session.modeState.optionId,
+        value: modeId,
+      });
+
+      // Update local state
+      session.modeState.currentModeId = modeId;
+
+      // Notify platform of the change
+      this.send({
+        type: "mode_state",
+        sessionId,
+        modeState: session.modeState,
+        timestamp: new Date().toISOString(),
+      });
+
+      console.log(`[mimo-agent] Mode changed to ${modeId}`);
+    } catch (err: any) {
+      console.error(`[mimo-agent] Failed to set mode:`, err);
+      this.send({
+        type: "error_response",
+        sessionId,
+        error: `Failed to set mode: ${err.message}`,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  private handleRequestState(message: any): void {
+    const { sessionId } = message;
+    const session = this.sessions.get(sessionId);
+    
+    if (!session) {
+      console.log(`[mimo-agent] Unknown session ${sessionId} in request_state`);
+      return;
+    }
+    
+    // Send current state to platform
+    this.send({
+      type: "session_initialized",
+      sessionId,
+      modelState: session.modelState,
+      modeState: session.modeState,
+      timestamp: new Date().toISOString(),
+    });
+    
+    console.log(`[mimo-agent] Sent state for session ${sessionId}`);
   }
 
   private handleDisconnect(): void {

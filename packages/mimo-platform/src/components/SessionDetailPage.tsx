@@ -34,6 +34,19 @@ interface FileChange {
   status: "clean" | "modified" | "new" | "deleted" | "conflict";
 }
 
+// Model and Mode selector types
+interface ModelState {
+  currentModelId: string;
+  availableModels: Array<{ value: string; name: string; description?: string }>;
+  optionId: string;
+}
+
+interface ModeState {
+  currentModeId: string;
+  availableModes: Array<{ value: string; name: string; description?: string }>;
+  optionId: string;
+}
+
 interface SessionDetailProps {
   project: Project;
   session: Session;
@@ -41,6 +54,8 @@ interface SessionDetailProps {
   agent?: Agent;
   changes?: FileChange[];
   hasConflicts?: boolean;
+  modelState?: ModelState;
+  modeState?: ModeState;
 }
 
 function renderFileTree(changes: FileChange[]) {
@@ -101,6 +116,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   agent,
   changes = [],
   hasConflicts = false,
+  modelState,
+  modeState,
 }) => {
   return (
     <Layout title={`${session.name} - ${project.name}`} showStatusLine={true} sessionId={session.id}>
@@ -120,7 +137,41 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               )}
             </span>
           </div>
-          <div style="display: flex; gap: 10px;">
+          <div style="display: flex; gap: 10px; align-items: center;">
+            {/* Model Selector - always visible with placeholder */}
+            <div 
+              id="model-selector-container" 
+              class="selector-container" 
+              style="opacity: 0.5;"
+              title="Waiting for ACP server to provide model options..."
+            >
+              <label class="selector-label">Model:</label>
+              <select
+                id="model-selector"
+                class="selector-dropdown"
+                disabled
+              >
+                <option>Not configured</option>
+              </select>
+            </div>
+
+            {/* Mode Selector - always visible with placeholder */}
+            <div 
+              id="mode-selector-container" 
+              class="selector-container"
+              style="opacity: 0.5;"
+              title="Waiting for ACP server to provide mode options..."
+            >
+              <label class="selector-label">Mode:</label>
+              <select
+                id="mode-selector"
+                class="selector-dropdown"
+                disabled
+              >
+                <option>Not configured</option>
+              </select>
+            </div>
+
             {agent && (
               <a href={`/agents/${agent.id}`} class="btn-secondary">Agent Details</a>
             )}
