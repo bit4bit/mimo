@@ -6,11 +6,15 @@ const AGENT_SECRET = new TextEncoder().encode(JWT_SECRET);
 
 export interface AgentTokenPayload {
   agentId: string;
+  sessionId?: string;
+  projectId?: string;
   owner: string;
 }
 
 export interface CreateAgentInput {
   owner: string;
+  sessionId?: string;
+  projectId?: string;
 }
 
 export class AgentService {
@@ -27,17 +31,26 @@ export class AgentService {
       owner: input.owner,
     });
 
-    const token = await this.generateAgentToken(agent);
+    const token = await this.generateAgentToken(agent, input.sessionId, input.projectId);
     await this.repository.update(agent.id, { token });
     
     return { ...agent, token };
   }
 
-  async generateAgentToken(agent: Agent): Promise<string> {
-    const token = await new SignJWT({
+  async generateAgentToken(agent: Agent, sessionId?: string, projectId?: string): Promise<string> {
+    const tokenPayload: any = {
       agentId: agent.id,
       owner: agent.owner,
-    })
+    };
+    
+    if (sessionId) {
+      tokenPayload.sessionId = sessionId;
+    }
+    if (projectId) {
+      tokenPayload.projectId = projectId;
+    }
+    
+    const token = await new SignJWT(tokenPayload)
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
       .setExpirationTime("24h")
@@ -51,6 +64,8 @@ export class AgentService {
       const { payload } = await jwtVerify(token, AGENT_SECRET);
       return {
         agentId: payload.agentId as string,
+        sessionId: payload.sessionId as string | undefined,
+        projectId: payload.projectId as string | undefined,
         owner: payload.owner as string,
       };
     } catch {
