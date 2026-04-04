@@ -9,6 +9,7 @@
   let currentThoughtContent = null;
   let currentMessageElement = null;
   let currentMessageContent = null;
+  let pendingUserMessages = new Set(); // Track messages waiting for server echo
 
   // Initialize chat for a session
   function initChat(sessionId) {
@@ -84,6 +85,11 @@
         break;
         
       case 'message':
+        // Check if this is a user message we already added locally
+        if (data.role === 'user' && pendingUserMessages.has(data.content)) {
+          pendingUserMessages.delete(data.content);
+          return; // Skip - already added locally
+        }
         addMessageToChat(data);
         break;
         
@@ -110,12 +116,15 @@
       const message = chatInput.value.trim();
       if (!message) return;
       
-      // Add user message immediately
+      // Add user message immediately for better UX
       addMessageToChat({
         role: 'user',
         content: message,
         timestamp: new Date().toISOString(),
       });
+      
+      // Track this message to prevent duplicate when server echoes it
+      pendingUserMessages.add(message);
       
       // Clear input
       chatInput.value = '';
