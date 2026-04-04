@@ -88,6 +88,7 @@
         
       case 'usage_update':
         updateUsageDisplay(data.usage);
+        endMessageStream();
         break;
         
       case 'message':
