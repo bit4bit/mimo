@@ -64,8 +64,8 @@ export class FossilServerManager {
       return { error: "PORTS_EXHAUSTED" };
     }
 
-    // Start fossil server
-    const proc = spawn("fossil", ["server", "--port", port.toString(), repoPath], {
+    // Start fossil server in public mode (no authentication required)
+    const proc = spawn("fossil", ["server", "--port", port.toString(), "--public", repoPath], {
       stdio: "pipe",
       detached: false,
     });
