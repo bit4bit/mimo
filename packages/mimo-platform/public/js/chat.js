@@ -321,12 +321,37 @@
     const usageEl = document.querySelector('#chat-usage');
     if (!usageEl) return;
     
-    if (usage && usage.amount !== undefined) {
-      usageEl.textContent = `Cost: $${(usage.amount / 100).toFixed(4)}`;
+    if (!usage) {
+      usageEl.textContent = '';
+      usageEl.style.display = 'none';
+      return;
+    }
+    
+    const parts = [];
+    
+    // Show cost if available
+    if (usage.cost?.amount !== undefined) {
+      const amount = usage.cost.amount / 100;
+      parts.push(`Cost: $${amount.toFixed(4)}`);
+    }
+    
+    // Show tokens used if available
+    if (usage.used !== undefined) {
+      parts.push(`Tokens: ${usage.used.toLocaleString()}`);
+    }
+    
+    // Show context size if available
+    if (usage.size !== undefined) {
+      parts.push(`Context: ${usage.size.toLocaleString()}`);
+    }
+    
+    if (parts.length > 0) {
+      usageEl.textContent = parts.join(' | ');
+      usageEl.style.display = 'block';
     } else {
       usageEl.textContent = '';
+      usageEl.style.display = 'none';
     }
-    usageEl.style.display = 'block';
   }
 
   // Scroll chat to bottom

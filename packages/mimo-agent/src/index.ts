@@ -422,7 +422,11 @@ class MimoAgent {
           this.send({
             type: "usage_update",
             sessionId: session.sessionId,
-            usage: update.cost || {},
+            usage: {
+              cost: update.cost || {},
+              size: update.size,
+              used: update.used,
+            },
             timestamp: new Date().toISOString(),
           });
           return;
