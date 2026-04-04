@@ -41,26 +41,26 @@ describe("Fossil Server Manager Integration Tests", () => {
   });
 
   describe("Port Management", () => {
-    it("should assign ports in 8000-9000 range", () => {
-      const port = fossilServerManager.assignPort();
+    it("should assign ports in 8000-9000 range", async () => {
+      const port = await fossilServerManager.assignPort();
       
       expect(port).toBeGreaterThanOrEqual(8000);
       expect(port).toBeLessThanOrEqual(9000);
     });
 
-    it("should assign unique ports", () => {
-      const port1 = fossilServerManager.assignPort();
-      const port2 = fossilServerManager.assignPort();
+    it("should assign unique ports", async () => {
+      const port1 = await fossilServerManager.assignPort();
+      const port2 = await fossilServerManager.assignPort();
       
       expect(port1).not.toBe(port2);
     });
 
-    it("should release ports", () => {
-      const port = fossilServerManager.assignPort();
+    it("should release ports", async () => {
+      const port = await fossilServerManager.assignPort();
       fossilServerManager.releasePort(port);
       
       // Port should be available again
-      const newPort = fossilServerManager.assignPort();
+      const newPort = await fossilServerManager.assignPort();
       // Not guaranteed to be the same, but should be in range
       expect(newPort).toBeGreaterThanOrEqual(8000);
       expect(newPort).toBeLessThanOrEqual(9000);
@@ -120,7 +120,7 @@ describe("Fossil Server Manager Integration Tests", () => {
       // Exhaust all ports
       const ports: number[] = [];
       for (let i = 0; i < 1001; i++) {
-        const port = fossilServerManager.assignPort();
+        const port = await fossilServerManager.assignPort();
         ports.push(port);
       }
 
@@ -130,7 +130,7 @@ describe("Fossil Server Manager Integration Tests", () => {
 
       // Release ports
       ports.forEach(port => fossilServerManager.releasePort(port));
-    }, 20000);
+    }, 60000);
 
     it("should fail if repo file does not exist", async () => {
       const result = await fossilServerManager.startServer(

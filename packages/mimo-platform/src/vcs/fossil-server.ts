@@ -1,5 +1,6 @@
 import { spawn, ChildProcess } from "child_process";
 import { existsSync } from "fs";
+import { createConnection } from "net";
 
 const PORT_RANGE_START = 8000;
 const PORT_RANGE_END = 9000;
@@ -14,11 +15,28 @@ export class FossilServerManager {
   private portsInUse: Set<number> = new Set();
   private runningServers: Map<string, RunningServer> = new Map();
 
-  assignPort(): number | null {
+  private async isPortAvailable(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      const socket = createConnection(port, "localhost");
+      socket.on("connect", () => {
+        socket.destroy();
+        resolve(false); // Port is in use
+      });
+      socket.on("error", () => {
+        resolve(true); // Port is available
+      });
+    });
+  }
+
+  async assignPort(): Promise<number | null> {
     for (let port = PORT_RANGE_START; port <= PORT_RANGE_END; port++) {
       if (!this.portsInUse.has(port)) {
-        this.portsInUse.add(port);
-        return port;
+        // Check if port is actually available on the system
+        const available = await this.isPortAvailable(port);
+        if (available) {
+          this.portsInUse.add(port);
+          return port;
+        }
       }
     }
     return null;
@@ -41,7 +59,7 @@ export class FossilServerManager {
     }
 
     // Assign port
-    const port = this.assignPort();
+    const port = await this.assignPort();
     if (port === null) {
       return { error: "PORTS_EXHAUSTED" };
     }
