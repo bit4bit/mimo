@@ -489,8 +489,12 @@ class MimoAgent {
         session.acpSessionId = sessionResponse.sessionId;
         console.log(`[mimo-agent] ACP session created: ${sessionResponse.sessionId}`);
         
-        // Extract model and mode state from configOptions
+        // DEBUG: Log full response
+        console.log(`[mimo-agent] sessionResponse keys:`, Object.keys(sessionResponse));
+        
+        // Extract model and mode state from configOptions (modern) or legacy fields
         if (sessionResponse.configOptions) {
+          console.log(`[mimo-agent] Using modern configOptions format`);
           const modelConfig = sessionResponse.configOptions.find(
             (opt) => opt.category === "model" && opt.type === "select"
           );
@@ -499,7 +503,6 @@ class MimoAgent {
           );
           
           if (modelConfig && modelConfig.type === "select") {
-            const selectOptions = modelConfig.currentValue ? [modelConfig.currentValue] : [];
             const availableOptions = Array.isArray(modelConfig.options)
               ? modelConfig.options.map((opt: any) => ({
                   value: opt.value,
@@ -508,7 +511,6 @@ class MimoAgent {
                 }))
               : [];
             
-            // Default to first option if no current value
             const currentModelId = modelConfig.currentValue || (availableOptions[0]?.value ?? "");
             
             session.modelState = {
@@ -529,7 +531,6 @@ class MimoAgent {
                 }))
               : [];
             
-            // Default to first option if no current value
             const currentModeId = modeConfig.currentValue || (availableOptions[0]?.value ?? "");
             
             session.modeState = {
@@ -540,6 +541,56 @@ class MimoAgent {
             
             console.log(`[mimo-agent] Mode state: ${currentModeId} (${availableOptions.length} available)`);
           }
+        } 
+        // Fallback to legacy fields (models/modes)
+        else if (sessionResponse.models) {
+          console.log(`[mimo-agent] Using legacy models/modes format`);
+          
+          // Extract model state from legacy 'models' field
+          if (sessionResponse.models) {
+            const models = sessionResponse.models;
+            const availableOptions = Array.isArray(models.availableModels)
+              ? models.availableModels.map((m: any) => ({
+                  value: m.modelId || m.id,
+                  name: m.name || m.modelId || m.id,
+                  description: m.description,
+                }))
+              : [];
+            
+            const currentModelId = models.currentModelId || (availableOptions[0]?.value ?? "");
+            
+            session.modelState = {
+              currentModelId,
+              availableModels: availableOptions,
+              optionId: "model",  // Legacy uses hardcoded ID
+            };
+            
+            console.log(`[mimo-agent] Model state (legacy): ${currentModelId} (${availableOptions.length} available)`);
+          }
+          
+          // Extract mode state from legacy 'modes' field
+          if (sessionResponse.modes) {
+            const modes = sessionResponse.modes;
+            const availableOptions = Array.isArray(modes.availableModes)
+              ? modes.availableModes.map((m: any) => ({
+                  value: m.id,
+                  name: m.name || m.id,
+                  description: m.description,
+                }))
+              : [];
+            
+            const currentModeId = modes.currentModeId || (availableOptions[0]?.value ?? "");
+            
+            session.modeState = {
+              currentModeId,
+              availableModes: availableOptions,
+              optionId: "mode",  // Legacy uses hardcoded ID
+            };
+            
+            console.log(`[mimo-agent] Mode state (legacy): ${currentModeId} (${availableOptions.length} available)`);
+          }
+        } else {
+          console.log(`[mimo-agent] No configOptions or legacy fields found`);
         }
         
         // Always send session initialized message (even if no configOptions)

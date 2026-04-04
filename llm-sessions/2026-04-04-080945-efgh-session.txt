@@ -1,0 +1,8 @@
+[2026-04-04 08:09:15] User: commit i like
+[2026-04-04 08:09:45] User: nice now helpme to debug why is not showing for opencode
+[2026-04-04 08:09:45] LLM: Let me check if the selectors are actually being rendered in the HTML.
+[2026-04-04 08:09:45] User: [mimo-agent] No configOptions in session response print all the session
+[2026-04-04 08:09:45] LLM: I've added detailed debugging to the mimo-agent. Now when you restart the agent, you'll see the full sessionResponse.
+[2026-04-04 08:09:45] User: [mimo-agent] FULL sessionResponse: { sessionId: ses_2a87..., models: {...}, modes: {...}, _meta: {...} } sessionResponse keys: [sessionId, models, modes, _meta] configOptions type: undefined configOptions value: undefined
+[2026-04-04 08:09:45] LLM: Found the issue! The opencode ACP server is using legacy fields (models, modes) instead of configOptions!
+[2026-04-04 08:09:45] User: nice, working commit
