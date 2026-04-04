@@ -2,14 +2,14 @@
 (function() {
   'use strict';
 
-  // Chat WebSocket connection
-  let chatSocket = null;
-  let currentSessionId = null;
-  let currentThoughtElement = null;
-  let currentThoughtContent = null;
-  let currentMessageElement = null;
-  let currentMessageContent = null;
-  let pendingUserMessages = new Set(); // Track messages waiting for server echo
+// Chat WebSocket connection
+let chatSocket = null;
+let currentSessionId = null;
+let currentThoughtElement = null;
+let currentThoughtContent = null;
+let currentMessageElement = null;
+let currentMessageContent = null;
+let pendingUserMessages = new Set(); // Track messages waiting for server echo
 
   // Initialize chat for a session
   function initChat(sessionId) {
@@ -225,18 +225,28 @@
         // Get the rest of the message (after </details>), removing leading newlines
         const restContent = message.content.replace(/<details>[\s\S]*?<\/details>/, '').replace(/^\s*\n+/, '');
         
-        // Thought toggle
+         // Thought toggle (same structure as streaming, matching agent background)
         const thoughtToggle = document.createElement('div');
-        thoughtToggle.className = 'message message-thought thought-collapsed';
+        thoughtToggle.className = 'message-thought thought-collapsed';
+        thoughtToggle.style.marginBottom = '10px';
+        thoughtToggle.style.background = '#2d2d2d';
+        thoughtToggle.style.borderRadius = '4px';
         
         const thoughtHeader = document.createElement('div');
         thoughtHeader.className = 'message-header';
+        thoughtHeader.style.background = '#3d3d3d';
         thoughtHeader.innerHTML = '<span class="thought-toggle">▶</span> Thought Process';
         thoughtHeader.style.cursor = 'pointer';
+        thoughtHeader.style.fontSize = '0.9em';
+        thoughtHeader.style.padding = '4px 8px';
         
         const thoughtContentDiv = document.createElement('div');
         thoughtContentDiv.className = 'message-content';
         thoughtContentDiv.style.display = 'none';
+        thoughtContentDiv.style.padding = '8px';
+        thoughtContentDiv.style.fontSize = '0.9em';
+        thoughtContentDiv.style.color = '#d4d4d4';
+        thoughtContentDiv.style.background = '#2d2d2d';
         thoughtContentDiv.textContent = thoughtText;
         
         thoughtHeader.addEventListener('click', () => {
@@ -278,87 +288,14 @@
     scrollToBottom();
   }
 
-  // Start a thought section (collapsible)
+  // Start a thought section inside the current message
   function startThoughtSection() {
     const chatContainer = document.querySelector('#chat-messages');
     if (!chatContainer) return;
     
-    // Create thought container
-    const thoughtDiv = document.createElement('div');
-    thoughtDiv.className = 'message message-thought thought-collapsed';
-    
-    const header = document.createElement('div');
-    header.className = 'thought-header';
-    header.innerHTML = '<span class="thought-toggle">▶</span> Thinking...';
-    header.style.cursor = 'pointer';
-    header.style.fontSize = '0.85em';
-    header.style.color = '#666';
-    header.style.padding = '8px';
-    header.style.background = '#f5f5f5';
-    header.style.borderRadius = '4px';
-    
-    const content = document.createElement('div');
-    content.className = 'thought-content';
-    content.style.display = 'none';
-    content.style.padding = '8px';
-    content.style.fontSize = '0.9em';
-    content.style.color = '#555';
-    content.style.background = '#fafafa';
-    content.style.borderLeft = '3px solid #ddd';
-    
-    // Toggle visibility on header click
-    header.addEventListener('click', () => {
-      const isVisible = content.style.display !== 'none';
-      content.style.display = isVisible ? 'none' : 'block';
-      header.querySelector('.thought-toggle').textContent = isVisible ? '▶' : '▼';
-      thoughtDiv.classList.toggle('thought-collapsed', isVisible);
-      thoughtDiv.classList.toggle('thought-expanded', !isVisible);
-    });
-    
-    thoughtDiv.appendChild(header);
-    thoughtDiv.appendChild(content);
-    
-    // Remove "no messages" placeholder if exists
-    const placeholder = chatContainer.querySelector('.no-messages');
-    if (placeholder) {
-      placeholder.remove();
-    }
-    
-    chatContainer.appendChild(thoughtDiv);
-    scrollToBottom();
-    
-    currentThoughtElement = thoughtDiv;
-    currentThoughtContent = content;
-  }
-
-  // Append a chunk to the thought section
-  function appendThoughtChunk(text) {
-    if (!currentThoughtContent) return;
-    currentThoughtContent.textContent += text;
-    scrollToBottom();
-  }
-
-  // End the thought section
-  function endThoughtSection() {
-    if (!currentThoughtElement) return;
-    
-    // Update header to show completion
-    const header = currentThoughtElement.querySelector('.thought-header');
-    if (header) {
-      header.innerHTML = '<span class="thought-toggle">▶</span> Thought process';
-    }
-    
-    currentThoughtElement = null;
-    currentThoughtContent = null;
-  }
-
-  // Append a chunk to the assistant message
-  function appendMessageChunk(text) {
-    const chatContainer = document.querySelector('#chat-messages');
-    if (!chatContainer) return;
-    
-    // Create message element if doesn't exist
+    // Wait for message element to exist
     if (!currentMessageElement) {
+      // Message hasn't started yet, create it first
       const messageDiv = document.createElement('div');
       messageDiv.className = 'message message-assistant streaming';
       
@@ -384,7 +321,83 @@
       currentMessageContent = content;
     }
     
-    currentMessageContent.textContent += text;
+    // Now create thought section inside message content
+    const content = currentMessageElement.querySelector('.message-content');
+    if (!content) return;
+    
+    // Create thought container
+    const thoughtDiv = document.createElement('div');
+    thoughtDiv.className = 'message-thought thought-collapsed';
+    thoughtDiv.style.marginBottom = '10px';
+    thoughtDiv.style.background = '#2d2d2d';
+    thoughtDiv.style.borderRadius = '4px';
+    
+    const thoughtHeader = document.createElement('div');
+    thoughtHeader.className = 'message-header';
+    thoughtHeader.style.background = '#3d3d3d';
+    thoughtHeader.innerHTML = '<span class="thought-toggle">▶</span> Thought Process';
+    thoughtHeader.style.cursor = 'pointer';
+    thoughtHeader.style.fontSize = '0.9em';
+    thoughtHeader.style.padding = '4px 8px';
+    
+    const thoughtContentDiv = document.createElement('div');
+    thoughtContentDiv.className = 'message-content';
+    thoughtContentDiv.style.display = 'none';
+    thoughtContentDiv.style.padding = '8px';
+    thoughtContentDiv.style.fontSize = '0.9em';
+    thoughtContentDiv.style.color = '#d4d4d4';
+    thoughtContentDiv.style.background = '#2d2d2d';
+    
+    // Toggle visibility
+    thoughtHeader.addEventListener('click', () => {
+      const isVisible = thoughtContentDiv.style.display !== 'none';
+      thoughtContentDiv.style.display = isVisible ? 'none' : 'block';
+      thoughtHeader.querySelector('.thought-toggle').textContent = isVisible ? '▶' : '▼';
+      thoughtDiv.classList.toggle('thought-collapsed', isVisible);
+      thoughtDiv.classList.toggle('thought-expanded', !isVisible);
+    });
+    
+    thoughtDiv.appendChild(thoughtHeader);
+    thoughtDiv.appendChild(thoughtContentDiv);
+    
+    // Insert before any existing content
+    content.insertBefore(thoughtDiv, content.firstChild);
+    
+    currentThoughtElement = thoughtDiv;
+    currentThoughtContent = thoughtContentDiv;
+  }
+
+  // Append a chunk to the thought section
+  function appendThoughtChunk(text) {
+    if (!currentThoughtContent) {
+      // Thought section might not exist yet, create it
+      startThoughtSection();
+    }
+    if (!currentThoughtContent) return;
+    currentThoughtContent.textContent += text || '';
+    scrollToBottom();
+  }
+
+  // End the thought section
+  function endThoughtSection() {
+    // Just clear the reference, the thought section stays in the message
+    currentThoughtElement = null;
+    currentThoughtContent = null;
+  }
+
+  // Append a chunk to the assistant message
+  function appendMessageChunk(text) {
+    if (!currentMessageElement) return; // Message should already exist from thought_start
+    
+    // Find or create a container for the response text (after thought section)
+    let responseContent = currentMessageElement.querySelector('.message-response');
+    if (!responseContent) {
+      responseContent = document.createElement('div');
+      responseContent.className = 'message-response';
+      currentMessageElement.querySelector('.message-content')?.appendChild(responseContent);
+    }
+    
+    responseContent.textContent += text;
     scrollToBottom();
   }
 
@@ -400,6 +413,8 @@
     currentMessageElement.classList.remove('streaming');
     currentMessageElement = null;
     currentMessageContent = null;
+    currentThoughtElement = null;
+    currentThoughtContent = null;
   }
 
   // Update usage display
@@ -563,22 +578,22 @@
     scrollToBottom();
   }
 
-  // Add thought section to chat
+  // Add thought section to chat (legacy - for old ACP format)
   function addThoughtToChat(container, text) {
     if (!text || !text.trim()) return;
     
     const thoughtDiv = document.createElement('div');
     thoughtDiv.className = 'message message-thought';
+    thoughtDiv.style.background = '#2d2d2d';
+    thoughtDiv.style.borderRadius = '4px';
     
     const header = document.createElement('div');
     header.className = 'thought-header';
-    header.innerHTML = '<span class="thought-toggle">▶</span> Thought process';
+    header.innerHTML = '<span class="thought-toggle">▶</span> Thought Process';
     header.style.cursor = 'pointer';
-    header.style.fontSize = '0.85em';
-    header.style.color = '#666';
-    header.style.padding = '8px';
-    header.style.background = '#f5f5f5';
-    header.style.borderRadius = '4px';
+    header.style.fontSize = '0.9em';
+    header.style.padding = '4px 8px';
+    header.style.background = '#3d3d3d';
     
     const content = document.createElement('div');
     content.className = 'thought-content';
@@ -586,9 +601,8 @@
     content.style.display = 'none';
     content.style.padding = '8px';
     content.style.fontSize = '0.9em';
-    content.style.color = '#555';
-    content.style.background = '#fafafa';
-    content.style.borderLeft = '3px solid #ddd';
+    content.style.color = '#d4d4d4';
+    content.style.background = '#2d2d2d';
     
     header.addEventListener('click', () => {
       const isVisible = content.style.display !== 'none';
