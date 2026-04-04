@@ -748,12 +748,33 @@ class MimoAgent {
     }
 
     try {
-      // Call setSessionConfigOption on ACP
-      await session.acpConnection.setSessionConfigOption({
-        sessionId: session.acpSessionId,
-        optionId: session.modelState.optionId,
-        value: modelId,
-      });
+      // Try using the SDK method first
+      if (session.acpConnection.setSessionConfigOption) {
+        try {
+          await session.acpConnection.setSessionConfigOption({
+            sessionId: session.acpSessionId,
+            configId: session.modelState.optionId,
+            value: modelId,
+          });
+        } catch (err: any) {
+          // If method not found, fall back to extMethod
+          if (err.code === -32601 || err.message?.includes("Method not found")) {
+            console.log(`[mimo-agent] setSessionConfigOption not supported, trying extMethod session/set_model`);
+            await session.acpConnection.extMethod("session/set_model", {
+              sessionId: session.acpSessionId,
+              modelId: modelId,
+            });
+          } else {
+            throw err;
+          }
+        }
+      } else {
+        // Fallback: use extMethod for legacy session/set_model
+        await session.acpConnection.extMethod("session/set_model", {
+          sessionId: session.acpSessionId,
+          modelId: modelId,
+        });
+      }
 
       // Update local state
       session.modelState.currentModelId = modelId;
@@ -799,12 +820,33 @@ class MimoAgent {
     }
 
     try {
-      // Call setSessionConfigOption on ACP
-      await session.acpConnection.setSessionConfigOption({
-        sessionId: session.acpSessionId,
-        optionId: session.modeState.optionId,
-        value: modeId,
-      });
+      // Try using the SDK method first
+      if (session.acpConnection.setSessionConfigOption) {
+        try {
+          await session.acpConnection.setSessionConfigOption({
+            sessionId: session.acpSessionId,
+            configId: session.modeState.optionId,
+            value: modeId,
+          });
+        } catch (err: any) {
+          // If method not found, fall back to extMethod
+          if (err.code === -32601 || err.message?.includes("Method not found")) {
+            console.log(`[mimo-agent] setSessionConfigOption not supported, trying extMethod session/set_mode`);
+            await session.acpConnection.extMethod("session/set_mode", {
+              sessionId: session.acpSessionId,
+              modeId: modeId,  // ← was "mode", should be "modeId"
+            });
+          } else {
+            throw err;
+          }
+        }
+      } else {
+        // Fallback: use extMethod for legacy session/set_mode
+        await session.acpConnection.extMethod("session/set_mode", {
+          sessionId: session.acpSessionId,
+          modeId: modeId,  // ← was "mode", should be "modeId"
+        });
+      }
 
       // Update local state
       session.modeState.currentModeId = modeId;
