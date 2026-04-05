@@ -1,3 +1,8 @@
+import { writeFileSync, chmodSync, unlinkSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import type { Credential } from "../credentials/repository";
+
 export interface VCSResult {
   success: boolean;
   output?: string;
@@ -8,12 +13,14 @@ export interface VCSResult {
 export class VCS {
   private async execCommand(
     command: string[],
-    cwd?: string
+    cwd?: string,
+    env?: Record<string, string>
   ): Promise<{ success: boolean; output: string; error: string }> {
     const proc = Bun.spawn(command, {
       cwd,
       stdout: "pipe",
       stderr: "pipe",
+      env: env ? { ...process.env, ...env } : undefined,
     });
 
     const exitCode = await proc.exited;
@@ -25,6 +32,72 @@ export class VCS {
       output: stdout.trim(),
       error: stderr.trim(),
     };
+  }
+
+  // Helper to inject HTTPS credentials into URL
+  private injectHttpsCredentials(repoUrl: string, credential: Extract<Credential, { type: "https" }>): string {
+    try {
+      const url = new URL(repoUrl);
+      url.username = encodeURIComponent(credential.username);
+      url.password = encodeURIComponent(credential.password);
+      return url.toString();
+    } catch {
+      // If URL parsing fails, assume it's SSH format and return as-is
+      return repoUrl;
+    }
+  }
+
+  // Helper to create temporary SSH key file
+  private createTempSshKeyFile(privateKey: string): string {
+    const tempDir = tmpdir();
+    const keyFile = join(tempDir, `mimo-ssh-key-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    writeFileSync(keyFile, privateKey, { mode: 0o600 });
+    chmodSync(keyFile, 0o600);
+    return keyFile;
+  }
+
+  // Helper to delete temporary SSH key file
+  private deleteTempSshKeyFile(keyPath: string): void {
+    try {
+      unlinkSync(keyPath);
+    } catch {
+      // Ignore errors during cleanup
+    }
+  }
+
+  // Helper to build SSH command for GIT_SSH_COMMAND
+  private buildGitSshCommand(keyPath: string): string {
+    return `ssh -i "${keyPath}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`;
+  }
+
+  // Helper to detect if URL is SSH
+  private isSshUrl(url: string): boolean {
+    return url.startsWith("git@") || url.startsWith("ssh://");
+  }
+
+  // Helper to check if error is authentication-related
+  private isAuthError(error: string, type: "https" | "ssh"): boolean {
+    const lowerError = error.toLowerCase();
+    
+    // Exclude network errors first
+    if (lowerError.includes("timeout") || 
+        lowerError.includes("could not resolve") ||
+        lowerError.includes("network is unreachable") ||
+        lowerError.includes("no route to host")) {
+      return false;
+    }
+    
+    if (type === "https") {
+      return lowerError.includes("authentication failed") ||
+             lowerError.includes("403") ||
+             lowerError.includes("401") ||
+             lowerError.includes("unauthorized");
+    } else {
+      return lowerError.includes("permission denied") ||
+             lowerError.includes("publickey") ||
+             lowerError.includes("authentication") ||
+             lowerError.includes("host key verification failed");
+    }
   }
 
   async checkFossilAvailable(): Promise<boolean> {
@@ -105,14 +178,24 @@ export class VCS {
     };
   }
 
-  async importGitToFossil(gitUrl: string, workDir: string): Promise<VCSResult> {
+  async importGitToFossil(gitUrl: string, workDir: string, credential?: Credential): Promise<VCSResult> {
+    let url = gitUrl;
+    
+    // Inject credentials if provided and HTTPS
+    if (credential?.type === "https" && !this.isSshUrl(gitUrl)) {
+      url = this.injectHttpsCredentials(gitUrl, credential);
+    }
+
     try {
-      new URL(gitUrl);
+      new URL(url);
     } catch {
-      return {
-        success: false,
-        error: "Invalid Git URL format",
-      };
+      // Allow SSH URLs
+      if (!this.isSshUrl(url)) {
+        return {
+          success: false,
+          error: "Invalid Git URL format",
+        };
+      }
     }
 
     // Create fossil repo first
@@ -124,7 +207,7 @@ export class VCS {
 
     // Import from git
     const result = await this.execCommand(
-      ["fossil", "import", "--git", gitUrl, fossilPath],
+      ["fossil", "import", "--git", url, fossilPath],
       workDir
     );
 
@@ -181,8 +264,11 @@ export class VCS {
 
   async sync(
     workDir: string,
-    direction: "pull" | "push"
+    direction: "pull" | "push",
+    credential?: Credential
   ): Promise<VCSResult> {
+    // Fossil sync doesn't support credentials directly
+    // Credentials would need to be in the URL
     const command = direction === "pull" ? "pull" : "push";
     const result = await this.execCommand(["fossil", command], workDir);
 
@@ -231,7 +317,8 @@ export class VCS {
   async cloneRepository(
     repoUrl: string,
     repoType: "git" | "fossil",
-    targetDir: string
+    targetDir: string,
+    credential?: Credential
   ): Promise<VCSResult> {
     const { mkdirSync } = await import("fs");
     
@@ -243,36 +330,95 @@ export class VCS {
     }
 
     if (repoType === "git") {
-      // Clone Git repository
+      let url = repoUrl;
+      let sshKeyPath: string | null = null;
+      let env: Record<string, string> | undefined = undefined;
+
+      // Handle credentials
+      if (credential) {
+        if (credential.type === "https" && !this.isSshUrl(repoUrl)) {
+          url = this.injectHttpsCredentials(repoUrl, credential);
+        } else if (credential.type === "ssh" && this.isSshUrl(repoUrl)) {
+          // Create temp SSH key file
+          sshKeyPath = this.createTempSshKeyFile(credential.privateKey);
+          env = {
+            GIT_SSH_COMMAND: this.buildGitSshCommand(sshKeyPath),
+          };
+        }
+      }
+
+      try {
+        // Clone Git repository
+        const result = await this.execCommand(
+          ["git", "clone", url, targetDir],
+          targetDir,
+          env
+        );
+        
+        if (!result.success && this.isAuthError(result.error, credential?.type === "ssh" ? "ssh" : "https")) {
+          return {
+            success: false,
+            output: result.output,
+            error: credential?.type === "ssh" 
+              ? "SSH authentication failed. Please check your private key and repository access."
+              : "Authentication failed. Please check your credentials and repository access.",
+          };
+        }
+        
+        if (result.success) {
+          return {
+            success: true,
+            output: result.output,
+          };
+        }
+        
+        // If git clone failed but directory has content, try cloning into current directory
+        const result2 = await this.execCommand(
+          ["git", "clone", url, "."],
+          targetDir,
+          env
+        );
+
+        if (!result2.success && this.isAuthError(result2.error, credential?.type === "ssh" ? "ssh" : "https")) {
+          return {
+            success: false,
+            output: result2.output,
+            error: credential?.type === "ssh" 
+              ? "SSH authentication failed. Please check your private key and repository access."
+              : "Authentication failed. Please check your credentials and repository access.",
+          };
+        }
+        
+        return {
+          success: result2.success,
+          output: result2.output,
+          error: result2.error || undefined,
+        };
+      } finally {
+        // Clean up temp SSH key file
+        if (sshKeyPath) {
+          this.deleteTempSshKeyFile(sshKeyPath);
+        }
+      }
+    } else {
+      // Clone Fossil repository - inject credentials if HTTPS
+      let url = repoUrl;
+      if (credential?.type === "https" && !this.isSshUrl(repoUrl)) {
+        url = this.injectHttpsCredentials(repoUrl, credential);
+      }
+
       const result = await this.execCommand(
-        ["git", "clone", repoUrl, targetDir],
+        ["fossil", "clone", url, `${targetDir}/.fossil`],
         targetDir
       );
       
-      if (result.success) {
+      if (!result.success && this.isAuthError(result.error, "https")) {
         return {
-          success: true,
+          success: false,
           output: result.output,
+          error: "Authentication failed. Please check your credentials and repository access.",
         };
       }
-      
-      // If git clone failed but directory has content, try cloning into current directory
-      const result2 = await this.execCommand(
-        ["git", "clone", repoUrl, "."],
-        targetDir
-      );
-      
-      return {
-        success: result2.success,
-        output: result2.output,
-        error: result2.error || undefined,
-      };
-    } else {
-      // Clone Fossil repository
-      const result = await this.execCommand(
-        ["fossil", "clone", repoUrl, `${targetDir}/.fossil`],
-        targetDir
-      );
       
       if (result.success) {
         // Open the cloned repo in the target directory
@@ -432,27 +578,70 @@ export class VCS {
   async pushToRemote(
     upstreamPath: string,
     repoType: "git" | "fossil",
-    remoteUrl?: string
+    credential?: Credential,
+    branch?: string
   ): Promise<VCSResult> {
     if (repoType === "git") {
-      const result = await this.execCommand(
-        ["git", "push", "origin"],
-        upstreamPath
-      );
-      
-      return {
-        success: result.success,
-        output: result.output,
-        error: result.error || undefined,
-      };
+      let sshKeyPath: string | null = null;
+      let env: Record<string, string> | undefined = undefined;
+
+      // Handle SSH credentials
+      if (credential?.type === "ssh") {
+        sshKeyPath = this.createTempSshKeyFile(credential.privateKey);
+        env = {
+          GIT_SSH_COMMAND: this.buildGitSshCommand(sshKeyPath),
+        };
+      }
+
+      try {
+        const pushArgs = branch ? ["push", "origin", branch] : ["push", "origin"];
+        const result = await this.execCommand(["git", ...pushArgs], upstreamPath, env);
+
+        // Check if the failure is due to no upstream branch configured
+        // This is expected in test environments or new repos without remotes
+        if (!result.success && 
+            (result.error?.includes("no upstream branch") || 
+             result.error?.includes("has no upstream branch"))) {
+          return {
+            success: true,
+            output: "No remote configured - skipping push",
+          };
+        }
+
+        if (!result.success && this.isAuthError(result.error, "ssh")) {
+          return {
+            success: false,
+            output: result.output,
+            error: "SSH authentication failed. Please check your private key and repository access.",
+          };
+        }
+
+        return {
+          success: result.success,
+          output: result.output,
+          error: result.error || undefined,
+        };
+      } finally {
+        if (sshKeyPath) {
+          this.deleteTempSshKeyFile(sshKeyPath);
+        }
+      }
     } else {
       // Fossil push
-      const args = remoteUrl ? ["push", remoteUrl] : ["push"];
+      const args = branch ? ["push", branch] : ["push"];
       const result = await this.execCommand(
         ["fossil", ...args],
         upstreamPath
       );
-      
+
+      if (!result.success && this.isAuthError(result.error, "https")) {
+        return {
+          success: false,
+          output: result.output,
+          error: "Authentication failed. Please check your credentials and repository access.",
+        };
+      }
+
       return {
         success: result.success,
         output: result.output,
@@ -678,30 +867,66 @@ export class VCS {
   async pushUpstream(
     upstreamPath: string,
     repoType: "git" | "fossil",
+    credential?: Credential,
     branch?: string
   ): Promise<VCSResult> {
     if (repoType === "git") {
-      const pushArgs = branch ? ["push", "origin", branch] : ["push", "origin"];
-      const result = await this.execCommand(["git", ...pushArgs], upstreamPath);
+      let sshKeyPath: string | null = null;
+      let env: Record<string, string> | undefined = undefined;
 
-      // Check if the failure is due to no upstream branch configured
-      // This is expected in test environments or new repos without remotes
-      if (!result.success && 
-          (result.error?.includes("no upstream branch") || 
-           result.error?.includes("has no upstream branch"))) {
-        return {
-          success: true,
-          output: "No remote configured - skipping push",
+      // Handle SSH credentials
+      if (credential?.type === "ssh") {
+        sshKeyPath = this.createTempSshKeyFile(credential.privateKey);
+        env = {
+          GIT_SSH_COMMAND: this.buildGitSshCommand(sshKeyPath),
         };
       }
 
-      return {
-        success: result.success,
-        output: result.output,
-        error: result.error || undefined,
-      };
+      try {
+        const pushArgs = branch ? ["push", "origin", branch] : ["push", "origin"];
+        const result = await this.execCommand(["git", ...pushArgs], upstreamPath, env);
+
+        // Check if the failure is due to no upstream branch configured
+        // This is expected in test environments or new repos without remotes
+        if (!result.success && 
+            (result.error?.includes("no upstream branch") || 
+             result.error?.includes("has no upstream branch"))) {
+          return {
+            success: true,
+            output: "No remote configured - skipping push",
+          };
+        }
+
+        if (!result.success && this.isAuthError(result.error, credential?.type === "ssh" ? "ssh" : "https")) {
+          return {
+            success: false,
+            output: result.output,
+            error: credential?.type === "ssh" 
+              ? "SSH authentication failed. Please check your private key and repository access."
+              : "Authentication failed. Please check your credentials and repository access.",
+          };
+        }
+
+        return {
+          success: result.success,
+          output: result.output,
+          error: result.error || undefined,
+        };
+      } finally {
+        if (sshKeyPath) {
+          this.deleteTempSshKeyFile(sshKeyPath);
+        }
+      }
     } else {
       const result = await this.execCommand(["fossil", "push"], upstreamPath);
+
+      if (!result.success && this.isAuthError(result.error, "https")) {
+        return {
+          success: false,
+          output: result.output,
+          error: "Authentication failed. Please check your credentials and repository access.",
+        };
+      }
 
       return {
         success: result.success,

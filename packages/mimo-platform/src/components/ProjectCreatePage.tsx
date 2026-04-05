@@ -1,11 +1,13 @@
 import type { FC } from "hono/jsx";
 import { Layout } from "./Layout.js";
+import type { Credential } from "../credentials/repository";
 
 interface ProjectCreateProps {
   error?: string;
+  credentials?: Credential[];
 }
 
-export const ProjectCreatePage: FC<ProjectCreateProps> = ({ error }) => {
+export const ProjectCreatePage: FC<ProjectCreateProps> = ({ error, credentials = [] }) => {
   return (
     <Layout title="Create Project">
       <div class="container">
@@ -23,8 +25,8 @@ export const ProjectCreatePage: FC<ProjectCreateProps> = ({ error }) => {
 
           <div class="form-group">
             <label>Repository URL</label>
-            <input type="url" name="repoUrl" required placeholder="https://github.com/user/repo.git" />
-            <small>Git or Fossil repository URL</small>
+            <input type="text" name="repoUrl" required placeholder="https://github.com/user/repo.git or git@github.com:user/repo.git" />
+            <small>Git or Fossil repository URL. Supports HTTPS and SSH formats.</small>
           </div>
 
           <div class="form-group">
@@ -33,6 +35,19 @@ export const ProjectCreatePage: FC<ProjectCreateProps> = ({ error }) => {
               <option value="git">Git</option>
               <option value="fossil">Fossil</option>
             </select>
+          </div>
+
+          <div class="form-group">
+            <label>Credential (optional)</label>
+            <select name="credentialId" id="credentialSelect">
+              <option value="">None (public repository)</option>
+              {credentials.map((cred) => (
+                <option key={cred.id} value={cred.id} data-type={cred.type}>
+                  {cred.name} ({cred.type.toUpperCase()})
+                </option>
+              ))}
+            </select>
+            <small>Select a credential for private repositories. Type must match URL (HTTPS for https://, SSH for git@).</small>
           </div>
 
           <div class="actions">

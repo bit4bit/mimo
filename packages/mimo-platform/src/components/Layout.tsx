@@ -321,6 +321,7 @@ export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = fals
             <div class="nav-links">
               <a href="/dashboard">Dashboard</a>
               <a href="/projects">Projects</a>
+              <a href="/credentials">Credentials</a>
               <a href="/agents">Agents</a>
               <a href="/auth/logout">Logout</a>
             </div>

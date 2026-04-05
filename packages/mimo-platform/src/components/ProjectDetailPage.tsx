@@ -1,5 +1,6 @@
 import type { FC } from "hono/jsx";
 import { Layout } from "./Layout.js";
+import type { Credential } from "../credentials/repository";
 
 interface Project {
   id: string;
@@ -9,6 +10,7 @@ interface Project {
   owner: string;
   createdAt: Date;
   description?: string;
+  credentialId?: string;
 }
 
 interface Session {
@@ -26,9 +28,10 @@ interface Session {
 interface ProjectDetailProps {
   project: Project;
   sessions: Session[];
+  credential?: Credential | null;
 }
 
-export const ProjectDetailPage: FC<ProjectDetailProps> = ({ project, sessions }) => {
+export const ProjectDetailPage: FC<ProjectDetailProps> = ({ project, sessions, credential }) => {
   const sortedSessions = sessions.sort((a, b) => 
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
@@ -66,6 +69,16 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({ project, sessions })
           <div class="detail-row">
             <label>Created:</label>
             <div>{new Date(project.createdAt).toLocaleString()}</div>
+          </div>
+          <div class="detail-row">
+            <label>Credential:</label>
+            <div>
+              {credential ? (
+                <span>{credential.name} ({credential.type.toUpperCase()})</span>
+              ) : (
+                <span style="color: #888;">Public repository (no authentication)</span>
+              )}
+            </div>
           </div>
         </div>
 

@@ -12,6 +12,7 @@ export interface Project {
   owner: string;
   createdAt: Date;
   description?: string;
+  credentialId?: string;
 }
 
 export interface PublicProject {
@@ -31,6 +32,7 @@ export interface ProjectData {
   owner: string;
   createdAt: string;
   description?: string;
+  credentialId?: string;
 }
 
 export interface CreateProjectInput {
@@ -39,6 +41,7 @@ export interface CreateProjectInput {
   repoType: "git" | "fossil";
   owner: string;
   description?: string;
+  credentialId?: string;
 }
 
 export class ProjectRepository {
@@ -74,6 +77,7 @@ export class ProjectRepository {
       owner: input.owner,
       createdAt: new Date().toISOString(),
       ...(input.description && { description: input.description }),
+      ...(input.credentialId && { credentialId: input.credentialId }),
     };
 
     writeFileSync(
@@ -197,7 +201,7 @@ export class ProjectRepository {
     return existsSync(this.getProjectFilePath(id));
   }
 
-  async update(id: string, updates: { name?: string; repoUrl?: string; repoType?: "git" | "fossil"; description?: string }): Promise<Project> {
+  async update(id: string, updates: { name?: string; repoUrl?: string; repoType?: "git" | "fossil"; description?: string; credentialId?: string }): Promise<Project> {
     const project = await this.findById(id);
     if (!project) {
       throw new Error("Project not found");
@@ -216,6 +220,15 @@ export class ProjectRepository {
       createdAt: project.createdAt.toISOString(),
       description: updates.description,
     };
+
+    // Handle credentialId specially - if undefined, keep existing; if null, remove; if string, set
+    if ("credentialId" in updates) {
+      if (updates.credentialId !== undefined) {
+        updatedData.credentialId = updates.credentialId;
+      }
+    } else if (project.credentialId) {
+      updatedData.credentialId = project.credentialId;
+    }
 
     writeFileSync(
       this.getProjectFilePath(id),

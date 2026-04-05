@@ -82,6 +82,10 @@ app.route("/commits", commitRoutes);
 import configRoutes from "./config/routes";
 app.route("/config", configRoutes);
 
+// Credentials routes (protected)
+import credentialsRoutes from "./credentials/routes";
+app.route("/credentials", credentialsRoutes);
+
 // Health check
 app.get("/health", (c) => {
   console.log("Health check hit");

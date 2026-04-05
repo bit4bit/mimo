@@ -62,3 +62,7 @@ export function getAgentPath(agentId: string): string {
 export function getUserCredentialsPath(): string {
   return join(getPaths().users, "credentials.yaml");
 }
+
+export function getCredentialsPath(username: string): string {
+  return join(getPaths().users, username, "credentials");
+}
