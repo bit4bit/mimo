@@ -20,8 +20,8 @@ Focus on what the system does, not how it does it.
 - ✅ "when a user submits an invalid form, it returns a validation error"
 - ✅ "when payment succeeds, the order status becomes confirmed"
 - ❌ testing the value of a variable
-- ❌ testing that a specific function or method was called
-- ❌ testing internal state that is not observable from outside
+- ❌ ❌ testing that a specific function or method was called
+- ❌ ❌ testing internal state that is not observable from outside
 
 #### Bug Fixing Workflow
 1. **Write a failing test** that reproduces the bug exactly
@@ -76,3 +76,62 @@ Agent: opencode
 Task: discriminator support
 Description: Extended the parser to handle OpenAPI 3.1 discriminator mappings.
 ```
+
+---
+
+## Workflow: OpenSpec
+
+This project uses OpenSpec for structured change management. Always follow this workflow:
+
+### Starting a New Feature/Fix
+
+1. **Explore mode** - Think through the problem, investigate, clarify requirements
+   - `/opsx:explore <topic>` - Enter explore mode to think through requirements
+   
+2. **Create Change** - Create structured artifacts before implementing
+   - `/opsx:new <change-name>` or `/opsx:ff <change-name>` - Create change with artifacts
+   - Artifacts: proposal.md → design.md → specs/**/*.md → tasks.md
+
+3. **Implement** - Execute tasks from the change
+   - `/opsx:apply <change-name>` - Start implementing tasks
+   - Mark tasks complete as you go: `- [ ]` → `- [x]`
+
+4. **Verify** - Validate implementation against specs
+   - `/opsx:verify <change-name>` - Check completeness, correctness, coherence
+
+5. **Archive** - Complete the change
+   - `/opsx:archive <change-name>` - Archive change, sync specs to main
+
+### UI Page Requirements
+
+Every new page MUST follow these standards:
+
+**Component Structure:**
+- MUST extend `Layout` component with appropriate `title` prop
+- MUST render inside container with consistent max-width (800px for lists, 400px for forms)
+- MUST use project standard CSS classes (`.btn`, `.btn-secondary`, `.form-group`, etc.)
+
+**Form Requirements:**
+- MUST use `method="post"` (lowercase)
+- MUST provide Cancel button alongside Submit
+- MUST display validation errors in `.error-message` div
+- MUST include help text with `.form-help` class
+
+**Page Standards:**
+- List pages: max-width 800px, title bar with action button
+- Form pages: max-width 400px, consistent field styling
+- Detail pages: max-width 800px, clearly organized sections
+
+### Key Spec Locations
+
+- `openspec/specs/vcs-credentials/spec.md` - VCS credential requirements
+- `openspec/specs/projects/spec.md` - Project requirements
+- `openspec/specs/<capability>/spec.md` - Other capability specs
+
+### Never Skip
+
+- ✅ Write tests first (BDD)
+- ✅ Create OpenSpec artifacts before implementing
+- ✅ Use Layout component for all pages
+- ✅ Follow UI standards from specs
+- ✅ Verify before archiving

@@ -55,6 +55,15 @@ The system SHALL display all credentials owned by the authenticated user.
 - **AND** each credential shows name, type (https/ssh), and masked password/key indicator
 - **AND** password and private key are masked (********)
 
+#### Scenario: CredentialsListPage Component Requirements
+- **MUST** extend Layout component with title="Credentials"
+- **MUST** render inside container with max-width: 800px
+- **MUST** display "New Credential" button linking to /credentials/new
+- **MUST** show credential type badge (HTTPS/SSH) with appropriate styling
+- **MUST** mask sensitive fields (password/key) with "********"
+- **MUST** provide Edit and Delete actions per credential
+- **MUST** display empty state when no credentials exist
+
 ### Requirement: User can edit credentials
 The system SHALL allow users to update credential name and credentials for HTTPS, and name for SSH.
 
@@ -73,6 +82,15 @@ The system SHALL allow users to update credential name and credentials for HTTPS
 - **THEN** system validates new key format
 - **AND** system updates stored credential
 - **AND** system displays success message
+
+#### Scenario: CredentialEditPage Component Requirements
+- **MUST** extend Layout component with title="Edit Credential"
+- **MUST** render inside container with consistent styling
+- **MUST** show credential type as read-only field
+- **MUST** allow editing of credential name
+- **MUST** allow updating credential values (username/password for HTTPS, private key for SSH)
+- **MUST** provide Cancel button returning to /credentials
+- **MUST** display type-specific help text
 
 ### Requirement: User can delete credentials
 The system SHALL allow users to delete their credentials.
@@ -97,6 +115,15 @@ The system SHALL inject HTTPS credentials into repository URLs for authenticated
 #### Scenario: Push with HTTPS credentials
 - **WHEN** system pushes to git remote with configured HTTPS credential
 - **THEN** system injects credentials into push URL
+
+#### Scenario: CredentialCreatePage Component Requirements
+- **MUST** extend Layout component with title="New Credential"
+- **MUST** render inside container with consistent styling
+- **MUST** provide type selector dropdown (HTTPS/SSH)
+- **MUST** show/hide form fields based on selected type
+- **MUST** validate required fields before submission
+- **MUST** provide Cancel button returning to /credentials
+- **MUST** include help text explaining credential types
 
 ### Requirement: SSH credential injection via GIT_SSH_COMMAND
 The system SHALL use GIT_SSH_COMMAND environment variable to pass SSH private keys to git operations.
@@ -151,3 +178,30 @@ The system SHALL fail immediately with clear error messages when authentication 
 - **WHEN** system attempts operation requiring credential but credential does not exist
 - **THEN** operation fails
 - **AND** system displays error: "Credential not found. Please select a valid credential for this project."
+
+---
+
+## UI Component Standards
+
+### Layout Component (Required for all pages)
+Every page component MUST extend the Layout component with:
+- `title` prop for page title
+- Navigation bar with links to Dashboard, Projects, Credentials, Agents
+- Consistent dark theme styling
+- Status line (optional, for editor pages)
+
+### Container Standards
+- **Width**: max-width 800px for list pages, max-width 400px for forms
+- **Padding**: 20px
+- **Margin**: 50px auto for centered content
+
+### Form Standards
+- **Method**: Use lowercase "post" (not "POST")
+- **Actions**: Always provide Cancel button alongside Submit
+- **Validation**: Display errors in `.error-message` div
+- **Help Text**: Use `.form-help` class for explanatory text
+
+### Button Standards
+- **Primary**: `.btn` class
+- **Secondary**: `.btn-secondary` class
+- **Danger**: `.btn-danger` class (for destructive actions)

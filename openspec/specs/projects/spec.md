@@ -46,3 +46,30 @@ The system SHALL display credential name (not credentials themselves) in project
 #### Scenario: Project detail shows no credential
 - **WHEN** authenticated user views project without credential
 - **THEN** system displays "Public repository" or similar indicator
+
+---
+
+## Page Component Requirements
+
+### ProjectCreatePage
+- **MUST** extend Layout component with title="Create Project"
+- **MUST** render inside container with max-width: 800px
+- **MUST** include credential dropdown populated with user's credentials
+- **MUST** filter credentials by type matching repository URL (HTTPS vs SSH)
+- **MUST** validate credential ownership before creation
+- **MUST** provide "None" option for public repositories
+
+### ProjectEditPage
+- **MUST** extend Layout component with title="Edit {project.name}"
+- **MUST** render inside container with max-width: 800px
+- **MUST** populate credential dropdown with current selection
+- **MUST** filter credentials by type matching repository URL
+- **MUST** validate credential ownership before update
+- **MUST** allow clearing credential (public repository)
+
+### ProjectDetailPage
+- **MUST** extend Layout component with title={project.name}
+- **MUST** render inside container with max-width: 800px
+- **MUST** display credential name and type (if configured)
+- **MUST** display "Public repository" indicator (if no credential)
+- **MUST** NOT display credential secrets (username, password, key)
