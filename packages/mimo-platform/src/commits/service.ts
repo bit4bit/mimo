@@ -48,16 +48,61 @@ export class CommitService {
 
     const repoType = project.repoType;
 
+    // Step 0.5: Ensure agent-workspace has fossil checkout (for legacy sessions)
+    const fossilPath = `${session.upstreamPath}/../repo.fossil`;
+    const { existsSync } = await import("fs");
+    const { join } = await import("path");
+    const fslckoutPath = join(session.agentWorkspacePath, ".fslckout");
+    
+    if (!existsSync(fslckoutPath)) {
+      console.log(`[commit] Initializing fossil checkout in agent-workspace...`);
+      const openResult = await vcs.openFossil(fossilPath, session.agentWorkspacePath);
+      if (!openResult.success) {
+        console.error(`[commit] Failed to initialize checkout: ${openResult.error}`);
+        return {
+          success: false,
+          message: "Failed to initialize fossil checkout",
+          error: openResult.error || "Checkout initialization failed",
+          step: null,
+        };
+      }
+    }
+
     // Step 1: Sync agent-workspace with repo.fossil
     console.log(`[commit] Step 1: Syncing agent-workspace with repo.fossil...`);
     const syncResult = await vcs.fossilUp(session.agentWorkspacePath);
     if (!syncResult.success) {
-      return {
-        success: false,
-        message: "Failed to sync with agent",
-        error: syncResult.error || "fossil up failed",
-        step: "sync",
-      };
+      // Check if it's because checkout doesn't exist
+      if (syncResult.error?.includes("not within an open check-out") ||
+          syncResult.error?.includes("current directory is not within")) {
+        console.log(`[commit] Checkout not initialized, opening fossil repo...`);
+        const openResult = await vcs.openFossil(fossilPath, session.agentWorkspacePath);
+        if (!openResult.success) {
+          return {
+            success: false,
+            message: "Failed to open fossil checkout",
+            error: openResult.error || "fossil open failed",
+            step: "sync",
+          };
+        }
+        // Retry fossil up after opening
+        const retryResult = await vcs.fossilUp(session.agentWorkspacePath);
+        if (!retryResult.success) {
+          return {
+            success: false,
+            message: "Failed to sync with agent",
+            error: retryResult.error || "fossil up failed after open",
+            step: "sync",
+          };
+        }
+      } else {
+        return {
+          success: false,
+          message: "Failed to sync with agent",
+          error: syncResult.error || "fossil up failed",
+          step: "sync",
+        };
+      }
     }
 
     // Step 2: Copy files from agent-workspace to upstream
