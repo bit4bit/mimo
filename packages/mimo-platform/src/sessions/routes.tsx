@@ -172,6 +172,14 @@ router.post("/", async (c: Context) => {
       agentWorkspaceUser,
       agentWorkspacePassword,
     });
+    
+    // Step 4: Open fossil checkout in agent-workspace
+    const openResult = await vcs.openFossil(fossilPath, session.agentWorkspacePath);
+    if (!openResult.success) {
+      console.error("[session] Failed to open fossil in agent-workspace:", openResult.error);
+      await sessionRepository.delete(projectId, session.id);
+      return c.text("Failed to open fossil checkout", 500);
+    }
   } catch (error) {
     console.error("Failed to setup session:", error);
     await sessionRepository.delete(projectId, session.id);
