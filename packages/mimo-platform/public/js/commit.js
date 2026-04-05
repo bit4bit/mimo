@@ -48,21 +48,24 @@
 
       const result = await response.json();
 
-      if (result.commit.success && result.push.success) {
+      if (result.success) {
         commitDialog.style.display = 'none';
-        commitStatus.textContent = 'Changes committed and pushed successfully!';
+        commitStatus.textContent = result.message || 'Changes committed and pushed successfully!';
         commitStatus.style.color = '#51cf66';
         setTimeout(() => {
           commitStatus.textContent = '';
         }, 5000);
         // Refresh page to show updated changes
         window.location.reload();
-      } else if (result.commit.success && !result.push.success) {
-        commitDialog.style.display = 'none';
-        commitStatus.textContent = `Committed but push failed: ${result.push.error || 'Unknown error'}`;
-        commitStatus.style.color = '#ffd43b';
       } else {
-        commitError.textContent = result.commit.error || 'Commit failed';
+        // Handle different failure cases based on the step
+        if (result.step === 'push') {
+          commitDialog.style.display = 'none';
+          commitStatus.textContent = `Committed but push failed: ${result.error || 'Unknown error'}`;
+          commitStatus.style.color = '#ffd43b';
+        } else {
+          commitError.textContent = result.error || result.message || 'Commit failed';
+        }
       }
     } catch (error) {
       commitError.textContent = `Error: ${error.message}`;
