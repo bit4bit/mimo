@@ -102,7 +102,9 @@ This project uses OpenSpec for structured change management. Always follow this 
 5. **Archive** - Complete the change
    - `/opsx:archive <change-name>` - Archive change, sync specs to main
 
-### UI Page Requirements
+---
+
+## UI Page Requirements
 
 Every new page MUST follow these standards:
 
