@@ -10,7 +10,7 @@ import { agentService } from "../agents/service.js";
 import { chatService } from "./chat.js";
 import { vcs } from "../vcs/index.js";
 import { verifyToken } from "../auth/jwt.js";
-import { Layout } from "../components/Layout.js";
+
 import { SessionDetailPage } from "../components/SessionDetailPage.js";
 import { SessionCreatePage } from "../components/SessionCreatePage.js";
 import { SessionListPage } from "../components/SessionListPage.js";
@@ -66,11 +66,9 @@ router.get("/", async (c: Context) => {
   }
 
   const sessions = await sessionRepository.listByProject(projectId);
-  
+
   return c.html(
-    <Layout title={`Sessions - ${project.name}`}>
-      <SessionListPage project={project} sessions={sessions} />
-    </Layout>
+    <SessionListPage project={project} sessions={sessions} />
   );
 });
 
@@ -94,9 +92,7 @@ router.get("/new", async (c: Context) => {
   const agents = await agentService.listAgentsByOwner(username);
 
   return c.html(
-    <Layout title="New Session">
-      <SessionCreatePage project={project} agents={agents} />
-    </Layout>
+    <SessionCreatePage project={project} agents={agents} />
   );
 });
 
