@@ -294,11 +294,18 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             // Warning if scc not installed
             if (data.sccInstalled === false) {
               const warningMsg = data.warning || 'scc not installed - complexity metrics unavailable';
-              html += '<div class="impact-warning" style="margin-bottom: 12px; padding: 10px; background: #332b1a; border: 1px solid #665a33; border-radius: 4px; display: flex; align-items: center; gap: 8px;">' +
+              html += '<div class="impact-warning" style="margin-bottom: 12px; padding: 10px; background: #332b1a; border: 1px solid #665a33; border-radius: 4px;">' +
+                '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">' +
                 '<span style="font-size: 16px;">⚠️</span>' +
                 '<span style="flex: 1; color: #d4a040;">' + warningMsg + '</span>' +
-                '<button type="button" class="btn-secondary btn-small" onclick="installScc()" id="install-scc-btn" style="font-size: 11px; padding: 4px 8px;">Install scc</button>' +
+                '</div>' +
+                '<div style="font-size: 11px; color: #888; padding-left: 24px;">' +
+                'Install scc from <a href="https://github.com/boyter/scc" target="_blank" style="color: #6ea8fe;">github.com/boyter/scc</a> and place the binary at: ~/.mimo/bin/scc' +
+                '</div>' +
                 '</div>';
+              
+              // Log to console where user should put scc
+              console.log('[mimo] SCC feature disabled. To enable impact complexity metrics, install scc from https://github.com/boyter/scc and place the binary at: ~/.mimo/bin/scc');
             }
             
             // Files Section
@@ -416,36 +423,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           
           // Initial fetch
           fetchImpact();
-          
-          // Install scc handler
-          window.installScc = async function() {
-            const btn = document.getElementById('install-scc-btn');
-            if (btn) {
-              btn.textContent = 'Installing...';
-              btn.disabled = true;
-            }
-            
-            try {
-              const response = await fetch('/impact/install-scc', { method: 'POST' });
-              const result = await response.json();
-              
-              if (result.success) {
-                window.location.reload();
-              } else {
-                alert('Failed to install scc: ' + (result.error || 'Unknown error'));
-                if (btn) {
-                  btn.textContent = 'Install scc';
-                  btn.disabled = false;
-                }
-              }
-            } catch (error) {
-              alert('Failed to install scc: ' + error.message);
-              if (btn) {
-                btn.textContent = 'Install scc';
-                btn.disabled = false;
-              }
-            }
-          };
         })();
       `}} />
 

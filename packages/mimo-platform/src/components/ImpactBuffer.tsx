@@ -82,18 +82,15 @@ export const ImpactBuffer: FC<ImpactBufferProps> = ({
         {/* SCC Warning */}
         {!sccInstalled && (
           <div class="impact-warning">
-            <span class="warning-icon">⚠️</span>
-            <span class="warning-text">
-              {sccError || "scc not installed - complexity metrics unavailable"}
-            </span>
-            <button
-              type="button"
-              class="btn-secondary btn-small"
-              onclick="installScc()"
-              id="install-scc-btn"
-            >
-              Install scc
-            </button>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <span class="warning-icon">⚠️</span>
+              <span class="warning-text">
+                {sccError || "scc not installed - complexity metrics unavailable"}
+              </span>
+            </div>
+            <div style="font-size: 11px; color: #888; padding-left: 24px;">
+              Install scc from <a href="https://github.com/boyter/scc" target="_blank" style="color: #6ea8fe;">github.com/boyter/scc</a> and place the binary at: ~/.mimo/bin/scc
+            </div>
           </div>
         )}
 
