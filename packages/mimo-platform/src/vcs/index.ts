@@ -139,7 +139,6 @@ export class VCS {
               const fullPath = join(dir, entry.name);
               if (entry.isDirectory()) {
                 deleteDir(fullPath);
-                rmdirSync(fullPath);
               } else {
                 unlinkSync(fullPath);
               }
