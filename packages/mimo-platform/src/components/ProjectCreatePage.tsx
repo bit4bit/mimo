@@ -50,6 +50,18 @@ export const ProjectCreatePage: FC<ProjectCreateProps> = ({ error, credentials =
             <small>Select a credential for private repositories. Type must match URL (HTTPS for https://, SSH for git@).</small>
           </div>
 
+          <div class="form-group">
+            <label>Source Branch (optional)</label>
+            <input type="text" name="sourceBranch" placeholder="main" />
+            <small class="form-help">Leave empty to use repository default branch</small>
+          </div>
+
+          <div class="form-group">
+            <label>New Branch (optional)</label>
+            <input type="text" name="newBranch" placeholder="ai-session-my-feature" />
+            <small class="form-help">Create a dedicated branch for AI sessions</small>
+          </div>
+
           <div class="actions">
             <button type="submit" class="btn">Create Project</button>
             <a href="/projects" class="btn-secondary">Cancel</a>

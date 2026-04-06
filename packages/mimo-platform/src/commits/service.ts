@@ -155,7 +155,7 @@ export class CommitService {
 
     // Step 4: Push to remote
     console.log(`[commit] Step 4: Pushing to remote...`);
-    const pushResult = await vcs.pushUpstream(session.upstreamPath, repoType);
+    const pushResult = await vcs.pushUpstream(session.upstreamPath, repoType, undefined, project.newBranch);
     if (!pushResult.success) {
       return {
         success: false,

@@ -167,6 +167,30 @@ export class VCS {
     };
   }
 
+  async createBranch(branchName: string, repoType: "git" | "fossil", upstreamPath: string): Promise<VCSResult> {
+    if (repoType === "git") {
+      const result = await this.execCommand(
+        ["git", "checkout", "-B", branchName],
+        upstreamPath
+      );
+      return {
+        success: result.success,
+        output: result.output,
+        error: result.error || undefined,
+      };
+    } else {
+      const result = await this.execCommand(
+        ["fossil", "branch", "new", branchName, "current"],
+        upstreamPath
+      );
+      return {
+        success: result.success,
+        output: result.output,
+        error: result.error || undefined,
+      };
+    }
+  }
+
   async createFossilUser(
     repoPath: string,
     username: string,
@@ -362,7 +386,8 @@ export class VCS {
     repoUrl: string,
     repoType: "git" | "fossil",
     targetDir: string,
-    credential?: Credential
+    credential?: Credential,
+    sourceBranch?: string
   ): Promise<VCSResult> {
     const { mkdirSync } = await import("fs");
     
@@ -392,9 +417,12 @@ export class VCS {
       }
 
       try {
-        // Clone Git repository
+        // Clone Git repository with optional branch
+        const cloneArgs = sourceBranch 
+          ? ["git", "clone", "--branch", sourceBranch, url, targetDir]
+          : ["git", "clone", url, targetDir];
         const result = await this.execCommand(
-          ["git", "clone", url, targetDir],
+          cloneArgs,
           targetDir,
           env
         );
@@ -470,6 +498,26 @@ export class VCS {
           `${targetDir}/.fossil`,
           targetDir
         );
+        
+        if (!openResult.success) {
+          return openResult;
+        }
+        
+        // If sourceBranch specified, checkout that branch
+        if (sourceBranch) {
+          const checkoutResult = await this.execCommand(
+            ["fossil", "checkout", sourceBranch],
+            targetDir
+          );
+          if (!checkoutResult.success) {
+            return {
+              success: false,
+              output: checkoutResult.output,
+              error: `Failed to checkout source branch '${sourceBranch}': ${checkoutResult.error}`,
+            };
+          }
+        }
+        
         return openResult;
       }
       

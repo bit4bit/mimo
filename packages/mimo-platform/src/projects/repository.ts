@@ -13,6 +13,8 @@ export interface Project {
   createdAt: Date;
   description?: string;
   credentialId?: string;
+  sourceBranch?: string;
+  newBranch?: string;
 }
 
 export interface PublicProject {
@@ -22,6 +24,8 @@ export interface PublicProject {
   repoType: "git" | "fossil";
   owner: string;
   createdAt: string;
+  sourceBranch?: string;
+  newBranch?: string;
 }
 
 export interface ProjectData {
@@ -33,6 +37,8 @@ export interface ProjectData {
   createdAt: string;
   description?: string;
   credentialId?: string;
+  sourceBranch?: string;
+  newBranch?: string;
 }
 
 export interface CreateProjectInput {
@@ -42,6 +48,8 @@ export interface CreateProjectInput {
   owner: string;
   description?: string;
   credentialId?: string;
+  sourceBranch?: string;
+  newBranch?: string;
 }
 
 export class ProjectRepository {
@@ -78,6 +86,8 @@ export class ProjectRepository {
       createdAt: new Date().toISOString(),
       ...(input.description && { description: input.description }),
       ...(input.credentialId && { credentialId: input.credentialId }),
+      ...(input.sourceBranch && { sourceBranch: input.sourceBranch }),
+      ...(input.newBranch && { newBranch: input.newBranch }),
     };
 
     writeFileSync(
@@ -219,6 +229,8 @@ export class ProjectRepository {
       owner: project.owner,
       createdAt: project.createdAt.toISOString(),
       description: updates.description,
+      sourceBranch: project.sourceBranch,
+      newBranch: project.newBranch,
     };
 
     // Handle credentialId specially - if undefined, keep existing; if null, remove; if string, set

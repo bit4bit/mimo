@@ -133,7 +133,9 @@ router.post("/", async (c: Context) => {
     const cloneResult = await vcs.cloneRepository(
       project.repoUrl,
       project.repoType,
-      session.upstreamPath
+      session.upstreamPath,
+      undefined,
+      project.sourceBranch
     );
     
     if (!cloneResult.success) {
@@ -154,7 +156,20 @@ router.post("/", async (c: Context) => {
       return c.text(`Failed to import to fossil: ${importResult.error}`, 500);
     }
 
-    // Step 3: Create fossil user for agent access
+    // Step 3: Create new branch if specified (after Fossil import is complete)
+    if (project.newBranch) {
+      const branchResult = await vcs.createBranch(
+        project.newBranch,
+        project.repoType,
+        session.upstreamPath
+      );
+      if (!branchResult.success) {
+        await sessionRepository.delete(projectId, session.id);
+        return c.text(`Failed to create branch '${project.newBranch}': ${branchResult.error}`, 500);
+      }
+    }
+
+    // Step 4: Create fossil user for agent access
     const agentWorkspaceUser = `agent-${session.id.slice(0, 8)}`;
     const agentWorkspacePassword = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
     const userResult = await vcs.createFossilUser(fossilPath, agentWorkspaceUser, agentWorkspacePassword);
@@ -170,7 +185,7 @@ router.post("/", async (c: Context) => {
       agentWorkspacePassword,
     });
     
-    // Step 4: Open fossil checkout in agent-workspace
+    // Step 5: Open fossil checkout in agent-workspace
     const openResult = await vcs.openFossil(fossilPath, session.agentWorkspacePath);
     if (!openResult.success) {
       console.error("[session] Failed to open fossil in agent-workspace:", openResult.error);

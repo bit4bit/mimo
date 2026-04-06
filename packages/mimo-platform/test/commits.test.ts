@@ -84,6 +84,74 @@ describe("Commit Service Tests", () => {
       expect(result.message).toContain("committed and pushed");
     }, 30000);
 
+    it("should push to newBranch when project has newBranch configured", async () => {
+      const vcs = new VCS();
+      const sessionRepo = new SessionRepository();
+      const projectRepo = new ProjectRepository();
+
+      // Create a remote repo
+      const remotePath = join(testHome, "remote-repo");
+      mkdirSync(remotePath, { recursive: true });
+      execSync("git init --bare", { cwd: remotePath });
+
+      // Create a project with newBranch
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: remotePath,
+        repoType: "git",
+        owner: "testuser",
+        newBranch: "ai-session-feature-x",
+      });
+
+      // Create a session
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      // Initialize upstream as Git repo with remote
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync("git config user.email \"test@test.com\"", { cwd: upstreamPath });
+      execSync("git config user.name \"Test User\"", { cwd: upstreamPath });
+      execSync(`git remote add origin ${remotePath}`, { cwd: upstreamPath });
+      
+      // Create initial commit and push to master
+      writeFileSync(join(upstreamPath, "initial.txt"), "initial");
+      execSync("git add .", { cwd: upstreamPath });
+      execSync('git commit -m "Initial commit"', { cwd: upstreamPath });
+      execSync("git push origin master", { cwd: upstreamPath });
+
+      // Create the new branch in upstream
+      await vcs.createBranch("ai-session-feature-x", "git", upstreamPath);
+
+      // Initialize agent-workspace with fossil
+      const agentWorkspacePath = session.agentWorkspacePath;
+      const fossilPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(fossilPath);
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      await vcs.openFossil(fossilPath, agentWorkspacePath);
+
+      // Add a file to agent workspace
+      writeFileSync(join(agentWorkspacePath, "test.txt"), "test content");
+
+      // Commit in agent workspace
+      await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
+      await vcs.execCommand(["fossil", "commit", "-m", "Agent commit"], agentWorkspacePath);
+
+      // Run commit and push
+      const result = await CommitService.commitAndPush(session.id);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("committed and pushed");
+
+      // Verify the branch was pushed to remote
+      const remoteBranches = execSync("git branch -a", { cwd: remotePath, encoding: "utf8" });
+      expect(remoteBranches).toContain("ai-session-feature-x");
+    }, 30000);
+
     it("should fail gracefully when session not found", async () => {
       const result = await CommitService.commitAndPush("nonexistent-session-id");
 

@@ -379,4 +379,173 @@ describe("Project Management Integration Tests", () => {
       expect(html).toContain("500 characters or less");
     });
   });
+
+  describe("Project Branch Fields", () => {
+    it("should create project with sourceBranch only", async () => {
+      const app = new Hono();
+      app.route("/projects", projectRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const { generateToken } = await import("../src/auth/jwt.ts");
+      const token = await generateToken("testuser");
+
+      const formData = new URLSearchParams();
+      formData.append("name", "Project with Source Branch");
+      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoType", "git");
+      formData.append("sourceBranch", "feature/v2");
+
+      const res = await app.request("/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: formData.toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const projects = await projectRepository.listAll();
+      expect(projects.length).toBe(1);
+      expect(projects[0].name).toBe("Project with Source Branch");
+      expect(projects[0].sourceBranch).toBe("feature/v2");
+      expect(projects[0].newBranch).toBeUndefined();
+    });
+
+    it("should create project with newBranch only", async () => {
+      const app = new Hono();
+      app.route("/projects", projectRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const { generateToken } = await import("../src/auth/jwt.ts");
+      const token = await generateToken("testuser");
+
+      const formData = new URLSearchParams();
+      formData.append("name", "Project with New Branch");
+      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoType", "git");
+      formData.append("newBranch", "ai-session-my-feature");
+
+      const res = await app.request("/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: formData.toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const projects = await projectRepository.listAll();
+      expect(projects.length).toBe(1);
+      expect(projects[0].name).toBe("Project with New Branch");
+      expect(projects[0].sourceBranch).toBeUndefined();
+      expect(projects[0].newBranch).toBe("ai-session-my-feature");
+    });
+
+    it("should create project with both branch fields", async () => {
+      const app = new Hono();
+      app.route("/projects", projectRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const { generateToken } = await import("../src/auth/jwt.ts");
+      const token = await generateToken("testuser");
+
+      const formData = new URLSearchParams();
+      formData.append("name", "Project with Both Branches");
+      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoType", "git");
+      formData.append("sourceBranch", "main");
+      formData.append("newBranch", "ai-session-feature-x");
+
+      const res = await app.request("/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: formData.toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const projects = await projectRepository.listAll();
+      expect(projects.length).toBe(1);
+      expect(projects[0].name).toBe("Project with Both Branches");
+      expect(projects[0].sourceBranch).toBe("main");
+      expect(projects[0].newBranch).toBe("ai-session-feature-x");
+    });
+
+    it("should create project without branch fields (backwards compatible)", async () => {
+      const app = new Hono();
+      app.route("/projects", projectRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const { generateToken } = await import("../src/auth/jwt.ts");
+      const token = await generateToken("testuser");
+
+      const formData = new URLSearchParams();
+      formData.append("name", "Project Without Branches");
+      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoType", "git");
+
+      const res = await app.request("/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: formData.toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const projects = await projectRepository.listAll();
+      expect(projects.length).toBe(1);
+      expect(projects[0].name).toBe("Project Without Branches");
+      expect(projects[0].sourceBranch).toBeUndefined();
+      expect(projects[0].newBranch).toBeUndefined();
+    });
+
+    it("should retrieve project with branch fields", async () => {
+      const created = await projectRepository.create({
+        name: "Branch Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        sourceBranch: "develop",
+        newBranch: "ai-feature",
+      });
+
+      const found = await projectRepository.findById(created.id);
+      expect(found).not.toBeNull();
+      expect(found!.sourceBranch).toBe("develop");
+      expect(found!.newBranch).toBe("ai-feature");
+    });
+
+    it("should list projects with branch fields", async () => {
+      await projectRepository.create({
+        name: "List Branch Project 1",
+        repoUrl: "https://github.com/user/repo1.git",
+        repoType: "git",
+        owner: "testuser",
+        sourceBranch: "main",
+      });
+
+      await projectRepository.create({
+        name: "List Branch Project 2",
+        repoUrl: "https://github.com/user/repo2.git",
+        repoType: "git",
+        owner: "testuser",
+        newBranch: "ai-branch",
+      });
+
+      const projects = await projectRepository.listByOwner("testuser");
+      expect(projects.length).toBe(2);
+      expect(projects.find(p => p.name === "List Branch Project 1")?.sourceBranch).toBe("main");
+      expect(projects.find(p => p.name === "List Branch Project 2")?.newBranch).toBe("ai-branch");
+    });
+  });
 });

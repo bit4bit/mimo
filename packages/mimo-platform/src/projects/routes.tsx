@@ -45,6 +45,8 @@ projects.post("/", authMiddleware, async (c) => {
   const repoType = (body.repoType as string) || "git";
   const description = body.description as string | undefined;
   const credentialId = body.credentialId as string | undefined;
+  const sourceBranch = body.sourceBranch as string | undefined;
+  const newBranch = body.newBranch as string | undefined;
   const user = c.get("user") as { username: string };
 
   if (!name || !repoUrl) {
@@ -105,6 +107,8 @@ projects.post("/", authMiddleware, async (c) => {
       owner: user.username,
       description: description || undefined,
       credentialId: credentialId || undefined,
+      sourceBranch: sourceBranch || undefined,
+      newBranch: newBranch || undefined,
     });
 
     return c.redirect(`/projects/${project.id}`, 302);

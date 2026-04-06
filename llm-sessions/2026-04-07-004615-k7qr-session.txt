@@ -1,0 +1,379 @@
+[2026-04-07 00:33:03] User: Verify that an implementation matches the change artifacts (specs, tasks, design).
+
+**Input**: Optionally specify a change name after `/opsx:verify` (e.g., `/opsx:verify add-auth`). If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
+
+**Steps**
+
+1. **If no change name provided, prompt for selection**
+
+   Run `openspec list --json` to get available changes. Use the **AskUserQuestion tool** to let the user select.
+
+   Show changes that have implementation tasks (tasks artifact exists).
+   Include the schema used for each change if available.
+   Mark changes with incomplete tasks as "(In Progress)".
+
+   **IMPORTANT**: Do NOT guess or auto-select a change. Always let the user choose.
+
+2. **Check status to understand the schema**
+   ```bash
+   openspec status --change "<name>" --json
+   ```
+   Parse the JSON to understand:
+   - `schemaName`: The workflow being used (e.g., "spec-driven")
+   - Which artifacts exist for this change
+
+3. **Get the change directory and load artifacts**
+
+   ```bash
+   openspec instructions apply --change "<name>" --json
+   ```
+
+   This returns the change directory and context files. Read all available artifacts from `contextFiles`.
+
+4. **Initialize verification report structure**
+
+   Create a report structure with three dimensions:
+   - **Completeness**: Track tasks and spec coverage
+   - **Correctness**: Track requirement implementation and scenario coverage
+   - **Coherence**: Track design adherence and pattern consistency
+
+   Each dimension can have CRITICAL, WARNING, or SUGGESTION issues.
+
+5. **Verify Completeness**
+
+   **Task Completion**:
+   - If tasks.md exists in contextFiles, read it
+   - Parse checkboxes: `- [ ]` (incomplete) vs `- [x]` (complete)
+   - Count complete vs total tasks
+   - If incomplete tasks exist:
+     - Add CRITICAL issue for each incomplete task
+     - Recommendation: "Complete task: <description>" or "Mark as done if already implemented"
+
+   **Spec Coverage**:
+   - If delta specs exist in `openspec/changes/<name>/specs/`:
+     - Extract all requirements (marked with "### Requirement:")
+     - For each requirement:
+       - Search codebase for keywords related to the requirement
+       - Assess if implementation likely exists
+     - If requirements appear unimplemented:
+       - Add CRITICAL issue: "Requirement not found: <requirement name>"
+       - Recommendation: "Implement requirement X: <description>"
+
+6. **Verify Correctness**
+
+   **Requirement Implementation Mapping**:
+   - For each requirement from delta specs:
+     - Search codebase for implementation evidence
+     - If found, note file paths and line ranges
+     - Assess if implementation matches requirement intent
+     - If divergence detected:
+       - Add WARNING: "Implementation may diverge from spec: <details>"
+       - Recommendation: "Review <file>:<lines> against requirement X"
+
+   **Scenario Coverage**:
+   - For each scenario in delta specs (marked with "#### Scenario:"):
+     - Check if conditions are handled in code
+     - Check if tests exist covering the scenario
+     - If scenario appears uncovered:
+       - Add WARNING: "Scenario not covered: <scenario name>"
+       - Recommendation: "Add test or implementation for scenario: <description>"
+
+7. **Verify Coherence**
+
+   **Design Adherence**:
+   - If design.md exists in contextFiles:
+     - Extract key decisions (look for sections like "Decision:", "Approach:", "Architecture:")
+     - Verify implementation follows those decisions
+     - If contradiction detected:
+       - Add WARNING: "Design decision not followed: <decision>"
+       - Recommendation: "Update implementation or revise design.md to match reality"
+   - If no design.md: Skip design adherence check, note "No design.md to verify against"
+
+   **Code Pattern Consistency**:
+   - Review new code for consistency with project patterns
+   - Check file naming, directory structure, coding style
+   - If significant deviations found:
+     - Add SUGGESTION: "Code pattern deviation: <details>"
+     - Recommendation: "Consider following project pattern: <example>"
+
+8. **Generate Verification Report**
+
+   **Summary Scorecard**:
+   ```
+   ## Verification Report: <change-name>
+
+   ### Summary
+   | Dimension    | Status           |
+   |--------------|------------------|
+   | Completeness | X/Y tasks, N reqs|
+   | Correctness  | M/N reqs covered |
+   | Coherence    | Followed/Issues  |
+   ```
+
+   **Issues by Priority**:
+
+   1. **CRITICAL** (Must fix before archive):
+      - Incomplete tasks
+      - Missing requirement implementations
+      - Each with specific, actionable recommendation
+
+   2. **WARNING** (Should fix):
+      - Spec/design divergences
+      - Missing scenario coverage
+      - Each with specific recommendation
+
+   3. **SUGGESTION** (Nice to fix):
+      - Pattern inconsistencies
+      - Minor improvements
+      - Each with specific recommendation
+
+   **Final Assessment**:
+   - If CRITICAL issues: "X critical issue(s) found. Fix before archiving."
+   - If only warnings: "No critical issues. Y warning(s) to consider. Ready for archive (with noted improvements)."
+   - If all clear: "All checks passed. Ready for archive."
+
+**Verification Heuristics**
+
+- **Completeness**: Focus on objective checklist items (checkboxes, requirements list)
+- **Correctness**: Use keyword search, file path analysis, reasonable inference - don't require perfect certainty
+- **Coherence**: Look for glaring inconsistencies, don't nitpick style
+- **False Positives**: When uncertain, prefer SUGGESTION over WARNING, WARNING over CRITICAL
+- **Actionability**: Every issue must have a specific recommendation with file/line references where applicable
+
+**Graceful Degradation**
+
+- If only tasks.md exists: verify task completion only, skip spec/design checks
+- If tasks + specs exist: verify completeness and correctness, skip design
+- If full artifacts: verify all three dimensions
+- Always note which checks were skipped and why
+
+**Output Format**
+
+Use clear markdown with:
+- Table for summary scorecard
+- Grouped lists for issues (CRITICAL/WARNING/SUGGESTION)
+- Code references in format: `file.ts:123`
+- Specific, actionable recommendations
+- No vague suggestions like "consider reviewing"
+
+project-branch-selection
+[2026-04-07 00:34:26] LLM: ## Verification Report: project-branch-selection
+
+### Summary
+
+| Dimension    | Status                  |
+|--------------|-------------------------|
+| Completeness | 10/10 tasks, 6 reqs     |
+| Correctness  | 6/6 reqs covered        |
+| Coherence    | All decisions followed  |
+
+---
+
+### Completeness Verification
+
+**Task Completion**: 10/10 tasks completed
+
+All tasks are marked as "completed" in tasks.md:
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | Extend Project model with branch fields | ✓ |
+| 2 | Add cloneRepository with branch support | ✓ |
+| 3 | Add createBranch method | ✓ |
+| 4 | Update session creation with branch handling | ✓ |
+| 5 | Add branch fields to project creation form | ✓ |
+| 6 | Display branch info in project detail | ✓ |
+| 7 | Exclude branch fields from edit form | ✓ |
+| 8 | Handle branch fields in project creation endpoint | ✓ |
+| 9 | Add project creation tests with branches | ✓ |
+| 10 | Add VCS branch operation tests | ✓ |
+
+**Spec Coverage**: All 6 requirements implemented
+
+| Requirement | Location | Status |
+|-------------|----------|--------|
+| Projects can specify source branch | `repository.ts:16-17`, `routes.tsx:48` | ✓ |
+| Projects can specify new branch | `repository.ts:17`, `routes.tsx:49` | ✓ |
+| Branch information is immutable | `ProjectEditPage.tsx` (no branch fields) | ✓ |
+| Branch creation for Git | `vcs/index.ts:170-180` | ✓ |
+| Branch creation for Fossil | `vcs/index.ts:181-191` | ✓ |
+| No immediate push for new branches | `sessions/routes.tsx:159-170` (no push) | ✓ |
+
+---
+
+### Correctness Verification
+
+**Requirement Implementation Mapping**:
+
+| Requirement | Implementation | Assessment |
+|-------------|----------------|------------|
+| Source branch cloning | `vcs/index.ts:421-423` - Git uses `--branch` flag | ✓ Correct |
+| Source branch for Fossil | `vcs/index.ts:506-519` - checkout after clone | ✓ Correct |
+| New branch creation | `vcs/index.ts:170-192` - Git `-B` flag, Fossil `branch new` | ✓ Correct |
+| Branch immutability | `ProjectEditPage.tsx` - branch fields excluded | ✓ Correct |
+| No immediate push | `sessions/routes.tsx` - branch created but not pushed | ✓ Correct |
+
+**Scenario Coverage**:
+
+| Scenario | Test Coverage | Status |
+|----------|---------------|--------|
+| Create project with source branch | `projects.test.ts:384-414` | ✓ Covered |
+| Create project without source branch | `projects.test.ts:481-510` | ✓ Covered |
+| Source branch field is optional | `ProjectCreatePage.tsx:54-57` (no required attr) | ✓ Covered |
+| Create project with new branch | `projects.test.ts:416-446` | ✓ Covered |
+| Create project with source and new branch | `projects.test.ts:448-479` | ✓ Covered |
+| New branch field is optional | `ProjectCreatePage.tsx:60-63` (no required attr) | ✓ Covered |
+| Branch info immutable | `ProjectEditPage.tsx` (no branch fields) | ✓ Covered |
+| Edit form excludes branch fields | `ProjectEditPage.tsx` - verified | ✓ Covered |
+| Create Git branch | `vcs.test.ts:632-643` | ✓ Covered |
+| Overwrite existing Git branch | `vcs.test.ts:645-677` | ✓ Covered |
+| Clone Git with source branch | `vcs.test.ts:733-767` | ✓ Covered |
+| Clone Git without sourceBranch | `vcs.test.ts:699-731` | ✓ Covered |
+| Create Fossil branch | `vcs.test.ts:679-696` | ✓ Covered |
+| No immediate push | `sessions/routes.tsx:159-170` (no push code) | ✓ Covered |
+
+---
+
+### Coherence Verification
+
+**Design Adherence**:
+
+| Decision | Implementation | Status |
+|----------|----------------|--------|
+| Branch creation during session initialization | `sessions/routes.tsx:159-170` - branch created after import | ✓ Followed |
+| No branch validation before cloning | No validation code found - relies on VCS to fail | ✓ Followed |
+| Git vs Fossil handling | Different code paths for each in `cloneRepository` and `createBranch` | ✓ Followed |
+| Force behavior (Git -B flag) | `vcs/index.ts:173` uses `-B` for overwrite | ✓ Followed |
+
+**Code Pattern Consistency**:
+
+| Pattern | Implementation | Status |
+|---------|----------------|--------|
+| Optional fields using `?.` | `repository.ts:89-90` uses spread with condition | ✓ Consistent |
+| Form field styling | `ProjectCreatePage.tsx:53-63` follows existing patterns | ✓ Consistent |
+| VCS method signatures | `vcs/index.ts:170, 385` consistent with existing methods | ✓ Consistent |
+| Error handling in routes | `sessions/routes.tsx:166-168` follows existing pattern | ✓ Consistent |
+
+---
+
+### Issues by Priority
+
+#### CRITICAL: None
+
+#### WARNING: None
+
+#### SUGGESTION: None
+
+---
+
+### Implementation Evidence
+
+**Key Files Modified**:
+
+1. **`packages/mimo-platform/src/projects/repository.ts`**
+   - Lines 16-17: `sourceBranch?: string; newBranch?: string;` in Project interface
+   - Lines 40-41: Same fields in ProjectData interface
+   - Lines 51-52: Same fields in CreateProjectInput interface
+   - Lines 89-90: Storing fields in create()
+   - Lines 232-233: Preserving fields in update()
+
+2. **`packages/mimo-platform/src/vcs/index.ts`**
+   - Lines 170-192: `createBranch()` method with Git/fossil support
+   - Lines 385-530: `cloneRepository()` with sourceBranch parameter
+   - Line 421-423: Git `--branch` flag usage
+   - Lines 506-519: Fossil checkout after clone
+
+3. **`packages/mimo-platform/src/sessions/routes.tsx`**
+   - Lines 133-139: Passing sourceBranch to cloneRepository
+   - Lines 159-170: Creating newBranch after import
+
+4. **`packages/mimo-platform/src/components/ProjectCreatePage.tsx`**
+   - Lines 53-63: Source branch and new branch form fields
+
+5. **`packages/mimo-platform/src/components/ProjectDetailPage.tsx`**
+   - Lines 85-96: Displaying branch information
+
+6. **`packages/mimo-platform/src/components/ProjectEditPage.tsx`**
+   - No branch fields (lines 28-76) - immutability maintained
+
+7. **`packages/mimo-platform/src/projects/routes.tsx`**
+   - Lines 48-49: Parsing branch fields from form
+   - Lines 110-111: Passing to repository.create()
+
+**Tests**:
+
+1. **`packages/mimo-platform/test/projects.test.ts`**
+   - Lines 383-550: Comprehensive branch field tests
+
+2. **`packages/mimo-platform/test/vcs.test.ts`**
+   - Lines 615-768: Branch operation tests including createBranch and cloneRepository
+
+---
+
+### Final Assessment
+
+**All checks passed. Ready for archive.**
+
+The implementation is:
+- **Complete**: All 10 tasks completed, all 6 requirements implemented
+- **Correct**: All requirements mapped to proper implementation, all scenarios covered by tests
+- **Coherent**: Follows design decisions, maintains code patterns, branch immutability preserved
+[2026-04-07 00:39:14] User: when i press button 'Commit' in session page, is not creating the remote git branch
+[2026-04-07 00:39:42] LLM: I found the issue! The commit service is not passing the `newBranch` when pushing to remote. Let me verify and fix this.
+
+## The Problem
+
+When you pressed the **Commit** button in the session page, the code was calling `pushUpstream` without passing the `newBranch` from the project configuration:
+
+**File:** `packages/mimo-platform/src/commits/service.ts:158`
+```typescript
+// Before (bug):
+const pushResult = await vcs.pushUpstream(session.upstreamPath, repoType);
+```
+
+This meant it was doing `git push origin` instead of `git push origin <newBranch>`.
+
+## The Fix
+
+I updated the commit service to pass `project.newBranch` when pushing:
+
+**File:** `packages/mimo-platform/src/commits/service.ts:158`
+```typescript
+// After (fixed):
+const pushResult = await vcs.pushUpstream(session.upstreamPath, repoType, undefined, project.newBranch);
+```
+
+This ensures that when a project has a `newBranch` configured (e.g., "ai-session-feature-x"), the commit will be pushed to that specific branch on the remote.
+
+## Verification
+
+I also added a test case that verifies the branch is actually pushed to the remote repository. All 5 commit tests pass, and the related project/VCS tests are also passing (the 2 failures are unrelated fossil server tests).
+[2026-04-07 00:42:16] User: verify http://localhost:3000/projects/e310516d-3c47-4b75-abe3-5795ae0a6268/sessions/b71414c0-a0e0-4a80-a354-7e85fc636213 you can see los /tmp/mimo-platform.log, because still not working
+[2026-04-07 00:43:32] LLM: I see the issue! The commit logs only show Steps 1-3 but **not Step 4** (Push to remote). This means the commit process is returning early before reaching the push step. Let me check what's happening:
+[2026-04-07 00:46:08] User: tested the feature is working
+[2026-04-07 00:46:12] LLM: Great! The fix is working. Here's a summary of what was done:
+
+## Summary
+
+**Problem:** When pressing the 'Commit' button in the session page, the changes were being committed locally but **not pushed to the remote git branch** specified in the project's `newBranch` configuration.
+
+**Root Cause:** The `commitService.commitAndPush()` method in `packages/mimo-platform/src/commits/service.ts` was calling `vcs.pushUpstream()` without passing the `newBranch` parameter:
+
+```typescript
+// Before (broken):
+const pushResult = await vcs.pushUpstream(session.upstreamPath, repoType);
+```
+
+**Fix:** Added the `project.newBranch` parameter to the push call:
+
+```typescript
+// After (fixed):
+const pushResult = await vcs.pushUpstream(session.upstreamPath, repoType, undefined, project.newBranch);
+```
+
+**Files Modified:**
+- `packages/mimo-platform/src/commits/service.ts` (line 158)
+- `packages/mimo-platform/test/commits.test.ts` (added test case to verify branch push)
+
+Now when you commit changes in a session, if the project has a `newBranch` configured (e.g., "ai-session-feature-x"), the commit will be pushed to that specific branch on the remote repository.
+[2026-04-07 00:46:15] User: commit and push

@@ -11,6 +11,8 @@ interface Project {
   createdAt: Date;
   description?: string;
   credentialId?: string;
+  sourceBranch?: string;
+  newBranch?: string;
 }
 
 interface Session {
@@ -80,6 +82,18 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({ project, sessions, c
               )}
             </div>
           </div>
+          {project.sourceBranch && (
+            <div class="detail-row">
+              <label>Source Branch:</label>
+              <div>{project.sourceBranch}</div>
+            </div>
+          )}
+          {project.newBranch && (
+            <div class="detail-row">
+              <label>Working Branch:</label>
+              <div>{project.newBranch}</div>
+            </div>
+          )}
         </div>
 
         <div style="margin-top: 30px;">

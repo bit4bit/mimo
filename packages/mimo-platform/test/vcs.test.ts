@@ -605,11 +605,167 @@ describe("VCS Integration Tests", () => {
         await vcs.execCommand(["fossil", "add", "."], upstreamPath);
         await vcs.execCommand(["fossil", "commit", "-m", "Initial"], upstreamPath);
         
-        // Push to same repo (will succeed but do nothing)
-        const result = await vcs.pushUpstream(upstreamPath, "fossil");
+      // Push to same repo (will succeed but do nothing)
+      const result = await vcs.pushUpstream(upstreamPath, "fossil");
+      
+      expect(result).toBeDefined();
+    }, 15000);
+  });
+
+  describe("Branch Operations", () => {
+    describe("createBranch", () => {
+      it("should create a new branch in Git repository", async () => {
+        const vcs = new VCS();
+        const { execSync } = await import("child_process");
+        const upstreamPath = join(testHome, "git-branch-test");
         
-        expect(result).toBeDefined();
+        mkdirSync(upstreamPath, { recursive: true });
+        execSync("git init", { cwd: upstreamPath });
+        execSync("git config user.email \"test@test.com\"", { cwd: upstreamPath });
+        execSync("git config user.name \"Test User\"", { cwd: upstreamPath });
+        
+        const { writeFileSync } = await import("fs");
+        writeFileSync(join(upstreamPath, "test.txt"), "test");
+        execSync("git add .", { cwd: upstreamPath });
+        execSync('git commit -m "Initial"', { cwd: upstreamPath });
+        
+        const result = await vcs.createBranch("feature-branch", "git", upstreamPath);
+        
+        expect(result.success).toBe(true);
+        
+        // Verify branch was created
+        const branchOutput = execSync("git branch", { cwd: upstreamPath, encoding: "utf8" });
+        expect(branchOutput).toContain("feature-branch");
+        
+        // Verify we're on the new branch
+        const currentBranch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: upstreamPath, encoding: "utf8" });
+        expect(currentBranch.trim()).toBe("feature-branch");
+      }, 15000);
+
+      it("should overwrite existing Git branch with -B flag", async () => {
+        const vcs = new VCS();
+        const { execSync } = await import("child_process");
+        const upstreamPath = join(testHome, "git-branch-overwrite-test");
+        
+        mkdirSync(upstreamPath, { recursive: true });
+        execSync("git init", { cwd: upstreamPath });
+        execSync("git config user.email \"test@test.com\"", { cwd: upstreamPath });
+        execSync("git config user.name \"Test User\"", { cwd: upstreamPath });
+        
+        const { writeFileSync } = await import("fs");
+        writeFileSync(join(upstreamPath, "test.txt"), "test");
+        execSync("git add .", { cwd: upstreamPath });
+        execSync('git commit -m "Initial"', { cwd: upstreamPath });
+        
+        // Create initial branch
+        await vcs.createBranch("existing-branch", "git", upstreamPath);
+        
+        // Make a commit on master
+        execSync("git checkout master", { cwd: upstreamPath });
+        writeFileSync(join(upstreamPath, "another.txt"), "another");
+        execSync("git add .", { cwd: upstreamPath });
+        execSync('git commit -m "Another commit"', { cwd: upstreamPath });
+        
+        // Try to create branch that already exists - should overwrite
+        const result = await vcs.createBranch("existing-branch", "git", upstreamPath);
+        
+        expect(result.success).toBe(true);
+        
+        // Verify we're on the new branch
+        const currentBranch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: upstreamPath, encoding: "utf8" });
+        expect(currentBranch.trim()).toBe("existing-branch");
+      }, 15000);
+
+      it("should create a new branch in Fossil repository", async () => {
+        const vcs = new VCS();
+        const repoPath = join(testHome, "fossil-branch-test.fossil");
+        const workDir = join(testHome, "fossil-branch-work");
+        
+        await vcs.createFossilRepo(repoPath);
+        mkdirSync(workDir, { recursive: true });
+        await vcs.openFossil(repoPath, workDir);
+        
+        const { writeFileSync } = await import("fs");
+        writeFileSync(join(workDir, "test.txt"), "test");
+        await vcs.execCommand(["fossil", "add", "test.txt"], workDir);
+        await vcs.execCommand(["fossil", "commit", "-m", "Initial"], workDir);
+        
+        const result = await vcs.createBranch("feature-branch", "fossil", workDir);
+        
+        expect(result.success).toBe(true);
+      }, 15000);
+    });
+
+    describe("cloneRepository with sourceBranch", () => {
+      it("should clone Git repository without sourceBranch (existing behavior)", async () => {
+        const vcs = new VCS();
+        const { execSync } = await import("child_process");
+        const sourcePath = join(testHome, "source-repo");
+        
+        // Create a source repo
+        mkdirSync(sourcePath, { recursive: true });
+        execSync("git init", { cwd: sourcePath });
+        execSync("git config user.email \"test@test.com\"", { cwd: sourcePath });
+        execSync("git config user.name \"Test User\"", { cwd: sourcePath });
+        
+        const { writeFileSync } = await import("fs");
+        writeFileSync(join(sourcePath, "README.md"), "# Source Repo");
+        execSync("git add .", { cwd: sourcePath });
+        execSync('git commit -m "Initial commit"', { cwd: sourcePath });
+        
+      execSync("git checkout -b feature/v2", { cwd: sourcePath });
+      writeFileSync(join(sourcePath, "feature.txt"), "feature content");
+      execSync("git add .", { cwd: sourcePath });
+      execSync('git commit -m "Feature commit"', { cwd: sourcePath });
+      
+      // Switch back to master
+      execSync("git checkout master", { cwd: sourcePath });
+        
+        // Clone without sourceBranch - should clone default branch (main)
+        const targetPath = join(testHome, "cloned-repo-default");
+        const result = await vcs.cloneRepository(sourcePath, "git", targetPath);
+        
+        expect(result.success).toBe(true);
+        expect(existsSync(join(targetPath, "README.md"))).toBe(true);
+        expect(existsSync(join(targetPath, "feature.txt"))).toBe(false);
+      }, 15000);
+
+      it("should clone Git repository with sourceBranch", async () => {
+        const vcs = new VCS();
+        const { execSync } = await import("child_process");
+        const sourcePath = join(testHome, "source-repo-branch");
+        
+        // Create a source repo
+        mkdirSync(sourcePath, { recursive: true });
+        execSync("git init", { cwd: sourcePath });
+        execSync("git config user.email \"test@test.com\"", { cwd: sourcePath });
+        execSync("git config user.name \"Test User\"", { cwd: sourcePath });
+        
+        const { writeFileSync } = await import("fs");
+        writeFileSync(join(sourcePath, "main.txt"), "main content");
+        execSync("git add .", { cwd: sourcePath });
+        execSync('git commit -m "Main commit"', { cwd: sourcePath });
+        
+      execSync("git checkout -b feature/v2", { cwd: sourcePath });
+      writeFileSync(join(sourcePath, "feature.txt"), "feature content");
+      execSync("git add .", { cwd: sourcePath });
+      execSync('git commit -m "Feature commit"', { cwd: sourcePath });
+      
+      // Switch back to master
+      execSync("git checkout master", { cwd: sourcePath });
+        
+        // Clone with sourceBranch - should clone the feature/v2 branch
+        const targetPath = join(testHome, "cloned-repo-branch");
+        const result = await vcs.cloneRepository(sourcePath, "git", targetPath, undefined, "feature/v2");
+        
+        expect(result.success).toBe(true);
+        expect(existsSync(join(targetPath, "feature.txt"))).toBe(true);
+        
+        // Verify we're on the feature branch
+        const currentBranch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: targetPath, encoding: "utf8" });
+        expect(currentBranch.trim()).toBe("feature/v2");
       }, 15000);
     });
   });
+});
 });
