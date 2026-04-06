@@ -106,25 +106,37 @@ export class VCS {
     const { renameSync, cpSync, rmSync, mkdirSync, existsSync } = await import("fs");
     const { dirname } = await import("path");
 
+    console.log(`[safeMove] Moving ${sourcePath} -> ${destPath} (isDirectory: ${isDirectory})`);
+    console.log(`[safeMove] Source exists: ${existsSync(sourcePath)}`);
+
     try {
       // Try rename first (fastest for same filesystem)
+      console.log(`[safeMove] Attempting rename...`);
       renameSync(sourcePath, destPath);
+      console.log(`[safeMove] Rename succeeded`);
     } catch (error: any) {
+      console.log(`[safeMove] Rename failed: ${error.code}`);
       // If error is cross-device link, fall back to copy+delete
       if (error.code === "EXDEV" || error.message?.includes("cross-device")) {
         // Ensure parent directory exists for destination
         const parentDir = dirname(destPath);
+        console.log(`[safeMove] Ensuring parent dir: ${parentDir}`);
         mkdirSync(parentDir, { recursive: true });
         
         if (isDirectory) {
           // Use cpSync with recursive and preserveTimestamps to properly copy .git
+          console.log(`[safeMove] Copying directory with cpSync...`);
           cpSync(sourcePath, destPath, { recursive: true, preserveTimestamps: true });
           // Verify copy succeeded before deleting source
-          if (!existsSync(destPath)) {
+          const destExists = existsSync(destPath);
+          console.log(`[safeMove] Destination exists after copy: ${destExists}`);
+          if (!destExists) {
             throw new Error(`Failed to copy directory from ${sourcePath} to ${destPath}`);
           }
           // Delete source directory recursively
+          console.log(`[safeMove] Deleting source...`);
           rmSync(sourcePath, { recursive: true, force: true });
+          console.log(`[safeMove] Done`);
         } else {
           // Use cpSync for files too to preserve permissions
           cpSync(sourcePath, destPath, { preserveTimestamps: true });
@@ -791,12 +803,17 @@ export class VCS {
       }
 
       // Restore preserved items (use safeMove for cross-device support)
+      console.log(`[cleanCopyToUpstream] Restoring preserved items to upstream: ${upstreamPath}`);
       for (const item of itemsToPreserve) {
         const tempPath = join(tempDir, item);
         const destPath = join(upstreamPath, item);
         const isDirectory = statSync(tempPath).isDirectory();
+        console.log(`[cleanCopyToUpstream] Restoring ${item} from temp...`);
         await this.safeMove(tempPath, destPath, isDirectory);
       }
+
+      // Verify upstream has preserved items
+      console.log(`[cleanCopyToUpstream] After restore - .git exists: ${fsExistsSync(join(upstreamPath, '.git'))}`);
 
       // Clean up temp directory
       rmdirSync(tempDir);
@@ -825,6 +842,16 @@ export class VCS {
       };
 
       copyRecursive(agentWorkspacePath, upstreamPath);
+
+      // Final verification - ensure .git still exists after all operations
+      const finalGitExists = fsExistsSync(join(upstreamPath, '.git'));
+      console.log(`[cleanCopyToUpstream] After all operations - .git exists: ${finalGitExists}`);
+      if (!finalGitExists) {
+        return {
+          success: false,
+          error: ".git directory was lost during file operations",
+        };
+      }
 
       return {
         success: true,

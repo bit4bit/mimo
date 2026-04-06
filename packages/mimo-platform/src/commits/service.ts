@@ -121,7 +121,19 @@ export class CommitService {
     }
 
     // Step 3: Commit in upstream
-    console.log(`[commit] Step 3: Committing in upstream...`);
+    console.log(`[commit] Step 3: Committing in upstream at ${session.upstreamPath}...`);
+    // Verify .git exists before attempting commit
+    const { existsSync } = await import("fs");
+    const gitExists = existsSync(`${session.upstreamPath}/.git`);
+    console.log(`[commit] .git exists at upstream: ${gitExists}`);
+    if (!gitExists) {
+      return {
+        success: false,
+        message: "Git repository not found in upstream",
+        error: `.git directory missing at ${session.upstreamPath}`,
+        step: "commit",
+      };
+    }
     const commitResult = await vcs.commitUpstream(session.upstreamPath, repoType);
     if (!commitResult.success) {
       // Check if no changes
