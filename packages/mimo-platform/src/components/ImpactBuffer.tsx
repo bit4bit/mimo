@@ -66,9 +66,6 @@ export const ImpactBuffer: FC<ImpactBufferProps> = ({
                 <a href={`${fossilUrl}/timeline`} target="_blank" class="fossil-link">
                   Timeline
                 </a>
-                <a href={`${fossilUrl}/diff`} target="_blank" class="fossil-link">
-                  Diff
-                </a>
                 <a href={`${fossilUrl}/file`} target="_blank" class="fossil-link">
                   Files
                 </a>

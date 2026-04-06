@@ -234,8 +234,9 @@ router.get("/:id", async (c: Context) => {
   const modeState = sessionStateService.getModeState(sessionId);
 
   // Get fossil port for impact buffer links
+  // First check running server in memory, then fall back to saved session port
   const runningServer = fossilServerManager.getRunningServer(sessionId);
-  const fossilPort = runningServer?.port;
+  const fossilPort = runningServer?.port ?? session.port ?? undefined;
 
   return c.html(
     <SessionDetailPage 
