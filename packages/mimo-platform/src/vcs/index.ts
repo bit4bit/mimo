@@ -103,7 +103,8 @@ export class VCS {
   // Helper to safely move files across filesystems (handles EXDEV error)
   // When rename fails due to cross-device link, falls back to copy+delete
   private async safeMove(sourcePath: string, destPath: string, isDirectory: boolean): Promise<void> {
-    const { renameSync, cpSync, rmSync } = await import("fs");
+    const { renameSync, cpSync, rmSync, mkdirSync, existsSync } = await import("fs");
+    const { dirname } = await import("path");
 
     try {
       // Try rename first (fastest for same filesystem)
@@ -111,14 +112,25 @@ export class VCS {
     } catch (error: any) {
       // If error is cross-device link, fall back to copy+delete
       if (error.code === "EXDEV" || error.message?.includes("cross-device")) {
+        // Ensure parent directory exists for destination
+        const parentDir = dirname(destPath);
+        mkdirSync(parentDir, { recursive: true });
+        
         if (isDirectory) {
           // Use cpSync with recursive and preserveTimestamps to properly copy .git
           cpSync(sourcePath, destPath, { recursive: true, preserveTimestamps: true });
+          // Verify copy succeeded before deleting source
+          if (!existsSync(destPath)) {
+            throw new Error(`Failed to copy directory from ${sourcePath} to ${destPath}`);
+          }
           // Delete source directory recursively
           rmSync(sourcePath, { recursive: true, force: true });
         } else {
           // Use cpSync for files too to preserve permissions
           cpSync(sourcePath, destPath, { preserveTimestamps: true });
+          if (!existsSync(destPath)) {
+            throw new Error(`Failed to copy file from ${sourcePath} to ${destPath}`);
+          }
           rmSync(sourcePath, { force: true });
         }
       } else {
