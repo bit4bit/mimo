@@ -1,5 +1,5 @@
-import { watch, existsSync, mkdirSync } from "fs";
-import { join } from "path";
+import { watch, existsSync, mkdirSync, readdirSync, statSync, readFileSync, writeFileSync, unlinkSync, rmdirSync } from "fs";
+import { join, dirname } from "path";
 import { spawn } from "child_process";
 import { SessionInfo, FileChange, ModelState, ModeState } from "./types";
 
@@ -90,6 +90,13 @@ export class SessionManager {
     }
   }
 
+  setSessionLocalDevMirrorPath(sessionId: string, localDevMirrorPath: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.localDevMirrorPath = localDevMirrorPath;
+    }
+  }
+
   private startFileWatcher(sessionId: string, checkoutPath: string): void {
     console.log(`[mimo-agent] Starting file watcher for session ${sessionId}`);
 
@@ -156,6 +163,52 @@ export class SessionManager {
       sessionId,
       Array.from(uniqueChanges.values())
     );
+
+    // Sync to local dev mirror
+    const session = this.sessions.get(sessionId);
+    if (session?.localDevMirrorPath) {
+      this.syncToMirror(sessionId, session.checkoutPath, session.localDevMirrorPath, Array.from(uniqueChanges.values()));
+    }
+  }
+
+  private syncToMirror(sessionId: string, checkoutPath: string, mirrorPath: string, changes: FileChange[]): void {
+    if (!mirrorPath) return;
+
+    for (const change of changes) {
+      try {
+        // Skip .git and .fossil directories
+        if (change.path.includes(".git/") || change.path.includes(".fossil/") ||
+            change.path.startsWith(".git") || change.path.startsWith(".fossil")) {
+          continue;
+        }
+
+        const srcPath = join(checkoutPath, change.path);
+        const destPath = join(mirrorPath, change.path);
+
+        if (change.deleted) {
+          // Remove from mirror
+          if (existsSync(destPath)) {
+            try {
+              unlinkSync(destPath);
+            } catch (err) {
+              console.warn(`[mimo-agent] Failed to delete ${destPath}:`, err);
+            }
+          }
+        } else if (existsSync(srcPath)) {
+          // Ensure parent directory exists
+          const destDir = dirname(destPath);
+          if (!existsSync(destDir)) {
+            mkdirSync(destDir, { recursive: true });
+          }
+
+          // Copy file content
+          const content = readFileSync(srcPath);
+          writeFileSync(destPath, content);
+        }
+      } catch (err) {
+        console.warn(`[mimo-agent] Failed to sync ${change.path} to mirror:`, err);
+      }
+    }
   }
 
   terminateSession(sessionId: string): void {

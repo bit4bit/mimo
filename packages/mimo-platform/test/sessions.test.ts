@@ -451,4 +451,145 @@ describe("Session Management Integration Tests", () => {
       expect(html).toContain("src");
     });
   });
+
+  describe("Local Development Mirror", () => {
+    it("should create session with mirror path from project default", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        defaultLocalDevMirrorPath: "/home/user/dev/myproject",
+      });
+
+      const token = await generateToken("testuser");
+
+      const formData = new URLSearchParams();
+      formData.append("name", "Mirror Session");
+      formData.append("localDevMirrorPath", "/home/user/dev/myproject");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: formData.toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      // Verify session was created with mirror path
+      const sessions = await sessionRepository.listByProject(project.id);
+      expect(sessions.length).toBe(1);
+      expect(sessions[0].localDevMirrorPath).toBe("/home/user/dev/myproject");
+    });
+
+    it("should create session with custom mirror path override", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        defaultLocalDevMirrorPath: "/home/user/dev/myproject",
+      });
+
+      const token = await generateToken("testuser");
+
+      const formData = new URLSearchParams();
+      formData.append("name", "Custom Mirror Session");
+      formData.append("localDevMirrorPath", "/home/user/custom/path");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: formData.toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const sessions = await sessionRepository.listByProject(project.id);
+      expect(sessions.length).toBe(1);
+      expect(sessions[0].localDevMirrorPath).toBe("/home/user/custom/path");
+    });
+
+    it("should create session without mirror path when cleared", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        defaultLocalDevMirrorPath: "/home/user/dev/myproject",
+      });
+
+      const token = await generateToken("testuser");
+
+      const formData = new URLSearchParams();
+      formData.append("name", "No Mirror Session");
+      formData.append("localDevMirrorPath", "");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: formData.toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const sessions = await sessionRepository.listByProject(project.id);
+      expect(sessions.length).toBe(1);
+      expect(sessions[0].localDevMirrorPath).toBeUndefined();
+    });
+
+    it("should create session without mirror path when project has none", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await generateToken("testuser");
+
+      const formData = new URLSearchParams();
+      formData.append("name", "No Project Mirror Session");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: formData.toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const sessions = await sessionRepository.listByProject(project.id);
+      expect(sessions.length).toBe(1);
+      expect(sessions[0].localDevMirrorPath).toBeUndefined();
+    });
+  });
 });

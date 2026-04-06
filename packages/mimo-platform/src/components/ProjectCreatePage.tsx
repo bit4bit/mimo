@@ -62,6 +62,12 @@ export const ProjectCreatePage: FC<ProjectCreateProps> = ({ error, credentials =
             <small class="form-help">Create a dedicated branch for AI sessions</small>
           </div>
 
+          <div class="form-group">
+            <label>Local Development Mirror (optional)</label>
+            <input type="text" name="defaultLocalDevMirrorPath" placeholder="/home/user/myproject-dev" />
+            <small class="form-help">Absolute path where agent changes will be synced in real-time for immediate testing</small>
+          </div>
+
           <div class="actions">
             <button type="submit" class="btn">Create Project</button>
             <a href="/projects" class="btn-secondary">Cancel</a>

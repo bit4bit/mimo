@@ -548,4 +548,65 @@ describe("Project Management Integration Tests", () => {
       expect(projects.find(p => p.name === "List Branch Project 2")?.newBranch).toBe("ai-branch");
     });
   });
+
+  describe("Local Development Mirror", () => {
+    it("should create project with default mirror path", async () => {
+      const project = await projectRepository.create({
+        name: "Mirror Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        defaultLocalDevMirrorPath: "/home/user/dev/myproject",
+      });
+
+      expect(project.defaultLocalDevMirrorPath).toBe("/home/user/dev/myproject");
+
+      const found = await projectRepository.findById(project.id);
+      expect(found?.defaultLocalDevMirrorPath).toBe("/home/user/dev/myproject");
+    });
+
+    it("should create project without mirror path", async () => {
+      const project = await projectRepository.create({
+        name: "No Mirror Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      expect(project.defaultLocalDevMirrorPath).toBeUndefined();
+    });
+
+    it("should update project mirror path", async () => {
+      const project = await projectRepository.create({
+        name: "Update Mirror Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      await projectRepository.update(project.id, {
+        defaultLocalDevMirrorPath: "/home/user/updated/path",
+      });
+
+      const found = await projectRepository.findById(project.id);
+      expect(found?.defaultLocalDevMirrorPath).toBe("/home/user/updated/path");
+    });
+
+    it("should clear mirror path via null", async () => {
+      const project = await projectRepository.create({
+        name: "Clear Mirror Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        defaultLocalDevMirrorPath: "/home/user/dev/myproject",
+      });
+
+      await projectRepository.update(project.id, {
+        defaultLocalDevMirrorPath: null,
+      });
+
+      const found = await projectRepository.findById(project.id);
+      expect(found?.defaultLocalDevMirrorPath ?? undefined).toBeUndefined();
+    });
+  });
 });

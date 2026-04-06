@@ -11,6 +11,7 @@ interface Project {
   createdAt: Date;
   description?: string;
   credentialId?: string;
+  defaultLocalDevMirrorPath?: string;
 }
 
 interface ProjectEditProps {
@@ -65,6 +66,12 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({ project, credentials = [
               ))}
             </select>
             <small>Select a credential for private repositories. Type must match URL (HTTPS for https://, SSH for git@).</small>
+          </div>
+
+          <div class="form-group">
+            <label>Local Development Mirror (optional)</label>
+            <input type="text" name="defaultLocalDevMirrorPath" value={project.defaultLocalDevMirrorPath || ""} placeholder="/home/user/myproject-dev" />
+            <small class="form-help">Absolute path where agent changes will be synced in real-time for immediate testing</small>
           </div>
 
           <div class="actions">

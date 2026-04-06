@@ -17,6 +17,7 @@ export interface Session {
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   acpSessionId?: string;
+  localDevMirrorPath?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +35,7 @@ export interface SessionData {
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   acpSessionId?: string;
+  localDevMirrorPath?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -43,6 +45,7 @@ export interface CreateSessionInput {
   projectId: string;
   owner: string;
   assignedAgentId?: string;
+  localDevMirrorPath?: string;
 }
 
 export class SessionRepository {
@@ -100,6 +103,7 @@ export class SessionRepository {
       port: null,
       createdAt: now,
       updatedAt: now,
+      ...(input.localDevMirrorPath && { localDevMirrorPath: input.localDevMirrorPath }),
     };
 
     writeFileSync(

@@ -4,6 +4,7 @@ import { Layout } from "./Layout.js";
 interface Project {
   id: string;
   name: string;
+  defaultLocalDevMirrorPath?: string;
 }
 
 interface Agent {
@@ -55,6 +56,19 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({ project, agents, err
             <label>Session Type</label>
             <p style="color: #888; font-size: 14px;">
               Creates a worktree for isolated development. Changes will be tracked separately from the main branch.
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label>Local Development Mirror (optional)</label>
+            <input
+              type="text"
+              name="localDevMirrorPath"
+              value={project.defaultLocalDevMirrorPath || ""}
+              placeholder="/home/user/myproject-dev"
+            />
+            <p style="color: #888; font-size: 12px; margin-top: 5px;">
+              Path to sync agent changes in real-time. Leave empty to disable sync.
             </p>
           </div>
 

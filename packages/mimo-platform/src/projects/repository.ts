@@ -15,6 +15,7 @@ export interface Project {
   credentialId?: string;
   sourceBranch?: string;
   newBranch?: string;
+  defaultLocalDevMirrorPath?: string;
 }
 
 export interface PublicProject {
@@ -39,6 +40,7 @@ export interface ProjectData {
   credentialId?: string;
   sourceBranch?: string;
   newBranch?: string;
+  defaultLocalDevMirrorPath?: string;
 }
 
 export interface CreateProjectInput {
@@ -50,6 +52,7 @@ export interface CreateProjectInput {
   credentialId?: string;
   sourceBranch?: string;
   newBranch?: string;
+  defaultLocalDevMirrorPath?: string;
 }
 
 export class ProjectRepository {
@@ -88,6 +91,7 @@ export class ProjectRepository {
       ...(input.credentialId && { credentialId: input.credentialId }),
       ...(input.sourceBranch && { sourceBranch: input.sourceBranch }),
       ...(input.newBranch && { newBranch: input.newBranch }),
+      ...(input.defaultLocalDevMirrorPath && { defaultLocalDevMirrorPath: input.defaultLocalDevMirrorPath }),
     };
 
     writeFileSync(
@@ -211,7 +215,7 @@ export class ProjectRepository {
     return existsSync(this.getProjectFilePath(id));
   }
 
-  async update(id: string, updates: { name?: string; repoUrl?: string; repoType?: "git" | "fossil"; description?: string; credentialId?: string }): Promise<Project> {
+  async update(id: string, updates: { name?: string; repoUrl?: string; repoType?: "git" | "fossil"; description?: string; credentialId?: string; defaultLocalDevMirrorPath?: string | null }): Promise<Project> {
     const project = await this.findById(id);
     if (!project) {
       throw new Error("Project not found");
@@ -231,6 +235,7 @@ export class ProjectRepository {
       description: updates.description,
       sourceBranch: project.sourceBranch,
       newBranch: project.newBranch,
+      defaultLocalDevMirrorPath: updates.defaultLocalDevMirrorPath !== undefined ? updates.defaultLocalDevMirrorPath : project.defaultLocalDevMirrorPath,
     };
 
     // Handle credentialId specially - if undefined, keep existing; if null, remove; if string, set

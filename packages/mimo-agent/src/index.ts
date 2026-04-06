@@ -190,7 +190,7 @@ class MimoAgent {
     const sessionIds: string[] = [];
 
     for (const session of sessions) {
-      const { sessionId, port, agentWorkspaceUser, agentWorkspacePassword, acpSessionId } = session;
+      const { sessionId, port, agentWorkspaceUser, agentWorkspacePassword, acpSessionId, localDevMirrorPath } = session;
 
       try {
         const checkoutPath = join(this.config.workDir, sessionId);
@@ -213,6 +213,11 @@ class MimoAgent {
         // Store acpSessionId for later use during ACP init
         if (acpSessionId) {
           this.sessionManager.setSessionAcpSessionId(sessionId, acpSessionId);
+        }
+
+        // Store localDevMirrorPath for file sync
+        if (localDevMirrorPath) {
+          this.sessionManager.setSessionLocalDevMirrorPath(sessionId, localDevMirrorPath);
         }
 
         // Spawn ACP process

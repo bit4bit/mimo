@@ -108,6 +108,7 @@ router.post("/", async (c: Context) => {
   const name = body.name as string;
   const projectId = (body.projectId as string) || getProjectId(c);
   const assignedAgentId = (body.assignedAgentId as string) || null;
+  const localDevMirrorPath = (body.localDevMirrorPath as string) || null;
 
   if (!name || !projectId) {
     return c.text("Name and project ID required", 400);
@@ -124,6 +125,7 @@ router.post("/", async (c: Context) => {
     projectId: projectId as string,
     owner: username,
     assignedAgentId: assignedAgentId || undefined,
+    localDevMirrorPath: localDevMirrorPath || undefined,
   });
 
   // Initialize repository: clone → import to fossil

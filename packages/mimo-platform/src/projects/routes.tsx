@@ -47,6 +47,7 @@ projects.post("/", authMiddleware, async (c) => {
   const credentialId = body.credentialId as string | undefined;
   const sourceBranch = body.sourceBranch as string | undefined;
   const newBranch = body.newBranch as string | undefined;
+  const defaultLocalDevMirrorPath = body.defaultLocalDevMirrorPath as string | undefined;
   const user = c.get("user") as { username: string };
 
   if (!name || !repoUrl) {
@@ -109,6 +110,7 @@ projects.post("/", authMiddleware, async (c) => {
       credentialId: credentialId || undefined,
       sourceBranch: sourceBranch || undefined,
       newBranch: newBranch || undefined,
+      defaultLocalDevMirrorPath: defaultLocalDevMirrorPath || undefined,
     });
 
     return c.redirect(`/projects/${project.id}`, 302);
@@ -181,6 +183,7 @@ projects.post("/:id/edit", authMiddleware, async (c) => {
   const repoType = (body.repoType as string) || "git";
   const description = body.description as string | undefined;
   const credentialId = body.credentialId as string | undefined;
+  const defaultLocalDevMirrorPath = body.defaultLocalDevMirrorPath as string | undefined;
 
   if (!name || !repoUrl) {
     const credentials = await credentialRepository.findByOwner(user.username);
@@ -239,6 +242,7 @@ projects.post("/:id/edit", authMiddleware, async (c) => {
       repoType: repoType as "git" | "fossil",
       description: description || undefined,
       credentialId: credentialId || undefined,
+      defaultLocalDevMirrorPath: defaultLocalDevMirrorPath || undefined,
     });
 
     return c.redirect(`/projects/${id}`, 302);

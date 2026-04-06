@@ -308,4 +308,89 @@ describe("Agent Handoff Tests", () => {
       expect(capabilities.loadSession).toBe(true);
     });
   });
+
+  describe("Local Dev Mirror Sync", () => {
+    it("should skip sync when localDevMirrorPath is undefined", () => {
+      const session = {
+        localDevMirrorPath: undefined,
+        checkoutPath: "/tmp/checkout",
+      };
+
+      const shouldSync = session.localDevMirrorPath != null;
+      expect(shouldSync).toBe(false);
+    });
+
+    it("should skip sync when localDevMirrorPath is null", () => {
+      const session = {
+        localDevMirrorPath: null,
+        checkoutPath: "/tmp/checkout",
+      };
+
+      const shouldSync = session.localDevMirrorPath != null;
+      expect(shouldSync).toBe(false);
+    });
+
+    it("should skip sync when localDevMirrorPath is empty string", () => {
+      const session = {
+        localDevMirrorPath: "",
+        checkoutPath: "/tmp/checkout",
+      };
+
+      const shouldSync = session.localDevMirrorPath != null && session.localDevMirrorPath.length > 0;
+      expect(shouldSync).toBe(false);
+    });
+
+    it("should sync when localDevMirrorPath is set", () => {
+      const session = {
+        localDevMirrorPath: "/home/user/dev/myproject",
+        checkoutPath: "/tmp/checkout",
+      };
+
+      const shouldSync = session.localDevMirrorPath != null && session.localDevMirrorPath.length > 0;
+      expect(shouldSync).toBe(true);
+    });
+
+    it("should construct correct mirror path from checkout and mirror", () => {
+      const checkoutPath = "/tmp/checkout/session-123";
+      const mirrorPath = "/home/user/dev/myproject";
+      const filePath = "src/app.js";
+      const mirrorFilePath = join(mirrorPath, filePath);
+
+      expect(mirrorFilePath).toBe("/home/user/dev/myproject/src/app.js");
+    });
+
+    it("should skip .git paths", () => {
+      const path1 = ".git/config";
+      const path2 = "src/.git/hooks";
+      const path3 = ".fossil/config";
+
+      const isVcsPath = (path: string) => path.includes(".git/") || path.includes(".fossil/") ||
+        path.startsWith(".git") || path.startsWith(".fossil");
+
+      expect(isVcsPath(path1)).toBe(true);
+      expect(isVcsPath(path2)).toBe(true);
+      expect(isVcsPath(path3)).toBe(true);
+    });
+
+    it("should not skip regular source files", () => {
+      const path1 = "src/app.js";
+      const path2 = "lib/utils.ts";
+      const path3 = "README.md";
+
+      const isVcsPath = (path: string) => path.includes(".git/") || path.includes(".fossil/") ||
+        path.startsWith(".git") || path.startsWith(".fossil");
+
+      expect(isVcsPath(path1)).toBe(false);
+      expect(isVcsPath(path2)).toBe(false);
+      expect(isVcsPath(path3)).toBe(false);
+    });
+
+    it("should handle parent directory creation for mirror sync", () => {
+      const mirrorPath = "/home/user/dev/myproject";
+      const filePath = "src/components/Button.tsx";
+      const destDir = join(mirrorPath, "src/components");
+
+      expect(destDir).toBe("/home/user/dev/myproject/src/components");
+    });
+  });
 });

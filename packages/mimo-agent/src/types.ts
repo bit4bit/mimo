@@ -31,6 +31,7 @@ export interface SessionInfo {
   currentThoughtBuffer?: string;
   modelState?: ModelState;
   modeState?: ModeState;
+  localDevMirrorPath?: string;
 }
 
 export interface FileChange {

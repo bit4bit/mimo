@@ -327,10 +327,14 @@ async function handleAgentMessage(ws, data) {
               
               sessionsReady.push({
                 sessionId,
+                name: session.name,
+                upstreamPath: session.upstreamPath,
+                agentWorkspacePath: session.agentWorkspacePath,
                 port: result.port,
                 agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
                 agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
                 acpSessionId: sessionWithCreds?.acpSessionId ?? null,
+                localDevMirrorPath: sessionWithCreds?.localDevMirrorPath ?? null,
               });
             } else {
               console.error("[agent] Failed to start fossil server:", result.error);
