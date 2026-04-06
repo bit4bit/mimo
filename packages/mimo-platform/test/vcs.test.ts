@@ -288,6 +288,28 @@ describe("VCS Integration Tests", () => {
         expect(existsSync(join(upstreamPath, "newfile.txt"))).toBe(true);
         expect(existsSync(join(upstreamPath, "oldfile.txt"))).toBe(false);
       }, 10000);
+
+      it("should handle cross-device move with .git directory", async () => {
+        const vcs = new VCS();
+        const agentWorkspacePath = join(testHome, "agent-workspace-crossdev");
+        const upstreamPath = join(testHome, "upstream-crossdev");
+        
+        mkdirSync(agentWorkspacePath, { recursive: true });
+        mkdirSync(upstreamPath, { recursive: true });
+        mkdirSync(join(upstreamPath, ".git"), { recursive: true });
+        
+        // Create a file in .git that should be preserved
+        const { writeFileSync } = await import("fs");
+        writeFileSync(join(upstreamPath, ".git", "config"), "[core] repositoryformatversion = 0");
+        writeFileSync(join(agentWorkspacePath, "newfile.txt"), "new content");
+        
+        // The safeMove should handle cross-device scenarios by falling back to copy+delete
+        const result = await vcs.cleanCopyToUpstream(agentWorkspacePath, upstreamPath);
+        
+        expect(result.success).toBe(true);
+        expect(existsSync(join(upstreamPath, ".git", "config"))).toBe(true);
+        expect(existsSync(join(upstreamPath, "newfile.txt"))).toBe(true);
+      }, 10000);
     });
 
     describe("commitUpstream", () => {

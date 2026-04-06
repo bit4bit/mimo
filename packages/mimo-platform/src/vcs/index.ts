@@ -100,6 +100,65 @@ export class VCS {
     }
   }
 
+  // Helper to safely move files across filesystems (handles EXDEV error)
+  // When rename fails due to cross-device link, falls back to copy+delete
+  private async safeMove(sourcePath: string, destPath: string, isDirectory: boolean): Promise<void> {
+    const { renameSync, copyFileSync, statSync, mkdirSync, readdirSync, unlinkSync, rmdirSync } = await import("fs");
+    const { join } = await import("path");
+    const { existsSync } = await import("fs");
+
+    try {
+      // Try rename first (fastest for same filesystem)
+      renameSync(sourcePath, destPath);
+    } catch (error: any) {
+      // If error is cross-device link, fall back to copy+delete
+      if (error.code === "EXDEV" || error.message?.includes("cross-device")) {
+        if (isDirectory) {
+          // Copy directory recursively
+          const copyDir = (src: string, dst: string) => {
+            if (!existsSync(dst)) {
+              mkdirSync(dst, { recursive: true });
+            }
+            const entries = readdirSync(src, { withFileTypes: true });
+            for (const entry of entries) {
+              const srcPath = join(src, entry.name);
+              const dstPath = join(dst, entry.name);
+              if (entry.isDirectory()) {
+                copyDir(srcPath, dstPath);
+              } else {
+                copyFileSync(srcPath, dstPath);
+              }
+            }
+          };
+          copyDir(sourcePath, destPath);
+          
+          // Delete source directory recursively
+          const deleteDir = (dir: string) => {
+            const entries = readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+              const fullPath = join(dir, entry.name);
+              if (entry.isDirectory()) {
+                deleteDir(fullPath);
+                rmdirSync(fullPath);
+              } else {
+                unlinkSync(fullPath);
+              }
+            }
+            rmdirSync(dir);
+          };
+          deleteDir(sourcePath);
+        } else {
+          // Copy file and delete source
+          copyFileSync(sourcePath, destPath);
+          unlinkSync(sourcePath);
+        }
+      } else {
+        // Re-throw other errors
+        throw error;
+      }
+    }
+  }
+
   async checkFossilAvailable(): Promise<boolean> {
     const result = await this.execCommand(["fossil", "version"]);
     return result.success;
@@ -720,18 +779,12 @@ export class VCS {
       const { tmpdir } = await import("os");
       const tempDir = mkdtempSync(join(tmpdir(), "mimo-preserve-"));
 
-      // Move preserved items to temp
+      // Move preserved items to temp (use safeMove for cross-device support)
       for (const item of itemsToPreserve) {
         const sourcePath = join(upstreamPath, item);
         const tempPath = join(tempDir, item);
-        if (statSync(sourcePath).isDirectory()) {
-          // Use rename for directories
-          const { renameSync } = await import("fs");
-          renameSync(sourcePath, tempPath);
-        } else {
-          const { renameSync } = await import("fs");
-          renameSync(sourcePath, tempPath);
-        }
+        const isDirectory = statSync(sourcePath).isDirectory();
+        await this.safeMove(sourcePath, tempPath, isDirectory);
       }
 
       // Delete all remaining items in upstream
@@ -756,12 +809,12 @@ export class VCS {
         mkdirSync(upstreamPath, { recursive: true });
       }
 
-      // Restore preserved items
+      // Restore preserved items (use safeMove for cross-device support)
       for (const item of itemsToPreserve) {
         const tempPath = join(tempDir, item);
         const destPath = join(upstreamPath, item);
-        const { renameSync } = await import("fs");
-        renameSync(tempPath, destPath);
+        const isDirectory = statSync(tempPath).isDirectory();
+        await this.safeMove(tempPath, destPath, isDirectory);
       }
 
       // Clean up temp directory
