@@ -873,7 +873,9 @@ export class VCS {
 
     if (repoType === "git") {
       // Git: add all and commit
+      console.log(`[commitUpstream] Running git add in ${upstreamPath}...`);
       const addResult = await this.execCommand(["git", "add", "-A"], upstreamPath);
+      console.log(`[commitUpstream] git add success: ${addResult.success}, error: ${addResult.error}`);
       if (!addResult.success) {
         return {
           success: false,
@@ -882,10 +884,12 @@ export class VCS {
         };
       }
 
+      console.log(`[commitUpstream] Running git commit in ${upstreamPath}...`);
       const commitResult = await this.execCommand(
         ["git", "commit", "-m", message],
         upstreamPath
       );
+      console.log(`[commitUpstream] git commit success: ${commitResult.success}, error: ${commitResult.error}, output: ${commitResult.output}`);
 
       // Check if nothing to commit
       if (commitResult.error?.includes("nothing to commit") || 
