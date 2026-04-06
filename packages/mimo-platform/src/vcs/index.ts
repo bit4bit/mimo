@@ -103,9 +103,7 @@ export class VCS {
   // Helper to safely move files across filesystems (handles EXDEV error)
   // When rename fails due to cross-device link, falls back to copy+delete
   private async safeMove(sourcePath: string, destPath: string, isDirectory: boolean): Promise<void> {
-    const { renameSync, copyFileSync, statSync, mkdirSync, readdirSync, unlinkSync, rmdirSync } = await import("fs");
-    const { join } = await import("path");
-    const { existsSync } = await import("fs");
+    const { renameSync, cpSync, rmSync } = await import("fs");
 
     try {
       // Try rename first (fastest for same filesystem)
@@ -114,42 +112,14 @@ export class VCS {
       // If error is cross-device link, fall back to copy+delete
       if (error.code === "EXDEV" || error.message?.includes("cross-device")) {
         if (isDirectory) {
-          // Copy directory recursively
-          const copyDir = (src: string, dst: string) => {
-            if (!existsSync(dst)) {
-              mkdirSync(dst, { recursive: true });
-            }
-            const entries = readdirSync(src, { withFileTypes: true });
-            for (const entry of entries) {
-              const srcPath = join(src, entry.name);
-              const dstPath = join(dst, entry.name);
-              if (entry.isDirectory()) {
-                copyDir(srcPath, dstPath);
-              } else {
-                copyFileSync(srcPath, dstPath);
-              }
-            }
-          };
-          copyDir(sourcePath, destPath);
-          
+          // Use cpSync with recursive and preserveTimestamps to properly copy .git
+          cpSync(sourcePath, destPath, { recursive: true, preserveTimestamps: true });
           // Delete source directory recursively
-          const deleteDir = (dir: string) => {
-            const entries = readdirSync(dir, { withFileTypes: true });
-            for (const entry of entries) {
-              const fullPath = join(dir, entry.name);
-              if (entry.isDirectory()) {
-                deleteDir(fullPath);
-              } else {
-                unlinkSync(fullPath);
-              }
-            }
-            rmdirSync(dir);
-          };
-          deleteDir(sourcePath);
+          rmSync(sourcePath, { recursive: true, force: true });
         } else {
-          // Copy file and delete source
-          copyFileSync(sourcePath, destPath);
-          unlinkSync(sourcePath);
+          // Use cpSync for files too to preserve permissions
+          cpSync(sourcePath, destPath, { preserveTimestamps: true });
+          rmSync(sourcePath, { force: true });
         }
       } else {
         // Re-throw other errors
