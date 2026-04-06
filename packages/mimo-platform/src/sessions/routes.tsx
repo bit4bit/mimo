@@ -394,10 +394,11 @@ router.get("/:id/impact", async (c: Context) => {
 
   try {
     const { impactCalculator } = await import("../impact/calculator.js");
-    const sccServiceModule = await import("../impact/scc-service.js");
+    const { getSccService } = await import("../impact/scc-service.js");
 
-    // Check if scc is installed
-    const sccInstalled = sccServiceModule.sccService.isInstalled();
+    // Check if scc is installed - use getter to avoid TDZ issues
+    const sccService = getSccService();
+    const sccInstalled = sccService.isInstalled();
 
     if (!sccInstalled) {
       // Return basic file counts without complexity

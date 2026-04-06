@@ -146,3 +146,20 @@ export class FossilServerManager {
 }
 
 export const fossilServerManager = new FossilServerManager();
+
+// Cleanup on process exit
+process.on("exit", () => {
+  fossilServerManager.stopAllServers();
+});
+
+process.on("SIGINT", () => {
+  fossilServerManager.stopAllServers().then(() => {
+    process.exit(0);
+  });
+});
+
+process.on("SIGTERM", () => {
+  fossilServerManager.stopAllServers().then(() => {
+    process.exit(0);
+  });
+});

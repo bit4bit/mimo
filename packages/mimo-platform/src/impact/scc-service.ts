@@ -73,7 +73,7 @@ export class SccService {
       } else {
         // Fall back to paths module
         const paths = getPaths();
-        this.sccPath = join(paths.mimoDir, "bin", "scc");
+        this.sccPath = join(paths.root, "bin", "scc");
       }
     }
   }
@@ -136,7 +136,7 @@ export class SccService {
       const globalHome = getMimoHome();
       const binDir = globalHome 
         ? join(globalHome, "bin")
-        : join(getPaths().mimoDir, "bin");
+        : join(getPaths().root, "bin");
 
       // Create bin directory if needed
       if (!existsSync(binDir)) {
