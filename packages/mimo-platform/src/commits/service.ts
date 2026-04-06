@@ -121,65 +121,9 @@ export class CommitService {
     }
 
     // Step 3: Commit in upstream
-    console.log(`[commit] Step 3: Committing in upstream at ${session.upstreamPath}...`);
-    // Verify .git exists before attempting commit
-    const gitPath = `${session.upstreamPath}/.git`;
-    const gitExists = existsSync(gitPath);
-    console.log(`[commit] .git exists at upstream: ${gitExists}`);
-    if (!gitExists) {
-      return {
-        success: false,
-        message: "Git repository not found in upstream",
-        error: `.git directory missing at ${session.upstreamPath}`,
-        step: "commit",
-      };
-    }
-    
-    // Check if .git is a directory and list its contents
-    const { statSync, readdirSync, readFileSync } = await import("fs");
-    const gitStat = statSync(gitPath);
-    console.log(`[commit] .git isDirectory: ${gitStat.isDirectory()}`);
-    if (gitStat.isDirectory()) {
-      const gitContents = readdirSync(gitPath);
-      console.log(`[commit] .git contents: ${gitContents.slice(0, 10).join(", ")}...`);
-      console.log(`[commit] .git/config exists: ${existsSync(`${gitPath}/config`)}`);
-      console.log(`[commit] .git/HEAD exists: ${existsSync(`${gitPath}/HEAD`)}`);
-      
-      // Check if HEAD has content
-      try {
-        const headContent = readFileSync(`${gitPath}/HEAD`, 'utf8');
-        console.log(`[commit] .git/HEAD content: ${headContent.trim()}`);
-      } catch (e) {
-        console.log(`[commit] .git/HEAD read error: ${e}`);
-      }
-      
-      // Check objects directory
-      const objectsPath = `${gitPath}/objects`;
-      console.log(`[commit] .git/objects exists: ${existsSync(objectsPath)}`);
-      if (existsSync(objectsPath)) {
-        const objectsStat = statSync(objectsPath);
-        console.log(`[commit] .git/objects isDirectory: ${objectsStat.isDirectory()}`);
-        try {
-          const objectsContents = readdirSync(objectsPath);
-          console.log(`[commit] .git/objects contents: ${objectsContents.slice(0, 5).join(", ")}...`);
-        } catch (e) {
-          console.log(`[commit] .git/objects read error: ${e}`);
-        }
-      }
-    }
-    
-    // Test if git can see the repository
-    console.log(`[commit] Testing git status...`);
-    const { execSync } = await import("child_process");
-    try {
-      const statusOutput = execSync("git status", { cwd: session.upstreamPath, encoding: "utf8" });
-      console.log(`[commit] git status output: ${statusOutput}`);
-    } catch (e: any) {
-      console.log(`[commit] git status error: ${e.message}`);
-      console.log(`[commit] git status stderr: ${e.stderr}`);
-    }
-    
+    console.log(`[commit] Step 3: Committing in upstream...`);
     const commitResult = await vcs.commitUpstream(session.upstreamPath, repoType);
+    if (!commitResult.success) {
     if (!commitResult.success) {
       // Check if no changes
       if (commitResult.output?.includes("nothing to commit") ||

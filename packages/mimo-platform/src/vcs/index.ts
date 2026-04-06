@@ -127,14 +127,6 @@ export class VCS {
           if (!existsSync(destPath)) {
             throw new Error(`Failed to copy directory from ${sourcePath} to ${destPath}`);
           }
-          // Double-check critical directories like objects
-          if (existsSync(join(sourcePath, 'objects')) && !existsSync(join(destPath, 'objects'))) {
-            console.log(`[safeMove] Warning: objects directory was not copied, retrying...`);
-            // Recreate objects manually
-            mkdirSync(join(destPath, 'objects'), { recursive: true });
-            const { cpSync: innerCp } = await import("fs");
-            innerCp(join(sourcePath, 'objects'), join(destPath, 'objects'), { recursive: true, preserveTimestamps: true, filter: () => true });
-          }
           // Delete source directory recursively
           rmSync(sourcePath, { recursive: true, force: true });
         } else {
@@ -803,17 +795,12 @@ export class VCS {
       }
 
       // Restore preserved items (use safeMove for cross-device support)
-      console.log(`[cleanCopyToUpstream] Restoring preserved items to upstream: ${upstreamPath}`);
       for (const item of itemsToPreserve) {
         const tempPath = join(tempDir, item);
         const destPath = join(upstreamPath, item);
         const isDirectory = statSync(tempPath).isDirectory();
-        console.log(`[cleanCopyToUpstream] Restoring ${item} from temp...`);
         await this.safeMove(tempPath, destPath, isDirectory);
       }
-
-      // Verify upstream has preserved items
-      console.log(`[cleanCopyToUpstream] After restore - .git exists: ${fsExistsSync(join(upstreamPath, '.git'))}`);
 
       // Clean up temp directory
       rmdirSync(tempDir);
@@ -843,16 +830,6 @@ export class VCS {
 
       copyRecursive(agentWorkspacePath, upstreamPath);
 
-      // Final verification - ensure .git still exists after all operations
-      const finalGitExists = fsExistsSync(join(upstreamPath, '.git'));
-      console.log(`[cleanCopyToUpstream] After all operations - .git exists: ${finalGitExists}`);
-      if (!finalGitExists) {
-        return {
-          success: false,
-          error: ".git directory was lost during file operations",
-        };
-      }
-
       return {
         success: true,
         output: "Files copied successfully",
@@ -873,9 +850,7 @@ export class VCS {
 
     if (repoType === "git") {
       // Git: add all and commit
-      console.log(`[commitUpstream] Running git add in ${upstreamPath}...`);
       const addResult = await this.execCommand(["git", "add", "-A"], upstreamPath);
-      console.log(`[commitUpstream] git add success: ${addResult.success}, error: ${addResult.error}`);
       if (!addResult.success) {
         return {
           success: false,
@@ -884,12 +859,10 @@ export class VCS {
         };
       }
 
-      console.log(`[commitUpstream] Running git commit in ${upstreamPath}...`);
       const commitResult = await this.execCommand(
         ["git", "commit", "-m", message],
         upstreamPath
       );
-      console.log(`[commitUpstream] git commit success: ${commitResult.success}, error: ${commitResult.error}, output: ${commitResult.output}`);
 
       // Check if nothing to commit
       if (commitResult.error?.includes("nothing to commit") || 
