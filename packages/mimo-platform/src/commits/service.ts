@@ -124,7 +124,6 @@ export class CommitService {
     console.log(`[commit] Step 3: Committing in upstream...`);
     const commitResult = await vcs.commitUpstream(session.upstreamPath, repoType);
     if (!commitResult.success) {
-    if (!commitResult.success) {
       // Check if no changes
       if (commitResult.output?.includes("nothing to commit") ||
           commitResult.output?.includes("No changes to commit")) {
