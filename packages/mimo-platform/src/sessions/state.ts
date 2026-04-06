@@ -16,6 +16,7 @@ export interface SessionModeState {
 // In-memory state storage
 const sessionModelStates = new Map<string, SessionModelState>();
 const sessionModeStates = new Map<string, SessionModeState>();
+const sessionFossilPorts = new Map<string, number>();
 
 export const sessionStateService = {
   // Set model state for a session
@@ -38,9 +39,20 @@ export const sessionStateService = {
     return sessionModeStates.get(sessionId);
   },
 
+  // Set fossil port for a session
+  setFossilPort(sessionId: string, port: number): void {
+    sessionFossilPorts.set(sessionId, port);
+  },
+
+  // Get fossil port for a session
+  getFossilPort(sessionId: string): number | undefined {
+    return sessionFossilPorts.get(sessionId);
+  },
+
   // Clear state for a session (when session is deleted)
   clearSessionState(sessionId: string): void {
     sessionModelStates.delete(sessionId);
     sessionModeStates.delete(sessionId);
+    sessionFossilPorts.delete(sessionId);
   },
 };

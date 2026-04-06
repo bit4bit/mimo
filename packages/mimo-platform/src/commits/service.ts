@@ -1,6 +1,8 @@
 import { vcs } from "../vcs/index.js";
 import { sessionRepository } from "../sessions/repository.js";
 import { projectRepository } from "../projects/repository.js";
+import { impactRepository } from "../impact/repository.js";
+import { impactCalculator } from "../impact/calculator.js";
 
 export interface CommitResult {
   success: boolean;
@@ -161,6 +163,51 @@ export class CommitService {
         error: pushResult.error || "Push failed",
         step: "push",
       };
+    }
+
+    // Step 5: Capture and save impact metrics
+    console.log(`[commit] Step 5: Capturing impact metrics...`);
+    try {
+      const { metrics } = await impactCalculator.calculateImpact(
+        sessionId,
+        session.upstreamPath,
+        session.agentWorkspacePath
+      );
+
+      // Get commit hash from the commit result
+      const commitHash = commitResult.output?.match(/[a-f0-9]{40}|[a-f0-9]{64}/)?.[0] || "unknown";
+
+      // Save impact record
+      impactRepository.save({
+        id: `${sessionId}-${commitHash}`,
+        sessionId: sessionId,
+        sessionName: session.name,
+        projectId: session.projectId,
+        commitHash: commitHash,
+        commitDate: new Date(),
+        files: {
+          new: metrics.files.new,
+          changed: metrics.files.changed,
+          deleted: metrics.files.deleted,
+        },
+        linesOfCode: {
+          added: metrics.linesOfCode.added,
+          removed: metrics.linesOfCode.removed,
+          net: metrics.linesOfCode.net,
+        },
+        complexity: {
+          cyclomatic: metrics.complexity.cyclomatic,
+          cognitive: metrics.complexity.cognitive,
+          estimatedMinutes: metrics.complexity.estimatedMinutes,
+        },
+        complexityByLanguage: metrics.byLanguage,
+        fossilUrl: ``, // Will be populated if fossil server is running
+      });
+
+      console.log(`[commit] Impact metrics saved for commit ${commitHash.slice(0, 8)}`);
+    } catch (error) {
+      console.error(`[commit] Failed to capture impact metrics:`, error);
+      // Don't fail the commit if impact capture fails
     }
 
     return {

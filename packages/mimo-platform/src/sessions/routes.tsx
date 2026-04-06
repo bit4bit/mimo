@@ -15,6 +15,7 @@ import { SessionDetailPage } from "../components/SessionDetailPage.js";
 import { SessionCreatePage } from "../components/SessionCreatePage.js";
 import { SessionListPage } from "../components/SessionListPage.js";
 import { sessionStateService } from "./state.js";
+import { fossilServerManager } from "../vcs/fossil-server.js";
 import type { Context } from "hono";
 
 const router = new Hono();
@@ -213,14 +214,13 @@ router.get("/:id", async (c: Context) => {
     agent = await agentRepository.findById(session.assignedAgentId);
   }
 
-  // Get file changes
-  const { fileSyncService } = await import("../sync/service.js");
-  const changeSet = await fileSyncService.getChangeSet(sessionId);
-  const hasConflicts = changeSet.hasConflicts;
-
   // Get model/mode state from in-memory store
   const modelState = sessionStateService.getModelState(sessionId);
   const modeState = sessionStateService.getModeState(sessionId);
+
+  // Get fossil port for impact buffer links
+  const runningServer = fossilServerManager.getRunningServer(sessionId);
+  const fossilPort = runningServer?.port;
 
   return c.html(
     <SessionDetailPage 
@@ -228,10 +228,9 @@ router.get("/:id", async (c: Context) => {
       project={project}
       chatHistory={chatHistory}
       agent={agent}
-      changes={changeSet.files}
-      hasConflicts={hasConflicts}
       modelState={modelState}
       modeState={modeState}
+      fossilPort={fossilPort}
     />
   );
 });
@@ -377,6 +376,92 @@ router.post("/:id/chat", async (c: Context) => {
   });
 
   return c.json({ success: true });
+});
+
+// GET /sessions/:id/impact - Get real-time impact metrics for a session
+router.get("/:id/impact", async (c: Context) => {
+  const username = await getAuthUsername(c);
+  if (!username) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const sessionId = c.req.param("id");
+  const session = await sessionRepository.findById(sessionId);
+
+  if (!session || session.owner !== username) {
+    return c.json({ error: "Session not found" }, 404);
+  }
+
+  try {
+    const { impactCalculator } = await import("../impact/calculator.js");
+    const sccServiceModule = await import("../impact/scc-service.js");
+
+    // Check if scc is installed
+    const sccInstalled = sccServiceModule.sccService.isInstalled();
+
+    if (!sccInstalled) {
+      // Return basic file counts without complexity
+      const { readdirSync, statSync, readFileSync } = await import("fs");
+      const { join, relative } = await import("path");
+      const crypto = await import("crypto");
+
+      const scanDir = (dir: string, baseDir: string, files: Map<string, { checksum: string; size: number }>) => {
+        if (!statSync(dir, { throwIfNoEntry: false })) return;
+        const entries = readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = join(dir, entry.name);
+          const relPath = relative(baseDir, fullPath);
+          if (entry.name.startsWith(".")) continue;
+          if (entry.isDirectory()) {
+            scanDir(fullPath, baseDir, files);
+          } else {
+            const stats = statSync(fullPath);
+            const content = readFileSync(fullPath);
+            const checksum = crypto.createHash("md5").update(content).digest("hex");
+            files.set(relPath, { checksum, size: stats.size });
+          }
+        }
+      };
+
+      const upstreamFiles = new Map<string, { checksum: string; size: number }>();
+      const workspaceFiles = new Map<string, { checksum: string; size: number }>();
+
+      scanDir(session.upstreamPath, session.upstreamPath, upstreamFiles);
+      scanDir(session.agentWorkspacePath, session.agentWorkspacePath, workspaceFiles);
+
+      let newCount = 0, changedCount = 0, deletedCount = 0;
+
+      for (const [path, info] of workspaceFiles) {
+        if (!upstreamFiles.has(path)) newCount++;
+        else if (upstreamFiles.get(path)?.checksum !== info.checksum) changedCount++;
+      }
+
+      for (const [path] of upstreamFiles) {
+        if (!workspaceFiles.has(path)) deletedCount++;
+      }
+
+      return c.json({
+        files: { new: newCount, changed: changedCount, deleted: deletedCount },
+        sccInstalled: false,
+        warning: "scc not installed - complexity metrics unavailable",
+      });
+    }
+
+    // Calculate full impact with complexity
+    const result = await impactCalculator.calculateImpact(
+      sessionId,
+      session.upstreamPath,
+      session.agentWorkspacePath
+    );
+
+    return c.json({
+      ...result,
+      sccInstalled: true,
+    });
+  } catch (error) {
+    console.error("[impact] Failed to calculate impact:", error);
+    return c.json({ error: "Failed to calculate impact" }, 500);
+  }
 });
 
 export default router;

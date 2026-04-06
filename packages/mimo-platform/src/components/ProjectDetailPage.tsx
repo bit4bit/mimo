@@ -113,9 +113,14 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({ project, sessions, c
 
         <div class="actions" style="margin-top: 30px;">
           <h2>Actions</h2>
-          <form method="POST" action={`/projects/${project.id}/delete`} style="margin-top: 15px;">
-            <button type="submit" class="btn-danger">Delete Project</button>
-          </form>
+          <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <a href={`/projects/${project.id}/impacts`} class="btn-secondary">
+              Impact History
+            </a>
+            <form method="POST" action={`/projects/${project.id}/delete`}>
+              <button type="submit" class="btn-danger">Delete Project</button>
+            </form>
+          </div>
         </div>
       </div>
     </Layout>

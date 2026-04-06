@@ -2,11 +2,13 @@ import { Hono } from "hono";
 import { projectRepository, CreateProjectInput } from "../projects/repository";
 import { sessionRepository } from "../sessions/repository";
 import { credentialRepository, Credential } from "../credentials/repository";
+import { impactRepository } from "../impact/repository";
 import { authMiddleware } from "../auth/middleware";
 import { ProjectsListPage } from "../components/ProjectsListPage";
 import { ProjectDetailPage } from "../components/ProjectDetailPage";
 import { ProjectCreatePage } from "../components/ProjectCreatePage";
 import { ProjectEditPage } from "../components/ProjectEditPage";
+import { ImpactHistoryPage } from "../components/ImpactHistoryPage";
 import sessions from "../sessions/routes";
 
 const projects = new Hono();
@@ -259,6 +261,45 @@ projects.post("/:id/delete", authMiddleware, async (c) => {
 
   await projectRepository.delete(id);
   return c.redirect("/projects", 302);
+});
+
+// GET /projects/:id/impacts - Impact history page
+projects.get("/:id/impacts", authMiddleware, async (c) => {
+  const id = c.req.param("id");
+  const project = await projectRepository.findById(id);
+  
+  if (!project) {
+    return c.notFound();
+  }
+
+  const user = c.get("user") as { username: string };
+  if (project.owner !== user.username) {
+    return c.notFound();
+  }
+
+  // Get all impact records for this project
+  const impacts = await impactRepository.findByProject(id);
+
+  // Get all sessions for this project to check existence
+  const allSessions = await sessionRepository.listByProject(id);
+  const sessionMap = new Map();
+  
+  for (const impact of impacts) {
+    const session = allSessions.find(s => s.id === impact.sessionId);
+    sessionMap.set(impact.sessionId, {
+      id: impact.sessionId,
+      name: impact.sessionName,
+      exists: !!session,
+    });
+  }
+
+  return c.html(
+    <ImpactHistoryPage 
+      project={project}
+      impacts={impacts}
+      sessions={sessionMap}
+    />
+  );
 });
 
 // Nested session routes
