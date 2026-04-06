@@ -89,10 +89,26 @@ export class ImpactCalculator {
     }
 
     // Get scc metrics for both directories
-    const [upstreamMetrics, workspaceMetrics] = await Promise.all([
-      sccService.runScc(upstreamPath).catch(() => null),
-      sccService.runScc(agentWorkspacePath).catch(() => null),
-    ]);
+    let upstreamMetrics: ReturnType<typeof sccService.runScc> extends Promise<infer T> ? T : never | null = null;
+    let workspaceMetrics: ReturnType<typeof sccService.runScc> extends Promise<infer T> ? T : never | null = null;
+    
+    // Clear cache to ensure fresh data
+    sccService.clearCache(upstreamPath);
+    sccService.clearCache(agentWorkspacePath);
+    
+    try {
+      upstreamMetrics = await sccService.runScc(upstreamPath);
+      console.log(`[impact] Upstream scc metrics:`, upstreamMetrics);
+    } catch (error) {
+      console.error(`[impact] Failed to get upstream metrics:`, error);
+    }
+    
+    try {
+      workspaceMetrics = await sccService.runScc(agentWorkspacePath);
+      console.log(`[impact] Workspace scc metrics:`, workspaceMetrics);
+    } catch (error) {
+      console.error(`[impact] Failed to get workspace metrics:`, error);
+    }
 
     // Calculate file changes by scanning directories
     const fileChanges = await this.calculateFileChanges(upstreamPath, agentWorkspacePath);

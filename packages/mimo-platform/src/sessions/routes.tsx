@@ -395,6 +395,24 @@ router.get("/:id/impact", async (c: Context) => {
   try {
     const { impactCalculator } = await import("../impact/calculator.js");
     const { getSccService } = await import("../impact/scc-service.js");
+    const { vcs } = await import("../vcs/index.js");
+
+    // Sync agent-workspace with repo.fossil before calculating impact
+    const fossilPath = `${session.upstreamPath}/../repo.fossil`;
+    const { existsSync } = await import("fs");
+    const { join } = await import("path");
+    const fslckoutPath = join(session.agentWorkspacePath, ".fslckout");
+    
+    if (existsSync(fossilPath)) {
+      if (!existsSync(fslckoutPath)) {
+        // Initialize fossil checkout if not exists
+        console.log(`[impact] Initializing fossil checkout in agent-workspace...`);
+        await vcs.openFossil(fossilPath, session.agentWorkspacePath);
+      }
+      // Sync with repo.fossil to get latest changes from agent
+      console.log(`[impact] Syncing agent-workspace with repo.fossil...`);
+      await vcs.fossilUp(session.agentWorkspacePath);
+    }
 
     // Check if scc is installed - use getter to avoid TDZ issues
     const sccService = getSccService();
