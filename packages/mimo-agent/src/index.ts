@@ -267,6 +267,16 @@ class MimoAgent {
         } catch {
           // Ignore error, may already be correct
         }
+        // Ensure local password matches server password
+        try {
+          execSync(
+            `fossil user password ${agentWorkspaceUser} ${agentWorkspacePassword}`,
+            { cwd: checkoutPath, stdio: "pipe" }
+          );
+          console.log(`[mimo-agent]   Updated local user password`);
+        } catch {
+          // Ignore error
+        }
       }
     } else if (existsSync(join(checkoutPath, ".fossil"))) {
       console.log(`[mimo-agent]   Checkout exists, ensuring open`);
@@ -286,6 +296,16 @@ class MimoAgent {
           execSync(`fossil remote-url ${remoteUrl}`, { cwd: checkoutPath, stdio: "pipe" });
         } catch {
           // Ignore error, may already be correct
+        }
+        // Ensure local password matches server password
+        try {
+          execSync(
+            `fossil user password ${agentWorkspaceUser} ${agentWorkspacePassword}`,
+            { cwd: checkoutPath, stdio: "pipe" }
+          );
+          console.log(`[mimo-agent]   Updated local user password`);
+        } catch {
+          // Ignore error
         }
       }
     } else {
