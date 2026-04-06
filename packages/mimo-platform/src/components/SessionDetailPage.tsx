@@ -291,12 +291,18 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               return;
             }
             
+            // Normalize data structure - handle both {files, linesOfCode...} and {metrics: {...}} formats
+            const metrics = data.metrics || data;
+            
             // Check if we have valid data structure
-            if (!data.files || typeof data.files !== 'object') {
+            if (!metrics.files || typeof metrics.files !== 'object') {
               console.error('[impact] Invalid data structure:', data);
               content.innerHTML = '<div class="impact-loading"><p>Error: Invalid impact data received</p></div>';
               return;
             }
+            
+            // Use normalized metrics for all access
+            data = metrics;
             
             // Store for trend comparison
             const prevMetrics = lastMetrics;
