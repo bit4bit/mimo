@@ -282,7 +282,21 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           
           function updateImpactUI(data) {
             const content = document.getElementById('impact-content');
-            if (!content || data.error) return;
+            if (!content) return;
+            
+            // Check for API errors
+            if (data.error) {
+              console.error('[impact] API error:', data.error);
+              content.innerHTML = '<div class="impact-loading"><p>Error loading impact metrics: ' + data.error + '</p></div>';
+              return;
+            }
+            
+            // Check if we have valid data structure
+            if (!data.files || typeof data.files !== 'object') {
+              console.error('[impact] Invalid data structure:', data);
+              content.innerHTML = '<div class="impact-loading"><p>Error: Invalid impact data received</p></div>';
+              return;
+            }
             
             // Store for trend comparison
             const prevMetrics = lastMetrics;
