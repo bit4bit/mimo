@@ -255,12 +255,38 @@ class MimoAgent {
       } catch {
         // Already open or error, continue
       }
+      // Update remote URL to new port/credentials
+      if (agentWorkspaceUser && agentWorkspacePassword) {
+        const url = new URL(fossilUrl);
+        url.username = agentWorkspaceUser;
+        url.password = agentWorkspacePassword;
+        const remoteUrl = url.toString();
+        console.log(`[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`);
+        try {
+          execSync(`fossil remote-url ${remoteUrl}`, { cwd: checkoutPath, stdio: "pipe" });
+        } catch {
+          // Ignore error, may already be correct
+        }
+      }
     } else if (existsSync(join(checkoutPath, ".fossil"))) {
       console.log(`[mimo-agent]   Checkout exists, ensuring open`);
       try {
         execSync(`fossil open`, { cwd: checkoutPath, stdio: "pipe" });
       } catch {
         // Already open or error, continue
+      }
+      // Update remote URL to new port/credentials
+      if (agentWorkspaceUser && agentWorkspacePassword) {
+        const url = new URL(fossilUrl);
+        url.username = agentWorkspaceUser;
+        url.password = agentWorkspacePassword;
+        const remoteUrl = url.toString();
+        console.log(`[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`);
+        try {
+          execSync(`fossil remote-url ${remoteUrl}`, { cwd: checkoutPath, stdio: "pipe" });
+        } catch {
+          // Ignore error, may already be correct
+        }
       }
     } else {
       console.log(`[mimo-agent]   Cloning from fossil`);
