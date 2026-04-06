@@ -250,6 +250,24 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           const sessionId = '${session.id}';
           let lastMetrics = null;
           
+          function formatTrend(current, previous) {
+            if (current > previous) return '↑';
+            if (current < previous) return '↓';
+            return '→';
+          }
+          
+          function formatComplexity(value) {
+            if (value > 0) return '+' + value;
+            return value.toString();
+          }
+          
+          function formatTime(minutes) {
+            if (minutes < 60) return minutes + 'm';
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            return hours + 'h ' + mins + 'm';
+          }
+          
           async function fetchImpact() {
             try {
               const response = await fetch(\`/sessions/\${sessionId}/impact\`);
@@ -266,33 +284,119 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             const content = document.getElementById('impact-content');
             if (!content || data.error) return;
             
-            // Calculate trends if we have previous data
-            let trends = null;
-            if (lastMetrics) {
-              trends = {
-                files: {
-                  new: data.files.new > lastMetrics.files.new ? '↑' : data.files.new < lastMetrics.files.new ? '↓' : '→',
-                  changed: data.files.changed > lastMetrics.files.changed ? '↑' : data.files.changed < lastMetrics.files.changed ? '↓' : '→',
-                  deleted: data.files.deleted > lastMetrics.files.deleted ? '↑' : data.files.deleted < lastMetrics.files.deleted ? '↓' : '→',
-                },
-                linesOfCode: {
-                  added: data.linesOfCode.added > lastMetrics.linesOfCode.added ? '↑' : data.linesOfCode.added < lastMetrics.linesOfCode.added ? '↓' : '→',
-                  removed: data.linesOfCode.removed > lastMetrics.linesOfCode.removed ? '↑' : data.linesOfCode.removed < lastMetrics.linesOfCode.removed ? '↓' : '→',
-                  net: data.linesOfCode.net > lastMetrics.linesOfCode.net ? '↑' : data.linesOfCode.net < lastMetrics.linesOfCode.net ? '↓' : '→',
-                },
-                complexity: {
-                  cyclomatic: data.complexity.cyclomatic > lastMetrics.complexity.cyclomatic ? '↑' : data.complexity.cyclomatic < lastMetrics.complexity.cyclomatic ? '↓' : '→',
-                  cognitive: data.complexity.cognitive > lastMetrics.complexity.cognitive ? '↑' : data.complexity.cognitive < lastMetrics.complexity.cognitive ? '↓' : '→',
-                }
-              };
-            }
-            
+            // Store for trend comparison
+            const prevMetrics = lastMetrics;
             lastMetrics = data;
             
-            // Update UI elements (simplified - full implementation would update all sections)
-            // For now, trigger a page refresh or use the data directly
-            window.__impactData = data;
-            window.__impactTrends = trends;
+            // Build HTML for metrics
+            let html = '';
+            
+            // Files Section
+            const filesTrend = prevMetrics ? {
+              new: formatTrend(data.files.new, prevMetrics.files.new),
+              changed: formatTrend(data.files.changed, prevMetrics.files.changed),
+              deleted: formatTrend(data.files.deleted, prevMetrics.files.deleted)
+            } : { new: '→', changed: '→', deleted: '→' };
+            
+            html += \`<div class="impact-section">
+              <div class="impact-section-title">Files</div>
+              <div class="impact-metric">
+                <span class="impact-metric-label">New:</span>
+                <span class="impact-metric-value">\${data.files.new}</span>
+                <span class="impact-trend">\${filesTrend.new}</span>
+              </div>
+              <div class="impact-metric">
+                <span class="impact-metric-label">Changed:</span>
+                <span class="impact-metric-value">\${data.files.changed}</span>
+                <span class="impact-trend">\${filesTrend.changed}</span>
+              </div>
+              <div class="impact-metric">
+                <span class="impact-metric-label">Deleted:</span>
+                <span class="impact-metric-value">\${data.files.deleted}</span>
+                <span class="impact-trend">\${filesTrend.deleted}</span>
+              </div>
+            </div>\`;
+            
+            // Lines of Code Section
+            const locTrend = prevMetrics ? {
+              added: formatTrend(data.linesOfCode.added, prevMetrics.linesOfCode.added),
+              removed: formatTrend(data.linesOfCode.removed, prevMetrics.linesOfCode.removed),
+              net: formatTrend(data.linesOfCode.net, prevMetrics.linesOfCode.net)
+            } : { added: '→', removed: '→', net: '→' };
+            
+            const netClass = data.linesOfCode.net >= 0 ? 'positive' : 'negative';
+            const netPrefix = data.linesOfCode.net >= 0 ? '+' : '';
+            
+            html += \`<div class="impact-section">
+              <div class="impact-section-title">Lines of Code</div>
+              <div class="impact-metric">
+                <span class="impact-metric-label">Added:</span>
+                <span class="impact-metric-value">+\${data.linesOfCode.added}</span>
+                <span class="impact-trend">\${locTrend.added}</span>
+              </div>
+              <div class="impact-metric">
+                <span class="impact-metric-label">Removed:</span>
+                <span class="impact-metric-value">-\${data.linesOfCode.removed}</span>
+                <span class="impact-trend">\${locTrend.removed}</span>
+              </div>
+              <div class="impact-metric">
+                <span class="impact-metric-label">Net:</span>
+                <span class="impact-metric-value \${netClass}">\${netPrefix}\${data.linesOfCode.net}</span>
+                <span class="impact-trend">\${locTrend.net}</span>
+              </div>
+            </div>\`;
+            
+            // Complexity Section (if scc is installed)
+            if (data.sccInstalled !== false && data.complexity) {
+              const compTrend = prevMetrics ? {
+                cyclomatic: formatTrend(data.complexity.cyclomatic, prevMetrics.complexity.cyclomatic),
+                cognitive: formatTrend(data.complexity.cognitive, prevMetrics.complexity.cognitive)
+              } : { cyclomatic: '→', cognitive: '→' };
+              
+              html += \`<div class="impact-section">
+                <div class="impact-section-title">Complexity</div>
+                <div class="impact-metric">
+                  <span class="impact-metric-label">Cyclomatic:</span>
+                  <span class="impact-metric-value">\${formatComplexity(data.complexity.cyclomatic)}</span>
+                  <span class="impact-trend">\${compTrend.cyclomatic}</span>
+                </div>
+                <div class="impact-metric">
+                  <span class="impact-metric-label">Cognitive:</span>
+                  <span class="impact-metric-value">\${formatComplexity(data.complexity.cognitive)}</span>
+                  <span class="impact-trend">\${compTrend.cognitive}</span>
+                </div>
+                <div class="impact-metric">
+                  <span class="impact-metric-label">Est. Time:</span>
+                  <span class="impact-metric-value">\${formatTime(data.complexity.estimatedMinutes)}</span>
+                </div>
+              </div>\`;
+              
+              // Language Breakdown
+              if (data.byLanguage && data.byLanguage.length > 0) {
+                html += \`<div class="impact-section">
+                  <div class="impact-section-title">By Language</div>\`;
+                data.byLanguage.forEach(lang => {
+                  const added = lang.linesAdded > 0 ? '+' + lang.linesAdded : '';
+                  const removed = lang.linesRemoved > 0 ? ' -' + lang.linesRemoved : '';
+                  const complexity = lang.complexityDelta !== 0 ? 
+                    ' (' + (lang.complexityDelta > 0 ? '+' : '') + lang.complexityDelta + ' cyc)' : '';
+                  html += \`<div class="impact-language">
+                    <div class="impact-language-header">
+                      <span class="impact-language-name">\${lang.language}</span>
+                      <span class="impact-language-files">\${lang.files} files</span>
+                    </div>
+                    <div class="impact-language-metrics">
+                      <span class="impact-language-loc">\${added}\${removed}</span>
+                      <span class="impact-language-complexity">\${complexity}</span>
+                    </div>
+                  </div>\`;
+                });
+                html += '</div>';
+              }
+            }
+            
+            // Update the content
+            content.innerHTML = html;
           }
           
           // Poll every 5 seconds
