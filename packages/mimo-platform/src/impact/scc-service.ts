@@ -45,17 +45,44 @@ export interface SccFileMetrics {
   complexity: number;
 }
 
-interface SccJsonOutput {
-  files: Array<{
-    filename: string;
-    language: string;
-    lines: number;
-    code: number;
-    comment: number;
-    blank: number;
-    complexity: number;
+// SCC JSON output format: array of language groups, each containing files
+interface SccLanguageGroup {
+  Name: string;
+  Bytes: number;
+  CodeBytes: number;
+  Lines: number;
+  Code: number;
+  Comment: number;
+  Blank: number;
+  Complexity: number;
+  Count: number;
+  WeightedComplexity: number;
+  Files: Array<{
+    Language: string;
+    PossibleLanguages: string[];
+    Filename: string;
+    Extension: string;
+    Location: string;
+    Symlocation: string;
+    Bytes: number;
+    Lines: number;
+    Code: number;
+    Comment: number;
+    Blank: number;
+    Complexity: number;
+    WeightedComplexity: number;
+    Hash: string | null;
+    Binary: boolean;
+    Minified: boolean;
+    Generated: boolean;
+    EndPoint: number;
+    Uloc: number;
   }>;
+  LineLength: null;
+  ULOC: number;
 }
+
+type SccJsonOutput = SccLanguageGroup[];
 
 export class SccService {
   private sccPath: string;
@@ -235,7 +262,8 @@ export class SccService {
   }
 
   private parseSccOutput(output: SccJsonOutput): SccMetrics {
-    const files = output.files || [];
+    // SCC returns an array of language groups, each containing files
+    const languageGroups = Array.isArray(output) ? output : [];
     
     // Calculate totals
     let totalLines = 0;
@@ -245,42 +273,47 @@ export class SccService {
     const languageMap = new Map<string, SccLanguageMetrics>();
     const fileMetrics: SccFileMetrics[] = [];
 
-    for (const file of files) {
-      totalLines += file.lines;
-      totalCode += file.code;
-      totalComplexity += file.complexity || 0;
+    // Process each language group
+    for (const group of languageGroups) {
+      const files = group.Files || [];
+      
+      for (const file of files) {
+        totalLines += file.Lines;
+        totalCode += file.Code;
+        totalComplexity += file.Complexity || 0;
 
-      // Language aggregation
-      const lang = file.language || "Unknown";
-      const existing = languageMap.get(lang);
-      if (existing) {
-        existing.files++;
-        existing.lines += file.lines;
-        existing.code += file.code;
-        existing.comment += file.comment;
-        existing.blank += file.blank;
-        existing.complexity += file.complexity || 0;
-      } else {
-        languageMap.set(lang, {
+        // Language aggregation
+        const lang = file.Language || "Unknown";
+        const existing = languageMap.get(lang);
+        if (existing) {
+          existing.files++;
+          existing.lines += file.Lines;
+          existing.code += file.Code;
+          existing.comment += file.Comment;
+          existing.blank += file.Blank;
+          existing.complexity += file.Complexity || 0;
+        } else {
+          languageMap.set(lang, {
+            language: lang,
+            files: 1,
+            lines: file.Lines,
+            code: file.Code,
+            comment: file.Comment,
+            blank: file.Blank,
+            complexity: file.Complexity || 0,
+          });
+        }
+
+        fileMetrics.push({
+          path: file.Filename,
           language: lang,
-          files: 1,
-          lines: file.lines,
-          code: file.code,
-          comment: file.comment,
-          blank: file.blank,
-          complexity: file.complexity || 0,
+          lines: file.Lines,
+          code: file.Code,
+          comment: file.Comment,
+          blank: file.Blank,
+          complexity: file.Complexity || 0,
         });
       }
-
-      fileMetrics.push({
-        path: file.filename,
-        language: lang,
-        lines: file.lines,
-        code: file.code,
-        comment: file.comment,
-        blank: file.blank,
-        complexity: file.complexity || 0,
-      });
     }
 
     return {
