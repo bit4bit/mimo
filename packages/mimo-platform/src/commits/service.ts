@@ -123,8 +123,8 @@ export class CommitService {
     // Step 3: Commit in upstream
     console.log(`[commit] Step 3: Committing in upstream at ${session.upstreamPath}...`);
     // Verify .git exists before attempting commit
-    const { existsSync } = await import("fs");
-    const gitExists = existsSync(`${session.upstreamPath}/.git`);
+    const gitPath = `${session.upstreamPath}/.git`;
+    const gitExists = existsSync(gitPath);
     console.log(`[commit] .git exists at upstream: ${gitExists}`);
     if (!gitExists) {
       return {
@@ -134,6 +134,18 @@ export class CommitService {
         step: "commit",
       };
     }
+    
+    // Check if .git is a directory and list its contents
+    const { statSync, readdirSync } = await import("fs");
+    const gitStat = statSync(gitPath);
+    console.log(`[commit] .git isDirectory: ${gitStat.isDirectory()}`);
+    if (gitStat.isDirectory()) {
+      const gitContents = readdirSync(gitPath);
+      console.log(`[commit] .git contents: ${gitContents.slice(0, 10).join(", ")}...`);
+      console.log(`[commit] .git/config exists: ${existsSync(`${gitPath}/config`)}`);
+      console.log(`[commit] .git/HEAD exists: ${existsSync(`${gitPath}/HEAD`)}`);
+    }
+    
     const commitResult = await vcs.commitUpstream(session.upstreamPath, repoType);
     if (!commitResult.success) {
       // Check if no changes
