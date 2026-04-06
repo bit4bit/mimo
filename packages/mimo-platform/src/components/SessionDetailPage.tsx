@@ -449,6 +449,42 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           
           // Initial fetch
           fetchImpact();
+          
+          // Fossil server status polling
+          async function checkFossilStatus() {
+            try {
+              const response = await fetch(\`/sessions/\${sessionId}/fossil-status\`);
+              if (!response.ok) return;
+              
+              const data = await response.json();
+              if (data.running && data.fossilUrl) {
+                // Update fossil section if it was showing "not running"
+                const fossilSection = document.querySelector('.impact-section:has(.fossil-links)');
+                if (fossilSection) {
+                  const linksContainer = fossilSection.querySelector('.fossil-links');
+                  if (linksContainer && linksContainer.querySelector('.impact-no-data')) {
+                    // Replace "not running" message with actual links
+                    linksContainer.innerHTML = \`
+                      <a href="\${data.fossilUrl}/timeline" target="_blank" class="fossil-link">
+                        Timeline
+                      </a>
+                      <a href="\${data.fossilUrl}/file" target="_blank" class="fossil-link">
+                        Files
+                      </a>
+                    \`;
+                    console.log('[fossil] Server is now running at', data.fossilUrl);
+                  }
+                }
+              }
+            } catch (error) {
+              // Silently ignore - server might not be ready yet
+            }
+          }
+          
+          // Check fossil status every 3 seconds
+          setInterval(checkFossilStatus, 3000);
+          // Initial check
+          checkFossilStatus();
         })();
       `}} />
 

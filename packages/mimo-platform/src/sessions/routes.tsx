@@ -501,4 +501,35 @@ router.get("/:id/impact", async (c: Context) => {
   }
 });
 
+// GET /sessions/:id/fossil-status - Check if fossil server is running and get its URL
+router.get("/:id/fossil-status", async (c: Context) => {
+  const username = await getAuthUsername(c);
+  if (!username) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const sessionId = c.req.param("id");
+  const session = await sessionRepository.findById(sessionId);
+
+  if (!session || session.owner !== username) {
+    return c.json({ error: "Session not found" }, 404);
+  }
+
+  // Check running server first, then fall back to saved session port
+  const runningServer = fossilServerManager.getRunningServer(sessionId);
+  const fossilPort = runningServer?.port ?? session.port ?? null;
+
+  if (fossilPort) {
+    return c.json({
+      running: true,
+      fossilUrl: `http://localhost:${fossilPort}`,
+    });
+  }
+
+  return c.json({
+    running: false,
+    fossilUrl: null,
+  });
+});
+
 export default router;
