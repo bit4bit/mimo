@@ -71,6 +71,164 @@ describe("Impact Buffer Tests", () => {
       
       expect(service.isInstalled()).toBe(true);
     });
+
+    it("should parse scc JSON output correctly", async () => {
+      const { SccService } = await import("../src/impact/scc-service.ts");
+      const sccPath = join(testHome, "bin", "scc");
+      const service = new SccService(sccPath);
+      
+      // Create a mock scc binary that outputs the correct JSON format
+      mkdirSync(join(testHome, "bin"), { recursive: true });
+      const mockSccOutput = JSON.stringify([
+        {
+          "Name": "Python",
+          "Bytes": 156,
+          "CodeBytes": 0,
+          "Lines": 10,
+          "Code": 8,
+          "Comment": 0,
+          "Blank": 2,
+          "Complexity": 3,
+          "Count": 1,
+          "WeightedComplexity": 0,
+          "Files": [
+            {
+              "Language": "Python",
+              "PossibleLanguages": ["Python"],
+              "Filename": "hello.py",
+              "Extension": "py",
+              "Location": "hello.py",
+              "Symlocation": "",
+              "Bytes": 156,
+              "Lines": 10,
+              "Code": 8,
+              "Comment": 0,
+              "Blank": 2,
+              "Complexity": 3,
+              "WeightedComplexity": 0,
+              "Hash": null,
+              "Binary": false,
+              "Minified": false,
+              "Generated": false,
+              "EndPoint": 0,
+              "Uloc": 0
+            }
+          ],
+          "LineLength": null,
+          "ULOC": 0
+        },
+        {
+          "Name": "Markdown",
+          "Bytes": 100,
+          "CodeBytes": 0,
+          "Lines": 5,
+          "Code": 3,
+          "Comment": 0,
+          "Blank": 2,
+          "Complexity": 0,
+          "Count": 1,
+          "WeightedComplexity": 0,
+          "Files": [
+            {
+              "Language": "Markdown",
+              "PossibleLanguages": ["Markdown"],
+              "Filename": "README.md",
+              "Extension": "md",
+              "Location": "README.md",
+              "Symlocation": "",
+              "Bytes": 100,
+              "Lines": 5,
+              "Code": 3,
+              "Comment": 0,
+              "Blank": 2,
+              "Complexity": 0,
+              "WeightedComplexity": 0,
+              "Hash": null,
+              "Binary": false,
+              "Minified": false,
+              "Generated": false,
+              "EndPoint": 0,
+              "Uloc": 0
+            }
+          ],
+          "LineLength": null,
+          "ULOC": 0
+        }
+      ]);
+      
+      // Create mock scc script
+      const mockScript = `#!/bin/bash
+if [[ "$1" == "--by-file" && "$2" == "-f" && "$3" == "json" ]]; then
+  echo '${mockSccOutput}'
+else
+  echo "Usage: scc --by-file -f json <directory>"
+  exit 1
+fi`;
+      
+      writeFileSync(sccPath, mockScript);
+      chmodSync(sccPath, 0o755);
+      
+      // Create a test directory
+      const testDir = join(testHome, "test-project");
+      mkdirSync(testDir, { recursive: true });
+      writeFileSync(join(testDir, "hello.py"), "# Hello\nprint('Hello')\n");
+      writeFileSync(join(testDir, "README.md"), "# Test\n\nThis is a test.\n");
+      
+      // Run scc and parse output
+      const metrics = await service.runScc(testDir);
+      
+      // Verify the parsed metrics
+      expect(metrics).toBeDefined();
+      expect(metrics.linesOfCode.net).toBe(11); // 8 + 3
+      expect(metrics.complexity.cyclomatic).toBe(3);
+      expect(metrics.byLanguage).toHaveLength(2);
+      expect(metrics.byFile).toHaveLength(2);
+      
+      // Check language aggregation
+      const pythonLang = metrics.byLanguage.find(l => l.language === "Python");
+      expect(pythonLang).toBeDefined();
+      expect(pythonLang?.code).toBe(8);
+      expect(pythonLang?.complexity).toBe(3);
+      
+      const markdownLang = metrics.byLanguage.find(l => l.language === "Markdown");
+      expect(markdownLang).toBeDefined();
+      expect(markdownLang?.code).toBe(3);
+      expect(markdownLang?.complexity).toBe(0);
+      
+      // Check file details
+      const helloFile = metrics.byFile.find(f => f.path === "hello.py");
+      expect(helloFile).toBeDefined();
+      expect(helloFile?.code).toBe(8);
+      expect(helloFile?.complexity).toBe(3);
+      
+      const readmeFile = metrics.byFile.find(f => f.path === "README.md");
+      expect(readmeFile).toBeDefined();
+      expect(readmeFile?.code).toBe(3);
+    });
+
+    it("should handle empty scc output", async () => {
+      const { SccService } = await import("../src/impact/scc-service.ts");
+      const sccPath = join(testHome, "bin", "scc-empty");
+      const service = new SccService(sccPath);
+      
+      // Create a mock scc binary that returns empty array
+      mkdirSync(join(testHome, "bin"), { recursive: true });
+      const mockScript = `#!/bin/bash
+echo '[]'`;
+      
+      writeFileSync(sccPath, mockScript);
+      chmodSync(sccPath, 0o755);
+      
+      const testDir = join(testHome, "empty-project");
+      mkdirSync(testDir, { recursive: true });
+      
+      const metrics = await service.runScc(testDir);
+      
+      expect(metrics.linesOfCode.net).toBe(0);
+      expect(metrics.complexity.cyclomatic).toBe(0);
+      expect(metrics.byLanguage).toHaveLength(0);
+      expect(metrics.byFile).toHaveLength(0);
+    });
   });
 
   describe("ImpactCalculator", () => {
