@@ -291,6 +291,15 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             // Build HTML for metrics
             let html = '';
             
+            // Warning if scc not installed
+            if (data.sccInstalled === false) {
+              html += \`<div class="impact-warning" style="margin-bottom: 12px; padding: 10px; background: #332b1a; border: 1px solid #665a33; border-radius: 4px; display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 16px;">⚠️</span>
+                <span style="flex: 1; color: #d4a040;">${data.warning || 'scc not installed - complexity metrics unavailable'}</span>
+                <button type="button" class="btn-secondary btn-small" onclick="installScc()" id="install-scc-btn" style="font-size: 11px; padding: 4px 8px;">Install scc</button>
+              </div>\`;
+            }
+            
             // Files Section
             const filesTrend = prevMetrics ? {
               new: formatTrend(data.files.new, prevMetrics.files.new),
