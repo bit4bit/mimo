@@ -818,7 +818,7 @@ export class VCS {
           const destPath = join(dest, entry.name);
 
           if (entry.isDirectory()) {
-            if (!existsSync(destPath)) {
+            if (!fsExistsSync(destPath)) {
               mkdirSync(destPath, { recursive: true });
             }
             copyRecursive(sourcePath, destPath);

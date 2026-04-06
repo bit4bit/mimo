@@ -310,6 +310,204 @@ describe("VCS Integration Tests", () => {
         expect(existsSync(join(upstreamPath, ".git", "config"))).toBe(true);
         expect(existsSync(join(upstreamPath, "newfile.txt"))).toBe(true);
       }, 10000);
+
+      it("should preserve complete .git structure including objects directory", async () => {
+        const vcs = new VCS();
+        const agentWorkspacePath = join(testHome, "agent-workspace-git-complete");
+        const upstreamPath = join(testHome, "upstream-git-complete");
+        
+        mkdirSync(agentWorkspacePath, { recursive: true });
+        mkdirSync(upstreamPath, { recursive: true });
+        
+        // Create complete .git structure
+        const gitPath = join(upstreamPath, ".git");
+        mkdirSync(gitPath, { recursive: true });
+        mkdirSync(join(gitPath, "objects"), { recursive: true });
+        mkdirSync(join(gitPath, "objects", "pack"), { recursive: true });
+        mkdirSync(join(gitPath, "refs", "heads"), { recursive: true });
+        mkdirSync(join(gitPath, "refs", "tags"), { recursive: true });
+        
+        const { writeFileSync } = await import("fs");
+        writeFileSync(join(gitPath, "config"), "[core] repositoryformatversion = 0");
+        writeFileSync(join(gitPath, "HEAD"), "ref: refs/heads/main");
+        writeFileSync(join(gitPath, "packed-refs"), "# packed-refs");
+        writeFileSync(join(agentWorkspacePath, "README.md"), "# Test");
+        
+        const result = await vcs.cleanCopyToUpstream(agentWorkspacePath, upstreamPath);
+        
+        expect(result.success).toBe(true);
+        // Verify all critical .git directories exist
+        expect(existsSync(join(upstreamPath, ".git"))).toBe(true);
+        expect(existsSync(join(upstreamPath, ".git", "objects"))).toBe(true);
+        expect(existsSync(join(upstreamPath, ".git", "objects", "pack"))).toBe(true);
+        expect(existsSync(join(upstreamPath, ".git", "refs"))).toBe(true);
+        expect(existsSync(join(upstreamPath, ".git", "refs", "heads"))).toBe(true);
+        // Verify files are preserved
+        expect(existsSync(join(upstreamPath, ".git", "config"))).toBe(true);
+        expect(existsSync(join(upstreamPath, ".git", "HEAD"))).toBe(true);
+        // Verify agent files are copied
+        expect(existsSync(join(upstreamPath, "README.md"))).toBe(true);
+      }, 10000);
+
+      it("should preserve both .git and .fossil directories", async () => {
+        const vcs = new VCS();
+        const agentWorkspacePath = join(testHome, "agent-workspace-both");
+        const upstreamPath = join(testHome, "upstream-both");
+        
+        mkdirSync(agentWorkspacePath, { recursive: true });
+        mkdirSync(upstreamPath, { recursive: true });
+        
+        // Create both .git and .fossil
+        mkdirSync(join(upstreamPath, ".git"), { recursive: true });
+        mkdirSync(join(upstreamPath, ".fossil"), { recursive: true });
+        
+        const { writeFileSync } = await import("fs");
+        writeFileSync(join(upstreamPath, ".git", "config"), "git config");
+        writeFileSync(join(upstreamPath, ".fossil", "config"), "fossil config");
+        writeFileSync(join(agentWorkspacePath, "file.txt"), "content");
+        
+        const result = await vcs.cleanCopyToUpstream(agentWorkspacePath, upstreamPath);
+        
+        expect(result.success).toBe(true);
+        expect(existsSync(join(upstreamPath, ".git"))).toBe(true);
+        expect(existsSync(join(upstreamPath, ".git", "config"))).toBe(true);
+        expect(existsSync(join(upstreamPath, ".fossil"))).toBe(true);
+        expect(existsSync(join(upstreamPath, ".fossil", "config"))).toBe(true);
+        expect(existsSync(join(upstreamPath, "file.txt"))).toBe(true);
+      }, 10000);
+
+      it("should preserve file timestamps during copy", async () => {
+        const vcs = new VCS();
+        const agentWorkspacePath = join(testHome, "agent-workspace-timestamps");
+        const upstreamPath = join(testHome, "upstream-timestamps");
+        
+        mkdirSync(agentWorkspacePath, { recursive: true });
+        mkdirSync(upstreamPath, { recursive: true });
+        mkdirSync(join(upstreamPath, ".git"), { recursive: true });
+        
+        const { writeFileSync, statSync } = await import("fs");
+        const gitConfigPath = join(upstreamPath, ".git", "config");
+        writeFileSync(gitConfigPath, "config content");
+        writeFileSync(join(agentWorkspacePath, "file.txt"), "content");
+        
+        // Get original timestamp
+        const originalStat = statSync(gitConfigPath);
+        const originalMtime = originalStat.mtime;
+        
+        // Wait a bit to ensure timestamp would change if not preserved
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const result = await vcs.cleanCopyToUpstream(agentWorkspacePath, upstreamPath);
+        
+        expect(result.success).toBe(true);
+        
+        // Verify timestamp was preserved
+        const newStat = statSync(join(upstreamPath, ".git", "config"));
+        expect(newStat.mtime.getTime()).toBe(originalMtime.getTime());
+      }, 10000);
+
+      it("should handle git repository end-to-end", async () => {
+        const vcs = new VCS();
+        const { execSync, execFileSync } = await import("child_process");
+        const agentWorkspacePath = join(testHome, "agent-workspace-e2e");
+        const upstreamPath = join(testHome, "upstream-e2e");
+        
+        // Setup agent workspace
+        mkdirSync(agentWorkspacePath, { recursive: true });
+        const { writeFileSync } = await import("fs");
+        writeFileSync(join(agentWorkspacePath, "new-feature.txt"), "New feature content");
+        writeFileSync(join(agentWorkspacePath, "README.md"), "Updated README");
+        
+        // Setup upstream as proper git repo
+        mkdirSync(upstreamPath, { recursive: true });
+        execSync("git init", { cwd: upstreamPath });
+        execSync("git config user.email \"test@test.com\"", { cwd: upstreamPath });
+        execSync("git config user.name \"Test User\"", { cwd: upstreamPath });
+        execFileSync("git", ["commit", "--allow-empty", "-m", "Initial commit"], { cwd: upstreamPath });
+        
+        // Create initial file
+        writeFileSync(join(upstreamPath, "existing.txt"), "Existing content");
+        execSync("git add -A", { cwd: upstreamPath });
+        execSync("git commit -m \"Add existing file\"", { cwd: upstreamPath });
+        
+        const result = await vcs.cleanCopyToUpstream(agentWorkspacePath, upstreamPath);
+        
+        expect(result.success).toBe(true);
+        // Verify .git is preserved and functional
+        expect(existsSync(join(upstreamPath, ".git"))).toBe(true);
+        // Verify new files from agent are present
+        expect(existsSync(join(upstreamPath, "new-feature.txt"))).toBe(true);
+        expect(existsSync(join(upstreamPath, "README.md"))).toBe(true);
+        // Verify old files are removed
+        expect(existsSync(join(upstreamPath, "existing.txt"))).toBe(false);
+        
+        // Verify git still works
+        const gitStatus = execSync("git status --porcelain", { cwd: upstreamPath, encoding: "utf8" });
+        expect(gitStatus).toContain("new-feature.txt");
+        expect(gitStatus).toContain("README.md");
+      }, 15000);
+
+      it("should handle nested directory structures", async () => {
+        const vcs = new VCS();
+        const agentWorkspacePath = join(testHome, "agent-workspace-nested");
+        const upstreamPath = join(testHome, "upstream-nested");
+        
+        mkdirSync(agentWorkspacePath, { recursive: true });
+        mkdirSync(upstreamPath, { recursive: true });
+        mkdirSync(join(upstreamPath, ".git"), { recursive: true });
+        
+        // Create nested structure in agent workspace
+        mkdirSync(join(agentWorkspacePath, "src", "components"), { recursive: true });
+        mkdirSync(join(agentWorkspacePath, "src", "utils"), { recursive: true });
+        
+        const { writeFileSync } = await import("fs");
+        writeFileSync(join(agentWorkspacePath, "src", "components", "Button.tsx"), "export const Button = () => {}");
+        writeFileSync(join(agentWorkspacePath, "src", "utils", "helpers.ts"), "export const helper = () => {}");
+        writeFileSync(join(agentWorkspacePath, "package.json"), "{}");
+        
+        // Create old files in upstream that should be removed
+        writeFileSync(join(upstreamPath, ".git", "config"), "git config");
+        mkdirSync(join(upstreamPath, "old"), { recursive: true });
+        writeFileSync(join(upstreamPath, "old", "legacy.js"), "old code");
+        
+        const result = await vcs.cleanCopyToUpstream(agentWorkspacePath, upstreamPath);
+        
+        expect(result.success).toBe(true);
+        // Verify nested structure is preserved
+        expect(existsSync(join(upstreamPath, "src", "components", "Button.tsx"))).toBe(true);
+        expect(existsSync(join(upstreamPath, "src", "utils", "helpers.ts"))).toBe(true);
+        expect(existsSync(join(upstreamPath, "package.json"))).toBe(true);
+        // Verify .git is preserved
+        expect(existsSync(join(upstreamPath, ".git", "config"))).toBe(true);
+        // Verify old files are removed
+        expect(existsSync(join(upstreamPath, "old", "legacy.js"))).toBe(false);
+        expect(existsSync(join(upstreamPath, "old"))).toBe(false);
+      }, 10000);
+
+      it("should handle empty directories correctly", async () => {
+        const vcs = new VCS();
+        const agentWorkspacePath = join(testHome, "agent-workspace-empty");
+        const upstreamPath = join(testHome, "upstream-empty");
+        
+        mkdirSync(agentWorkspacePath, { recursive: true });
+        mkdirSync(upstreamPath, { recursive: true });
+        
+        // Create empty .git with just objects directory structure
+        const gitPath = join(upstreamPath, ".git");
+        mkdirSync(gitPath, { recursive: true });
+        mkdirSync(join(gitPath, "objects"), { recursive: true });
+        // objects is intentionally left empty
+        
+        const { writeFileSync } = await import("fs");
+        writeFileSync(join(agentWorkspacePath, "file.txt"), "content");
+        
+        const result = await vcs.cleanCopyToUpstream(agentWorkspacePath, upstreamPath);
+        
+        expect(result.success).toBe(true);
+        expect(existsSync(join(upstreamPath, ".git"))).toBe(true);
+        expect(existsSync(join(upstreamPath, ".git", "objects"))).toBe(true);
+        expect(existsSync(join(upstreamPath, "file.txt"))).toBe(true);
+      }, 10000);
     });
 
     describe("commitUpstream", () => {
