@@ -103,40 +103,40 @@ export class VCS {
   // Helper to safely move files across filesystems (handles EXDEV error)
   // When rename fails due to cross-device link, falls back to copy+delete
   private async safeMove(sourcePath: string, destPath: string, isDirectory: boolean): Promise<void> {
-    const { renameSync, cpSync, rmSync, mkdirSync, existsSync } = await import("fs");
-    const { dirname } = await import("path");
-
-    console.log(`[safeMove] Moving ${sourcePath} -> ${destPath} (isDirectory: ${isDirectory})`);
-    console.log(`[safeMove] Source exists: ${existsSync(sourcePath)}`);
+    const { renameSync, cpSync, rmSync, mkdirSync, existsSync, readdirSync } = await import("fs");
+    const { dirname, join } = await import("path");
 
     try {
       // Try rename first (fastest for same filesystem)
-      console.log(`[safeMove] Attempting rename...`);
       renameSync(sourcePath, destPath);
-      console.log(`[safeMove] Rename succeeded`);
     } catch (error: any) {
-      console.log(`[safeMove] Rename failed: ${error.code}`);
       // If error is cross-device link, fall back to copy+delete
       if (error.code === "EXDEV" || error.message?.includes("cross-device")) {
         // Ensure parent directory exists for destination
         const parentDir = dirname(destPath);
-        console.log(`[safeMove] Ensuring parent dir: ${parentDir}`);
         mkdirSync(parentDir, { recursive: true });
         
         if (isDirectory) {
           // Use cpSync with recursive and preserveTimestamps to properly copy .git
-          console.log(`[safeMove] Copying directory with cpSync...`);
-          cpSync(sourcePath, destPath, { recursive: true, preserveTimestamps: true });
+          cpSync(sourcePath, destPath, { 
+            recursive: true, 
+            preserveTimestamps: true,
+            filter: () => true // Copy all files including hidden ones
+          });
           // Verify copy succeeded before deleting source
-          const destExists = existsSync(destPath);
-          console.log(`[safeMove] Destination exists after copy: ${destExists}`);
-          if (!destExists) {
+          if (!existsSync(destPath)) {
             throw new Error(`Failed to copy directory from ${sourcePath} to ${destPath}`);
           }
+          // Double-check critical directories like objects
+          if (existsSync(join(sourcePath, 'objects')) && !existsSync(join(destPath, 'objects'))) {
+            console.log(`[safeMove] Warning: objects directory was not copied, retrying...`);
+            // Recreate objects manually
+            mkdirSync(join(destPath, 'objects'), { recursive: true });
+            const { cpSync: innerCp } = await import("fs");
+            innerCp(join(sourcePath, 'objects'), join(destPath, 'objects'), { recursive: true, preserveTimestamps: true, filter: () => true });
+          }
           // Delete source directory recursively
-          console.log(`[safeMove] Deleting source...`);
           rmSync(sourcePath, { recursive: true, force: true });
-          console.log(`[safeMove] Done`);
         } else {
           // Use cpSync for files too to preserve permissions
           cpSync(sourcePath, destPath, { preserveTimestamps: true });
