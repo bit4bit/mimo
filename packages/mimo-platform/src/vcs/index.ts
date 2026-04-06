@@ -544,13 +544,21 @@ export class VCS {
         const { spawn } = require("child_process");
         
         const gitExport = spawn("git", ["fast-export", "--all"], { cwd: upstreamPath });
-        const fossilImport = spawn("fossil", ["import", "--git", fossilPath], { cwd: upstreamPath });
+        // Use dirname of fossilPath as cwd for fossil import, not upstreamPath
+        const { dirname } = require("path");
+        const fossilDir = dirname(fossilPath);
+        const fossilImport = spawn("fossil", ["import", "--git", fossilPath], { cwd: fossilDir });
         
         let stdout = "";
         let stderr = "";
+        let gitError = "";
+        let gitExitCode: number | null = null;
+        let fossilExitCode: number | null = null;
         
+        // Handle git export stdout -> fossil stdin
         gitExport.stdout.pipe(fossilImport.stdin);
         
+        // Capture fossil output
         fossilImport.stdout.on("data", (data) => {
           stdout += data.toString();
         });
@@ -559,24 +567,51 @@ export class VCS {
           stderr += data.toString();
         });
         
+        // Capture git errors separately
         gitExport.stderr.on("data", (data) => {
-          stderr += data.toString();
+          gitError += data.toString();
         });
         
-        fossilImport.on("close", (code) => {
-          resolve({
-            success: code === 0,
-            output: stdout,
-            error: stderr,
-          });
+        // Track when git export completes
+        gitExport.on("close", (code) => {
+          gitExitCode = code;
+          // Close fossil stdin to signal EOF
+          fossilImport.stdin.end();
         });
         
+        // Track git errors
         gitExport.on("error", (err) => {
           fossilImport.kill();
           resolve({
             success: false,
             output: "",
             error: `Git fast-export failed: ${err.message}`,
+          });
+        });
+        
+        // Track fossil completion
+        fossilImport.on("close", (code) => {
+          fossilExitCode = code;
+          // Only resolve when both processes have completed
+          if (gitExitCode !== null || code !== 0) {
+            const combinedError = [
+              gitExitCode !== 0 ? `Git fast-export exited with code ${gitExitCode}: ${gitError}` : "",
+              code !== 0 ? `Fossil import exited with code ${code}: ${stderr}` : "",
+            ].filter(Boolean).join(" | ");
+            
+            resolve({
+              success: code === 0 && gitExitCode === 0,
+              output: stdout,
+              error: combinedError || stderr || undefined,
+            });
+          }
+        });
+        
+        fossilImport.on("error", (err) => {
+          resolve({
+            success: false,
+            output: stdout,
+            error: `Fossil import failed: ${err.message}`,
           });
         });
       });
