@@ -277,6 +277,28 @@ class MimoAgent {
         } catch {
           // Ignore error
         }
+        // Update/add named remote "server" with credentials
+        try {
+          // Remove existing remote if exists, then add new one
+          try {
+            execSync(`fossil remote rm server`, { cwd: checkoutPath, stdio: "pipe" });
+          } catch {
+            // Remote may not exist, ignore
+          }
+          execSync(
+            `fossil remote add server ${remoteUrl}`,
+            { cwd: checkoutPath, stdio: "pipe" }
+          );
+          console.log(`[mimo-agent]   Updated remote 'server'`);
+          // Do a sync using the named remote to verify credentials work
+          execSync(
+            `fossil sync server`,
+            { cwd: checkoutPath, stdio: "pipe" }
+          );
+          console.log(`[mimo-agent]   Verified sync with remote 'server'`);
+        } catch {
+          // Ignore error
+        }
       }
     } else if (existsSync(join(checkoutPath, ".fossil"))) {
       console.log(`[mimo-agent]   Checkout exists, ensuring open`);
@@ -304,6 +326,28 @@ class MimoAgent {
             { cwd: checkoutPath, stdio: "pipe" }
           );
           console.log(`[mimo-agent]   Updated local user password`);
+        } catch {
+          // Ignore error
+        }
+        // Update/add named remote "server" with credentials
+        try {
+          // Remove existing remote if exists, then add new one
+          try {
+            execSync(`fossil remote rm server`, { cwd: checkoutPath, stdio: "pipe" });
+          } catch {
+            // Remote may not exist, ignore
+          }
+          execSync(
+            `fossil remote add server ${remoteUrl}`,
+            { cwd: checkoutPath, stdio: "pipe" }
+          );
+          console.log(`[mimo-agent]   Updated remote 'server'`);
+          // Do a sync using the named remote to verify credentials work
+          execSync(
+            `fossil sync server`,
+            { cwd: checkoutPath, stdio: "pipe" }
+          );
+          console.log(`[mimo-agent]   Verified sync with remote 'server'`);
         } catch {
           // Ignore error
         }
