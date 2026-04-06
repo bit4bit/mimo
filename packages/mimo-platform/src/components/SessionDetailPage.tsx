@@ -318,33 +318,35 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             </div>\`;
             
             // Lines of Code Section
-            const locTrend = prevMetrics ? {
-              added: formatTrend(data.linesOfCode.added, prevMetrics.linesOfCode.added),
-              removed: formatTrend(data.linesOfCode.removed, prevMetrics.linesOfCode.removed),
-              net: formatTrend(data.linesOfCode.net, prevMetrics.linesOfCode.net)
-            } : { added: '→', removed: '→', net: '→' };
-            
-            const netClass = data.linesOfCode.net >= 0 ? 'positive' : 'negative';
-            const netPrefix = data.linesOfCode.net >= 0 ? '+' : '';
-            
-            html += \`<div class="impact-section">
-              <div class="impact-section-title">Lines of Code</div>
-              <div class="impact-metric">
-                <span class="impact-metric-label">Added:</span>
-                <span class="impact-metric-value">+\${data.linesOfCode.added}</span>
-                <span class="impact-trend">\${locTrend.added}</span>
-              </div>
-              <div class="impact-metric">
-                <span class="impact-metric-label">Removed:</span>
-                <span class="impact-metric-value">-\${data.linesOfCode.removed}</span>
-                <span class="impact-trend">\${locTrend.removed}</span>
-              </div>
-              <div class="impact-metric">
-                <span class="impact-metric-label">Net:</span>
-                <span class="impact-metric-value \${netClass}">\${netPrefix}\${data.linesOfCode.net}</span>
-                <span class="impact-trend">\${locTrend.net}</span>
-              </div>
-            </div>\`;
+            if (data.linesOfCode) {
+              const locTrend = prevMetrics && prevMetrics.linesOfCode ? {
+                added: formatTrend(data.linesOfCode.added, prevMetrics.linesOfCode.added),
+                removed: formatTrend(data.linesOfCode.removed, prevMetrics.linesOfCode.removed),
+                net: formatTrend(data.linesOfCode.net, prevMetrics.linesOfCode.net)
+              } : { added: '→', removed: '→', net: '→' };
+              
+              const netClass = data.linesOfCode.net >= 0 ? 'positive' : 'negative';
+              const netPrefix = data.linesOfCode.net >= 0 ? '+' : '';
+              
+              html += \`<div class="impact-section">
+                <div class="impact-section-title">Lines of Code</div>
+                <div class="impact-metric">
+                  <span class="impact-metric-label">Added:</span>
+                  <span class="impact-metric-value">+\${data.linesOfCode.added}</span>
+                  <span class="impact-trend">\${locTrend.added}</span>
+                </div>
+                <div class="impact-metric">
+                  <span class="impact-metric-label">Removed:</span>
+                  <span class="impact-metric-value">-\${data.linesOfCode.removed}</span>
+                  <span class="impact-trend">\${locTrend.removed}</span>
+                </div>
+                <div class="impact-metric">
+                  <span class="impact-metric-label">Net:</span>
+                  <span class="impact-metric-value \${netClass}">\${netPrefix}\${data.linesOfCode.net}</span>
+                  <span class="impact-trend">\${locTrend.net}</span>
+                </div>
+              </div>\`;
+            }
             
             // Complexity Section (if scc is installed)
             if (data.sccInstalled !== false && data.complexity) {
