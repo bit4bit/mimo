@@ -88,26 +88,109 @@ describe("Agent Handoff Tests", () => {
       expect(message.sessions[0].port).toBe(8080);
     });
 
-    it("should handle empty sessions array", () => {
+    it("should include acpSessionId when session has persisted ACP session", () => {
       const message = {
-        type: "session_ready",
+        type: "session_ready" as const,
         platformUrl: "http://localhost:3000",
-        sessions: [],
+        sessions: [
+          { sessionId: "session-1", port: 8080, acpSessionId: "acp-abc123" },
+        ],
       };
 
-      expect(message.sessions).toHaveLength(0);
+      expect(message.sessions[0].acpSessionId).toBe("acp-abc123");
     });
 
-    it("should include all required fields per session", () => {
-      const session = {
-        sessionId: "test-session",
-        port: 8080,
+    it("should send null acpSessionId when session has no persisted ACP session", () => {
+      const message = {
+        type: "session_ready" as const,
+        platformUrl: "http://localhost:3000",
+        sessions: [
+          { sessionId: "session-1", port: 8080, acpSessionId: null },
+        ],
       };
 
-      expect(session.sessionId).toBeDefined();
-      expect(session.port).toBeDefined();
-      expect(typeof session.sessionId).toBe("string");
-      expect(typeof session.port).toBe("number");
+      expect(message.sessions[0].acpSessionId).toBeNull();
+    });
+
+    it("should handle mixed sessions with and without acpSessionId", () => {
+      const message = {
+        type: "session_ready" as const,
+        platformUrl: "http://localhost:3000",
+        sessions: [
+          { sessionId: "session-1", port: 8080, acpSessionId: "acp-abc123" },
+          { sessionId: "session-2", port: 8081, acpSessionId: null },
+        ],
+      };
+
+      expect(message.sessions[0].acpSessionId).toBe("acp-abc123");
+      expect(message.sessions[1].acpSessionId).toBeNull();
+    });
+  });
+
+  describe("acp_session_created message format", () => {
+    it("should format acp_session_created with session resumption", () => {
+      const message = {
+        type: "acp_session_created" as const,
+        sessionId: "session-1",
+        acpSessionId: "acp-abc123",
+        wasReset: false,
+        timestamp: new Date().toISOString(),
+      };
+
+      expect(message.type).toBe("acp_session_created");
+      expect(message.sessionId).toBe("session-1");
+      expect(message.acpSessionId).toBe("acp-abc123");
+      expect(message.wasReset).toBe(false);
+    });
+
+    it("should format acp_session_created with session reset", () => {
+      const message = {
+        type: "acp_session_created" as const,
+        sessionId: "session-1",
+        acpSessionId: "acp-xyz789",
+        wasReset: true,
+        resetReason: "loadSession not supported",
+        timestamp: new Date().toISOString(),
+      };
+
+      expect(message.type).toBe("acp_session_created");
+      expect(message.sessionId).toBe("session-1");
+      expect(message.acpSessionId).toBe("acp-xyz789");
+      expect(message.wasReset).toBe(true);
+      expect(message.resetReason).toBe("loadSession not supported");
+    });
+
+    it("should format acp_session_created with reset but no reason", () => {
+      const message = {
+        type: "acp_session_created" as const,
+        sessionId: "session-1",
+        acpSessionId: "acp-new456",
+        wasReset: true,
+        timestamp: new Date().toISOString(),
+      };
+
+      expect(message.wasReset).toBe(true);
+      expect(message.resetReason).toBeUndefined();
+    });
+  });
+
+  describe("System message format for session reset", () => {
+    it("should format reset message with reason", () => {
+      const timestamp = "2026-04-07T15:30:45.000Z";
+      const reason = "loadSession not supported";
+      const systemMessage = `Session reset at ${timestamp} (${reason})`;
+
+      expect(systemMessage).toContain("Session reset at");
+      expect(systemMessage).toContain(timestamp);
+      expect(systemMessage).toContain(reason);
+    });
+
+    it("should format reset message without reason", () => {
+      const timestamp = "2026-04-07T15:30:45.000Z";
+      const systemMessage = `Session reset at ${timestamp}`;
+
+      expect(systemMessage).toContain("Session reset at");
+      expect(systemMessage).toContain(timestamp);
     });
   });
 

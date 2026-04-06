@@ -83,6 +83,13 @@ export class SessionManager {
     }
   }
 
+  setSessionAcpSessionId(sessionId: string, acpSessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.acpSessionId = acpSessionId;
+    }
+  }
+
   private startFileWatcher(sessionId: string, checkoutPath: string): void {
     console.log(`[mimo-agent] Starting file watcher for session ${sessionId}`);
 

@@ -20,11 +20,18 @@ export interface AcpClientSession {
   currentThoughtBuffer?: string;
 }
 
+export interface InitializeResult {
+  acpSessionId: string;
+  wasReset: boolean;
+  resetReason?: string;
+}
+
 export class AcpClient {
   private provider: IAcpProvider;
   private sessionId: string;
   private callbacks: AcpClientCallbacks;
   private session: AcpClientSession | null = null;
+  private capabilities: { loadSession?: boolean } = {};
 
   constructor(
     provider: IAcpProvider,
@@ -51,11 +58,11 @@ export class AcpClient {
   async initialize(
     cwd: string,
     input: WritableStream<Uint8Array>,
-    output: ReadableStream<Uint8Array>
-  ): Promise<NewSessionResponse> {
+    output: ReadableStream<Uint8Array>,
+    existingSessionId?: string
+  ): Promise<InitializeResult> {
     const stream = acp.ndJsonStream(input, output);
 
-    // Create client with update handlers
     const client: acp.Client = {
       requestPermission: async () => ({
         outcome: { outcome: "approved", options: ["allow"] },
@@ -67,7 +74,6 @@ export class AcpClient {
 
     const connection = new acp.ClientSideConnection(() => client, stream);
 
-    // Initialize connection
     const initResponse = await connection.initialize({
       protocolVersion: acp.PROTOCOL_VERSION,
       clientInfo: { name: "mimo-agent", version: "0.1.0" },
@@ -75,18 +81,48 @@ export class AcpClient {
 
     console.log(`[mimo-agent] ACP initialized: ${initResponse.protocolVersion}`);
 
-    // Create session
-    const sessionResponse = await connection.newSession({
-      cwd,
-      mcpServers: [],
-    });
+    this.capabilities = {
+      loadSession: initResponse.agentCapabilities?.loadSession ?? false,
+    };
+    console.log(`[mimo-agent] Agent capabilities:`, this.capabilities);
 
-    // Extract state using provider
+    let sessionResponse: acp.NewSessionResponse;
+    let wasReset = false;
+    let resetReason: string | undefined;
+
+    if (existingSessionId && this.capabilities.loadSession) {
+      try {
+        console.log(`[mimo-agent] Attempting to load existing session: ${existingSessionId}`);
+        sessionResponse = await connection.loadSession({
+          sessionId: existingSessionId,
+          cwd,
+          mcpServers: [],
+        });
+        console.log(`[mimo-agent] Session loaded successfully: ${sessionResponse.sessionId}`);
+      } catch (error) {
+        console.log(`[mimo-agent] Failed to load session, creating new session:`, error);
+        wasReset = true;
+        resetReason = "loadSession failed";
+        sessionResponse = await connection.newSession({
+          cwd,
+          mcpServers: [],
+        });
+      }
+    } else {
+      if (existingSessionId && !this.capabilities.loadSession) {
+        wasReset = true;
+        resetReason = "loadSession not supported";
+      }
+      sessionResponse = await connection.newSession({
+        cwd,
+        mcpServers: [],
+      });
+    }
+
     const state = this.provider.extractState(
       sessionResponse as NewSessionResponse
     );
 
-    // Store session info
     this.session = {
       sessionId: this.sessionId,
       acpSessionId: sessionResponse.sessionId,
@@ -95,7 +131,20 @@ export class AcpClient {
       modeState: state.modeState,
     };
 
-    return sessionResponse as NewSessionResponse;
+    return {
+      acpSessionId: sessionResponse.sessionId,
+      wasReset,
+      resetReason,
+    };
+  }
+
+  async loadSession(
+    cwd: string,
+    input: WritableStream<Uint8Array>,
+    output: ReadableStream<Uint8Array>,
+    sessionId: string
+  ): Promise<InitializeResult> {
+    return this.initialize(cwd, input, output, sessionId);
   }
 
   private handleSessionUpdate(update: any): void {

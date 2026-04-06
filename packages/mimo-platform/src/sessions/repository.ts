@@ -16,6 +16,7 @@ export interface Session {
   port: number | null;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
+  acpSessionId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +33,7 @@ export interface SessionData {
   port: number | null;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
+  acpSessionId?: string;
   createdAt: string;
   updatedAt: string;
 }

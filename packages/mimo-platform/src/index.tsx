@@ -330,6 +330,7 @@ async function handleAgentMessage(ws, data) {
                 port: result.port,
                 agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
                 agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
+                acpSessionId: sessionWithCreds?.acpSessionId ?? null,
               });
             } else {
               console.error("[agent] Failed to start fossil server:", result.error);
@@ -561,6 +562,27 @@ async function handleAgentMessage(ws, data) {
       break;
     case "agent_sessions_ready":
       console.log("[agent] Agent sessions ready:", data.sessionIds);
+      break;
+    case "acp_session_created":
+      {
+        const { sessionId, acpSessionId, wasReset, resetReason } = data;
+        console.log("[agent] ACP session created:", { sessionId, acpSessionId, wasReset, resetReason });
+        
+        if (sessionId && acpSessionId) {
+          await sessionRepository.update(sessionId, { acpSessionId });
+          
+          if (wasReset) {
+            const timestamp = new Date().toISOString();
+            const reasonText = resetReason ? ` (${resetReason})` : "";
+            const systemMessage = `Session reset at ${timestamp}${reasonText}`;
+            await chatService.saveMessage(sessionId, {
+              role: "system",
+              content: systemMessage,
+              timestamp,
+            });
+          }
+        }
+      }
       break;
     case "session_initialized":
       // Store model/mode state from agent

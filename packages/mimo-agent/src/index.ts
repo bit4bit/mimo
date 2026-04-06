@@ -190,7 +190,7 @@ class MimoAgent {
     const sessionIds: string[] = [];
 
     for (const session of sessions) {
-      const { sessionId, port, agentWorkspaceUser, agentWorkspacePassword } = session;
+      const { sessionId, port, agentWorkspaceUser, agentWorkspacePassword, acpSessionId } = session;
 
       try {
         const checkoutPath = join(this.config.workDir, sessionId);
@@ -209,6 +209,11 @@ class MimoAgent {
           agentWorkspaceUser,
           agentWorkspacePassword
         );
+
+        // Store acpSessionId for later use during ACP init
+        if (acpSessionId) {
+          this.sessionManager.setSessionAcpSessionId(sessionId, acpSessionId);
+        }
 
         // Spawn ACP process
         this.spawnAcpProcess(sessionInfo);
@@ -466,9 +471,10 @@ class MimoAgent {
       .initialize(
         sessionInfo.checkoutPath,
         toWebWritable(spawnResult.stdin),
-        toWebReadable(spawnResult.stdout)
+        toWebReadable(spawnResult.stdout),
+        sessionInfo.acpSessionId
       )
-      .then(() => {
+      .then((result) => {
         console.log(`[mimo-agent] ACP client ready for ${session.sessionId}`);
         this.acpClients.set(session.sessionId, acpClient);
 
@@ -485,6 +491,16 @@ class MimoAgent {
           sessionId: session.sessionId,
           modelState: acpClient.modelState,
           modeState: acpClient.modeState,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Send acp_session_created to platform
+        this.send({
+          type: "acp_session_created",
+          sessionId: session.sessionId,
+          acpSessionId: result.acpSessionId,
+          wasReset: result.wasReset,
+          resetReason: result.resetReason,
           timestamp: new Date().toISOString(),
         });
       })

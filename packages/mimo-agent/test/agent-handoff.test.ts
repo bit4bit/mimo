@@ -215,4 +215,97 @@ describe("Agent Handoff Tests", () => {
       expect(message.sessionIds).toContain("def");
     });
   });
+
+  describe("ACP Session Resumption Messages", () => {
+    it("should format InitializeResult with successful resumption", () => {
+      const result = {
+        acpSessionId: "acp-abc123",
+        wasReset: false,
+      };
+
+      expect(result.acpSessionId).toBe("acp-abc123");
+      expect(result.wasReset).toBe(false);
+      expect(result.resetReason).toBeUndefined();
+    });
+
+    it("should format InitializeResult with reset due to capability", () => {
+      const result = {
+        acpSessionId: "acp-xyz789",
+        wasReset: true,
+        resetReason: "loadSession not supported",
+      };
+
+      expect(result.acpSessionId).toBe("acp-xyz789");
+      expect(result.wasReset).toBe(true);
+      expect(result.resetReason).toBe("loadSession not supported");
+    });
+
+    it("should format InitializeResult with reset due to error", () => {
+      const result = {
+        acpSessionId: "acp-new456",
+        wasReset: true,
+        resetReason: "loadSession failed",
+      };
+
+      expect(result.wasReset).toBe(true);
+      expect(result.resetReason).toBe("loadSession failed");
+    });
+
+    it("should format acp_session_created for successful resumption", () => {
+      const message = {
+        type: "acp_session_created",
+        sessionId: "session-1",
+        acpSessionId: "acp-abc123",
+        wasReset: false,
+        timestamp: new Date().toISOString(),
+      };
+
+      expect(message.type).toBe("acp_session_created");
+      expect(message.sessionId).toBe("session-1");
+      expect(message.acpSessionId).toBe("acp-abc123");
+      expect(message.wasReset).toBe(false);
+    });
+
+    it("should format acp_session_created for reset with reason", () => {
+      const message = {
+        type: "acp_session_created",
+        sessionId: "session-1",
+        acpSessionId: "acp-xyz789",
+        wasReset: true,
+        resetReason: "loadSession not supported",
+        timestamp: new Date().toISOString(),
+      };
+
+      expect(message.type).toBe("acp_session_created");
+      expect(message.wasReset).toBe(true);
+      expect(message.resetReason).toBe("loadSession not supported");
+    });
+  });
+
+  describe("Capability detection", () => {
+    it("should treat undefined loadSession as false", () => {
+      const capabilities = {
+        loadSession: undefined,
+      };
+
+      const hasLoadSession = capabilities.loadSession ?? false;
+      expect(hasLoadSession).toBe(false);
+    });
+
+    it("should treat explicit false loadSession as false", () => {
+      const capabilities = {
+        loadSession: false,
+      };
+
+      expect(capabilities.loadSession).toBe(false);
+    });
+
+    it("should recognize true loadSession capability", () => {
+      const capabilities = {
+        loadSession: true,
+      };
+
+      expect(capabilities.loadSession).toBe(true);
+    });
+  });
 });
