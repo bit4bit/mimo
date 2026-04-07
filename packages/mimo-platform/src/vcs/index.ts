@@ -823,95 +823,108 @@ export class VCS {
     upstreamPath: string
   ): Promise<VCSResult> {
     const { readdirSync, statSync, copyFileSync, mkdirSync, unlinkSync, rmdirSync } = await import("fs");
-    const { join } = await import("path");
+    const { join, relative } = await import("path");
 
     const { existsSync: fsExistsSync } = await import("fs");
     
     try {
-      // Get list of files to preserve (VCS directories)
-      const preserveItems = [".git", ".fossil"];
-      const itemsToPreserve: string[] = [];
+      // Step 1: Get list of files that SHOULD exist according to fossil
+      // These are the files tracked in the current checkout
+      const fossilTrackedFiles: Set<string> = new Set();
+      const fossilLsResult = await this.execCommand(["fossil", "ls"], agentWorkspacePath);
+      if (fossilLsResult.success && fossilLsResult.output) {
+        const lines = fossilLsResult.output.split("\n").filter(line => line.trim());
+        for (const line of lines) {
+          fossilTrackedFiles.add(line.trim());
+        }
+      }
 
-      // Check what exists in upstream that we need to preserve
+      // Step 2: Get list of tracked files in upstream (source of truth for deletions)
+      const upstreamTrackedFiles: string[] = [];
       if (fsExistsSync(upstreamPath)) {
-        const entries = readdirSync(upstreamPath);
-        for (const entry of entries) {
-          if (preserveItems.includes(entry)) {
-            itemsToPreserve.push(entry);
-          }
+        const gitLsResult = await this.execCommand(["git", "ls-files"], upstreamPath);
+        if (gitLsResult.success && gitLsResult.output) {
+          const lines = gitLsResult.output.split("\n").filter(line => line.trim());
+          upstreamTrackedFiles.push(...lines);
         }
       }
 
-      // Create a temporary directory to hold preserved items
-      const { mkdtempSync } = await import("fs");
-      const { tmpdir } = await import("os");
-      const tempDir = mkdtempSync(join(tmpdir(), "mimo-preserve-"));
-
-      // Move preserved items to temp (use safeMove for cross-device support)
-      for (const item of itemsToPreserve) {
-        const sourcePath = join(upstreamPath, item);
-        const tempPath = join(tempDir, item);
-        const isDirectory = statSync(sourcePath).isDirectory();
-        await this.safeMove(sourcePath, tempPath, isDirectory);
-      }
-
-      // Delete all remaining items in upstream
-      const deleteRecursive = (dirPath: string) => {
-        if (!fsExistsSync(dirPath)) return;
-        const entries = readdirSync(dirPath, { withFileTypes: true });
-        for (const entry of entries) {
-          const fullPath = join(dirPath, entry.name);
-          if (entry.isDirectory()) {
-            deleteRecursive(fullPath);
-            rmdirSync(fullPath);
-          } else {
-            unlinkSync(fullPath);
-          }
-        }
-      };
-
-      deleteRecursive(upstreamPath);
-
-      // Ensure upstream directory exists
-      if (!fsExistsSync(upstreamPath)) {
-        mkdirSync(upstreamPath, { recursive: true });
-      }
-
-      // Restore preserved items (use safeMove for cross-device support)
-      for (const item of itemsToPreserve) {
-        const tempPath = join(tempDir, item);
-        const destPath = join(upstreamPath, item);
-        const isDirectory = statSync(tempPath).isDirectory();
-        await this.safeMove(tempPath, destPath, isDirectory);
-      }
-
-      // Clean up temp directory
-      rmdirSync(tempDir);
-
-      // Copy all files from agent-workspace to upstream
-      const copyRecursive = (source: string, dest: string) => {
+      // Step 3: Copy all files from agent-workspace to upstream
+      // Exclude VCS metadata directories
+      // Files on disk but NOT in fossil ls are either:
+      // - Untracked files (should be copied)
+      // - Deleted tracked files (should NOT be copied)
+      const excludeItems = new Set([".git", ".fossil", ".fslckout"]);
+      
+      const copyRecursive = (source: string, dest: string, basePath: string = source) => {
         if (!fsExistsSync(source)) return;
 
         const entries = readdirSync(source, { withFileTypes: true });
         for (const entry of entries) {
-          // Skip hidden files and VCS directories
-          if (entry.name.startsWith(".")) continue;
+          // Skip VCS metadata directories
+          if (excludeItems.has(entry.name)) continue;
 
           const sourcePath = join(source, entry.name);
           const destPath = join(dest, entry.name);
+          const relativePath = relative(basePath, sourcePath);
 
           if (entry.isDirectory()) {
             if (!fsExistsSync(destPath)) {
               mkdirSync(destPath, { recursive: true });
             }
-            copyRecursive(sourcePath, destPath);
+            copyRecursive(sourcePath, destPath, basePath);
           } else {
-            copyFileSync(sourcePath, destPath);
+            // Only copy if file should exist according to fossil,
+            // OR if it's not tracked at all (new untracked file)
+            const shouldCopy = fossilTrackedFiles.has(relativePath) || !upstreamTrackedFiles.includes(relativePath);
+            if (shouldCopy) {
+              copyFileSync(sourcePath, destPath);
+            }
           }
         }
       };
 
-      copyRecursive(agentWorkspacePath, upstreamPath);
+      if (fsExistsSync(agentWorkspacePath)) {
+        copyRecursive(agentWorkspacePath, upstreamPath, agentWorkspacePath);
+      }
+
+      // Step 4: Delete from upstream files that are:
+      // - Tracked in upstream (from git ls-files)
+      // - Either not on agent disk OR not tracked by fossil (meaning deleted)
+      for (const trackedFile of upstreamTrackedFiles) {
+        const agentFilePath = join(agentWorkspacePath, trackedFile);
+        const upstreamFilePath = join(upstreamPath, trackedFile);
+        
+        // Delete if tracked in upstream but either:
+        // 1. Not present on agent disk, OR
+        // 2. Present on disk but NOT tracked by fossil (was deleted via fossil rm)
+        const existsOnDisk = fsExistsSync(agentFilePath);
+        const trackedByFossil = fossilTrackedFiles.has(trackedFile);
+        const shouldDelete = !existsOnDisk || !trackedByFossil;
+        
+        if (shouldDelete && fsExistsSync(upstreamFilePath)) {
+          unlinkSync(upstreamFilePath);
+          
+          // Clean up empty parent directories
+          let parentDir = join(upstreamPath, trackedFile);
+          while (true) {
+            parentDir = join(parentDir, "..");
+            const resolvedParent = join(parentDir); // Normalize
+            if (resolvedParent === upstreamPath) break;
+            
+            try {
+              const entries = readdirSync(resolvedParent);
+              if (entries.length === 0) {
+                rmdirSync(resolvedParent);
+              } else {
+                break;
+              }
+            } catch {
+              break;
+            }
+          }
+        }
+      }
 
       return {
         success: true,
