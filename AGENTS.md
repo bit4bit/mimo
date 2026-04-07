@@ -57,8 +57,8 @@ When in doubt, delete code, not add it. Prefer the simpler solution.
 
 ## Commits
 
-Commit frequently. After every completed task, create a git commit with this format:
-
+Use the following message description
+,
 ```
 <type>(<scope>): <short description>
 

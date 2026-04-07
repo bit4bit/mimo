@@ -60,6 +60,18 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({ project, agents, err
           </div>
 
           <div class="form-group">
+            <label>Agent working directory (optional)</label>
+            <input
+              type="text"
+              name="agentSubpath"
+              placeholder="packages/backend"
+            />
+            <p style="color: #888; font-size: 12px; margin-top: 5px;">
+              Relative path within the repository where the agent will start. Useful for monorepos.
+            </p>
+          </div>
+
+          <div class="form-group">
             <label>Local Development Mirror (optional)</label>
             <input
               type="text"

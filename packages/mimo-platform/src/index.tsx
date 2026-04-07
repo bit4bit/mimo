@@ -18,6 +18,7 @@ import { relative } from "path";
 
 const app = new Hono();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+const PLATFORM_URL = process.env.PLATFORM_URL ?? `http://localhost:${PORT}`;
 
 // Serve static files from public/
 app.use("/js/*", serveStatic({ root: "./public" }));
@@ -30,6 +31,9 @@ const chatSessions = new Map();
 // Track streaming message and thought buffers per session
 const streamingBuffers = new Map<string, string>();
 const thoughtBuffers = new Map<string, string>();
+
+// Track pending permission requests: requestId → { agentWs, sessionId }
+const pendingPermissions = new Map<string, { agentWs: any; sessionId: string }>();
 
 // Auth routes
 app.route("/auth", auth);
@@ -241,6 +245,20 @@ const server = Bun.serve({
           chatSessions.get(sessionId).delete(ws);
           if (chatSessions.get(sessionId).size === 0) {
             chatSessions.delete(sessionId);
+
+            // Auto-reject any pending permission requests for this session
+            for (const [requestId, pending] of pendingPermissions) {
+              if (pending.sessionId === sessionId) {
+                pendingPermissions.delete(requestId);
+                if (pending.agentWs.readyState === 1) {
+                  pending.agentWs.send(JSON.stringify({
+                    type: "permission_response",
+                    requestId,
+                    outcome: { outcome: "cancelled" },
+                  }));
+                }
+              }
+            }
           }
         }
         console.log(`Chat client disconnected from session ${sessionId}`);
@@ -335,6 +353,7 @@ async function handleAgentMessage(ws, data) {
                 agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
                 acpSessionId: sessionWithCreds?.acpSessionId ?? null,
                 localDevMirrorPath: sessionWithCreds?.localDevMirrorPath ?? null,
+                agentSubpath: sessionWithCreds?.agentSubpath ?? null,
               });
             } else {
               console.error("[agent] Failed to start fossil server:", result.error);
@@ -346,7 +365,7 @@ async function handleAgentMessage(ws, data) {
         if (sessionsReady.length > 0) {
           const message = {
             type: 'session_ready',
-            platformUrl: `http://localhost:${PORT}`,
+            platformUrl: PLATFORM_URL,
             sessions: sessionsReady,
           };
           console.log("[agent] Sending session_ready:", JSON.stringify(message));
@@ -663,6 +682,31 @@ async function handleAgentMessage(ws, data) {
         }
       }
       break;
+    case "permission_request":
+      {
+        const { sessionId: permSessionId, requestId, toolCall, options } = data;
+        if (!permSessionId || !requestId) break;
+
+        // Store requestId → agentWs so we can route the response back
+        pendingPermissions.set(requestId, { agentWs: ws, sessionId: permSessionId });
+
+        // Broadcast to all chat clients for this session
+        const permSubscribers = chatSessions.get(permSessionId);
+        if (permSubscribers) {
+          permSubscribers.forEach((client: WebSocket) => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify({
+                type: "permission_request",
+                requestId,
+                toolCall,
+                options,
+                timestamp: new Date().toISOString(),
+              }));
+            }
+          });
+        }
+      }
+      break;
     default:
       console.log("[agent] Unknown message type:", data.type);
   }
@@ -763,6 +807,38 @@ async function handleChatMessage(ws, data) {
       }));
       break;
       
+    case "permission_response":
+      {
+        const { requestId, optionId } = data;
+        const pending = pendingPermissions.get(requestId);
+        if (!pending) break;
+
+        pendingPermissions.delete(requestId);
+
+        // Route response back to agent
+        if (pending.agentWs.readyState === 1) {
+          pending.agentWs.send(JSON.stringify({
+            type: "permission_response",
+            requestId,
+            outcome: { outcome: "selected", optionId },
+          }));
+        }
+
+        // Broadcast resolution to all chat clients so other tabs dismiss the card
+        const resolveSubscribers = chatSessions.get(pending.sessionId);
+        if (resolveSubscribers) {
+          resolveSubscribers.forEach((client: WebSocket) => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify({
+                type: "permission_resolved",
+                requestId,
+              }));
+            }
+          });
+        }
+      }
+      break;
+
     default:
       console.log("Unknown chat message type:", data.type);
   }

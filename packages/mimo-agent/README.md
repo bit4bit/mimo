@@ -22,16 +22,17 @@ This creates `dist/mimo-agent` which is a self-contained executable.
 ## Usage
 
 ```bash
-./dist/mimo-agent --token <JWT_TOKEN> --platform <WEBSOCKET_URL> [--workdir <PATH>]
+./dist/mimo-agent --token <JWT_TOKEN> --platform <WEBSOCKET_URL> [--workdir <PATH>] [--provider <PROVIDER>]
 ```
 
 ### Arguments
 
 - `--token`: JWT token for authentication (required)
-- `--platform`: WebSocket URL of the mimo-platform (required)
+- `--platform`: WebSocket URL of the mimo-platform (required). Must use the address the agent can reach — when agent and platform are on different hosts, use the platform's actual hostname/IP, not `localhost`.
 - `--workdir`: Base working directory for session checkouts (optional, defaults to current directory)
+- `--provider`: ACP provider to use — `opencode` (default) or `claude`
 
-### Example
+### Example — same host
 
 ```bash
 ./dist/mimo-agent \
@@ -39,6 +40,21 @@ This creates `dist/mimo-agent` which is a self-contained executable.
   --platform ws://localhost:3000/ws/agent \
   --workdir /home/user/work
 ```
+
+### Example — agent on a remote host
+
+```bash
+# On the platform host, start with PLATFORM_URL set to its reachable address:
+PLATFORM_URL=http://192.168.1.10:3000 bun run src/index.tsx
+
+# On the agent host:
+./dist/mimo-agent \
+  --token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... \
+  --platform ws://192.168.1.10:3000/ws/agent \
+  --workdir /home/agent/work
+```
+
+> The platform sends its `PLATFORM_URL` to the agent in every `session_ready` message. The agent uses it to build the Fossil server URL. If `PLATFORM_URL` is not set on the platform, it defaults to `http://localhost:<PORT>`, which will not be reachable from a remote agent.
 
 ## Architecture
 
@@ -92,7 +108,7 @@ Agent connects → Platform sends session_ready → Agent clones fossil → Agen
         │          session_ready message                     │
         │  {                                                │
         │    "type": "session_ready",                       │
-        │    "platformUrl": "http://localhost:3000",        │
+        │    "platformUrl": "http://<PLATFORM_URL>:3000",        │
         │    "sessions": [                                  │
         │      {                                            │
         │        "sessionId": "uuid-1",                     │
@@ -130,7 +146,7 @@ No path coordination needed between platform and agent.
    ```json
    {
      "type": "session_ready",
-     "platformUrl": "http://localhost:3000",
+     "platformUrl": "http://<PLATFORM_URL>:3000",
      "sessions": [
        {
          "sessionId": "session-uuid",

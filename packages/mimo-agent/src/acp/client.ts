@@ -9,6 +9,7 @@ export interface AcpClientCallbacks {
   onMessageChunk: (sessionId: string, content: string) => void;
   onUsageUpdate: (sessionId: string, usage: any) => void;
   onGenericUpdate: (sessionId: string, content: string) => void;
+  onPermissionRequest: (sessionId: string, requestId: string, params: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>;
 }
 
 export interface AcpClientSession {
@@ -64,9 +65,10 @@ export class AcpClient {
     const stream = acp.ndJsonStream(input, output);
 
     const client: acp.Client = {
-      requestPermission: async () => ({
-        outcome: { outcome: "approved", options: ["allow"] },
-      }),
+      requestPermission: async (params) => {
+        const requestId = crypto.randomUUID();
+        return this.callbacks.onPermissionRequest(this.sessionId, requestId, params);
+      },
       sessionUpdate: async (params) => {
         this.handleSessionUpdate(params.update as any);
       },

@@ -1,5 +1,5 @@
 import { watch, existsSync, mkdirSync, readdirSync, statSync, readFileSync, writeFileSync, unlinkSync, rmdirSync } from "fs";
-import { join, dirname } from "path";
+import { join, dirname, resolve } from "path";
 import { spawn } from "child_process";
 import { SessionInfo, FileChange, ModelState, ModeState } from "./types";
 
@@ -16,7 +16,7 @@ export class SessionManager {
   private workDir: string;
 
   constructor(workDir: string, callbacks: SessionCallbacks) {
-    this.workDir = workDir;
+    this.workDir = resolve(workDir);
     this.callbacks = callbacks;
   }
 

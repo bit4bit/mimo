@@ -149,7 +149,63 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
           updateModeSelector(data.modeState);
         }
         break;
+
+      case 'permission_request':
+        showPermissionCard(data);
+        break;
+
+      case 'permission_resolved':
+        removePermissionCard(data.requestId);
+        break;
     }
+  }
+
+  function showPermissionCard(data) {
+    const { requestId, toolCall, options } = data;
+    const chatMessages = document.querySelector('#chat-messages');
+    if (!chatMessages) return;
+
+    const card = document.createElement('div');
+    card.className = 'permission-card';
+    card.dataset.requestId = requestId;
+
+    const kindLabel = toolCall?.kind ? `<span class="permission-kind">${toolCall.kind}</span>` : '';
+    const title = toolCall?.title || 'Tool action';
+    const locations = (toolCall?.locations || [])
+      .map(loc => `<li>${loc.path}${loc.startLine != null ? `:${loc.startLine}` : ''}</li>`)
+      .join('');
+    const locationsList = locations ? `<ul class="permission-locations">${locations}</ul>` : '';
+
+    const buttons = (options || []).map(opt =>
+      `<button class="permission-btn permission-btn--${opt.kind}" data-option-id="${opt.optionId}">${opt.name}</button>`
+    ).join('');
+
+    card.innerHTML = `
+      <div class="permission-card__header">
+        <span class="permission-card__title">${title}</span>
+        ${kindLabel}
+      </div>
+      ${locationsList}
+      <div class="permission-card__actions">${buttons}</div>
+    `;
+
+    card.querySelectorAll('.permission-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const optionId = btn.dataset.optionId;
+        if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+          chatSocket.send(JSON.stringify({ type: 'permission_response', requestId, optionId }));
+        }
+        removePermissionCard(requestId);
+      });
+    });
+
+    chatMessages.appendChild(card);
+    scrollToBottom();
+  }
+
+  function removePermissionCard(requestId) {
+    const card = document.querySelector(`.permission-card[data-request-id="${requestId}"]`);
+    if (card) card.remove();
   }
 
   // Set up chat input form
@@ -348,11 +404,11 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
     const thoughtHeader = document.createElement('div');
     thoughtHeader.className = 'message-header';
     thoughtHeader.style.background = '#3d3d3d';
-    thoughtHeader.innerHTML = '<span class="thought-toggle">▶</span> Thought Process';
+    thoughtHeader.innerHTML = '<span class="thought-toggle" style="animation: blink 1s infinite; display: inline-block;">●</span> Thinking...';
     thoughtHeader.style.cursor = 'pointer';
     thoughtHeader.style.fontSize = '0.9em';
     thoughtHeader.style.padding = '4px 8px';
-    
+
     const thoughtContentDiv = document.createElement('div');
     thoughtContentDiv.className = 'message-content';
     thoughtContentDiv.style.display = 'none';
@@ -360,7 +416,7 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
     thoughtContentDiv.style.fontSize = '0.9em';
     thoughtContentDiv.style.color = '#d4d4d4';
     thoughtContentDiv.style.background = '#2d2d2d';
-    
+
     // Toggle visibility
     thoughtHeader.addEventListener('click', () => {
       const isVisible = thoughtContentDiv.style.display !== 'none';
@@ -393,14 +449,47 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
 
   // End the thought section
   function endThoughtSection() {
-    // Just clear the reference, the thought section stays in the message
+    if (currentThoughtElement) {
+      const header = currentThoughtElement.querySelector('.message-header');
+      if (header) {
+        header.innerHTML = '<span class="thought-toggle">▶</span> Thought Process';
+      }
+    }
     currentThoughtElement = null;
     currentThoughtContent = null;
   }
 
   // Append a chunk to the assistant message
   function appendMessageChunk(text) {
-    if (!currentMessageElement) return; // Message should already exist from thought_start
+    if (!currentMessageElement) {
+      // No thought_start preceded this chunk — create the message element now
+      const chatContainer = document.querySelector('#chat-messages');
+      if (!chatContainer) return;
+
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message message-assistant streaming';
+
+      const header = document.createElement('div');
+      header.className = 'message-header';
+      header.textContent = 'Agent';
+
+      const content = document.createElement('div');
+      content.className = 'message-content';
+
+      const indicator = document.createElement('span');
+      indicator.className = 'streaming-indicator';
+      indicator.textContent = '●';
+
+      messageDiv.appendChild(header);
+      messageDiv.appendChild(content);
+      messageDiv.appendChild(indicator);
+
+      chatContainer.appendChild(messageDiv);
+      scrollToBottom();
+
+      currentMessageElement = messageDiv;
+      currentMessageContent = content;
+    }
     
     // Find or create a container for the response text (after thought section)
     let responseContent = currentMessageElement.querySelector('.message-response');

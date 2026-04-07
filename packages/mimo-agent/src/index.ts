@@ -5,7 +5,8 @@ import { join } from "path";
 import { Readable, Writable } from "node:stream";
 import { AgentConfig } from "./types";
 import { SessionManager } from "./session";
-import { AcpClient, OpencodeProvider } from "./acp";
+import { AcpClient, OpencodeProvider, ClaudeAgentProvider } from "./acp";
+import type { IAcpProvider } from "./acp";
 
 // Convert Node.js streams to Web Streams API
 function toWebWritable(nodeWritable: Writable): WritableStream<Uint8Array> {
@@ -24,7 +25,8 @@ class MimoAgent {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
-  private provider: OpencodeProvider;
+  private provider: IAcpProvider;
+  private pendingPermissions: Map<string, (r: any) => void> = new Map();
 
   constructor() {
     this.config = this.parseArgs();
@@ -46,7 +48,11 @@ class MimoAgent {
         });
       },
     });
-    this.provider = new OpencodeProvider();
+    if (this.config.provider === "claude") {
+      this.provider = new ClaudeAgentProvider();
+    } else {
+      this.provider = new OpencodeProvider();
+    }
   }
 
   private parseArgs(): AgentConfig {
@@ -61,6 +67,8 @@ class MimoAgent {
         config.platform = args[++i];
       } else if (arg === "--workdir" && i + 1 < args.length) {
         config.workDir = args[++i];
+      } else if (arg === "--provider" && i + 1 < args.length) {
+        config.provider = args[++i] as AgentConfig["provider"];
       }
     }
 
@@ -73,6 +81,13 @@ class MimoAgent {
 
     if (!config.workDir) {
       config.workDir = process.cwd();
+    }
+
+    if (!config.provider) {
+      config.provider = "opencode";
+    } else if (config.provider !== "opencode" && config.provider !== "claude") {
+      console.error(`[mimo-agent] Unknown provider: "${config.provider}". Valid values: opencode, claude`);
+      process.exit(1);
     }
 
     return config as AgentConfig;
@@ -173,6 +188,10 @@ class MimoAgent {
         this.handleRequestState(message);
         break;
 
+      case "permission_response":
+        this.handlePermissionResponse(message);
+        break;
+
       default:
         console.log("[mimo-agent] Unknown message type:", message.type);
     }
@@ -190,7 +209,7 @@ class MimoAgent {
     const sessionIds: string[] = [];
 
     for (const session of sessions) {
-      const { sessionId, port, agentWorkspaceUser, agentWorkspacePassword, acpSessionId, localDevMirrorPath } = session;
+      const { sessionId, port, agentWorkspaceUser, agentWorkspacePassword, acpSessionId, localDevMirrorPath, agentSubpath } = session;
 
       try {
         const checkoutPath = join(this.config.workDir, sessionId);
@@ -221,7 +240,7 @@ class MimoAgent {
         }
 
         // Spawn ACP process
-        this.spawnAcpProcess(sessionInfo);
+        this.spawnAcpProcess({ ...sessionInfo, agentSubpath: agentSubpath || undefined });
 
         sessionIds.push(sessionId);
         console.log(`[mimo-agent] Session ${sessionId} ready`);
@@ -417,6 +436,10 @@ class MimoAgent {
     const process = spawnResult.process;
     this.sessionManager.setSessionAcpProcess(session.sessionId, process);
 
+    const acpCwd = session.agentSubpath
+      ? join(sessionInfo.checkoutPath, session.agentSubpath)
+      : sessionInfo.checkoutPath;
+
     // Create ACP client
     const acpClient = new AcpClient(
       this.provider,
@@ -468,13 +491,26 @@ class MimoAgent {
             timestamp: new Date().toISOString(),
           });
         },
+        onPermissionRequest: (sessionId, requestId, params) => {
+          return new Promise((resolve) => {
+            this.pendingPermissions.set(requestId, resolve);
+            this.send({
+              type: "permission_request",
+              sessionId,
+              requestId,
+              toolCall: params.toolCall,
+              options: params.options,
+              timestamp: new Date().toISOString(),
+            });
+          });
+        },
       }
     );
 
     // Initialize ACP client
     acpClient
       .initialize(
-        sessionInfo.checkoutPath,
+        acpCwd,
         toWebWritable(spawnResult.stdin),
         toWebReadable(spawnResult.stdout),
         sessionInfo.acpSessionId
@@ -717,6 +753,15 @@ class MimoAgent {
     });
 
     console.log(`[mimo-agent] Sent state for session ${sessionId}`);
+  }
+
+  private handlePermissionResponse(message: any): void {
+    const { requestId, outcome } = message;
+    const resolver = this.pendingPermissions.get(requestId);
+    if (resolver) {
+      this.pendingPermissions.delete(requestId);
+      resolver({ outcome });
+    }
   }
 
   private handleDisconnect(): void {

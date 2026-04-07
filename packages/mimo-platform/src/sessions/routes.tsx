@@ -109,6 +109,7 @@ router.post("/", async (c: Context) => {
   const projectId = (body.projectId as string) || getProjectId(c);
   const assignedAgentId = (body.assignedAgentId as string) || null;
   const localDevMirrorPath = (body.localDevMirrorPath as string) || null;
+  const agentSubpath = (body.agentSubpath as string) || null;
 
   if (!name || !projectId) {
     return c.text("Name and project ID required", 400);
@@ -126,6 +127,7 @@ router.post("/", async (c: Context) => {
     owner: username,
     assignedAgentId: assignedAgentId || undefined,
     localDevMirrorPath: localDevMirrorPath || undefined,
+    agentSubpath: agentSubpath || undefined,
   });
 
   // Initialize repository: clone → import to fossil
@@ -193,6 +195,36 @@ router.post("/", async (c: Context) => {
       console.error("[session] Failed to open fossil in agent-workspace:", openResult.error);
       await sessionRepository.delete(projectId, session.id);
       return c.text("Failed to open fossil checkout", 500);
+    }
+
+    // Step 6: Notify running agent if one is assigned and online
+    if (assignedAgentId && agentService.isAgentOnline(assignedAgentId)) {
+      const agentWs = agentService.getAgentConnection(assignedAgentId);
+      if (agentWs && agentWs.readyState === 1) {
+        const serverResult = await fossilServerManager.startServer(session.id, fossilPath);
+        if ('port' in serverResult) {
+          await sessionRepository.update(session.id, { port: serverResult.port });
+          const sessionWithCreds = await sessionRepository.findById(session.id);
+          const platformUrl = process.env.PLATFORM_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+          agentWs.send(JSON.stringify({
+            type: 'session_ready',
+            platformUrl,
+            sessions: [{
+              sessionId: session.id,
+              name: session.name,
+              upstreamPath: session.upstreamPath,
+              agentWorkspacePath: session.agentWorkspacePath,
+              port: serverResult.port,
+              agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
+              agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
+              acpSessionId: sessionWithCreds?.acpSessionId ?? null,
+              localDevMirrorPath: sessionWithCreds?.localDevMirrorPath ?? null,
+              agentSubpath: sessionWithCreds?.agentSubpath ?? null,
+            }],
+          }));
+          console.log(`[session] Notified running agent ${assignedAgentId} of new session ${session.id}`);
+        }
+      }
     }
   } catch (error) {
     console.error("Failed to setup session:", error);
