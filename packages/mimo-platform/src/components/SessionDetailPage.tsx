@@ -183,20 +183,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 ))
               )}
             </div>
-            <div class="chat-input" id="chat-form">
-              <form>
-                <input
-                  type="text"
-                  id="chat-input"
-                  name="message"
-                  placeholder="Type a message..."
-                  autocomplete="off"
-                />
-                <button type="submit">Send</button>
-                <span class="chat-connection-status" title="Connection status"></span>
-              </form>
-              <div id="chat-usage" class="chat-usage" style="display: none; font-size: 0.75em; color: #666; margin-top: 4px; text-align: right;"></div>
-            </div>
+            <div id="chat-usage" class="chat-usage" style="display: none; font-size: 0.75em; color: #666; padding: 4px 10px; text-align: right; border-top: 1px solid #333;"></div>
           </div>
 
           {/* Impact Buffer - Right */}
@@ -538,22 +525,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         .buffer-center {
           flex: 2;
         }
-        .chat-input {
-          padding: 10px;
-          border-top: 1px solid #444;
-        }
-        .chat-input form {
-          display: flex;
-          gap: 10px;
-        }
-        .chat-input input {
-          flex: 1;
-          background: #2d2d2d;
-          border: 1px solid #444;
-          color: #d4d4d4;
-          padding: 8px;
-          font-family: monospace;
-        }
         .message {
           margin-bottom: 15px;
           padding: 10px;
@@ -575,6 +546,46 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         .message-content {
           white-space: pre-wrap;
           word-break: break-word;
+        }
+        /* Editable YOU bubble styles */
+        .editable-bubble .message-content[contenteditable] {
+          cursor: text;
+          outline: none;
+          min-height: 1.4em;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+        .editable-bubble .message-content[contenteditable]:empty::before {
+          content: attr(data-placeholder);
+          color: #555;
+          pointer-events: none;
+        }
+        .editable-bubble-header {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 11px;
+          color: #888;
+          margin-bottom: 5px;
+          text-transform: uppercase;
+        }
+        .editable-bubble-status {
+          font-size: 10px;
+        }
+        .editable-send-btn {
+          background: none;
+          border: 1px solid #555;
+          color: #888;
+          font-family: monospace;
+          font-size: 11px;
+          padding: 1px 6px;
+          border-radius: 3px;
+          cursor: pointer;
+          transition: color 0.15s, border-color 0.15s;
+        }
+        .editable-send-btn:hover {
+          color: #d4d4d4;
+          border-color: #888;
         }
         .agent-status {
           margin-left: 10px;
