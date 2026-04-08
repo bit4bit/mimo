@@ -23,6 +23,8 @@ let currentThoughtContent = null;
 let currentMessageElement = null;
 let currentMessageContent = null;
 let pendingUserMessages = new Set(); // Track messages waiting for server echo
+let editableBubble = null; // Reference to the current editable YOU bubble
+let _lastConnectionStatus = 'disconnected'; // Last known connection status
 
   // Initialize chat for a session
   function initChat(sessionId) {
@@ -33,9 +35,7 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
 
     currentSessionId = sessionId;
     connectWebSocket(sessionId);
-    
-    // Set up chat input handler
-    setupChatInput();
+    createEditableBubble();
   }
 
   // Connect to chat WebSocket
@@ -83,6 +83,10 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
     console.log('[CHAT] Received message type:', data.type, data);
     
     switch (data.type) {
+      case 'prompt_received':
+        createWaitingAgentMessage();
+        break;
+
       case 'thought_start':
         startThoughtSection();
         break;
@@ -114,6 +118,14 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
         break;
         
       case 'error':
+        // Clean up any waiting/streaming element before showing the error
+        if (currentMessageElement) {
+          currentMessageElement.remove();
+          currentMessageElement = null;
+          currentMessageContent = null;
+          currentThoughtElement = null;
+          currentThoughtContent = null;
+        }
         showError(data.message);
         break;
         
@@ -208,43 +220,111 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
     if (card) card.remove();
   }
 
-  // Set up chat input form
-  function setupChatInput() {
-    const chatForm = document.querySelector('#chat-form');
-    const chatInput = document.querySelector('#chat-input');
-    
-    if (!chatForm || !chatInput) return;
-    
-    chatForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      
-      const message = chatInput.value.trim();
-      if (!message) return;
-      
-      // Add user message immediately for better UX
-      addMessageToChat({
-        role: 'user',
-        content: message,
-        timestamp: new Date().toISOString(),
-      });
-      
-      // Track this message to prevent duplicate when server echoes it
-      pendingUserMessages.add(message);
-      
-      // Clear input
-      chatInput.value = '';
-      
-      // Send via WebSocket if connected
-      if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
-        chatSocket.send(JSON.stringify({
-          type: 'send_message',
-          content: message,
-        }));
-      } else {
-        // Fallback to HTTP
-        sendMessageHttp(message);
+  // Create the editable YOU bubble at the bottom of chat-messages
+  function createEditableBubble() {
+    const chatContainer = document.querySelector('#chat-messages');
+    if (!chatContainer) return;
+    // Don't create if one already exists
+    if (editableBubble) return;
+
+    const bubble = document.createElement('div');
+    bubble.className = 'message message-user editable-bubble';
+
+    // Header: YOU · ● status · spacer · [⌃↵ Send]
+    const header = document.createElement('div');
+    header.className = 'message-header editable-bubble-header';
+
+    const label = document.createElement('span');
+    label.textContent = 'You';
+
+    const status = document.createElement('span');
+    status.className = 'editable-bubble-status';
+    status.title = 'Connection status';
+
+    const spacer = document.createElement('span');
+    spacer.style.flex = '1';
+
+    const sendBtn = document.createElement('button');
+    sendBtn.type = 'button';
+    sendBtn.className = 'editable-send-btn';
+    sendBtn.textContent = '⌃↵ Send';
+    sendBtn.addEventListener('click', submitEditableBubble);
+
+    header.appendChild(label);
+    header.appendChild(status);
+    header.appendChild(spacer);
+    header.appendChild(sendBtn);
+
+    // Editable content area
+    const content = document.createElement('div');
+    content.className = 'message-content';
+    content.contentEditable = 'true';
+    content.setAttribute('data-placeholder', 'Type a message...');
+
+    // Ctrl+Enter to send; Enter inserts newline (native contenteditable behavior)
+    content.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.ctrlKey) {
+        e.preventDefault();
+        submitEditableBubble();
       }
     });
+
+    // Paste: strip HTML, insert plain text only
+    content.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const text = e.clipboardData.getData('text/plain');
+      document.execCommand('insertText', false, text);
+    });
+
+    bubble.appendChild(header);
+    bubble.appendChild(content);
+
+    chatContainer.appendChild(bubble);
+    scrollToBottom();
+    content.focus();
+
+    editableBubble = bubble;
+
+    // Apply current connection status to the new bubble
+    showConnectionStatus(_lastConnectionStatus || 'disconnected');
+  }
+
+  // Send the editable bubble's content
+  function submitEditableBubble() {
+    if (!editableBubble) return;
+
+    const content = editableBubble.querySelector('.message-content[contenteditable]');
+    if (!content) return;
+
+    const message = content.innerText.trim();
+    if (!message) return;
+
+    // Convert bubble to read-only: remove contenteditable and header controls
+    const header = editableBubble.querySelector('.editable-bubble-header');
+    if (header) header.remove();
+    content.removeAttribute('contenteditable');
+    editableBubble.classList.remove('editable-bubble');
+
+    // Replace with a static message-header
+    const staticHeader = document.createElement('div');
+    staticHeader.className = 'message-header';
+    staticHeader.textContent = 'You';
+    editableBubble.insertBefore(staticHeader, content);
+
+    editableBubble = null;
+
+    // Add to pending to avoid duplicate when server echoes
+    pendingUserMessages.add(message);
+
+    // Send via WebSocket or HTTP fallback
+    if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+      chatSocket.send(JSON.stringify({
+        type: 'send_message',
+        content: message,
+      }));
+    } else {
+      sendMessageHttp(message);
+    }
   }
 
   // Send message via HTTP fallback
@@ -357,37 +437,79 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
     scrollToBottom();
   }
 
+  // Create a waiting agent message element (shown when prompt_received arrives)
+  function createWaitingAgentMessage() {
+    const chatContainer = document.querySelector('#chat-messages');
+    if (!chatContainer) return;
+
+    // Don't create if one already exists
+    if (currentMessageElement) return;
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message message-assistant streaming';
+
+    const header = document.createElement('div');
+    header.className = 'message-header';
+    header.textContent = 'Agent';
+
+    const content = document.createElement('div');
+    content.className = 'message-content';
+
+    const waiting = document.createElement('span');
+    waiting.className = 'waiting-indicator streaming-indicator';
+    waiting.style.animation = 'blink 1s infinite';
+    waiting.textContent = '● Received, processing...';
+
+    messageDiv.appendChild(header);
+    messageDiv.appendChild(content);
+    messageDiv.appendChild(waiting);
+
+    chatContainer.appendChild(messageDiv);
+    scrollToBottom();
+
+    currentMessageElement = messageDiv;
+    currentMessageContent = content;
+  }
+
   // Start a thought section inside the current message
   function startThoughtSection() {
     const chatContainer = document.querySelector('#chat-messages');
     if (!chatContainer) return;
-    
+
     // Wait for message element to exist
     if (!currentMessageElement) {
       // Message hasn't started yet, create it first
       const messageDiv = document.createElement('div');
       messageDiv.className = 'message message-assistant streaming';
-      
+
       const header = document.createElement('div');
       header.className = 'message-header';
       header.textContent = 'Agent';
-      
+
       const content = document.createElement('div');
       content.className = 'message-content';
-      
+
       const indicator = document.createElement('span');
       indicator.className = 'streaming-indicator';
       indicator.textContent = '●';
-      
+
       messageDiv.appendChild(header);
       messageDiv.appendChild(content);
       messageDiv.appendChild(indicator);
-      
+
       chatContainer.appendChild(messageDiv);
       scrollToBottom();
-      
+
       currentMessageElement = messageDiv;
       currentMessageContent = content;
+    } else {
+      // Element already exists (created by prompt_received) — swap waiting indicator for streaming indicator
+      const waitingIndicator = currentMessageElement.querySelector('.waiting-indicator');
+      if (waitingIndicator) waitingIndicator.remove();
+      const indicator = document.createElement('span');
+      indicator.className = 'streaming-indicator';
+      indicator.textContent = '●';
+      currentMessageElement.appendChild(indicator);
     }
     
     // Now create thought section inside message content
@@ -462,7 +584,7 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
   // Append a chunk to the assistant message
   function appendMessageChunk(text) {
     if (!currentMessageElement) {
-      // No thought_start preceded this chunk — create the message element now
+      // No thought_start or prompt_received preceded this chunk — create the message element now
       const chatContainer = document.querySelector('#chat-messages');
       if (!chatContainer) return;
 
@@ -489,6 +611,10 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
 
       currentMessageElement = messageDiv;
       currentMessageContent = content;
+    } else {
+      // Element already exists (created by prompt_received or thought_start) — remove waiting indicator
+      const waitingIndicator = currentMessageElement.querySelector('.waiting-indicator');
+      if (waitingIndicator) waitingIndicator.remove();
     }
     
     // Find or create a container for the response text (after thought section)
@@ -543,6 +669,9 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
     currentMessageContent = null;
     currentThoughtElement = null;
     currentThoughtContent = null;
+
+    // Agent has finished responding — show the editable bubble
+    createEditableBubble();
   }
 
   // Update usage display
@@ -591,13 +720,16 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
     }
   }
 
-  // Show connection status
+  // Show connection status — updates the ● indicator inside the editable bubble header
   function showConnectionStatus(status) {
-    const statusEl = document.querySelector('.chat-connection-status');
-    if (!statusEl) return;
-    
-    statusEl.className = `chat-connection-status ${status}`;
+    _lastConnectionStatus = status;
+    const statusEl = editableBubble
+      ? editableBubble.querySelector('.editable-bubble-status')
+      : null;
+    if (!statusEl) return; // Bubble not visible (agent processing) — silent
+    statusEl.className = `editable-bubble-status ${status}`;
     statusEl.textContent = status === 'connected' ? '●' : '○';
+    statusEl.style.color = status === 'connected' ? '#51cf66' : '#888';
   }
 
   // Show error
@@ -622,16 +754,18 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
   function loadChatHistory(messages) {
     const chatContainer = document.querySelector('#chat-messages');
     if (!chatContainer) return;
-    
-    // Clear existing messages
+
+    // Clear existing messages and any existing editable bubble
     chatContainer.innerHTML = '';
+    editableBubble = null;
     
     // Track current thought and message for grouping
     let currentThoughtText = '';
     let currentMessageText = '';
     let inThought = false;
     let inMessage = false;
-    
+    let lastRole = null;
+
     messages.forEach(msg => {
       // Skip available_commands_update in history
       if (msg.content && msg.content.includes('available_commands_update')) {
@@ -687,6 +821,7 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
       }
       
       // User message or unparseable content
+      lastRole = msg.role;
       addMessageToChat(msg);
     });
     
@@ -697,13 +832,20 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
     
     // Add any pending message
     if (inMessage && currentMessageText) {
+      lastRole = 'assistant';
       addMessageToChat({
         role: 'assistant',
         content: currentMessageText,
       });
     }
-    
+
     scrollToBottom();
+
+    // Show editable bubble only if the last message is NOT from the user
+    // (if last is user, the agent hasn't responded yet — wait for usage_update)
+    if (lastRole !== 'user') {
+      createEditableBubble();
+    }
   }
 
   // Add thought section to chat (legacy - for old ACP format)

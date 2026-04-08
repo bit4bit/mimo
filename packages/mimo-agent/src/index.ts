@@ -2,6 +2,7 @@ import { WebSocket } from "ws";
 import { ChildProcess, execSync } from "child_process";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
+import { homedir } from "os";
 import { Readable, Writable } from "node:stream";
 import { AgentConfig } from "./types";
 import { SessionManager } from "./session";
@@ -80,7 +81,13 @@ class MimoAgent {
     }
 
     if (!config.workDir) {
-      config.workDir = process.cwd();
+      config.workDir = join(homedir(), ".mimo-agent");
+    }
+
+    // Ensure workDir exists
+    if (!existsSync(config.workDir)) {
+      mkdirSync(config.workDir, { recursive: true });
+      console.log(`[mimo-agent] Created workDir: ${config.workDir}`);
     }
 
     if (!config.provider) {
