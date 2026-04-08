@@ -227,9 +227,6 @@ let _lastConnectionStatus = 'disconnected'; // Last known connection status
     // Don't create if one already exists
     if (editableBubble) return;
 
-    // Check if session is frozen
-    const isFrozen = window.MIMO_SESSION_STATUS === 'frozen';
-
     const bubble = document.createElement('div');
     bubble.className = 'message message-user editable-bubble';
 
@@ -250,11 +247,8 @@ let _lastConnectionStatus = 'disconnected'; // Last known connection status
     const sendBtn = document.createElement('button');
     sendBtn.type = 'button';
     sendBtn.className = 'editable-send-btn';
-    sendBtn.textContent = isFrozen ? 'Session Frozen' : '\u2318\u21b5 Send';
-    sendBtn.disabled = isFrozen;
-    if (!isFrozen) {
-      sendBtn.addEventListener('click', submitEditableBubble);
-    }
+    sendBtn.textContent = '⌃↵ Send';
+    sendBtn.addEventListener('click', submitEditableBubble);
 
     header.appendChild(label);
     header.appendChild(status);
@@ -264,34 +258,30 @@ let _lastConnectionStatus = 'disconnected'; // Last known connection status
     // Editable content area
     const content = document.createElement('div');
     content.className = 'message-content';
-    content.contentEditable = isFrozen ? 'false' : 'true';
-    content.setAttribute('data-placeholder', isFrozen ? 'Session is frozen. Cannot send messages.' : 'Type a message...');
+    content.contentEditable = 'true';
+    content.setAttribute('data-placeholder', 'Type a message...');
 
-    if (!isFrozen) {
-      // Ctrl+Enter to send; Enter inserts newline (native contenteditable behavior)
-      content.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && e.ctrlKey) {
-          e.preventDefault();
-          submitEditableBubble();
-        }
-      });
-
-      // Paste: strip HTML, insert plain text only
-      content.addEventListener('paste', (e) => {
+    // Ctrl+Enter to send; Enter inserts newline (native contenteditable behavior)
+    content.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.ctrlKey) {
         e.preventDefault();
-        const text = e.clipboardData.getData('text/plain');
-        document.execCommand('insertText', false, text);
-      });
-    }
+        submitEditableBubble();
+      }
+    });
+
+    // Paste: strip HTML, insert plain text only
+    content.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const text = e.clipboardData.getData('text/plain');
+      document.execCommand('insertText', false, text);
+    });
 
     bubble.appendChild(header);
     bubble.appendChild(content);
 
     chatContainer.appendChild(bubble);
     scrollToBottom();
-    if (!isFrozen) {
-      content.focus();
-    }
+    content.focus();
 
     editableBubble = bubble;
 

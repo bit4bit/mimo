@@ -12,7 +12,7 @@ export interface Session {
   upstreamPath: string;
   agentWorkspacePath: string;
   assignedAgentId?: string;
-  status: "active" | "paused" | "closed" | "frozen";
+  status: "active" | "paused" | "closed";
   port: number | null;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
@@ -31,7 +31,7 @@ export interface SessionData {
   upstreamPath: string;
   agentWorkspacePath: string;
   assignedAgentId?: string;
-  status: "active" | "paused" | "closed" | "frozen";
+  status: "active" | "paused" | "closed";
   port: number | null;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;

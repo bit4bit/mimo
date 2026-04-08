@@ -22,7 +22,7 @@ interface Session {
   owner: string;
   upstreamPath: string;
   agentWorkspacePath: string;
-  status: "active" | "paused" | "closed" | "frozen";
+  status: "active" | "paused" | "closed";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -131,9 +131,6 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({ project, sessions, c
             <a href={`/projects/${project.id}/impacts`} class="btn-secondary">
               Impact History
             </a>
-            <form method="POST" action={`/projects/${project.id}/freeze`}>
-              <button type="submit" class="btn-secondary">Freeze Project</button>
-            </form>
             <form method="POST" action={`/projects/${project.id}/delete`}>
               <button type="submit" class="btn-danger">Delete Project</button>
             </form>

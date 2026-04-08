@@ -6,10 +6,9 @@ interface LayoutProps {
   children: any;
   showStatusLine?: boolean;
   sessionId?: string;
-  sessionStatus?: string;
 }
 
-export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = false, sessionId, sessionStatus }) => {
+export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = false, sessionId }) => {
   const keybindings = configService.getKeybindings();
   
   return (
@@ -18,7 +17,7 @@ export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = fals
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{title} | MIMO</title>
-        <script dangerouslySetInnerHTML={{ __html: `window.MIMO_KEYBINDINGS = ${JSON.stringify(keybindings)}; window.MIMO_SESSION_ID = "${sessionId || ''}"; window.MIMO_SESSION_STATUS = "${sessionStatus || ''}";` }} />
+        <script dangerouslySetInnerHTML={{ __html: `window.MIMO_KEYBINDINGS = ${JSON.stringify(keybindings)}; window.MIMO_SESSION_ID = "${sessionId || ''}";` }} />
         <script src="/js/keybindings.js" defer></script>
         {sessionId && <script src="/js/chat.js" defer></script>}
         {sessionId && <script src="/js/commit.js" defer></script>}

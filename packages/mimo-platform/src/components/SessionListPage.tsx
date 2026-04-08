@@ -9,7 +9,7 @@ interface Project {
 interface Session {
   id: string;
   name: string;
-  status: "active" | "paused" | "closed" | "frozen";
+  status: "active" | "paused" | "closed";
   createdAt: Date;
 }
 

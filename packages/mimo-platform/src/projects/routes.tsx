@@ -253,29 +253,6 @@ projects.post("/:id/edit", authMiddleware, async (c) => {
   }
 });
 
-// Freeze project (POST /projects/:id/freeze)
-projects.post("/:id/freeze", authMiddleware, async (c) => {
-  const id = c.req.param("id");
-  const project = await projectRepository.findById(id);
-  
-  if (!project) {
-    return c.notFound();
-  }
-
-  const user = c.get("user") as { username: string };
-  if (project.owner !== user.username) {
-    return c.notFound();
-  }
-
-  // Get all sessions for this project and freeze them
-  const sessions = await sessionRepository.listByProject(id);
-  for (const session of sessions) {
-    await sessionRepository.update(session.id, { status: "frozen" });
-  }
-
-  return c.redirect(`/projects/${id}`, 302);
-});
-
 // Delete project (POST /projects/:id/delete)
 projects.post("/:id/delete", authMiddleware, async (c) => {
   const id = c.req.param("id");

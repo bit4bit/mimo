@@ -220,36 +220,5 @@ describe("Commit Service Tests", () => {
       expect(result.success).toBe(true);
       expect(result.message).toContain("No changes to commit");
     }, 30000);
-
-    it("should block commit when session is frozen", async () => {
-      const vcs = new VCS();
-      const sessionRepo = new SessionRepository();
-      const projectRepo = new ProjectRepository();
-
-      // Create a project
-      const project = await projectRepo.create({
-        name: "Frozen Test Project",
-        repoUrl: "https://github.com/test/repo.git",
-        repoType: "git",
-        owner: "testuser",
-      });
-
-      // Create a session
-      const session = await sessionRepo.create({
-        name: "Frozen Session",
-        projectId: project.id,
-        owner: "testuser",
-      });
-
-      // Freeze the session
-      await sessionRepo.update(session.id, { status: "frozen" });
-
-      // Try to commit
-      const result = await CommitService.commitAndPush(session.id);
-
-      expect(result.success).toBe(false);
-      expect(result.message).toContain("frozen");
-      expect(result.error).toBe("Session is frozen");
-    });
   });
 });
