@@ -326,7 +326,7 @@ export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = fals
               <a href="/auth/logout">Logout</a>
             </div>
           </nav>
-          <main style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+          <main style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto;">
           {children}
           </main>
          {showStatusLine && (
