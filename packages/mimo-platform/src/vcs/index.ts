@@ -799,7 +799,7 @@ export class VCS {
       // Files on disk but NOT in fossil ls are either:
       // - Untracked files (should be copied)
       // - Deleted tracked files (should NOT be copied)
-      const excludeItems = new Set([".git", ".fossil", ".fslckout"]);
+      const excludeItems = new Set([".git", ".fossil", ".fslckout", ".gitignore"]);
       
       const copyRecursive = (source: string, dest: string, basePath: string = source) => {
         if (!fsExistsSync(source)) return;
@@ -837,16 +837,19 @@ export class VCS {
       // - Tracked in upstream (from git ls-files)
       // - Either not on agent disk OR not tracked by fossil (meaning deleted)
       for (const trackedFile of upstreamTrackedFiles) {
+        // Skip excluded files that should be preserved (e.g., .gitignore)
+        if (excludeItems.has(trackedFile)) continue;
+
         const agentFilePath = join(agentWorkspacePath, trackedFile);
         const upstreamFilePath = join(upstreamPath, trackedFile);
-        
+
         // Delete if tracked in upstream but either:
         // 1. Not present on agent disk, OR
         // 2. Present on disk but NOT tracked by fossil (was deleted via fossil rm)
         const existsOnDisk = fsExistsSync(agentFilePath);
         const trackedByFossil = fossilTrackedFiles.has(trackedFile);
         const shouldDelete = !existsOnDisk || !trackedByFossil;
-        
+
         if (shouldDelete && fsExistsSync(upstreamFilePath)) {
           unlinkSync(upstreamFilePath);
           
