@@ -26,6 +26,8 @@ let pendingUserMessages = new Set(); // Track messages waiting for server echo
 let editableBubble = null; // Reference to the current editable YOU bubble
 let _lastConnectionStatus = 'disconnected'; // Last known connection status
 let _reconstructedStreaming = false; // Flag to prevent editable bubble until usage_update
+let streamingTimeout = null; // Timeout for agent response recovery
+let lastStreamingActivity = null; // Timestamp of last streaming activity
 
   // Initialize chat for a session
   function initChat(sessionId) {
@@ -86,6 +88,7 @@ let _reconstructedStreaming = false; // Flag to prevent editable bubble until us
     switch (data.type) {
       case 'prompt_received':
         createWaitingAgentMessage();
+        startStreamingTimeout();
         break;
 
       case 'thought_start':
@@ -105,6 +108,7 @@ let _reconstructedStreaming = false; // Flag to prevent editable bubble until us
         break;
         
       case 'usage_update':
+        clearStreamingTimeout();
         updateUsageDisplay(data.usage);
         endMessageStream();
         break;
@@ -181,6 +185,7 @@ let _reconstructedStreaming = false; // Flag to prevent editable bubble until us
     const { thoughtContent, messageContent } = data;
     
     _reconstructedStreaming = true;
+    lastStreamingActivity = Date.now();
     
     if (thoughtContent) {
       startThoughtSection();
@@ -191,6 +196,35 @@ let _reconstructedStreaming = false; // Flag to prevent editable bubble until us
     if (messageContent) {
       appendMessageChunk(messageContent);
     }
+    
+    // If reconstructed streaming state but no activity for 5 seconds, force input restoration
+    setTimeout(() => {
+      if (_reconstructedStreaming && !editableBubble) {
+        const timeSinceActivity = Date.now() - lastStreamingActivity;
+        if (timeSinceActivity >= 5000) {
+          console.log('[CHAT] Force restoring input after reconstructed streaming');
+          endMessageStream();
+          createEditableBubble();
+          
+          // Show ready indicator
+          const chatContainer = document.querySelector('#chat-messages');
+          if (chatContainer) {
+            const readyDiv = document.createElement('div');
+            readyDiv.className = 'message message-system info';
+            
+            const content = document.createElement('div');
+            content.className = 'message-content';
+            content.textContent = 'Ready to chat';
+            content.style.color = '#51cf66';
+            content.style.fontStyle = 'italic';
+            
+            readyDiv.appendChild(content);
+            chatContainer.appendChild(readyDiv);
+            scrollToBottom();
+          }
+        }
+      }
+    }, 5000);
   }
 
   function showPermissionCard(data) {
@@ -471,7 +505,28 @@ let _reconstructedStreaming = false; // Flag to prevent editable bubble until us
 
     const header = document.createElement('div');
     header.className = 'message-header';
-    header.textContent = 'Agent';
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.alignItems = 'center';
+    
+    const agentLabel = document.createElement('span');
+    agentLabel.textContent = 'Agent';
+    header.appendChild(agentLabel);
+    
+    // Add cancel button
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'cancel-streaming-btn';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.marginLeft = 'auto';
+    cancelBtn.style.fontSize = '0.8em';
+    cancelBtn.style.padding = '2px 8px';
+    cancelBtn.style.background = '#ff6b6b';
+    cancelBtn.style.color = '#fff';
+    cancelBtn.style.border = 'none';
+    cancelBtn.style.borderRadius = '3px';
+    cancelBtn.style.cursor = 'pointer';
+    cancelBtn.addEventListener('click', handleCancelStreaming);
+    header.appendChild(cancelBtn);
 
     const content = document.createElement('div');
     content.className = 'message-content';
@@ -490,6 +545,52 @@ let _reconstructedStreaming = false; // Flag to prevent editable bubble until us
 
     currentMessageElement = messageDiv;
     currentMessageContent = content;
+  }
+
+  // Handle cancel button click
+  function handleCancelStreaming() {
+    console.log('[CHAT] User cancelled streaming');
+    
+    // Clear streaming timeout
+    clearStreamingTimeout();
+    
+    // Send cancel request to server
+    if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+      chatSocket.send(JSON.stringify({
+        type: 'cancel_request',
+        sessionId: currentSessionId,
+      }));
+    }
+    
+    // Clean up streaming elements
+    if (currentMessageElement) {
+      currentMessageElement.remove();
+      currentMessageElement = null;
+      currentMessageContent = null;
+      currentThoughtElement = null;
+      currentThoughtContent = null;
+    }
+    
+    // Show cancelled message
+    const chatContainer = document.querySelector('#chat-messages');
+    if (chatContainer) {
+      const cancelledDiv = document.createElement('div');
+      cancelledDiv.className = 'message message-system info';
+      
+      const content = document.createElement('div');
+      content.className = 'message-content';
+      content.textContent = 'Response cancelled by user.';
+      content.style.color = '#888';
+      content.style.fontStyle = 'italic';
+      
+      cancelledDiv.appendChild(content);
+      chatContainer.appendChild(cancelledDiv);
+      scrollToBottom();
+    }
+    
+    // Restore input
+    endMessageStream();
+    createEditableBubble();
   }
 
   // Start a thought section inside the current message
@@ -869,6 +970,17 @@ let _reconstructedStreaming = false; // Flag to prevent editable bubble until us
     if (lastRole !== 'user' && !_reconstructedStreaming) {
       createEditableBubble();
     }
+    
+    // Always ensure input is available after 2 seconds, regardless of streaming state
+    // This prevents being stuck if server incorrectly thinks agent is streaming
+    setTimeout(() => {
+      if (!editableBubble) {
+        console.log('[CHAT] Force creating editable bubble after history load');
+        _reconstructedStreaming = false;
+        endMessageStream();
+        createEditableBubble();
+      }
+    }, 2000);
   }
 
   // Add thought section to chat (legacy - for old ACP format)
@@ -1065,5 +1177,57 @@ let _reconstructedStreaming = false; // Flag to prevent editable bubble until us
     
     selector.dataset.current = modeState.currentModeId;
     container.title = modeState.currentModeId;
+  }
+
+  // Start streaming timeout - called when prompt_received arrives
+  function startStreamingTimeout() {
+    clearStreamingTimeout();
+    lastStreamingActivity = Date.now();
+    streamingTimeout = setTimeout(() => {
+      handleStreamingTimeout();
+    }, 60000); // 60 seconds
+  }
+
+  // Clear streaming timeout - called when usage_update arrives
+  function clearStreamingTimeout() {
+    if (streamingTimeout) {
+      clearTimeout(streamingTimeout);
+      streamingTimeout = null;
+    }
+    lastStreamingActivity = Date.now();
+  }
+
+  // Handle streaming timeout - agent didn't respond
+  function handleStreamingTimeout() {
+    console.log('[CHAT] Streaming timeout - agent did not respond within 60 seconds');
+    
+    // Clean up streaming elements
+    if (currentMessageElement) {
+      currentMessageElement.remove();
+      currentMessageElement = null;
+      currentMessageContent = null;
+      currentThoughtElement = null;
+      currentThoughtContent = null;
+    }
+    
+    // Show warning message
+    const chatContainer = document.querySelector('#chat-messages');
+    if (chatContainer) {
+      const warningDiv = document.createElement('div');
+      warningDiv.className = 'message message-system warning';
+      
+      const content = document.createElement('div');
+      content.className = 'message-content';
+      content.textContent = 'Warning: Agent did not respond within 60 seconds. You can try sending your message again.';
+      content.style.color = '#ffa500';
+      
+      warningDiv.appendChild(content);
+      chatContainer.appendChild(warningDiv);
+      scrollToBottom();
+    }
+    
+    // Restore input
+    endMessageStream();
+    createEditableBubble();
   }
 })();

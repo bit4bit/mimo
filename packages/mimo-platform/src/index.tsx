@@ -211,11 +211,12 @@ const server = Bun.serve({
           messages: history,
         }));
         
-        // Send current streaming state if agent is actively responding
+        // Send current streaming state if agent is actively responding and alive
         const thoughtContent = thoughtBuffers.get(sessionId);
         const messageContent = streamingBuffers.get(sessionId);
         
-        if (thoughtContent || messageContent) {
+        // Only send streaming state if agent is actually alive
+        if ((thoughtContent || messageContent) && chatService.isAgentAlive(sessionId)) {
           ws.send(JSON.stringify({
             type: 'streaming_state',
             thoughtContent: thoughtContent || '',
@@ -425,6 +426,9 @@ async function handleAgentMessage(ws, data) {
           return;
         }
         
+        // Track agent activity for health monitoring
+        chatService.updateAgentActivity(chunkSessionId);
+        
         // Accumulate thought chunks
         const currentThoughtBuffer = thoughtBuffers.get(chunkSessionId) || "";
         thoughtBuffers.set(chunkSessionId, currentThoughtBuffer + (data.content || ""));
@@ -475,6 +479,9 @@ async function handleAgentMessage(ws, data) {
           console.log("No sessionId in message_chunk");
           return;
         }
+        
+        // Track agent activity for health monitoring
+        chatService.updateAgentActivity(msgSessionId);
         
         // Accumulate message chunks
         const currentBuffer = streamingBuffers.get(msgSessionId) || "";
@@ -825,6 +832,35 @@ async function handleChatMessage(ws, data) {
             sessionId: sessionId,
           }));
         }
+      }
+      break;
+      
+    case "cancel_request":
+      {
+        const cancelSessionId = data.sessionId;
+        if (!cancelSessionId) {
+          console.log("No sessionId in cancel_request");
+          return;
+        }
+        
+        // Find assigned agent
+        const cancelSession = await sessionRepository.findById(cancelSessionId);
+        if (cancelSession?.assignedAgentId) {
+          const cancelAgentWs = agentService.getAgentConnection(cancelSession.assignedAgentId);
+          if (cancelAgentWs && cancelAgentWs.readyState === 1) {
+            // Forward cancel request to agent
+            cancelAgentWs.send(JSON.stringify({
+              type: 'cancel_request',
+              sessionId: cancelSessionId,
+              timestamp: new Date().toISOString(),
+            }));
+            console.log(`Cancel request forwarded to agent for session ${cancelSessionId}`);
+          }
+        }
+        
+        // Clear buffers for this session
+        streamingBuffers.delete(cancelSessionId);
+        thoughtBuffers.delete(cancelSessionId);
       }
       break;
       

@@ -10,6 +10,10 @@ export interface ChatMessage {
 }
 
 export class ChatService {
+  // Track last activity per session for agent health monitoring
+  private lastAgentActivity: Map<string, number> = new Map();
+  private readonly AGENT_TIMEOUT_MS = 30000; // 30 seconds
+
   private getChatPath(sessionId: string): string {
     // Store chat in the session directory
     const Paths = getPaths();
@@ -78,6 +82,30 @@ export class ChatService {
       const { unlinkSync } = require("fs");
       unlinkSync(chatPath);
     }
+  }
+
+  // Track agent activity for health monitoring
+  updateAgentActivity(sessionId: string): void {
+    this.lastAgentActivity.set(sessionId, Date.now());
+  }
+
+  // Check if agent is still alive (has activity within timeout window)
+  isAgentAlive(sessionId: string): boolean {
+    const lastActivity = this.lastAgentActivity.get(sessionId);
+    if (!lastActivity) {
+      return false; // No activity recorded
+    }
+    return Date.now() - lastActivity < this.AGENT_TIMEOUT_MS;
+  }
+
+  // Get last agent activity timestamp
+  getLastAgentActivity(sessionId: string): number | undefined {
+    return this.lastAgentActivity.get(sessionId);
+  }
+
+  // Clear agent activity tracking (e.g., when session ends)
+  clearAgentActivity(sessionId: string): void {
+    this.lastAgentActivity.delete(sessionId);
   }
 }
 
