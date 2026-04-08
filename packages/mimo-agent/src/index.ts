@@ -655,6 +655,11 @@ class MimoAgent {
     }
 
     console.log(`[mimo-agent] Sending prompt for session ${sessionId}`);
+    this.send({
+      type: "prompt_received",
+      sessionId,
+      timestamp: new Date().toISOString(),
+    });
     acpClient
       .prompt(content)
       .then(() => {

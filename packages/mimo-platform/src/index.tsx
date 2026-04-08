@@ -682,6 +682,22 @@ async function handleAgentMessage(ws, data) {
         }
       }
       break;
+    case "prompt_received":
+      {
+        const prSubscribers = chatSessions.get(data.sessionId);
+        if (prSubscribers) {
+          prSubscribers.forEach((client: WebSocket) => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify({
+                type: "prompt_received",
+                sessionId: data.sessionId,
+                timestamp: new Date().toISOString(),
+              }));
+            }
+          });
+        }
+      }
+      break;
     case "permission_request":
       {
         const { sessionId: permSessionId, requestId, toolCall, options } = data;
