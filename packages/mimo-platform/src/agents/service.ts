@@ -181,6 +181,22 @@ export class AgentService {
       return false;
     }
   }
+
+  async notifySessionEnded(sessionId: string, agentId: string): Promise<void> {
+    const ws = this.activeConnections.get(agentId);
+    if (ws && ws.readyState === 1) { // 1 = OPEN
+      try {
+        ws.send(JSON.stringify({
+          type: "session_ended",
+          sessionId,
+        }));
+      } catch (error) {
+        console.error(`[notifySessionEnded] Failed to notify agent ${agentId}:`, error);
+      }
+    }
+    // Cleanup any in-flight ACP requests for this agent
+    this.currentAcpRequest.delete(agentId);
+  }
 }
 
 export const agentService = new AgentService();

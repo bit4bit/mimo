@@ -10,6 +10,8 @@ import { agentService } from "../agents/service.js";
 import { chatService } from "./chat.js";
 import { vcs } from "../vcs/index.js";
 import { verifyToken } from "../auth/jwt.js";
+import { fileSyncService } from "../sync/service.js";
+import { impactCalculator } from "../impact/calculator.js";
 
 import { SessionDetailPage } from "../components/SessionDetailPage.js";
 import { SessionCreatePage } from "../components/SessionCreatePage.js";
@@ -318,8 +320,25 @@ router.post("/:id/delete", async (c: Context) => {
     return c.text("Session not found", 404);
   }
 
-  // Delete session (agent is independent, not affected)
+  // Delete session and cleanup all associated resources
   await sessionRepository.delete(session.projectId, sessionId);
+
+  // Stop fossil server if running
+  await fossilServerManager.stopServer(sessionId);
+
+  // Clear in-memory session state
+  sessionStateService.clearSessionState(sessionId);
+
+  // Cleanup sync tracking data
+  await fileSyncService.cleanupSession(sessionId);
+
+  // Clear impact calculator cache
+  impactCalculator.clearState(sessionId);
+
+  // Notify assigned agent if any
+  if (session.assignedAgentId) {
+    await agentService.notifySessionEnded(sessionId, session.assignedAgentId);
+  }
 
   return c.redirect(`/projects/${session.projectId}/sessions`);
 });

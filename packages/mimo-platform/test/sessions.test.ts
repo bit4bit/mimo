@@ -321,6 +321,94 @@ describe("Session Management Integration Tests", () => {
       expect(sessions.length).toBe(0);
       expect(existsSync(session.agentWorkspacePath)).toBe(false);
     });
+
+    it("should cleanup resources when deleting session with assigned agent", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      // Create agent module mock
+      const agentModule = await import("../src/agents/repository.ts");
+      const agentServiceModule = await import("../src/agents/service.ts");
+      const agentService = agentServiceModule.agentService;
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      // Create agent first
+      const agent = await agentService.createAgent({ owner: "testuser" });
+
+      const session = await sessionRepository.create({
+        name: "Session With Agent",
+        projectId: project.id,
+        owner: "testuser",
+        assignedAgentId: agent.id,
+      });
+
+      // Create checkout directory
+      mkdirSync(session.agentWorkspacePath, { recursive: true });
+
+      const token = await generateToken("testuser");
+
+      // Delete should succeed even with assigned agent
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/delete`,
+        {
+          method: "POST",
+          headers: { Cookie: `token=${token}` },
+        }
+      );
+
+      expect(res.status).toBe(302);
+
+      // Verify session deleted
+      const sessions = await sessionRepository.listByProject(project.id);
+      expect(sessions.length).toBe(0);
+    });
+
+    it("should delete session without agent without errors", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Session No Agent",
+        projectId: project.id,
+        owner: "testuser",
+        // No assignedAgentId
+      });
+
+      // Create checkout directory
+      mkdirSync(session.agentWorkspacePath, { recursive: true });
+
+      const token = await generateToken("testuser");
+
+      // Delete should succeed without agent
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/delete`,
+        {
+          method: "POST",
+          headers: { Cookie: `token=${token}` },
+        }
+      );
+
+      expect(res.status).toBe(302);
+
+      // Verify session deleted
+      const sessions = await sessionRepository.listByProject(project.id);
+      expect(sessions.length).toBe(0);
+    });
   });
 
   describe("Chat History", () => {

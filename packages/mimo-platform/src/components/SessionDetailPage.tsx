@@ -205,26 +205,11 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             method="POST"
             action={`/projects/${project.id}/sessions/${session.id}/delete`}
             style="display: inline;"
-            id="delete-form"
           >
-            <button type="button" id="delete-btn" class="btn-danger">
+            <button type="submit" class="btn-danger">
               Delete Session
             </button>
           </form>
-        </div>
-      </div>
-
-      {/* Delete Confirmation Dialog */}
-      <div id="delete-dialog" class="modal" style="display: none;">
-        <div class="modal-content">
-          <h3>Delete Session</h3>
-          <p style="margin: 10px 0; color: #d4d4d4;">
-            Are you sure you want to delete this session? This action cannot be undone.
-          </p>
-          <div style="display: flex; gap: 10px; justify-content: flex-end;">
-            <button type="button" id="delete-cancel" class="btn-secondary">Cancel</button>
-            <button type="button" id="delete-confirm" class="btn-danger">Delete</button>
-          </div>
         </div>
       </div>
 
@@ -487,35 +472,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           setInterval(checkFossilStatus, 3000);
           // Initial check
           checkFossilStatus();
-
-          // Delete confirmation dialog
-          (function() {
-            const deleteBtn = document.getElementById('delete-btn');
-            const deleteForm = document.getElementById('delete-form');
-            const deleteDialog = document.getElementById('delete-dialog');
-            const deleteCancel = document.getElementById('delete-cancel');
-            const deleteConfirm = document.getElementById('delete-confirm');
-
-            if (deleteBtn && deleteDialog && deleteForm) {
-              deleteBtn.addEventListener('click', function() {
-                deleteDialog.style.display = 'flex';
-              });
-
-              deleteCancel.addEventListener('click', function() {
-                deleteDialog.style.display = 'none';
-              });
-
-              deleteConfirm.addEventListener('click', function() {
-                deleteForm.submit();
-              });
-
-              deleteDialog.addEventListener('click', function(e) {
-                if (e.target === deleteDialog) {
-                  deleteDialog.style.display = 'none';
-                }
-              });
-            }
-          })();
         })();
       `}} />
 
