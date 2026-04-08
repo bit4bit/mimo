@@ -592,4 +592,162 @@ describe("Session Management Integration Tests", () => {
       expect(sessions[0].localDevMirrorPath).toBeUndefined();
     });
   });
+
+  describe("Session Freeze", () => {
+    it("should update session status to frozen", async () => {
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Session To Freeze",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      expect(session.status).toBe("active");
+
+      const updated = await sessionRepository.update(session.id, { status: "frozen" });
+      expect(updated?.status).toBe("frozen");
+    });
+
+    it("should freeze all sessions when project freeze action is invoked", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      // Need to mount project routes for freeze endpoint
+      const projectsModule = await import("../src/projects/routes.tsx");
+      const projectRoutes = projectsModule.default;
+      app.route("/projects", projectRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      // Create 3 sessions
+      await sessionRepository.create({
+        name: "Session 1",
+        projectId: project.id,
+        owner: "testuser",
+      });
+      await sessionRepository.create({
+        name: "Session 2",
+        projectId: project.id,
+        owner: "testuser",
+      });
+      await sessionRepository.create({
+        name: "Session 3",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const token = await generateToken("testuser");
+
+      // Call freeze endpoint
+      const res = await app.request(`/projects/${project.id}/freeze`, {
+        method: "POST",
+        headers: { Cookie: `token=${token}` },
+      });
+
+      expect(res.status).toBe(302);
+
+      // Verify all sessions are frozen
+      const sessions = await sessionRepository.listByProject(project.id);
+      expect(sessions.length).toBe(3);
+      sessions.forEach((s) => {
+        expect(s.status).toBe("frozen");
+      });
+    });
+
+    it("should return 404 for freeze on non-existent project", async () => {
+      const app = new Hono();
+      const projectsModule = await import("../src/projects/routes.tsx");
+      const projectRoutes = projectsModule.default;
+      app.route("/projects", projectRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const token = await generateToken("testuser");
+
+      const res = await app.request(`/projects/non-existent-id/freeze`, {
+        method: "POST",
+        headers: { Cookie: `token=${token}` },
+      });
+
+      expect(res.status).toBe(404);
+    });
+
+    it("should handle freeze on project with no sessions", async () => {
+      const app = new Hono();
+      const projectsModule = await import("../src/projects/routes.tsx");
+      const projectRoutes = projectsModule.default;
+      app.route("/projects", projectRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Empty Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/freeze`, {
+        method: "POST",
+        headers: { Cookie: `token=${token}` },
+      });
+
+      expect(res.status).toBe(302);
+
+      // Verify no sessions exist
+      const sessions = await sessionRepository.listByProject(project.id);
+      expect(sessions.length).toBe(0);
+    });
+
+    it("should block HTTP chat messages when session is frozen", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Frozen Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      // Freeze the session
+      await sessionRepository.update(session.id, { status: "frozen" });
+
+      const token = await generateToken("testuser");
+
+      // Try to send HTTP chat message
+      const res = await app.request(`/projects/${project.id}/sessions/${session.id}/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ message: "Hello" }).toString(),
+      });
+
+      expect(res.status).toBe(403);
+      const text = await res.text();
+      expect(text).toContain("frozen");
+    });
+  });
 });

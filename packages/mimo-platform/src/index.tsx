@@ -734,6 +734,16 @@ async function handleChatMessage(ws, data) {
   
   switch (data.type) {
     case "send_message":
+      // Check if session is frozen
+      const session = await sessionRepository.findById(sessionId);
+      if (session?.status === "frozen") {
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Session is frozen. Cannot send messages.',
+        }));
+        return;
+      }
+      
       // Save user message
       await chatService.saveMessage(sessionId, {
         role: 'user',
@@ -756,8 +766,7 @@ async function handleChatMessage(ws, data) {
         });
       }
 
-      // Get session to find assigned agent
-      const session = await sessionRepository.findById(sessionId);
+      // Forward to agent if connected
       if (session?.assignedAgentId) {
         // Forward to agent if connected
         const ws = agentService.getAgentConnection(session.assignedAgentId);

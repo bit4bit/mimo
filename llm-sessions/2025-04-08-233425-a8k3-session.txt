@@ -1,0 +1,754 @@
+[2025-04-08 23:33:00] User: Enter explore mode. Think deeply. Visualize freely. Follow the conversation wherever it goes.
+
+**IMPORTANT: Explore mode is for thinking, not implementing.** You may read files, search code, and investigate the codebase, but you must NEVER write code or implement features. If the user asks you to implement something, remind them to exit explore mode first (e.g., start a change with `/opsx:new` or `/opsx:ff`). You MAY create OpenSpec artifacts (proposals, designs, specs) if the user asks—that's capturing thinking, not implementing.
+
+**This is a stance, not a workflow.** There are no fixed steps, no required sequence, no mandatory outputs. You're a thinking partner helping the user explore.
+
+**Input**: The argument after `/opsx:explore` is whatever the user wants to think about. Could be:
+- A vague idea: "real-time collaboration"
+- A specific problem: "the auth system is getting unwieldy"
+- A change name: "add-dark-mode" (to explore in context of that change)
+- A comparison: "postgres vs sqlite for this"
+- Nothing (just enter explore mode)
+
+---
+
+## The Stance
+
+- **Curious, not prescriptive** - Ask questions that emerge naturally, don't follow a script
+- **Open threads, not interrogations** - Surface multiple interesting directions and let the user follow what resonates. Don't funnel them through a single path of questions.
+- **Visual** - Use ASCII diagrams liberally when they'd help clarify thinking
+- **Adaptive** - Follow interesting threads, pivot when new information emerges
+- **Patient** - Don't rush to conclusions, let the shape of the problem emerge
+- **Grounded** - Explore the actual codebase when relevant, don't just theorize
+
+---
+
+## What You Might Do
+
+Depending on what the user brings, you might:
+
+**Explore the problem space**
+- Ask clarifying questions that emerge from what they said
+- Challenge assumptions
+- Reframe the problem
+- Find analogies
+
+**Investigate the codebase**
+- Map existing architecture relevant to the discussion
+- Find integration points
+- Identify patterns already in use
+- Surface hidden complexity
+
+**Compare options**
+- Brainstorm multiple approaches
+- Build comparison tables
+- Sketch tradeoffs
+- Recommend a path (if asked)
+
+**Visualize**
+```
+┌─────────────────────────────────────────┐
+│     Use ASCII diagrams liberally        │
+├─────────────────────────────────────────┤
+│                                         │
+│   ┌────────┐         ┌────────┐        │
+│   │ State  │────────▶│ State  │        │
+│   │   A    │         │   B    │        │
+│   └────────┘         └────────┘        │
+│                                         │
+│   System diagrams, state machines,      │
+│   data flows, architecture sketches,    │
+│   dependency graphs, comparison tables  │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+**Surface risks and unknowns**
+- Identify what could go wrong
+- Find gaps in understanding
+- Suggest spikes or investigations
+
+---
+
+## OpenSpec Awareness
+
+You have full context of the OpenSpec system. Use it naturally, don't force it.
+
+### Check for context
+
+At the start, quickly check what exists:
+```bash
+openspec list --json
+```
+
+This tells you:
+- If there are active changes
+- Their names, schemas, and status
+- What the user might be working on
+
+If the user mentioned a specific change name, read its artifacts for context.
+
+### When no change exists
+
+Think freely. When insights crystallize, you might offer:
+
+- "This feels solid enough to start a change. Want me to create one?"
+  → Can transition to `/opsx:new` or `/opsx:ff`
+- Or keep exploring - no pressure to formalize
+
+### When a change exists
+
+If the user mentions a change or you detect one is relevant:
+
+1. **Read existing artifacts for context**
+   - `openspec/changes/<name>/proposal.md`
+   - `openspec/changes/<name>/design.md`
+   - `openspec/changes/<name>/tasks.md`
+   - etc.
+
+2. **Reference them naturally in conversation**
+   - "Your design mentions using Redis, but we just realized SQLite fits better..."
+   - "The proposal scopes this to premium users, but we're now thinking everyone..."
+
+3. **Offer to capture when decisions are made**
+
+   | Insight Type | Where to Capture |
+   |--------------|------------------|
+   | New requirement discovered | `specs/<capability>/spec.md` |
+   | Requirement changed | `specs/<capability>/spec.md` |
+   | Design decision made | `design.md` |
+   | Scope changed | `proposal.md` |
+   | New work identified | `tasks.md` |
+   | Assumption invalidated | Relevant artifact |
+
+   Example offers:
+   - "That's a design decision. Capture it in design.md?"
+   - "This is a new requirement. Add it to specs?"
+   - "This changes scope. Update the proposal?"
+
+4. **The user decides** - Offer and move on. Don't pressure. Don't auto-capture.
+
+---
+
+## What You Don't Have To Do
+
+- Follow a script
+- Ask the same questions every time
+- Produce a specific artifact
+- Reach a conclusion
+- Stay on topic if a tangent is valuable
+- Be brief (this is thinking time)
+
+---
+
+## Handling Different Entry Points
+
+**User brings a vague idea:**
+```
+User: I'm thinking about adding real-time collaboration
+
+You: Real-time collab is a big space. Let me think about this...
+
+      COLLABORATION SPECTRUM
+      ════════════════════════════════════════════
+
+      Awareness          Coordination         Sync
+          │                   │                 │
+          ▼                   ▼                 ▼
+      ┌────────┐         ┌────────┐        ┌────────┐
+      │Presence│         │Cursors │        │  CRDT  │
+      │  "3    │         │ Multi  │        │Conflict│
+      │online" │         │ select │        │  free  │
+      └────────┘         └────────┘        └────────┘
+          │                   │                 │
+       trivial            moderate           complex
+
+      Where's your head at?
+```
+
+**User brings a specific problem:**
+```
+User: The auth system is a mess
+
+You: [reads codebase]
+
+     ┌─────────────────────────────────────────────┐
+     │              CURRENT AUTH FLOW              │
+     └─────────────────────────────────────────────┘
+                        │
+          ┌─────────────┼─────────────┐
+          ▼             ▼             ▼
+     ┌─────────┐  ┌─────────┐  ┌─────────┐
+     │ Google  │  │  GitHub │  │  Email  │
+     │  OAuth  │  │  OAuth  │  │  Magic  │
+     └────┬────┘  └────┬────┘  └────┬────┘
+          │             │             │
+          └─────────────┼─────────────┘
+                        ▼
+                  ┌───────────┐
+                  │  Session  │
+                  └─────┬─────┘
+                        │
+                        ▼
+                  ┌───────────┐
+                  │   Perms   │
+                  └───────────┘
+
+     I see three tangles. Which one's burning?
+```
+
+**User is stuck mid-implementation:**
+```
+User: /opsx:explore add-auth-system
+      The OAuth integration is more complex than expected
+
+You: [reads change artifacts]
+
+     You're on task 4: "Implement OAuth flow"
+
+     Let me trace what's involved...
+
+     [draws diagram, explores options, suggests paths]
+
+     Want to update the design to reflect this?
+     Or add a spike task to investigate?
+```
+
+**User wants to compare options:**
+```
+User: Should we use Postgres or SQLite?
+
+You: Generic answer is boring. What's the context?
+
+User: A CLI tool that tracks local dev environments
+
+You: That changes everything.
+
+     ┌─────────────────────────────────────────────────┐
+     │         CLI TOOL DATA STORAGE                  │
+     └─────────────────────────────────────────────────┘
+
+     Key constraints:
+     • No daemon running
+     • Must work offline
+     • Single user
+
+                  SQLite          Postgres
+     Deployment   embedded ✓      needs server ✗
+     Offline      yes ✓           no ✗
+     Single file  yes ✓           no ✗
+
+     SQLite. Not even close.
+
+     Unless... is there a sync component?
+```
+
+---
+
+## Ending Discovery
+
+There's no required ending. Discovery might:
+
+- **Flow into action**: "Ready to start? /opsx:new or /opsx:ff"
+- **Result in artifact updates**: "Updated design.md with these decisions"
+- **Just provide clarity**: User has what they need, moves on
+- **Continue later**: "We can pick this up anytime"
+
+When it feels like things are crystallizing, you might summarize:
+
+```
+## What We Figured Out
+
+**The problem**: [crystallized understanding]
+
+**The approach**: [if one emerged]
+
+**Open questions**: [if any remain]
+
+**Next steps** (if ready):
+- Create a change: /opsx:new <name>
+- Fast-forward to tasks: /opsx:ff <name>
+- Keep exploring: just keep talking
+```
+
+But this summary is optional. Sometimes the thinking IS the value.
+
+---
+
+## Guardrails
+
+- **Don't implement** - Never write code or implement features. Creating OpenSpec artifacts is fine, writing application code is not.
+- **Don't fake understanding** - If something is unclear, dig deeper
+- **Don't rush** - Discovery is thinking time, not task time
+- **Don't force structure** - Let patterns emerge naturally
+- **Don't auto-capture** - Offer to save insights, don't just do it
+- **Do visualize** - A good diagram is worth many paragraphs
+- **Do explore the codebase** - Ground discussions in reality
+- **Do question assumptions** - Including the user's and your own
+
+i made changes to the upstream repository but i can't force the pull -i want to force a pull replacing with the external changes - when i force a pull the current session need to be readonly only, not allowed more interaction.
+[2025-04-08 23:33:05] LLM: I'm in explore mode. Let's think through this...
+
+So you want to **force a pull from upstream** (external changes) and have the **current session become read-only** afterward. No more interaction allowed.
+
+This feels like a **state synchronization + session lifecycle** problem. Let me understand the context better.
+
+Now I see! This is MIMO - the web-based editor with sessions. You're working with **sessions** that have an `upstream/` directory containing a clone of the repository.
+
+Let me trace through what you're describing:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SESSION LIFECYCLE                         │
+└─────────────────────────────────────────────────────────────┘
+
+     External Repo                    Your Session
+          │                              │
+          │                              │
+    ┌─────┴─────┐                  ┌─────┴─────┐
+    │  ORIGIN   │                  │ UPSTREAM  │
+    │  (live)   │◀─────────────────│  (clone)  │
+    └─────┬─────┘                  └─────┬─────┘
+          │                              │
+          │                              ▼
+          │                        ┌─────────────┐
+          │                        │AGENT-WORKSP │
+          │                        │  (edits)    │
+          └───────────────────────▶│             │
+              push changes         └─────────────┘
+```
+
+You're saying: **"I made changes to ORIGIN externally, and I want to force my session to pull those changes and then become read-only."**
+
+A few directions this could go:
+
+**1. The "Rescue Sync" scenario**
+You were working, stepped away, someone else pushed to origin, now your session is out of sync. You want to abandon your session's state and match origin, then lock it so you don't accidentally overwrite.
+
+**2. The "Archive" scenario**  
+This session is done, but you want one last sync with upstream before freezing it forever.
+
+**3. The "Conflict Avoidance" scenario**
+You know there are upstream changes that will conflict with your session. You want to see them without risking accidental commits.
+
+Which resonates? Or is it something else entirely?
+
+Also curious: **Why read-only?** Is this about preventing accidental edits, or is it more about signaling "this session is finished"?
+
+The implementation could be as simple as a flag in `session.yaml`:
+```yaml
+status: readonly  # or locked, frozen, etc.
+```
+
+But the *why* shapes the *what* here. What's driving this need?
+[2025-04-08 23:33:10] User: you are wrong, i can have multiple session for the same project, but since a session have a stale project, i want to make it readonly.
+[2025-04-08 23:33:15] LLM: Ah, I see! I was conflating the session's `upstream/` with the project's state. Let me re-trace this...
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              MULTI-SESSION PROJECT ARCHITECTURE            │
+└─────────────────────────────────────────────────────────────┘
+
+External Repo
+     │
+     │ (clone at project creation)
+     ▼
+┌────────────┐         Session A (created Monday)     Session B (created Wednesday)
+│  PROJECT   │         ┌───────────────┐              ┌───────────────┐
+│  original/ │         │ upstream/     │              │ upstream/     │
+│  (latest)  │         │ (Monday's     │              │ (Wednesday's  │
+└────────────┘         │  state)       │              │  state)       │
+     ▲                 └───────────────┘              └───────────────┘
+     │                         │                              │
+     │                         ▼                              ▼
+     │                  agent-workspace/                 agent-workspace/
+     │                  (editing...)                     (editing...)
+     │
+     │ (external push happens Thursday)
+     ▼
+  STALE! ───────────────► Session A and B are now behind
+
+```
+
+So each session is essentially a **point-in-time snapshot** of the external repo. When the external repo moves forward, those sessions become stale. You want to:
+
+1. **Detect staleness** - Compare session's upstream commit with external HEAD
+2. **Mark as read-only** - Prevent edits on stale sessions
+3. **Visual indicator** - Show in UI that session is outdated
+
+**A few paths to explore:**
+
+**Option A: Lazy Detection**
+Check staleness when session is opened. If behind → mark readonly.
+
+**Option B: Proactive Polling**  
+Background job checks all sessions periodically.
+
+**Option C: Event-Driven**
+Webhook/trigger when external repo changes (if you have push access to configure hooks).
+
+**Option D: User-Initiated**
+"Check for updates" button that user clicks, system compares and locks stale sessions.
+
+Which feels right? Or is this triggered by something specific - like when the *project* itself pulls/fetches from external?
+
+Also: When a session goes readonly, what should happen to the agent-workspace? Is it:
+- Frozen (kept as-is for reference)?
+- Cleared (can't do anything anyway)?
+- Something else?
+[2025-04-08 23:33:20] User: Option E, eager, i want when i force the update search for all the session and make it readonly.
+agent-work just frozen
+[2025-04-08 23:33:25] LLM: Got it. **Option E: Eager invalidation on force update.**
+
+When you force-pull the project, all sessions immediately become readonly. Clean, deterministic, no surprises.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              EAGER SESSION INVALIDATION FLOW                 │
+└─────────────────────────────────────────────────────────────┘
+
+                         User Action
+                            │
+                            ▼
+                   ┌────────────────┐
+                   │  FORCE PULL    │
+                   │ "Replace project│
+│  with external" │
+                   └───────┬────────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+        ┌─────────┐   ┌─────────┐   ┌─────────┐
+        │Session A│   │Session B│   │Session C│
+        │ ACTIVE  │   │ ACTIVE  │   │ ACTIVE  │
+        └────┬────┘   └────┬────┘   └────┬────┘
+             │             │             │
+             └─────────────┼─────────────┘
+                           ▼
+                   ┌────────────────┐
+                   │  MARK ALL      │
+                   │  READONLY      │
+                   │  + Freeze WS   │
+                   └───────┬────────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+        ┌─────────┐   ┌─────────┐   ┌─────────┐
+        │   🔒    │   │   🔒    │   │   🔒    │
+        │ READONLY│   │ READONLY│   │ READONLY│
+        │ agent-ws│   │ agent-ws│   │ agent-ws│
+        │ FROZEN  │   │ FROZEN  │   │ FROZEN  │
+        └─────────┘   └─────────┘   └─────────┘
+```
+
+This creates a clear lifecycle:
+
+```
+SESSION STATES
+══════════════
+
+┌─────────┐    force pull     ┌─────────┐    resume?    ┌─────────┐
+│ ACTIVE  │ ─────────────────▶ │READONLY │ ───────────▶ │ ACTIVE  │
+│ (edit)  │   project update   │ (view)  │   new pull   │ (edit)  │
+└─────────┘                    └─────────┘              └─────────┘
+      │                              │
+      │ user closes                  │ user closes
+      ▼                              ▼
+┌─────────┐                    ┌─────────┐
+│ARCHIVED │                    │ARCHIVED │
+└─────────┘                    └─────────┘
+```
+
+**Key questions:**
+
+1. **Status naming**: `"readonly"` or `"stale"` or `"frozen"`? I lean toward `"stale"` because it explains *why*.
+
+2. **Freezing mechanism**: Should the file watcher just check status and refuse writes? Or also `chmod -R -w` on agent-workspace for extra safety?
+
+3. **UI indicator**: Just a badge on the session? Or a full banner explaining "This session is stale - external changes detected"?
+
+4. **What happens to running agents?** If Session A has an active agent process when force pull happens, should it be:
+   - Killed immediately?
+   - Allowed to finish current operation then shut down?
+   - Just forbidden from making new file changes?
+
+5. **Should force-pull be undoable?** Like a "restore previous state" option?
+
+This feels like a solid, clean feature. Want me to capture this as an OpenSpec change so you can start implementing? Or keep exploring edge cases?
+[2025-04-08 23:33:30] User: 1. frozen
+2. not need any change in agent-workspace
+3. good idea a badge
+4. not need any action
+5. not, not revert
+[2025-04-08 23:33:35] LLM: Got it. **"Freeze Project"** as a standalone action, not buried in edit form. Near Delete button.
+
+```
+PROJECT DETAIL PAGE HEADER
+═══════════════════════════════════════════════════════════
+
+┌──────────────────────────────────────────────────────────────────┐
+│  MyProject                                                      │
+│  A web-based editor for AI-assisted development                 │
+│                                                                  │
+│  Repo: git@github.com:user/myproject.git                         │
+│                                                                  │
+│  [Edit Project]  [🧊 Freeze Project]  [🗑️ Delete Project]       │
+└──────────────────────────────────────────────────────────────────┘
+                                         ▲
+                                         │
+                                    Right here
+
+When frozen:
+┌──────────────────────────────────────────────────────────────────┐
+│  MyProject                                              [FROZEN] │
+│  A web-based editor for AI-assisted development        🔒 badge  │
+│                                                                  │
+│  [Edit Project]  [🧊 Freeze Project]  [🗑️ Delete Project]       │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Session list after freeze:**
+
+```
+SESSIONS
+════════
+
+┌──────────────────────────────────────────────────────────────────┐
+│  Session Name    │  Created    │  Status  │  Actions            │
+├──────────────────────────────────────────────────────────────────┤
+│  feature-auth    │  2 days ago │ 🔒 FROZEN│ [View] [Archive]    │
+│  bugfix-123      │  1 week ago │ 🔒 FROZEN│ [View] [Archive]    │
+│  refactor-db     │  2 weeks ago│ 🔒 FROZEN│ [View] [Archive]    │
+├──────────────────────────────────────────────────────────────────┤
+│  [+ New Session]                                                │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**What "frozen" prevents:**
+- File edits in agent-workspace (enforced by session status check)
+- Commits (commit button disabled)
+- Maybe: Starting new agents? Or allow it for viewing?
+
+**What frozen allows:**
+- Viewing chat history
+- Browsing files (read-only)
+- Running agents continue (no interruption)
+
+**Session status enum becomes:**
+```typescript
+status: "active" | "paused" | "closed" | "frozen"
+```
+
+Actually, let me check: Is there already a way to list sessions on the project page? Or is that a separate view?
+[2025-04-08 23:33:40] User: what frozen prevents is to send any message to mimo-agent, that is all, i the only change i want in the sessions list is the status one
+[2025-04-08 23:33:45] LLM: Got it. Even simpler. **Minimal frozen state:**
+
+```
+FROZEN SESSION
+══════════════
+
+Before Freeze:
+┌─────────────────────────────────────────────────────────┐
+│ Session: feature-auth                                   │
+│ Status: active                                          │
+│                                                         │
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │ Chat History                                        │
+│ │ ...                                                 │
+│ └─────────────────────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │ [Type message here...              ] [Send]        │ │
+│ └─────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+
+After Freeze:
+┌─────────────────────────────────────────────────────────┐
+│ Session: feature-auth                                   │
+│ Status: frozen  ◄── just this in list                  │
+│                                                         │
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │ Chat History (viewable)                             │
+│ │ ...                                                 │
+│ └─────────────────────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │ 🔒 Session frozen - external changes detected       │ │
+│ └─────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+**What this means:**
+
+| Can Do | Cannot Do |
+|--------|-----------|
+| Browse files | Send chat messages |
+| View chat history | Spawn new agents |
+| See current agent-workspace | |
+| Commit existing changes?* | |
+
+*Question: Can a user commit changes that were made **before** the freeze? Or does freeze also prevent commits?
+
+If the session already has uncommitted changes when frozen:
+- **Option A**: Allow commit (these are "clean up" commits)
+- **Option B**: Block commit (session is truly frozen, create new session to continue)
+
+Which feels right?
+[2025-04-08 23:33:50] User: option B
+[2025-04-08 23:33:55] LLM: Perfect. **Minimal frozen state:**
+
+```
+FROZEN SESSION - MINIMAL IMPLEMENTATION
+═══════════════════════════════════════════
+
+Sessions List:
+┌──────────────────────────────────────┐
+│ Session Name    │ Status            │
+├──────────────────────────────────────┤
+│ feature-auth    │ frozen  ◄── only change
+│ bugfix-123      │ active            │
+└──────────────────────────────────────┘
+
+Behavior:
+┌──────────────────────────────────────┐
+│ BLOCKED:                             │
+│   • POST /sessions/:id/chat/message │
+│   • POST /sessions/:id/commit        │
+│                                      │
+│ ALLOWED:                             │
+│   • GET /sessions/:id/files/*        │
+│   • GET /sessions/:id/chat/history   │
+│   • Everything else                  │
+└──────────────────────────────────────┘
+```
+
+**Summary:**
+
+| Trigger | POST `/projects/:id/freeze` |
+|---------|----------------------------|
+| Effect | All project sessions → `status: "frozen"` |
+| UI change | Sessions list shows "frozen" |
+| Blocks | Chat messages, commits |
+| Allows | Everything else |
+
+This feels solid and minimal. Want me to capture this as an OpenSpec change so you can start implementing? I can create the proposal/design/specs/tasks artifacts.
+[2025-04-08 23:34:00] User: Fast-forward through artifact creation - generate everything needed to start implementation.
+
+**Input**: The argument after `/opsx:ff` is the change name (kebab-case), OR a description of what the user wants to build.
+
+**Steps**
+
+1. **If no input provided, ask what they want to build**
+
+   Use the **AskUserQuestion tool** (open-ended, no preset options) to ask:
+   > "What change do you want to work on? Describe what you want to build or fix."
+
+   From their description, derive a kebab-case name (e.g., "add user authentication" → `add-user-auth`).
+
+   **IMPORTANT**: Do NOT proceed without understanding what the user wants to build.
+
+2. **Create the change directory**
+   ```bash
+   openspec new change "<name>"
+   ```
+   This creates a scaffolded change at `openspec/changes/<name>/`.
+
+3. **Get the artifact build order**
+   ```bash
+   openspec status --change "<name>" --json
+   ```
+   Parse the JSON to get:
+   - `applyRequires`: array of artifact IDs needed before implementation (e.g., `["tasks"]`)
+   - `artifacts`: list of all artifacts with their status and dependencies
+
+4. **Create artifacts in sequence until apply-ready**
+
+   Use the **TodoWrite tool** to track progress through the artifacts.
+
+   Loop through artifacts in dependency order (artifacts with no pending dependencies first):
+
+   a. **For each artifact that is `ready` (dependencies satisfied)**:
+      - Get instructions:
+        ```bash
+        openspec instructions <artifact-id> --change "<name>" --json
+        ```
+      - The instructions JSON includes:
+        - `context`: Project background (constraints for you - do NOT include in output)
+        - `rules`: Artifact-specific rules (constraints for you - do NOT include in output)
+        - `template`: The structure to use for your output file
+        - `instruction`: Schema-specific guidance for this artifact type
+        - `outputPath`: Where to write the artifact
+        - `dependencies`: Completed artifacts to read for context
+      - Read any completed dependency files for context
+      - Create the artifact file using `template` as the structure
+      - Apply `context` and `rules` as constraints - but do NOT copy them into the file
+      - Show brief progress: "✓ Created <artifact-id>"
+
+   b. **Continue until all `applyRequires` artifacts are complete**
+      - After creating each artifact, re-run `openspec status --change "<name>" --json`
+      - Check if every artifact ID in `applyRequires` has `status: "done"` in the artifacts array
+      - Stop when all `applyRequires` artifacts are done
+
+   c. **If an artifact requires user input** (unclear context):
+      - Use **AskUserQuestion tool** to clarify
+      - Then continue with creation
+
+5. **Show final status**
+   ```bash
+   openspec status --change "<name>"
+   ```
+
+**Output**
+
+After completing all artifacts, summarize:
+- Change name and location
+- List of artifacts created with brief descriptions
+- What's ready: "All artifacts created! Ready for implementation."
+- Prompt: "Run `/opsx:apply` to start implementing."
+
+**Artifact Creation Guidelines**
+
+- Follow the `instruction` field from `openspec instructions` for each artifact type
+- The schema defines what each artifact should contain - follow it
+- Read dependency artifacts before creating new ones
+- Use the `template` as a starting point, filling in based on context
+
+**Guardrails**
+- Create ALL artifacts needed for implementation (as defined by schema's `apply.requires`)
+- Always read dependency artifacts before creating a new one
+- If context is critically unclear, ask the user - but prefer making reasonable decisions to keep momentum
+- If a change with that name already exists, suggest continuing that change instead
+- Verify each artifact file exists after writing before proceeding to next
+[2025-04-08 23:34:05] User: not yet, after frozen the session i can still send messages
+[2025-04-08 23:34:10] LLM: I see the issue! There's an HTTP fallback route for chat messages that also needs the frozen check. Let me add it:
+
+**The issue was:** Chat messages can be sent via two paths:
+1. **WebSocket** - Already had the frozen check ✓
+2. **HTTP fallback** - Missing the frozen check ❌
+
+**What I fixed:**
+- Added frozen status check to HTTP `POST /sessions/:id/chat` route in `sessions/routes.tsx`
+- Returns 403 with "Session is frozen. Cannot send messages." when session is frozen
+
+**Test coverage added:**
+- HTTP chat message blocking for frozen sessions (new test)
+
+Now both WebSocket and HTTP chat paths block messages when session is frozen. Try freezing a project and sending a message - it should be blocked.
+[2025-04-08 23:34:15] User: ok, but the user can write in the input box, can we avoid this?
+[2025-04-08 23:34:20] LLM: Yes! Let me disable the input box in the UI when the session is frozen.
+
+**What I changed to prevent typing in frozen sessions:**
+
+1. **Layout.tsx**: Pass `sessionStatus` to the window object via `window.MIMO_SESSION_STATUS`
+
+2. **SessionDetailPage.tsx**: Pass the session status to the Layout
+
+3. **chat.js**: When creating the editable bubble, check if session is frozen:
+   - Sets `contentEditable = 'false'`
+   - Disables the Send button
+   - Changes placeholder to "Session is frozen. Cannot send messages."
+   - Changes button text to "Session Frozen"
+   - Doesn't add keydown/paste event listeners
+   - Doesn't auto-focus
+
+Now when a user opens a frozen session, the chat input will be completely disabled - they can't type or send messages. The UI clearly shows it's frozen.
+[2025-04-08 23:34:25] User: Nice, commit and push

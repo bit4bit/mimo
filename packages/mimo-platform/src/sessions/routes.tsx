@@ -412,6 +412,11 @@ router.post("/:id/chat", async (c: Context) => {
     return c.text("Session not found", 404);
   }
 
+  // Check if session is frozen
+  if (session.status === "frozen") {
+    return c.text("Session is frozen. Cannot send messages.", 403);
+  }
+
   const body = await c.req.parseBody();
   const message = body.message as string;
 

@@ -96,7 +96,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   const fossilUrl = fossilPort ? `http://localhost:${fossilPort}` : undefined;
 
   return (
-    <Layout title={`${session.name} - ${project.name}`} showStatusLine={true} sessionId={session.id}>
+    <Layout title={`${session.name} - ${project.name}`} showStatusLine={true} sessionId={session.id} sessionStatus={session.status}>
       <div class="session-container">
         <div class="session-header-bar">
           <div>

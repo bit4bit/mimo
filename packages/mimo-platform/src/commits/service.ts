@@ -38,6 +38,16 @@ export class CommitService {
       };
     }
 
+    // Check if session is frozen
+    if (session.status === "frozen") {
+      return {
+        success: false,
+        message: "Session is frozen. Cannot commit changes.",
+        error: "Session is frozen",
+        step: null,
+      };
+    }
+
     const project = await projectRepository.findById(session.projectId);
     if (!project) {
       return {
