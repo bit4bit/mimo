@@ -195,6 +195,11 @@ export class SessionManager {
             }
           }
         } else if (existsSync(srcPath)) {
+          // Skip directories - only sync files
+          if (statSync(srcPath).isDirectory()) {
+            continue;
+          }
+
           // Ensure parent directory exists
           const destDir = dirname(destPath);
           if (!existsSync(destDir)) {
