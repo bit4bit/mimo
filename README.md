@@ -1,10 +1,23 @@
 # MIMO Platform
 
-A minimal, Emacs-style web-based editor for AI-assisted development.
+A minimal, Emacs-style web-based editor for AI-assisted development with structured change management.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Directory Structure](#directory-structure)
+- [Development](#development)
+- [License](#license)
+- [Contributing](#contributing)
 
 ## Overview
 
-MIMO (Minimal IDE for Modern Operations) is a platform that enables AI-assisted development through a web-based interface with an Emacs-style workflow. It provides session-based development with worktrees, file synchronization, and integrated chat with AI agents.
+MIMO (Minimal IDE for Modern Operations) is a platform that enables AI-assisted development through a web-based interface with an Emacs-style workflow. It provides session-based development with worktrees, file synchronization, integrated chat with AI agents, and structured OpenSpec change management.
 
 ## Features
 
@@ -17,8 +30,14 @@ MIMO (Minimal IDE for Modern Operations) is a platform that enables AI-assisted 
 - **VCS Integration**: Fossil as intermediary for both Git and Fossil repositories
 - **Agent Lifecycle**: Spawn and manage AI agents with JWT authentication
 - **Conflict Detection**: Smart conflict detection with baseline checksums
+- **Structured Change Management**: OpenSpec workflow for feature development
+- **Multiple Agent Providers**: Support for Claude, OpenAI, and custom ACP agents
+- **Impact Tracking**: Track agent contributions and changes through SCC integration
+- **Session Persistence**: Resume sessions with chat history and file state
 
 ## Architecture
+
+See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for full architecture documentation.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -63,11 +82,13 @@ MIMO (Minimal IDE for Modern Operations) is a platform that enables AI-assisted 
 git clone https://github.com/your-org/mimo.git
 cd mimo
 
-# Install dependencies
-cd packages/mimo-platform
-bun install
+# Install dependencies for both packages
+cd packages/mimo-platform && bun install
+cd ../mimo-agent && bun install
+cd ..
 
 # Start the server
+cd packages/mimo-platform
 bun run dev
 ```
 
@@ -118,9 +139,10 @@ Clicking on a project card will redirect you to login if not authenticated, or t
 ### Working with Agents
 
 1. In a session, click "Start Agent"
-2. The platform spawns an agent process
-3. Chat with the agent in the center buffer
-4. File changes appear in the right buffer automatically
+2. Select agent provider (Claude, OpenAI, or custom ACP agent)
+3. The platform spawns an agent process
+4. Chat with the agent in the center buffer
+5. File changes appear in the right buffer automatically
 
 ### Committing Changes
 
@@ -128,6 +150,14 @@ Clicking on a project card will redirect you to login if not authenticated, or t
 2. Click "Commit" button or press `C-x c`
 3. Enter commit message
 4. Changes are committed to Fossil and pushed to the original repository
+
+### Using OpenSpec Change Management
+
+1. Start a new change with `/opsx:new change-name`
+2. Create structured artifacts: proposal → design → specs → tasks
+3. Implement tasks with `/opsx:apply change-name`
+4. Verify implementation with `/opsx:verify change-name`
+5. Archive completed changes with `/opsx:archive change-name`
 
 ## Configuration
 
@@ -169,7 +199,8 @@ Edit via the web UI at `/config` or directly in the file.
 │               ├── chat.jsonl
 │               ├── repo.fossil       # Fossil proxy for agent sync
 │               ├── upstream/         # Original repository clone
-│               └── agent-workspace/  # Agent working directory (plain files)
+│               ├── agent-workspace/  # Agent working directory (plain files)
+│               └── impact-history/   # Tracked changes and contributions (SCC format)
 └── agents/
     └── {agent-id}/
         └── agent.yaml
@@ -184,6 +215,7 @@ Each session directory contains:
 - `repo.fossil` - Fossil proxy repository for agent synchronization
 - `upstream/` - Clone of the original repository (Git or Fossil)
 - `agent-workspace/` - Working directory where agent makes edits (plain files, not a repository)
+- `impact-history/` - Tracked changes and agent contributions (SCC format)
 
 **Note:** The `agent-workspace/` was previously called `checkout/` but was renamed to clarify its purpose as a working directory rather than a repository checkout.
 
@@ -204,15 +236,20 @@ The commit flow preserves VCS metadata (`.git/` or `.fossil`) during the copy op
 
 ## Development
 
+See [AGENTS.md](./AGENTS.md) for development philosophy and OpenSpec workflow.
+
 ```bash
 # Run tests
-bun test
+cd packages/mimo-platform && bun test
+cd ../mimo-agent && bun test
 
 # Run with hot reload
+cd packages/mimo-platform
 bun run dev
 
 # Build for production
-bun run build
+cd packages/mimo-platform && bun run build
+cd ../mimo-agent && bun run build
 ```
 
 ## License
@@ -221,4 +258,20 @@ MIT License - see LICENSE file for details.
 
 ## Contributing
 
-Contributions are welcome! Please read CONTRIBUTING.md for guidelines.
+Contributions are welcome! Follow the OpenSpec workflow for structured development:
+
+1. Use `/opsx:explore topic` to investigate requirements
+2. Create change artifacts with `/opsx:new change-name` or `/opsx:ff change-name`
+3. Implement tasks with `/opsx:apply change-name`
+4. Verify and archive changes when complete
+
+See [AGENTS.md](./AGENTS.md) for detailed development guidelines and commit conventions.
+
+## Additional Documentation
+
+- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System architecture and components
+- [CONFIGURATION.md](./docs/CONFIGURATION.md) - Configuration options and file structure
+- [KEYBINDINGS.md](./docs/KEYBINDINGS.md) - Emacs-style keybindings reference
+- [MIMO_AGENT.md](./docs/MIMO_AGENT.md) - Agent binary implementation details
+- [DEPLOYMENT.md](./docs/DEPLOYMENT.md) - Deployment considerations
+- [TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) - Common issues and solutions
