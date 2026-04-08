@@ -25,6 +25,7 @@ let currentMessageContent = null;
 let pendingUserMessages = new Set(); // Track messages waiting for server echo
 let editableBubble = null; // Reference to the current editable YOU bubble
 let _lastConnectionStatus = 'disconnected'; // Last known connection status
+let _reconstructedStreaming = false; // Flag to prevent editable bubble until usage_update
 
   // Initialize chat for a session
   function initChat(sessionId) {
@@ -162,6 +163,10 @@ let _lastConnectionStatus = 'disconnected'; // Last known connection status
         }
         break;
 
+      case 'streaming_state':
+        handleStreamingState(data);
+        break;
+
       case 'permission_request':
         showPermissionCard(data);
         break;
@@ -169,6 +174,22 @@ let _lastConnectionStatus = 'disconnected'; // Last known connection status
       case 'permission_resolved':
         removePermissionCard(data.requestId);
         break;
+    }
+  }
+
+  function handleStreamingState(data) {
+    const { thoughtContent, messageContent } = data;
+    
+    _reconstructedStreaming = true;
+    
+    if (thoughtContent) {
+      startThoughtSection();
+      appendThoughtChunk(thoughtContent);
+      endThoughtSection();
+    }
+    
+    if (messageContent) {
+      appendMessageChunk(messageContent);
     }
   }
 
@@ -669,6 +690,7 @@ let _lastConnectionStatus = 'disconnected'; // Last known connection status
     currentMessageContent = null;
     currentThoughtElement = null;
     currentThoughtContent = null;
+    _reconstructedStreaming = false;
 
     // Agent has finished responding — show the editable bubble
     createEditableBubble();
@@ -841,9 +863,10 @@ let _lastConnectionStatus = 'disconnected'; // Last known connection status
 
     scrollToBottom();
 
-    // Show editable bubble only if the last message is NOT from the user
-    // (if last is user, the agent hasn't responded yet — wait for usage_update)
-    if (lastRole !== 'user') {
+    // Show editable bubble only if:
+    // - last message is NOT from the user, AND
+    // - we haven't reconstructed streaming state (wait for usage_update)
+    if (lastRole !== 'user' && !_reconstructedStreaming) {
       createEditableBubble();
     }
   }

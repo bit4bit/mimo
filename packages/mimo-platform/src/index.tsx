@@ -211,6 +211,19 @@ const server = Bun.serve({
           messages: history,
         }));
         
+        // Send current streaming state if agent is actively responding
+        const thoughtContent = thoughtBuffers.get(sessionId);
+        const messageContent = streamingBuffers.get(sessionId);
+        
+        if (thoughtContent || messageContent) {
+          ws.send(JSON.stringify({
+            type: 'streaming_state',
+            thoughtContent: thoughtContent || '',
+            messageContent: messageContent || '',
+            timestamp: new Date().toISOString(),
+          }));
+        }
+        
         console.log(`Chat client connected to session ${sessionId}`);
       } else {
         // Agent connection
