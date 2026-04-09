@@ -102,7 +102,10 @@ export class AcpClient {
         });
         console.log(`[mimo-agent] Session loaded successfully: ${sessionResponse.sessionId}`);
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
+        // ACP errors are plain objects { code, message, data }, not Error instances
+        const errorMsg = error instanceof Error
+          ? error.message
+          : (error as any)?.message ?? String(error);
         console.log(`[mimo-agent] Failed to load session, creating new session:`, error);
         wasReset = true;
         resetReason = `loadSession failed: ${errorMsg}`;
