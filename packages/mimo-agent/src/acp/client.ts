@@ -209,6 +209,16 @@ export class AcpClient {
     });
   }
 
+  async cancel(): Promise<void> {
+    if (!this.session) {
+      throw new Error("Session not initialized");
+    }
+
+    await this.session.connection.cancel({
+      sessionId: this.session.acpSessionId,
+    });
+  }
+
   async setModel(modelId: string): Promise<void> {
     if (!this.session) {
       throw new Error("Session not initialized");

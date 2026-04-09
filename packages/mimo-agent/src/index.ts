@@ -606,31 +606,31 @@ class MimoAgent {
     this.spawnAcpProcess(session);
   }
 
-  private handleCancelRequest(message: any): void {
+  private async handleCancelRequest(message: any): Promise<void> {
     const sessionId = message.sessionId;
     if (!sessionId) {
       console.log("[mimo-agent] No sessionId in cancel_request");
       return;
     }
 
-    const session = this.sessionManager.getSession(sessionId);
-    if (!session) {
-      console.log(`[mimo-agent] Unknown session ${sessionId}`);
+    const acpClient = this.acpClients.get(sessionId);
+    if (!acpClient) {
+      console.log(`[mimo-agent] No ACP client for session ${sessionId}`);
       return;
     }
 
-    if (session.acpProcess) {
-      console.log(`[mimo-agent] Cancelling ACP for ${sessionId}`);
-      session.acpProcess.kill("SIGTERM");
-      this.sessionManager.setSessionAcpProcess(sessionId, null);
-      this.acpClients.delete(sessionId);
-
-      this.send({
-        type: "acp_cancelled",
-        sessionId,
-        timestamp: new Date().toISOString(),
-      });
+    console.log(`[mimo-agent] Cancelling prompt for ${sessionId}`);
+    try {
+      await acpClient.cancel();
+    } catch (err: any) {
+      console.warn(`[mimo-agent] Cancel notification error for ${sessionId}:`, err.message);
     }
+
+    this.send({
+      type: "acp_cancelled",
+      sessionId,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   private handleFileSyncRequest(message: any): void {
