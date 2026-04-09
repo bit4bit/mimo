@@ -199,34 +199,18 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
       appendMessageChunk(messageContent);
     }
     
-    // If reconstructed streaming state but no activity for 5 seconds, force input restoration
+    // If reconstructed streaming state but no activity for 10 seconds and no active
+    // streaming element, assume agent finished without usage_update and restore input.
     setTimeout(() => {
-      if (_reconstructedStreaming && !editableBubble) {
+      if (_reconstructedStreaming && !editableBubble && !currentMessageElement) {
         const timeSinceActivity = Date.now() - lastStreamingActivity;
-        if (timeSinceActivity >= 5000) {
-          console.log('[CHAT] Force restoring input after reconstructed streaming');
-          endMessageStream();
+        if (timeSinceActivity >= 10000) {
+          console.log('[CHAT] Fallback: restoring input after stale reconstructed streaming');
+          _reconstructedStreaming = false;
           createEditableBubble();
-          
-          // Show ready indicator
-          const chatContainer = document.querySelector('#chat-messages');
-          if (chatContainer) {
-            const readyDiv = document.createElement('div');
-            readyDiv.className = 'message message-system info';
-            
-            const content = document.createElement('div');
-            content.className = 'message-content';
-            content.textContent = 'Ready to chat';
-            content.style.color = '#51cf66';
-            content.style.fontStyle = 'italic';
-            
-            readyDiv.appendChild(content);
-            chatContainer.appendChild(readyDiv);
-            scrollToBottom();
-          }
         }
       }
-    }, 5000);
+    }, 10000);
   }
 
   function showPermissionCard(data) {
@@ -1001,13 +985,11 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
       createEditableBubble();
     }
     
-    // Always ensure input is available after 2 seconds, regardless of streaming state
-    // This prevents being stuck if server incorrectly thinks agent is streaming
+    // Fallback: if after 2s there is still no input bubble AND no active/reconstructed
+    // streaming, create the bubble. Avoids clearing currentMessageElement mid-stream.
     setTimeout(() => {
-      if (!editableBubble) {
-        console.log('[CHAT] Force creating editable bubble after history load');
-        _reconstructedStreaming = false;
-        endMessageStream();
+      if (!editableBubble && !currentMessageElement && !_reconstructedStreaming) {
+        console.log('[CHAT] Fallback: creating editable bubble after history load');
         createEditableBubble();
       }
     }, 2000);
