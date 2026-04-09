@@ -176,9 +176,12 @@ export class SessionManager {
 
     for (const change of changes) {
       try {
-        // Skip .git and .fossil directories
+        // Skip VCS metadata (directories and files)
         if (change.path.includes(".git/") || change.path.includes(".fossil/") ||
-            change.path.startsWith(".git") || change.path.startsWith(".fossil")) {
+            change.path.startsWith(".git") || change.path.startsWith(".fossil") ||
+            change.path === ".fslckout" || change.path === "_FOSSIL_" ||
+            change.path.endsWith("/.fslckout") || change.path.endsWith("/_FOSSIL_") ||
+            change.path === ".fslckout-journal") {
           continue;
         }
 

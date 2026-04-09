@@ -771,8 +771,22 @@ export class VCS {
     const { join, relative } = await import("path");
 
     const { existsSync: fsExistsSync } = await import("fs");
-    
+
+    // VCS metadata files that must never be committed to any upstream repo (git or fossil).
+    // Remove them from the upstream dir before any staging command sees them.
+    const VCS_METADATA = [".fslckout", "_FOSSIL_", ".fslckout-journal"];
+
     try {
+      // Pre-step: Remove any stray VCS metadata files from upstream unconditionally.
+      // They may have arrived via syncToMirror, a previous buggy copy, or any other path.
+      for (const name of VCS_METADATA) {
+        const target = join(upstreamPath, name);
+        if (fsExistsSync(target)) {
+          unlinkSync(target);
+          console.log(`[vcs] Removed stray ${name} from upstream`);
+        }
+      }
+
       // Step 1: Get list of files that SHOULD exist according to fossil
       // These are the files tracked in the current checkout
       const fossilTrackedFiles: Set<string> = new Set();
@@ -889,6 +903,9 @@ export class VCS {
   ): Promise<VCSResult> {
     const message = `Mimo commit at ${new Date().toISOString()}`;
 
+    // VCS metadata files that must never be committed, regardless of repo type.
+    const VCS_METADATA = [".fslckout", "_FOSSIL_", ".fslckout-journal"];
+
     if (repoType === "git") {
       // Git: add all and commit
       const addResult = await this.execCommand(["git", "add", "-A"], upstreamPath);
@@ -898,6 +915,11 @@ export class VCS {
           output: addResult.output,
           error: addResult.error || "Failed to stage changes",
         };
+      }
+
+      // Unstage any VCS metadata files that git add -A may have picked up.
+      for (const name of VCS_METADATA) {
+        await this.execCommand(["git", "rm", "--cached", "--ignore-unmatch", name], upstreamPath);
       }
 
       const commitResult = await this.execCommand(
@@ -920,7 +942,17 @@ export class VCS {
         error: commitResult.error || undefined,
       };
     } else {
-      // Fossil: addremove and commit
+      // Fossil: remove metadata files before addremove so fossil never tracks them.
+      const { existsSync: fsExistsSync, unlinkSync } = await import("fs");
+      const { join } = await import("path");
+      for (const name of VCS_METADATA) {
+        const target = join(upstreamPath, name);
+        if (fsExistsSync(target)) {
+          unlinkSync(target);
+          console.log(`[vcs] Removed stray ${name} from fossil upstream`);
+        }
+      }
+
       const addResult = await this.execCommand(["fossil", "addremove"], upstreamPath);
       if (!addResult.success) {
         return {
