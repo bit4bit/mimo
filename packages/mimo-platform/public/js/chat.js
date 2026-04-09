@@ -518,11 +518,12 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
     cancelBtn.className = 'cancel-streaming-btn';
     cancelBtn.textContent = 'Cancel';
     cancelBtn.style.marginLeft = 'auto';
-    cancelBtn.style.fontSize = '0.8em';
-    cancelBtn.style.padding = '2px 8px';
-    cancelBtn.style.background = '#ff6b6b';
-    cancelBtn.style.color = '#fff';
-    cancelBtn.style.border = 'none';
+    cancelBtn.style.fontFamily = 'monospace';
+    cancelBtn.style.fontSize = '11px';
+    cancelBtn.style.padding = '1px 8px';
+    cancelBtn.style.background = 'none';
+    cancelBtn.style.color = '#aaa';
+    cancelBtn.style.border = '1px solid #777';
     cancelBtn.style.borderRadius = '3px';
     cancelBtn.style.cursor = 'pointer';
     cancelBtn.addEventListener('click', handleCancelStreaming);
