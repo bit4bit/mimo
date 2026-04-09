@@ -102,9 +102,10 @@ export class AcpClient {
         });
         console.log(`[mimo-agent] Session loaded successfully: ${sessionResponse.sessionId}`);
       } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
         console.log(`[mimo-agent] Failed to load session, creating new session:`, error);
         wasReset = true;
-        resetReason = "loadSession failed";
+        resetReason = `loadSession failed: ${errorMsg}`;
         sessionResponse = await connection.newSession({
           cwd,
           mcpServers: [],
