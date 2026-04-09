@@ -399,7 +399,10 @@ async function handleAgentMessage(ws, data) {
           console.log("No sessionId in thought_start");
           return;
         }
-        
+
+        // Track agent activity so isAgentAlive() stays true between chunk phases
+        chatService.updateAgentActivity(startSessionId);
+
         // Start new thought buffer
         thoughtBuffers.set(startSessionId, "");
         

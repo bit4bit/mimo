@@ -92,18 +92,20 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
         break;
 
       case 'thought_start':
+        startStreamingTimeout(); // reset 60s timer — agent is actively thinking
         startThoughtSection();
         break;
-        
+
       case 'thought_chunk':
         appendThoughtChunk(data.content);
         break;
-        
+
       case 'thought_end':
         endThoughtSection();
         break;
-        
+
       case 'message_chunk':
+        startStreamingTimeout(); // reset 60s timer — agent is actively writing
         appendMessageChunk(data.content);
         break;
         

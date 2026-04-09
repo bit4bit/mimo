@@ -12,7 +12,7 @@ export interface ChatMessage {
 export class ChatService {
   // Track last activity per session for agent health monitoring
   private lastAgentActivity: Map<string, number> = new Map();
-  private readonly AGENT_TIMEOUT_MS = 30000; // 30 seconds
+  private readonly AGENT_TIMEOUT_MS = 300000; // 5 minutes
 
   private getChatPath(sessionId: string): string {
     // Store chat in the session directory
