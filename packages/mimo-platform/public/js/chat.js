@@ -502,6 +502,12 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
     // Don't create if one already exists
     if (currentMessageElement) return;
 
+    // Remove any premature input bubble — agent is now responding
+    if (editableBubble) {
+      editableBubble.remove();
+      editableBubble = null;
+    }
+
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message message-assistant streaming';
 
@@ -608,6 +614,12 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
         header.innerHTML = '<span class="thought-toggle" style="animation: blink 1s infinite; display: inline-block;">●</span> Thinking...';
       }
       return;
+    }
+
+    // Remove any premature input bubble — agent has resumed streaming
+    if (editableBubble) {
+      editableBubble.remove();
+      editableBubble = null;
     }
 
     // Wait for message element to exist
@@ -719,6 +731,12 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
   function appendMessageChunk(text) {
     if (!currentMessageElement) {
       // No thought_start or prompt_received preceded this chunk — create the message element now
+      // Remove any premature input bubble first
+      if (editableBubble) {
+        editableBubble.remove();
+        editableBubble = null;
+      }
+
       const chatContainer = document.querySelector('#chat-messages');
       if (!chatContainer) return;
 
