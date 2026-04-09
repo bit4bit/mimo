@@ -599,6 +599,15 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
     const chatContainer = document.querySelector('#chat-messages');
     if (!chatContainer) return;
 
+    // Reuse existing thought section if already created for this turn
+    if (currentThoughtElement && currentThoughtContent) {
+      const header = currentThoughtElement.querySelector('.message-header');
+      if (header) {
+        header.innerHTML = '<span class="thought-toggle" style="animation: blink 1s infinite; display: inline-block;">●</span> Thinking...';
+      }
+      return;
+    }
+
     // Wait for message element to exist
     if (!currentMessageElement) {
       // Message hasn't started yet, create it first
@@ -700,8 +709,8 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
         header.innerHTML = '<span class="thought-toggle">▶</span> Thought Process';
       }
     }
-    currentThoughtElement = null;
-    currentThoughtContent = null;
+    // Keep references alive — subsequent thought_start events in the same turn
+    // will reuse this element. Cleanup happens in endMessageStream / cancel / error.
   }
 
   // Append a chunk to the assistant message
