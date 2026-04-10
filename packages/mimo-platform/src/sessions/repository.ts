@@ -68,6 +68,10 @@ export class SessionRepository {
     return join(this.getSessionPath(projectId, sessionId), "agent-workspace");
   }
 
+  private getPatchesPath(projectId: string, sessionId: string): string {
+    return join(this.getSessionPath(projectId, sessionId), "patches");
+  }
+
   private generateId(): string {
     return crypto.randomUUID();
   }
@@ -91,6 +95,12 @@ export class SessionRepository {
     // Create agent-workspace directory
     if (!existsSync(agentWorkspacePath)) {
       mkdirSync(agentWorkspacePath, { recursive: true });
+    }
+
+    // Create patches directory for historical patch storage
+    const patchesPath = this.getPatchesPath(input.projectId, id);
+    if (!existsSync(patchesPath)) {
+      mkdirSync(patchesPath, { recursive: true });
     }
 
     const now = new Date().toISOString();

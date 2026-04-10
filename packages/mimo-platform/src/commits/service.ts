@@ -107,17 +107,22 @@ export class CommitService {
       }
     }
 
-    // Step 2: Copy files from agent-workspace to upstream
-    console.log(`[commit] Step 2: Copying files to upstream...`);
-    const copyResult = await vcs.cleanCopyToUpstream(
+    // Step 2: Generate patch, store, and apply to upstream
+    console.log(`[commit] Step 2: Generating and applying patch...`);
+    const { dirname } = await import("path");
+    const sessionDir = dirname(session.agentWorkspacePath);
+    const patchDir = join(sessionDir, "patches");
+    const patchResult = await vcs.generateAndApplyPatch(
       session.agentWorkspacePath,
-      session.upstreamPath
+      session.upstreamPath,
+      patchDir,
+      repoType
     );
-    if (!copyResult.success) {
+    if (!patchResult.success) {
       return {
         success: false,
-        message: "Failed to copy files",
-        error: copyResult.error || "Copy failed",
+        message: "Failed to apply patch",
+        error: patchResult.error || "Patch failed",
         step: "copy",
       };
     }

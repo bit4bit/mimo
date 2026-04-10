@@ -1,6 +1,6 @@
-import { writeFileSync, chmodSync, unlinkSync } from "fs";
+import { writeFileSync, chmodSync, unlinkSync, existsSync, mkdirSync, readFileSync } from "fs";
 import { tmpdir } from "os";
-import { join } from "path";
+import { join, dirname, basename } from "path";
 import type { Credential } from "../credentials/repository";
 
 export interface VCSResult {
@@ -763,140 +763,6 @@ export class VCS {
     };
   }
 
-  async cleanCopyToUpstream(
-    agentWorkspacePath: string,
-    upstreamPath: string
-  ): Promise<VCSResult> {
-    const { readdirSync, statSync, copyFileSync, mkdirSync, unlinkSync, rmdirSync } = await import("fs");
-    const { join, relative } = await import("path");
-
-    const { existsSync: fsExistsSync } = await import("fs");
-
-    // VCS metadata files that must never be committed to any upstream repo (git or fossil).
-    // Remove them from the upstream dir before any staging command sees them.
-    const VCS_METADATA = [".fslckout", "_FOSSIL_", ".fslckout-journal"];
-
-    try {
-      // Pre-step: Remove any stray VCS metadata files from upstream unconditionally.
-      // They may have arrived via syncToMirror, a previous buggy copy, or any other path.
-      for (const name of VCS_METADATA) {
-        const target = join(upstreamPath, name);
-        if (fsExistsSync(target)) {
-          unlinkSync(target);
-          console.log(`[vcs] Removed stray ${name} from upstream`);
-        }
-      }
-
-      // Step 1: Get list of files that SHOULD exist according to fossil
-      // These are the files tracked in the current checkout
-      const fossilTrackedFiles: Set<string> = new Set();
-      const fossilLsResult = await this.execCommand(["fossil", "ls"], agentWorkspacePath);
-      if (fossilLsResult.success && fossilLsResult.output) {
-        const lines = fossilLsResult.output.split("\n").filter(line => line.trim());
-        for (const line of lines) {
-          fossilTrackedFiles.add(line.trim());
-        }
-      }
-
-      // Step 2: Get list of tracked files in upstream (source of truth for deletions)
-      const upstreamTrackedFiles: string[] = [];
-      if (fsExistsSync(upstreamPath)) {
-        const gitLsResult = await this.execCommand(["git", "ls-files"], upstreamPath);
-        if (gitLsResult.success && gitLsResult.output) {
-          const lines = gitLsResult.output.split("\n").filter(line => line.trim());
-          upstreamTrackedFiles.push(...lines);
-        }
-      }
-
-      // Step 3: Copy all files from agent-workspace to upstream
-      // Exclude VCS metadata directories
-      // Files on disk but NOT in fossil ls are either:
-      // - Untracked files (should be copied)
-      // - Deleted tracked files (should NOT be copied)
-      const excludeItems = new Set([".git", ".fossil", ".fslckout"]);
-      
-      const copyRecursive = (source: string, dest: string, basePath: string = source) => {
-        if (!fsExistsSync(source)) return;
-
-        const entries = readdirSync(source, { withFileTypes: true });
-        for (const entry of entries) {
-          // Skip VCS metadata directories
-          if (excludeItems.has(entry.name)) continue;
-
-          const sourcePath = join(source, entry.name);
-          const destPath = join(dest, entry.name);
-          const relativePath = relative(basePath, sourcePath);
-
-          if (entry.isDirectory()) {
-            if (!fsExistsSync(destPath)) {
-              mkdirSync(destPath, { recursive: true });
-            }
-            copyRecursive(sourcePath, destPath, basePath);
-          } else {
-            // Only copy if file should exist according to fossil,
-            // OR if it's not tracked at all (new untracked file)
-            const shouldCopy = fossilTrackedFiles.has(relativePath) || !upstreamTrackedFiles.includes(relativePath);
-            if (shouldCopy) {
-              copyFileSync(sourcePath, destPath);
-            }
-          }
-        }
-      };
-
-      if (fsExistsSync(agentWorkspacePath)) {
-        copyRecursive(agentWorkspacePath, upstreamPath, agentWorkspacePath);
-      }
-
-      // Step 4: Delete from upstream files that are:
-      // - Tracked in upstream (from git ls-files)
-      // - Either not on agent disk OR not tracked by fossil (meaning deleted)
-      for (const trackedFile of upstreamTrackedFiles) {
-        const agentFilePath = join(agentWorkspacePath, trackedFile);
-        const upstreamFilePath = join(upstreamPath, trackedFile);
-        
-        // Delete if tracked in upstream but either:
-        // 1. Not present on agent disk, OR
-        // 2. Present on disk but NOT tracked by fossil (was deleted via fossil rm)
-        const existsOnDisk = fsExistsSync(agentFilePath);
-        const trackedByFossil = fossilTrackedFiles.has(trackedFile);
-        const shouldDelete = !existsOnDisk || !trackedByFossil;
-        
-        if (shouldDelete && fsExistsSync(upstreamFilePath)) {
-          unlinkSync(upstreamFilePath);
-          
-          // Clean up empty parent directories
-          let parentDir = join(upstreamPath, trackedFile);
-          while (true) {
-            parentDir = join(parentDir, "..");
-            const resolvedParent = join(parentDir); // Normalize
-            if (resolvedParent === upstreamPath) break;
-            
-            try {
-              const entries = readdirSync(resolvedParent);
-              if (entries.length === 0) {
-                rmdirSync(resolvedParent);
-              } else {
-                break;
-              }
-            } catch {
-              break;
-            }
-          }
-        }
-      }
-
-      return {
-        success: true,
-        output: "Files copied successfully",
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Failed to copy files: ${error}`,
-      };
-    }
-  }
-
   async commitUpstream(
     upstreamPath: string,
     repoType: "git" | "fossil"
@@ -1045,6 +911,283 @@ export class VCS {
         error: result.error || undefined,
       };
     }
+  }
+  // ── Patch-based sync methods ──────────────────────────────────────
+
+  /**
+   * Align workspace disk state with fossil tracking state.
+   * Handles `fossil rm` without physical deletion by deleting files
+   * that fossil considers DELETED but still exist on disk.
+   */
+  async alignWorkspaceWithFossil(workspacePath: string): Promise<VCSResult> {
+    const result = await this.execCommand(["fossil", "changes"], workspacePath);
+    if (!result.success) {
+      // Not a fossil checkout or other error — skip silently
+      return { success: true, output: "Not a fossil checkout, skipping alignment" };
+    }
+
+    const deletedFiles: string[] = [];
+    if (result.output) {
+      for (const line of result.output.split("\n")) {
+        const trimmed = line.trim();
+        // fossil changes shows "DELETED  path/to/file"
+        if (trimmed.startsWith("DELETED")) {
+          const filePath = trimmed.replace(/^DELETED\s+/, "");
+          if (filePath) {
+            deletedFiles.push(filePath);
+          }
+        }
+      }
+    }
+
+    for (const file of deletedFiles) {
+      const fullPath = join(workspacePath, file);
+      if (existsSync(fullPath)) {
+        unlinkSync(fullPath);
+        console.log(`[vcs] Aligned fossil DELETED file: ${file}`);
+      }
+    }
+
+    return {
+      success: true,
+      output: deletedFiles.length > 0
+        ? `Aligned ${deletedFiles.length} fossil-deleted file(s)`
+        : "No alignment needed",
+    };
+  }
+
+  /**
+   * Generate a unified patch comparing upstream and agent-workspace directories.
+   * Uses `git diff --binary --no-index` from the session parent directory.
+   * Returns normalized, filtered patch content.
+   */
+  async generatePatch(
+    agentWorkspacePath: string,
+    upstreamPath: string
+  ): Promise<VCSResult & { patch?: string }> {
+    const sessionDir = dirname(agentWorkspacePath);
+    const upstreamDirName = basename(upstreamPath);
+    const agentDirName = basename(agentWorkspacePath);
+
+    // Run git diff --no-index from the session parent directory
+    // Exit codes: 0 = no diff, 1 = has diff (normal), >1 = error
+    const proc = Bun.spawn(
+      ["git", "diff", "--binary", "--no-index", "--no-color", "--", upstreamDirName, agentDirName],
+      {
+        cwd: sessionDir,
+        stdout: "pipe",
+        stderr: "pipe",
+      }
+    );
+
+    const exitCode = await proc.exited;
+    const stdout = await new Response(proc.stdout).text();
+    const stderr = await new Response(proc.stderr).text();
+
+    if (exitCode > 1) {
+      return {
+        success: false,
+        error: `git diff failed: ${stderr}`,
+      };
+    }
+
+    // Exit code 0 = no differences
+    if (exitCode === 0 || !stdout.trim()) {
+      return {
+        success: true,
+        output: "No changes",
+        patch: "",
+      };
+    }
+
+    // Normalize paths and filter VCS metadata
+    let patch = this.normalizePatchPaths(stdout, upstreamDirName, agentDirName);
+    patch = this.filterVcsMetadata(patch);
+
+    if (!patch.trim()) {
+      return {
+        success: true,
+        output: "No changes",
+        patch: "",
+      };
+    }
+
+    return {
+      success: true,
+      output: `Patch generated (${patch.split("\n").length} lines)`,
+      patch,
+    };
+  }
+
+  /**
+   * Normalize paths in a patch from `a/upstream/X` and `b/agent-workspace/X`
+   * to `a/X` and `b/X` so that `git apply` and `patch -p1` work in the upstream directory.
+   *
+   * For deleted files, git uses `a/upstream/X b/upstream/X` (both sides use first dir).
+   * For new files, git uses `a/agent-workspace/X b/agent-workspace/X` (both sides use second dir).
+   * So we must strip BOTH dir names from BOTH a/ and b/ positions.
+   */
+  private normalizePatchPaths(patch: string, upstreamDirName: string, agentDirName: string): string {
+    return patch
+      // diff --git header: strip either dir name from both a/ and b/ positions
+      .replace(new RegExp(`^(diff --git a/)${upstreamDirName}/`, "gm"), "$1")
+      .replace(new RegExp(`^(diff --git a/)${agentDirName}/`, "gm"), "$1")
+      .replace(new RegExp(` b/${upstreamDirName}/`, "g"), " b/")
+      .replace(new RegExp(` b/${agentDirName}/`, "g"), " b/")
+      // --- and +++ lines
+      .replace(new RegExp(`^--- a/${upstreamDirName}/`, "gm"), "--- a/")
+      .replace(new RegExp(`^--- a/${agentDirName}/`, "gm"), "--- a/")
+      .replace(new RegExp(`^\\+\\+\\+ b/${upstreamDirName}/`, "gm"), "+++ b/")
+      .replace(new RegExp(`^\\+\\+\\+ b/${agentDirName}/`, "gm"), "+++ b/")
+      // rename/copy headers
+      .replace(new RegExp(`^rename from ${upstreamDirName}/`, "gm"), "rename from ")
+      .replace(new RegExp(`^rename from ${agentDirName}/`, "gm"), "rename from ")
+      .replace(new RegExp(`^rename to ${upstreamDirName}/`, "gm"), "rename to ")
+      .replace(new RegExp(`^rename to ${agentDirName}/`, "gm"), "rename to ")
+      .replace(new RegExp(`^copy from ${upstreamDirName}/`, "gm"), "copy from ")
+      .replace(new RegExp(`^copy from ${agentDirName}/`, "gm"), "copy from ")
+      .replace(new RegExp(`^copy to ${upstreamDirName}/`, "gm"), "copy to ")
+      .replace(new RegExp(`^copy to ${agentDirName}/`, "gm"), "copy to ");
+  }
+
+  /**
+   * Remove diff hunks for VCS metadata files from a patch.
+   */
+  private filterVcsMetadata(patch: string): string {
+    // Files/dirs to exclude from patches.
+    // ".git/" is matched as a prefix to filter all files under .git/
+    const VCS_EXACT = [".fslckout", "_FOSSIL_", ".fslckout-journal"];
+    const VCS_PREFIXES = [".git/", ".fossil/"];
+
+    const lines = patch.split("\n");
+    const result: string[] = [];
+    let skipCurrentFile = false;
+
+    for (const line of lines) {
+      if (line.startsWith("diff --git")) {
+        skipCurrentFile =
+          VCS_EXACT.some((meta) => line.includes(`a/${meta}`) || line.includes(`b/${meta}`)) ||
+          VCS_PREFIXES.some((prefix) => line.includes(`a/${prefix}`) || line.includes(`b/${prefix}`));
+      }
+
+      if (!skipCurrentFile) {
+        result.push(line);
+      }
+    }
+
+    return result.join("\n");
+  }
+
+  /**
+   * Store a patch file in the session's patches directory.
+   * Returns the path to the stored patch file.
+   */
+  async storePatch(patchDir: string, patchContent: string): Promise<string> {
+    if (!existsSync(patchDir)) {
+      mkdirSync(patchDir, { recursive: true });
+    }
+
+    const timestamp = new Date().toISOString().replace(/:/g, "-");
+    const patchFile = join(patchDir, `${timestamp}.patch`);
+    writeFileSync(patchFile, patchContent, "utf-8");
+    return patchFile;
+  }
+
+  /**
+   * Apply a patch to the upstream directory.
+   * Uses `git apply --binary` for git repos, `patch -p1` for fossil repos.
+   */
+  async applyPatch(
+    patchFilePath: string,
+    upstreamPath: string,
+    repoType: "git" | "fossil"
+  ): Promise<VCSResult> {
+    if (repoType === "git") {
+      const result = await this.execCommand(
+        ["git", "apply", "--binary", patchFilePath],
+        upstreamPath
+      );
+      return {
+        success: result.success,
+        output: result.output,
+        error: result.error || undefined,
+      };
+    } else {
+      // For fossil upstream, use POSIX patch command
+      const patchContent = readFileSync(patchFilePath, "utf-8");
+      const proc = Bun.spawn(["patch", "-p1", "--no-backup-if-mismatch"], {
+        cwd: upstreamPath,
+        stdin: new Blob([patchContent]),
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+
+      const exitCode = await proc.exited;
+      const stdout = await new Response(proc.stdout).text();
+      const stderr = await new Response(proc.stderr).text();
+
+      return {
+        success: exitCode === 0,
+        output: stdout.trim(),
+        error: exitCode !== 0 ? (stderr.trim() || "patch -p1 failed") : undefined,
+      };
+    }
+  }
+
+  /**
+   * Full patch workflow: align → generate → store → apply.
+   * Replaces cleanCopyToUpstream.
+   */
+  async generateAndApplyPatch(
+    agentWorkspacePath: string,
+    upstreamPath: string,
+    patchDir: string,
+    repoType: "git" | "fossil"
+  ): Promise<VCSResult & { patchPath?: string }> {
+    // Step 1: Align agent-workspace disk state with fossil
+    const alignResult = await this.alignWorkspaceWithFossil(agentWorkspacePath);
+    if (!alignResult.success) {
+      return { success: false, error: `Alignment failed: ${alignResult.error}` };
+    }
+
+    // Also align upstream if it's a fossil repo
+    if (repoType === "fossil") {
+      const upstreamAlignResult = await this.alignWorkspaceWithFossil(upstreamPath);
+      if (!upstreamAlignResult.success) {
+        return { success: false, error: `Upstream alignment failed: ${upstreamAlignResult.error}` };
+      }
+    }
+
+    // Step 2: Generate patch
+    const genResult = await this.generatePatch(agentWorkspacePath, upstreamPath);
+    if (!genResult.success) {
+      return { success: false, error: `Patch generation failed: ${genResult.error}` };
+    }
+
+    // No changes — nothing to do
+    if (!genResult.patch) {
+      return { success: true, output: "No changes" };
+    }
+
+    // Step 3: Store patch
+    const patchPath = await this.storePatch(patchDir, genResult.patch);
+    console.log(`[vcs] Patch stored: ${patchPath}`);
+
+    // Step 4: Apply patch
+    const applyResult = await this.applyPatch(patchPath, upstreamPath, repoType);
+    if (!applyResult.success) {
+      return {
+        success: false,
+        error: `Patch apply failed: ${applyResult.error}`,
+        patchPath,
+      };
+    }
+
+    return {
+      success: true,
+      output: `Patch applied successfully`,
+      patchPath,
+    };
   }
 }
 
