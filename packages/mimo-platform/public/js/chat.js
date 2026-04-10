@@ -616,6 +616,21 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
       header.className = 'message-header';
       header.textContent = 'Agent';
 
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'cancel-streaming-btn';
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.style.marginLeft = 'auto';
+      cancelBtn.style.fontFamily = 'monospace';
+      cancelBtn.style.fontSize = '11px';
+      cancelBtn.style.padding = '1px 8px';
+      cancelBtn.style.background = 'none';
+      cancelBtn.style.color = '#aaa';
+      cancelBtn.style.border = '1px solid #777';
+      cancelBtn.style.borderRadius = '3px';
+      cancelBtn.style.cursor = 'pointer';
+      cancelBtn.addEventListener('click', handleCancelStreaming);
+      header.appendChild(cancelBtn);
+
       const content = document.createElement('div');
       content.className = 'message-content';
 
@@ -730,6 +745,21 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
       const header = document.createElement('div');
       header.className = 'message-header';
       header.textContent = 'Agent';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'cancel-streaming-btn';
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.style.marginLeft = 'auto';
+      cancelBtn.style.fontFamily = 'monospace';
+      cancelBtn.style.fontSize = '11px';
+      cancelBtn.style.padding = '1px 8px';
+      cancelBtn.style.background = 'none';
+      cancelBtn.style.color = '#aaa';
+      cancelBtn.style.border = '1px solid #777';
+      cancelBtn.style.borderRadius = '3px';
+      cancelBtn.style.cursor = 'pointer';
+      cancelBtn.addEventListener('click', handleCancelStreaming);
+      header.appendChild(cancelBtn);
 
       const content = document.createElement('div');
       content.className = 'message-content';
