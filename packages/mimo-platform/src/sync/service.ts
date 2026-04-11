@@ -3,6 +3,7 @@ import { existsSync, copyFileSync, mkdirSync, statSync, readFileSync, readdirSyn
 import { getPaths } from "../config/paths.js";
 import { sessionRepository } from "../sessions/repository.js";
 import crypto from "crypto";
+import { sccService } from "../impact/scc-service.js";
 
 export type FileStatus = 
   | "clean"      // File hasn't changed
@@ -121,6 +122,11 @@ export class FileSyncService {
 
     // Sync changes to original repo
     await this.syncChangesToUpstream(sessionId, fileChanges);
+
+    // Invalidate SCC cache when there are real changes
+    if (fileChanges.length > 0 && syncState) {
+      sccService.invalidateCache(syncState.agentWorkspacePath);
+    }
 
     return fileChanges;
   }

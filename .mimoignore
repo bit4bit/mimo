@@ -1,0 +1,16 @@
+# MIMO Ignore File
+# Archivos y directorios que MIMO debe excluir de las estadísticas de código
+# Usa la misma sintaxis que .gitignore
+
+# Directorios de cache y logs de MIMO
+.mimo/cache/
+.mimo/logs/
+*.mimo.tmp
+
+# Archivos temporales del agente
+.agent-cache/
+.agent-temp/
+
+# Configuración local (opcional, si no quieres que se cuente)
+# .env
+# .env.local
