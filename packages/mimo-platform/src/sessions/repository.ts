@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmdirS
 import { getPaths } from "../config/paths.js";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
+import { normalizeSessionIdForFossil } from "../vcs/shared-fossil-server.js";
 
 export interface Session {
   id: string;
@@ -14,6 +15,7 @@ export interface Session {
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
   port: number | null;
+  fossilPath?: string;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   acpSessionId?: string;
@@ -33,6 +35,7 @@ export interface SessionData {
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
   port: number | null;
+  fossilPath?: string;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   acpSessionId?: string;
@@ -70,6 +73,35 @@ export class SessionRepository {
 
   private getPatchesPath(projectId: string, sessionId: string): string {
     return join(this.getSessionPath(projectId, sessionId), "patches");
+  }
+
+  /**
+   * Get the directory where all fossil repositories are stored centrally.
+   * This is ~/.mimo/session-fossils/ by default.
+   * Uses lazy initialization to handle cases where paths aren't set yet.
+   */
+  getFossilReposDir(): string {
+    if (process.env.FOSSIL_REPOS_DIR) {
+      return process.env.FOSSIL_REPOS_DIR;
+    }
+    try {
+      return join(getPaths().data, "session-fossils");
+    } catch {
+      // Fallback for tests or when paths aren't initialized
+      return join(process.env.MIMO_HOME || process.env.HOME || "~", ".mimo", "session-fossils");
+    }
+  }
+
+  /**
+   * Get the filesystem path for a session's fossil repository.
+   * The file is stored in the centralized fossil directory, not in the session directory.
+   *
+   * @param sessionId The session ID (e.g., "abc123-def456-ghi789")
+   * @returns The full path to the .fossil file (e.g., "~/.mimo/session-fossils/abc123_def456_ghi789.fossil")
+   */
+  getFossilPath(sessionId: string): string {
+    const normalizedId = normalizeSessionIdForFossil(sessionId);
+    return join(this.getFossilReposDir(), `${normalizedId}.fossil`);
   }
 
   private generateId(): string {
@@ -286,7 +318,13 @@ export class SessionRepository {
   async delete(projectId: string, sessionId: string): Promise<void> {
     const sessionPath = this.getSessionPath(projectId, sessionId);
     
-    // Delete entire session directory (includes upstream/, agent-workspace/, repo.fossil, session.yaml)
+    // Delete the centralized fossil repository file
+    const fossilPath = this.getFossilPath(sessionId);
+    if (existsSync(fossilPath)) {
+      unlinkSync(fossilPath);
+    }
+    
+    // Delete entire session directory (includes upstream/, agent-workspace/, session.yaml)
     if (existsSync(sessionPath)) {
       this.deleteDirectoryRecursive(sessionPath);
     }

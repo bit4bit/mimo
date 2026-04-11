@@ -51,7 +51,7 @@ export class CommitService {
     const repoType = project.repoType;
 
     // Step 0.5: Ensure agent-workspace has fossil checkout (for legacy sessions)
-    const fossilPath = `${session.upstreamPath}/../repo.fossil`;
+    const fossilPath = sessionRepository.getFossilPath(sessionId);
     const { existsSync } = await import("fs");
     const { join } = await import("path");
     const fslckoutPath = join(session.agentWorkspacePath, ".fslckout");

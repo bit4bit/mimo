@@ -17,7 +17,7 @@ import { SessionDetailPage } from "../components/SessionDetailPage.js";
 import { SessionCreatePage } from "../components/SessionCreatePage.js";
 import { SessionListPage } from "../components/SessionListPage.js";
 import { sessionStateService } from "./state.js";
-import { fossilServerManager } from "../vcs/fossil-server.js";
+import { sharedFossilServer } from "../vcs/shared-fossil-server.js";
 import type { Context } from "hono";
 
 const router = new Hono();
@@ -150,7 +150,7 @@ router.post("/", async (c: Context) => {
     }
 
     // Step 2: Import to fossil proxy (repo.fossil)
-    const fossilPath = `${session.upstreamPath}/../repo.fossil`;
+    const fossilPath = sessionRepository.getFossilPath(session.id);
     const importResult = await vcs.importToFossil(
       session.upstreamPath,
       project.repoType,
@@ -203,29 +203,28 @@ router.post("/", async (c: Context) => {
     if (assignedAgentId && agentService.isAgentOnline(assignedAgentId)) {
       const agentWs = agentService.getAgentConnection(assignedAgentId);
       if (agentWs && agentWs.readyState === 1) {
-        const serverResult = await fossilServerManager.startServer(session.id, fossilPath);
-        if ('port' in serverResult) {
-          await sessionRepository.update(session.id, { port: serverResult.port });
-          const sessionWithCreds = await sessionRepository.findById(session.id);
-          const platformUrl = process.env.PLATFORM_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
-          agentWs.send(JSON.stringify({
-            type: 'session_ready',
-            platformUrl,
-            sessions: [{
-              sessionId: session.id,
-              name: session.name,
-              upstreamPath: session.upstreamPath,
-              agentWorkspacePath: session.agentWorkspacePath,
-              port: serverResult.port,
-              agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
-              agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
-              acpSessionId: sessionWithCreds?.acpSessionId ?? null,
-              localDevMirrorPath: sessionWithCreds?.localDevMirrorPath ?? null,
-              agentSubpath: sessionWithCreds?.agentSubpath ?? null,
-            }],
-          }));
-          console.log(`[session] Notified running agent ${assignedAgentId} of new session ${session.id}`);
-        }
+        // Use shared fossil server - no need to start per-session server
+        const fossilUrl = sharedFossilServer.getUrl(session.id);
+        await sessionRepository.update(session.id, { fossilPath });
+        const sessionWithCreds = await sessionRepository.findById(session.id);
+        const platformUrl = process.env.PLATFORM_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+        agentWs.send(JSON.stringify({
+          type: 'session_ready',
+          platformUrl,
+          sessions: [{
+            sessionId: session.id,
+            name: session.name,
+            upstreamPath: session.upstreamPath,
+            agentWorkspacePath: session.agentWorkspacePath,
+            fossilUrl,
+            agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
+            agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
+            acpSessionId: sessionWithCreds?.acpSessionId ?? null,
+            localDevMirrorPath: sessionWithCreds?.localDevMirrorPath ?? null,
+            agentSubpath: sessionWithCreds?.agentSubpath ?? null,
+          }],
+        }));
+        console.log(`[session] Notified running agent ${assignedAgentId} of new session ${session.id}`);
       }
     }
   } catch (error) {
@@ -269,10 +268,9 @@ router.get("/:id", async (c: Context) => {
   const modelState = sessionStateService.getModelState(sessionId);
   const modeState = sessionStateService.getModeState(sessionId);
 
-  // Get fossil port for impact buffer links
-  // First check running server in memory, then fall back to saved session port
-  const runningServer = fossilServerManager.getRunningServer(sessionId);
-  const fossilPort = runningServer?.port ?? session.port ?? undefined;
+  // Always generate fossil URL - the shared server should be running
+  // If it's not running yet, the URL will still be valid but the server won't respond
+  const fossilUrl = sharedFossilServer.getUrl(sessionId);
 
   return c.html(
     <SessionDetailPage 
@@ -282,7 +280,7 @@ router.get("/:id", async (c: Context) => {
       agent={agent}
       modelState={modelState}
       modeState={modeState}
-      fossilPort={fossilPort}
+      fossilUrl={fossilUrl}
     />
   );
 });
@@ -323,8 +321,8 @@ router.post("/:id/delete", async (c: Context) => {
   // Delete session and cleanup all associated resources
   await sessionRepository.delete(session.projectId, sessionId);
 
-  // Stop fossil server if running
-  await fossilServerManager.stopServer(sessionId);
+  // Note: fossil file is deleted by SessionRepository.delete()
+  // No need to stop any server - shared server continues running
 
   // Clear in-memory session state
   sessionStateService.clearSessionState(sessionId);
@@ -467,7 +465,7 @@ router.get("/:id/impact", async (c: Context) => {
     const { vcs } = await import("../vcs/index.js");
 
     // Sync agent-workspace with repo.fossil before calculating impact
-    const fossilPath = `${session.upstreamPath}/../repo.fossil`;
+    const fossilPath = sessionRepository.getFossilPath(sessionId);
     const { existsSync } = await import("fs");
     const { join } = await import("path");
     const fslckoutPath = join(session.agentWorkspacePath, ".fslckout");
@@ -566,20 +564,14 @@ router.get("/:id/fossil-status", async (c: Context) => {
     return c.json({ error: "Session not found" }, 404);
   }
 
-  // Check running server first, then fall back to saved session port
-  const runningServer = fossilServerManager.getRunningServer(sessionId);
-  const fossilPort = runningServer?.port ?? session.port ?? null;
-
-  if (fossilPort) {
-    return c.json({
-      running: true,
-      fossilUrl: `http://localhost:${fossilPort}`,
-    });
-  }
+  // Check shared fossil server status
+  const isServerRunning = sharedFossilServer.isRunning();
+  // Always generate the URL - the shared server should eventually be running
+  const fossilUrl = sharedFossilServer.getUrl(sessionId);
 
   return c.json({
-    running: false,
-    fossilUrl: null,
+    running: isServerRunning,
+    fossilUrl: fossilUrl,
   });
 });
 

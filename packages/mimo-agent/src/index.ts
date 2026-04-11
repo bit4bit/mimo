@@ -216,14 +216,16 @@ class MimoAgent {
     const sessionIds: string[] = [];
 
     for (const session of sessions) {
-      const { sessionId, port, agentWorkspaceUser, agentWorkspacePassword, acpSessionId, localDevMirrorPath, agentSubpath } = session;
+      const { sessionId, fossilUrl, agentWorkspaceUser, agentWorkspacePassword, acpSessionId, localDevMirrorPath, agentSubpath } = session;
 
       try {
         const checkoutPath = join(this.config.workDir, sessionId);
-        const platformHost = platformUrl
-          .replace(/^https?:\/\//, "")
-          .replace(/\/+$/, "");
-        const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+        
+        if (!fossilUrl) {
+          throw new Error("No fossilUrl provided in session data");
+        }
+
+        console.log(`[mimo-agent] Using fossil URL: ${fossilUrl}`);
 
         // Setup checkout directory with credentials
         await this.setupCheckout(sessionId, checkoutPath, fossilUrl, agentWorkspaceUser, agentWorkspacePassword);

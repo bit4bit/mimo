@@ -81,7 +81,7 @@ interface SessionDetailProps {
   agent?: Agent;
   modelState?: ModelState;
   modeState?: ModeState;
-  fossilPort?: number;
+  fossilUrl?: string;
 }
 
 export const SessionDetailPage: FC<SessionDetailProps> = ({
@@ -91,9 +91,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   agent,
   modelState,
   modeState,
-  fossilPort,
+  fossilUrl,
 }) => {
-  const fossilUrl = fossilPort ? `http://localhost:${fossilPort}` : undefined;
 
   return (
     <Layout title={`${session.name} - ${project.name}`} showStatusLine={true} sessionId={session.id}>
@@ -451,14 +450,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                   const linksContainer = fossilSection.querySelector('.fossil-links');
                   if (linksContainer && linksContainer.querySelector('.impact-no-data')) {
                     // Replace "not running" message with actual links
-                    linksContainer.innerHTML = \`
-                      <a href="\${data.fossilUrl}/timeline" target="_blank" class="fossil-link">
-                        Timeline
-                      </a>
-                      <a href="\${data.fossilUrl}/file" target="_blank" class="fossil-link">
-                        Files
-                      </a>
-                    \`;
+                    linksContainer.innerHTML = '<a href="' + data.fossilUrl + 'timeline" target="_blank" class="fossil-link">Timeline</a>' +
+                      '<a href="' + data.fossilUrl + 'dir" target="_blank" class="fossil-link">Files</a>';
                     console.log('[fossil] Server is now running at', data.fossilUrl);
                   }
                 }

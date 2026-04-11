@@ -57,24 +57,24 @@ export const ImpactBuffer: FC<ImpactBufferProps> = ({
         <span class="impact-polling-indicator" title="Auto-refreshes every 5 seconds">🔄</span>
       </div>
       <div class="buffer-content" id="impact-content">
-        {/* Fossil Links Section */}
-        <div class="impact-section">
-          <div class="impact-section-title">Fossil Repository</div>
-          <div class="fossil-links">
-            {fossilUrl ? (
-              <>
-                <a href={`${fossilUrl}/timeline`} target="_blank" class="fossil-link">
-                  Timeline
-                </a>
-                <a href={`${fossilUrl}/file`} target="_blank" class="fossil-link">
-                  Files
-                </a>
-              </>
-            ) : (
-              <span class="impact-no-data">Fossil server not running</span>
-            )}
+          {/* Fossil Links Section */}
+          <div class="impact-section">
+            <div class="impact-section-title">Fossil Repository</div>
+            <div class="fossil-links">
+              {fossilUrl ? (
+                <>
+                  <a href={`${fossilUrl}timeline`} target="_blank" class="fossil-link">
+                    Timeline
+                  </a>
+                  <a href={`${fossilUrl}dir`} target="_blank" class="fossil-link">
+                    Files
+                  </a>
+                </>
+              ) : (
+                <span class="impact-no-data">No fossil repository available</span>
+              )}
+            </div>
           </div>
-        </div>
 
         {/* SCC Warning */}
         {!sccInstalled && (

@@ -13,7 +13,7 @@ import { chatService } from "./sessions/chat.js";
 import { sessionRepository } from "./sessions/repository.js";
 import { LandingPage } from "./components/LandingPage.js";
 import { projectRepository } from "./projects/repository.js";
-import { fossilServerManager } from "./vcs/fossil-server.js";
+import { sharedFossilServer } from "./vcs/shared-fossil-server.js";
 import { relative } from "path";
 
 const app = new Hono();
@@ -282,23 +282,8 @@ const server = Bun.serve({
           await agentService.handleAgentDisconnect(agentId);
           console.log(`Agent ${agentId} disconnected`);
 
-          // Stop Fossil servers for assigned sessions after grace period
-          const agent = await agentRepository.findById(agentId);
-          if (agent && agent.sessionIds && agent.sessionIds.length > 0) {
-            // 30-second grace period for unexpected disconnects
-            setTimeout(async () => {
-              // Check if agent reconnected
-              if (!agentService.isAgentOnline(agentId)) {
-                // Agent didn't reconnect, stop all servers
-                for (const sessionId of agent.sessionIds) {
-                  if (fossilServerManager.isServerRunning(sessionId)) {
-                    await fossilServerManager.stopServer(sessionId);
-                    console.log(`Stopped Fossil server for session ${sessionId}`);
-                  }
-                }
-              }
-            }, 30000);
-          }
+          // Note: With shared fossil server, no per-session servers to stop
+          // The shared server continues running for all sessions
         }
       }
     },
@@ -336,44 +321,35 @@ async function handleAgentMessage(ws, data) {
         console.log("[agent] Workdir:", workdir);
         process.stdout?.write?.(""); // Flush stdout
         
-        for (const session of sessions) {
-          const sessionId = session.id;
-          console.log("[agent] Session:", sessionId, "status:", session.status);
+      // Use shared fossil server - no per-session server to start
+      for (const session of sessions) {
+        const sessionId = session.id;
+        console.log("[agent] Session:", sessionId, "status:", session.status);
+        process.stdout?.write?.(""); // Flush stdout
+        
+        if (session.status === "active") {
+          const fossilPath = sessionRepository.getFossilPath(sessionId);
+          const fossilUrl = sharedFossilServer.getUrl(sessionId);
+          console.log("[agent] Using shared fossil server for session:", sessionId, "fossil:", fossilPath, "url:", fossilUrl);
           process.stdout?.write?.(""); // Flush stdout
           
-          if (session.status === "active") {
-            const fossilPath = `${session.upstreamPath}/../repo.fossil`;
-            console.log("[agent] Starting fossil server for session:", sessionId, "fossil:", fossilPath);
-            process.stdout?.write?.(""); // Flush stdout
-            
-            const result = await fossilServerManager.startServer(sessionId, fossilPath);
-            console.log("[agent] Fossil server result:", result);
-            process.stdout?.write?.(""); // Flush stdout
-            
-            if ('port' in result) {
-              // Update session with port
-              await sessionRepository.update(sessionId, { port: result.port });
-              
-              // Get session with credentials
-              const sessionWithCreds = await sessionRepository.findById(sessionId);
-              
-              sessionsReady.push({
-                sessionId,
-                name: session.name,
-                upstreamPath: session.upstreamPath,
-                agentWorkspacePath: session.agentWorkspacePath,
-                port: result.port,
-                agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
-                agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
-                acpSessionId: sessionWithCreds?.acpSessionId ?? null,
-                localDevMirrorPath: sessionWithCreds?.localDevMirrorPath ?? null,
-                agentSubpath: sessionWithCreds?.agentSubpath ?? null,
-              });
-            } else {
-              console.error("[agent] Failed to start fossil server:", result.error);
-            }
-          }
+          // Get session with credentials
+          const sessionWithCreds = await sessionRepository.findById(sessionId);
+          
+          sessionsReady.push({
+            sessionId,
+            name: session.name,
+            upstreamPath: session.upstreamPath,
+            agentWorkspacePath: session.agentWorkspacePath,
+            fossilUrl,
+            agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
+            agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
+            acpSessionId: sessionWithCreds?.acpSessionId ?? null,
+            localDevMirrorPath: sessionWithCreds?.localDevMirrorPath ?? null,
+            agentSubpath: sessionWithCreds?.agentSubpath ?? null,
+          });
         }
+      }
         
         // Send session_ready message to agent
         if (sessionsReady.length > 0) {
@@ -914,3 +890,14 @@ async function handleChatMessage(ws, data) {
 
 // Server is ready
 console.log(`Server running at http://localhost:${server.port}`);
+
+// Ensure shared fossil server is running
+// This starts after the main server is up to ensure proper initialization
+setTimeout(async () => {
+  const success = await sharedFossilServer.ensureRunning();
+  if (success) {
+    console.log(`[SharedFossilServer] Fossil server running on port ${sharedFossilServer.getPort()}`);
+  } else {
+    console.error("[SharedFossilServer] Failed to start fossil server. Agent synchronization may be unavailable.");
+  }
+}, 100);
