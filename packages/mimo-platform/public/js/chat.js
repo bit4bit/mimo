@@ -398,8 +398,23 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
     
     const header = document.createElement('div');
     header.className = 'message-header';
-    header.textContent = message.role === 'user' ? 'You' : 
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.alignItems = 'center';
+    
+    const label = document.createElement('span');
+    label.textContent = message.role === 'user' ? 'You' : 
                          message.role === 'assistant' ? 'Agent' : 'System';
+    
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'copy-btn';
+    copyBtn.textContent = '📋';
+    copyBtn.addEventListener('click', function() {
+      navigator.clipboard.writeText(this.closest('.message').querySelector('.message-content').textContent);
+    });
+    
+    header.appendChild(label);
+    header.appendChild(copyBtn);
     
     const content = document.createElement('div');
     content.className = 'message-content';
@@ -521,6 +536,18 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
     cancelBtn.addEventListener('click', handleCancelStreaming);
     header.appendChild(cancelBtn);
 
+    // Add copy button
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'copy-btn';
+    copyBtn.textContent = '📋';
+    copyBtn.style.marginLeft = '5px';
+    copyBtn.addEventListener('click', function() {
+      const content = this.closest('.message').querySelector('.message-content');
+      const text = content ? content.textContent : '';
+      navigator.clipboard.writeText(text);
+    });
+    header.appendChild(copyBtn);
+
     const content = document.createElement('div');
     content.className = 'message-content';
 
@@ -614,8 +641,13 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
 
       const header = document.createElement('div');
       header.className = 'message-header';
-      header.textContent = 'Agent';
-
+      header.style.display = 'flex';
+      header.style.justifyContent = 'space-between';
+      header.style.alignItems = 'center';
+      
+      const agentLabel = document.createElement('span');
+      agentLabel.textContent = 'Agent';
+      
       const cancelBtn = document.createElement('button');
       cancelBtn.className = 'cancel-streaming-btn';
       cancelBtn.textContent = 'Cancel';
@@ -629,7 +661,20 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
       cancelBtn.style.borderRadius = '3px';
       cancelBtn.style.cursor = 'pointer';
       cancelBtn.addEventListener('click', handleCancelStreaming);
+      
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-btn';
+      copyBtn.textContent = '📋';
+      copyBtn.style.marginLeft = '5px';
+      copyBtn.addEventListener('click', function() {
+        const content = this.closest('.message').querySelector('.message-content');
+        const text = content ? content.textContent : '';
+        navigator.clipboard.writeText(text);
+      });
+      
+      header.appendChild(agentLabel);
       header.appendChild(cancelBtn);
+      header.appendChild(copyBtn);
 
       const content = document.createElement('div');
       content.className = 'message-content';
@@ -744,8 +789,13 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
 
       const header = document.createElement('div');
       header.className = 'message-header';
-      header.textContent = 'Agent';
-
+      header.style.display = 'flex';
+      header.style.justifyContent = 'space-between';
+      header.style.alignItems = 'center';
+      
+      const agentLabel = document.createElement('span');
+      agentLabel.textContent = 'Agent';
+      
       const cancelBtn = document.createElement('button');
       cancelBtn.className = 'cancel-streaming-btn';
       cancelBtn.textContent = 'Cancel';
@@ -759,7 +809,20 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
       cancelBtn.style.borderRadius = '3px';
       cancelBtn.style.cursor = 'pointer';
       cancelBtn.addEventListener('click', handleCancelStreaming);
+      
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-btn';
+      copyBtn.textContent = '📋';
+      copyBtn.style.marginLeft = '5px';
+      copyBtn.addEventListener('click', function() {
+        const content = this.closest('.message').querySelector('.message-content');
+        const text = content ? content.textContent : '';
+        navigator.clipboard.writeText(text);
+      });
+      
+      header.appendChild(agentLabel);
       header.appendChild(cancelBtn);
+      header.appendChild(copyBtn);
 
       const content = document.createElement('div');
       content.className = 'message-content';

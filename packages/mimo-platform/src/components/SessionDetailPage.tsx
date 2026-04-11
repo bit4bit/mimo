@@ -531,10 +531,27 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           border-left: 3px solid #51cf66;
         }
         .message-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
           font-size: 11px;
           color: #888;
           margin-bottom: 5px;
           text-transform: uppercase;
+        }
+        .copy-btn {
+          background: none;
+          border: 1px solid #555;
+          color: #888;
+          font-size: 11px;
+          padding: 1px 6px;
+          border-radius: 3px;
+          cursor: pointer;
+          transition: color 0.15s, border-color 0.15s;
+        }
+        .copy-btn:hover {
+          color: #d4d4d4;
+          border-color: #888;
         }
         .message-content {
           white-space: pre-wrap;
