@@ -20,9 +20,14 @@ export class ConfigService {
   private config: Config | null = null;
   private _configPath: string | null = null;
 
-  private get configPath(): string {
+  private getConfigPath(): string | null {
     if (!this._configPath) {
-      this._configPath = getPaths().config;
+      try {
+        this._configPath = getPaths().config;
+      } catch {
+        // getPaths() might fail if MIMO_HOME isn't set yet
+        return null;
+      }
     }
     return this._configPath;
   }
@@ -32,14 +37,20 @@ export class ConfigService {
       return this.config;
     }
 
-    if (!existsSync(this.configPath)) {
+    const configPath = this.getConfigPath();
+    if (!configPath) {
+      // Can't determine config path yet, return defaults
+      return defaultConfig;
+    }
+
+    if (!existsSync(configPath)) {
       // Create default config
       this.save(defaultConfig);
       return defaultConfig;
     }
 
     try {
-      const content = readFileSync(this.configPath, "utf-8");
+      const content = readFileSync(configPath, "utf-8");
       const loaded = load(content) as Partial<Config>;
       
       this.config = {
@@ -57,8 +68,13 @@ export class ConfigService {
   }
 
   save(config: Config): void {
+    const configPath = this.getConfigPath();
+    if (!configPath) {
+      console.error("Cannot save config: config path not available");
+      return;
+    }
     try {
-      writeFileSync(this.configPath, dump(config), "utf-8");
+      writeFileSync(configPath, dump(config), "utf-8");
       this.config = config;
     } catch (error) {
       console.error("Failed to save config:", error);

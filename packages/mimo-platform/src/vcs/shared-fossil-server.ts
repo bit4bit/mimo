@@ -3,7 +3,12 @@ import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { createConnection } from "net";
 import { getPaths } from "../config/paths.js";
-import { configService } from "../config/service.js";
+
+// Default port value
+const DEFAULT_FOSSIL_PORT = 8000;
+
+// Cached config value - populated lazily
+let cachedConfigPort: number | undefined | null = null;
 
 // Port configuration - read from environment when needed, not at import time
 // Priority: MIMO_SHARED_FOSSIL_SERVER_PORT env var > config.yaml > default 8000
@@ -16,14 +21,26 @@ const getFossilServerPort = (): number => {
     }
   }
   
-  // Check config file (middle priority)
-  const configPort = configService.get("sharedFossilServerPort");
-  if (typeof configPort === "number" && configPort >= 1024 && configPort <= 65535) {
-    return configPort;
+  // Check cached config value (middle priority)
+  if (cachedConfigPort !== null) {
+    return cachedConfigPort ?? DEFAULT_FOSSIL_PORT;
   }
   
-  // Fallback to default
-  return 8000;
+  // Try to load from config file
+  try {
+    const { configService } = require("../config/service.js");
+    const configPort = configService.get("sharedFossilServerPort");
+    if (typeof configPort === "number" && configPort >= 1024 && configPort <= 65535) {
+      cachedConfigPort = configPort;
+      return configPort;
+    }
+  } catch {
+    // Config not available, will use default
+  }
+  
+  // Mark as checked and return default
+  cachedConfigPort = undefined;
+  return DEFAULT_FOSSIL_PORT;
 };
 
 // Directory where all fossil repos are stored
