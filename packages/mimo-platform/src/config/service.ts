@@ -6,12 +6,14 @@ export interface Config {
   theme?: "dark" | "light";
   fontSize?: number;
   fontFamily?: string;
+  sharedFossilServerPort?: number;
 }
 
 export const defaultConfig: Config = {
   theme: "dark",
   fontSize: 14,
   fontFamily: "monospace",
+  sharedFossilServerPort: 8000,
 };
 
 export class ConfigService {
@@ -44,6 +46,7 @@ export class ConfigService {
         theme: loaded.theme ?? defaultConfig.theme,
         fontSize: loaded.fontSize ?? defaultConfig.fontSize,
         fontFamily: loaded.fontFamily ?? defaultConfig.fontFamily,
+        sharedFossilServerPort: loaded.sharedFossilServerPort ?? defaultConfig.sharedFossilServerPort,
       };
       
       return this.config;
@@ -70,7 +73,7 @@ export class ConfigService {
   set(key: keyof Config, value: unknown): void {
     const config = this.load();
     (config as Record<string, unknown>)[key] = value;
-    this.save(config);
+    this.save(config as Config);
   }
 }
 

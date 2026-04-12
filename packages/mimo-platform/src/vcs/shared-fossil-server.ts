@@ -3,15 +3,31 @@ import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { createConnection } from "net";
 import { getPaths } from "../config/paths.js";
+import { configService } from "../config/service.js";
 
 // Port configuration - read from environment when needed, not at import time
+// Priority: MIMO_SHARED_FOSSIL_SERVER_PORT env var > config.yaml > default 8000
 const getFossilServerPort = (): number => {
-  return process.env.FOSSIL_SERVER_PORT
-    ? parseInt(process.env.FOSSIL_SERVER_PORT, 10)
-    : 8000;
+  // Check env var first (highest priority)
+  if (process.env.MIMO_SHARED_FOSSIL_SERVER_PORT) {
+    const port = parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10);
+    if (!isNaN(port) && port >= 1024 && port <= 65535) {
+      return port;
+    }
+  }
+  
+  // Check config file (middle priority)
+  const configPort = configService.get("sharedFossilServerPort");
+  if (typeof configPort === "number" && configPort >= 1024 && configPort <= 65535) {
+    return configPort;
+  }
+  
+  // Fallback to default
+  return 8000;
 };
 
 // Directory where all fossil repos are stored
+// Priority: FOSSIL_REPOS_DIR env var > config.yaml > default ~/.mimo/session-fossils
 const getFossilReposDir = (): string => {
   if (process.env.FOSSIL_REPOS_DIR) {
     return process.env.FOSSIL_REPOS_DIR;

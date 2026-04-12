@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join, relative } from "path";
-import { rmSync, mkdirSync, existsSync, writeFileSync, readFileSync } from "fs";
+import { rmSync, mkdirSync, existsSync, writeFileSync } from "fs";
 import { execSync } from "child_process";
+import { SharedFossilServer, normalizeSessionIdForFossil } from "../src/vcs/shared-fossil-server.js";
 
 describe("Agent Bootstrap Integration Tests", () => {
   let testHome: string;
@@ -12,17 +13,21 @@ describe("Agent Bootstrap Integration Tests", () => {
   let agentRepository: any;
   let AgentService: any;
   let agentService: any;
-  let FossilServerManager: any;
-  let fossilServerManager: any;
+  let sharedFossilServer: SharedFossilServer;
+  let testPort: number;
 
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-bootstrap-integ-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     process.env.MIMO_HOME = testHome;
-    
+
+    // Use a unique port for each test to avoid conflicts
+    testPort = 38000 + Math.floor(Math.random() * 1000);
+    process.env.MIMO_SHARED_FOSSIL_SERVER_PORT = testPort.toString();
+
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
-    
+
     mkdirSync(testHome, { recursive: true });
     mkdirSync(join(testHome, "projects"), { recursive: true });
     mkdirSync(join(testHome, "agents"), { recursive: true });
@@ -39,24 +44,20 @@ describe("Agent Bootstrap Integration Tests", () => {
     AgentService = serviceModule.AgentService;
     agentService = serviceModule.agentService;
 
-    const fossilModule = await import("../src/vcs/fossil-server.ts");
-    FossilServerManager = fossilModule.FossilServerManager;
-    fossilServerManager = fossilModule.fossilServerManager;
+    // Create fresh SharedFossilServer instance
+    sharedFossilServer = new SharedFossilServer();
   });
 
   afterEach(async () => {
     try {
-      const sessions = await sessionRepository.listByProject("test-project-full");
-      for (const session of sessions) {
-        if (fossilServerManager.isServerRunning(session.id)) {
-          await fossilServerManager.stopServer(session.id);
-        }
-      }
+      await sharedFossilServer.stop();
     } catch {}
-    
+
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
+
+    delete process.env.MIMO_SHARED_FOSSIL_SERVER_PORT;
   });
 
   describe("11.1: Full flow - session creation to agent bootstrap", () => {
@@ -77,7 +78,7 @@ describe("Agent Bootstrap Integration Tests", () => {
       expect(session.status).toBe("active");
     });
 
-    it("should start fossil server when agent connects with session assigned", async () => {
+    it("should start shared fossil server when agent connects with session assigned", async () => {
       const projectPath = join(testHome, "projects", "test-project-full");
       mkdirSync(projectPath, { recursive: true });
       writeFileSync(join(projectPath, "project.yaml"), "id: test-project-full\nname: Test Project\nowner: testuser\n");
@@ -89,24 +90,22 @@ describe("Agent Bootstrap Integration Tests", () => {
         assignedAgentId: "test-agent-id",
       });
 
-      const fossilPath = join(session.upstreamPath, "..", "repo.fossil");
+      // Create fossil repo in the shared location
+      const fossilPath = sharedFossilServer.getFossilPath(session.id);
+      mkdirSync(sharedFossilServer.getReposDir(), { recursive: true });
       mkdirSync(join(session.upstreamPath), { recursive: true });
       execSync(`fossil new ${fossilPath}`, { stdio: "pipe" });
 
-      const result = await fossilServerManager.startServer(session.id, fossilPath);
-      expect("port" in result).toBe(true);
-      expect(("port" in result) ? result.port : 0).toBeGreaterThan(0);
-
-      const running = fossilServerManager.isServerRunning(session.id);
-      expect(running).toBe(true);
-
-      await fossilServerManager.stopServer(session.id);
+      // Start shared fossil server
+      await sharedFossilServer.start();
+      expect(sharedFossilServer.isRunning()).toBe(true);
+      expect(sharedFossilServer.getPort()).toBe(testPort);
     });
 
     it("should format session_ready message with platformUrl and session ports", async () => {
       const platformUrl = "http://localhost:3000";
       const sessions = [
-        { sessionId: "session-123", port: 8080 },
+        { sessionId: "session-123", port: null },
       ];
 
       const message = {
@@ -119,7 +118,8 @@ describe("Agent Bootstrap Integration Tests", () => {
       expect(message.platformUrl).toBe("http://localhost:3000");
       expect(message.sessions).toHaveLength(1);
       expect(message.sessions[0].sessionId).toBe("session-123");
-      expect(message.sessions[0].port).toBe(8080);
+      // With shared server, session port is always null
+      expect(message.sessions[0].port).toBeNull();
     });
   });
 
@@ -127,19 +127,25 @@ describe("Agent Bootstrap Integration Tests", () => {
     it("should detect existing fossil repo on reconnect", async () => {
       const sessionId = "reconnect-session";
       const workdir = join(testHome, "agent-workdir");
-      const repoPath = join(workdir, `${sessionId}.fossil`);
       const agentWorkspacePath = join(workdir, sessionId);
 
       mkdirSync(workdir, { recursive: true });
 
-      execSync(`fossil new ${repoPath}`, { stdio: "pipe" });
+      // Create fossil repo in shared location
+      const sharedFossilPath = sharedFossilServer.getFossilPath(sessionId);
+      mkdirSync(sharedFossilServer.getReposDir(), { recursive: true });
+      execSync(`fossil new ${sharedFossilPath}`, { stdio: "pipe" });
 
-      expect(existsSync(repoPath)).toBe(true);
-
+      // Clone to agent workspace
       mkdirSync(agentWorkspacePath, { recursive: true });
-      execSync(`fossil open ${repoPath} --workdir ${agentWorkspacePath}`, { cwd: agentWorkspacePath, stdio: "pipe" });
+      await sharedFossilServer.start();
+      const port = sharedFossilServer.getPort();
+      const normalizedId = normalizeSessionIdForFossil(sessionId);
+      const cloneUrl = `http://localhost:${port}/${normalizedId}/`;
+      execSync(`fossil clone ${cloneUrl} ${join(agentWorkspacePath, "repo.fossil")}`, { cwd: agentWorkspacePath });
+      execSync(`fossil open --nosync ${join(agentWorkspacePath, "repo.fossil")}`, { cwd: agentWorkspacePath });
 
-      expect(existsSync(repoPath) || existsSync(join(agentWorkspacePath, "_FOSSIL_")) || existsSync(join(agentWorkspacePath, ".fslckout"))).toBe(true);
+      expect(existsSync(join(agentWorkspacePath, "_FOSSIL_")) || existsSync(join(agentWorkspacePath, ".fslckout"))).toBe(true);
     });
 
     it("should skip clone when checkout already exists", async () => {
@@ -164,7 +170,6 @@ describe("Agent Bootstrap Integration Tests", () => {
     it("should track multiple sessions for single agent", async () => {
       const agentId = "multi-agent";
       const sessions = [];
-      const ports = [8080, 8081, 8082];
 
       for (let i = 0; i < 3; i++) {
         const projectPath = join(testHome, "projects", `project-${i}`);
@@ -184,49 +189,47 @@ describe("Agent Bootstrap Integration Tests", () => {
       expect(agentSessions).toHaveLength(3);
     });
 
-    it("should support multiple fossil servers on different ports", async () => {
-      const servers: { sessionId: string; port: number }[] = [];
+    it("should support multiple sessions using shared fossil server", async () => {
+      const sessions: { sessionId: string; fossilPath: string }[] = [];
 
+      // Create fossil repos for multiple sessions
       for (let i = 0; i < 3; i++) {
-        const sessionId = `multi-server-${i}`;
-        const fossilPath = join(testHome, `repo-${i}.fossil`);
-        
+        const sessionId = `multi-session-${i}`;
+        const fossilPath = sharedFossilServer.getFossilPath(sessionId);
+
+        mkdirSync(sharedFossilServer.getReposDir(), { recursive: true });
         execSync(`fossil new ${fossilPath}`, { stdio: "pipe" });
-        
-        const result = await fossilServerManager.startServer(sessionId, fossilPath);
-        
-        if ("port" in result) {
-          servers.push({ sessionId, port: result.port });
-        }
+
+        sessions.push({ sessionId, fossilPath });
       }
 
-      expect(servers).toHaveLength(3);
-      
-      const ports = servers.map(s => s.port);
-      const uniquePorts = new Set(ports);
-      expect(uniquePorts.size).toBe(3);
+      // Start shared server once
+      await sharedFossilServer.start();
 
-      for (const server of servers) {
-        await fossilServerManager.stopServer(server.sessionId);
-      }
+      // All sessions should be accessible via the same server
+      expect(sharedFossilServer.isRunning()).toBe(true);
+      expect(sharedFossilServer.getPort()).toBe(testPort);
+
+      // Verify each session has a unique fossil path but same port
+      const uniquePaths = new Set(sessions.map(s => s.fossilPath));
+      expect(uniquePaths.size).toBe(3);
     });
   });
 
   describe("11.4: Session deletion while agent connected", () => {
     it("should stop fossil server when session deleted", async () => {
       const sessionId = "delete-me-session";
-      const fossilPath = join(testHome, "delete-test.fossil");
-      
+      const fossilPath = sharedFossilServer.getFossilPath(sessionId);
+
+      mkdirSync(sharedFossilServer.getReposDir(), { recursive: true });
       execSync(`fossil new ${fossilPath}`, { stdio: "pipe" });
-      
-      const result = await fossilServerManager.startServer(sessionId, fossilPath);
-      expect("port" in result).toBe(true);
-      
-      expect(fossilServerManager.isServerRunning(sessionId)).toBe(true);
-      
-      await fossilServerManager.stopServer(sessionId);
-      
-      expect(fossilServerManager.isServerRunning(sessionId)).toBe(false);
+
+      await sharedFossilServer.start();
+      expect(sharedFossilServer.isRunning()).toBe(true);
+
+      await sharedFossilServer.stop();
+
+      expect(sharedFossilServer.isRunning()).toBe(false);
     });
 
     it("should clean up session data on delete", async () => {
@@ -254,18 +257,18 @@ describe("Agent Bootstrap Integration Tests", () => {
     it("should handle relative path computation for paths outside workdir", () => {
       const workdir = "/home/user/work";
       const agentWorkspacePath = "/tmp/sessions/abc-123";
-      
+
       const relativePath = relative(workdir, agentWorkspacePath);
-      
+
       expect(relativePath.startsWith("..")).toBe(true);
     });
 
     it("should compute correct relative path inside workdir", () => {
       const workdir = "/home/user/work";
       const agentWorkspacePath = "/home/user/work/session-abc";
-      
+
       const relativePath = relative(workdir, agentWorkspacePath);
-      
+
       expect(relativePath).toBe("session-abc");
       expect(relativePath.startsWith("..")).toBe(false);
     });
@@ -274,7 +277,7 @@ describe("Agent Bootstrap Integration Tests", () => {
       const workdir = join(testHome, "agent-work");
       const sessionId = "test-session-123";
       const agentWorkspacePath = join(workdir, sessionId);
-      
+
       expect(agentWorkspacePath).toBe(join(testHome, "agent-work", "test-session-123"));
     });
   });

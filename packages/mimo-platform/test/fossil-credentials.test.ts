@@ -1,41 +1,49 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
-import { rmSync, existsSync, mkdirSync } from "fs";
+import { rmSync, existsSync, mkdirSync, writeFileSync } from "fs";
 import { execSync } from "child_process";
+import { SharedFossilServer, normalizeSessionIdForFossil } from "../src/vcs/shared-fossil-server.js";
 
 describe("Fossil Credential Provisioning Integration Tests", () => {
   let testHome: string;
   let VCS: any;
   let vcs: any;
-  let fossilServerManager: any;
+  let sharedFossilServer: SharedFossilServer;
+  let testPort: number;
 
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-credential-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     process.env.MIMO_HOME = testHome;
-    
+
+    // Use a unique port for each test to avoid conflicts
+    testPort = 28000 + Math.floor(Math.random() * 1000);
+    process.env.MIMO_SHARED_FOSSIL_SERVER_PORT = testPort.toString();
+
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
-    
+
     mkdirSync(testHome, { recursive: true });
 
     const vcsModule = await import("../src/vcs/index.ts");
     VCS = vcsModule.VCS;
     vcs = new VCS();
 
-    const serverModule = await import("../src/vcs/fossil-server.ts");
-    fossilServerManager = serverModule.fossilServerManager;
+    // Create fresh SharedFossilServer instance
+    sharedFossilServer = new SharedFossilServer();
   });
 
   afterEach(async () => {
     try {
-      await fossilServerManager.stopAllServers();
+      await sharedFossilServer.stop();
     } catch {}
-    
+
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
+
+    delete process.env.MIMO_SHARED_FOSSIL_SERVER_PORT;
   });
 
   describe("createFossilUser", () => {
@@ -44,7 +52,7 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
       await vcs.createFossilRepo(repoPath);
 
       const result = await vcs.createFossilUser(repoPath, "test-agent", "testpass123");
-      
+
       expect(result.success).toBe(true);
 
       // Verify user exists
@@ -62,29 +70,33 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
         "test-agent",
         "testpass123"
       );
-      
+
       expect(result.success).toBe(false);
     });
   });
 
   describe("Agent Clone with Credentials", () => {
     it("should allow cloning with authenticated URL", async () => {
-      const repoPath = join(testHome, "server.fossil");
+      const sessionId = "test-session-" + Math.random().toString(36).slice(2, 8);
+      const repoPath = sharedFossilServer.getFossilPath(sessionId);
+
+      // Ensure repos directory exists and create repo
+      mkdirSync(sharedFossilServer.getReposDir(), { recursive: true });
       await vcs.createFossilRepo(repoPath);
 
       // Create agent user
       await vcs.createFossilUser(repoPath, "agent-test", "agentpass123");
 
-      // Start fossil server
-      const serverResult = await fossilServerManager.startServer("test-session", repoPath);
-      expect(serverResult.port).toBeDefined();
-      const port = serverResult.port;
+      // Start shared fossil server
+      await sharedFossilServer.start();
+      const port = sharedFossilServer.getPort();
+      const normalizedSessionId = normalizeSessionIdForFossil(sessionId);
 
       // Clone with credentials
       const checkoutDir = join(testHome, "checkout");
       mkdirSync(checkoutDir, { recursive: true });
 
-      const cloneUrl = `http://agent-test:agentpass123@localhost:${port}/`;
+      const cloneUrl = `http://agent-test:agentpass123@localhost:${port}/${normalizedSessionId}/`;
       execSync(`fossil clone ${cloneUrl} ${join(checkoutDir, "repo.fossil")}`, { cwd: checkoutDir });
 
       // Verify clone succeeded
@@ -105,27 +117,30 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
       // Verify sync works without password prompt
       const syncOutput = execSync(`fossil sync server`, { cwd: checkoutDir }).toString();
       expect(syncOutput).toContain("Sync done");
-
-      await fossilServerManager.stopServer("test-session");
     }, 30000);
 
     it("should reject clone with wrong password", async () => {
-      const repoPath = join(testHome, "server2.fossil");
+      const sessionId = "test-session-" + Math.random().toString(36).slice(2, 8);
+      const repoPath = sharedFossilServer.getFossilPath(sessionId);
+
+      // Ensure repos directory exists and create repo
+      mkdirSync(sharedFossilServer.getReposDir(), { recursive: true });
       await vcs.createFossilRepo(repoPath);
 
       // Create agent user
       await vcs.createFossilUser(repoPath, "agent-test2", "correctpass123");
 
-      // Start fossil server
-      const serverResult = await fossilServerManager.startServer("test-session2", repoPath);
-      const port = serverResult.port;
+      // Start shared fossil server
+      await sharedFossilServer.start();
+      const port = sharedFossilServer.getPort();
+      const normalizedSessionId = normalizeSessionIdForFossil(sessionId);
 
       // Try to clone with wrong password
       const checkoutDir = join(testHome, "checkout2");
       mkdirSync(checkoutDir, { recursive: true });
 
-      const wrongCloneUrl = `http://agent-test2:wrongpass@localhost:${port}/`;
-      
+      const wrongCloneUrl = `http://agent-test2:wrongpass@localhost:${port}/${normalizedSessionId}/`;
+
       let cloneFailed = false;
       try {
         execSync(`fossil clone ${wrongCloneUrl} ${join(checkoutDir, "repo.fossil")}`, { cwd: checkoutDir });
@@ -134,66 +149,72 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
       }
 
       expect(cloneFailed).toBe(true);
-
-      await fossilServerManager.stopServer("test-session2");
     }, 30000);
 
     it("should reject sync without proper credentials", async () => {
-      const repoPath = join(testHome, "server3.fossil");
+      const sessionId = "test-session-" + Math.random().toString(36).slice(2, 8);
+      const repoPath = sharedFossilServer.getFossilPath(sessionId);
+
+      // Ensure repos directory exists and create repo
+      mkdirSync(sharedFossilServer.getReposDir(), { recursive: true });
       await vcs.createFossilRepo(repoPath);
 
       // Create agent user with password
       await vcs.createFossilUser(repoPath, "agent-test3", "secretpass123");
 
-      // Start fossil server
-      const serverResult = await fossilServerManager.startServer("test-session3", repoPath);
-      const port = serverResult.port;
+      // Start shared fossil server
+      await sharedFossilServer.start();
+      const port = sharedFossilServer.getPort();
+      const normalizedSessionId = normalizeSessionIdForFossil(sessionId);
 
       // Clone with correct credentials
       const checkoutDir = join(testHome, "checkout3");
       mkdirSync(checkoutDir, { recursive: true });
 
-      const cloneUrl = `http://agent-test3:secretpass123@localhost:${port}/`;
+      const cloneUrl = `http://agent-test3:secretpass123@localhost:${port}/${normalizedSessionId}/`;
       execSync(`fossil clone ${cloneUrl} ${join(checkoutDir, "repo.fossil")}`, { cwd: checkoutDir });
-      
+
       // Open checkout
       execSync(`fossil open --nosync repo.fossil`, { cwd: checkoutDir });
-      
+
       // Set local password (this works without server auth)
       execSync(`fossil user password agent-test3 secretpass123`, { cwd: checkoutDir });
 
       // Set remote URL without credentials - this requires the server password which we don't have cached yet
       let remoteUrlFailed = false;
       try {
-        execSync(`fossil remote-url http://agent-test3@localhost:${port}/`, { cwd: checkoutDir });
+        execSync(`fossil remote-url http://agent-test3@localhost:${port}/${normalizedSessionId}/`, { cwd: checkoutDir });
       } catch (error) {
         remoteUrlFailed = true;
       }
 
       // Setting remote-url without credentials should fail
       expect(remoteUrlFailed).toBe(true);
-
-      await fossilServerManager.stopServer("test-session3");
     }, 30000);
   });
 
   describe("Named Remote with Credentials", () => {
     it("should store credentials in named remote", async () => {
-      const repoPath = join(testHome, "server4.fossil");
+      const sessionId = "test-session-" + Math.random().toString(36).slice(2, 8);
+      const repoPath = sharedFossilServer.getFossilPath(sessionId);
+
+      // Ensure repos directory exists and create repo
+      mkdirSync(sharedFossilServer.getReposDir(), { recursive: true });
       await vcs.createFossilRepo(repoPath);
 
       // Create agent user
       await vcs.createFossilUser(repoPath, "agent-test4", "mypass456");
 
-      // Start fossil server
-      const serverResult = await fossilServerManager.startServer("test-session4", repoPath);
-      const port = serverResult.port;
+      // Start shared fossil server
+      await sharedFossilServer.start();
+      const port = sharedFossilServer.getPort();
+      const normalizedSessionId = normalizeSessionIdForFossil(sessionId);
 
       // Setup checkout
       const checkoutDir = join(testHome, "checkout4");
       mkdirSync(checkoutDir, { recursive: true });
 
-      const cloneUrl = `http://agent-test4:mypass456@localhost:${port}/`;
+      const cloneUrl = `http://agent-test4:mypass456@localhost:${port}/${normalizedSessionId}/`;
       execSync(`fossil clone ${cloneUrl} ${join(checkoutDir, "repo.fossil")}`, { cwd: checkoutDir });
       execSync(`fossil open --nosync repo.fossil`, { cwd: checkoutDir });
       execSync(`fossil remote-url ${cloneUrl}`, { cwd: checkoutDir });
@@ -209,8 +230,6 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
       // Sync using named remote should work
       const syncOutput = execSync(`fossil sync myserver`, { cwd: checkoutDir }).toString();
       expect(syncOutput).toContain("Sync done");
-
-      await fossilServerManager.stopServer("test-session4");
     }, 30000);
   });
 });

@@ -17,8 +17,8 @@ describe("SharedFossilServer Integration Tests", () => {
     
     // Use a unique port for each test to avoid conflicts
     testPort = 18000 + Math.floor(Math.random() * 1000);
-    originalPort = process.env.FOSSIL_SERVER_PORT;
-    process.env.FOSSIL_SERVER_PORT = testPort.toString();
+    originalPort = process.env.MIMO_SHARED_FOSSIL_SERVER_PORT;
+    process.env.MIMO_SHARED_FOSSIL_SERVER_PORT = testPort.toString();
     
     originalReposDir = process.env.FOSSIL_REPOS_DIR;
     process.env.FOSSIL_REPOS_DIR = join(testHome, "session-fossils");
@@ -41,11 +41,11 @@ describe("SharedFossilServer Integration Tests", () => {
     } else {
       process.env.FOSSIL_REPOS_DIR = originalReposDir;
     }
-    
+
     if (originalPort === undefined) {
-      delete process.env.FOSSIL_SERVER_PORT;
+      delete process.env.MIMO_SHARED_FOSSIL_SERVER_PORT;
     } else {
-      process.env.FOSSIL_SERVER_PORT = originalPort;
+      process.env.MIMO_SHARED_FOSSIL_SERVER_PORT = originalPort;
     }
     
     // Stop server
@@ -158,12 +158,12 @@ describe("SharedFossilServer Integration Tests", () => {
     });
 
     it("should use port from environment variable", () => {
-      process.env.FOSSIL_SERVER_PORT = "19000";
+      process.env.MIMO_SHARED_FOSSIL_SERVER_PORT = "19000";
       const freshServer = new SharedFossilServer();
-      
+
       expect(freshServer.getPort()).toBe(19000);
-      
-      delete process.env.FOSSIL_SERVER_PORT;
+
+      delete process.env.MIMO_SHARED_FOSSIL_SERVER_PORT;
     });
   });
 });
