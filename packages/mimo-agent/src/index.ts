@@ -9,6 +9,8 @@ import { AgentConfig } from "./types";
 import { SessionManager } from "./session";
 import { AcpClient, OpencodeProvider, ClaudeAgentProvider } from "./acp";
 import type { IAcpProvider } from "./acp";
+import { SessionLifecycleManager, CachedAcpState } from "./lifecycle";
+import type { ModelState, ModeState } from "./types";
 
 // Convert Node.js streams to Web Streams API
 function toWebWritable(nodeWritable: Writable): WritableStream<Uint8Array> {
@@ -29,6 +31,8 @@ class MimoAgent {
   private reconnectDelay = 1000;
   private provider: IAcpProvider;
   private pendingPermissions: Map<string, (r: any) => void> = new Map();
+  private lifecycleManager: SessionLifecycleManager;
+  private cachedAcpStates: Map<string, CachedAcpState> = new Map();
 
   constructor() {
     this.config = this.parseArgs();
@@ -50,6 +54,49 @@ class MimoAgent {
         });
       },
     });
+
+    // Initialize lifecycle manager with callbacks
+    this.lifecycleManager = new SessionLifecycleManager({
+      onStatusChange: (sessionId, status) => {
+        this.send({
+          type: "acp_status",
+          sessionId,
+          status,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onCacheState: (sessionId, state) => {
+        this.cachedAcpStates.set(sessionId, state);
+      },
+      onGetCachedState: (sessionId) => {
+        return this.cachedAcpStates.get(sessionId);
+      },
+      onSpawnAcp: async (sessionId, cachedState) => {
+        const session = this.sessionManager.getSession(sessionId);
+        if (!session) {
+          throw new Error(`Session ${sessionId} not found`);
+        }
+        // Spawn ACP with cached state
+        return this.respawnAcpProcess(sessionId, cachedState);
+      },
+      onTerminateSession: (sessionId) => {
+        // Stop the session - kills ACP process and stops file watcher
+        // but keeps session info for resumption
+        this.sessionManager.stopSession(sessionId);
+        this.acpClients.delete(sessionId);
+        
+        // Cache the ACP state before stopping
+        const acpClient = this.acpClients.get(sessionId);
+        if (acpClient) {
+          this.cachedAcpStates.set(sessionId, {
+            acpSessionId: acpClient.acpSessionId,
+            modelState: acpClient.modelState,
+            modeState: acpClient.modeState,
+          });
+        }
+      },
+    });
+
     switch (this.config.provider) {
       case "claude":
         this.provider = new ClaudeAgentProvider();
@@ -263,6 +310,10 @@ class MimoAgent {
 
       case "session_ended":
         this.handleSessionEnded(message);
+        break;
+
+      case "session_config_updated":
+        this.handleSessionConfigUpdated(message);
         break;
 
       default:
@@ -657,6 +708,178 @@ class MimoAgent {
     });
   }
 
+  private async respawnAcpProcess(sessionId: string, cachedState?: CachedAcpState): Promise<AcpClient | null> {
+    const sessionInfo = this.sessionManager.getSession(sessionId);
+    if (!sessionInfo) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+
+    console.log(`[mimo-agent] Respawning ACP for ${sessionId}`);
+
+    // Spawn ACP process
+    const spawnResult = this.provider.spawn(sessionInfo.checkoutPath);
+    const process = spawnResult.process;
+    this.sessionManager.setSessionAcpProcess(sessionId, process);
+
+    const acpCwd = sessionInfo.checkoutPath;
+
+    // Create ACP client
+    const acpClient = new AcpClient(
+      this.provider,
+      sessionId,
+      {
+        onThoughtStart: (sid) => {
+          this.lifecycleManager.recordActivity(sid);
+          this.send({
+            type: "thought_start",
+            sessionId: sid,
+            timestamp: new Date().toISOString(),
+          });
+        },
+        onThoughtChunk: (sid, content) => {
+          this.lifecycleManager.recordActivity(sid);
+          this.send({
+            type: "thought_chunk",
+            sessionId: sid,
+            content,
+            timestamp: new Date().toISOString(),
+          });
+        },
+        onThoughtEnd: (sid) => {
+          this.send({
+            type: "thought_end",
+            sessionId: sid,
+            timestamp: new Date().toISOString(),
+          });
+        },
+        onMessageChunk: (sid, content) => {
+          this.lifecycleManager.recordActivity(sid);
+          this.send({
+            type: "message_chunk",
+            sessionId: sid,
+            content,
+            timestamp: new Date().toISOString(),
+          });
+        },
+        onUsageUpdate: (sid, usage) => {
+          this.send({
+            type: "usage_update",
+            sessionId: sid,
+            usage,
+            timestamp: new Date().toISOString(),
+          });
+        },
+        onGenericUpdate: (sid, content) => {
+          this.send({
+            type: "acp_response",
+            sessionId: sid,
+            content,
+            timestamp: new Date().toISOString(),
+          });
+        },
+        onPermissionRequest: (sid, requestId, params) => {
+          return new Promise((resolve) => {
+            this.pendingPermissions.set(requestId, resolve);
+            this.send({
+              type: "permission_request",
+              sessionId: sid,
+              requestId,
+              toolCall: params.toolCall,
+              options: params.options,
+              timestamp: new Date().toISOString(),
+            });
+          });
+        },
+      }
+    );
+
+    try {
+      // Initialize with cached session ID if available
+      const result = await acpClient.initialize(
+        acpCwd,
+        toWebWritable(spawnResult.stdin),
+        toWebReadable(spawnResult.stdout),
+        cachedState?.acpSessionId
+      );
+
+      console.log(`[mimo-agent] ACP respawned for ${sessionId}`);
+      this.acpClients.set(sessionId, acpClient);
+
+      // Restore model/mode from cache if available
+      if (cachedState?.modelState && acpClient.modelState) {
+        try {
+          await acpClient.setModel(cachedState.modelState.currentModelId);
+          console.log(`[mimo-agent] Restored model for ${sessionId}: ${cachedState.modelState.currentModelId}`);
+        } catch (err) {
+          console.warn(`[mimo-agent] Failed to restore model for ${sessionId}:`, err);
+        }
+      }
+
+      if (cachedState?.modeState && acpClient.modeState) {
+        try {
+          await acpClient.setMode(cachedState.modeState.currentModeId);
+          console.log(`[mimo-agent] Restored mode for ${sessionId}: ${cachedState.modeState.currentModeId}`);
+        } catch (err) {
+          console.warn(`[mimo-agent] Failed to restore mode for ${sessionId}:`, err);
+        }
+      }
+
+      // Update session state
+      this.sessionManager.setSessionState(
+        sessionId,
+        acpClient.modelState,
+        acpClient.modeState
+      );
+
+      // Send session initialized
+      this.send({
+        type: "session_initialized",
+        sessionId,
+        modelState: acpClient.modelState,
+        modeState: acpClient.modeState,
+        timestamp: new Date().toISOString(),
+      });
+
+      // If session was reset, notify
+      if (result.wasReset) {
+        this.send({
+          type: "acp_session_created",
+          sessionId,
+          acpSessionId: result.acpSessionId,
+          wasReset: true,
+          resetReason: result.resetReason || "session_resumed",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Handle process events
+      process.stderr?.on("data", (data: Buffer) => {
+        console.error(`[mimo-agent] ACP stderr (${sessionId}):`, data.toString());
+      });
+
+      process.on("close", (code: number | null) => {
+        console.log(`[mimo-agent] ACP exited for ${sessionId} with code ${code}`);
+        this.acpClients.delete(sessionId);
+        this.sessionManager.setSessionAcpProcess(sessionId, null);
+      });
+
+      process.on("error", (err: Error) => {
+        console.error(`[mimo-agent] ACP process error for ${sessionId}:`, err.message);
+        this.send({
+          type: "session_error",
+          sessionId,
+          error: `ACP process error: ${err.message}`,
+          timestamp: new Date().toISOString(),
+        });
+      });
+
+      return acpClient;
+    } catch (err) {
+      console.error(`[mimo-agent] Failed to respawn ACP for ${sessionId}:`, err);
+      throw err;
+    }
+  }
+
   private handleAcpRequest(message: any): void {
     const sessionId = message.sessionId;
     if (!sessionId) {
@@ -708,7 +931,7 @@ class MimoAgent {
     );
   }
 
-  private handleUserMessage(message: any): void {
+  private async handleUserMessage(message: any): Promise<void> {
     const sessionId = message.sessionId;
     const content = message.content;
 
@@ -717,6 +940,51 @@ class MimoAgent {
       return;
     }
 
+    // Check session state via lifecycle manager
+    const sessionState = this.lifecycleManager.getSessionState(sessionId);
+    
+    if (sessionState === "parked") {
+      // Session is parked, need to wake it up
+      console.log(`[mimo-agent] Session ${sessionId} is parked, waking up...`);
+      try {
+        await this.lifecycleManager.queuePrompt(sessionId, content);
+        // After waking, get the ACP client (it should now exist)
+        const acpClient = this.acpClients.get(sessionId);
+        if (!acpClient) {
+          throw new Error("ACP client not available after wake-up");
+        }
+        await this.sendPrompt(acpClient, sessionId, content);
+      } catch (err) {
+        console.error(`[mimo-agent] Failed to wake session ${sessionId}:`, err);
+        this.send({
+          type: "error_response",
+          sessionId,
+          error: `Failed to wake session: ${err instanceof Error ? err.message : String(err)}`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return;
+    }
+
+    if (sessionState === "waking") {
+      // Session is waking, queue the prompt
+      console.log(`[mimo-agent] Session ${sessionId} is waking, queueing prompt...`);
+      try {
+        await this.lifecycleManager.queuePrompt(sessionId, content);
+        await this.sendPrompt(this.acpClients.get(sessionId)!, sessionId, content);
+      } catch (err) {
+        console.error(`[mimo-agent] Failed to queue prompt for ${sessionId}:`, err);
+        this.send({
+          type: "error_response",
+          sessionId,
+          error: `Failed to queue prompt: ${err instanceof Error ? err.message : String(err)}`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return;
+    }
+
+    // Normal active session flow
     const acpClient = this.acpClients.get(sessionId);
     if (!acpClient) {
       console.log(`[mimo-agent] No ACP client for session ${sessionId}`);
@@ -729,26 +997,31 @@ class MimoAgent {
       return;
     }
 
+    // Record activity for idle timeout tracking
+    this.lifecycleManager.recordActivity(sessionId);
+    await this.sendPrompt(acpClient, sessionId, content);
+  }
+
+  private async sendPrompt(acpClient: AcpClient, sessionId: string, content: string): Promise<void> {
     console.log(`[mimo-agent] Sending prompt for session ${sessionId}`);
     this.send({
       type: "prompt_received",
       sessionId,
       timestamp: new Date().toISOString(),
     });
-    acpClient
-      .prompt(content)
-      .then(() => {
-        console.log(`[mimo-agent] Prompt completed for ${sessionId}`);
-      })
-      .catch((err) => {
-        console.error(`[mimo-agent] Prompt error:`, err);
-        this.send({
-          type: "error_response",
-          sessionId,
-          error: `ACP prompt error: ${err.message}`,
-          timestamp: new Date().toISOString(),
-        });
+    
+    try {
+      await acpClient.prompt(content);
+      console.log(`[mimo-agent] Prompt completed for ${sessionId}`);
+    } catch (err) {
+      console.error(`[mimo-agent] Prompt error:`, err);
+      this.send({
+        type: "error_response",
+        sessionId,
+        error: `ACP prompt error: ${err instanceof Error ? err.message : String(err)}`,
+        timestamp: new Date().toISOString(),
       });
+    }
   }
 
   private async handleSetModel(message: any): Promise<void> {
@@ -912,6 +1185,22 @@ class MimoAgent {
 
     // Terminate session - handles process, watcher, timers
     this.sessionManager.terminateSession(sessionId);
+  }
+
+  private handleSessionConfigUpdated(message: any): void {
+    const { sessionId, config } = message;
+    
+    if (!sessionId) {
+      console.log("[mimo-agent] No sessionId in session_config_updated");
+      return;
+    }
+
+    console.log(`[mimo-agent] Session config updated for ${sessionId}:`, config);
+
+    // Update lifecycle manager with new idle timeout
+    if (config.idleTimeoutMs !== undefined) {
+      this.lifecycleManager.updateIdleTimeout(sessionId, config.idleTimeoutMs);
+    }
   }
 
   private handleDisconnect(): void {

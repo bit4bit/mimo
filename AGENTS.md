@@ -182,6 +182,120 @@ The "Clear Session" feature creates a new ACP session while preserving mimo sess
 
 ---
 
+## ACP Session Parking
+
+The mimo-agent implements automatic resource management through "session parking" - an idle timeout mechanism that terminates ACP processes when inactive, freeing system resources while maintaining a seamless user experience.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        ACP SESSION PARKING                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   ┌──────────────┐                    ┌──────────────────────────────┐  │
+│   │ mimo-platform│                    │        mimo-agent            │  │
+│   │              │◄──── WebSocket ───►│                              │  │
+│   │              │                    │  ┌──────────────────────────┐  │  │
+│   │  Session     │                    │  │ SessionLifecycleManager│  │  │
+│   │  Repository  │                    │  │                        │  │  │
+│   │  - idleTimeoutMs                   │  │ ┌─────────┐            │  │  │
+│   │  - acpStatus   │                    │  │ │ ACTIVE  │───idle────►│  │  │
+│   │  - modelState  │                    │  │ │         │   timeout  │  │  │
+│   │  - modeState   │                    │  │ └────┬────┘            │  │  │
+│   │  - acpSessionId│                    │  │      │                  │  │  │
+│   └──────────────┘                    │  │      ▼                  │  │  │
+│                                         │  │ ┌─────────┐            │  │  │
+│   ┌──────────────┐                    │  │ │ PARKED  │───prompt───►│  │  │
+│   │   Chat UI    │◄── acp_status ───┤  │  │ │         │   arrives  │  │  │
+│   │              │                    │  │ └────┬────┘            │  │  │
+│   │  ● active    │                    │  │      │                  │  │  │
+│   │  💤 parked    │                    │  │      ▼                  │  │  │
+│   │  ⏳ waking    │                    │  │ ┌─────────┐            │  │  │
+│   └──────────────┘                    │  │ │ WAKING  │───ready────►│  │  │
+│                                         │  │ └─────────┘            │  │  │
+│                                         │  └──────────────────────────┘  │  │
+│                                         │                                 │  │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### State Machine
+
+| State | Description | Triggers |
+|-------|-------------|----------|
+| **ACTIVE** | ACP process running, normal operation | - Session created<br>- Wake-up complete |
+| **PARKED** | ACP terminated, resources freed | - Idle timeout reached (default: 10 min) |
+| **WAKING** | ACP respawning, queued prompts | - New prompt received while parked |
+
+### Activity Tracking
+
+The following events reset the idle timer:
+- User messages from platform
+- ACP thought events (start, chunk, end)
+- ACP message chunks
+- ACP usage updates
+
+### Configuration
+
+Per-session idle timeout is configurable via the platform API:
+
+```
+PATCH /sessions/:id/config
+Content-Type: application/json
+
+{
+  "idleTimeoutMs": 120000  // 2 minutes (minimum: 10000, 0 to disable)
+}
+```
+
+**Default:** 600000ms (10 minutes)
+
+### Session Resumption
+
+When a parked session receives a new prompt:
+
+1. State transitions to WAKING
+2. New ACP process spawned
+3. `loadSession(acpSessionId)` called to resume context
+4. Model/mode restored from cached values
+5. Queued prompts processed
+6. State transitions to ACTIVE
+
+### Error Handling
+
+If `loadSession()` fails (e.g., session expired on provider):
+- Falls back to `newSession()`
+- Model/mode still restored from cache
+- User sees: "Session expired - starting fresh"
+- Chat history preserved, only LLM context is fresh
+
+### Implementation Notes
+
+**mimo-platform responsibilities:**
+- Store `idleTimeoutMs`, `acpStatus`, cached `modelState`/`modeState`/`acpSessionId`
+- Broadcast `acp_status` messages to UI
+- Handle config updates from API
+
+**mimo-agent responsibilities:**
+- Track activity and manage idle timers
+- Execute parking (terminate ACP, stop file watcher)
+- Handle resumption (spawn, loadSession, restore model/mode)
+- Queue prompts during WAKE-UP
+
+**UI responsibilities:**
+- Display status indicator (active/parked/waking)
+- Disable input during WAKING state
+- Show notifications for session reset
+
+### Performance Considerations
+
+- First prompt after idle has ~1-2s latency (wake-up time)
+- File watcher stopped during parking saves resources
+- Queue allows multiple prompts during wake-up without loss
+- Configurable timeout allows tuning for user workflows
+
+---
+
 ## UI Page Requirements
 
 Every new page MUST follow these standards:

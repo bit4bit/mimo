@@ -293,6 +293,125 @@ bun run dev
 
 ---
 
+## ACP Session Parking Issues
+
+### Session Not Parking After Idle Timeout
+
+**Symptom**: Session remains active long after idle timeout should have triggered
+
+**Checklist**:
+1. Verify `idleTimeoutMs` is set correctly for the session
+2. Check if activity is being recorded (look for WebSocket messages in browser console)
+3. Ensure agent is connected and processing
+4. Verify no background processes are keeping session active
+
+**Debug**:
+```bash
+# Check session configuration
+curl http://localhost:3000/sessions/:id \
+  -H "Cookie: token=YOUR_JWT" | jq '.idleTimeoutMs'
+
+# Check current ACP status
+tail -50 ~/.mimo/platform.log | grep "acp_status"
+```
+
+**Common Causes**:
+- WebSocket heartbeat or keep-alive messages resetting timer
+- File watcher detecting changes
+- Background processes in agent workspace
+
+---
+
+### Slow Session Resumption (Wake-up)
+
+**Symptom**: Long delay (5+ seconds) when sending first message after idle
+
+**Expected**: 1-2 seconds for ACP spawn and initialization
+
+**Checklist**:
+1. Check agent logs for initialization errors
+2. Verify `acpSessionId` is being cached correctly
+3. Check if `loadSession()` is failing and falling back to `newSession()`
+
+**Debug**:
+```bash
+# Monitor agent logs during resumption
+DEBUG=1 ./mimo-agent --token ... --platform ... 2>&1 | grep -E "(respawn|loadSession|initialize)"
+```
+
+**Optimization**:
+- Use faster storage (SSD) for agent work directory
+- Reduce model/mode restoration time
+- Consider longer idle timeouts if wake-up latency is problematic
+
+---
+
+### Session Reset on Resume
+
+**Symptom**: "Session expired - starting fresh" notification appears
+
+**Explanation**: This is expected behavior when the ACP provider no longer has the session cached. The LLM provider (OpenCode/Claude) has cleaned up the session due to inactivity.
+
+**What happens**:
+- Chat history is preserved ✓
+- Model/mode preferences are restored ✓
+- System settings maintained ✓
+- Only LLM conversation context is fresh
+
+**Prevention**:
+- Use longer idle timeouts for important sessions
+- Disable parking (set `idleTimeoutMs: 0`) for critical workflows
+- Note: Session resets are normal after extended idle periods (varies by provider)
+
+**Debug**:
+```bash
+# Check if loadSession succeeded
+tail -100 ~/.mimo/platform.log | grep -E "(acp_session_created|wasReset)"
+```
+
+---
+
+### Prompt Queue Issues During Wake-up
+
+**Symptom**: Multiple prompts sent while waking result in errors or lost messages
+
+**Expected Behavior**: Prompts should queue and process sequentially after ACP is ready
+
+**Checklist**:
+1. Verify WAKING state is being set correctly
+2. Check if prompts are being queued (look for queue depth in logs)
+3. Ensure queue is flushed after resumption completes
+
+**Debug**:
+```bash
+# Monitor prompt queue in agent logs
+tail -f ~/.mimo/agent.log | grep -E "(queue|waking|WAKING)"
+```
+
+---
+
+### ACP Status Indicator Not Updating
+
+**Symptom**: UI shows wrong status (e.g., "active" when session is parked)
+
+**Checklist**:
+1. Verify WebSocket connection is active
+2. Check if `acp_status` messages are being received (browser console)
+3. Ensure status element exists: `#acp-status-indicator`
+
+**Browser Debug**:
+```javascript
+// Check current status
+console.log('Current ACP status:', window.currentAcpStatus);
+
+// Force refresh
+fetch(`/sessions/${sessionId}`, {headers: {'Cookie': document.cookie}})
+  .then(r => r.json())
+  .then(data => console.log('Server status:', data.acpStatus));
+```
+
+---
+
 ## Data Recovery
 
 ### Corrupted Session

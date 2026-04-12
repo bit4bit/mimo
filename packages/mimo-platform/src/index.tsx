@@ -739,6 +739,41 @@ async function handleAgentMessage(ws, data) {
         }
       }
       break;
+    case "acp_status":
+      {
+        const { sessionId, status } = data;
+        console.log("[agent] ACP status update:", { sessionId, status });
+        
+        if (sessionId) {
+          // Update session acpStatus in repository
+          await sessionRepository.update(sessionId, { acpStatus: status });
+          
+          // Broadcast to all UI clients for this session
+          const statusSubscribers = chatSessions.get(sessionId);
+          if (statusSubscribers) {
+            const statusMessage: any = {
+              type: 'acp_status',
+              sessionId,
+              status,
+              timestamp: new Date().toISOString(),
+            };
+            
+            // Include reset info if present
+            if (data.wasReset) {
+              statusMessage.wasReset = true;
+              statusMessage.resetReason = data.resetReason;
+              statusMessage.message = data.message || "Session reset";
+            }
+            
+            statusSubscribers.forEach((client: WebSocket) => {
+              if (client.readyState === 1) {
+                client.send(JSON.stringify(statusMessage));
+              }
+            });
+          }
+        }
+      }
+      break;
     case "prompt_received":
       {
         const prSubscribers = chatSessions.get(data.sessionId);
@@ -867,6 +902,25 @@ async function handleChatMessage(ws, data) {
           stateAgentWs.send(JSON.stringify({
             type: 'request_state',
             sessionId: sessionId,
+          }));
+        }
+      }
+      break;
+
+    case "request_acp_status":
+      {
+        const reqSessionId = data.sessionId;
+        if (!reqSessionId) break;
+
+        // Get session to send current ACP status
+        const reqSession = await sessionRepository.findById(reqSessionId);
+        if (reqSession) {
+          // Send back to requesting client (usually the agent)
+          ws.send(JSON.stringify({
+            type: 'acp_status',
+            sessionId: reqSessionId,
+            status: reqSession.acpStatus || 'active',
+            timestamp: new Date().toISOString(),
           }));
         }
       }

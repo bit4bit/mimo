@@ -220,16 +220,23 @@ export class SessionManager {
   }
 
   terminateSession(sessionId: string): void {
+    this.stopSession(sessionId);
+    this.sessions.delete(sessionId);
+  }
+
+  stopSession(sessionId: string): void {
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
     if (session.acpProcess) {
       console.log(`[mimo-agent] Killing ACP process for ${sessionId}`);
       session.acpProcess.kill("SIGTERM");
+      session.acpProcess = null;
     }
 
     if (session.fileWatcher) {
       session.fileWatcher.close();
+      session.fileWatcher = null;
     }
 
     // Clear any pending changes
@@ -239,8 +246,6 @@ export class SessionManager {
       this.changeTimeouts.delete(sessionId);
     }
     this.pendingChanges.delete(sessionId);
-
-    this.sessions.delete(sessionId);
   }
 
   terminateAll(): void {

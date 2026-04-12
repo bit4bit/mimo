@@ -82,6 +82,7 @@ interface SessionDetailProps {
   modelState?: ModelState;
   modeState?: ModeState;
   fossilUrl?: string;
+  acpStatus?: "active" | "parked";
 }
 
 export const SessionDetailPage: FC<SessionDetailProps> = ({
@@ -92,6 +93,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   modelState,
   modeState,
   fossilUrl,
+  acpStatus = "active",
 }) => {
 
   return (
@@ -113,6 +115,26 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             </span>
           </div>
           <div style="display: flex; gap: 10px; align-items: center;">
+            {/* ACP Status Indicator */}
+            <div 
+              id="acp-status-indicator" 
+              class={`acp-status acp-status--${acpStatus}`}
+              style={`
+                padding: 4px 12px;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: 500;
+                ${acpStatus === 'active' ? 'background: #1e4620; color: #4caf50;' : ''}
+                ${acpStatus === 'parked' ? 'background: #332d1a; color: #ffc107;' : ''}
+                ${acpStatus === 'waking' ? 'background: #1a237e; color: #64b5f6;' : ''}
+              `}
+              title={acpStatus === 'active' ? 'ACP is active and ready' : acpStatus === 'parked' ? 'ACP is parked. Will wake on next message.' : 'ACP is starting up'}
+            >
+              {acpStatus === 'active' && '● Agent ready'}
+              {acpStatus === 'parked' && '💤 Agent sleeping'}
+              {acpStatus === 'waking' && '⏳ Waking agent...'}
+            </div>
+
             {/* Model Selector - always visible with placeholder */}
             <div 
               id="model-selector-container" 
@@ -200,7 +222,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             <button type="button" id="clear-session-btn" class="btn-secondary" title="Clear agent context while preserving history">
               Clear
             </button>
-            <a href="/config" class="btn-secondary">Settings</a>
+            <a href={`/projects/${project.id}/sessions/${session.id}/settings`} class="btn-secondary">Settings</a>
           </div>
           <span id="commit-status" style="color: #888; font-size: 12px;"></span>
           <form

@@ -188,7 +188,95 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
       case 'clear_session_error':
         handleClearSessionError(data);
         break;
+
+      case 'acp_status':
+        handleAcpStatus(data);
+        break;
     }
+  }
+
+  let currentAcpStatus = 'active'; // Track current ACP status
+
+  function handleAcpStatus(data) {
+    const { status, sessionId, wasReset, message } = data;
+    console.log('[CHAT] ACP status update:', { status, sessionId, wasReset });
+
+    currentAcpStatus = status;
+    updateAcpStatusUI(status);
+
+    // Show notification for session reset
+    if (wasReset && message) {
+      showNotification(message, 'info');
+    }
+  }
+
+  function updateAcpStatusUI(status) {
+    // Update status indicator in UI
+    const statusIndicator = document.querySelector('#acp-status-indicator');
+    const chatInput = document.querySelector('#chat-input');
+    const sendButton = document.querySelector('#send-button');
+
+    if (statusIndicator) {
+      statusIndicator.className = `acp-status acp-status--${status}`;
+
+      switch (status) {
+        case 'active':
+          statusIndicator.textContent = '● Agent ready';
+          statusIndicator.title = 'ACP is active and ready';
+          break;
+        case 'parked':
+          statusIndicator.textContent = '💤 Agent sleeping';
+          statusIndicator.title = 'ACP is parked. Will wake on next message.';
+          break;
+        case 'waking':
+          statusIndicator.textContent = '⏳ Waking agent...';
+          statusIndicator.title = 'ACP is starting up';
+          break;
+        default:
+          statusIndicator.textContent = '● Agent ready';
+      }
+    }
+
+    // Disable/enable input based on status
+    if (chatInput) {
+      if (status === 'waking') {
+        chatInput.disabled = true;
+        chatInput.placeholder = 'Waking agent...';
+      } else {
+        chatInput.disabled = false;
+        chatInput.placeholder = 'Type your message...';
+      }
+    }
+
+    if (sendButton) {
+      sendButton.disabled = status === 'waking';
+    }
+  }
+
+  function showNotification(message, type = 'info') {
+    const chatContainer = document.querySelector('#chat-messages');
+    if (!chatContainer) return;
+
+    const notification = document.createElement('div');
+    notification.className = `message message-system notification notification--${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+      padding: 8px 12px;
+      margin: 8px 0;
+      border-radius: 4px;
+      background: ${type === 'info' ? '#e3f2fd' : type === 'warning' ? '#fff3e0' : '#ffebee'};
+      color: ${type === 'info' ? '#1976d2' : type === 'warning' ? '#f57c00' : '#d32f2f'};
+      font-size: 0.9em;
+      text-align: center;
+    `;
+
+    chatContainer.appendChild(notification);
+    scrollToBottom();
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      notification.remove();
+    }, 5000);
   }
 
   function handleStreamingState(data) {

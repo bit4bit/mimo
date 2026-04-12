@@ -5,6 +5,18 @@ import { dump, load } from "js-yaml";
 import crypto from "crypto";
 import { normalizeSessionIdForFossil } from "../vcs/shared-fossil-server.js";
 
+export interface ModelState {
+  currentModelId: string;
+  availableModels: Array<{ value: string; name: string; description?: string }>;
+  optionId: string;
+}
+
+export interface ModeState {
+  currentModeId: string;
+  availableModes: Array<{ value: string; name: string; description?: string }>;
+  optionId: string;
+}
+
 export interface Session {
   id: string;
   name: string;
@@ -21,6 +33,11 @@ export interface Session {
   acpSessionId?: string;
   localDevMirrorPath?: string;
   agentSubpath?: string;
+  // ACP Session Parking fields
+  idleTimeoutMs: number;
+  acpStatus: "active" | "parked";
+  modelState?: ModelState;
+  modeState?: ModeState;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +58,11 @@ export interface SessionData {
   acpSessionId?: string;
   localDevMirrorPath?: string;
   agentSubpath?: string;
+  // ACP Session Parking fields
+  idleTimeoutMs?: number;
+  acpStatus?: "active" | "parked";
+  modelState?: ModelState;
+  modeState?: ModeState;
   createdAt: string;
   updatedAt: string;
 }
@@ -52,6 +74,10 @@ export interface CreateSessionInput {
   assignedAgentId?: string;
   localDevMirrorPath?: string;
   agentSubpath?: string;
+}
+
+export interface UpdateSessionConfigInput {
+  idleTimeoutMs?: number;
 }
 
 export class SessionRepository {
@@ -146,6 +172,9 @@ export class SessionRepository {
       assignedAgentId: input.assignedAgentId,
       status: "active",
       port: null,
+      // ACP Session Parking defaults
+      idleTimeoutMs: 600000, // 10 minutes default
+      acpStatus: "active",
       createdAt: now,
       updatedAt: now,
       ...(input.localDevMirrorPath && { localDevMirrorPath: input.localDevMirrorPath }),
@@ -183,9 +212,12 @@ export class SessionRepository {
             const content = readFileSync(sessionFile, "utf-8");
             const data = load(content) as SessionData;
             // Handle migration from checkoutPath to agentWorkspacePath
+            // Handle ACP Session Parking defaults (backward compatibility)
             const sessionData = {
               ...data,
               agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
+              idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+              acpStatus: data.acpStatus ?? "active",
             };
             return {
               ...sessionData,
@@ -209,9 +241,12 @@ export class SessionRepository {
     const content = readFileSync(filePath, "utf-8");
     const data = load(content) as SessionData;
     // Handle migration from checkoutPath to agentWorkspacePath
+    // Handle ACP Session Parking defaults (backward compatibility)
     const sessionData = {
       ...data,
       agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
+      idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+      acpStatus: data.acpStatus ?? "active",
     };
 
     return {
@@ -237,9 +272,12 @@ export class SessionRepository {
           const content = readFileSync(sessionFile, "utf-8");
           const data = load(content) as SessionData;
           // Handle migration from checkoutPath to agentWorkspacePath
+          // Handle ACP Session Parking defaults (backward compatibility)
           const sessionData = {
             ...data,
             agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
+            idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+            acpStatus: data.acpStatus ?? "active",
           };
           sessions.push({
             ...sessionData,
@@ -274,9 +312,12 @@ export class SessionRepository {
                 const content = readFileSync(sessionFile, "utf-8");
                 const data = load(content) as SessionData;
                 // Handle migration from checkoutPath to agentWorkspacePath
+                // Handle ACP Session Parking defaults (backward compatibility)
                 const sessionData = {
                   ...data,
                   agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
+                  idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+                  acpStatus: data.acpStatus ?? "active",
                 };
                 if (data.assignedAgentId === agentId) {
                   sessions.push({
@@ -349,6 +390,25 @@ export class SessionRepository {
 
   async exists(projectId: string, sessionId: string): Promise<boolean> {
     return existsSync(this.getSessionFilePath(projectId, sessionId));
+  }
+
+  async updateSessionConfig(sessionId: string, config: UpdateSessionConfigInput): Promise<Session | null> {
+    const session = await this.findById(sessionId);
+    if (!session) return null;
+
+    // Validate idleTimeoutMs if provided
+    if (config.idleTimeoutMs !== undefined) {
+      if (config.idleTimeoutMs !== 0 && config.idleTimeoutMs < 10000) {
+        throw new Error("idleTimeoutMs must be at least 10000ms or 0 to disable");
+      }
+    }
+
+    const updates: Partial<SessionData> = {};
+    if (config.idleTimeoutMs !== undefined) {
+      updates.idleTimeoutMs = config.idleTimeoutMs;
+    }
+
+    return this.update(sessionId, updates);
   }
 }
 

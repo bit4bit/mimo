@@ -575,4 +575,160 @@ router.get("/:id/fossil-status", async (c: Context) => {
   });
 });
 
+// PATCH /sessions/:id/config - Update session configuration (idle timeout, etc.)
+router.patch("/:id/config", async (c: Context) => {
+  const username = await getAuthUsername(c);
+  if (!username) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const sessionId = c.req.param("id");
+  const session = await sessionRepository.findById(sessionId);
+
+  if (!session || session.owner !== username) {
+    return c.json({ error: "Session not found" }, 404);
+  }
+
+  try {
+    const body = await c.req.json();
+    const { idleTimeoutMs } = body;
+
+    if (idleTimeoutMs === undefined) {
+      return c.json({ error: "idleTimeoutMs is required" }, 400);
+    }
+
+    // Update session config (validation happens in repository)
+    const updatedSession = await sessionRepository.updateSessionConfig(sessionId, {
+      idleTimeoutMs,
+    });
+
+    if (!updatedSession) {
+      return c.json({ error: "Failed to update session configuration" }, 500);
+    }
+
+    // Notify agent of config change if assigned and online
+    if (session.assignedAgentId && agentService.isAgentOnline(session.assignedAgentId)) {
+      const agentWs = agentService.getAgentConnection(session.assignedAgentId);
+      if (agentWs && agentWs.readyState === 1) {
+        agentWs.send(JSON.stringify({
+          type: 'session_config_updated',
+          sessionId,
+          config: {
+            idleTimeoutMs: updatedSession.idleTimeoutMs,
+          },
+          timestamp: new Date().toISOString(),
+        }));
+      }
+    }
+
+    return c.json({
+      success: true,
+      session: {
+        id: updatedSession.id,
+        idleTimeoutMs: updatedSession.idleTimeoutMs,
+        acpStatus: updatedSession.acpStatus,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return c.json({ error: message }, 400);
+  }
+});
+
+// GET /sessions/:id/settings - Session settings page
+router.get("/:id/settings", async (c: Context) => {
+  const username = await getAuthUsername(c);
+  if (!username) {
+    return c.redirect("/auth/login");
+  }
+
+  const sessionId = c.req.param("id");
+  const session = await sessionRepository.findById(sessionId);
+
+  if (!session || session.owner !== username) {
+    return c.text("Session not found", 404);
+  }
+
+  const project = await projectRepository.findById(session.projectId);
+  if (!project) {
+    return c.text("Project not found", 404);
+  }
+
+  // Import the settings page component
+  const { SessionSettingsPage } = await import("../components/SessionSettingsPage.js");
+
+  return c.html(
+    <SessionSettingsPage
+      session={{
+        id: session.id,
+        name: session.name,
+        idleTimeoutMs: session.idleTimeoutMs,
+        acpStatus: session.acpStatus,
+      }}
+      project={{
+        id: project.id,
+        name: project.name,
+      }}
+    />
+  );
+});
+
+// POST /sessions/:id/settings/timeout - Update idle timeout via form
+router.post("/:id/settings/timeout", async (c: Context) => {
+  const username = await getAuthUsername(c);
+  if (!username) {
+    return c.redirect("/auth/login");
+  }
+
+  const sessionId = c.req.param("id");
+  const session = await sessionRepository.findById(sessionId);
+
+  if (!session || session.owner !== username) {
+    return c.text("Session not found", 404);
+  }
+
+  const body = await c.req.parseBody();
+  const idleTimeoutMs = parseInt(body.idleTimeoutMs as string, 10);
+
+  if (isNaN(idleTimeoutMs) || (idleTimeoutMs !== 0 && idleTimeoutMs < 10000)) {
+    return c.html(
+      <div style="padding: 20px; color: #ff6b6b;">
+        Error: Invalid timeout value. Must be at least 10 seconds (10000ms) or 0 to disable.
+        <br/><br/>
+        <a href={`/projects/${session.projectId}/sessions/${sessionId}/settings`}>Go Back</a>
+      </div>
+    );
+  }
+
+  try {
+    // Update the session config
+    await sessionRepository.updateSessionConfig(sessionId, { idleTimeoutMs });
+
+    // Notify agent of config change if assigned and online
+    if (session.assignedAgentId && agentService.isAgentOnline(session.assignedAgentId)) {
+      const agentWs = agentService.getAgentConnection(session.assignedAgentId);
+      if (agentWs && agentWs.readyState === 1) {
+        agentWs.send(JSON.stringify({
+          type: 'session_config_updated',
+          sessionId,
+          config: { idleTimeoutMs },
+          timestamp: new Date().toISOString(),
+        }));
+      }
+    }
+
+    // Redirect back to settings page with success
+    return c.redirect(`/projects/${session.projectId}/sessions/${sessionId}/settings`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return c.html(
+      <div style="padding: 20px; color: #ff6b6b;">
+        Error: {message}
+        <br/><br/>
+        <a href={`/projects/${session.projectId}/sessions/${sessionId}/settings`}>Go Back</a>
+      </div>
+    );
+  }
+});
+
 export default router;

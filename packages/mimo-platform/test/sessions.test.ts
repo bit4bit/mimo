@@ -56,7 +56,7 @@ describe("Session Management Integration Tests", () => {
     sessionRoutes = routesModule.default;
   });
 
-  describe("Session Creation", () => {
+  describe("Session Creation with ACP Session Parking", () => {
     it("should create a new session for a project", async () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
@@ -94,6 +94,214 @@ describe("Session Management Integration Tests", () => {
       expect(sessions.length).toBe(1);
       expect(sessions[0].name).toBe("Feature Branch Session");
     });
+
+    it("should create session with default idleTimeoutMs of 10 minutes", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "Test Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const location = res.headers.get("location") || "";
+      const sessionId = location.split("/").pop();
+      const session = await sessionRepository.findById(sessionId!);
+
+      expect(session).not.toBeNull();
+      expect(session?.idleTimeoutMs).toBe(600000); // 10 minutes default
+      expect(session?.acpStatus).toBe("active");
+    });
+
+    it("should update idleTimeoutMs via updateSessionConfig", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "Test Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const location = res.headers.get("location") || "";
+      const sessionId = location.split("/").pop();
+
+      // Update idle timeout via API
+      const patchRes = await app.request(`/projects/${project.id}/sessions/${sessionId}/config`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `token=${token}`,
+        },
+        body: JSON.stringify({ idleTimeoutMs: 120000 }), // 2 minutes
+      });
+
+      expect(patchRes.status).toBe(200);
+
+      const updatedSession = await sessionRepository.findById(sessionId!);
+      expect(updatedSession?.idleTimeoutMs).toBe(120000);
+    });
+
+    it("should reject idleTimeoutMs below 10000ms", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "Test Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const location = res.headers.get("location") || "";
+      const sessionId = location.split("/").pop();
+
+      // Try to set invalid idle timeout
+      const patchRes = await app.request(`/projects/${project.id}/sessions/${sessionId}/config`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `token=${token}`,
+        },
+        body: JSON.stringify({ idleTimeoutMs: 5000 }), // 5 seconds - too short
+      });
+
+      expect(patchRes.status).toBe(400);
+    });
+
+    it("should handle backward compatibility for sessions without ACP fields", async () => {
+      // Create a session directly in the filesystem without ACP fields
+      // to simulate old sessions
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Old Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      // Simulate old session by manually removing ACP fields from the yaml
+      const sessionPath = join(testHome, "projects", project.id, "sessions", session.id, "session.yaml");
+      const yamlContent = readFileSync(sessionPath, "utf-8");
+      const lines = yamlContent.split("\n");
+      const filteredLines = lines.filter(line => 
+        !line.startsWith("idleTimeoutMs:") && 
+        !line.startsWith("acpStatus:")
+      );
+      writeFileSync(sessionPath, filteredLines.join("\n"), "utf-8");
+
+      // Re-fetch session - should have defaults applied
+      const reloadedSession = await sessionRepository.findById(session.id);
+      expect(reloadedSession?.idleTimeoutMs).toBe(600000);
+      expect(reloadedSession?.acpStatus).toBe("active");
+    });
+
+    it("should cache acpSessionId, modelState, and modeState", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "Test Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const location = res.headers.get("location") || "";
+      const sessionId = location.split("/").pop();
+
+      // Update with cached values
+      const modelState = {
+        currentModelId: "claude-3-opus",
+        availableModels: [{ value: "claude-3-opus", name: "Claude 3 Opus" }],
+        optionId: "model",
+      };
+
+      const modeState = {
+        currentModeId: "explore",
+        availableModes: [{ value: "explore", name: "Explore" }],
+        optionId: "mode",
+      };
+
+      await sessionRepository.update(sessionId!, {
+        acpSessionId: "acp-session-123",
+        modelState,
+        modeState,
+        acpStatus: "parked",
+      });
+
+      const updatedSession = await sessionRepository.findById(sessionId!);
+      expect(updatedSession?.acpSessionId).toBe("acp-session-123");
+      expect(updatedSession?.modelState?.currentModelId).toBe("claude-3-opus");
+      expect(updatedSession?.modeState?.currentModeId).toBe("explore");
+      expect(updatedSession?.acpStatus).toBe("parked");
+    });
+  });
 
     it("should reject session creation without name", async () => {
       const app = new Hono();
