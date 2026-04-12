@@ -265,9 +265,9 @@ router.get("/:id", async (c: Context) => {
     agent = await agentRepository.findById(session.assignedAgentId);
   }
 
-  // Get model/mode state from in-memory store
-  const modelState = sessionStateService.getModelState(sessionId);
-  const modeState = sessionStateService.getModeState(sessionId);
+  // Get model/mode state from in-memory store, fallback to persisted session data
+  const modelState = sessionStateService.getModelState(sessionId) ?? session.modelState;
+  const modeState = sessionStateService.getModeState(sessionId) ?? session.modeState;
 
   // Always generate fossil URL - the shared server should be running
   // If it's not running yet, the URL will still be valid but the server won't respond

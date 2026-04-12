@@ -16,6 +16,9 @@ interface Session {
   upstreamPath: string;
   agentWorkspacePath: string;
   assignedAgentId?: string;
+  syncState?: "idle" | "syncing" | "error";
+  lastSyncAt?: string;
+  lastSyncError?: string;
   createdAt: Date;
 }
 
@@ -106,16 +109,24 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             <div 
               id="model-selector-container" 
               class="selector-container" 
-              style="opacity: 0.5;"
-              title="Waiting for ACP server to provide model options..."
+              style={modelState ? "opacity: 1;" : "opacity: 0.5;"}
+              title={modelState ? modelState.currentModelId : "Waiting for ACP server to provide model options..."}
             >
               <label class="selector-label">Model:</label>
               <select
                 id="model-selector"
                 class="selector-dropdown"
-                disabled
+                disabled={!modelState}
               >
-                <option>Not configured</option>
+                {modelState ? (
+                  modelState.availableModels.map((model) => (
+                    <option value={model.value} selected={model.value === modelState.currentModelId}>
+                      {model.name}
+                    </option>
+                  ))
+                ) : (
+                  <option>Not configured</option>
+                )}
               </select>
             </div>
 
@@ -123,16 +134,24 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             <div 
               id="mode-selector-container" 
               class="selector-container"
-              style="opacity: 0.5;"
-              title="Waiting for ACP server to provide mode options..."
+              style={modeState ? "opacity: 1;" : "opacity: 0.5;"}
+              title={modeState ? modeState.currentModeId : "Waiting for ACP server to provide mode options..."}
             >
               <label class="selector-label">Mode:</label>
               <select
                 id="mode-selector"
                 class="selector-dropdown"
-                disabled
+                disabled={!modeState}
               >
-                <option>Not configured</option>
+                {modeState ? (
+                  modeState.availableModes.map((mode) => (
+                    <option value={mode.value} selected={mode.value === modeState.currentModeId}>
+                      {mode.name}
+                    </option>
+                  ))
+                ) : (
+                  <option>Not configured</option>
+                )}
               </select>
             </div>
 
@@ -173,12 +192,20 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             <button type="button" id="commit-btn" class="btn-primary">
               Commit
             </button>
+            <button type="button" id="sync-now-btn" class="btn-secondary">
+              Sync Now
+            </button>
             <button type="button" id="clear-session-btn" class="btn-secondary" title="Clear agent context while preserving history">
               Clear
             </button>
             <a href={`/projects/${project.id}/sessions/${session.id}/settings`} class="btn-secondary">Settings</a>
           </div>
-          <span id="commit-status" style="color: #888; font-size: 12px;"></span>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+            <span id="sync-status" style="color: #888; font-size: 12px;">
+              Sync: {session.syncState || "idle"}
+            </span>
+            <span id="commit-status" style="color: #888; font-size: 12px;"></span>
+          </div>
           <form
             method="POST"
             action={`/projects/${project.id}/sessions/${session.id}/delete`}
