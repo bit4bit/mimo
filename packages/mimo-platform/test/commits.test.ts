@@ -220,5 +220,51 @@ describe("Commit Service Tests", () => {
       expect(result.success).toBe(true);
       expect(result.message).toContain("No changes to commit");
     }, 30000);
+
+    it("should use user-provided commit message in upstream repository", async () => {
+      const vcs = new VCS();
+      const sessionRepo = new SessionRepository();
+      const projectRepo = new ProjectRepository();
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync("git config user.email \"test@test.com\"", { cwd: upstreamPath });
+      execSync("git config user.name \"Test User\"", { cwd: upstreamPath });
+
+      const agentWorkspacePath = session.agentWorkspacePath;
+      const fossilPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(fossilPath);
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      await vcs.openFossil(fossilPath, agentWorkspacePath);
+
+      writeFileSync(join(agentWorkspacePath, "test.txt"), "test content");
+      await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
+      await vcs.execCommand(["fossil", "commit", "-m", "Agent commit"], agentWorkspacePath);
+
+      const userMessage = "feat(session): keep my commit title";
+      const result = await CommitService.commitAndPush(session.id, userMessage);
+
+      expect(result.success).toBe(true);
+
+      const upstreamCommitMessage = execSync("git log -1 --pretty=%s", {
+        cwd: upstreamPath,
+        encoding: "utf8",
+      }).trim();
+      expect(upstreamCommitMessage).toBe(userMessage);
+    }, 30000);
   });
 });

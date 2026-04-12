@@ -11,13 +11,20 @@ const router = new Hono();
 router.use("/*", authMiddleware);
 
 // POST /commits/:sessionId/commit-and-push - Commit and push
-// The commit message is automatically generated: "Mimo commit at <timestamp>"
 router.post("/:sessionId/commit-and-push", async (c: Context) => {
   const sessionId = c.req.param("sessionId");
-  
-  // Note: Message parameter is accepted for backwards compatibility but ignored
-  // The commit message is automatically generated with timestamp
-  const result = await commitService.commitAndPush(sessionId);
+
+  let message: string | undefined;
+  try {
+    const body = await c.req.json();
+    if (typeof body?.message === "string") {
+      message = body.message;
+    }
+  } catch {
+    message = undefined;
+  }
+
+  const result = await commitService.commitAndPush(sessionId, message);
   return c.json({
     success: result.success,
     message: result.message,
@@ -29,8 +36,18 @@ router.post("/:sessionId/commit-and-push", async (c: Context) => {
 // POST /commits/:sessionId - Alias for commit-and-push
 router.post("/:sessionId", async (c: Context) => {
   const sessionId = c.req.param("sessionId");
-  
-  const result = await commitService.commitAndPush(sessionId);
+
+  let message: string | undefined;
+  try {
+    const body = await c.req.json();
+    if (typeof body?.message === "string") {
+      message = body.message;
+    }
+  } catch {
+    message = undefined;
+  }
+
+  const result = await commitService.commitAndPush(sessionId, message);
   return c.json({
     success: result.success,
     message: result.message,

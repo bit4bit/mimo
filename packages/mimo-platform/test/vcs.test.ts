@@ -228,6 +228,31 @@ describe("VCS Integration Tests", () => {
     // See test/patch-sync.test.ts for generateAndApplyPatch tests
 
     describe("commitUpstream", () => {
+      it("should use explicit commit message when provided for Git upstream", async () => {
+        const vcs = new VCS();
+        const { execSync } = await import("child_process");
+        const upstreamPath = join(testHome, "upstream-git-custom-message");
+
+        mkdirSync(upstreamPath, { recursive: true });
+        execSync("git init", { cwd: upstreamPath });
+        execSync("git config user.email \"test@test.com\"", { cwd: upstreamPath });
+        execSync("git config user.name \"Test User\"", { cwd: upstreamPath });
+
+        const { writeFileSync } = await import("fs");
+        writeFileSync(join(upstreamPath, "test.txt"), "test");
+
+        const customMessage = "fix(commit): preserve UI message";
+        const result = await (vcs as any).commitUpstream(upstreamPath, "git", customMessage);
+
+        expect(result.success).toBe(true);
+
+        const commitSubject = execSync("git log -1 --pretty=%s", {
+          cwd: upstreamPath,
+          encoding: "utf8",
+        }).trim();
+        expect(commitSubject).toBe(customMessage);
+      }, 15000);
+
       it("should commit in Git upstream with timestamp message", async () => {
         const vcs = new VCS();
         const { execSync } = await import("child_process");

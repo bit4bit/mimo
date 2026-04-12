@@ -765,9 +765,10 @@ export class VCS {
 
   async commitUpstream(
     upstreamPath: string,
-    repoType: "git" | "fossil"
+    repoType: "git" | "fossil",
+    message?: string
   ): Promise<VCSResult> {
-    const message = `Mimo commit at ${new Date().toISOString()}`;
+    const commitMessage = message?.trim() || `Mimo commit at ${new Date().toISOString()}`;
 
     // VCS metadata files that must never be committed, regardless of repo type.
     const VCS_METADATA = [".fslckout", "_FOSSIL_", ".fslckout-journal"];
@@ -789,7 +790,7 @@ export class VCS {
       }
 
       const commitResult = await this.execCommand(
-        ["git", "commit", "-m", message],
+        ["git", "commit", "-m", commitMessage],
         upstreamPath
       );
 
@@ -829,7 +830,7 @@ export class VCS {
       }
 
       const commitResult = await this.execCommand(
-        ["fossil", "commit", "-m", message],
+        ["fossil", "commit", "-m", commitMessage],
         upstreamPath
       );
 

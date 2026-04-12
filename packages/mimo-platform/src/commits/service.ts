@@ -26,7 +26,7 @@ export interface CommitAndPushResult {
 }
 
 export class CommitService {
-  async commitAndPush(sessionId: string): Promise<CommitAndPushResult> {
+  async commitAndPush(sessionId: string, commitMessage?: string): Promise<CommitAndPushResult> {
     // Step 0: Get session and project
     const session = await sessionRepository.findById(sessionId);
     if (!session) {
@@ -129,7 +129,7 @@ export class CommitService {
 
     // Step 3: Commit in upstream
     console.log(`[commit] Step 3: Committing in upstream...`);
-    const commitResult = await vcs.commitUpstream(session.upstreamPath, repoType);
+    const commitResult = await vcs.commitUpstream(session.upstreamPath, repoType, commitMessage);
     if (!commitResult.success) {
       // Check if no changes
       if (commitResult.output?.includes("nothing to commit") ||
