@@ -648,7 +648,7 @@ router.get("/:id/fossil-status", async (c: Context) => {
   }
 
   // Check shared fossil server status
-  const isServerRunning = sharedFossilServer.isRunning();
+  const isServerRunning = await sharedFossilServer.isRunning();
   // Always generate the URL - the shared server should eventually be running
   const fossilUrl = sharedFossilServer.getUrl(sessionId);
 

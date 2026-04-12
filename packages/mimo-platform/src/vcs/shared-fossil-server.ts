@@ -337,7 +337,7 @@ export class SharedFossilServer {
    * @returns {Promise<boolean>} true if server is running or was started successfully
    */
   async ensureRunning(): Promise<boolean> {
-    if (this.isRunning()) {
+    if (await this.isRunning()) {
       return true;
     }
     return this.start();
