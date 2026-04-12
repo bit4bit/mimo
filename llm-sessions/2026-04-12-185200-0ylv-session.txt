@@ -1,0 +1,9 @@
+[2026-04-12 18:35:00] User: fix UI, session page, THOUGHT PROCESS is showing at right side i want it to be again left SIDE
+[2026-04-12 18:35:01] LLM: Looking for the thought process UI code in the session page...
+[2026-04-12 18:35:05] User: i just say align to left
+[2026-04-12 18:35:06] LLM: Found it - the thought header uses `message-header` class which has `justify-content: space-between`. Fixed by adding `thoughtHeader.style.justifyContent = 'flex-start'` in two places in chat.js.
+[2026-04-12 18:35:10] User: i have a inconsistency with the latest feature , loadSession: true, ... the UI is showing Agent ready and the Agent box is blocked still waiting for somethng i can't send message
+[2026-04-12 18:35:15] LLM: Found the bug in onTerminateSession - it was deleting acpClients BEFORE caching the state. Fixed the order so state is cached before deletion.
+[2026-04-12 18:35:20] User: after respawining ... the UI is showing AGent offline, but i have the Agent box the say processing
+[2026-04-12 18:35:25] LLM: Found the issue - currentAgentStatus was never set after page load. Added currentAgentStatus = 'online' when session_initialized is received.
+[2026-04-12 18:35:30] User: good commit and push

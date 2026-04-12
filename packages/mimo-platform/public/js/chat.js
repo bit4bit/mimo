@@ -143,6 +143,9 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
       case 'session_initialized':
         // Initialize model and mode selectors
         console.log('[INIT] session_initialized received:', data);
+        // Session initialized means agent is online
+        currentAgentStatus = 'online';
+        updateAgentStatusUI(currentAgentStatus, currentAcpStatus);
         if (data.modelState) {
           updateModelSelector(data.modelState);
         } else {
@@ -196,13 +199,14 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
   }
 
   let currentAcpStatus = 'active'; // Track current ACP status
+  let currentAgentStatus = null; // Track agent connection status
 
   function handleAcpStatus(data) {
     const { status, sessionId, wasReset, message } = data;
     console.log('[CHAT] ACP status update:', { status, sessionId, wasReset });
 
     currentAcpStatus = status;
-    updateAcpStatusUI(status);
+    updateAgentStatusUI(currentAgentStatus, status);
 
     // Show notification for session reset
     if (wasReset && message) {
@@ -210,38 +214,57 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
     }
   }
 
-  function updateAcpStatusUI(status) {
-    // Update status indicator in UI
-    const statusIndicator = document.querySelector('#acp-status-indicator');
+  // Handle agent status from session_initialized and other messages
+  function updateAgentConnectionStatus(agentStatus) {
+    currentAgentStatus = agentStatus;
+    updateAgentStatusUI(agentStatus, currentAcpStatus);
+  }
+
+  function updateAgentStatusUI(agentStatus, acpStatus) {
+    // Update combined status indicator in UI
+    const statusIndicator = document.querySelector('#agent-status-indicator');
     const chatInput = document.querySelector('#chat-input');
     const sendButton = document.querySelector('#send-button');
 
     if (statusIndicator) {
-      statusIndicator.className = `acp-status acp-status--${status}`;
-
-      switch (status) {
-        case 'active':
-          statusIndicator.textContent = '● Agent ready';
-          statusIndicator.title = 'ACP is active and ready';
-          break;
-        case 'parked':
-          statusIndicator.textContent = '💤 Agent sleeping';
-          statusIndicator.title = 'ACP is parked. Will wake on next message.';
-          break;
-        case 'waking':
-          statusIndicator.textContent = '⏳ Waking agent...';
-          statusIndicator.title = 'ACP is starting up';
-          break;
-        default:
-          statusIndicator.textContent = '● Agent ready';
+      // Compute combined status
+      let statusText, statusTitle, statusClass;
+      
+      if (!agentStatus || agentStatus === 'offline') {
+        statusText = '🔴 Agent offline';
+        statusTitle = 'Agent is disconnected';
+        statusClass = 'agent-status--offline';
+      } else if (acpStatus === 'active') {
+        statusText = '🟢 Agent ready';
+        statusTitle = 'ACP is active and ready';
+        statusClass = 'agent-status--active';
+      } else if (acpStatus === 'parked') {
+        statusText = '💤 Agent sleeping';
+        statusTitle = 'ACP is parked. Will wake on next message.';
+        statusClass = 'agent-status--parked';
+      } else if (acpStatus === 'waking') {
+        statusText = '⏳ Waking up...';
+        statusTitle = 'ACP is starting up';
+        statusClass = 'agent-status--waking';
+      } else {
+        statusText = '🟢 Agent ready';
+        statusTitle = 'ACP is active and ready';
+        statusClass = 'agent-status--active';
       }
+      
+      statusIndicator.className = `agent-status-combined ${statusClass}`;
+      statusIndicator.textContent = statusText;
+      statusIndicator.title = statusTitle;
     }
 
     // Disable/enable input based on status
     if (chatInput) {
-      if (status === 'waking') {
+      if (acpStatus === 'waking') {
         chatInput.disabled = true;
         chatInput.placeholder = 'Waking agent...';
+      } else if (!agentStatus || agentStatus === 'offline') {
+        chatInput.disabled = true;
+        chatInput.placeholder = 'Agent offline...';
       } else {
         chatInput.disabled = false;
         chatInput.placeholder = 'Type your message...';
@@ -249,7 +272,7 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
     }
 
     if (sendButton) {
-      sendButton.disabled = status === 'waking';
+      sendButton.disabled = acpStatus === 'waking' || !agentStatus || agentStatus === 'offline';
     }
   }
 
@@ -540,6 +563,7 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
         thoughtHeader.style.cursor = 'pointer';
         thoughtHeader.style.fontSize = '0.9em';
         thoughtHeader.style.padding = '4px 8px';
+        thoughtHeader.style.justifyContent = 'flex-start';
         
         const thoughtContentDiv = document.createElement('div');
         thoughtContentDiv.className = 'message-content';
@@ -852,6 +876,7 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
     thoughtHeader.style.cursor = 'pointer';
     thoughtHeader.style.fontSize = '0.9em';
     thoughtHeader.style.padding = '4px 8px';
+    thoughtHeader.style.justifyContent = 'flex-start';
 
     const thoughtContentDiv = document.createElement('div');
     thoughtContentDiv.className = 'message-content';

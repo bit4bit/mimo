@@ -80,12 +80,7 @@ class MimoAgent {
         return this.respawnAcpProcess(sessionId, cachedState);
       },
       onTerminateSession: (sessionId) => {
-        // Stop the session - kills ACP process and stops file watcher
-        // but keeps session info for resumption
-        this.sessionManager.stopSession(sessionId);
-        this.acpClients.delete(sessionId);
-        
-        // Cache the ACP state before stopping
+        // Cache the ACP state BEFORE stopping
         const acpClient = this.acpClients.get(sessionId);
         if (acpClient) {
           this.cachedAcpStates.set(sessionId, {
@@ -94,6 +89,11 @@ class MimoAgent {
             modeState: acpClient.modeState,
           });
         }
+
+        // Stop the session - kills ACP process and stops file watcher
+        // but keeps session info for resumption
+        this.sessionManager.stopSession(sessionId);
+        this.acpClients.delete(sessionId);
       },
     });
 
