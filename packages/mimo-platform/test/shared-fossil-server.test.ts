@@ -89,7 +89,7 @@ describe("SharedFossilServer Integration Tests", () => {
       const success = await sharedServer.start();
       
       expect(success).toBe(true);
-      expect(sharedServer.isRunning()).toBe(true);
+      expect(await sharedServer.isRunning()).toBe(true);
     }, 10000);
 
     it("should stop the shared fossil server", async () => {
@@ -99,10 +99,10 @@ describe("SharedFossilServer Integration Tests", () => {
       writeFileSync(fossilPath, "test");
 
       await sharedServer.start();
-      expect(sharedServer.isRunning()).toBe(true);
+      expect(await sharedServer.isRunning()).toBe(true);
 
       await sharedServer.stop();
-      expect(sharedServer.isRunning()).toBe(false);
+      expect(await sharedServer.isRunning()).toBe(false);
     }, 10000);
 
     it("should return true when starting already running server", async () => {

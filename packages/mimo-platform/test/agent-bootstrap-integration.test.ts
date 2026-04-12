@@ -98,7 +98,11 @@ describe("Agent Bootstrap Integration Tests", () => {
 
       // Start shared fossil server
       await sharedFossilServer.start();
-      expect(sharedFossilServer.isRunning()).toBe(true);
+
+      // Wait for server to be fully ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      expect(await sharedFossilServer.isRunning()).toBe(true);
       expect(sharedFossilServer.getPort()).toBe(testPort);
     });
 
@@ -139,6 +143,10 @@ describe("Agent Bootstrap Integration Tests", () => {
       // Clone to agent workspace
       mkdirSync(agentWorkspacePath, { recursive: true });
       await sharedFossilServer.start();
+
+      // Wait for server to be fully ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       const port = sharedFossilServer.getPort();
       const normalizedId = normalizeSessionIdForFossil(sessionId);
       const cloneUrl = `http://localhost:${port}/${normalizedId}/`;
@@ -207,7 +215,7 @@ describe("Agent Bootstrap Integration Tests", () => {
       await sharedFossilServer.start();
 
       // All sessions should be accessible via the same server
-      expect(sharedFossilServer.isRunning()).toBe(true);
+      expect(await sharedFossilServer.isRunning()).toBe(true);
       expect(sharedFossilServer.getPort()).toBe(testPort);
 
       // Verify each session has a unique fossil path but same port
@@ -225,11 +233,15 @@ describe("Agent Bootstrap Integration Tests", () => {
       execSync(`fossil new ${fossilPath}`, { stdio: "pipe" });
 
       await sharedFossilServer.start();
-      expect(sharedFossilServer.isRunning()).toBe(true);
+
+      // Wait for server to be fully ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      expect(await sharedFossilServer.isRunning()).toBe(true);
 
       await sharedFossilServer.stop();
 
-      expect(sharedFossilServer.isRunning()).toBe(false);
+      expect(await sharedFossilServer.isRunning()).toBe(false);
     });
 
     it("should clean up session data on delete", async () => {

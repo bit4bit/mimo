@@ -92,6 +92,9 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
       const port = sharedFossilServer.getPort();
       const normalizedSessionId = normalizeSessionIdForFossil(sessionId);
 
+      // Wait for server to be fully ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Clone with credentials
       const checkoutDir = join(testHome, "checkout");
       mkdirSync(checkoutDir, { recursive: true });
@@ -135,6 +138,9 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
       const port = sharedFossilServer.getPort();
       const normalizedSessionId = normalizeSessionIdForFossil(sessionId);
 
+      // Wait for server to be fully ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Try to clone with wrong password
       const checkoutDir = join(testHome, "checkout2");
       mkdirSync(checkoutDir, { recursive: true });
@@ -166,6 +172,9 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
       await sharedFossilServer.start();
       const port = sharedFossilServer.getPort();
       const normalizedSessionId = normalizeSessionIdForFossil(sessionId);
+
+      // Wait for server to be fully ready
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Clone with correct credentials
       const checkoutDir = join(testHome, "checkout3");
@@ -210,12 +219,20 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
       const port = sharedFossilServer.getPort();
       const normalizedSessionId = normalizeSessionIdForFossil(sessionId);
 
+      // Wait for server to be fully ready
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       // Setup checkout
       const checkoutDir = join(testHome, "checkout4");
       mkdirSync(checkoutDir, { recursive: true });
 
       const cloneUrl = `http://agent-test4:mypass456@localhost:${port}/${normalizedSessionId}/`;
-      execSync(`fossil clone ${cloneUrl} ${join(checkoutDir, "repo.fossil")}`, { cwd: checkoutDir });
+      try {
+        execSync(`fossil clone ${cloneUrl} ${join(checkoutDir, "repo.fossil")}`, { cwd: checkoutDir, timeout: 10000 });
+      } catch (error) {
+        console.error("Clone failed:", error);
+        throw error;
+      }
       execSync(`fossil open --nosync repo.fossil`, { cwd: checkoutDir });
       execSync(`fossil remote-url ${cloneUrl}`, { cwd: checkoutDir });
       execSync(`fossil user password agent-test4 mypass456`, { cwd: checkoutDir });

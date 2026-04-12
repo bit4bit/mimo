@@ -276,9 +276,21 @@ export class SharedFossilServer {
 
   /**
    * Check if the server is currently running.
+   * Checks both our own process and if an external server is responding on the port.
    */
-  isRunning(): boolean {
-    return this.process !== null && this.process.pid !== undefined;
+  async isRunning(): Promise<boolean> {
+    // First check if we have our own process running
+    if (this.process !== null && this.process.pid !== undefined) {
+      return true;
+    }
+    
+    // Also check if there's an external server responding on our port
+    try {
+      const response = await fetch(`http://localhost:${this.port}/`, { signal: AbortSignal.timeout(1000) });
+      return response.ok || response.status === 404;
+    } catch {
+      return false;
+    }
   }
 
   /**

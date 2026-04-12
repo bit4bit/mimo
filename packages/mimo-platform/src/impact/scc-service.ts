@@ -182,18 +182,19 @@ export class SccService {
 
   async install(): Promise<{ success: boolean; error?: string }> {
     try {
+      // Recalculate sccPath in case MIMO_HOME changed (e.g., between tests)
+      const globalHome = getMimoHome();
+      const binDir = globalHome 
+        ? join(globalHome, "bin")
+        : join(getPaths().root, "bin");
+      this.sccPath = join(binDir, "scc");
+
       if (this.isInstalled()) {
         return { success: true };
       }
 
       const platform = this.detectPlatform();
       const url = this.getDownloadUrl(platform);
-      
-      // Check global config first (for tests), then fall back to getPaths
-      const globalHome = getMimoHome();
-      const binDir = globalHome 
-        ? join(globalHome, "bin")
-        : join(getPaths().root, "bin");
 
       // Create bin directory if needed
       if (!existsSync(binDir)) {
