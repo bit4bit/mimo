@@ -207,23 +207,19 @@ export class AcpClient {
       throw new Error("Session not initialized");
     }
 
-    try {
-      const response = await this.session.connection.prompt({
-        sessionId: this.session.acpSessionId,
-        prompt: [{ type: "text", text: content }],
-      });
-      
-      // Signal that the agent has completed processing (Codex doesn't send thoughts)
-      this.callbacks.onThoughtEnd(this.sessionId);
-      this.session.currentThoughtBuffer = "";
-      
-      return response;
-    } catch (error) {
-      // Also signal completion on error
-      this.callbacks.onThoughtEnd(this.sessionId);
-      this.session.currentThoughtBuffer = "";
-      throw error;
-    }
+    // Reset thought buffer at start of prompt
+    this.session.currentThoughtBuffer = "";
+
+    const response = await this.session.connection.prompt({
+      sessionId: this.session.acpSessionId,
+      prompt: [{ type: "text", text: content }],
+    });
+    
+    // Note: thought_end is sent by usage_update handler, not here.
+    // Codex sends content in multiple phases (initial + after tool calls),
+    // so we can't send thought_end until usage_update signals completion.
+    
+    return response;
   }
 
   async cancel(): Promise<void> {
