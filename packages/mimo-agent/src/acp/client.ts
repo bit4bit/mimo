@@ -207,10 +207,27 @@ export class AcpClient {
       throw new Error("Session not initialized");
     }
 
-    return this.session.connection.prompt({
-      sessionId: this.session.acpSessionId,
-      prompt: [{ type: "text", text: content }],
-    });
+    try {
+      const response = await this.session.connection.prompt({
+        sessionId: this.session.acpSessionId,
+        prompt: [{ type: "text", text: content }],
+      });
+      
+      // Ensure thought_end is sent if there was an active thought buffer
+      if (this.session.currentThoughtBuffer) {
+        this.callbacks.onThoughtEnd(this.sessionId);
+        this.session.currentThoughtBuffer = "";
+      }
+      
+      return response;
+    } catch (error) {
+      // Also cleanup thought buffer on error
+      if (this.session.currentThoughtBuffer) {
+        this.callbacks.onThoughtEnd(this.sessionId);
+        this.session.currentThoughtBuffer = "";
+      }
+      throw error;
+    }
   }
 
   async cancel(): Promise<void> {
