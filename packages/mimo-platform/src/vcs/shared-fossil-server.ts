@@ -161,6 +161,7 @@ export class SharedFossilServer {
     this.process = spawn("fossil", ["server", "--port", this.port.toString(), this.reposDir], {
       stdio: ["ignore", "pipe", "pipe"],
       detached: false,
+      cwd: this.reposDir, // Ensure fossil server has valid working directory
     });
 
     // Reset restart attempts on successful start
