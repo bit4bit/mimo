@@ -86,6 +86,7 @@ router.get("/", async (c: Context) => {
           <table class="agents-table">
             <thead>
               <tr>
+                <th>Name</th>
                 <th>ID</th>
                 <th>Status</th>
                 <th>Sessions</th>
@@ -98,7 +99,10 @@ router.get("/", async (c: Context) => {
               {filteredAgents.map((agent) => (
                 <tr key={agent.id}>
                   <td>
-                    <a href={`/agents/${agent.id}`}>{agent.id.slice(0, 8)}...</a>
+                    <a href={`/agents/${agent.id}`}>{agent.name}</a>
+                  </td>
+                  <td>
+                    <span class="agent-id">{agent.id.slice(0, 8)}...</span>
                   </td>
                   <td>
                     <span class={`status-badge status-${agent.status}`}>
@@ -195,6 +199,11 @@ router.get("/", async (c: Context) => {
           background: #3d0b0b;
           color: #ff6b6b;
         }
+        .agent-id {
+          font-size: 11px;
+          color: #888;
+          font-family: monospace;
+        }
       `}</style>
     </Layout>
   );
@@ -211,6 +220,11 @@ router.get("/new", async (c: Context) => {
         </p>
         
         <form method="POST" action="/agents">
+          <div class="form-group">
+            <label for="name">Agent Name:</label>
+            <input type="text" id="name" name="name" required maxlength="64" placeholder="e.g., MacBook Pro Dev" />
+            <span class="form-help">A descriptive name to identify this agent</span>
+          </div>
           <button type="submit" class="btn-primary">Create Agent</button>
         </form>
         
@@ -234,9 +248,51 @@ router.post("/", async (c: Context) => {
   const user = c.get("user") as { username: string };
   const username = user.username;
 
-  const agent = await agentService.createAgent({ owner: username });
+  const body = await c.req.parseBody();
+  const name = body.name as string;
 
-  return c.redirect(`/agents/${agent.id}?created=1`);
+  if (!name || name.trim().length === 0) {
+    return c.html(
+      <Layout title="Create Agent">
+        <div class="agent-create-container">
+          <h1>Create Agent</h1>
+          <div class="error-message">Name is required</div>
+          <form method="POST" action="/agents">
+            <div class="form-group">
+              <label for="name">Agent Name:</label>
+              <input type="text" id="name" name="name" required maxlength="64" placeholder="e.g., MacBook Pro Dev" />
+              <span class="form-help">A descriptive name to identify this agent</span>
+            </div>
+            <button type="submit" class="btn-primary">Create Agent</button>
+          </form>
+          <a href="/agents" class="btn-secondary" style="display: inline-block; margin-left: 10px;">Cancel</a>
+        </div>
+      </Layout>
+    );
+  }
+
+  try {
+    const agent = await agentService.createAgent({ name: name.trim(), owner: username });
+    return c.redirect(`/agents/${agent.id}?created=1`);
+  } catch (error) {
+    return c.html(
+      <Layout title="Create Agent">
+        <div class="agent-create-container">
+          <h1>Create Agent</h1>
+          <div class="error-message">{error instanceof Error ? error.message : "Failed to create agent"}</div>
+          <form method="POST" action="/agents">
+            <div class="form-group">
+              <label for="name">Agent Name:</label>
+              <input type="text" id="name" name="name" required maxlength="64" placeholder="e.g., MacBook Pro Dev" value={name} />
+              <span class="form-help">A descriptive name to identify this agent</span>
+            </div>
+            <button type="submit" class="btn-primary">Create Agent</button>
+          </form>
+          <a href="/agents" class="btn-secondary" style="display: inline-block; margin-left: 10px;">Cancel</a>
+        </div>
+      </Layout>
+    );
+  }
 });
 
 router.get("/:id", async (c: Context) => {
@@ -253,10 +309,10 @@ router.get("/:id", async (c: Context) => {
   const sessions = await sessionRepository.findByAssignedAgentId(agentId);
 
   return c.html(
-    <Layout title={`Agent ${agentId.slice(0, 8)}`}>
+    <Layout title={`Agent ${agent.name}`}>
       <div class="agent-detail-container">
         <div class="agent-header">
-          <h1>Agent: {agentId.slice(0, 8)}...</h1>
+          <h1>Agent: {agent.name}</h1>
           <span class={`status-badge status-${agent.status}`}>
             {agent.status === "online" ? "🟢" : "🔴"} {agent.status}
           </span>
@@ -269,6 +325,10 @@ router.get("/:id", async (c: Context) => {
         )}
 
         <div class="agent-info">
+          <div class="info-row">
+            <label>Name:</label>
+            <span class="agent-name-display">{agent.name}</span>
+          </div>
           <div class="info-row">
             <label>Agent ID:</label>
             <code>{agent.id}</code>
@@ -365,6 +425,7 @@ router.get("/:id", async (c: Context) => {
         .info-row { display: flex; gap: 10px; margin-bottom: 10px; }
         .info-row label { min-width: 120px; color: #888; }
         .info-row code { background: #1a1a1a; padding: 2px 6px; border-radius: 3px; }
+        .agent-name-display { font-weight: bold; font-size: 16px; }
         .token-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #444; }
         .token-box { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
         .token-box code {

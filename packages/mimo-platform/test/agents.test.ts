@@ -46,19 +46,55 @@ describe("Agent Lifecycle Integration Tests", () => {
       await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
 
       const agent = await agentService.createAgent({
+        name: "Test Agent",
         owner: "testuser",
       });
 
       expect(agent).toBeDefined();
+      expect(agent.name).toBe("Test Agent");
       expect(agent.owner).toBe("testuser");
       expect(agent.token).toBeDefined();
       expect(agent.status).toBe("offline");
+    });
+
+    it("should reject empty name", async () => {
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+
+      expect(async () => {
+        await agentService.createAgent({
+          name: "",
+          owner: "testuser",
+        });
+      }).toThrow("Name is required");
+    });
+
+    it("should reject whitespace-only name", async () => {
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+
+      expect(async () => {
+        await agentService.createAgent({
+          name: "   ",
+          owner: "testuser",
+        });
+      }).toThrow("Name is required");
+    });
+
+    it("should reject name longer than 64 characters", async () => {
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+
+      expect(async () => {
+        await agentService.createAgent({
+          name: "a".repeat(65),
+          owner: "testuser",
+        });
+      }).toThrow("Name must be 64 characters or less");
     });
 
     it("should verify agent JWT token", async () => {
       await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
 
       const agent = await agentRepository.create({
+        name: "JWT Test Agent",
         owner: "testuser",
       });
 
@@ -81,6 +117,7 @@ describe("Agent Lifecycle Integration Tests", () => {
       await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
 
       const agent = await agentRepository.create({
+        name: "Online Test Agent",
         owner: "testuser",
       });
 
@@ -93,6 +130,7 @@ describe("Agent Lifecycle Integration Tests", () => {
       await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
 
       const agent = await agentRepository.create({
+        name: "Offline Test Agent",
         owner: "testuser",
       });
 
@@ -107,8 +145,8 @@ describe("Agent Lifecycle Integration Tests", () => {
       await userRepository.create("user1", await bcrypt.hash("pass1", 10));
       await userRepository.create("user2", await bcrypt.hash("pass2", 10));
 
-      await agentRepository.create({ owner: "user1" });
-      await agentRepository.create({ owner: "user2" });
+      await agentRepository.create({ name: "User1 Agent", owner: "user1" });
+      await agentRepository.create({ name: "User2 Agent", owner: "user2" });
 
       const user1Agents = await agentRepository.findByOwner("user1");
       expect(user1Agents.length).toBe(1);
@@ -118,8 +156,8 @@ describe("Agent Lifecycle Integration Tests", () => {
     it("should list agents by status", async () => {
       await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
 
-      await agentRepository.create({ owner: "testuser" });
-      const agent2 = await agentRepository.create({ owner: "testuser" });
+      await agentRepository.create({ name: "Offline Agent", owner: "testuser" });
+      const agent2 = await agentRepository.create({ name: "Online Agent", owner: "testuser" });
       await agentRepository.updateStatus(agent2.id, "online");
 
       const onlineAgents = await agentRepository.findByStatus("online");
@@ -131,6 +169,7 @@ describe("Agent Lifecycle Integration Tests", () => {
       await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
 
       const agent = await agentRepository.create({
+        name: "Delete Test Agent",
         owner: "testuser",
       });
 
@@ -149,7 +188,7 @@ describe("Agent Lifecycle Integration Tests", () => {
 
       await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
 
-      const agent = await agentRepository.create({ owner: "testuser" });
+      const agent = await agentRepository.create({ name: "List Page Agent", owner: "testuser" });
       const token = await agentService.generateAgentToken(agent);
       await agentRepository.update(agent.id, { token });
 

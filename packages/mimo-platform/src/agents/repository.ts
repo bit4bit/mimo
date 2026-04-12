@@ -10,6 +10,7 @@ export type AgentStatus =
 
 export interface Agent {
   id: string;
+  name: string;
   owner: string;
   token: string;
   sessionIds: string[];
@@ -21,6 +22,7 @@ export interface Agent {
 
 export interface AgentData {
   id: string;
+  name: string;
   owner: string;
   token: string;
   sessionIds: string[];
@@ -31,6 +33,7 @@ export interface AgentData {
 }
 
 export interface CreateAgentInput {
+  name: string;
   owner: string;
 }
 
@@ -58,6 +61,7 @@ export class AgentRepository {
     const now = new Date().toISOString();
     const agentData: AgentData = {
       id,
+      name: input.name,
       owner: input.owner,
       token: crypto.randomUUID(), // Temporary placeholder, service will update with JWT
       sessionIds: [],

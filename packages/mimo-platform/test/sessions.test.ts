@@ -340,7 +340,7 @@ describe("Session Management Integration Tests", () => {
       });
 
       // Create agent first
-      const agent = await agentService.createAgent({ owner: "testuser" });
+      const agent = await agentService.createAgent({ name: "Session Deletion Agent", owner: "testuser" });
 
       const session = await sessionRepository.create({
         name: "Session With Agent",

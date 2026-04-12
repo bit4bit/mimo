@@ -12,6 +12,7 @@ export interface AgentTokenPayload {
 }
 
 export interface CreateAgentInput {
+  name: string;
   owner: string;
   sessionId?: string;
   projectId?: string;
@@ -27,7 +28,16 @@ export class AgentService {
   ) {}
 
   async createAgent(input: CreateAgentInput): Promise<Agent> {
+    // Validate name
+    if (!input.name || input.name.trim().length === 0) {
+      throw new Error("Name is required");
+    }
+    if (input.name.length > 64) {
+      throw new Error("Name must be 64 characters or less");
+    }
+
     const agent = await this.repository.create({
+      name: input.name.trim(),
       owner: input.owner,
     });
 

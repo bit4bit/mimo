@@ -12,6 +12,7 @@ interface Project {
 
 interface Agent {
   id: string;
+  name: string;
   status: "online" | "offline";
   startedAt: Date;
   lastActivityAt?: Date;
@@ -107,7 +108,7 @@ export const DashboardPage: FC<DashboardProps> = ({ username, projects, agents, 
                 {agents.slice(0, 5).map((agent) => (
                   <li key={agent.id}>
                     <a href={`/agents/${agent.id}`} class="item-link">
-                      <span class="item-name">{agent.id.slice(0, 8)}...</span>
+                      <span class="item-name">{agent.name}</span>
                       <span class={`status-badge status-${agent.status}`}>
                         {agent.status === "online" ? "🟢" : "🔴"} {agent.status}
                       </span>

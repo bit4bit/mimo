@@ -9,6 +9,7 @@ interface Project {
 
 interface Agent {
   id: string;
+  name: string;
   status: "online" | "offline";
   startedAt: Date;
 }
@@ -43,7 +44,7 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({ project, agents, err
               <option value="">None</option>
               {agents.map((agent) => (
                 <option value={agent.id}>
-                  {agent.id.slice(0, 8)}... ({agent.status === "online" ? "🟢 online" : "🔴 offline"})
+                  {agent.name} ({agent.status === "online" ? "🟢 online" : "🔴 offline"})
                 </option>
               ))}
             </select>
