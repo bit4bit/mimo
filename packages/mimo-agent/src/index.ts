@@ -261,6 +261,10 @@ class MimoAgent {
         this.handleClearSession(message);
         break;
 
+      case "session_ended":
+        this.handleSessionEnded(message);
+        break;
+
       default:
         console.log("[mimo-agent] Unknown message type:", message.type);
     }
@@ -892,6 +896,22 @@ class MimoAgent {
         timestamp: new Date().toISOString(),
       });
     }
+  }
+
+  private handleSessionEnded(message: any): void {
+    const sessionId = message.sessionId;
+    if (!sessionId) {
+      console.log("[mimo-agent] No sessionId in session_ended");
+      return;
+    }
+
+    console.log(`[mimo-agent] Session ended: ${sessionId}`);
+
+    // Remove from acpClients - idempotent if doesn't exist
+    this.acpClients.delete(sessionId);
+
+    // Terminate session - handles process, watcher, timers
+    this.sessionManager.terminateSession(sessionId);
   }
 
   private handleDisconnect(): void {

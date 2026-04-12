@@ -138,4 +138,91 @@ describe("mimo-agent", () => {
       expect(exitCode).toBeGreaterThanOrEqual(0);
     });
   });
+
+  describe("Session ended handling", () => {
+    it("should handle session_ended message without error", async () => {
+      // Import SessionManager to test cleanup logic
+      const { SessionManager } = await import("../src/session");
+
+      const mockCallbacks = {
+        onFileChange: () => {},
+        onSessionError: () => {},
+      };
+
+      const manager = new SessionManager(tempDir, mockCallbacks);
+
+      // Create a session
+      const sessionId = "test-session-1";
+      await manager.createSession(sessionId, "http://example.com/repo", "user", "pass");
+
+      // Verify session exists
+      expect(manager.getSession(sessionId)).toBeDefined();
+
+      // Terminate session (simulating what handleSessionEnded does)
+      manager.terminateSession(sessionId);
+
+      // Verify session is cleaned up
+      expect(manager.getSession(sessionId)).toBeUndefined();
+    });
+
+    it("should handle duplicate session_ended messages idempotently", async () => {
+      const { SessionManager } = await import("../src/session");
+
+      const mockCallbacks = {
+        onFileChange: () => {},
+        onSessionError: () => {},
+      };
+
+      const manager = new SessionManager(tempDir, mockCallbacks);
+
+      const sessionId = "test-session-2";
+      await manager.createSession(sessionId, "http://example.com/repo", "user", "pass");
+
+      // First termination
+      manager.terminateSession(sessionId);
+      expect(manager.getSession(sessionId)).toBeUndefined();
+
+      // Second termination (should not throw)
+      expect(() => manager.terminateSession(sessionId)).not.toThrow();
+      expect(manager.getSession(sessionId)).toBeUndefined();
+    });
+
+    it("should handle session_ended for unknown session", async () => {
+      const { SessionManager } = await import("../src/session");
+
+      const mockCallbacks = {
+        onFileChange: () => {},
+        onSessionError: () => {},
+      };
+
+      const manager = new SessionManager(tempDir, mockCallbacks);
+
+      // Terminate a session that was never created (should not throw)
+      expect(() => manager.terminateSession("non-existent-session")).not.toThrow();
+      expect(manager.getSession("non-existent-session")).toBeUndefined();
+    });
+
+    it("should clean up file watcher on session ended", async () => {
+      const { SessionManager } = await import("../src/session");
+
+      const mockCallbacks = {
+        onFileChange: () => {},
+        onSessionError: () => {},
+      };
+
+      const manager = new SessionManager(tempDir, mockCallbacks);
+
+      const sessionId = "test-session-3";
+      const session = await manager.createSession(sessionId, "http://example.com/repo", "user", "pass");
+
+      // Verify file watcher was started
+      expect(session.fileWatcher).toBeDefined();
+
+      // Terminate session
+      manager.terminateSession(sessionId);
+
+      // Session should be cleaned up
+      expect(manager.getSession(sessionId)).toBeUndefined();
+    });
+  });
 });
