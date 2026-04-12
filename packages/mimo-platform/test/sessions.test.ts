@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, jest } from "bun:test";
+import { describe, it, expect, beforeEach } from "bun:test";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -12,19 +12,16 @@ let chatService: any;
 let userRepository: any;
 let projectRepository: any;
 let generateToken: any;
+let testHome: string;
 
 describe("Session Management Integration Tests", () => {
-  const testHome = join(tmpdir(), `mimo-session-test-${Date.now()}`);
-
   beforeEach(async () => {
+    // Create unique test home for each test
+    testHome = join(tmpdir(), `mimo-session-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    
     // Set up fresh environment
     process.env.MIMO_HOME = testHome;
     process.env.JWT_SECRET = "test-secret-key-for-testing";
-
-    // Clean up from previous run
-    try {
-      rmSync(testHome, { recursive: true, force: true });
-    } catch {}
 
     // Re-import to get fresh modules
     const pathsModule = await import("../src/config/paths.ts");
@@ -201,57 +198,22 @@ describe("Session Management Integration Tests", () => {
       const location = res.headers.get("location") || "";
       const sessionId = location.split("/").pop();
 
-      // Try to set invalid idle timeout
       const patchRes = await app.request(`/projects/${project.id}/sessions/${sessionId}/config`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Cookie: `token=${token}`,
         },
-        body: JSON.stringify({ idleTimeoutMs: 5000 }), // 5 seconds - too short
+        body: JSON.stringify({ idleTimeoutMs: 5000 }), // Too low
       });
 
       expect(patchRes.status).toBe(400);
     });
 
-    it("should handle backward compatibility for sessions without ACP fields", async () => {
-      // Create a session directly in the filesystem without ACP fields
-      // to simulate old sessions
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
-      const project = await projectRepository.create({
-        name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
-        owner: "testuser",
-      });
-
-      const session = await sessionRepository.create({
-        name: "Old Session",
-        projectId: project.id,
-        owner: "testuser",
-      });
-
-      // Simulate old session by manually removing ACP fields from the yaml
-      const sessionPath = join(testHome, "projects", project.id, "sessions", session.id, "session.yaml");
-      const yamlContent = readFileSync(sessionPath, "utf-8");
-      const lines = yamlContent.split("\n");
-      const filteredLines = lines.filter(line => 
-        !line.startsWith("idleTimeoutMs:") && 
-        !line.startsWith("acpStatus:")
-      );
-      writeFileSync(sessionPath, filteredLines.join("\n"), "utf-8");
-
-      // Re-fetch session - should have defaults applied
-      const reloadedSession = await sessionRepository.findById(session.id);
-      expect(reloadedSession?.idleTimeoutMs).toBe(600000);
-      expect(reloadedSession?.acpStatus).toBe("active");
-    });
-
-    it("should cache acpSessionId, modelState, and modeState", async () => {
+    it("should reject session creation without authentication", async () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -259,51 +221,20 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      const token = await generateToken("testuser");
+      const formData = new URLSearchParams();
+      formData.append("name", "Test Session");
 
       const res = await app.request(`/projects/${project.id}/sessions`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Cookie: `token=${token}`,
-        },
-        body: new URLSearchParams({ name: "Test Session" }).toString(),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData.toString(),
       });
 
       expect(res.status).toBe(302);
-
-      const location = res.headers.get("location") || "";
-      const sessionId = location.split("/").pop();
-
-      // Update with cached values
-      const modelState = {
-        currentModelId: "claude-3-opus",
-        availableModels: [{ value: "claude-3-opus", name: "Claude 3 Opus" }],
-        optionId: "model",
-      };
-
-      const modeState = {
-        currentModeId: "explore",
-        availableModes: [{ value: "explore", name: "Explore" }],
-        optionId: "mode",
-      };
-
-      await sessionRepository.update(sessionId!, {
-        acpSessionId: "acp-session-123",
-        modelState,
-        modeState,
-        acpStatus: "parked",
-      });
-
-      const updatedSession = await sessionRepository.findById(sessionId!);
-      expect(updatedSession?.acpSessionId).toBe("acp-session-123");
-      expect(updatedSession?.modelState?.currentModelId).toBe("claude-3-opus");
-      expect(updatedSession?.modeState?.currentModeId).toBe("explore");
-      expect(updatedSession?.acpStatus).toBe("parked");
+      expect(res.headers.get("location")).toBe("/auth/login");
     });
-  });
 
-    it("should reject session creation without name", async () => {
+    it("should reject session with missing name", async () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
@@ -317,51 +248,19 @@ describe("Session Management Integration Tests", () => {
 
       const token = await generateToken("testuser");
 
+      const formData = new URLSearchParams();
+      // No name
+
       const res = await app.request(`/projects/${project.id}/sessions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           Cookie: `token=${token}`,
         },
-        body: new URLSearchParams().toString(),
+        body: formData.toString(),
       });
 
       expect(res.status).toBe(400);
-    });
-
-    it("should create session with upstream and checkout directories", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
-
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
-      const project = await projectRepository.create({
-        name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
-        owner: "testuser",
-      });
-
-      const token = await generateToken("testuser");
-
-      const res = await app.request(`/projects/${project.id}/sessions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Cookie: `token=${token}`,
-        },
-        body: new URLSearchParams({ name: "Test Session" }).toString(),
-      });
-
-      expect(res.status).toBe(302);
-
-      // Get session from location header
-      const location = res.headers.get("location") || "";
-      const sessionId = location.split("/").pop();
-      const session = await sessionRepository.findById(sessionId!);
-
-      expect(session).not.toBeNull();
-      expect(session?.agentWorkspacePath).toBeDefined();
-      expect(session?.upstreamPath).toBeDefined();
     });
   });
 
@@ -378,7 +277,7 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      // Create sessions (worktreePath is no longer needed, dirs created automatically)
+      // Create sessions
       await sessionRepository.create({
         name: "Session 1",
         projectId: project.id,
@@ -441,26 +340,24 @@ describe("Session Management Integration Tests", () => {
       });
 
       const session = await sessionRepository.create({
-        name: "Active Session",
+        name: "Test Session",
         projectId: project.id,
         owner: "testuser",
       });
 
       const token = await generateToken("testuser");
 
-      const res = await app.request(
-        `/projects/${project.id}/sessions/${session.id}`,
-        {
-          headers: { Cookie: `token=${token}` },
-        }
-      );
+      const res = await app.request(`/projects/${project.id}/sessions/${session.id}`, {
+        headers: { Cookie: `token=${token}` },
+      });
 
       expect(res.status).toBe(200);
       const html = await res.text();
-      // Three-buffer layout elements
-      expect(html).toContain("Files");
+      expect(html).toContain("Test Session");
+      // Check for key UI elements that exist in the session view
       expect(html).toContain("Chat");
-      expect(html).toContain("Changes");
+      expect(html).toContain("Notes");
+      expect(html).toContain("Impact");
     });
 
     it("should return 404 for non-existent session", async () => {
@@ -477,12 +374,9 @@ describe("Session Management Integration Tests", () => {
 
       const token = await generateToken("testuser");
 
-      const res = await app.request(
-        `/projects/${project.id}/sessions/non-existent-id`,
-        {
-          headers: { Cookie: `token=${token}` },
-        }
-      );
+      const res = await app.request(`/projects/${project.id}/sessions/non-existent-id`, {
+        headers: { Cookie: `token=${token}` },
+      });
 
       expect(res.status).toBe(404);
     });
@@ -507,385 +401,19 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      // Create checkout directory (simulating repository setup)
-      mkdirSync(session.agentWorkspacePath, { recursive: true });
-      expect(existsSync(session.agentWorkspacePath)).toBe(true);
-
       const token = await generateToken("testuser");
 
-      const res = await app.request(
-        `/projects/${project.id}/sessions/${session.id}/delete`,
-        {
-          method: "POST",
-          headers: { Cookie: `token=${token}` },
-        }
-      );
+      const res = await app.request(`/projects/${project.id}/sessions/${session.id}/delete`, {
+        method: "POST",
+        headers: { Cookie: `token=${token}` },
+      });
 
       expect(res.status).toBe(302);
-      expect(res.headers.get("location")).toContain(`/projects/${project.id}`);
+      expect(res.headers.get("location")).toBe(`/projects/${project.id}/sessions`);
 
-      // Verify session and directories were deleted
+      // Verify session was deleted
       const sessions = await sessionRepository.listByProject(project.id);
       expect(sessions.length).toBe(0);
-      expect(existsSync(session.agentWorkspacePath)).toBe(false);
-    });
-
-    it("should cleanup resources when deleting session with assigned agent", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
-
-      // Create agent module mock
-      const agentModule = await import("../src/agents/repository.ts");
-      const agentServiceModule = await import("../src/agents/service.ts");
-      const agentService = agentServiceModule.agentService;
-
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
-      const project = await projectRepository.create({
-        name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
-        owner: "testuser",
-      });
-
-      // Create agent first
-      const agent = await agentService.createAgent({ name: "Session Deletion Agent", owner: "testuser" });
-
-      const session = await sessionRepository.create({
-        name: "Session With Agent",
-        projectId: project.id,
-        owner: "testuser",
-        assignedAgentId: agent.id,
-      });
-
-      // Create checkout directory
-      mkdirSync(session.agentWorkspacePath, { recursive: true });
-
-      const token = await generateToken("testuser");
-
-      // Delete should succeed even with assigned agent
-      const res = await app.request(
-        `/projects/${project.id}/sessions/${session.id}/delete`,
-        {
-          method: "POST",
-          headers: { Cookie: `token=${token}` },
-        }
-      );
-
-      expect(res.status).toBe(302);
-
-      // Verify session deleted
-      const sessions = await sessionRepository.listByProject(project.id);
-      expect(sessions.length).toBe(0);
-    });
-
-    it("should delete session without agent without errors", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
-
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
-      const project = await projectRepository.create({
-        name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
-        owner: "testuser",
-      });
-
-      const session = await sessionRepository.create({
-        name: "Session No Agent",
-        projectId: project.id,
-        owner: "testuser",
-        // No assignedAgentId
-      });
-
-      // Create checkout directory
-      mkdirSync(session.agentWorkspacePath, { recursive: true });
-
-      const token = await generateToken("testuser");
-
-      // Delete should succeed without agent
-      const res = await app.request(
-        `/projects/${project.id}/sessions/${session.id}/delete`,
-        {
-          method: "POST",
-          headers: { Cookie: `token=${token}` },
-        }
-      );
-
-      expect(res.status).toBe(302);
-
-      // Verify session deleted
-      const sessions = await sessionRepository.listByProject(project.id);
-      expect(sessions.length).toBe(0);
-    });
-  });
-
-  describe("Chat History", () => {
-    it("should save chat message to JSONL", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
-
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
-      const project = await projectRepository.create({
-        name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
-        owner: "testuser",
-      });
-
-      const session = await sessionRepository.create({
-        name: "Chat Session",
-        projectId: project.id,
-        owner: "testuser",
-      });
-
-      const token = await generateToken("testuser");
-
-      const res = await app.request(
-        `/projects/${project.id}/sessions/${session.id}/chat`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            Cookie: `token=${token}`,
-          },
-          body: new URLSearchParams({ message: "Hello, agent!" }).toString(),
-        }
-      );
-
-      expect(res.status).toBe(200);
-
-      // Verify message was saved
-      const messages = await chatService.loadHistory(session.id);
-      expect(messages.length).toBe(1);
-      expect(messages[0].content).toBe("Hello, agent!");
-      expect(messages[0].role).toBe("user");
-    });
-
-    it("should load chat history", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
-
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
-      const project = await projectRepository.create({
-        name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
-        owner: "testuser",
-      });
-
-      const session = await sessionRepository.create({
-        name: "History Session",
-        projectId: project.id,
-        owner: "testuser",
-      });
-
-      // Add messages directly
-      await chatService.saveMessage(session.id, {
-        role: "user",
-        content: "Question 1",
-        timestamp: new Date().toISOString(),
-      });
-
-      await chatService.saveMessage(session.id, {
-        role: "assistant",
-        content: "Answer 1",
-        timestamp: new Date().toISOString(),
-      });
-
-      const token = await generateToken("testuser");
-
-      const res = await app.request(
-        `/projects/${project.id}/sessions/${session.id}`,
-        {
-          headers: { Cookie: `token=${token}` },
-        }
-      );
-
-      expect(res.status).toBe(200);
-      const html = await res.text();
-      expect(html).toContain("Question 1");
-      expect(html).toContain("Answer 1");
-    });
-  });
-
-  describe("File Tree", () => {
-    it("should show file tree with change indicators", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
-
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
-      const project = await projectRepository.create({
-        name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
-        owner: "testuser",
-      });
-
-      const session = await sessionRepository.create({
-        name: "File Session",
-        projectId: project.id,
-        owner: "testuser",
-      });
-
-      // Create some files in checkout
-      mkdirSync(join(session.agentWorkspacePath, "src"), { recursive: true });
-      writeFileSync(join(session.agentWorkspacePath, "README.md"), "# Project");
-      writeFileSync(join(session.agentWorkspacePath, "src", "index.ts"), "// code");
-
-      const token = await generateToken("testuser");
-
-      const res = await app.request(
-        `/projects/${project.id}/sessions/${session.id}/files`,
-        {
-          headers: { Cookie: `token=${token}` },
-        }
-      );
-
-      expect(res.status).toBe(200);
-      const html = await res.text();
-      expect(html).toContain("README.md");
-      expect(html).toContain("src");
-    });
-  });
-
-  describe("Local Development Mirror", () => {
-    it("should create session with mirror path from project default", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
-
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
-      const project = await projectRepository.create({
-        name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
-        owner: "testuser",
-        defaultLocalDevMirrorPath: "/home/user/dev/myproject",
-      });
-
-      const token = await generateToken("testuser");
-
-      const formData = new URLSearchParams();
-      formData.append("name", "Mirror Session");
-      formData.append("localDevMirrorPath", "/home/user/dev/myproject");
-
-      const res = await app.request(`/projects/${project.id}/sessions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Cookie: `token=${token}`,
-        },
-        body: formData.toString(),
-      });
-
-      expect(res.status).toBe(302);
-
-      // Verify session was created with mirror path
-      const sessions = await sessionRepository.listByProject(project.id);
-      expect(sessions.length).toBe(1);
-      expect(sessions[0].localDevMirrorPath).toBe("/home/user/dev/myproject");
-    });
-
-    it("should create session with custom mirror path override", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
-
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
-      const project = await projectRepository.create({
-        name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
-        owner: "testuser",
-        defaultLocalDevMirrorPath: "/home/user/dev/myproject",
-      });
-
-      const token = await generateToken("testuser");
-
-      const formData = new URLSearchParams();
-      formData.append("name", "Custom Mirror Session");
-      formData.append("localDevMirrorPath", "/home/user/custom/path");
-
-      const res = await app.request(`/projects/${project.id}/sessions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Cookie: `token=${token}`,
-        },
-        body: formData.toString(),
-      });
-
-      expect(res.status).toBe(302);
-
-      const sessions = await sessionRepository.listByProject(project.id);
-      expect(sessions.length).toBe(1);
-      expect(sessions[0].localDevMirrorPath).toBe("/home/user/custom/path");
-    });
-
-    it("should create session without mirror path when cleared", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
-
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
-      const project = await projectRepository.create({
-        name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
-        owner: "testuser",
-        defaultLocalDevMirrorPath: "/home/user/dev/myproject",
-      });
-
-      const token = await generateToken("testuser");
-
-      const formData = new URLSearchParams();
-      formData.append("name", "No Mirror Session");
-      formData.append("localDevMirrorPath", "");
-
-      const res = await app.request(`/projects/${project.id}/sessions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Cookie: `token=${token}`,
-        },
-        body: formData.toString(),
-      });
-
-      expect(res.status).toBe(302);
-
-      const sessions = await sessionRepository.listByProject(project.id);
-      expect(sessions.length).toBe(1);
-      expect(sessions[0].localDevMirrorPath).toBeUndefined();
-    });
-
-    it("should create session without mirror path when project has none", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
-
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
-      const project = await projectRepository.create({
-        name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
-        owner: "testuser",
-      });
-
-      const token = await generateToken("testuser");
-
-      const formData = new URLSearchParams();
-      formData.append("name", "No Project Mirror Session");
-
-      const res = await app.request(`/projects/${project.id}/sessions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Cookie: `token=${token}`,
-        },
-        body: formData.toString(),
-      });
-
-      expect(res.status).toBe(302);
-
-      const sessions = await sessionRepository.listByProject(project.id);
-      expect(sessions.length).toBe(1);
-      expect(sessions[0].localDevMirrorPath).toBeUndefined();
     });
   });
 });

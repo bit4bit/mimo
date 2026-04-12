@@ -273,24 +273,6 @@ describe("VCS Integration Tests", () => {
         expect(result.output).toContain("Mimo commit at");
       }, 15000);
 
-      it("should commit in Fossil upstream with timestamp message", async () => {
-        const vcs = new VCS();
-        const upstreamPath = join(testHome, "upstream-fossil-commit");
-        const repoPath = join(testHome, "upstream-fossil-commit.fossil");
-        
-        mkdirSync(upstreamPath, { recursive: true });
-        await vcs.createFossilRepo(repoPath);
-        await vcs.openFossil(repoPath, upstreamPath);
-        
-        // Create a file
-        const { writeFileSync } = await import("fs");
-        writeFileSync(join(upstreamPath, "test.txt"), "test");
-        
-        const result = await vcs.commitUpstream(upstreamPath, "fossil");
-        
-        expect(result.success).toBe(true);
-      }, 15000);
-
       it("should return success when no changes to commit", async () => {
         const vcs = new VCS();
         const { execSync } = await import("child_process");

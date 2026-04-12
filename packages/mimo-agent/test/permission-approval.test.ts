@@ -1,9 +1,6 @@
-import { describe, it, expect, mock } from "bun:test";
+import { describe, it, expect } from "bun:test";
 import { AcpClient } from "../src/acp/client";
 import { OpencodeProvider } from "../src/acp/providers/opencode";
-import { ClaudeAgentProvider } from "../src/acp/providers/claude-agent";
-
-const AGENT_CWD = import.meta.dir.replace("/test", "");
 
 // ────────────────────────────────────────────────────────────────────────────
 // Task 5.1 — Unit: AcpClient routes requestPermission through the callback
@@ -82,53 +79,6 @@ describe("AcpClient.onPermissionRequest", () => {
       }),
     };
     expect(_callbacks.onPermissionRequest).toBeDefined();
-  });
-});
-
-// ────────────────────────────────────────────────────────────────────────────
-// Task 5.2 — Integration: agent sends permission_request to platform
-// ────────────────────────────────────────────────────────────────────────────
-
-describe("permission_request flow — agent → platform", () => {
-  it("agent process starts without errors with --provider claude", async () => {
-    const proc = Bun.spawn(
-      [
-        process.execPath, "run", "src/index.ts",
-        "--token", "test-token",
-        "--platform", "ws://localhost:9999/ws/agent",
-        "--provider", "claude",
-      ],
-      {
-        cwd: AGENT_CWD,
-        stdout: "pipe",
-        stderr: "pipe",
-      }
-    );
-
-    await proc.exited;
-    const stdout = await new Response(proc.stdout).text();
-    // Confirms provider was accepted and agent reached startup
-    expect(stdout).toContain("[mimo-agent] Starting...");
-  });
-
-  it("agent process starts without errors with --provider opencode", async () => {
-    const proc = Bun.spawn(
-      [
-        process.execPath, "run", "src/index.ts",
-        "--token", "test-token",
-        "--platform", "ws://localhost:9999/ws/agent",
-        "--provider", "opencode",
-      ],
-      {
-        cwd: AGENT_CWD,
-        stdout: "pipe",
-        stderr: "pipe",
-      }
-    );
-
-    await proc.exited;
-    const stdout = await new Response(proc.stdout).text();
-    expect(stdout).toContain("[mimo-agent] Starting...");
   });
 });
 

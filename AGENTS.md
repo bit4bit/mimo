@@ -337,3 +337,40 @@ Every new page MUST follow these standards:
 - ✅ Use Layout component for all pages
 - ✅ Follow UI standards from specs
 - ✅ Verify before archiving
+
+---
+
+## Test Suite Health
+
+### Before Any Change
+
+**Always verify the test suite is passing before starting work:**
+
+```bash
+# Run all tests in both packages
+cd packages/mimo-platform && bun test
+cd packages/mimo-agent && bun test
+```
+
+- If tests are failing, **fix them first** or document known failures
+- Do not build on a broken foundation
+
+### After Committing Changes
+
+**Always verify the test suite passes after committing:**
+
+```bash
+# Run all tests to ensure no regressions
+cd packages/mimo-platform && bun test
+cd packages/mimo-agent && bun test
+```
+
+- All tests must pass before considering the change complete
+- If tests fail after your changes, **fix them before pushing**
+
+### Test Philosophy
+
+- Tests are the safety net — they must be green to work effectively
+- A failing test suite is a blocker, not a suggestion
+- Keep tests fast, reliable, and meaningful
+- When tests fail, investigate immediately — don't accumulate broken tests

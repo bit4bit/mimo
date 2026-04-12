@@ -107,9 +107,9 @@ describe("Chat Input Recovery", () => {
     it("should detect agent as dead when inactive for too long", () => {
       const sessionId = "test-session-dead";
 
-      // Manually set activity to 31 seconds ago
+      // Manually set activity to 6 minutes ago (past the 5 minute timeout)
       const chatServiceAny = chatService as any;
-      chatServiceAny.lastAgentActivity.set(sessionId, Date.now() - 31000);
+      chatServiceAny.lastAgentActivity.set(sessionId, Date.now() - 360000);
 
       const isAlive = chatService.isAgentAlive(sessionId);
       expect(isAlive).toBe(false);
