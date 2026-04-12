@@ -1267,6 +1267,63 @@ function renderImpactMetrics(metrics, trends) {
   const netClass = metrics.linesOfCode.net >= 0 ? 'positive' : 'negative';
   const netValue = metrics.linesOfCode.net >= 0 ? `+${metrics.linesOfCode.net}` : `${metrics.linesOfCode.net}`;
 
+  let duplicationHtml = '';
+  if (metrics.duplication !== undefined) {
+    const dup = metrics.duplication;
+    const isHigh = dup.percentage >= 30;
+    const sectionClass = isHigh ? 'impact-section duplication-warning' : 'impact-section';
+
+    if (dup.clones.length === 0) {
+      duplicationHtml = `
+        <div class="${sectionClass}">
+          <div class="impact-section-title">Code Duplication</div>
+          <div class="impact-no-data">No duplication detected</div>
+        </div>`;
+    } else {
+      const valueClass = isHigh ? 'impact-metric-value negative' : 'impact-metric-value';
+
+      const crossClones = dup.clones.filter(c => c.type === 'cross');
+      const intraClones = dup.clones.filter(c => c.type === 'intra');
+
+      const shortPath = p => {
+        const parts = p.split('/');
+        return parts.length > 2 ? `.../${parts.slice(-2).join('/')}` : p;
+      };
+
+      const crossHtml = crossClones.length > 0 ? `
+        <div class="impact-duplication-group">
+          <div class="impact-duplication-group-title">Cross-File</div>
+          ${crossClones.map(c => `
+            <div class="impact-clone">
+              <span class="impact-clone-file">${shortPath(c.firstFile.path)}</span>
+              <span class="impact-clone-sep"> ↔ </span>
+              <span class="impact-clone-file">${shortPath(c.secondFile.path)}</span>
+              <span class="impact-clone-lines"> (${c.lines} lines)</span>
+            </div>`).join('')}
+        </div>` : '';
+
+      const intraHtml = intraClones.length > 0 ? `
+        <div class="impact-duplication-group">
+          <div class="impact-duplication-group-title">Intra-File</div>
+          ${intraClones.map(c => `
+            <div class="impact-clone">
+              <span class="impact-clone-file">${shortPath(c.firstFile.path)}</span>
+              <span class="impact-clone-lines"> L${c.firstFile.startLine}-${c.firstFile.endLine} ↔ L${c.secondFile.startLine}-${c.secondFile.endLine}</span>
+            </div>`).join('')}
+        </div>` : '';
+
+      duplicationHtml = `
+        <div class="${sectionClass}">
+          <div class="impact-section-title">Code Duplication</div>
+          <div class="impact-metric"><span class="impact-metric-label">Lines:</span><span class="${valueClass}">${dup.duplicatedLines}</span></div>
+          <div class="impact-metric"><span class="impact-metric-label">Percentage:</span><span class="${valueClass}">${dup.percentage.toFixed(1)}%</span></div>
+          <div class="impact-metric"><span class="impact-metric-label">Blocks:</span><span class="impact-metric-value">${dup.clones.length}</span></div>
+          ${crossHtml}
+          ${intraHtml}
+        </div>`;
+    }
+  }
+
   content.innerHTML = `
     <div class="impact-section">
       <div class="impact-section-title">Files</div>
@@ -1286,6 +1343,7 @@ function renderImpactMetrics(metrics, trends) {
       <div class="impact-metric"><span class="impact-metric-label">Cognitive:</span><span class="impact-metric-value">${metrics.complexity.cognitive}</span><span class="impact-trend">${complexityTrend.cognitive || '→'}</span></div>
       <div class="impact-metric"><span class="impact-metric-label">Est. Time:</span><span class="impact-metric-value">~${metrics.complexity.estimatedMinutes} min</span></div>
     </div>
+    ${duplicationHtml}
   `;
 }
 

@@ -2,6 +2,7 @@ import { join, relative, dirname } from "path";
 import { existsSync, readdirSync, statSync, readFileSync } from "fs";
 import crypto from "crypto";
 import type { SccService, SccMetrics, SccFileMetrics } from "./scc-service.js";
+import type { JscpdService, Clone } from "./jscpd-service.js";
 
 export type FileStatus = "new" | "changed" | "deleted" | "unchanged";
 
@@ -10,6 +11,14 @@ export interface FileImpact {
   status: FileStatus;
   size?: number;
   checksum?: string;
+}
+
+export interface DuplicationMetrics {
+  duplicatedLines: number;
+  duplicatedTokens: number;
+  percentage: number;
+  clones: Clone[];
+  byFile: Record<string, Clone[]>;
 }
 
 export interface ImpactMetrics {
@@ -31,6 +40,7 @@ export interface ImpactMetrics {
   };
   byLanguage: LanguageImpact[];
   byFile: FileImpactDetail[];
+  duplication?: DuplicationMetrics;
 }
 
 export interface LanguageImpact {
@@ -63,9 +73,11 @@ interface PreviousState {
 export class ImpactCalculator {
   private previousStates: Map<string, PreviousState> = new Map();
   private customSccService: SccService | undefined;
+  private customJscpdService: JscpdService | undefined;
 
-  constructor(customSccService?: SccService) {
+  constructor(customSccService?: SccService, customJscpdService?: JscpdService) {
     this.customSccService = customSccService;
+    this.customJscpdService = customJscpdService;
   }
 
   private async getSccService(): Promise<SccService> {
@@ -74,6 +86,14 @@ export class ImpactCalculator {
     }
     const { getSccService } = await import("./scc-service.js");
     return getSccService();
+  }
+
+  private async getJscpdService(): Promise<JscpdService> {
+    if (this.customJscpdService) {
+      return this.customJscpdService;
+    }
+    const { getJscpdService } = await import("./jscpd-service.js");
+    return getJscpdService();
   }
 
   async calculateImpact(
@@ -271,6 +291,18 @@ export class ImpactCalculator {
       return f;
     });
 
+    // Calculate duplication for changed files
+    const changedFilePaths = byFile
+      .filter(f => f.status === "new" || f.status === "changed")
+      .map(f => join(agentWorkspacePath, f.path))
+      .filter(p => existsSync(p));
+
+    const duplication = await this.calculateDuplication(
+      changedFilePaths,
+      agentWorkspacePath,
+      linesAdded + linesRemoved
+    );
+
     const metrics: ImpactMetrics = {
       files,
       linesOfCode: {
@@ -285,6 +317,7 @@ export class ImpactCalculator {
       },
       byLanguage: Array.from(languageMap.values()),
       byFile: byFileWithDetails,
+      duplication,
     };
 
     // Calculate trends
@@ -299,6 +332,53 @@ export class ImpactCalculator {
     });
 
     return { metrics, trends };
+  }
+
+  private async calculateDuplication(
+    changedFilePaths: string[],
+    workspacePath: string,
+    totalChangedLines: number
+  ): Promise<DuplicationMetrics> {
+    if (changedFilePaths.length === 0) {
+      return { duplicatedLines: 0, duplicatedTokens: 0, percentage: 0, clones: [], byFile: {} };
+    }
+
+    try {
+      const jscpdService = await this.getJscpdService();
+      if (!jscpdService.isInstalled()) {
+        return { duplicatedLines: 0, duplicatedTokens: 0, percentage: 0, clones: [], byFile: {} };
+      }
+
+      const jscpdMetrics = await jscpdService.runOnFiles(changedFilePaths, workspacePath);
+
+      // Group clones by file
+      const byFile: Record<string, Clone[]> = {};
+      for (const clone of jscpdMetrics.clones) {
+        for (const filePath of [clone.firstFile.path, clone.secondFile.path]) {
+          if (!byFile[filePath]) {
+            byFile[filePath] = [];
+          }
+          if (!byFile[filePath].includes(clone)) {
+            byFile[filePath].push(clone);
+          }
+        }
+      }
+
+      const percentage = totalChangedLines > 0
+        ? (jscpdMetrics.duplicatedLines / totalChangedLines) * 100
+        : jscpdMetrics.percentage;
+
+      return {
+        duplicatedLines: jscpdMetrics.duplicatedLines,
+        duplicatedTokens: jscpdMetrics.duplicatedTokens,
+        percentage: Math.min(100, percentage),
+        clones: jscpdMetrics.clones,
+        byFile,
+      };
+    } catch (error) {
+      console.error("[impact] Failed to calculate duplication:", error);
+      return { duplicatedLines: 0, duplicatedTokens: 0, percentage: 0, clones: [], byFile: {} };
+    }
   }
 
   private async calculateFileChanges(

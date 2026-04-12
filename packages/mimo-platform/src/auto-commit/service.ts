@@ -32,6 +32,8 @@ interface AutoCommitDependencies {
       forceRefresh?: boolean
     ) => Promise<{ metrics: any; trends: any }>;
   };
+  duplicationWarningThreshold?: number;
+  duplicationBlockThreshold?: number;
 }
 
 export class AutoCommitService {
@@ -73,10 +75,15 @@ export class AutoCommitService {
     await this.setStatus(sessionId, { syncState: "syncing", lastSyncError: undefined });
 
     try {
-      const commitMessage = await this.generateCommitMessage(session);
+      const { commitMessage, blocked, blockReason } = await this.generateCommitMessage(session);
       if (!commitMessage) {
         await this.setStatus(sessionId, { syncState: "idle", lastSyncError: undefined });
         return { success: true, message: "No changes to commit" };
+      }
+
+      if (blocked) {
+        await this.setStatus(sessionId, { syncState: "idle", lastSyncError: blockReason });
+        return { success: false, message: blockReason || "Commit blocked due to high duplication" };
       }
 
       const result = await this.deps.commitService.commitAndPush(sessionId, commitMessage);
@@ -105,7 +112,7 @@ export class AutoCommitService {
     name: string;
     upstreamPath: string;
     agentWorkspacePath: string;
-  }): Promise<string | null> {
+  }): Promise<{ commitMessage: string | null; blocked: boolean; blockReason?: string }> {
     const { metrics } = await this.deps.impactCalculator.calculateImpact(
       session.id,
       session.upstreamPath,
@@ -114,13 +121,31 @@ export class AutoCommitService {
 
     const fileCount = (metrics.files?.new || 0) + (metrics.files?.changed || 0) + (metrics.files?.deleted || 0);
     if (fileCount === 0) {
-      return null;
+      return { commitMessage: null, blocked: false };
     }
 
     const added = metrics.linesOfCode?.added || 0;
     const removed = metrics.linesOfCode?.removed || 0;
+    let baseMessage = `[${session.name}] - ${fileCount} files changed (+${added}/-${removed} lines)`;
 
-    return `[${session.name}] - ${fileCount} files changed (+${added}/-${removed} lines)`;
+    const duplication = metrics.duplication;
+    const blockThreshold = this.deps.duplicationBlockThreshold ?? 30;
+    const warnThreshold = this.deps.duplicationWarningThreshold ?? 15;
+
+    if (duplication && duplication.clones?.length > 0) {
+      const pct = duplication.percentage || 0;
+
+      if (pct >= blockThreshold) {
+        const reason = `Commit blocked: ${pct.toFixed(1)}% duplication (${duplication.duplicatedLines} lines). Review and refactor before committing.`;
+        return { commitMessage: baseMessage, blocked: true, blockReason: reason };
+      }
+
+      if (pct >= warnThreshold) {
+        baseMessage += ` [duplication: ${pct.toFixed(1)}%]`;
+      }
+    }
+
+    return { commitMessage: baseMessage, blocked: false };
   }
 
   private async setStatus(sessionId: string, status: Partial<SyncStatus>): Promise<void> {

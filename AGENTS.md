@@ -277,6 +277,21 @@ If `loadSession()` fails (e.g., session expired on provider):
 - Sync status is exposed via `GET /sessions/:sessionId/sync-status`
 - Manual retry is available via `POST /sessions/:sessionId/sync`
 
+### Code Duplication Detection
+
+- The Impact Buffer displays a **Code Duplication** section powered by [jscpd](https://github.com/kucherenko/jscpd)
+- Duplication is calculated on changed files only (workspace vs upstream delta)
+- Metrics include: duplicated lines, percentage, cross-file clones, and intra-file clones
+- Auto-commit integration enforces configurable thresholds:
+  - **Warning threshold** (default 15%): appends `[duplication: X%]` to the commit message
+  - **Block threshold** (default 30%): prevents the commit and notifies the user
+  - Both thresholds are configurable via `AutoCommitService` dependencies (`duplicationWarningThreshold`, `duplicationBlockThreshold`)
+- Key files:
+  - `packages/mimo-platform/src/impact/jscpd-service.ts` — jscpd CLI wrapper
+  - `packages/mimo-platform/src/impact/calculator.ts` — `calculateDuplication()` integrates jscpd into impact metrics
+  - `packages/mimo-platform/src/components/ImpactBuffer.tsx` — renders duplication section
+  - `packages/mimo-platform/src/auto-commit/service.ts` — enforces thresholds
+
 ### Implementation Notes
 
 **mimo-platform responsibilities:**
