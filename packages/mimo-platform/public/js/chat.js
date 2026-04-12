@@ -1472,12 +1472,56 @@ function scrollToBottom() {
   }
 }
 
+function focusEditableBubbleInput() {
+  let input = document.querySelector('.editable-bubble .message-content');
+
+  if (!input && !ChatState.streaming.messageElement) {
+    insertEditableBubble();
+    input = document.querySelector('.editable-bubble .message-content');
+  }
+
+  if (!input) return false;
+
+  input.focus();
+
+  if (window.getSelection && document.createRange) {
+    const range = document.createRange();
+    range.selectNodeContents(input);
+    range.collapse(false);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  return true;
+}
+
+function shouldIgnoreFocusShortcutTarget(target) {
+  if (!target || typeof target.closest !== 'function') return false;
+
+  if (target.closest('.editable-bubble .message-content')) {
+    return false;
+  }
+
+  return !!target.closest('input, textarea, select, button, [contenteditable="true"]');
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // SECTION 6: SETUP & EVENT LISTENERS
 // Bootstrap the module when DOM is ready
 // ═════════════════════════════════════════════════════════════════════════════
 
 function setupEventListeners() {
+  document.addEventListener('keydown', (e) => {
+    if (e.isComposing || e.metaKey || e.altKey) return;
+    if (!e.ctrlKey || String(e.key).toLowerCase() !== 'm') return;
+    if (shouldIgnoreFocusShortcutTarget(e.target)) return;
+
+    if (focusEditableBubbleInput()) {
+      e.preventDefault();
+    }
+  });
+
   // Model selector
   const modelSelector = document.querySelector('#model-selector');
   if (modelSelector) {
