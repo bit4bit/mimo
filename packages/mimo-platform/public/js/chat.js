@@ -892,7 +892,13 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
         cursor.remove();
       }
     }
-    
+
+    // Remove cancel button
+    const cancelBtn = currentMessageElement.querySelector('.cancel-streaming-btn');
+    if (cancelBtn) {
+      cancelBtn.remove();
+    }
+
     currentMessageElement.classList.remove('streaming');
     currentMessageElement = null;
     currentMessageContent = null;
