@@ -12,8 +12,7 @@
   "dependencies": {
     "ws": "^8.16.0",
     "@agentclientprotocol/sdk": "^0.18.0",
-    "@agentclientprotocol/claude-agent-acp": "0.25.3",
-    "@zed-industries/codex-acp": "0.11.1"
+    "@agentclientprotocol/claude-agent-acp": "0.25.3"
   },
   "devDependencies": {
     "@types/ws": "^8.5.10",

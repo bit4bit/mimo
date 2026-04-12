@@ -6,7 +6,7 @@ import { homedir } from "os";
 import { Readable, Writable } from "node:stream";
 import { AgentConfig } from "./types";
 import { SessionManager } from "./session";
-import { AcpClient, OpencodeProvider, ClaudeAgentProvider, CodexProvider } from "./acp";
+import { AcpClient, OpencodeProvider, ClaudeAgentProvider } from "./acp";
 import type { IAcpProvider } from "./acp";
 
 // Convert Node.js streams to Web Streams API
@@ -53,9 +53,6 @@ class MimoAgent {
       case "claude":
         this.provider = new ClaudeAgentProvider();
         break;
-      case "codex":
-        this.provider = new CodexProvider();
-        break;
       case "opencode":
       default:
         this.provider = new OpencodeProvider();
@@ -100,7 +97,6 @@ class MimoAgent {
     const validProviders = new Set<AgentConfig["provider"]>([
       "opencode",
       "claude",
-      "codex",
     ]);
 
     if (!config.provider) {

@@ -3,4 +3,3 @@ export type { AcpClientSession, AcpClientCallbacks, InitializeResult } from "./c
 export type { IAcpProvider, NewSessionResponse, ConfigOption, LegacyModels, LegacyModes } from "./types";
 export { OpencodeProvider } from "./providers/opencode";
 export { ClaudeAgentProvider } from "./providers/claude-agent";
-export { CodexProvider } from "./providers/codex";

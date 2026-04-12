@@ -5,7 +5,7 @@ export interface AgentConfig {
   token: string;
   platform: string;
   workDir: string;
-  provider: "opencode" | "claude" | "codex";
+  provider: "opencode" | "claude";
 }
 
 export interface ModelState {
