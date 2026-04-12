@@ -25,6 +25,7 @@ interface ChatMessage {
 
 interface Agent {
   id: string;
+  name: string;
   status: "online" | "offline";
   startedAt: Date;
   lastActivityAt?: Date;
@@ -104,37 +105,15 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             <h1>{session.name}</h1>
             <span style="color: #888; font-size: 12px;">
               Project: {project.name} | Status: {session.status}
-              {agent && (
-                <span class={`agent-status agent-status-${agent.status}`}>
-                  | Agent: {agent.id.slice(0, 8)}... ({agent.status === "online" ? "🟢" : "🔴"} {agent.status})
-                </span>
-              )}
-              {!agent && (
-                <span style="color: #666;">| No agent assigned</span>
-              )}
+              {agent && ` | Agent: ${agent.name}`} | 
+              <span id="subtitle-acp-status" class={`acp-status acp-status--${acpStatus}`}>
+                {acpStatus === 'active' && '🟢 Agent ready'}
+                {acpStatus === 'parked' && '💤 Agent sleeping'}
+                {acpStatus === 'waking' && '⏳ Waking agent...'}
+              </span>
             </span>
           </div>
           <div style="display: flex; gap: 10px; align-items: center;">
-            {/* ACP Status Indicator */}
-            <div 
-              id="acp-status-indicator" 
-              class={`acp-status acp-status--${acpStatus}`}
-              style={`
-                padding: 4px 12px;
-                border-radius: 4px;
-                font-size: 12px;
-                font-weight: 500;
-                ${acpStatus === 'active' ? 'background: #1e4620; color: #4caf50;' : ''}
-                ${acpStatus === 'parked' ? 'background: #332d1a; color: #ffc107;' : ''}
-                ${acpStatus === 'waking' ? 'background: #1a237e; color: #64b5f6;' : ''}
-              `}
-              title={acpStatus === 'active' ? 'ACP is active and ready' : acpStatus === 'parked' ? 'ACP is parked. Will wake on next message.' : 'ACP is starting up'}
-            >
-              {acpStatus === 'active' && '● Agent ready'}
-              {acpStatus === 'parked' && '💤 Agent sleeping'}
-              {acpStatus === 'waking' && '⏳ Waking agent...'}
-            </div>
-
             {/* Model Selector - always visible with placeholder */}
             <div 
               id="model-selector-container" 

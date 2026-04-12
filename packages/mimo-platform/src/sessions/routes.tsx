@@ -281,6 +281,7 @@ router.get("/:id", async (c: Context) => {
       modelState={modelState}
       modeState={modeState}
       fossilUrl={fossilUrl}
+      acpStatus={session.acpStatus}
     />
   );
 });

@@ -217,7 +217,8 @@ function renderStreamingMessage() {
   
   const indicator = document.createElement('span');
   indicator.className = 'streaming-indicator';
-  indicator.textContent = '●';
+  indicator.style.animation = 'blink 1s infinite';
+  indicator.textContent = '● Received, processing...';
   
   div.appendChild(header);
   div.appendChild(content);
@@ -240,7 +241,7 @@ function renderAgentStatus(agentStatus, acpStatus) {
     statusClass = 'agent-status--offline';
   } else if (acpStatus === 'active') {
     statusText = '🟢 Agent ready';
-    statusTitle = 'ACP is active and ready';
+    statusTitle = 'Agent is active and ready';
     statusClass = 'agent-status--active';
   } else if (acpStatus === 'parked') {
     statusText = '💤 Agent sleeping';
@@ -252,7 +253,7 @@ function renderAgentStatus(agentStatus, acpStatus) {
     statusClass = 'agent-status--waking';
   } else {
     statusText = '🟢 Agent ready';
-    statusTitle = 'ACP is active and ready';
+    statusTitle = 'Agent is active and ready';
     statusClass = 'agent-status--active';
   }
   
@@ -427,7 +428,9 @@ function connectWebSocket(sessionId) {
   ChatState.socket.onclose = () => {
     console.log('Chat WebSocket disconnected');
     ChatState.connectionStatus = 'disconnected';
+    ChatState.agentStatus = 'offline';
     updateConnectionStatusUI();
+    updateAgentStatusUI();
     
     setTimeout(() => {
       if (ChatState.sessionId) connectWebSocket(ChatState.sessionId);
@@ -437,7 +440,9 @@ function connectWebSocket(sessionId) {
   ChatState.socket.onerror = (error) => {
     console.error('Chat WebSocket error:', error);
     ChatState.connectionStatus = 'error';
+    ChatState.agentStatus = 'offline';
     updateConnectionStatusUI();
+    updateAgentStatusUI();
   };
 }
 
@@ -1018,13 +1023,28 @@ function updateConnectionStatusUI() {
 
 // DOM: Update agent status UI
 function updateAgentStatusUI() {
-  const container = document.querySelector('#agent-status-indicator');
   const chatInput = document.querySelector('#chat-input');
   const sendButton = document.querySelector('#send-button');
   
-  if (container) {
-    const newStatus = renderAgentStatus(ChatState.agentStatus, ChatState.acpStatus);
-    container.replaceWith(newStatus);
+  // Update subtitle ACP status text
+  const subtitleStatus = document.querySelector('#subtitle-acp-status');
+  if (subtitleStatus) {
+    let statusText = '';
+    let statusClass = '';
+    
+    if (ChatState.acpStatus === 'active') {
+      statusText = '🟢 Agent ready';
+      statusClass = 'acp-status--active';
+    } else if (ChatState.acpStatus === 'parked') {
+      statusText = '💤 Agent sleeping';
+      statusClass = 'acp-status--parked';
+    } else if (ChatState.acpStatus === 'waking') {
+      statusText = '⏳ Waking agent...';
+      statusClass = 'acp-status--waking';
+    }
+    
+    subtitleStatus.textContent = statusText;
+    subtitleStatus.className = `acp-status ${statusClass}`;
   }
   
   const { canSend, placeholder } = calculateCombinedStatus(
