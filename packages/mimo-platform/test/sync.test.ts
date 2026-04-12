@@ -74,6 +74,21 @@ describe("File Synchronization", () => {
       
       expect(result[0].status).toBe("new");
     });
+
+    it("broadcasts impact stale callback when changes are processed", async () => {
+      let staleSessionId: string | null = null;
+      fileSyncService.setImpactStaleHandler((id: string) => {
+        staleSessionId = id;
+      });
+
+      const changes = [{ path: "src/app.js", isNew: false, deleted: false }];
+      mkdirSync(join(sessionWorktree, "src"), { recursive: true });
+      writeFileSync(join(sessionWorktree, "src", "app.js"), "console.log('changed');");
+
+      await fileSyncService.handleFileChanges(sessionId, changes);
+
+      expect(staleSessionId).toBe(sessionId);
+    });
   });
 
   describe("7.2 File Copy to Original Repo", () => {

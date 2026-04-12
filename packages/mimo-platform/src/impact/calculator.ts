@@ -79,7 +79,8 @@ export class ImpactCalculator {
   async calculateImpact(
     sessionId: string,
     upstreamPath: string,
-    agentWorkspacePath: string
+    agentWorkspacePath: string,
+    forceRefresh = false
   ): Promise<{ metrics: ImpactMetrics; trends: ImpactTrend }> {
     const sccService = await this.getSccService();
 
@@ -92,19 +93,15 @@ export class ImpactCalculator {
     let upstreamMetrics: ReturnType<typeof sccService.runScc> extends Promise<infer T> ? T : never | null = null;
     let workspaceMetrics: ReturnType<typeof sccService.runScc> extends Promise<infer T> ? T : never | null = null;
     
-    // Clear cache to ensure fresh data
-    sccService.clearCache(upstreamPath);
-    sccService.clearCache(agentWorkspacePath);
-    
     try {
-      upstreamMetrics = await sccService.runScc(upstreamPath);
+      upstreamMetrics = await sccService.runScc(upstreamPath, forceRefresh);
       console.log(`[impact] Upstream scc metrics:`, upstreamMetrics);
     } catch (error) {
       console.error(`[impact] Failed to get upstream metrics:`, error);
     }
     
     try {
-      workspaceMetrics = await sccService.runScc(agentWorkspacePath);
+      workspaceMetrics = await sccService.runScc(agentWorkspacePath, forceRefresh);
       console.log(`[impact] Workspace scc metrics:`, workspaceMetrics);
     } catch (error) {
       console.error(`[impact] Failed to get workspace metrics:`, error);

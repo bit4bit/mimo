@@ -53,8 +53,12 @@ export const ImpactBuffer: FC<ImpactBufferProps> = ({
   return (
     <div class="buffer buffer-right" id="impact-buffer" data-session-id={sessionId}>
       <div class="buffer-header">
-        Impact
-        <span class="impact-polling-indicator" title="Auto-refreshes every 5 seconds">🔄</span>
+        <span>Impact</span>
+        <div style="display: inline-flex; align-items: center; gap: 8px; float: right;">
+          <span id="impact-stale-badge" class="impact-stale-badge" style="display: none;">⚠ Outdated</span>
+          <span id="impact-calculating-badge" class="impact-calculating-badge" style="display: none;">⏳ Analyzing...</span>
+          <button id="impact-refresh-btn" type="button" class="btn-small">Refresh</button>
+        </div>
       </div>
       <div class="buffer-content" id="impact-content">
           {/* Fossil Links Section */}
@@ -203,18 +207,21 @@ export const ImpactBuffer: FC<ImpactBufferProps> = ({
           </>
         ) : (
           <div class="impact-loading">
-            <p>Calculating impact metrics...⏳</p>
-            <p class="impact-loading-sub">This may take a moment for large repositories</p>
+            <p>Click Refresh to calculate impact metrics.</p>
+            <p class="impact-loading-sub">Updates now arrive through WebSocket events.</p>
           </div>
         )}
       </div>
 
       <style>{`
-        .impact-polling-indicator {
-          margin-left: 8px;
-          font-size: 10px;
-          opacity: 0.5;
-          cursor: help;
+        .impact-stale-badge {
+          color: #ffd43b;
+          font-size: 11px;
+        }
+
+        .impact-calculating-badge {
+          color: #74c0fc;
+          font-size: 11px;
         }
         
         .impact-section {

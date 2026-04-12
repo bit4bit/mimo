@@ -14,6 +14,10 @@ import { sessionRepository } from "./sessions/repository.js";
 import { LandingPage } from "./components/LandingPage.js";
 import { projectRepository } from "./projects/repository.js";
 import { sharedFossilServer } from "./vcs/shared-fossil-server.js";
+import { impactCalculator } from "./impact/calculator.js";
+import { handleRefreshImpact } from "./impact/refresh-handler.js";
+import { sccService } from "./impact/scc-service.js";
+import { broadcastToSession, type SessionWsClient } from "./ws/session-broadcast.js";
 import { relative } from "path";
 
 const app = new Hono();
@@ -26,7 +30,8 @@ app.use("/js/*", serveStatic({ root: "./public" }));
 import { sessionStateService } from "./sessions/state.js";
 
 // Track active chat sessions
-const chatSessions = new Map();
+const chatSessions = new Map<string, Set<SessionWsClient>>();
+const calculatingSessions = new Set<string>();
 
 // Track streaming message and thought buffers per session
 const streamingBuffers = new Map<string, string>();
@@ -34,6 +39,28 @@ const thoughtBuffers = new Map<string, string>();
 
 // Track pending permission requests: requestId → { agentWs, sessionId }
 const pendingPermissions = new Map<string, { agentWs: any; sessionId: string }>();
+
+async function broadcastImpactStale(sessionId: string): Promise<void> {
+  try {
+    const session = await sessionRepository.findById(sessionId);
+    if (!session) {
+      return;
+    }
+
+    broadcastToSession(chatSessions, sessionId, {
+      type: "impact_stale",
+      sessionId,
+      stale: sccService.isStale(session.agentWorkspacePath),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("[impact] Failed to broadcast stale status:", error);
+  }
+}
+
+fileSyncService.setImpactStaleHandler((sessionId: string) => {
+  void broadcastImpactStale(sessionId);
+});
 
 // Auth routes
 app.route("/auth", auth);
@@ -925,7 +952,36 @@ async function handleChatMessage(ws, data) {
         }
       }
       break;
-      
+
+    case "request_impact_stale":
+      {
+        const staleSession = await sessionRepository.findById(sessionId);
+        if (!staleSession) {
+          break;
+        }
+
+        ws.send(JSON.stringify({
+          type: "impact_stale",
+          sessionId,
+          stale: sccService.isStale(staleSession.agentWorkspacePath),
+          timestamp: new Date().toISOString(),
+        }));
+      }
+      break;
+
+    case "refresh_impact":
+      await handleRefreshImpact({
+        sessionId,
+        calculatingSessions,
+        sendToRequester: (message) => ws.send(JSON.stringify(message)),
+        broadcast: (targetSessionId, message) =>
+          broadcastToSession(chatSessions, targetSessionId, message),
+        findSessionById: (targetSessionId) => sessionRepository.findById(targetSessionId),
+        calculateImpact: (sid, upstreamPath, workspacePath, forceRefresh) =>
+          impactCalculator.calculateImpact(sid, upstreamPath, workspacePath, forceRefresh),
+      });
+      break;
+       
     case "cancel_request":
       {
         const cancelSessionId = data.sessionId;

@@ -98,6 +98,7 @@ interface SccCacheData {
 export class SccService {
   private sccPath: string;
   private smartCache: Map<string, SccCacheEntry> = new Map();
+  private staleDirectories: Set<string> = new Set();
   private cacheFilePath: string;
   private customCacheDir?: string;
 
@@ -236,10 +237,10 @@ export class SccService {
     }
   }
 
-  async runScc(directory: string): Promise<SccMetrics> {
+  async runScc(directory: string, force = false): Promise<SccMetrics> {
     // Check smart cache first
     const cached = this.getCachedMetrics(directory);
-    if (cached) {
+    if (!force && cached) {
       return cached.data;
     }
 
@@ -280,6 +281,7 @@ export class SccService {
           
           // Update smart cache with new results
           await this.updateCache(directory, metrics);
+          this.staleDirectories.delete(directory);
           
           resolve(metrics);
         } catch (error) {
@@ -473,14 +475,24 @@ export class SccService {
         entry.valid = false;
         this.smartCache.set(directory, entry);
       }
+      this.markStale(directory);
     } else {
       // Mark all entries as invalid
       for (const [key, entry] of this.smartCache) {
         entry.valid = false;
         this.smartCache.set(key, entry);
+        this.markStale(key);
       }
     }
     this.saveCache();
+  }
+
+  markStale(directory: string): void {
+    this.staleDirectories.add(directory);
+  }
+
+  isStale(directory: string): boolean {
+    return this.staleDirectories.has(directory);
   }
 
   /**

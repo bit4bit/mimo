@@ -282,4 +282,28 @@ echo '${mockOutput}'`, { mode: 0o755 });
       expect(entry?.valid).toBe(true);
     });
   });
+
+  describe("stale tracking", () => {
+    it("marks a directory stale when cache is invalidated", async () => {
+      await sccService.updateCache(testDir, {
+        linesOfCode: { added: 10, removed: 0, net: 10 },
+        complexity: { cyclomatic: 2, cognitive: 0, estimatedMinutes: 1 },
+        byLanguage: [],
+        byFile: [],
+      });
+
+      sccService.invalidateCache(testDir);
+
+      expect(sccService.isStale(testDir)).toBe(true);
+    });
+
+    it("clears stale state after forced SCC refresh", async () => {
+      sccService.markStale(testDir);
+      expect(sccService.isStale(testDir)).toBe(true);
+
+      await sccService.runScc(testDir, true);
+
+      expect(sccService.isStale(testDir)).toBe(false);
+    });
+  });
 });

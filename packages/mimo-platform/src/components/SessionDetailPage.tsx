@@ -233,241 +233,31 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         </div>
       </div>
 
-      {/* Impact Polling Script */}
       <script dangerouslySetInnerHTML={{ __html: `
-        // Impact metrics polling
         (function() {
           const sessionId = '${session.id}';
-          let lastMetrics = null;
-          
-          function formatTrend(current, previous) {
-            if (current > previous) return '↑';
-            if (current < previous) return '↓';
-            return '→';
-          }
-          
-          function formatComplexity(value) {
-            if (value > 0) return '+' + value;
-            return value.toString();
-          }
-          
-          function formatTime(minutes) {
-            if (minutes < 60) return minutes + 'm';
-            const hours = Math.floor(minutes / 60);
-            const mins = minutes % 60;
-            return hours + 'h ' + mins + 'm';
-          }
-          
-          async function fetchImpact() {
-            try {
-              const response = await fetch(\`/sessions/\${sessionId}/impact\`);
-              if (!response.ok) throw new Error('Failed to fetch impact');
 
-              const data = await response.json();
-              updateImpactUI(data);
-            } catch (error) {
-              console.error('[impact] Polling error:', error);
-            }
-          }
-
-          function updateImpactUI(data) {
-            const content = document.getElementById('impact-content');
-            if (!content) return;
-
-            // Check for API errors
-            if (data.error) {
-              console.error('[impact] API error:', data.error);
-              content.innerHTML = '<div class="impact-loading"><p>Error loading impact metrics: ' + data.error + '</p></div>';
-              return;
-            }
-
-            // Normalize data structure - handle both {files, linesOfCode...} and {metrics: {...}} formats
-            const metrics = data.metrics || data;
-
-            // Check if we have valid data structure
-            if (!metrics.files || typeof metrics.files !== 'object') {
-              console.error('[impact] Invalid data structure:', data);
-              content.innerHTML = '<div class="impact-loading"><p>Error: Invalid impact data received</p></div>';
-              return;
-            }
-
-            // Use normalized metrics for all access
-            data = metrics;
-
-            // Store for trend comparison
-            const prevMetrics = lastMetrics;
-            lastMetrics = data;
-
-            // Build HTML for metrics (preserve Fossil Repository section)
-            let html = '';
-
-            // Preserve Fossil Repository section from server-side rendering
-            const fossilSection = content.querySelector('.impact-section:has(.fossil-links)');
-            if (fossilSection) {
-              html += fossilSection.outerHTML;
-            }
-
-            // Warning if scc not installed
-            if (data.sccInstalled === false) {
-              const warningMsg = data.warning || 'scc not installed - complexity metrics unavailable';
-              html += '<div class="impact-warning" style="margin-bottom: 12px; padding: 10px; background: #332b1a; border: 1px solid #665a33; border-radius: 4px;">' +
-                '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">' +
-                '<span style="font-size: 16px;">⚠️</span>' +
-                '<span style="flex: 1; color: #d4a040;">' + warningMsg + '</span>' +
-                '</div>' +
-                '<div style="font-size: 11px; color: #888; padding-left: 24px;">' +
-                'Install scc from <a href="https://github.com/boyter/scc" target="_blank" style="color: #6ea8fe;">github.com/boyter/scc</a> and place the binary at: ~/.mimo/bin/scc' +
-                '</div>' +
-                '</div>';
-
-              // Log to console where user should put scc
-              console.log('[mimo] SCC feature disabled. To enable impact complexity metrics, install scc from https://github.com/boyter/scc and place the binary at: ~/.mimo/bin/scc');
-            }
-
-            // Files Section
-            const filesTrend = prevMetrics ? {
-              new: formatTrend(data.files.new, prevMetrics.files.new),
-              changed: formatTrend(data.files.changed, prevMetrics.files.changed),
-              deleted: formatTrend(data.files.deleted, prevMetrics.files.deleted)
-            } : { new: '→', changed: '→', deleted: '→' };
-
-            html += \`<div class="impact-section">
-              <div class="impact-section-title">Files</div>
-              <div class="impact-metric">
-                <span class="impact-metric-label">New:</span>
-                <span class="impact-metric-value">\${data.files.new}</span>
-                <span class="impact-trend">\${filesTrend.new}</span>
-              </div>
-              <div class="impact-metric">
-                <span class="impact-metric-label">Changed:</span>
-                <span class="impact-metric-value">\${data.files.changed}</span>
-                <span class="impact-trend">\${filesTrend.changed}</span>
-              </div>
-              <div class="impact-metric">
-                <span class="impact-metric-label">Deleted:</span>
-                <span class="impact-metric-value">\${data.files.deleted}</span>
-                <span class="impact-trend">\${filesTrend.deleted}</span>
-              </div>
-            </div>\`;
-
-            // Lines of Code Section
-            if (data.linesOfCode) {
-              const locTrend = prevMetrics && prevMetrics.linesOfCode ? {
-                added: formatTrend(data.linesOfCode.added, prevMetrics.linesOfCode.added),
-                removed: formatTrend(data.linesOfCode.removed, prevMetrics.linesOfCode.removed),
-                net: formatTrend(data.linesOfCode.net, prevMetrics.linesOfCode.net)
-              } : { added: '→', removed: '→', net: '→' };
-
-              const netClass = data.linesOfCode.net >= 0 ? 'positive' : 'negative';
-              const netPrefix = data.linesOfCode.net >= 0 ? '+' : '';
-
-              html += \`<div class="impact-section">
-                <div class="impact-section-title">Lines of Code</div>
-                <div class="impact-metric">
-                  <span class="impact-metric-label">Added:</span>
-                  <span class="impact-metric-value">+\${data.linesOfCode.added}</span>
-                  <span class="impact-trend">\${locTrend.added}</span>
-                </div>
-                <div class="impact-metric">
-                  <span class="impact-metric-label">Removed:</span>
-                  <span class="impact-metric-value">-\${data.linesOfCode.removed}</span>
-                  <span class="impact-trend">\${locTrend.removed}</span>
-                </div>
-                <div class="impact-metric">
-                  <span class="impact-metric-label">Net:</span>
-                  <span class="impact-metric-value \${netClass}">\${netPrefix}\${data.linesOfCode.net}</span>
-                  <span class="impact-trend">\${locTrend.net}</span>
-                </div>
-              </div>\`;
-            }
-
-            // Complexity Section (if scc is installed)
-            if (data.sccInstalled !== false && data.complexity) {
-              const compTrend = prevMetrics ? {
-                cyclomatic: formatTrend(data.complexity.cyclomatic, prevMetrics.complexity.cyclomatic),
-                cognitive: formatTrend(data.complexity.cognitive, prevMetrics.complexity.cognitive)
-              } : { cyclomatic: '→', cognitive: '→' };
-
-              html += \`<div class="impact-section">
-                <div class="impact-section-title">Complexity</div>
-                <div class="impact-metric">
-                  <span class="impact-metric-label">Cyclomatic:</span>
-                  <span class="impact-metric-value">\${formatComplexity(data.complexity.cyclomatic)}</span>
-                  <span class="impact-trend">\${compTrend.cyclomatic}</span>
-                </div>
-                <div class="impact-metric">
-                  <span class="impact-metric-label">Cognitive:</span>
-                  <span class="impact-metric-value">\${formatComplexity(data.complexity.cognitive)}</span>
-                  <span class="impact-trend">\${compTrend.cognitive}</span>
-                </div>
-                <div class="impact-metric">
-                  <span class="impact-metric-label">Est. Time:</span>
-                  <span class="impact-metric-value">\${formatTime(data.complexity.estimatedMinutes)}</span>
-                </div>
-              </div>\`;
-
-              // Language Breakdown
-              if (data.byLanguage && data.byLanguage.length > 0) {
-                html += \`<div class="impact-section">
-                  <div class="impact-section-title">By Language</div>\`;
-                data.byLanguage.forEach(lang => {
-                  const added = lang.linesAdded > 0 ? '+' + lang.linesAdded : '';
-                  const removed = lang.linesRemoved > 0 ? ' -' + lang.linesRemoved : '';
-                  const complexity = lang.complexityDelta !== 0 ?
-                    ' (' + (lang.complexityDelta > 0 ? '+' : '') + lang.complexityDelta + ' cyc)' : '';
-                  html += \`<div class="impact-language">
-                    <div class="impact-language-header">
-                      <span class="impact-language-name">\${lang.language}</span>
-                      <span class="impact-language-files">\${lang.files} files</span>
-                    </div>
-                    <div class="impact-language-metrics">
-                      <span class="impact-language-loc">\${added}\${removed}</span>
-                      <span class="impact-language-complexity">\${complexity}</span>
-                    </div>
-                  </div>\`;
-                });
-                html += '</div>';
-              }
-            }
-
-            // Update the content
-            content.innerHTML = html;
-          }
-          
-          // Poll every 5 seconds
-          setInterval(fetchImpact, 5000);
-          
-          // Initial fetch
-          fetchImpact();
-          
-          // Fossil server status polling
           async function checkFossilStatus() {
             try {
               const response = await fetch(\`/sessions/\${sessionId}/fossil-status\`);
               if (!response.ok) return;
-              
+
               const data = await response.json();
-              if (data.running && data.fossilUrl) {
-                // Update fossil section if it was showing "not running"
-                const fossilSection = document.querySelector('.impact-section:has(.fossil-links)');
-                if (fossilSection) {
-                  const linksContainer = fossilSection.querySelector('.fossil-links');
-                  if (linksContainer && linksContainer.querySelector('.impact-no-data')) {
-                    // Replace "not running" message with actual links
-                    linksContainer.innerHTML = '<a href="' + data.fossilUrl + 'timeline" target="_blank" class="fossil-link">Timeline</a>' +
-                      '<a href="' + data.fossilUrl + 'dir" target="_blank" class="fossil-link">Files</a>';
-                    console.log('[fossil] Server is now running at', data.fossilUrl);
-                  }
-                }
+              if (!data.running || !data.fossilUrl) return;
+
+              const fossilSection = document.querySelector('.impact-section:has(.fossil-links)');
+              if (!fossilSection) return;
+
+              const linksContainer = fossilSection.querySelector('.fossil-links');
+              if (linksContainer && linksContainer.querySelector('.impact-no-data')) {
+                linksContainer.innerHTML = '<a href="' + data.fossilUrl + 'timeline" target="_blank" class="fossil-link">Timeline</a>' +
+                  '<a href="' + data.fossilUrl + 'dir" target="_blank" class="fossil-link">Files</a>';
               }
-            } catch (error) {
-              // Silently ignore - server might not be ready yet
+            } catch (_error) {
             }
           }
-          
-          // Check fossil status every 3 seconds
+
           setInterval(checkFossilStatus, 3000);
-          // Initial check
           checkFossilStatus();
         })();
       `}} />

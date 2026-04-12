@@ -40,6 +40,11 @@ export interface FileSyncState {
 export class FileSyncService {
   private syncStates: Map<string, FileSyncState> = new Map();
   private pendingChanges: Map<string, FileChange[]> = new Map(); // Buffered changes for reconnects
+  private impactStaleHandler?: (sessionId: string) => void;
+
+  setImpactStaleHandler(handler: (sessionId: string) => void): void {
+    this.impactStaleHandler = handler;
+  }
 
   async initializeSession(
     sessionId: string,
@@ -126,6 +131,7 @@ export class FileSyncService {
     // Invalidate SCC cache when there are real changes
     if (fileChanges.length > 0 && syncState) {
       sccService.invalidateCache(syncState.agentWorkspacePath);
+      this.impactStaleHandler?.(sessionId);
     }
 
     return fileChanges;

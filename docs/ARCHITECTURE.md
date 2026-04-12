@@ -158,10 +158,16 @@ Browser ←→ Platform WebSocket ←→ Agent WebSocket
 **Messages from Client**:
 - `send_message`: Send chat message
 - `request_replay`: Request chat history replay
+- `refresh_impact`: Trigger manual SCC impact refresh
+- `request_impact_stale`: Request current impact stale status
 
 **Messages to Client**:
 - `history`: Full chat history
 - `message`: New message (user or assistant)
+- `impact_stale`: Impact cache became stale after file changes
+- `impact_calculating`: Impact refresh is running
+- `impact_updated`: Fresh impact metrics are available
+- `impact_error`: Impact refresh failed
 
 ### Agent WebSocket (`/ws/agent`)
 

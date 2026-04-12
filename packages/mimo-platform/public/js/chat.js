@@ -51,6 +51,14 @@ const ChatState = {
   // Config
   modelState: null,
   modeState: null,
+
+  // Impact
+  impact: {
+    stale: false,
+    calculating: false,
+    metrics: null,
+    trends: null,
+  },
   
   // Constants
   STREAMING_TIMEOUT_MS: 60000,
@@ -402,6 +410,7 @@ function initChat(sessionId) {
   ChatState.sessionId = sessionId;
   connectWebSocket(sessionId);
   insertEditableBubble();
+  updateImpactUiState();
 }
 
 // Controller: Connect WebSocket
@@ -418,6 +427,13 @@ function connectWebSocket(sessionId) {
       type: 'request_state',
       sessionId: ChatState.sessionId,
     }));
+
+    ChatState.socket.send(JSON.stringify({
+      type: 'request_impact_stale',
+      sessionId: ChatState.sessionId,
+    }));
+
+    loadInitialImpact();
   };
   
   ChatState.socket.onmessage = (event) => {
@@ -504,6 +520,18 @@ function handleWebSocketMessage(data) {
       break;
     case 'acp_status':
       handleAcpStatus(data);
+      break;
+    case 'impact_stale':
+      handleImpactStale(data);
+      break;
+    case 'impact_calculating':
+      handleImpactCalculating();
+      break;
+    case 'impact_updated':
+      handleImpactUpdated(data);
+      break;
+    case 'impact_error':
+      handleImpactError(data);
       break;
   }
 }
@@ -757,6 +785,67 @@ function handleClearSessionError(data) {
   if (pending) pending.remove();
   
   insertError(data.error || 'Failed to clear session');
+}
+
+function refreshImpact() {
+  if (ChatState.socket?.readyState !== WebSocket.OPEN || ChatState.impact.calculating) {
+    return;
+  }
+
+  ChatState.socket.send(JSON.stringify({
+    type: 'refresh_impact',
+    sessionId: ChatState.sessionId,
+  }));
+}
+
+async function loadInitialImpact() {
+  try {
+    const response = await fetch(`/sessions/${ChatState.sessionId}/impact`);
+    if (!response.ok) {
+      return;
+    }
+
+    const data = await response.json();
+    const metrics = data.metrics || data;
+    if (!metrics?.files) {
+      return;
+    }
+
+    ChatState.impact.metrics = metrics;
+    ChatState.impact.trends = data.trends || null;
+    renderImpactMetrics(metrics, ChatState.impact.trends);
+    updateImpactUiState();
+  } catch (error) {
+    console.error('[impact] Initial load failed:', error);
+  }
+}
+
+function handleImpactStale(data) {
+  ChatState.impact.stale = !!data.stale;
+  updateImpactUiState();
+}
+
+function handleImpactCalculating() {
+  ChatState.impact.calculating = true;
+  updateImpactUiState();
+}
+
+function handleImpactUpdated(data) {
+  ChatState.impact.calculating = false;
+  ChatState.impact.stale = false;
+  ChatState.impact.metrics = data.metrics || null;
+  ChatState.impact.trends = data.trends || null;
+
+  if (ChatState.impact.metrics) {
+    renderImpactMetrics(ChatState.impact.metrics, ChatState.impact.trends);
+  }
+  updateImpactUiState();
+}
+
+function handleImpactError(data) {
+  ChatState.impact.calculating = false;
+  updateImpactUiState();
+  insertError(data.error || 'Impact calculation failed');
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1060,6 +1149,57 @@ function updateAgentStatusUI() {
   if (sendButton) {
     sendButton.disabled = !canSend;
   }
+}
+
+function updateImpactUiState() {
+  const staleBadge = document.querySelector('#impact-stale-badge');
+  const calculatingBadge = document.querySelector('#impact-calculating-badge');
+  const refreshBtn = document.querySelector('#impact-refresh-btn');
+
+  if (staleBadge) {
+    staleBadge.style.display = ChatState.impact.stale ? 'inline' : 'none';
+  }
+  if (calculatingBadge) {
+    calculatingBadge.style.display = ChatState.impact.calculating ? 'inline' : 'none';
+  }
+  if (refreshBtn) {
+    refreshBtn.disabled = ChatState.impact.calculating;
+    refreshBtn.textContent = ChatState.impact.calculating ? 'Analyzing...' : 'Refresh';
+  }
+}
+
+function renderImpactMetrics(metrics, trends) {
+  const content = document.querySelector('#impact-content');
+  if (!content || !metrics?.files) {
+    return;
+  }
+
+  const filesTrend = trends?.files || { new: '→', changed: '→', deleted: '→' };
+  const locTrend = trends?.linesOfCode || { added: '→', removed: '→', net: '→' };
+  const complexityTrend = trends?.complexity || { cyclomatic: '→', cognitive: '→' };
+  const netClass = metrics.linesOfCode.net >= 0 ? 'positive' : 'negative';
+  const netValue = metrics.linesOfCode.net >= 0 ? `+${metrics.linesOfCode.net}` : `${metrics.linesOfCode.net}`;
+
+  content.innerHTML = `
+    <div class="impact-section">
+      <div class="impact-section-title">Files</div>
+      <div class="impact-metric"><span class="impact-metric-label">New:</span><span class="impact-metric-value">${metrics.files.new}</span><span class="impact-trend">${filesTrend.new || '→'}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Changed:</span><span class="impact-metric-value">${metrics.files.changed}</span><span class="impact-trend">${filesTrend.changed || '→'}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Deleted:</span><span class="impact-metric-value">${metrics.files.deleted}</span><span class="impact-trend">${filesTrend.deleted || '→'}</span></div>
+    </div>
+    <div class="impact-section">
+      <div class="impact-section-title">Lines of Code</div>
+      <div class="impact-metric"><span class="impact-metric-label">Added:</span><span class="impact-metric-value">+${metrics.linesOfCode.added}</span><span class="impact-trend">${locTrend.added || '→'}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Removed:</span><span class="impact-metric-value">-${metrics.linesOfCode.removed}</span><span class="impact-trend">${locTrend.removed || '→'}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Net:</span><span class="impact-metric-value ${netClass}">${netValue}</span><span class="impact-trend">${locTrend.net || '→'}</span></div>
+    </div>
+    <div class="impact-section">
+      <div class="impact-section-title">Complexity</div>
+      <div class="impact-metric"><span class="impact-metric-label">Cyclomatic:</span><span class="impact-metric-value">${metrics.complexity.cyclomatic}</span><span class="impact-trend">${complexityTrend.cyclomatic || '→'}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Cognitive:</span><span class="impact-metric-value">${metrics.complexity.cognitive}</span><span class="impact-trend">${complexityTrend.cognitive || '→'}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Est. Time:</span><span class="impact-metric-value">~${metrics.complexity.estimatedMinutes} min</span></div>
+    </div>
+  `;
 }
 
 // DOM: Show notification
@@ -1380,6 +1520,11 @@ function setupEventListeners() {
   const clearBtn = document.querySelector('#clear-session-btn');
   if (clearBtn) {
     clearBtn.addEventListener('click', clearSession);
+  }
+
+  const impactRefreshBtn = document.querySelector('#impact-refresh-btn');
+  if (impactRefreshBtn) {
+    impactRefreshBtn.addEventListener('click', refreshImpact);
   }
 }
 
