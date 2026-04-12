@@ -2,7 +2,8 @@
 import { jsx } from "hono/jsx";
 import { Layout } from "./Layout.js";
 import type { FC } from "hono/jsx";
-import type { Config, ValidationError } from "../config/service.js";
+import type { Config } from "../config/service.js";
+import type { ValidationError } from "../config/validator.js";
 
 interface ConfigEditorProps {
   config: Config;
@@ -69,89 +70,6 @@ export const ConfigEditorPage: FC<ConfigEditorProps> = ({ config, errors = [], s
             </div>
           </div>
 
-          {/* Keybindings Section */}
-          <div class="config-section">
-            <h2>Keybindings</h2>
-            <p class="help-text">
-              Format: C- for Ctrl, M- for Alt/Meta, S- for Shift. 
-              Examples: "C-x c", "C-c C-c", "M-x"
-            </p>
-
-            <div class="keybindings-grid">
-              <div class="form-group">
-                <label>Cancel Request</label>
-                <input
-                  type="text"
-                  name="keybindings.cancel_request"
-                  value={config.keybindings.cancel_request}
-                />
-              </div>
-
-              <div class="form-group">
-                <label>Commit & Push</label>
-                <input
-                  type="text"
-                  name="keybindings.commit"
-                  value={config.keybindings.commit}
-                />
-              </div>
-
-              <div class="form-group">
-                <label>Find File</label>
-                <input
-                  type="text"
-                  name="keybindings.find_file"
-                  value={config.keybindings.find_file}
-                />
-              </div>
-
-              <div class="form-group">
-                <label>Switch Project</label>
-                <input
-                  type="text"
-                  name="keybindings.switch_project"
-                  value={config.keybindings.switch_project}
-                />
-              </div>
-
-              <div class="form-group">
-                <label>Switch Session</label>
-                <input
-                  type="text"
-                  name="keybindings.switch_session"
-                  value={config.keybindings.switch_session}
-                />
-              </div>
-
-              <div class="form-group">
-                <label>Focus Left Buffer</label>
-                <input
-                  type="text"
-                  name="keybindings.focus_left"
-                  value={config.keybindings.focus_left}
-                />
-              </div>
-
-              <div class="form-group">
-                <label>Focus Center Buffer</label>
-                <input
-                  type="text"
-                  name="keybindings.focus_center"
-                  value={config.keybindings.focus_center}
-                />
-              </div>
-
-              <div class="form-group">
-                <label>Focus Right Buffer</label>
-                <input
-                  type="text"
-                  name="keybindings.focus_right"
-                  value={config.keybindings.focus_right}
-                />
-              </div>
-            </div>
-          </div>
-
           <div class="form-actions">
             <button type="reset" class="btn-secondary">Reset to Defaults</button>
             <button type="submit" class="btn-primary">Save Configuration</button>
@@ -185,16 +103,6 @@ export const ConfigEditorPage: FC<ConfigEditorProps> = ({ config, errors = [], s
             margin: 0 0 20px 0;
             font-size: 16px;
             color: #74c0fc;
-          }
-          .help-text {
-            color: #888;
-            font-size: 12px;
-            margin-bottom: 15px;
-          }
-          .keybindings-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 15px;
           }
           .form-actions {
             display: flex;

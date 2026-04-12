@@ -27,7 +27,7 @@ MIMO is a web-based development environment built with:
 - Server-side rendered JSX (no client-side framework)
 - Vanilla JavaScript for interactivity
 - WebSocket for real-time chat
-- Status line shows available keybindings
+- Status line shows runtime messages
 
 ### 2. Platform Server (Server-Side)
 

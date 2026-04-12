@@ -12,15 +12,6 @@ Configuration is stored in `~/.mimo/config.yaml` in YAML format.
 theme: dark
 fontSize: 14
 fontFamily: "monospace"
-keybindings:
-  cancel_request: "C-c C-c"
-  commit: "C-x c"
-  find_file: "C-x C-f"
-  switch_project: "C-x p"
-  switch_session: "C-x s"
-  focus_left: "C-x h"
-  focus_center: "C-x j"
-  focus_right: "C-x l"
 ```
 
 ## Options Reference
@@ -45,64 +36,6 @@ keybindings:
 - **Type**: `string`
 - **Default**: `"monospace"`
 - **Description**: CSS font family for editor
-
-### keybindings
-
-All keybinding options use the same format:
-
-**Format Rules**:
-- Prefixes: `C-` (Ctrl), `M-` (Alt/Meta), `S-` (Shift)
-- Chords: Separate with space (e.g., `"C-x c"`)
-- Special keys: `escape`, `tab`, `space`, `enter`, `backspace`, `delete`, `home`, `end`, `pageup`, `pagedown`, `up`, `down`, `left`, `right`
-- Function keys: `F1` through `F12`
-
-#### cancel_request
-
-- **Type**: `string`
-- **Default**: `"C-c C-c"`
-- **Description**: Cancel current agent request
-
-#### commit
-
-- **Type**: `string`
-- **Default**: `"C-x c"`
-- **Description**: Open commit dialog
-
-#### find_file
-
-- **Type**: `string`
-- **Default**: `"C-x C-f"`
-- **Description**: Open file finder
-
-#### switch_project
-
-- **Type**: `string`
-- **Default**: `"C-x p"`
-- **Description**: Open project switcher
-
-#### switch_session
-
-- **Type**: `string`
-- **Default**: `"C-x s"`
-- **Description**: Open session switcher
-
-#### focus_left
-
-- **Type**: `string`
-- **Default**: `"C-x h"`
-- **Description**: Focus left buffer (Files)
-
-#### focus_center
-
-- **Type**: `string`
-- **Default**: `"C-x j"`
-- **Description**: Focus center buffer (Chat)
-
-#### focus_right
-
-- **Type**: `string`
-- **Default**: `"C-x l"`
-- **Description**: Focus right buffer (Changes)
 
 ## Environment Variables
 
@@ -176,8 +109,6 @@ The configuration is validated on load:
 
 - Invalid themes fall back to "dark"
 - Font sizes outside 8-32 fall back to 14
-- Invalid keybinding formats are rejected
-- Duplicate keybindings are detected and reported
 
 ## Editing Configuration
 
@@ -207,10 +138,7 @@ curl -X POST http://localhost:3000/config/api \
   -H "Content-Type: application/json" \
   -d '{
     "theme": "light",
-    "fontSize": 16,
-    "keybindings": {
-      "commit": "C-c C-c"
-    }
+    "fontSize": 16
   }'
 ```
 
@@ -244,20 +172,6 @@ fontSize: 16
 fontFamily: "Consolas, monospace"
 ```
 
-### Vim-style Keybindings
-
-```yaml
-keybindings:
-  cancel_request: "C-c"
-  commit: ":w"
-  find_file: ":e"
-  switch_project: ":bp"
-  switch_session: ":bn"
-  focus_left: "C-w h"
-  focus_center: "C-w j"
-  focus_right: "C-w l"
-```
-
 ### Large Text for Presentations
 
 ```yaml
@@ -267,5 +181,5 @@ fontFamily: "Fira Code, monospace"
 
 ## See Also
 
-- [Keybindings Reference](KEYBINDINGS.md) - Complete keybinding documentation
+- [Keyboard Reference](KEYBINDINGS.md) - Standard keyboard interactions
 - [Troubleshooting](TROUBLESHOOTING.md) - Common issues and solutions

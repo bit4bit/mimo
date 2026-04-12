@@ -1,5 +1,4 @@
 import type { FC } from "hono/jsx";
-import { configService } from "../config/service.js";
 
 interface LayoutProps {
   title: string;
@@ -9,16 +8,13 @@ interface LayoutProps {
 }
 
 export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = false, sessionId }) => {
-  const keybindings = configService.getKeybindings();
-  
   return (
     <html lang="en">
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{title} | MIMO</title>
-        <script dangerouslySetInnerHTML={{ __html: `window.MIMO_KEYBINDINGS = ${JSON.stringify(keybindings)}; window.MIMO_SESSION_ID = "${sessionId || ''}";` }} />
-        <script src="/js/keybindings.js" defer></script>
+        <script dangerouslySetInnerHTML={{ __html: `window.MIMO_SESSION_ID = "${sessionId || ''}";` }} />
         {sessionId && <script src="/js/chat.js" defer></script>}
         {sessionId && <script src="/js/commit.js" defer></script>}
         <style>{`
@@ -331,22 +327,9 @@ export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = fals
           </main>
          {showStatusLine && (
            <div class="status-line">
-             <span class="status-line-message"></span>
-             <div style="margin-left: auto; display: flex; gap: 15px;">
-               <span><span class="status-line-key">{keybindings.cancel_request}</span> cancel</span>
-               <span class="status-line-divider">|</span>
-               <span><span class="status-line-key">{keybindings.commit}</span> commit</span>
-               <span class="status-line-divider">|</span>
-               <span><span class="status-line-key">{keybindings.find_file}</span> find-file</span>
-               <span class="status-line-divider">|</span>
-               <span><span class="status-line-key">{keybindings.switch_project}</span> project</span>
-               <span class="status-line-divider">|</span>
-               <span><span class="status-line-key">{keybindings.switch_session}</span> session</span>
-               <span class="status-line-divider">|</span>
-               <span><span class="status-line-key">{keybindings.focus_left}</span>/<span class="status-line-key">{keybindings.focus_center}</span>/<span class="status-line-key">{keybindings.focus_right}</span> focus</span>
-             </div>
-           </div>
-         )}
+              <span class="status-line-message"></span>
+            </div>
+          )}
        </body>
     </html>
   );

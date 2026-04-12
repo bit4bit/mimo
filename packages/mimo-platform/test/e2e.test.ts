@@ -149,7 +149,7 @@ describe("Integration Tests", () => {
       
       expect(typeof configService.load).toBe("function");
       expect(typeof configService.save).toBe("function");
-      expect(typeof configService.getKeybindings).toBe("function");
+      expect("getKeybindings" in configService).toBe(false);
     });
 
     it("should handle config validation", async () => {
@@ -158,21 +158,43 @@ describe("Integration Tests", () => {
       const validConfig = {
         theme: "dark",
         fontSize: 14,
-        keybindings: {
-          cancel_request: "C-c C-c",
-          commit: "C-x c",
-          find_file: "C-x C-f",
-          switch_project: "C-x p",
-          switch_session: "C-x s",
-          focus_left: "C-x h",
-          focus_center: "C-x j",
-          focus_right: "C-x l",
-        },
       };
       
       const result = configValidator.validate(validConfig);
       expect(result.valid).toBe(true);
       expect(result.errors.length).toBe(0);
+      expect("keybindings" in result.sanitized).toBe(false);
+    });
+
+    it("should ignore legacy keybindings in saved config", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "mimo-config-test-"));
+      const originalHome = process.env.HOME;
+      process.env.HOME = tempDir;
+
+      try {
+        const mimoDir = join(tempDir, ".mimo");
+        mkdirSync(mimoDir, { recursive: true });
+        writeFileSync(
+          join(mimoDir, "config.yaml"),
+          [
+            "theme: dark",
+            "fontSize: 16",
+            "keybindings:",
+            "  commit: \"C-x c\"",
+          ].join("\n"),
+        );
+
+        const { ConfigService } = await import("../src/config/service.js");
+        const isolatedConfigService = new ConfigService();
+        const loadedConfig = isolatedConfigService.load();
+
+        expect(loadedConfig.theme).toBe("dark");
+        expect(loadedConfig.fontSize).toBe(16);
+        expect("keybindings" in loadedConfig).toBe(false);
+      } finally {
+        process.env.HOME = originalHome;
+        rmSync(tempDir, { recursive: true, force: true });
+      }
     });
 
     it("should detect invalid configs", async () => {
@@ -181,13 +203,11 @@ describe("Integration Tests", () => {
       const invalidConfig = {
         theme: "invalid",
         fontSize: 100,
-        keybindings: {
-          commit: "invalid-keybinding",
-        },
       };
       
       const result = configValidator.validate(invalidConfig);
       expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors.some((error) => error.field === "keybindings")).toBe(false);
     });
   });
 

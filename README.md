@@ -1,6 +1,6 @@
 # MIMO Platform
 
-A minimal, Emacs-style web-based editor for AI-assisted development with structured change management.
+A minimal web-based editor for AI-assisted development with structured change management.
 
 ## Table of Contents
 
@@ -17,13 +17,13 @@ A minimal, Emacs-style web-based editor for AI-assisted development with structu
 
 ## Overview
 
-MIMO (Minimal IDE for Modern Operations) is a platform that enables AI-assisted development through a web-based interface with an Emacs-style workflow. It provides session-based development with worktrees, file synchronization, integrated chat with AI agents, and structured OpenSpec change management.
+MIMO (Minimal IDE for Modern Operations) is a platform that enables AI-assisted development through a web-based interface. It provides session-based development with worktrees, file synchronization, integrated chat with AI agents, and structured OpenSpec change management.
 
 ## Features
 
 - **Public Landing Page**: View platform overview and public projects without authentication
 - **Project Descriptions**: Add optional descriptions to projects for better discoverability
-- **Emacs-Style Interface**: Three-buffer layout with customizable keybindings
+- **Three-Buffer Interface**: Files, Chat, and Changes panes for focused workflows
 - **Session-Based Development**: Work with isolated worktrees for each development session
 - **File Synchronization**: Automatic sync between agent worktree and original repository
 - **Integrated Chat**: Real-time chat with AI agents via WebSocket
@@ -147,7 +147,7 @@ Clicking on a project card will redirect you to login if not authenticated, or t
 ### Committing Changes
 
 1. Make changes through the agent
-2. Click "Commit" button or press `C-x c`
+2. Click the "Commit" button
 3. Enter commit message
 4. Changes are committed to Fossil and pushed to the original repository
 
@@ -167,15 +167,6 @@ Configuration is stored in `~/.mimo/config.yaml`:
 theme: dark
 fontSize: 14
 fontFamily: monospace
-keybindings:
-  cancel_request: "C-c C-c"
-  commit: "C-x c"
-  find_file: "C-x C-f"
-  switch_project: "C-x p"
-  switch_session: "C-x s"
-  focus_left: "C-x h"
-  focus_center: "C-x j"
-  focus_right: "C-x l"
 ```
 
 Edit via the web UI at `/config` or directly in the file.
@@ -271,7 +262,7 @@ See [AGENTS.md](./AGENTS.md) for detailed development guidelines and commit conv
 
 - [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System architecture and components
 - [CONFIGURATION.md](./docs/CONFIGURATION.md) - Configuration options and file structure
-- [KEYBINDINGS.md](./docs/KEYBINDINGS.md) - Emacs-style keybindings reference
+- [KEYBINDINGS.md](./docs/KEYBINDINGS.md) - Keyboard interactions reference
 - [MIMO_AGENT.md](./docs/MIMO_AGENT.md) - Agent binary implementation details
 - [DEPLOYMENT.md](./docs/DEPLOYMENT.md) - Deployment considerations
 - [TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) - Common issues and solutions

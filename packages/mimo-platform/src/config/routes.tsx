@@ -27,24 +27,10 @@ router.post("/", async (c: Context) => {
     theme: body.theme as "dark" | "light",
     fontSize: parseInt(body.fontSize as string, 10),
     fontFamily: body.fontFamily as string,
-    keybindings: {
-      cancel_request: body["keybindings.cancel_request"] as string,
-      commit: body["keybindings.commit"] as string,
-      find_file: body["keybindings.find_file"] as string,
-      switch_project: body["keybindings.switch_project"] as string,
-      switch_session: body["keybindings.switch_session"] as string,
-      focus_left: body["keybindings.focus_left"] as string,
-      focus_center: body["keybindings.focus_center"] as string,
-      focus_right: body["keybindings.focus_right"] as string,
-    },
   };
 
   // Validate the config
   const validation = configValidator.validate(newConfig);
-  
-  // Check for duplicate keybindings
-  const duplicateErrors = configValidator.checkDuplicateKeybindings(validation.sanitized.keybindings);
-  validation.errors.push(...duplicateErrors);
 
   if (validation.errors.length > 0) {
     return c.html(
@@ -86,8 +72,6 @@ router.post("/api", async (c: Context) => {
   const body = await c.req.json();
   
   const validation = configValidator.validate(body);
-  const duplicateErrors = configValidator.checkDuplicateKeybindings(validation.sanitized.keybindings);
-  validation.errors.push(...duplicateErrors);
 
   if (validation.errors.length > 0) {
     return c.json({
