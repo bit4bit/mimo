@@ -1,5 +1,5 @@
 import { WebSocket } from "ws";
-import { ChildProcess, execSync } from "child_process";
+import { ChildProcess, execSync, spawnSync } from "child_process";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
@@ -314,6 +314,10 @@ class MimoAgent {
 
       case "session_config_updated":
         this.handleSessionConfigUpdated(message);
+        break;
+
+      case "sync_now":
+        this.handleSyncNow(message);
         break;
 
       default:
@@ -957,6 +961,174 @@ class MimoAgent {
     console.log(
       `[mimo-agent] File sync for session ${sessionId || "unknown"}`
     );
+  }
+
+  private handleSyncNow(message: any): void {
+    const sessionId = message.sessionId;
+    const requestId = message.requestId;
+
+    if (!sessionId || !requestId) {
+      this.send({
+        type: "sync_now_result",
+        sessionId,
+        requestId,
+        success: false,
+        message: "Missing sessionId or requestId",
+        error: "Missing sessionId or requestId",
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const session = this.sessionManager.getSession(sessionId);
+    if (!session) {
+      this.send({
+        type: "sync_now_result",
+        sessionId,
+        requestId,
+        success: false,
+        message: "Session not found in mimo-agent",
+        error: "Session not found in mimo-agent",
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const runFossil = (args: string[]) => {
+      const result = spawnSync("fossil", args, {
+        cwd: session.checkoutPath,
+        encoding: "utf8",
+        timeout: 15000,
+        env: {
+          ...process.env,
+          FOSSIL_FORCE_TTY: "0",
+        },
+      });
+
+      if (result.error) {
+        const err = result.error as Error & { code?: string };
+        const timeoutMessage = err.code === "ETIMEDOUT"
+          ? `fossil ${args.join(" ")} timed out`
+          : err.message;
+
+        return {
+          success: false,
+          output: (result.stdout || "").trim(),
+          error: timeoutMessage,
+        };
+      }
+
+      return {
+        success: result.status === 0,
+        output: (result.stdout || "").trim(),
+        error: (result.stderr || "").trim(),
+      };
+    };
+
+    try {
+      const addremoveResult = runFossil(["addremove"]);
+      if (!addremoveResult.success) {
+        this.send({
+          type: "sync_now_result",
+          sessionId,
+          requestId,
+          success: false,
+          message: "Failed to stage changes in fossil checkout",
+          error: addremoveResult.error || addremoveResult.output || "fossil addremove failed",
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const changesResult = runFossil(["changes"]);
+      if (!changesResult.success) {
+        this.send({
+          type: "sync_now_result",
+          sessionId,
+          requestId,
+          success: false,
+          message: "Failed to inspect fossil changes",
+          error: changesResult.error || changesResult.output || "fossil changes failed",
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      if (!changesResult.output) {
+        this.send({
+          type: "sync_now_result",
+          sessionId,
+          requestId,
+          success: true,
+          noChanges: true,
+          message: "No changes to sync from mimo-agent fossil checkout",
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const commitMessage = `agent-sync(${sessionId}): sync fossil changes ${new Date().toISOString()}`;
+      const commitResult = runFossil(["commit", "-m", commitMessage]);
+      if (!commitResult.success) {
+        const combined = `${commitResult.output}\n${commitResult.error}`;
+        if (combined.includes("nothing has changed")) {
+          this.send({
+            type: "sync_now_result",
+            sessionId,
+            requestId,
+            success: true,
+            noChanges: true,
+            message: "No changes to sync from mimo-agent fossil checkout",
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+
+        this.send({
+          type: "sync_now_result",
+          sessionId,
+          requestId,
+          success: false,
+          message: "Failed to commit fossil changes",
+          error: commitResult.error || commitResult.output || "fossil commit failed",
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const pushResult = runFossil(["push"]);
+      if (!pushResult.success) {
+        this.send({
+          type: "sync_now_result",
+          sessionId,
+          requestId,
+          success: false,
+          message: "Fossil committed but push failed",
+          error: pushResult.error || pushResult.output || "fossil push failed",
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      this.send({
+        type: "sync_now_result",
+        sessionId,
+        requestId,
+        success: true,
+        message: "mimo-agent fossil commit and push completed",
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.send({
+        type: "sync_now_result",
+        sessionId,
+        requestId,
+        success: false,
+        message: "Failed to sync from mimo-agent fossil checkout",
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString(),
+      });
+    }
   }
 
   private async handleUserMessage(message: any): Promise<void> {

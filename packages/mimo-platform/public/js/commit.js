@@ -138,10 +138,13 @@
 
     syncNowBtn.disabled = true;
     syncNowBtn.textContent = 'Syncing...';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 35000);
 
     try {
       const response = await fetch(`/sessions/${sessionId}/sync`, {
         method: 'POST',
+        signal: controller.signal,
       });
       const result = await response.json();
 
@@ -153,9 +156,13 @@
         commitStatus.style.color = '#ff6b6b';
       }
     } catch (error) {
-      commitStatus.textContent = `Sync failed: ${error.message}`;
+      const message = error.name === 'AbortError'
+        ? 'Sync request timed out while waiting for agent response'
+        : error.message;
+      commitStatus.textContent = `Sync failed: ${message}`;
       commitStatus.style.color = '#ff6b6b';
     } finally {
+      clearTimeout(timeoutId);
       syncNowBtn.disabled = false;
       syncNowBtn.textContent = 'Sync Now';
       await refreshSyncStatus();

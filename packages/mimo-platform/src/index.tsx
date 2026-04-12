@@ -119,7 +119,7 @@ import credentialsRoutes from "./credentials/routes";
 app.route("/credentials", credentialsRoutes);
 
 // Auto-commit routes (protected)
-import autoCommitRoutes from "./auto-commit/routes";
+import autoCommitRoutes, { resolveAgentSyncNowResult } from "./auto-commit/routes";
 app.route("/sessions", autoCommitRoutes);
 
 // Health check
@@ -857,6 +857,14 @@ async function handleAgentMessage(ws, data) {
               }));
             }
           });
+        }
+      }
+      break;
+    case "sync_now_result":
+      {
+        const resolved = resolveAgentSyncNowResult(data);
+        if (!resolved) {
+          console.log("[agent] No pending sync request for result:", data.requestId);
         }
       }
       break;
