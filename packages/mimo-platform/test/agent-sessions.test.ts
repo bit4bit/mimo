@@ -55,7 +55,7 @@ describe("Agent Sessions API Integration Tests", () => {
 
   describe("Agent Token Generation", () => {
     it("should generate token with only agentId and owner", async () => {
-      const agent = await agentService.createAgent({ name: "Token Gen Agent", owner: "testuser" });
+      const agent = await agentService.createAgent({ name: "Token Gen Agent", owner: "testuser", provider: "opencode" });
       
       // Verify token format
       const payload = await agentService.verifyAgentToken(agent.token);
@@ -76,7 +76,7 @@ describe("Agent Sessions API Integration Tests", () => {
 
   describe("Agent Session Assignment", () => {
     it("should assign session to agent", async () => {
-      const agent = await agentRepository.create({ name: "Session Assignment Agent", owner: "testuser" });
+      const agent = await agentRepository.create({ name: "Session Assignment Agent", owner: "testuser", provider: "opencode" });
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -97,7 +97,7 @@ describe("Agent Sessions API Integration Tests", () => {
     });
 
     it("should allow multiple sessions per agent", async () => {
-      const agent = await agentRepository.create({ name: "Multi Session Agent", owner: "testuser" });
+      const agent = await agentRepository.create({ name: "Multi Session Agent", owner: "testuser", provider: "opencode" });
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -125,7 +125,7 @@ describe("Agent Sessions API Integration Tests", () => {
     });
 
     it("should unassign session from agent", async () => {
-      const agent = await agentRepository.create({ name: "Unassignment Test Agent", owner: "testuser" });
+      const agent = await agentRepository.create({ name: "Unassignment Test Agent", owner: "testuser", provider: "opencode" });
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -151,7 +151,7 @@ describe("Agent Sessions API Integration Tests", () => {
       const app = new Hono();
       app.route("/agents", agentRoutes);
 
-      const agent = await agentService.createAgent({ name: "Sessions API Agent", owner: "testuser" });
+      const agent = await agentService.createAgent({ name: "Sessions API Agent", owner: "testuser", provider: "opencode" });
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -186,7 +186,7 @@ describe("Agent Sessions API Integration Tests", () => {
       const app = new Hono();
       app.route("/agents", agentRoutes);
 
-      const agent = await agentService.createAgent({ name: "No Sessions Agent", owner: "testuser" });
+      const agent = await agentService.createAgent({ name: "No Sessions Agent", owner: "testuser", provider: "opencode" });
 
       const res = await app.request("/agents/me/sessions", {
         headers: {
@@ -230,7 +230,7 @@ describe("Agent Sessions API Integration Tests", () => {
       const app = new Hono();
       app.route("/agents", agentRoutes);
 
-      const agent = await agentService.createAgent({ name: "Port Session Agent", owner: "testuser" });
+      const agent = await agentService.createAgent({ name: "Port Session Agent", owner: "testuser", provider: "opencode" });
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",

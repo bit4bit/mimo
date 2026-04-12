@@ -1,4 +1,4 @@
-import { Agent, AgentRepository, AgentStatus, agentRepository } from "./repository.js";
+import { Agent, AgentRepository, AgentStatus, AgentProvider, agentRepository } from "./repository.js";
 import { SignJWT, jwtVerify } from "jose";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
@@ -9,11 +9,13 @@ export interface AgentTokenPayload {
   sessionId?: string;
   projectId?: string;
   owner: string;
+  provider: AgentProvider;
 }
 
 export interface CreateAgentInput {
   name: string;
   owner: string;
+  provider: AgentProvider;
   sessionId?: string;
   projectId?: string;
 }
@@ -36,9 +38,18 @@ export class AgentService {
       throw new Error("Name must be 64 characters or less");
     }
 
+    // Validate provider
+    if (!input.provider) {
+      throw new Error("Provider is required");
+    }
+    if (input.provider !== "opencode" && input.provider !== "claude") {
+      throw new Error("Provider must be 'opencode' or 'claude'");
+    }
+
     const agent = await this.repository.create({
       name: input.name.trim(),
       owner: input.owner,
+      provider: input.provider,
     });
 
     const token = await this.generateAgentToken(agent, input.sessionId, input.projectId);
@@ -51,6 +62,7 @@ export class AgentService {
     const tokenPayload: any = {
       agentId: agent.id,
       owner: agent.owner,
+      provider: agent.provider,
     };
     
     if (sessionId) {
@@ -77,6 +89,7 @@ export class AgentService {
         sessionId: payload.sessionId as string | undefined,
         projectId: payload.projectId as string | undefined,
         owner: payload.owner as string,
+        provider: payload.provider as AgentProvider,
       };
     } catch (error) {
       console.error("[verifyAgentToken] Token verification failed:", error?.message || error);

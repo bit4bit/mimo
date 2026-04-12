@@ -89,6 +89,7 @@ router.get("/", async (c: Context) => {
                 <th>Name</th>
                 <th>ID</th>
                 <th>Status</th>
+                <th>Provider</th>
                 <th>Sessions</th>
                 <th>Created</th>
                 <th>Last Active</th>
@@ -96,30 +97,31 @@ router.get("/", async (c: Context) => {
               </tr>
             </thead>
             <tbody>
-              {filteredAgents.map((agent) => (
-                <tr key={agent.id}>
-                  <td>
-                    <a href={`/agents/${agent.id}`}>{agent.name}</a>
-                  </td>
-                  <td>
-                    <span class="agent-id">{agent.id.slice(0, 8)}...</span>
-                  </td>
-                  <td>
-                    <span class={`status-badge status-${agent.status}`}>
-                      {agent.status === "online" ? "🟢" : "🔴"} {agent.status}
-                    </span>
-                  </td>
-                  <td>{agent.sessionCount}</td>
-                  <td>{new Date(agent.startedAt).toLocaleString()}</td>
-                  <td>{agent.lastActivityAt ? new Date(agent.lastActivityAt).toLocaleString() : "-"}</td>
-                  <td>
-                    <a href={`/agents/${agent.id}`} class="btn-secondary">View</a>
-                    <form method="POST" action={`/agents/${agent.id}/delete`} style="display: inline;">
-                      <button type="submit" class="btn-danger">Delete</button>
-                    </form>
-                  </td>
-                </tr>
-              ))}
+        {filteredAgents.map((agent) => (
+          <tr key={agent.id}>
+            <td>
+              <a href={`/agents/${agent.id}`}>{agent.name}</a>
+            </td>
+            <td>
+              <span class="agent-id">{agent.id.slice(0, 8)}...</span>
+            </td>
+            <td>
+              <span class={`status-badge status-${agent.status}`}>
+                {agent.status === "online" ? "🟢" : "🔴"} {agent.status}
+              </span>
+            </td>
+            <td>{agent.provider || "opencode"}</td>
+            <td>{agent.sessionCount}</td>
+            <td>{new Date(agent.startedAt).toLocaleString()}</td>
+            <td>{agent.lastActivityAt ? new Date(agent.lastActivityAt).toLocaleString() : "-"}</td>
+            <td>
+              <a href={`/agents/${agent.id}`} class="btn-secondary">View</a>
+              <form method="POST" action={`/agents/${agent.id}/delete`} style="display: inline;">
+                <button type="submit" class="btn-danger">Delete</button>
+              </form>
+            </td>
+          </tr>
+        ))}
             </tbody>
           </table>
         )}
@@ -216,7 +218,7 @@ router.get("/new", async (c: Context) => {
         <h1>Create Agent</h1>
         <p style="color: #888; margin-bottom: 20px;">
           Create an agent to run mimo-agent locally. After creation, you'll receive a token
-          to use when running <code>mimo-agent --token=XXX</code>.
+          to use when running <code>mimo-agent --token=XXX --provider=PROVIDER</code>.
         </p>
         
         <form method="POST" action="/agents">
@@ -224,6 +226,14 @@ router.get("/new", async (c: Context) => {
             <label for="name">Agent Name:</label>
             <input type="text" id="name" name="name" required maxlength="64" placeholder="e.g., MacBook Pro Dev" />
             <span class="form-help">A descriptive name to identify this agent</span>
+          </div>
+          <div class="form-group">
+            <label for="provider">Provider:</label>
+            <select id="provider" name="provider" required>
+              <option value="opencode">Opencode</option>
+              <option value="claude">Claude</option>
+            </select>
+            <span class="form-help">Select the AI provider this agent will use</span>
           </div>
           <button type="submit" class="btn-primary">Create Agent</button>
         </form>
@@ -250,6 +260,7 @@ router.post("/", async (c: Context) => {
 
   const body = await c.req.parseBody();
   const name = body.name as string;
+  const provider = body.provider as "opencode" | "claude";
 
   if (!name || name.trim().length === 0) {
     return c.html(
@@ -263,6 +274,14 @@ router.post("/", async (c: Context) => {
               <input type="text" id="name" name="name" required maxlength="64" placeholder="e.g., MacBook Pro Dev" />
               <span class="form-help">A descriptive name to identify this agent</span>
             </div>
+            <div class="form-group">
+              <label for="provider">Provider:</label>
+              <select id="provider" name="provider" required>
+                <option value="opencode">Opencode</option>
+                <option value="claude">Claude</option>
+              </select>
+              <span class="form-help">Select the AI provider this agent will use</span>
+            </div>
             <button type="submit" class="btn-primary">Create Agent</button>
           </form>
           <a href="/agents" class="btn-secondary" style="display: inline-block; margin-left: 10px;">Cancel</a>
@@ -272,7 +291,7 @@ router.post("/", async (c: Context) => {
   }
 
   try {
-    const agent = await agentService.createAgent({ name: name.trim(), owner: username });
+    const agent = await agentService.createAgent({ name: name.trim(), owner: username, provider });
     return c.redirect(`/agents/${agent.id}?created=1`);
   } catch (error) {
     return c.html(
@@ -285,6 +304,14 @@ router.post("/", async (c: Context) => {
               <label for="name">Agent Name:</label>
               <input type="text" id="name" name="name" required maxlength="64" placeholder="e.g., MacBook Pro Dev" value={name} />
               <span class="form-help">A descriptive name to identify this agent</span>
+            </div>
+            <div class="form-group">
+              <label for="provider">Provider:</label>
+              <select id="provider" name="provider" required>
+                <option value="opencode" selected={provider === "opencode"}>Opencode</option>
+                <option value="claude" selected={provider === "claude"}>Claude</option>
+              </select>
+              <span class="form-help">Select the AI provider this agent will use</span>
             </div>
             <button type="submit" class="btn-primary">Create Agent</button>
           </form>
@@ -336,6 +363,10 @@ router.get("/:id", async (c: Context) => {
           <div class="info-row">
             <label>Status:</label>
             <span>{agent.status}</span>
+          </div>
+          <div class="info-row">
+            <label>Provider:</label>
+            <span>{agent.provider || "opencode"}</span>
           </div>
           <div class="info-row">
             <label>Created:</label>

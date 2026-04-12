@@ -10,9 +10,10 @@
     "test": "bun test"
   },
   "dependencies": {
-    "ws": "^8.16.0",
+    "@agentclientprotocol/claude-agent-acp": "0.25.3",
     "@agentclientprotocol/sdk": "^0.18.0",
-    "@agentclientprotocol/claude-agent-acp": "0.25.3"
+    "jose": "^6.2.2",
+    "ws": "^8.16.0"
   },
   "devDependencies": {
     "@types/ws": "^8.5.10",

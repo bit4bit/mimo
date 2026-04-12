@@ -8,6 +8,10 @@ export type AgentStatus =
   | "online" 
   | "offline";
 
+export type AgentProvider =
+  | "opencode"
+  | "claude";
+
 export interface Agent {
   id: string;
   name: string;
@@ -15,6 +19,7 @@ export interface Agent {
   token: string;
   sessionIds: string[];
   status: AgentStatus;
+  provider: AgentProvider;
   startedAt: Date;
   updatedAt: Date;
   lastActivityAt?: Date;
@@ -27,6 +32,7 @@ export interface AgentData {
   token: string;
   sessionIds: string[];
   status: AgentStatus;
+  provider: AgentProvider;
   startedAt: string;
   updatedAt: string;
   lastActivityAt?: string;
@@ -35,6 +41,7 @@ export interface AgentData {
 export interface CreateAgentInput {
   name: string;
   owner: string;
+  provider: AgentProvider;
 }
 
 export class AgentRepository {
@@ -66,6 +73,7 @@ export class AgentRepository {
       token: crypto.randomUUID(), // Temporary placeholder, service will update with JWT
       sessionIds: [],
       status: "offline",
+      provider: input.provider,
       startedAt: now,
       updatedAt: now,
     };
@@ -91,8 +99,12 @@ export class AgentRepository {
     const content = readFileSync(filePath, "utf-8");
     const data = load(content) as AgentData;
 
+    // Backward compatibility: default provider to "opencode" if not present
+    const provider = data.provider || "opencode";
+
     return {
       ...data,
+      provider,
       startedAt: new Date(data.startedAt),
       updatedAt: new Date(data.updatedAt),
       lastActivityAt: data.lastActivityAt 
@@ -117,8 +129,11 @@ export class AgentRepository {
           const content = readFileSync(agentFile, "utf-8");
           const data = load(content) as AgentData;
           if (data.status === status) {
+            // Backward compatibility: default provider to "opencode" if not present
+            const provider = data.provider || "opencode";
             agents.push({
               ...data,
+              provider,
               startedAt: new Date(data.startedAt),
               updatedAt: new Date(data.updatedAt),
               lastActivityAt: data.lastActivityAt 
@@ -149,8 +164,11 @@ export class AgentRepository {
           const content = readFileSync(agentFile, "utf-8");
           const data = load(content) as AgentData;
           if (data.owner === owner) {
+            // Backward compatibility: default provider to "opencode" if not present
+            const provider = data.provider || "opencode";
             agents.push({
               ...data,
+              provider,
               startedAt: new Date(data.startedAt),
               updatedAt: new Date(data.updatedAt),
               lastActivityAt: data.lastActivityAt 

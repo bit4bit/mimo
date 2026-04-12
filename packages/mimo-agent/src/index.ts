@@ -4,6 +4,7 @@ import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { Readable, Writable } from "node:stream";
+import { decodeJwt } from "jose";
 import { AgentConfig } from "./types";
 import { SessionManager } from "./session";
 import { AcpClient, OpencodeProvider, ClaudeAgentProvider } from "./acp";
@@ -99,16 +100,62 @@ class MimoAgent {
       "claude",
     ]);
 
+    // Provider is now required
     if (!config.provider) {
-      config.provider = "opencode";
-    } else if (!validProviders.has(config.provider as AgentConfig["provider"])) {
+      console.error(
+        `[mimo-agent] Missing required argument: --provider. Valid values: ${Array.from(validProviders).join(", ")}`
+      );
+      process.exit(1);
+    }
+
+    if (!validProviders.has(config.provider as AgentConfig["provider"])) {
       console.error(
         `[mimo-agent] Unknown provider: "${config.provider}". Valid values: ${Array.from(validProviders).join(", ")}`
       );
       process.exit(1);
     }
 
+    // Validate provider matches token
+    this.validateProviderWithToken(config.token, config.provider);
+
     return config as AgentConfig;
+  }
+
+  private validateProviderWithToken(token: string, declaredProvider: string): void {
+    try {
+      // Decode JWT payload without verification to extract provider claim
+      const payload = decodeJwt(token);
+      const tokenProvider = payload.provider as string | undefined;
+
+      if (!tokenProvider) {
+        // Backward compatibility: legacy tokens don't have provider claim
+        console.warn(
+          `[mimo-agent] Using legacy token, defaulting provider to 'opencode'. Consider recreating this agent.`
+        );
+        // Treat missing provider as "opencode" for backward compatibility
+        if (declaredProvider !== "opencode") {
+          console.error(
+            `[mimo-agent] Provider mismatch: agent declares '${declaredProvider}' but legacy token requires 'opencode'. Recreate the agent or use --provider opencode`
+          );
+          process.exit(1);
+        }
+        return;
+      }
+
+      if (tokenProvider !== declaredProvider) {
+        console.error(
+          `[mimo-agent] Provider mismatch: agent declares '${declaredProvider}' but token requires '${tokenProvider}'. Use --provider ${tokenProvider}`
+        );
+        process.exit(1);
+      }
+
+      // Provider matches - validation passed
+    } catch (error) {
+      console.error(
+        `[mimo-agent] Failed to decode token: ${error instanceof Error ? error.message : String(error)}`
+      );
+      process.exit(1);
+    }
   }
 
   async start(): Promise<void> {
