@@ -164,12 +164,20 @@ describe("CodexProvider", () => {
       expect(provider.mapUpdateType("usage_update")).toBe("usage_update");
     });
 
-    it("should forward plan_update for generic handling", () => {
-      expect(provider.mapUpdateType("plan_update")).toBe("plan_update");
+    it("should skip plan_update (returns null)", () => {
+      expect(provider.mapUpdateType("plan_update")).toBeNull();
     });
 
-    it("should forward tool_call_update for generic handling", () => {
-      expect(provider.mapUpdateType("tool_call_update")).toBe("tool_call_update");
+    it("should skip tool_call_update (returns null)", () => {
+      expect(provider.mapUpdateType("tool_call_update")).toBeNull();
+    });
+
+    it("should skip config_option_update (returns null)", () => {
+      expect(provider.mapUpdateType("config_option_update")).toBeNull();
+    });
+
+    it("should skip available_commands_update (returns null)", () => {
+      expect(provider.mapUpdateType("available_commands_update")).toBeNull();
     });
 
     it("should return null for unknown update types", () => {
