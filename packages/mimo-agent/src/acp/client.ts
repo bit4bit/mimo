@@ -213,19 +213,15 @@ export class AcpClient {
         prompt: [{ type: "text", text: content }],
       });
       
-      // Ensure thought_end is sent if there was an active thought buffer
-      if (this.session.currentThoughtBuffer) {
-        this.callbacks.onThoughtEnd(this.sessionId);
-        this.session.currentThoughtBuffer = "";
-      }
+      // Signal that the agent has completed processing (Codex doesn't send thoughts)
+      this.callbacks.onThoughtEnd(this.sessionId);
+      this.session.currentThoughtBuffer = "";
       
       return response;
     } catch (error) {
-      // Also cleanup thought buffer on error
-      if (this.session.currentThoughtBuffer) {
-        this.callbacks.onThoughtEnd(this.sessionId);
-        this.session.currentThoughtBuffer = "";
-      }
+      // Also signal completion on error
+      this.callbacks.onThoughtEnd(this.sessionId);
+      this.session.currentThoughtBuffer = "";
       throw error;
     }
   }
