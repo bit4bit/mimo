@@ -372,6 +372,8 @@ async function handleAgentMessage(ws, data) {
             agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
             agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
             acpSessionId: sessionWithCreds?.acpSessionId ?? null,
+            modelState: sessionWithCreds?.modelState ?? null,
+            modeState: sessionWithCreds?.modeState ?? null,
             localDevMirrorPath: sessionWithCreds?.localDevMirrorPath ?? null,
             agentSubpath: sessionWithCreds?.agentSubpath ?? null,
           });
@@ -696,10 +698,16 @@ async function handleAgentMessage(ws, data) {
       if (data.sessionId) {
         if (data.modelState) {
           sessionStateService.setModelState(data.sessionId, data.modelState);
+          await sessionRepository.update(data.sessionId, {
+            modelState: data.modelState,
+          });
           console.log(`[agent] Session ${data.sessionId} model state:`, data.modelState.currentModelId);
         }
         if (data.modeState) {
           sessionStateService.setModeState(data.sessionId, data.modeState);
+          await sessionRepository.update(data.sessionId, {
+            modeState: data.modeState,
+          });
           console.log(`[agent] Session ${data.sessionId} mode state:`, data.modeState.currentModeId);
         }
         
@@ -730,6 +738,9 @@ async function handleAgentMessage(ws, data) {
       // Update and broadcast model state
       if (data.sessionId && data.modelState) {
         sessionStateService.setModelState(data.sessionId, data.modelState);
+        await sessionRepository.update(data.sessionId, {
+          modelState: data.modelState,
+        });
         
         const modelSubscribers = chatSessions.get(data.sessionId);
         if (modelSubscribers) {
@@ -750,6 +761,9 @@ async function handleAgentMessage(ws, data) {
       // Update and broadcast mode state
       if (data.sessionId && data.modeState) {
         sessionStateService.setModeState(data.sessionId, data.modeState);
+        await sessionRepository.update(data.sessionId, {
+          modeState: data.modeState,
+        });
         
         const modeSubscribers = chatSessions.get(data.sessionId);
         if (modeSubscribers) {

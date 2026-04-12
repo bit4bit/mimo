@@ -125,6 +125,46 @@ describe("Agent Handoff Tests", () => {
       expect(message.sessions[0].acpSessionId).toBe("acp-abc123");
       expect(message.sessions[1].acpSessionId).toBeNull();
     });
+
+    it("should include persisted modelState and modeState when available", () => {
+      const message = {
+        type: "session_ready" as const,
+        platformUrl: "http://localhost:3000",
+        sessions: [
+          {
+            sessionId: "session-1",
+            port: 8080,
+            acpSessionId: "acp-abc123",
+            modelState: {
+              currentModelId: "gpt-5",
+              availableModels: [{ value: "gpt-5", name: "GPT-5" }],
+              optionId: "model",
+            },
+            modeState: {
+              currentModeId: "build",
+              availableModes: [{ value: "build", name: "Build" }],
+              optionId: "mode",
+            },
+          },
+        ],
+      };
+
+      expect(message.sessions[0].modelState.currentModelId).toBe("gpt-5");
+      expect(message.sessions[0].modeState.currentModeId).toBe("build");
+    });
+
+    it("should include null modelState and modeState when not persisted", () => {
+      const message = {
+        type: "session_ready" as const,
+        platformUrl: "http://localhost:3000",
+        sessions: [
+          { sessionId: "session-1", port: 8080, acpSessionId: null, modelState: null, modeState: null },
+        ],
+      };
+
+      expect(message.sessions[0].modelState).toBeNull();
+      expect(message.sessions[0].modeState).toBeNull();
+    });
   });
 
   describe("acp_session_created message format", () => {

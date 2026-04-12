@@ -333,7 +333,17 @@ class MimoAgent {
     const sessionIds: string[] = [];
 
     for (const session of sessions) {
-      const { sessionId, fossilUrl, agentWorkspaceUser, agentWorkspacePassword, acpSessionId, localDevMirrorPath, agentSubpath } = session;
+      const {
+        sessionId,
+        fossilUrl,
+        agentWorkspaceUser,
+        agentWorkspacePassword,
+        acpSessionId,
+        modelState,
+        modeState,
+        localDevMirrorPath,
+        agentSubpath,
+      } = session;
 
       try {
         const checkoutPath = join(this.config.workDir, sessionId);
@@ -359,6 +369,9 @@ class MimoAgent {
         if (acpSessionId) {
           this.sessionManager.setSessionAcpSessionId(sessionId, acpSessionId);
         }
+
+        // Store cached model/mode so it can be restored after ACP initialization
+        this.sessionManager.setSessionState(sessionId, modelState ?? undefined, modeState ?? undefined);
 
         // Store localDevMirrorPath for file sync
         if (localDevMirrorPath) {
@@ -641,16 +654,31 @@ class MimoAgent {
         toWebReadable(spawnResult.stdout),
         sessionInfo.acpSessionId
       )
-      .then((result) => {
+      .then(async (result) => {
         console.log(`[mimo-agent] ACP client ready for ${session.sessionId}`);
         this.acpClients.set(session.sessionId, acpClient);
 
-        // Update session state
-        this.sessionManager.setSessionState(
-          session.sessionId,
-          acpClient.modelState,
-          acpClient.modeState
-        );
+        // Restore model/mode from persisted session state if available
+        if (sessionInfo.modelState && acpClient.modelState) {
+          try {
+            await acpClient.setModel(sessionInfo.modelState.currentModelId);
+            console.log(`[mimo-agent] Restored model for ${session.sessionId}: ${sessionInfo.modelState.currentModelId}`);
+          } catch (err) {
+            console.warn(`[mimo-agent] Failed to restore model for ${session.sessionId}:`, err);
+          }
+        }
+
+        if (sessionInfo.modeState && acpClient.modeState) {
+          try {
+            await acpClient.setMode(sessionInfo.modeState.currentModeId);
+            console.log(`[mimo-agent] Restored mode for ${session.sessionId}: ${sessionInfo.modeState.currentModeId}`);
+          } catch (err) {
+            console.warn(`[mimo-agent] Failed to restore mode for ${session.sessionId}:`, err);
+          }
+        }
+
+        // Update session state with actual ACP values
+        this.sessionManager.setSessionState(session.sessionId, acpClient.modelState, acpClient.modeState);
 
         // Send session initialized
         this.send({
