@@ -147,10 +147,14 @@ export class CodexProvider implements IAcpProvider {
       agent_message_chunk: "message_chunk",
       usage_update: "usage_update",
       // Skip Codex-specific updates that shouldn't create UI boxes
-      plan_update: null,
+      tool_call: null,
       tool_call_update: null,
+      plan: null,
+      plan_update: null,
       config_option_update: null,
       available_commands_update: null,
+      current_mode_update: null,
+      session_info_update: null,
     };
 
     // Return mapped value or null for unknown types

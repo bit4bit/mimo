@@ -164,11 +164,13 @@ describe("CodexProvider", () => {
       expect(provider.mapUpdateType("usage_update")).toBe("usage_update");
     });
 
-    it("should skip plan_update (returns null)", () => {
+    it("should skip plan/plan_update (returns null)", () => {
+      expect(provider.mapUpdateType("plan")).toBeNull();
       expect(provider.mapUpdateType("plan_update")).toBeNull();
     });
 
-    it("should skip tool_call_update (returns null)", () => {
+    it("should skip tool_call/tool_call_update (returns null)", () => {
+      expect(provider.mapUpdateType("tool_call")).toBeNull();
       expect(provider.mapUpdateType("tool_call_update")).toBeNull();
     });
 
@@ -178,6 +180,14 @@ describe("CodexProvider", () => {
 
     it("should skip available_commands_update (returns null)", () => {
       expect(provider.mapUpdateType("available_commands_update")).toBeNull();
+    });
+
+    it("should skip current_mode_update (returns null)", () => {
+      expect(provider.mapUpdateType("current_mode_update")).toBeNull();
+    });
+
+    it("should skip session_info_update (returns null)", () => {
+      expect(provider.mapUpdateType("session_info_update")).toBeNull();
     });
 
     it("should return null for unknown update types", () => {
