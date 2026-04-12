@@ -1,0 +1,7 @@
+[2026-04-12 18:12:00] User: now i can see scc is not working is showing all the time 0, help me to verify this
+[2026-04-12 18:13:30] LLM: You were right — SCC was reading stale/local-empty data after the Sync Now behavior change. I found and fixed the gap: Sync Now was doing agent-side fossil commit/push, but platform agentWorkspace was not being refreshed afterward. Impact/SCC compares against platform paths, so it could stay at 0. I updated packages/mimo-platform/src/auto-commit/routes.ts to, after successful agent sync: ensure local fossil checkout is open, run fossil up on session.agentWorkspacePath, and invalidate SCC cache for that workspace. How to verify quickly: restart platform and agent, make a code change in the session via agent, click Sync Now, and refresh Impact.
+[2026-04-12 18:14:48] User: good, commit and push
+[2026-04-12 18:15:00] LLM: Committed and pushed sync refresh fix
+[2026-04-12 18:15:10] User: let's try also to auto sync when the message 'usage_update' is receive, i can see something the provider do not sent thought_end
+[2026-04-12 18:15:30] LLM: usage_update was triggering the old autoCommitService.handleThoughtEnd(...), not the same flow as clicking Sync Now. Fixed by wiring auto-sync to the exact same backend logic as the button: added shared sync function syncSessionViaAssignedAgent in packages/mimo-platform/src/auto-commit/routes.ts, updated auto-sync handler in packages/mimo-platform/src/index.tsx to use this on both usage_update and thought_end.
+[2026-04-12 18:26:24] User: commit and push

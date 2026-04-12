@@ -18,7 +18,6 @@ import { impactCalculator } from "./impact/calculator.js";
 import { handleRefreshImpact } from "./impact/refresh-handler.js";
 import { sccService } from "./impact/scc-service.js";
 import { broadcastToSession, type SessionWsClient } from "./ws/session-broadcast.js";
-import { autoCommitService } from "./auto-commit/service.js";
 import { relative } from "path";
 
 const app = new Hono();
@@ -37,6 +36,7 @@ const calculatingSessions = new Set<string>();
 // Track streaming message and thought buffers per session
 const streamingBuffers = new Map<string, string>();
 const thoughtBuffers = new Map<string, string>();
+const autoSyncInFlight = new Set<string>();
 
 // Track pending permission requests: requestId → { agentWs, sessionId }
 const pendingPermissions = new Map<string, { agentWs: any; sessionId: string }>();
@@ -119,7 +119,10 @@ import credentialsRoutes from "./credentials/routes";
 app.route("/credentials", credentialsRoutes);
 
 // Auto-commit routes (protected)
-import autoCommitRoutes, { resolveAgentSyncNowResult } from "./auto-commit/routes";
+import autoCommitRoutes, {
+  resolveAgentSyncNowResult,
+  syncSessionViaAssignedAgent,
+} from "./auto-commit/routes";
 app.route("/sessions", autoCommitRoutes);
 
 // Health check
@@ -323,6 +326,43 @@ const server = Bun.serve({
 });
 
 // Handle agent messages
+async function triggerAutoSync(sessionId: string, reason: "thought_end" | "usage_update"): Promise<void> {
+  if (autoSyncInFlight.has(sessionId)) {
+    console.log(`[auto-commit] Skipping ${reason} sync for ${sessionId} (in-flight)`);
+    return;
+  }
+
+  autoSyncInFlight.add(sessionId);
+
+  try {
+    const result = await syncSessionViaAssignedAgent(sessionId);
+    const status = result.syncStatus;
+    const syncSubscribers = chatSessions.get(sessionId);
+    if (!syncSubscribers) {
+      return;
+    }
+
+    syncSubscribers.forEach((client) => {
+      if (client.readyState === 1) {
+        client.send(JSON.stringify({
+          type: "sync_status",
+          sessionId,
+          success: result.success,
+          message: result.message,
+          error: result.error,
+          status,
+          reason,
+          timestamp: new Date().toISOString(),
+        }));
+      }
+    });
+  } catch (error) {
+    console.error(`[auto-commit] Failed on ${reason}:`, error);
+  } finally {
+    autoSyncInFlight.delete(sessionId);
+  }
+}
+
 async function handleAgentMessage(ws, data) {
   console.log("[agent] Received message:", data.type, data);
   process.stdout?.write?.(""); // Flush stdout
@@ -483,29 +523,7 @@ async function handleAgentMessage(ws, data) {
           });
         }
 
-        void autoCommitService.handleThoughtEnd(endSessionId).then(async (result) => {
-          const status = await autoCommitService.getSyncStatus(endSessionId);
-          const syncSubscribers = chatSessions.get(endSessionId);
-          if (!syncSubscribers) {
-            return;
-          }
-
-          syncSubscribers.forEach((client) => {
-            if (client.readyState === 1) {
-              client.send(JSON.stringify({
-                type: "sync_status",
-                sessionId: endSessionId,
-                success: result.success,
-                message: result.message,
-                error: result.error,
-                status,
-                timestamp: new Date().toISOString(),
-              }));
-            }
-          });
-        }).catch((error) => {
-          console.error("[auto-commit] Failed on thought_end:", error);
-        });
+        void triggerAutoSync(endSessionId, "thought_end");
       }
       break;
       
@@ -552,7 +570,9 @@ async function handleAgentMessage(ws, data) {
         const messageContent = streamingBuffers.get(usageSessionId);
         const thoughtContent = thoughtBuffers.get(usageSessionId);
         
-        if (messageContent || thoughtContent) {
+        const hasBufferedAssistantOutput = Boolean(messageContent || thoughtContent);
+
+        if (hasBufferedAssistantOutput) {
           // Save assistant response with optional thoughts
           let fullContent = messageContent || "";
           
@@ -585,6 +605,8 @@ async function handleAgentMessage(ws, data) {
             }
           });
         }
+
+        void triggerAutoSync(usageSessionId, "usage_update");
       }
       break;
     
