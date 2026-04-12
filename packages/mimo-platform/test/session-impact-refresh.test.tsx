@@ -19,6 +19,10 @@ describe("Session impact refresh UI", () => {
             createdAt: new Date(),
           }}
           chatHistory={[]}
+          frameState={{
+            leftFrame: { activeBufferId: "chat" },
+            rightFrame: { activeBufferId: "impact" },
+          }}
         />
       );
     });

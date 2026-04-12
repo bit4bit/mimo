@@ -1,6 +1,8 @@
 import type { FC } from "hono/jsx";
 import { Layout } from "./Layout.js";
-import { ImpactBuffer } from "./ImpactBuffer.js";
+import { Frame } from "./Frame.js";
+import { ensureDefaultBuffersRegistered, getBuffersForFrame } from "../buffers/index.js";
+import type { FrameState } from "../sessions/frame-state.js";
 
 interface Project {
   id: string;
@@ -31,37 +33,6 @@ interface Agent {
   lastActivityAt?: Date;
 }
 
-interface ImpactMetrics {
-  files: {
-    new: number;
-    changed: number;
-    deleted: number;
-  };
-  linesOfCode: {
-    added: number;
-    removed: number;
-    net: number;
-  };
-  complexity: {
-    cyclomatic: number;
-    cognitive: number;
-    estimatedMinutes: number;
-  };
-  byLanguage: Array<{
-    language: string;
-    files: number;
-    linesAdded: number;
-    linesRemoved: number;
-    complexityDelta: number;
-  }>;
-}
-
-interface ImpactTrend {
-  files: { new: string; changed: string; deleted: string };
-  linesOfCode: { added: string; removed: string; net: string };
-  complexity: { cyclomatic: string; cognitive: string };
-}
-
 // Model and Mode selector types
 interface ModelState {
   currentModelId: string;
@@ -84,6 +55,8 @@ interface SessionDetailProps {
   modeState?: ModeState;
   fossilUrl?: string;
   acpStatus?: "active" | "parked";
+  frameState: FrameState;
+  notesContent?: string;
 }
 
 export const SessionDetailPage: FC<SessionDetailProps> = ({
@@ -95,7 +68,12 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   modeState,
   fossilUrl,
   acpStatus = "active",
+  frameState,
+  notesContent = "",
 }) => {
+  ensureDefaultBuffersRegistered();
+  const leftBuffers = getBuffersForFrame("left");
+  const rightBuffers = getBuffersForFrame("right");
 
   return (
     <Layout title={`${session.name} - ${project.name}`} showStatusLine={true} sessionId={session.id}>
@@ -171,34 +149,22 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         </div>
 
         <div class="buffers-container">
-          {/* Chat Buffer - Center */}
-          <div class="buffer buffer-center">
-            <div class="buffer-header">Chat</div>
-            <div class="buffer-content" id="chat-messages">
-              {chatHistory.length === 0 ? (
-                <div style="padding: 20px; color: #888; text-align: center;">
-                  <p>No messages yet.</p>
-                  <p style="font-size: 12px; margin-top: 10px;">
-                    Start chatting with the agent
-                  </p>
-                </div>
-              ) : (
-                chatHistory.map((msg, i) => (
-                  <div key={i} class={`message message-${msg.role}`}>
-                    <div class="message-header">
-                      {msg.role === "user" ? "You" : "Agent"}
-                    </div>
-                    <div class="message-content">{msg.content}</div>
-                  </div>
-                ))
-              )}
-            </div>
-            <div id="chat-usage" class="chat-usage" style="display: none; font-size: 0.75em; color: #666; padding: 4px 10px; text-align: right; border-top: 1px solid #333;"></div>
-          </div>
-
-          {/* Impact Buffer - Right */}
-          <ImpactBuffer
+          <Frame
+            frameId="left"
             sessionId={session.id}
+            buffers={leftBuffers}
+            activeBufferId={frameState.leftFrame.activeBufferId}
+            bufferProps={{
+              chat: { chatHistory },
+              notes: { initialContent: notesContent },
+            }}
+          />
+
+          <Frame
+            frameId="right"
+            sessionId={session.id}
+            buffers={rightBuffers}
+            activeBufferId={frameState.rightFrame.activeBufferId}
           />
         </div>
 
@@ -268,15 +234,72 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           flex: 1;
           overflow: hidden;
         }
-        .buffer {
-          flex: 1;
+        .frame {
           display: flex;
           flex-direction: column;
+          min-height: 0;
+          overflow: hidden;
           border-right: 1px solid #444;
+        }
+        .frame:last-child {
+          border-right: none;
+        }
+        .frame-left {
+          flex: 2;
+        }
+        .frame-right {
+          display: flex;
+          flex: 1;
+          flex-direction: column;
+        }
+        .frame-tab-bar {
+          display: flex;
+          align-items: center;
+          background: #2d2d2d;
+          border-bottom: 1px solid #444;
+        }
+        .frame-tab {
+          border: none;
+          border-right: 1px solid #444;
+          background: transparent;
+          color: #888;
+          padding: 10px 14px;
+          cursor: pointer;
+          font-family: monospace;
+          font-size: 12px;
+        }
+        .frame-tab:hover {
+          background: #353535;
+          color: #d4d4d4;
+        }
+        .frame-tab.active {
+          background: #1a1a1a;
+          color: #d4d4d4;
+          border-bottom: 2px solid #74c0fc;
+        }
+        .frame-content {
+          flex: 1;
+          display: flex;
+          min-height: 0;
           overflow: hidden;
         }
-        .buffer:last-child {
-          border-right: none;
+        .frame-buffer-panel {
+          flex: 1;
+          min-height: 0;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+        }
+        .frame-empty {
+          padding: 14px;
+          color: #888;
+          font-size: 12px;
+        }
+        .buffer {
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          height: 100%;
         }
         .buffer-header {
           padding: 10px 15px;
@@ -288,11 +311,12 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         }
         .buffer-content {
           flex: 1;
+          overflow: hidden;
+        }
+        .buffer-content {
+          flex: 1;
           overflow-y: auto;
           padding: 10px;
-        }
-        .buffer-center {
-          flex: 2;
         }
         .message {
           margin-bottom: 15px;

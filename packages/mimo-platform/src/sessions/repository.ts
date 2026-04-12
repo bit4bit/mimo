@@ -4,6 +4,7 @@ import { getPaths } from "../config/paths.js";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
 import { normalizeSessionIdForFossil } from "../vcs/shared-fossil-server.js";
+import { createDefaultFrameState, normalizeFrameState, type FrameState } from "./frame-state.js";
 
 export interface ModelState {
   currentModelId: string;
@@ -38,6 +39,7 @@ export interface Session {
   acpStatus: "active" | "parked";
   modelState?: ModelState;
   modeState?: ModeState;
+  frameState: FrameState;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -63,6 +65,7 @@ export interface SessionData {
   acpStatus?: "active" | "parked";
   modelState?: ModelState;
   modeState?: ModeState;
+  frameState?: FrameState;
   createdAt: string;
   updatedAt: string;
 }
@@ -175,6 +178,7 @@ export class SessionRepository {
       // ACP Session Parking defaults
       idleTimeoutMs: 600000, // 10 minutes default
       acpStatus: "active",
+      frameState: createDefaultFrameState(),
       createdAt: now,
       updatedAt: now,
       ...(input.localDevMirrorPath && { localDevMirrorPath: input.localDevMirrorPath }),
@@ -218,6 +222,7 @@ export class SessionRepository {
               agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
               idleTimeoutMs: data.idleTimeoutMs ?? 600000,
               acpStatus: data.acpStatus ?? "active",
+              frameState: normalizeFrameState(data.frameState),
             };
             return {
               ...sessionData,
@@ -247,6 +252,7 @@ export class SessionRepository {
       agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
       idleTimeoutMs: data.idleTimeoutMs ?? 600000,
       acpStatus: data.acpStatus ?? "active",
+      frameState: normalizeFrameState(data.frameState),
     };
 
     return {
@@ -276,9 +282,10 @@ export class SessionRepository {
           const sessionData = {
             ...data,
             agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
-            idleTimeoutMs: data.idleTimeoutMs ?? 600000,
-            acpStatus: data.acpStatus ?? "active",
-          };
+              idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+              acpStatus: data.acpStatus ?? "active",
+              frameState: normalizeFrameState(data.frameState),
+            };
           sessions.push({
             ...sessionData,
             createdAt: new Date(data.createdAt),
@@ -318,6 +325,7 @@ export class SessionRepository {
                   agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
                   idleTimeoutMs: data.idleTimeoutMs ?? 600000,
                   acpStatus: data.acpStatus ?? "active",
+                  frameState: normalizeFrameState(data.frameState),
                 };
                 if (data.assignedAgentId === agentId) {
                   sessions.push({

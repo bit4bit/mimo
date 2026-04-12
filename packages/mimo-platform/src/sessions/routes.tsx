@@ -19,6 +19,7 @@ import { SessionListPage } from "../components/SessionListPage.js";
 import { sessionStateService } from "./state.js";
 import { sharedFossilServer } from "../vcs/shared-fossil-server.js";
 import type { Context } from "hono";
+import { normalizeFrameState, updateFrameState, loadNotes, saveNotes } from "./frame-state.js";
 
 const router = new Hono();
 
@@ -277,6 +278,8 @@ router.get("/:id", async (c: Context) => {
       session={session}
       project={project}
       chatHistory={chatHistory}
+      frameState={normalizeFrameState(session.frameState)}
+      notesContent={loadNotes(session.id)}
       agent={agent}
       modelState={modelState}
       modeState={modeState}
@@ -284,6 +287,85 @@ router.get("/:id", async (c: Context) => {
       acpStatus={session.acpStatus}
     />
   );
+});
+
+// GET /sessions/:id/frame-state - Fetch frame state
+router.get("/:id/frame-state", async (c: Context) => {
+  const username = await getAuthUsername(c);
+  if (!username) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const sessionId = c.req.param("id");
+  const session = await sessionRepository.findById(sessionId);
+  if (!session || session.owner !== username) {
+    return c.json({ error: "Session not found" }, 404);
+  }
+
+  return c.json(normalizeFrameState(session.frameState));
+});
+
+// POST /sessions/:id/frame-state - Update frame state
+router.post("/:id/frame-state", async (c: Context) => {
+  const username = await getAuthUsername(c);
+  if (!username) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const sessionId = c.req.param("id");
+  const session = await sessionRepository.findById(sessionId);
+  if (!session || session.owner !== username) {
+    return c.json({ error: "Session not found" }, 404);
+  }
+
+  const body = await c.req.json();
+  const frame = body.frame as "left" | "right";
+  const activeBufferId = body.activeBufferId as string;
+
+  if ((frame !== "left" && frame !== "right") || !activeBufferId) {
+    return c.json({ error: "Invalid frame-state payload" }, 400);
+  }
+
+  const nextState = updateFrameState(session.frameState, frame, activeBufferId);
+  await sessionRepository.update(sessionId, { frameState: nextState });
+
+  return c.json(nextState);
+});
+
+// GET /sessions/:id/notes - Fetch notes content
+router.get("/:id/notes", async (c: Context) => {
+  const username = await getAuthUsername(c);
+  if (!username) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const sessionId = c.req.param("id");
+  const session = await sessionRepository.findById(sessionId);
+  if (!session || session.owner !== username) {
+    return c.json({ error: "Session not found" }, 404);
+  }
+
+  return c.json({ content: loadNotes(sessionId) });
+});
+
+// POST /sessions/:id/notes - Save notes content
+router.post("/:id/notes", async (c: Context) => {
+  const username = await getAuthUsername(c);
+  if (!username) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const sessionId = c.req.param("id");
+  const session = await sessionRepository.findById(sessionId);
+  if (!session || session.owner !== username) {
+    return c.json({ error: "Session not found" }, 404);
+  }
+
+  const body = await c.req.json();
+  const content = typeof body.content === "string" ? body.content : "";
+  saveNotes(sessionId, content);
+
+  return c.json({ success: true });
 });
 
 // POST /sessions/:id/cancel - Cancel current ACP request

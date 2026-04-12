@@ -59,6 +59,13 @@ const ChatState = {
     metrics: null,
     trends: null,
   },
+
+  frames: {
+    left: 'chat',
+    right: 'impact',
+  },
+
+  notesSaveTimeout: null,
   
   // Constants
   STREAMING_TIMEOUT_MS: 60000,
@@ -399,6 +406,85 @@ function formatUsage(usage) {
   return parts.join(' | ');
 }
 
+function applyFrameState(frameId, activeBufferId) {
+  const frame = document.querySelector(`.frame[data-frame-id="${frameId}"]`);
+  if (!frame) return;
+
+  frame.querySelectorAll('.frame-tab').forEach((tab) => {
+    const isActive = tab.dataset.bufferId === activeBufferId;
+    tab.classList.toggle('active', isActive);
+    tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+
+  frame.querySelectorAll('.frame-buffer-panel').forEach((panel) => {
+    const isActive = panel.dataset.bufferPanel === activeBufferId;
+    panel.style.display = isActive ? 'flex' : 'none';
+    panel.classList.toggle('active', isActive);
+    panel.classList.toggle('hidden', !isActive);
+  });
+
+  ChatState.frames[frameId] = activeBufferId;
+}
+
+async function switchFrameBuffer(frameId, bufferId) {
+  applyFrameState(frameId, bufferId);
+
+  try {
+    await fetch(`/sessions/${ChatState.sessionId}/frame-state`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ frame: frameId, activeBufferId: bufferId }),
+    });
+  } catch (error) {
+    console.error('[frame] Failed to persist frame state:', error);
+  }
+}
+
+async function loadNotesContent() {
+  const notesInput = document.querySelector('#notes-input');
+  if (!notesInput || !ChatState.sessionId) return;
+
+  try {
+    const response = await fetch(`/sessions/${ChatState.sessionId}/notes`);
+    if (!response.ok) return;
+    const data = await response.json();
+    notesInput.value = data.content || '';
+  } catch (error) {
+    console.error('[notes] Failed to load notes:', error);
+  }
+}
+
+async function saveNotesContent() {
+  const notesInput = document.querySelector('#notes-input');
+  const status = document.querySelector('#notes-save-status');
+  if (!notesInput || !ChatState.sessionId) return;
+
+  if (status) {
+    status.textContent = 'Saving...';
+  }
+
+  try {
+    await fetch(`/sessions/${ChatState.sessionId}/notes`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content: notesInput.value }),
+    });
+
+    if (status) {
+      status.textContent = 'Saved';
+    }
+  } catch (error) {
+    console.error('[notes] Failed to save notes:', error);
+    if (status) {
+      status.textContent = 'Save failed';
+    }
+  }
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // SECTION 4: CONTROLLER (Side Effects & Events)
 // These functions bridge services/views with the outside world.
@@ -411,6 +497,7 @@ function initChat(sessionId) {
   connectWebSocket(sessionId);
   insertEditableBubble();
   updateImpactUiState();
+  loadNotesContent();
 }
 
 // Controller: Connect WebSocket
@@ -1569,6 +1656,33 @@ function setupEventListeners() {
   const impactRefreshBtn = document.querySelector('#impact-refresh-btn');
   if (impactRefreshBtn) {
     impactRefreshBtn.addEventListener('click', refreshImpact);
+  }
+
+  document.querySelectorAll('.frame-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const frameId = tab.dataset.frameId;
+      const bufferId = tab.dataset.bufferId;
+      if (!frameId || !bufferId) return;
+      switchFrameBuffer(frameId, bufferId);
+    });
+  });
+
+  const notesInput = document.querySelector('#notes-input');
+  if (notesInput) {
+    notesInput.addEventListener('input', () => {
+      const status = document.querySelector('#notes-save-status');
+      if (status) {
+        status.textContent = 'Unsaved';
+      }
+
+      if (ChatState.notesSaveTimeout) {
+        clearTimeout(ChatState.notesSaveTimeout);
+      }
+
+      ChatState.notesSaveTimeout = setTimeout(() => {
+        saveNotesContent();
+      }, 2000);
+    });
   }
 }
 

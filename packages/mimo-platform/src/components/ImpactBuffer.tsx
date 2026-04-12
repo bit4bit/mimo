@@ -1,4 +1,5 @@
 import type { FC } from "hono/jsx";
+import type { BufferProps } from "../buffers/types.js";
 
 interface ImpactMetrics {
   files: {
@@ -31,8 +32,7 @@ interface ImpactTrend {
   complexity: { cyclomatic: string; cognitive: string };
 }
 
-interface ImpactBufferProps {
-  sessionId: string;
+interface ImpactBufferProps extends BufferProps {
   metrics?: ImpactMetrics;
   trends?: ImpactTrend;
   sccInstalled?: boolean;
