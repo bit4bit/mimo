@@ -7,8 +7,52 @@
   const commitCancel = document.getElementById('commit-cancel');
   const commitError = document.getElementById('commit-error');
   const commitStatus = document.getElementById('commit-status');
+  const syncNowBtn = document.getElementById('sync-now-btn');
+  const syncStatus = document.getElementById('sync-status');
 
   if (!commitBtn || !commitDialog) return;
+
+  const sessionId = window.MIMO_SESSION_ID || window.location.pathname.split('/').pop();
+
+  function formatSyncStatus(status) {
+    if (!status) {
+      return 'Sync: unknown';
+    }
+
+    if (status.syncState === 'error') {
+      return `Sync error: ${status.lastSyncError || 'Unknown error'}`;
+    }
+
+    if (status.syncState === 'syncing') {
+      return 'Sync: syncing...';
+    }
+
+    if (status.lastSyncAt) {
+      const time = new Date(status.lastSyncAt).toLocaleTimeString();
+      return `Synced at ${time}`;
+    }
+
+    return 'Sync: idle';
+  }
+
+  async function refreshSyncStatus() {
+    if (!sessionId || !syncStatus) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/sessions/${sessionId}/sync-status`);
+      if (!response.ok) {
+        return;
+      }
+
+      const status = await response.json();
+      syncStatus.textContent = formatSyncStatus(status);
+      syncStatus.style.color = status.syncState === 'error' ? '#ff6b6b' : '#888';
+    } catch {
+      // Ignore polling errors
+    }
+  }
 
   // Open dialog
   commitBtn.addEventListener('click', () => {
@@ -34,8 +78,6 @@
     commitConfirm.disabled = true;
     commitConfirm.textContent = 'Committing...';
     commitError.textContent = '';
-
-    const sessionId = window.location.pathname.split('/').pop();
 
     try {
       const response = await fetch(`/commits/${sessionId}/commit-and-push`, {
@@ -88,4 +130,38 @@
       commitDialog.style.display = 'none';
     }
   });
+
+  syncNowBtn?.addEventListener('click', async () => {
+    if (!sessionId) {
+      return;
+    }
+
+    syncNowBtn.disabled = true;
+    syncNowBtn.textContent = 'Syncing...';
+
+    try {
+      const response = await fetch(`/sessions/${sessionId}/sync`, {
+        method: 'POST',
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        commitStatus.textContent = result.message || 'Sync completed';
+        commitStatus.style.color = '#51cf66';
+      } else {
+        commitStatus.textContent = result.error || result.message || 'Sync failed';
+        commitStatus.style.color = '#ff6b6b';
+      }
+    } catch (error) {
+      commitStatus.textContent = `Sync failed: ${error.message}`;
+      commitStatus.style.color = '#ff6b6b';
+    } finally {
+      syncNowBtn.disabled = false;
+      syncNowBtn.textContent = 'Sync Now';
+      await refreshSyncStatus();
+    }
+  });
+
+  refreshSyncStatus();
+  setInterval(refreshSyncStatus, 15000);
 })();

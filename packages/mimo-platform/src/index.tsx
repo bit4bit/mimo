@@ -18,6 +18,7 @@ import { impactCalculator } from "./impact/calculator.js";
 import { handleRefreshImpact } from "./impact/refresh-handler.js";
 import { sccService } from "./impact/scc-service.js";
 import { broadcastToSession, type SessionWsClient } from "./ws/session-broadcast.js";
+import { autoCommitService } from "./auto-commit/service.js";
 import { relative } from "path";
 
 const app = new Hono();
@@ -116,6 +117,10 @@ app.route("/config", configRoutes);
 // Credentials routes (protected)
 import credentialsRoutes from "./credentials/routes";
 app.route("/credentials", credentialsRoutes);
+
+// Auto-commit routes (protected)
+import autoCommitRoutes from "./auto-commit/routes";
+app.route("/sessions", autoCommitRoutes);
 
 // Health check
 app.get("/health", (c) => {
@@ -477,6 +482,30 @@ async function handleAgentMessage(ws, data) {
             }
           });
         }
+
+        void autoCommitService.handleThoughtEnd(endSessionId).then(async (result) => {
+          const status = await autoCommitService.getSyncStatus(endSessionId);
+          const syncSubscribers = chatSessions.get(endSessionId);
+          if (!syncSubscribers) {
+            return;
+          }
+
+          syncSubscribers.forEach((client) => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify({
+                type: "sync_status",
+                sessionId: endSessionId,
+                success: result.success,
+                message: result.message,
+                error: result.error,
+                status,
+                timestamp: new Date().toISOString(),
+              }));
+            }
+          });
+        }).catch((error) => {
+          console.error("[auto-commit] Failed on thought_end:", error);
+        });
       }
       break;
       

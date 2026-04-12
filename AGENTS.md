@@ -269,6 +269,14 @@ If `loadSession()` fails (e.g., session expired on provider):
 - User sees: "Session expired - starting fresh"
 - Chat history preserved, only LLM context is fresh
 
+### Auto-Commit on Thought End
+
+- Platform triggers auto-sync when `thought_end` is received for a session
+- Commit message format: `[SessionName] - X files changed (+Y/-Z lines)`
+- If no changes are detected, commit is skipped
+- Sync status is exposed via `GET /sessions/:sessionId/sync-status`
+- Manual retry is available via `POST /sessions/:sessionId/sync`
+
 ### Implementation Notes
 
 **mimo-platform responsibilities:**

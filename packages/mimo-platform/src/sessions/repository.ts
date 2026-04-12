@@ -37,6 +37,9 @@ export interface Session {
   // ACP Session Parking fields
   idleTimeoutMs: number;
   acpStatus: "active" | "parked";
+  syncState: "idle" | "syncing" | "error";
+  lastSyncAt?: string;
+  lastSyncError?: string;
   modelState?: ModelState;
   modeState?: ModeState;
   frameState: FrameState;
@@ -63,6 +66,9 @@ export interface SessionData {
   // ACP Session Parking fields
   idleTimeoutMs?: number;
   acpStatus?: "active" | "parked";
+  syncState?: "idle" | "syncing" | "error";
+  lastSyncAt?: string;
+  lastSyncError?: string;
   modelState?: ModelState;
   modeState?: ModeState;
   frameState?: FrameState;
@@ -178,6 +184,7 @@ export class SessionRepository {
       // ACP Session Parking defaults
       idleTimeoutMs: 600000, // 10 minutes default
       acpStatus: "active",
+      syncState: "idle",
       frameState: createDefaultFrameState(),
       createdAt: now,
       updatedAt: now,
@@ -222,6 +229,7 @@ export class SessionRepository {
               agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
               idleTimeoutMs: data.idleTimeoutMs ?? 600000,
               acpStatus: data.acpStatus ?? "active",
+              syncState: data.syncState ?? "idle",
               frameState: normalizeFrameState(data.frameState),
             };
             return {
@@ -252,6 +260,7 @@ export class SessionRepository {
       agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
       idleTimeoutMs: data.idleTimeoutMs ?? 600000,
       acpStatus: data.acpStatus ?? "active",
+      syncState: data.syncState ?? "idle",
       frameState: normalizeFrameState(data.frameState),
     };
 
@@ -284,6 +293,7 @@ export class SessionRepository {
             agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
               idleTimeoutMs: data.idleTimeoutMs ?? 600000,
               acpStatus: data.acpStatus ?? "active",
+              syncState: data.syncState ?? "idle",
               frameState: normalizeFrameState(data.frameState),
             };
           sessions.push({
@@ -325,6 +335,7 @@ export class SessionRepository {
                   agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
                   idleTimeoutMs: data.idleTimeoutMs ?? 600000,
                   acpStatus: data.acpStatus ?? "active",
+                  syncState: data.syncState ?? "idle",
                   frameState: normalizeFrameState(data.frameState),
                 };
                 if (data.assignedAgentId === agentId) {
