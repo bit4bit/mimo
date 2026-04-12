@@ -104,7 +104,17 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           <div>
             <h1>{session.name}</h1>
             <span style="color: #888; font-size: 12px;">
-              Project: {project.name} | Status: {session.status}
+              Project: {project.name}
+              {fossilUrl && (
+                <a
+                  href={`${fossilUrl}timeline`}
+                  target="_blank"
+                  class="fossil-icon-link"
+                  title="View Fossil Repository"
+                >
+                  🌿
+                </a>
+              )} | Status: {session.status}
               {agent && ` | Agent: ${agent.name}`} | 
               <span id="subtitle-acp-status" class={`acp-status acp-status--${acpStatus}`}>
                 {acpStatus === 'active' && '🟢 Agent ready'}
@@ -187,9 +197,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           </div>
 
           {/* Impact Buffer - Right */}
-          <ImpactBuffer 
+          <ImpactBuffer
             sessionId={session.id}
-            fossilUrl={fossilUrl}
           />
         </div>
 
@@ -233,34 +242,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         </div>
       </div>
 
-      <script dangerouslySetInnerHTML={{ __html: `
-        (function() {
-          const sessionId = '${session.id}';
 
-          async function checkFossilStatus() {
-            try {
-              const response = await fetch(\`/sessions/\${sessionId}/fossil-status\`);
-              if (!response.ok) return;
-
-              const data = await response.json();
-              if (!data.running || !data.fossilUrl) return;
-
-              const fossilSection = document.querySelector('.impact-section:has(.fossil-links)');
-              if (!fossilSection) return;
-
-              const linksContainer = fossilSection.querySelector('.fossil-links');
-              if (linksContainer && linksContainer.querySelector('.impact-no-data')) {
-                linksContainer.innerHTML = '<a href="' + data.fossilUrl + 'timeline" target="_blank" class="fossil-link">Timeline</a>' +
-                  '<a href="' + data.fossilUrl + 'dir" target="_blank" class="fossil-link">Files</a>';
-              }
-            } catch (_error) {
-            }
-          }
-
-          setInterval(checkFossilStatus, 3000);
-          checkFossilStatus();
-        })();
-      `}} />
 
       <style>{`
         .session-container {
@@ -449,6 +431,16 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         }
         .modal-content h3 {
           margin: 0 0 15px 0;
+        }
+        .fossil-icon-link {
+          font-size: 10px;
+          margin-left: 4px;
+          text-decoration: none;
+          opacity: 0.8;
+          transition: opacity 0.2s;
+        }
+        .fossil-icon-link:hover {
+          opacity: 1;
         }
       `}</style>
     </Layout>

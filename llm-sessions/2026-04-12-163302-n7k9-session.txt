@@ -1,0 +1,58 @@
+[2026-04-12 16:27:45] User: in the page session, i can't see the link to the fossil proyect, i want something more smaller, in the same line of 'Project' add a small icon that link to fossil repository
+[2026-04-12 16:28:15] LLM: I'll help you add a small fossil icon link next to the 'Project' label in the session page. Let me first explore the codebase to understand the current structure.
+[2026-04-12 16:30:25] User: also remove the old way, now is not showing but maybe the code is still there
+[2026-04-12 16:30:45] LLM: Perfect! Here's the complete implementation plan:
+
+---
+
+## Implementation Summary
+
+### 1. SessionDetailPage.tsx
+- **Line 107**: Add 🌿 fossil icon link inline with Project text
+- **Lines 240-261**: Remove `checkFossilStatus()` JavaScript polling function
+- **Add CSS**: `.fossil-icon-link` class (10px font, inline, hover effect)
+
+### 2. ImpactBuffer.tsx
+- **Lines 34-36**: Remove `fossilUrl?: string` from interface
+- **Lines 44-46**: Remove `fossilUrl` from destructuring
+- **Lines 64-81**: Remove entire "Fossil Repository" section
+- **Lines 244-261**: Remove `.fossil-links` and `.fossil-link` CSS
+
+### 3. SessionDetailPage.tsx (ImpactBuffer usage)
+- **Lines 189-193**: Remove `fossilUrl={fossilUrl}` prop from ImpactBuffer component
+
+---
+
+This will result in:
+- 🌿 Small leaf icon next to project name linking to fossil timeline
+- Clean removal of the old ImpactBuffer fossil section
+- Simpler ImpactBuffer component without fossil-related code
+
+**Ready to implement?** Say "implement it" and I'll make the changes.
+[2026-04-12 16:31:00] User: implement it
+[2026-04-12 16:32:20] LLM: All changes implemented successfully. Here's what was done:
+
+## Changes Summary
+
+### SessionDetailPage.tsx
+- Added 🌿 fossil icon link inline with "Project" text on line 107
+- Icon appears only when `fossilUrl` exists
+- Removed JavaScript polling function (`checkFossilStatus`)
+- Removed `fossilUrl` prop from ImpactBuffer usage
+- Added CSS for `.fossil-icon-link` (10px font, inline, hover effect)
+
+### ImpactBuffer.tsx
+- Removed `fossilUrl` prop from interface
+- Removed `fossilUrl` from component destructuring
+- Removed entire "Fossil Repository" section (was lines 64-81)
+- Removed `.fossil-links` and `.fossil-link` CSS classes
+
+## Result
+
+The session detail page now shows:
+```
+Project: MyProject 🌿 | Status: active | Agent: Agent-1 | 🟢 Agent ready
+```
+
+The 🌿 is a small, clickable link to the fossil repository timeline. The old section in the sidebar has been completely removed, making the UI cleaner and more compact.
+[2026-04-12 16:33:02] User: good, commit and push

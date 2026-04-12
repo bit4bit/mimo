@@ -33,7 +33,6 @@ interface ImpactTrend {
 
 interface ImpactBufferProps {
   sessionId: string;
-  fossilUrl?: string;
   metrics?: ImpactMetrics;
   trends?: ImpactTrend;
   sccInstalled?: boolean;
@@ -42,7 +41,6 @@ interface ImpactBufferProps {
 
 export const ImpactBuffer: FC<ImpactBufferProps> = ({
   sessionId,
-  fossilUrl,
   metrics,
   trends,
   sccInstalled = true,
@@ -61,25 +59,6 @@ export const ImpactBuffer: FC<ImpactBufferProps> = ({
         </div>
       </div>
       <div class="buffer-content" id="impact-content">
-          {/* Fossil Links Section */}
-          <div class="impact-section">
-            <div class="impact-section-title">Fossil Repository</div>
-            <div class="fossil-links">
-              {fossilUrl ? (
-                <>
-                  <a href={`${fossilUrl}timeline`} target="_blank" class="fossil-link">
-                    Timeline
-                  </a>
-                  <a href={`${fossilUrl}dir`} target="_blank" class="fossil-link">
-                    Files
-                  </a>
-                </>
-              ) : (
-                <span class="impact-no-data">No fossil repository available</span>
-              )}
-            </div>
-          </div>
-
         {/* SCC Warning */}
         {!sccInstalled && (
           <div class="impact-warning">
@@ -240,27 +219,7 @@ export const ImpactBuffer: FC<ImpactBufferProps> = ({
           padding-bottom: 6px;
           border-bottom: 1px solid #444;
         }
-        
-        .fossil-links {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-        
-        .fossil-link {
-          padding: 4px 10px;
-          background: #3d3d3d;
-          color: #74c0fc;
-          text-decoration: none;
-          border-radius: 3px;
-          font-size: 11px;
-          transition: background 0.2s;
-        }
-        
-        .fossil-link:hover {
-          background: #4d4d4d;
-        }
-        
+
         .impact-warning {
           display: flex;
           align-items: center;
