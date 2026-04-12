@@ -197,6 +197,9 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             <button type="button" id="commit-btn" class="btn-primary">
               Commit
             </button>
+            <button type="button" id="clear-session-btn" class="btn-secondary" title="Clear agent context while preserving history">
+              Clear
+            </button>
             <a href="/config" class="btn-secondary">Settings</a>
           </div>
           <span id="commit-status" style="color: #888; font-size: 12px;"></span>

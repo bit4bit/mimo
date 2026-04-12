@@ -104,6 +104,84 @@ This project uses OpenSpec for structured change management. Always follow this 
 
 ---
 
+## ACP Provider Architecture
+
+### Provider Behavior
+
+The mimo-agent supports multiple ACP (Agent Client Protocol) providers. Each provider has different session management characteristics:
+
+#### opencode
+
+| Feature | Support | Notes |
+|---------|---------|-------|
+| **newSession** | ✅ Supported | Creates fresh session with new ACP session ID |
+| **loadSession** | ✅ Supported | Resumes existing session if `acpSessionId` provided |
+| **unstable_closeSession** | ❌ Not supported | Returns "Method not found" error |
+| **Session Lifecycle** | Stateless | Sessions managed in-process; old sessions garbage collected when abandoned |
+| **Context Reset** | ✅ Via newSession | Creating new session abandons old one, creating fresh context |
+
+**Key Behaviors:**
+- Each `newSession` creates a new in-process session state
+- Sessions are isolated but share the same opencode process
+- Old sessions are automatically cleaned up when no longer referenced
+- Session clearing: Simply call `newSession` - old session abandoned, new context created
+
+#### claude-agent-acp
+
+| Feature | Support | Notes |
+|---------|---------|-------|
+| **newSession** | ✅ Supported | Creates fresh Claude Agent SDK Query process |
+| **loadSession** | ✅ Supported | Resumes with `acpSessionId`; replays history from disk |
+| **unstable_closeSession** | ✅ Supported | Properly tears down Query process and releases resources |
+| **Session Lifecycle** | Stateful | Each session has dedicated Query process with its own state |
+| **Context Reset** | ✅ Via newSession | Each session = isolated Query process = fresh context |
+
+**Key Behaviors:**
+- Each `newSession` spawns a new `@anthropic-ai/claude-agent-sdk` Query process
+- Sessions are completely isolated with independent state
+- `unstable_closeSession` should be called to properly clean up resources:
+  - Cancels active query
+  - Disposes settings manager
+  - Aborts controller
+  - Removes from session map
+- Session clearing: `newSession` creates fresh Query process; optionally call `unstable_closeSession` first to clean up
+
+### Session Clearing Implementation
+
+The "Clear Session" feature creates a new ACP session while preserving mimo session and chat history:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    CLEAR SESSION FLOW                               │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   UI ──clear_session──► Platform ──clear_session──► Agent            │
+│                                                              │      │
+│                                                              ▼      │
+│   Agent calls: connection.newSession({ cwd, mcpServers })         │
+│                                                              │      │
+│                                                              ▼      │
+│   Agent updates internal session with new acpSessionId            │
+│                                                              │      │
+│                                                              ▼      │
+│   Agent sends acp_session_cleared ──► Platform                      │
+│                                                              │      │
+│                                                              ▼      │
+│   Platform updates session.yaml with new acpSessionId             │
+│   Platform appends system message to chat.jsonl                   │
+│   Platform broadcasts session_cleared ──► UI                       │
+│                                                                     │
+│   UI displays: "Session cleared - context reset"                   │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Provider-Specific Notes:**
+- **opencode**: Does not call `closeSession` (not supported). Creating new session abandons old one.
+- **claude-agent-acp**: Could call `unstable_closeSession` first for proper cleanup, but `newSession` alone works.
+
+---
+
 ## UI Page Requirements
 
 Every new page MUST follow these standards:

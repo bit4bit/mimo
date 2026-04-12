@@ -180,6 +180,14 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
       case 'permission_resolved':
         removePermissionCard(data.requestId);
         break;
+
+      case 'session_cleared':
+        handleSessionCleared(data);
+        break;
+
+      case 'clear_session_error':
+        handleClearSessionError(data);
+        break;
     }
   }
 
@@ -611,6 +619,42 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
     // Restore input
     endMessageStream();
     createEditableBubble();
+  }
+
+  // Handle clear session button click
+  function handleClearSession() {
+    console.log('[CHAT] User requested session clear');
+    
+    // Send clear session request to server
+    if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+      chatSocket.send(JSON.stringify({
+        type: 'clear_session',
+        sessionId: currentSessionId,
+      }));
+    }
+    
+    // Show pending message in chat
+    const chatContainer = document.querySelector('#chat-messages');
+    if (chatContainer) {
+      const pendingDiv = document.createElement('div');
+      pendingDiv.className = 'message message-system';
+      pendingDiv.id = 'clear-session-pending';
+      
+      const header = document.createElement('div');
+      header.className = 'message-header';
+      header.textContent = 'System';
+      
+      const content = document.createElement('div');
+      content.className = 'message-content';
+      content.textContent = 'Clearing session context...';
+      content.style.color = '#888';
+      content.style.fontStyle = 'italic';
+      
+      pendingDiv.appendChild(header);
+      pendingDiv.appendChild(content);
+      chatContainer.appendChild(pendingDiv);
+      scrollToBottom();
+    }
   }
 
   // Start a thought section inside the current message
@@ -1178,6 +1222,12 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
     
     // Set up model/mode selector event listeners
     setupSelectorListeners();
+    
+    // Set up clear session button
+    const clearBtn = document.querySelector('#clear-session-btn');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', handleClearSession);
+    }
   });
   
   // Set up selector event listeners
@@ -1341,4 +1391,54 @@ let lastStreamingActivity = null; // Timestamp of last streaming activity
     endMessageStream();
     createEditableBubble();
   }
+  // Handle session cleared confirmation
+  function handleSessionCleared(data) {
+    console.log('[CHAT] Session cleared:', data);
+    
+    // Remove pending message if exists
+    const pendingDiv = document.querySelector('#clear-session-pending');
+    if (pendingDiv) {
+      pendingDiv.remove();
+    }
+    
+    // Add system message to chat
+    addMessageToChat({
+      role: 'system',
+      content: 'Session cleared - context reset',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  // Handle clear session error
+  function handleClearSessionError(data) {
+    console.error('[CHAT] Clear session error:', data);
+    
+    // Remove pending message if exists
+    const pendingDiv = document.querySelector('#clear-session-pending');
+    if (pendingDiv) {
+      pendingDiv.remove();
+    }
+    
+    // Show error message in chat
+    const chatContainer = document.querySelector('#chat-messages');
+    if (chatContainer) {
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'message message-system error';
+      
+      const header = document.createElement('div');
+      header.className = 'message-header';
+      header.textContent = 'System';
+      
+      const content = document.createElement('div');
+      content.className = 'message-content';
+      content.textContent = data.error || 'Failed to clear session';
+      content.style.color = '#ff6b6b';
+      
+      errorDiv.appendChild(header);
+      errorDiv.appendChild(content);
+      chatContainer.appendChild(errorDiv);
+      scrollToBottom();
+    }
+  }
+
 })();

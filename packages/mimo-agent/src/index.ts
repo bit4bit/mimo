@@ -257,6 +257,10 @@ class MimoAgent {
         this.handlePermissionResponse(message);
         break;
 
+      case "clear_session":
+        this.handleClearSession(message);
+        break;
+
       default:
         console.log("[mimo-agent] Unknown message type:", message.type);
     }
@@ -833,6 +837,60 @@ class MimoAgent {
     if (resolver) {
       this.pendingPermissions.delete(requestId);
       resolver({ outcome });
+    }
+  }
+
+  private async handleClearSession(message: any): Promise<void> {
+    const { sessionId } = message;
+    
+    if (!sessionId) {
+      console.log("[mimo-agent] No sessionId in clear_session");
+      this.send({
+        type: "clear_session_error",
+        sessionId,
+        error: "No sessionId provided",
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    console.log(`[mimo-agent] Clearing session ${sessionId}`);
+    
+    const acpClient = this.acpClients.get(sessionId);
+    if (!acpClient) {
+      console.log(`[mimo-agent] No ACP client for session ${sessionId}`);
+      this.send({
+        type: "clear_session_error",
+        sessionId,
+        error: "No ACP client for session",
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    try {
+      const result = await acpClient.clear();
+      
+      console.log(`[mimo-agent] Session ${sessionId} cleared, new ACP session: ${result.acpSessionId}`);
+      
+      // Send success message to platform
+      this.send({
+        type: "acp_session_cleared",
+        sessionId,
+        acpSessionId: result.acpSessionId,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error(`[mimo-agent] Failed to clear session ${sessionId}:`, error);
+      
+      // Send error message to platform
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.send({
+        type: "clear_session_error",
+        sessionId,
+        error: errorMsg,
+        timestamp: new Date().toISOString(),
+      });
     }
   }
 

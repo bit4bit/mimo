@@ -606,6 +606,64 @@ async function handleAgentMessage(ws, data) {
         }
       }
       break;
+
+    case "acp_session_cleared":
+      {
+        const { sessionId, acpSessionId } = data;
+        console.log("[agent] ACP session cleared:", { sessionId, acpSessionId });
+        
+        if (sessionId && acpSessionId) {
+          // Update session with new acpSessionId
+          await sessionRepository.update(sessionId, { acpSessionId });
+          
+          // Add system message to chat history
+          const timestamp = new Date().toISOString();
+          await chatService.saveMessage(sessionId, {
+            role: "system",
+            content: "Session cleared - context reset",
+            timestamp,
+          });
+          
+          // Broadcast to all UI clients
+          const clearedSubscribers = chatSessions.get(sessionId);
+          if (clearedSubscribers) {
+            clearedSubscribers.forEach((client: WebSocket) => {
+              if (client.readyState === 1) {
+                client.send(JSON.stringify({
+                  type: 'session_cleared',
+                  sessionId,
+                  timestamp,
+                }));
+              }
+            });
+          }
+        }
+      }
+      break;
+
+    case "clear_session_error":
+      {
+        const { sessionId, error } = data;
+        console.log("[agent] Clear session error:", { sessionId, error });
+        
+        if (sessionId) {
+          // Broadcast error to all UI clients
+          const errorSubscribers = chatSessions.get(sessionId);
+          if (errorSubscribers) {
+            errorSubscribers.forEach((client: WebSocket) => {
+              if (client.readyState === 1) {
+                client.send(JSON.stringify({
+                  type: 'clear_session_error',
+                  sessionId,
+                  error,
+                  timestamp: new Date().toISOString(),
+                }));
+              }
+            });
+          }
+        }
+      }
+      break;
     case "session_initialized":
       // Store model/mode state from agent
       if (data.sessionId) {
@@ -840,6 +898,63 @@ async function handleChatMessage(ws, data) {
         // Clear buffers for this session
         streamingBuffers.delete(cancelSessionId);
         thoughtBuffers.delete(cancelSessionId);
+      }
+      break;
+
+    case "clear_session":
+      {
+        const clearSessionId = data.sessionId;
+        if (!clearSessionId) {
+          console.log("No sessionId in clear_session");
+          return;
+        }
+        
+        console.log(`[clear_session] Received for session ${clearSessionId}`);
+        
+        // Find assigned agent
+        const clearSession = await sessionRepository.findById(clearSessionId);
+        if (clearSession?.assignedAgentId) {
+          const clearAgentWs = agentService.getAgentConnection(clearSession.assignedAgentId);
+          if (clearAgentWs && clearAgentWs.readyState === 1) {
+            // Forward clear session request to agent
+            clearAgentWs.send(JSON.stringify({
+              type: 'clear_session',
+              sessionId: clearSessionId,
+              timestamp: new Date().toISOString(),
+            }));
+            console.log(`Clear session request forwarded to agent for session ${clearSessionId}`);
+          } else {
+            console.log(`[clear_session] Agent not connected for session ${clearSessionId}`);
+            // Send error back to UI
+            const subscribers = chatSessions.get(clearSessionId);
+            if (subscribers) {
+              subscribers.forEach((client: WebSocket) => {
+                if (client.readyState === 1) {
+                  client.send(JSON.stringify({
+                    type: 'clear_session_error',
+                    error: 'Agent not connected',
+                    timestamp: new Date().toISOString(),
+                  }));
+                }
+              });
+            }
+          }
+        } else {
+          console.log(`[clear_session] No agent assigned to session ${clearSessionId}`);
+          // Send error back to UI
+          const subscribers = chatSessions.get(clearSessionId);
+          if (subscribers) {
+            subscribers.forEach((client: WebSocket) => {
+              if (client.readyState === 1) {
+                client.send(JSON.stringify({
+                  type: 'clear_session_error',
+                  error: 'No agent assigned to session',
+                  timestamp: new Date().toISOString(),
+                }));
+              }
+            });
+          }
+        }
       }
       break;
       

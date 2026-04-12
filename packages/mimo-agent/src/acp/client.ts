@@ -19,6 +19,7 @@ export interface AcpClientSession {
   modelState?: ModelState;
   modeState?: ModeState;
   currentThoughtBuffer?: string;
+  checkoutPath?: string;
 }
 
 export interface InitializeResult {
@@ -270,5 +271,42 @@ export class AcpClient {
 
     // Update local state
     this.session.modeState.currentModeId = modeId;
+  }
+
+  async clear(): Promise<{ acpSessionId: string; wasReset: boolean; resetReason?: string }> {
+    if (!this.session) {
+      throw new Error("Session not initialized");
+    }
+
+    const connection = this.session.connection;
+    const currentSession = this.session;
+
+    // Create new session (closing old session is not supported by most providers)
+    const sessionResponse = await connection.newSession({
+      cwd: this.session.checkoutPath || process.cwd(),
+      mcpServers: [],
+    });
+
+    // Extract state from new session
+    const state = this.provider.extractState(sessionResponse as NewSessionResponse);
+
+    // Update session with new info
+    this.session = {
+      sessionId: currentSession.sessionId,
+      acpSessionId: sessionResponse.sessionId,
+      connection: currentSession.connection,
+      modelState: state.modelState,
+      modeState: state.modeState,
+      currentThoughtBuffer: undefined,
+      checkoutPath: currentSession.checkoutPath,
+    };
+
+    console.log(`[mimo-agent] Session cleared: old=${currentSession.acpSessionId}, new=${sessionResponse.sessionId}`);
+
+    return {
+      acpSessionId: sessionResponse.sessionId,
+      wasReset: true,
+      resetReason: "session_cleared",
+    };
   }
 }
