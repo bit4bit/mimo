@@ -30,7 +30,7 @@ This creates `dist/mimo-agent` which is a self-contained executable.
 - `--token`: JWT token for authentication (required)
 - `--platform`: WebSocket URL of the mimo-platform (required). Must use the address the agent can reach — when agent and platform are on different hosts, use the platform's actual hostname/IP, not `localhost`.
 - `--workdir`: Base working directory for session checkouts (optional, defaults to current directory)
-- `--provider`: ACP provider to use — `opencode` (default) or `claude`
+- `--provider`: ACP provider to use — `opencode` (default), `claude`, or `codex`
 
 ### Example — same host
 
@@ -278,6 +278,32 @@ The agent can sync file changes to a local development directory in real-time, a
 # 3. Agent makes changes → files appear instantly in /home/user/dev/myproject
 # 4. User can run tests, use IDE, etc. without commit cycle
 ```
+
+### Codex Provider Setup
+
+To use the Codex ACP provider, install the `codex-acp` binary and configure credentials.
+
+**Installation options:**
+- **Via npm (recommended):** `npm install -g @zed-industries/codex-acp`
+- **Via release:** Download from [GitHub releases](https://github.com/zed-industries/codex-acp/releases)
+
+**Credentials:**
+Codex requires one of the following authentication methods:
+- `CODEX_API_KEY` environment variable
+- `OPENAI_API_KEY` environment variable
+- ChatGPT login (requires paid subscription, not recommended for remote/headless setups)
+
+**Usage:**
+```bash
+# With API key
+export CODEX_API_KEY=sk-...
+./dist/mimo-agent --token <JWT> --platform <WS_URL> --provider codex
+
+# Or inline
+CODEX_API_KEY=sk-... ./dist/mimo-agent --token <JWT> --platform <WS_URL> --provider codex
+```
+
+**Note:** Ensure `codex-acp` is available on `PATH`. The agent will fail at spawn time if the binary is not found.
 
 ## Troubleshooting
 

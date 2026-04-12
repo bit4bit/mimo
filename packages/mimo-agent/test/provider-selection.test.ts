@@ -111,6 +111,28 @@ describe("provider selection", () => {
       expect(stdout).toContain("[mimo-agent] Starting...");
     });
   });
+
+  describe("--provider codex: starts without provider error", () => {
+    it("should log startup message when --provider codex is passed", async () => {
+      const proc = Bun.spawn(
+        [
+          process.execPath, "run", "src/index.ts",
+          "--token", "test-token",
+          "--platform", "ws://localhost:9999/ws/agent",
+          "--provider", "codex",
+        ],
+        {
+          cwd: AGENT_CWD,
+          stdout: "pipe",
+          stderr: "pipe",
+        }
+      );
+
+      await proc.exited;
+      const stdout = await new Response(proc.stdout).text();
+      expect(stdout).toContain("[mimo-agent] Starting...");
+    });
+  });
 });
 
 describe("ClaudeAgentProvider", () => {

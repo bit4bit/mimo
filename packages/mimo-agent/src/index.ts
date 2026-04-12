@@ -6,7 +6,7 @@ import { homedir } from "os";
 import { Readable, Writable } from "node:stream";
 import { AgentConfig } from "./types";
 import { SessionManager } from "./session";
-import { AcpClient, OpencodeProvider, ClaudeAgentProvider } from "./acp";
+import { AcpClient, OpencodeProvider, ClaudeAgentProvider, CodexProvider } from "./acp";
 import type { IAcpProvider } from "./acp";
 
 // Convert Node.js streams to Web Streams API
@@ -49,10 +49,17 @@ class MimoAgent {
         });
       },
     });
-    if (this.config.provider === "claude") {
-      this.provider = new ClaudeAgentProvider();
-    } else {
-      this.provider = new OpencodeProvider();
+    switch (this.config.provider) {
+      case "claude":
+        this.provider = new ClaudeAgentProvider();
+        break;
+      case "codex":
+        this.provider = new CodexProvider();
+        break;
+      case "opencode":
+      default:
+        this.provider = new OpencodeProvider();
+        break;
     }
   }
 
@@ -90,10 +97,18 @@ class MimoAgent {
       console.log(`[mimo-agent] Created workDir: ${config.workDir}`);
     }
 
+    const validProviders = new Set<AgentConfig["provider"]>([
+      "opencode",
+      "claude",
+      "codex",
+    ]);
+
     if (!config.provider) {
       config.provider = "opencode";
-    } else if (config.provider !== "opencode" && config.provider !== "claude") {
-      console.error(`[mimo-agent] Unknown provider: "${config.provider}". Valid values: opencode, claude`);
+    } else if (!validProviders.has(config.provider as AgentConfig["provider"])) {
+      console.error(
+        `[mimo-agent] Unknown provider: "${config.provider}". Valid values: ${Array.from(validProviders).join(", ")}`
+      );
       process.exit(1);
     }
 
