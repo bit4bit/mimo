@@ -2,10 +2,14 @@
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";
 import { randomUUID } from "crypto";
+import { existsSync } from "fs";
+import { join } from "path";
 import { authMiddleware } from "../auth/middleware.js";
 import { autoCommitService } from "./service.js";
 import { sessionRepository } from "../sessions/repository.js";
 import { agentService } from "../agents/service.js";
+import { vcs } from "../vcs/index.js";
+import { sccService } from "../impact/scc-service.js";
 
 type PendingAgentSync = {
   resolve: (value: {
@@ -130,6 +134,25 @@ export function createAutoCommitRouter(service = autoCommitService): Hono {
       agentResult = await agentResultPromise;
 
       if (agentResult.success) {
+        if (!agentResult.noChanges) {
+          const fossilPath = sessionRepository.getFossilPath(sessionId);
+          const checkoutMarkerPath = join(session.agentWorkspacePath, ".fslckout");
+
+          if (!existsSync(checkoutMarkerPath)) {
+            const openResult = await vcs.openFossil(fossilPath, session.agentWorkspacePath);
+            if (!openResult.success) {
+              throw new Error(openResult.error || "Failed to open local fossil checkout");
+            }
+          }
+
+          const upResult = await vcs.fossilUp(session.agentWorkspacePath);
+          if (!upResult.success) {
+            throw new Error(upResult.error || "Failed to refresh local agent workspace from fossil");
+          }
+
+          sccService.invalidateCache(session.agentWorkspacePath);
+        }
+
         await sessionRepository.update(sessionId, {
           syncState: "idle",
           lastSyncAt: new Date().toISOString(),
