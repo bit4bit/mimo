@@ -112,7 +112,15 @@ function renderMessage(message) {
   
   const content = document.createElement('div');
   content.className = 'message-content';
-  content.textContent = message.content;
+  
+  // For assistant messages, render markdown and add toggle
+  if (message.role === 'assistant') {
+    content.dataset.rawContent = message.content;
+    content.innerHTML = renderMarkdown(message.content);
+    content.classList.add('markdown-rendered');
+  } else {
+    content.textContent = message.content;
+  }
   
   div.appendChild(header);
   div.appendChild(content);
@@ -404,6 +412,68 @@ function formatUsage(usage) {
     parts.push(`Context: ${usage.size.toLocaleString()}`);
   }
   return parts.join(' | ');
+}
+
+// Service: Render markdown to HTML
+function renderMarkdown(content) {
+  if (!content) return '';
+  return marked.parse(content, {
+    gfm: true,
+    breaks: true,
+    headerIds: false,
+  });
+}
+
+// Service: Add Raw/Markdown toggle buttons to message
+function addViewToggleButtons(messageEl, contentEl) {
+  const header = messageEl.querySelector('.message-header');
+  if (!header) return;
+
+  // Don't add if already has toggle
+  if (header.querySelector('.message-view-toggle-container')) return;
+
+  const toggleContainer = document.createElement('span');
+  toggleContainer.className = 'message-view-toggle-container';
+  toggleContainer.style.marginLeft = 'auto';
+  toggleContainer.style.display = 'flex';
+  toggleContainer.style.gap = '4px';
+  toggleContainer.style.marginRight = '8px';
+
+  const rawBtn = document.createElement('button');
+  rawBtn.className = 'view-toggle-btn';
+  rawBtn.textContent = 'Raw';
+  rawBtn.dataset.view = 'raw';
+
+  const mdBtn = document.createElement('button');
+  mdBtn.className = 'view-toggle-btn active';
+  mdBtn.textContent = 'Markdown';
+  mdBtn.dataset.view = 'markdown';
+
+  toggleContainer.appendChild(rawBtn);
+  toggleContainer.appendChild(mdBtn);
+
+  // Insert before copy button
+  const copyBtn = header.querySelector('.copy-btn');
+  if (copyBtn) {
+    header.insertBefore(toggleContainer, copyBtn);
+  } else {
+    header.appendChild(toggleContainer);
+  }
+
+  // Event handlers
+  rawBtn.addEventListener('click', () => {
+    contentEl.textContent = contentEl.dataset.rawContent || '';
+    contentEl.classList.remove('markdown-rendered');
+    rawBtn.classList.add('active');
+    mdBtn.classList.remove('active');
+  });
+
+  mdBtn.addEventListener('click', () => {
+    contentEl.innerHTML = renderMarkdown(contentEl.dataset.rawContent || '');
+    contentEl.classList.add('markdown-rendered');
+    mdBtn.classList.add('active');
+    rawBtn.classList.remove('active');
+  });
 }
 
 function applyFrameState(frameId, activeBufferId) {
@@ -970,10 +1040,18 @@ function insertMessage(message) {
     contentEl.prepend(thoughtEl);
   }
   
-  // Attach copy handler
+  // Add toggle buttons for assistant messages
+  if (message.role === 'assistant') {
+    const contentEl = el.querySelector('.message-content');
+    addViewToggleButtons(el, contentEl);
+  }
+  
+  // Attach copy handler - copies raw content for assistant messages
   const copyBtn = el.querySelector('.copy-btn');
   copyBtn.addEventListener('click', () => {
-    const text = el.querySelector('.message-content').textContent;
+    const contentEl = el.querySelector('.message-content');
+    // Use rawContent if available (assistant messages), otherwise use textContent
+    const text = contentEl.dataset.rawContent || contentEl.textContent;
     navigator.clipboard.writeText(text);
   });
   
@@ -1098,6 +1176,16 @@ function finalizeMessageStream() {
   
   const cancelBtn = ChatState.streaming.messageElement.querySelector('.cancel-streaming-btn');
   if (cancelBtn) cancelBtn.remove();
+  
+  // Render markdown and add toggle buttons
+  const contentEl = ChatState.streaming.messageElement.querySelector('.message-content');
+  if (contentEl) {
+    const rawContent = ChatState.streaming.content;
+    contentEl.dataset.rawContent = rawContent;
+    contentEl.innerHTML = renderMarkdown(rawContent);
+    contentEl.classList.add('markdown-rendered');
+    addViewToggleButtons(ChatState.streaming.messageElement, contentEl);
+  }
   
   ChatState.streaming.messageElement.classList.remove('streaming');
   ChatState.streaming.messageElement = null;

@@ -386,6 +386,102 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           white-space: pre-wrap;
           word-break: break-word;
         }
+        /* Markdown rendered content styles */
+        .message-content.markdown-rendered {
+          line-height: 1.6;
+        }
+        .message-content.markdown-rendered h1,
+        .message-content.markdown-rendered h2,
+        .message-content.markdown-rendered h3,
+        .message-content.markdown-rendered h4 {
+          margin-top: 16px;
+          margin-bottom: 8px;
+          font-weight: 600;
+        }
+        .message-content.markdown-rendered h1 { font-size: 1.5em; }
+        .message-content.markdown-rendered h2 { font-size: 1.3em; }
+        .message-content.markdown-rendered h3 { font-size: 1.1em; }
+        .message-content.markdown-rendered p {
+          margin-bottom: 12px;
+        }
+        .message-content.markdown-rendered ul,
+        .message-content.markdown-rendered ol {
+          margin-bottom: 12px;
+          padding-left: 24px;
+        }
+        .message-content.markdown-rendered li {
+          margin-bottom: 4px;
+        }
+        .message-content.markdown-rendered code {
+          background: #2d2d2d;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-family: 'Monaco', 'Menlo', monospace;
+          font-size: 0.9em;
+        }
+        .message-content.markdown-rendered pre {
+          background: #1a1a1a;
+          padding: 12px;
+          border-radius: 6px;
+          overflow-x: auto;
+          margin-bottom: 12px;
+        }
+        .message-content.markdown-rendered pre code {
+          background: transparent;
+          padding: 0;
+        }
+        .message-content.markdown-rendered blockquote {
+          border-left: 3px solid #555;
+          padding-left: 12px;
+          margin-left: 0;
+          color: #aaa;
+        }
+        .message-content.markdown-rendered a {
+          color: #58a6ff;
+          text-decoration: none;
+        }
+        .message-content.markdown-rendered a:hover {
+          text-decoration: underline;
+        }
+        .message-content.markdown-rendered table {
+          border-collapse: collapse;
+          width: 100%;
+          margin-bottom: 12px;
+        }
+        .message-content.markdown-rendered th,
+        .message-content.markdown-rendered td {
+          border: 1px solid #444;
+          padding: 6px 12px;
+          text-align: left;
+        }
+        .message-content.markdown-rendered th {
+          background: #2d2d2d;
+          font-weight: 600;
+        }
+        /* Toggle buttons */
+        .message-view-toggle-container {
+          display: flex;
+          gap: 4px;
+        }
+        .view-toggle-btn {
+          background: #3d3d3d;
+          border: 1px solid #555;
+          color: #888;
+          font-size: 10px;
+          padding: 2px 8px;
+          border-radius: 3px;
+          cursor: pointer;
+          font-family: monospace;
+        }
+        .view-toggle-btn:hover {
+          background: #4d4d4d;
+          color: #ccc;
+        }
+        .view-toggle-btn.active {
+          background: #555;
+          color: #fff;
+          border-color: #777;
+        }
         /* Editable YOU bubble styles */
         .editable-bubble .message-content[contenteditable] {
           cursor: text;

@@ -16,6 +16,7 @@ export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = fals
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{title} | MIMO</title>
         <script dangerouslySetInnerHTML={{ __html: `window.MIMO_SESSION_ID = "${sessionId || ''}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};` }} />
+        {sessionId && <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>}
         {sessionId && <script src="/js/chat.js" defer></script>}
         {sessionId && <script src="/js/commit.js" defer></script>}
         <style>{`
