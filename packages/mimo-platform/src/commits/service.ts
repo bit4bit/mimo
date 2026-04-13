@@ -159,8 +159,10 @@ export class CommitService {
     }
 
     // Step 4: Push to remote
+    // Use session.branch if set (per-session override), fall back to project.newBranch
     console.log(`[commit] Step 4: Pushing to remote...`);
-    const pushResult = await vcs.pushUpstream(session.upstreamPath, repoType, undefined, project.newBranch);
+    const pushBranch = session.branch || project.newBranch || undefined;
+    const pushResult = await vcs.pushUpstream(session.upstreamPath, repoType, undefined, pushBranch);
     if (!pushResult.success) {
       return {
         success: false,

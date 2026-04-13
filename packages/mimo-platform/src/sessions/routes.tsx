@@ -113,6 +113,7 @@ router.post("/", async (c: Context) => {
   const assignedAgentId = (body.assignedAgentId as string) || null;
   const localDevMirrorPath = (body.localDevMirrorPath as string) || null;
   const agentSubpath = (body.agentSubpath as string) || null;
+  const branchName = (body.branchName as string) || null;
 
   if (!name || !projectId) {
     return c.text("Name and project ID required", 400);
@@ -163,17 +164,20 @@ router.post("/", async (c: Context) => {
       return c.text(`Failed to import to fossil: ${importResult.error}`, 500);
     }
 
-    // Step 3: Create new branch if specified (after Fossil import is complete)
-    if (project.newBranch) {
+    // Step 3: Create branch if specified — session override takes priority over project default
+    const effectiveBranch = branchName || project.newBranch || null;
+    if (effectiveBranch) {
       const branchResult = await vcs.createBranch(
-        project.newBranch,
+        effectiveBranch,
         project.repoType,
         session.upstreamPath
       );
       if (!branchResult.success) {
         await sessionRepository.delete(projectId, session.id);
-        return c.text(`Failed to create branch '${project.newBranch}': ${branchResult.error}`, 500);
+        return c.text(`Failed to create branch '${effectiveBranch}': ${branchResult.error}`, 500);
       }
+      // Persist so the commit service can push to the correct branch
+      await sessionRepository.update(session.id, { branch: effectiveBranch });
     }
 
     // Step 4: Create fossil user for agent access

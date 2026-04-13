@@ -34,6 +34,7 @@ export interface Session {
   acpSessionId?: string;
   localDevMirrorPath?: string;
   agentSubpath?: string;
+  branch?: string;
   // ACP Session Parking fields
   idleTimeoutMs: number;
   acpStatus: "active" | "parked";
@@ -63,6 +64,7 @@ export interface SessionData {
   acpSessionId?: string;
   localDevMirrorPath?: string;
   agentSubpath?: string;
+  branch?: string;
   // ACP Session Parking fields
   idleTimeoutMs?: number;
   acpStatus?: "active" | "parked";
@@ -83,6 +85,7 @@ export interface CreateSessionInput {
   assignedAgentId?: string;
   localDevMirrorPath?: string;
   agentSubpath?: string;
+  branchName?: string;
 }
 
 export interface UpdateSessionConfigInput {

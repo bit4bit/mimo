@@ -382,6 +382,102 @@ describe("Session Management Integration Tests", () => {
     });
   });
 
+  describe("Session Branch Override", () => {
+    async function createUserAndProject(extra: Record<string, unknown> = {}) {
+      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        ...extra,
+      });
+      const token = await generateToken("testuser");
+      return { project, token };
+    }
+
+    it("should call createBranch with session branchName override", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      const vcsModule = await import("../src/vcs/index.ts");
+      let capturedBranch: string | null = null;
+      vcsModule.vcs.createBranch = async (branch: string) => {
+        capturedBranch = branch;
+        return { success: true };
+      };
+      vcsModule.vcs.createFossilUser = async () => ({ success: true });
+
+      const { project, token } = await createUserAndProject({ newBranch: "project-default" });
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "My Session", branchName: "feature/override" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      expect(capturedBranch).toBe("feature/override");
+    });
+
+    it("should fall back to project newBranch when no session branchName", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      const vcsModule = await import("../src/vcs/index.ts");
+      let capturedBranch: string | null = null;
+      vcsModule.vcs.createBranch = async (branch: string) => {
+        capturedBranch = branch;
+        return { success: true };
+      };
+      vcsModule.vcs.createFossilUser = async () => ({ success: true });
+
+      const { project, token } = await createUserAndProject({ newBranch: "project-default" });
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "My Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      expect(capturedBranch).toBe("project-default");
+    });
+
+    it("should not call createBranch when no branchName and no project newBranch", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      const vcsModule = await import("../src/vcs/index.ts");
+      let createBranchCalled = false;
+      vcsModule.vcs.createBranch = async () => {
+        createBranchCalled = true;
+        return { success: true };
+      };
+      vcsModule.vcs.createFossilUser = async () => ({ success: true });
+
+      const { project, token } = await createUserAndProject();
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "My Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      expect(createBranchCalled).toBe(false);
+    });
+  });
+
   describe("Session Deletion", () => {
     it("should delete session with cleanup", async () => {
       const app = new Hono();

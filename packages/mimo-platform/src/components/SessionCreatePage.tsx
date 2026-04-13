@@ -5,6 +5,7 @@ interface Project {
   id: string;
   name: string;
   defaultLocalDevMirrorPath?: string;
+  newBranch?: string;
 }
 
 interface Agent {
@@ -82,6 +83,19 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({ project, agents, err
             />
             <p style="color: #888; font-size: 12px; margin-top: 5px;">
               Path to sync agent changes in real-time. Leave empty to disable sync.
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label>Branch (optional)</label>
+            <input
+              type="text"
+              name="branchName"
+              placeholder="feature/my-session-work"
+            />
+            <p style="color: #888; font-size: 12px; margin-top: 5px;">
+              Create a custom branch for this session. Leave empty to use the project default
+              {project.newBranch ? ` (${project.newBranch})` : " (none)"}.
             </p>
           </div>
 
