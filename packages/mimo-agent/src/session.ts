@@ -228,8 +228,11 @@ export class SessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
-    if (session.acpProcess) {
-      console.log(`[mimo-agent] Killing ACP process for ${sessionId}`);
+    if (session.acpProcess && !session.acpProcess.killed) {
+      // Safety-net kill: the caller should have already closed the ACP client
+      // (which sends EOF and waits for the process to exit). This kill is only
+      // reached if the process did not exit within the close timeout.
+      console.log(`[mimo-agent] Force-killing ACP process for ${sessionId}`);
       session.acpProcess.kill("SIGTERM");
       session.acpProcess = null;
     }

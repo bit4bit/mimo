@@ -79,8 +79,8 @@ class MimoAgent {
         // Spawn ACP with cached state
         return this.respawnAcpProcess(sessionId, cachedState);
       },
-      onTerminateSession: (sessionId) => {
-        // Cache the ACP state BEFORE stopping
+      onTerminateSession: async (sessionId) => {
+        // Cache the ACP state BEFORE closing
         const acpClient = this.acpClients.get(sessionId);
         if (acpClient) {
           this.cachedAcpStates.set(sessionId, {
@@ -90,10 +90,12 @@ class MimoAgent {
           });
         }
 
-        // Stop the session - kills ACP process and stops file watcher
-        // but keeps session info for resumption
+        // Close the ACP client gracefully (EOF → wait for process exit)
+        await this.closeAcpClient(sessionId);
+
+        // Stop the session: cleans up file watcher and force-kills the process
+        // if it didn't exit within the close timeout above.
         this.sessionManager.stopSession(sessionId);
-        this.acpClients.delete(sessionId);
       },
     });
 
@@ -383,7 +385,7 @@ class MimoAgent {
         }
 
         // Spawn ACP process
-        this.spawnAcpProcess({ ...sessionInfo, agentSubpath: agentSubpath || undefined });
+        await this.spawnAcpProcess({ ...sessionInfo, agentSubpath: agentSubpath || undefined });
 
         sessionIds.push(sessionId);
         console.log(`[mimo-agent] Session ${sessionId} ready`);
@@ -563,16 +565,42 @@ class MimoAgent {
     }
   }
 
-  private spawnAcpProcess(session: any): void {
+  /**
+   * Gracefully close an existing ACP client for a session.
+   *
+   * Sends EOF to the agent's stdin and waits for it to exit (via connection.closed).
+   * After this returns, the session's acpProcess will either have exited cleanly or
+   * will be killed by the subsequent sessionManager.stopSession() safety-net call.
+   */
+  private async closeAcpClient(sessionId: string): Promise<void> {
+    const acpClient = this.acpClients.get(sessionId);
+    if (!acpClient) return;
+
+    // Remove from map before closing so no new operations can be dispatched to it.
+    this.acpClients.delete(sessionId);
+
+    try {
+      await acpClient.close(5000);
+    } catch (err) {
+      console.warn(`[mimo-agent] Error during ACP client close for ${sessionId}:`, err);
+    }
+  }
+
+  private async spawnAcpProcess(session: any): Promise<void> {
     const sessionInfo = this.sessionManager.getSession(session.sessionId);
     if (!sessionInfo) return;
 
-    // Terminate existing
-    if (sessionInfo.acpProcess) {
+    // Close the existing ACP client gracefully before spawning a new one.
+    // This sends EOF to the old process's stdin and waits for it to exit cleanly.
+    await this.closeAcpClient(session.sessionId);
+
+    // Safety-net: if the process still hasn't exited after the close timeout, kill it.
+    if (sessionInfo.acpProcess && !sessionInfo.acpProcess.killed) {
       console.log(
-        `[mimo-agent] Terminating existing ACP for ${session.sessionId}`
+        `[mimo-agent] Force-killing old ACP process for ${session.sessionId}`
       );
-      sessionInfo.acpProcess.kill();
+      sessionInfo.acpProcess.kill("SIGTERM");
+      sessionInfo.acpProcess = null;
     }
 
     const spawnResult = this.provider.spawn(sessionInfo.checkoutPath);
@@ -926,7 +954,9 @@ class MimoAgent {
     }
 
     console.log(`[mimo-agent] Restarting ACP for session ${sessionId}`);
-    this.spawnAcpProcess(session);
+    this.spawnAcpProcess(session).catch((err) => {
+      console.error(`[mimo-agent] Failed to restart ACP for ${sessionId}:`, err);
+    });
   }
 
   private async handleCancelRequest(message: any): Promise<void> {

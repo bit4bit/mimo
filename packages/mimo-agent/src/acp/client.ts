@@ -16,6 +16,7 @@ export interface AcpClientSession {
   sessionId: string;
   acpSessionId: string;
   connection: acp.ClientSideConnection;
+  stdin: WritableStream<Uint8Array>;
   modelState?: ModelState;
   modeState?: ModeState;
   currentThoughtBuffer?: string;
@@ -134,6 +135,7 @@ export class AcpClient {
       sessionId: this.sessionId,
       acpSessionId: sessionResponse.sessionId,
       connection,
+      stdin: input,
       modelState: state.modelState,
       modeState: state.modeState,
     };
@@ -143,6 +145,36 @@ export class AcpClient {
       wasReset,
       resetReason,
     };
+  }
+
+  /**
+   * Gracefully close the ACP connection.
+   *
+   * Closes stdin (EOF) to signal the agent to shut down, then waits for
+   * the connection to close (i.e. the process exits and stdout closes).
+   * If the agent does not exit within `timeoutMs`, the caller is responsible
+   * for sending SIGTERM/SIGKILL.
+   */
+  async close(timeoutMs = 5000): Promise<void> {
+    if (!this.session) return;
+
+    const { connection, stdin } = this.session;
+    this.session = null;
+
+    // Close stdin — this sends EOF to the agent process, signalling shutdown.
+    try {
+      const writer = stdin.getWriter();
+      await writer.close();
+    } catch {
+      // Stream may already be closed/aborted if the process died on its own.
+    }
+
+    // Wait for the connection to observe the stream end (stdout closes when
+    // the process exits). The timeout is the caller's cue to force-kill.
+    await Promise.race([
+      connection.closed,
+      new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+    ]);
   }
 
   async loadSession(
@@ -295,6 +327,7 @@ export class AcpClient {
       sessionId: currentSession.sessionId,
       acpSessionId: sessionResponse.sessionId,
       connection: currentSession.connection,
+      stdin: currentSession.stdin,
       modelState: state.modelState,
       modeState: state.modeState,
       currentThoughtBuffer: undefined,

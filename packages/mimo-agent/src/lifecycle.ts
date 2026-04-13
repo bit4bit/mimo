@@ -21,7 +21,7 @@ export interface SessionLifecycleCallbacks {
   onCacheState: (sessionId: string, state: CachedAcpState) => void;
   onGetCachedState: (sessionId: string) => CachedAcpState | undefined;
   onSpawnAcp: (sessionId: string, cachedState?: CachedAcpState) => Promise<AcpClient | null>;
-  onTerminateSession: (sessionId: string) => void;
+  onTerminateSession: (sessionId: string) => Promise<void>;
 }
 
 export class SessionLifecycleManager {
@@ -165,7 +165,7 @@ export class SessionLifecycleManager {
     this.idleTimers.set(sessionId, timer);
   }
 
-  private async parkSession(sessionId: string): void {
+  private async parkSession(sessionId: string): Promise<void> {
     const currentState = this.getSessionState(sessionId);
     if (currentState !== "active") {
       return; // Already parked or waking
@@ -181,9 +181,8 @@ export class SessionLifecycleManager {
       this.idleTimers.delete(sessionId);
     }
 
-    // Get cached state from callback and terminate session
-    const cachedState = this.callbacks.onGetCachedState(sessionId);
-    this.callbacks.onTerminateSession(sessionId);
+    // Gracefully close the ACP client, then clean up the process
+    await this.callbacks.onTerminateSession(sessionId);
 
     // Notify of status change
     this.callbacks.onStatusChange(sessionId, "parked");
