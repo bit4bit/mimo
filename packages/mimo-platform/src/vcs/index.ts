@@ -246,23 +246,25 @@ export class VCS {
     };
   }
 
-  async syncGitignoreToFossil(upstreamPath: string, agentWorkspacePath: string): Promise<VCSResult> {
+  async syncIgnoresToFossil(upstreamPath: string, agentWorkspacePath: string): Promise<VCSResult> {
     const { existsSync, readFileSync, mkdirSync, writeFileSync } = await import("fs");
     const { join } = await import("path");
 
-    const gitignorePath = join(upstreamPath, ".gitignore");
-    if (!existsSync(gitignorePath)) {
-      return { success: true, output: "No .gitignore found, skipping" };
-    }
+    const parsePatterns = (filePath: string): string[] =>
+      existsSync(filePath)
+        ? readFileSync(filePath, "utf8")
+            .split("\n")
+            .map((line: string) => line.trim())
+            .filter((line: string) => line.length > 0 && !line.startsWith("#"))
+        : [];
 
-    // Parse .gitignore: filter out blank lines and comments
-    const patterns = readFileSync(gitignorePath, "utf8")
-      .split("\n")
-      .map((line: string) => line.trim())
-      .filter((line: string) => line.length > 0 && !line.startsWith("#"));
+    const patterns = [
+      ...parsePatterns(join(upstreamPath, ".gitignore")),
+      ...parsePatterns(join(upstreamPath, ".mimoignore")),
+    ];
 
     if (patterns.length === 0) {
-      return { success: true, output: "No patterns in .gitignore, skipping" };
+      return { success: true, output: "No patterns found in .gitignore or .mimoignore, skipping" };
     }
 
     // Write .fossil-settings/ignore-glob
@@ -283,7 +285,7 @@ export class VCS {
     }
 
     const commitResult = await this.execCommand(
-      ["fossil", "commit", "-m", "Setup ignore-glob from .gitignore", "--no-warnings"],
+      ["fossil", "commit", "-m", "Setup ignore-glob from .gitignore and .mimoignore", "--no-warnings"],
       agentWorkspacePath
     );
 
