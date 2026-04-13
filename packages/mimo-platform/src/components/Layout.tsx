@@ -5,16 +5,17 @@ interface LayoutProps {
   children: any;
   showStatusLine?: boolean;
   sessionId?: string;
+  streamingTimeoutMs?: number;
 }
 
-export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = false, sessionId }) => {
+export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = false, sessionId, streamingTimeoutMs }) => {
   return (
     <html lang="en">
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{title} | MIMO</title>
-        <script dangerouslySetInnerHTML={{ __html: `window.MIMO_SESSION_ID = "${sessionId || ''}";` }} />
+        <script dangerouslySetInnerHTML={{ __html: `window.MIMO_SESSION_ID = "${sessionId || ''}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};` }} />
         {sessionId && <script src="/js/chat.js" defer></script>}
         {sessionId && <script src="/js/commit.js" defer></script>}
         <style>{`

@@ -68,7 +68,7 @@ const ChatState = {
   notesSaveTimeout: null,
   
   // Constants
-  STREAMING_TIMEOUT_MS: 60000,
+  STREAMING_TIMEOUT_MS: (typeof window !== 'undefined' && window.MIMO_STREAMING_TIMEOUT_MS) || 600000,
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -797,7 +797,7 @@ function clearStreamingTimeout() {
 
 // Controller: Handle streaming timeout
 function handleStreamingTimeout() {
-  console.log('[CHAT] Streaming timeout - agent did not respond within 60 seconds');
+  console.log(`[CHAT] Streaming timeout - agent did not respond within ${ChatState.STREAMING_TIMEOUT_MS / 1000} seconds`);
   
   if (ChatState.streaming.messageElement) {
     ChatState.streaming.messageElement.remove();
@@ -1399,7 +1399,7 @@ function insertTimeoutWarning() {
   
   const el = renderMessage({
     role: 'system',
-    content: 'Warning: Agent did not respond within 60 seconds. You can try sending your message again.',
+    content: `Warning: Agent did not respond within ${ChatState.STREAMING_TIMEOUT_MS / 1000} seconds. You can try sending your message again.`,
   });
   el.classList.add('warning');
   el.querySelector('.message-content').style.color = '#ffa500';

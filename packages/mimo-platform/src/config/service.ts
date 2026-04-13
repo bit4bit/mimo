@@ -7,6 +7,7 @@ export interface Config {
   fontSize?: number;
   fontFamily?: string;
   sharedFossilServerPort?: number;
+  streamingTimeoutMs?: number;
 }
 
 export const defaultConfig: Config = {
@@ -14,6 +15,7 @@ export const defaultConfig: Config = {
   fontSize: 14,
   fontFamily: "monospace",
   sharedFossilServerPort: 8000,
+  streamingTimeoutMs: 600000, // 10 minutes
 };
 
 export class ConfigService {
@@ -58,6 +60,7 @@ export class ConfigService {
         fontSize: loaded.fontSize ?? defaultConfig.fontSize,
         fontFamily: loaded.fontFamily ?? defaultConfig.fontFamily,
         sharedFossilServerPort: loaded.sharedFossilServerPort ?? defaultConfig.sharedFossilServerPort,
+        streamingTimeoutMs: loaded.streamingTimeoutMs ?? defaultConfig.streamingTimeoutMs,
       };
       
       return this.config;

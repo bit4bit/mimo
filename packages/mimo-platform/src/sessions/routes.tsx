@@ -18,6 +18,7 @@ import { SessionCreatePage } from "../components/SessionCreatePage.js";
 import { SessionListPage } from "../components/SessionListPage.js";
 import { sessionStateService } from "./state.js";
 import { sharedFossilServer } from "../vcs/shared-fossil-server.js";
+import { configService } from "../config/service.js";
 import type { Context } from "hono";
 import { normalizeFrameState, updateFrameState, loadNotes, saveNotes } from "./frame-state.js";
 
@@ -277,8 +278,10 @@ router.get("/:id", async (c: Context) => {
   // If it's not running yet, the URL will still be valid but the server won't respond
   const fossilUrl = sharedFossilServer.getUrl(sessionId);
 
+  const streamingTimeoutMs = configService.load().streamingTimeoutMs;
+
   return c.html(
-    <SessionDetailPage 
+    <SessionDetailPage
       session={session}
       project={project}
       chatHistory={chatHistory}
@@ -289,6 +292,7 @@ router.get("/:id", async (c: Context) => {
       modeState={modeState}
       fossilUrl={fossilUrl}
       acpStatus={session.acpStatus}
+      streamingTimeoutMs={streamingTimeoutMs}
     />
   );
 });
@@ -744,6 +748,8 @@ router.get("/:id/settings", async (c: Context) => {
   // Import the settings page component
   const { SessionSettingsPage } = await import("../components/SessionSettingsPage.js");
 
+  const streamingTimeoutMs = configService.load().streamingTimeoutMs;
+
   return c.html(
     <SessionSettingsPage
       session={{
@@ -756,6 +762,7 @@ router.get("/:id/settings", async (c: Context) => {
         id: project.id,
         name: project.name,
       }}
+      streamingTimeoutMs={streamingTimeoutMs}
     />
   );
 });

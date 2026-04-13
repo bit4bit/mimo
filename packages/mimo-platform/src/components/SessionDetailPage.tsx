@@ -60,6 +60,7 @@ interface SessionDetailProps {
   acpStatus?: "active" | "parked";
   frameState: FrameState;
   notesContent?: string;
+  streamingTimeoutMs?: number;
 }
 
 export const SessionDetailPage: FC<SessionDetailProps> = ({
@@ -73,13 +74,14 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   acpStatus = "active",
   frameState,
   notesContent = "",
+  streamingTimeoutMs,
 }) => {
   ensureDefaultBuffersRegistered();
   const leftBuffers = getBuffersForFrame("left");
   const rightBuffers = getBuffersForFrame("right");
 
   return (
-    <Layout title={`${session.name} - ${project.name}`} showStatusLine={true} sessionId={session.id}>
+    <Layout title={`${session.name} - ${project.name}`} showStatusLine={true} sessionId={session.id} streamingTimeoutMs={streamingTimeoutMs}>
       <div class="session-container">
         <div class="session-header-bar">
           <div>

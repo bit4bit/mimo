@@ -12,9 +12,10 @@ interface SessionSettingsPageProps {
     id: string;
     name: string;
   };
+  streamingTimeoutMs?: number;
 }
 
-export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({ session, project }) => {
+export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({ session, project, streamingTimeoutMs }) => {
   // Format timeout for display
   const formatTimeout = (ms: number) => {
     if (ms === 0) return "Never (Disabled)";
@@ -27,7 +28,7 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({ session, pro
   };
 
   return (
-    <Layout title={`Settings - ${session.name}`} showStatusLine={true} sessionId={session.id}>
+    <Layout title={`Settings - ${session.name}`} showStatusLine={true} sessionId={session.id} streamingTimeoutMs={streamingTimeoutMs}>
       <div class="container" style="max-width: 600px;">
         <h1>Session Settings</h1>
         <p style="color: #888; margin-bottom: 20px;">
