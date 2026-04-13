@@ -205,6 +205,13 @@ router.post("/", async (c: Context) => {
       return c.text("Failed to open fossil checkout", 500);
     }
 
+    // Step 5.5: Sync .gitignore to .fossil-settings/ignore-glob in agent-workspace
+    const ignoreResult = await vcs.syncGitignoreToFossil(session.upstreamPath, session.agentWorkspacePath);
+    if (!ignoreResult.success) {
+      console.warn("[session] Failed to sync .gitignore to fossil ignore-glob:", ignoreResult.error);
+      // Non-fatal: continue session creation
+    }
+
     // Step 6: Notify running agent if one is assigned and online
     if (assignedAgentId && agentService.isAgentOnline(assignedAgentId)) {
       const agentWs = agentService.getAgentConnection(assignedAgentId);

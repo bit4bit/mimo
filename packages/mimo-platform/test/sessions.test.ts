@@ -48,6 +48,7 @@ describe("Session Management Integration Tests", () => {
     vcsModule.vcs.importToFossil = async () => ({ success: true });
     vcsModule.vcs.openFossilCheckout = async () => ({ success: true });
     vcsModule.vcs.openFossil = async () => ({ success: true });
+    vcsModule.vcs.syncGitignoreToFossil = async () => ({ success: true });
 
     const routesModule = await import("../src/sessions/routes.tsx");
     sessionRoutes = routesModule.default;

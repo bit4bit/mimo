@@ -491,5 +491,114 @@ describe("VCS Integration Tests", () => {
       }, 15000);
     });
   });
+
+  describe("syncGitignoreToFossil", () => {
+    it("should write .fossil-settings/ignore-glob from .gitignore and commit it", async () => {
+      const vcs = new VCS();
+      const { writeFileSync, readFileSync } = await import("fs");
+
+      const upstreamPath = join(testHome, "upstream-gitignore");
+      const agentWorkspacePath = join(testHome, "agent-gitignore");
+      const repoPath = join(testHome, "gitignore-sync.fossil");
+
+      mkdirSync(upstreamPath, { recursive: true });
+      mkdirSync(agentWorkspacePath, { recursive: true });
+
+      // Create a .gitignore in upstream
+      writeFileSync(join(upstreamPath, ".gitignore"), [
+        "# comment",
+        "node_modules/",
+        "",
+        "dist/",
+        "*.log",
+      ].join("\n"));
+
+      // Create fossil repo and open checkout in agent-workspace
+      await vcs.createFossilRepo(repoPath);
+      await vcs.openFossil(repoPath, agentWorkspacePath);
+
+      const result = await vcs.syncGitignoreToFossil(upstreamPath, agentWorkspacePath);
+
+      expect(result.success).toBe(true);
+
+      // Verify the file was written with patterns (no comments, no blanks)
+      const ignoreGlob = readFileSync(
+        join(agentWorkspacePath, ".fossil-settings", "ignore-glob"),
+        "utf8"
+      );
+      expect(ignoreGlob).toContain("node_modules/");
+      expect(ignoreGlob).toContain("dist/");
+      expect(ignoreGlob).toContain("*.log");
+      expect(ignoreGlob).not.toContain("# comment");
+    }, 15000);
+
+    it("should return success and skip when no .gitignore exists", async () => {
+      const vcs = new VCS();
+      const upstreamPath = join(testHome, "upstream-no-gitignore");
+      const agentWorkspacePath = join(testHome, "agent-no-gitignore");
+      const repoPath = join(testHome, "no-gitignore.fossil");
+
+      mkdirSync(upstreamPath, { recursive: true });
+      mkdirSync(agentWorkspacePath, { recursive: true });
+
+      await vcs.createFossilRepo(repoPath);
+      await vcs.openFossil(repoPath, agentWorkspacePath);
+
+      const result = await vcs.syncGitignoreToFossil(upstreamPath, agentWorkspacePath);
+
+      expect(result.success).toBe(true);
+      expect(result.output).toContain("skipping");
+      expect(existsSync(join(agentWorkspacePath, ".fossil-settings", "ignore-glob"))).toBe(false);
+    }, 15000);
+
+    it("should return success and skip when .gitignore has only comments and blank lines", async () => {
+      const vcs = new VCS();
+      const { writeFileSync } = await import("fs");
+
+      const upstreamPath = join(testHome, "upstream-empty-gitignore");
+      const agentWorkspacePath = join(testHome, "agent-empty-gitignore");
+      const repoPath = join(testHome, "empty-gitignore.fossil");
+
+      mkdirSync(upstreamPath, { recursive: true });
+      mkdirSync(agentWorkspacePath, { recursive: true });
+
+      writeFileSync(join(upstreamPath, ".gitignore"), "# just a comment\n\n# another comment\n");
+
+      await vcs.createFossilRepo(repoPath);
+      await vcs.openFossil(repoPath, agentWorkspacePath);
+
+      const result = await vcs.syncGitignoreToFossil(upstreamPath, agentWorkspacePath);
+
+      expect(result.success).toBe(true);
+      expect(result.output).toContain("skipping");
+    }, 15000);
+
+    it("should commit the ignore-glob so it appears in fossil history", async () => {
+      const vcs = new VCS();
+      const { writeFileSync } = await import("fs");
+      const { execSync } = await import("child_process");
+
+      const upstreamPath = join(testHome, "upstream-commit-check");
+      const agentWorkspacePath = join(testHome, "agent-commit-check");
+      const repoPath = join(testHome, "commit-check.fossil");
+
+      mkdirSync(upstreamPath, { recursive: true });
+      mkdirSync(agentWorkspacePath, { recursive: true });
+
+      writeFileSync(join(upstreamPath, ".gitignore"), "node_modules/\ndist/\n");
+
+      await vcs.createFossilRepo(repoPath);
+      await vcs.openFossil(repoPath, agentWorkspacePath);
+
+      await vcs.syncGitignoreToFossil(upstreamPath, agentWorkspacePath);
+
+      // Verify the commit message appears in fossil log
+      const log = execSync("fossil timeline --limit 5", {
+        cwd: agentWorkspacePath,
+        encoding: "utf8",
+      });
+      expect(log).toContain("Setup ignore-glob from .gitignore");
+    }, 15000);
+  });
 });
 });

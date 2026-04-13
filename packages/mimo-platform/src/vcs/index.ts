@@ -246,6 +246,54 @@ export class VCS {
     };
   }
 
+  async syncGitignoreToFossil(upstreamPath: string, agentWorkspacePath: string): Promise<VCSResult> {
+    const { existsSync, readFileSync, mkdirSync, writeFileSync } = await import("fs");
+    const { join } = await import("path");
+
+    const gitignorePath = join(upstreamPath, ".gitignore");
+    if (!existsSync(gitignorePath)) {
+      return { success: true, output: "No .gitignore found, skipping" };
+    }
+
+    // Parse .gitignore: filter out blank lines and comments
+    const patterns = readFileSync(gitignorePath, "utf8")
+      .split("\n")
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 0 && !line.startsWith("#"));
+
+    if (patterns.length === 0) {
+      return { success: true, output: "No patterns in .gitignore, skipping" };
+    }
+
+    // Write .fossil-settings/ignore-glob
+    const fossilSettingsDir = join(agentWorkspacePath, ".fossil-settings");
+    if (!existsSync(fossilSettingsDir)) {
+      mkdirSync(fossilSettingsDir, { recursive: true });
+    }
+    writeFileSync(join(fossilSettingsDir, "ignore-glob"), patterns.join("\n") + "\n");
+
+    // Commit into fossil checkout — use explicit add since fossil addremove
+    // skips .fossil-settings/ as a special directory
+    const addResult = await this.execCommand(
+      ["fossil", "add", ".fossil-settings/ignore-glob"],
+      agentWorkspacePath
+    );
+    if (!addResult.success) {
+      return { success: false, error: `fossil add failed: ${addResult.error}` };
+    }
+
+    const commitResult = await this.execCommand(
+      ["fossil", "commit", "-m", "Setup ignore-glob from .gitignore", "--no-warnings"],
+      agentWorkspacePath
+    );
+
+    return {
+      success: commitResult.success,
+      output: commitResult.output,
+      error: commitResult.error || undefined,
+    };
+  }
+
   async importGitToFossil(gitUrl: string, workDir: string, credential?: Credential): Promise<VCSResult> {
     let url = gitUrl;
     
