@@ -13,6 +13,7 @@ import { ImpactRepository } from "../impact/repository.js";
 import { ChatService } from "../sessions/chat.js";
 import { FrameStateService } from "../sessions/frame-state.js";
 import { SccService } from "../impact/scc-service.js";
+import { JscpdService } from "../impact/jscpd-service.js";
 import { CommitService } from "../commits/service.js";
 import { FileSyncService } from "../sync/service.js";
 import { AutoCommitService } from "../auto-commit/service.js";
@@ -60,6 +61,7 @@ export interface MimoContext {
     chat: ChatService;
     frameState: FrameStateService;
     scc: SccService;
+    jscpd: JscpdService;
     commits: CommitService;
     fileSync: FileSyncService;
     autoCommit: AutoCommitService;
@@ -156,14 +158,16 @@ export function createMimoContext(
       new ImpactRepository({ projectsPath: paths.projects }),
   };
 
-  // Create shared scc service instance to be passed to ImpactCalculator
+  // Create shared scc and jscpd service instances to be passed to ImpactCalculator
   const sccService =
     overrides.services?.scc ??
     new SccService(join(paths.root, "bin", "scc"), join(paths.root, "cache"));
+  const jscpdService =
+    overrides.services?.jscpd ?? new JscpdService();
 
-  // Create shared impactCalculator instance with injected sccService
+  // Create shared impactCalculator instance with injected services
   const impactCalculator =
-    overrides.services?.impactCalculator ?? new ImpactCalculator(sccService);
+    overrides.services?.impactCalculator ?? new ImpactCalculator(sccService, jscpdService);
 
   const services: MimoContext["services"] = {
     auth: overrides.services?.auth ?? new JwtService(env.JWT_SECRET),
@@ -173,6 +177,7 @@ export function createMimoContext(
     chat: overrides.services?.chat ?? new ChatService(paths),
     frameState: overrides.services?.frameState ?? new FrameStateService(paths),
     scc: sccService,
+    jscpd: jscpdService,
     commits:
       overrides.services?.commits ??
       new CommitService({

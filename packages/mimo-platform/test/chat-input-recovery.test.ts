@@ -43,8 +43,7 @@ describe("Chat Input Recovery", () => {
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
 
-    const chatModule = await import("../src/sessions/chat.ts");
-    chatService = chatModule.chatService;
+      chatService = ctx.services.chat;
   });
 
   afterAll(async () => {

@@ -81,13 +81,6 @@ describe("Integration Tests", () => {
       expect(SessionRepository).toBeDefined();
       expect(typeof SessionRepository).toBe("function");
     });
-
-    it("should handle chat service operations", async () => {
-      const { chatService } = await import("../src/sessions/chat.js");
-
-      expect(typeof chatService.saveMessage).toBe("function");
-      expect(typeof chatService.loadHistory).toBe("function");
-    });
   });
 
   describe("13.5: Agent Communication Integration", () => {
@@ -238,15 +231,6 @@ describe("Integration Tests", () => {
   });
 
   describe("13.10: Performance Testing", () => {
-    it("should handle chat service operations efficiently", async () => {
-      const { chatService } = await import("../src/sessions/chat.js");
-
-      // Test that chat service operations are defined and functional
-      expect(typeof chatService.saveMessage).toBe("function");
-      expect(typeof chatService.loadHistory).toBe("function");
-      expect(typeof chatService.clearHistory).toBe("function");
-    });
-
     it("should demonstrate JSONL streaming efficiency", async () => {
       const { mkdtempSync, writeFileSync, rmSync } = await import("fs");
       const { join } = await import("path");

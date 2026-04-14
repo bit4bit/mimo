@@ -128,14 +128,3 @@ export class ChatService {
 export function createChatService(paths: MimoPaths): ChatService {
   return new ChatService(paths);
 }
-
-// Legacy singleton export - will be removed once all consumers use mimoContext
-export const chatService = new ChatService({
-  root: "",
-  data: "",
-  users: "",
-  projects: "",
-  agents: "",
-  mcpServers: "",
-  config: "",
-});

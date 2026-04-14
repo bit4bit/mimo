@@ -514,6 +514,548 @@
         ]
       },
       "cachedAt": 1776205361546
+    },
+    "/tmp/mimo-impact-test-1776209381649-81x8qq/test-project": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 11,
+          "removed": 0,
+          "net": 11
+        },
+        "complexity": {
+          "cyclomatic": 3,
+          "cognitive": 0,
+          "estimatedMinutes": 2
+        },
+        "byLanguage": [
+          {
+            "language": "Python",
+            "files": 1,
+            "lines": 10,
+            "code": 8,
+            "comment": 0,
+            "blank": 2,
+            "complexity": 3
+          },
+          {
+            "language": "Markdown",
+            "files": 1,
+            "lines": 5,
+            "code": 3,
+            "comment": 0,
+            "blank": 2,
+            "complexity": 0
+          }
+        ],
+        "byFile": [
+          {
+            "path": "hello.py",
+            "language": "Python",
+            "lines": 10,
+            "code": 8,
+            "comment": 0,
+            "blank": 2,
+            "complexity": 3
+          },
+          {
+            "path": "README.md",
+            "language": "Markdown",
+            "lines": 5,
+            "code": 3,
+            "comment": 0,
+            "blank": 2,
+            "complexity": 0
+          }
+        ]
+      },
+      "cachedAt": 1776209381658
+    },
+    "/tmp/mimo-impact-test-1776209381659-48vmxf/empty-project": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 0,
+          "removed": 0,
+          "net": 0
+        },
+        "complexity": {
+          "cyclomatic": 0,
+          "cognitive": 0,
+          "estimatedMinutes": 0
+        },
+        "byLanguage": [],
+        "byFile": []
+      },
+      "cachedAt": 1776209381663
+    },
+    "/tmp/mimo-impact-test-1776209381663-bs70r9/upstream": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 2,
+          "removed": 0,
+          "net": 2
+        },
+        "complexity": {
+          "cyclomatic": 0,
+          "cognitive": 0,
+          "estimatedMinutes": 1
+        },
+        "byLanguage": [
+          {
+            "language": "TypeScript",
+            "files": 2,
+            "lines": 2,
+            "code": 2,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ],
+        "byFile": [
+          {
+            "path": "file2.ts",
+            "language": "TypeScript",
+            "lines": 1,
+            "code": 1,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          },
+          {
+            "path": "file1.ts",
+            "language": "TypeScript",
+            "lines": 1,
+            "code": 1,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ]
+      },
+      "cachedAt": 1776209382810
+    },
+    "/tmp/mimo-impact-test-1776209381663-bs70r9/workspace": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 3,
+          "removed": 0,
+          "net": 3
+        },
+        "complexity": {
+          "cyclomatic": 0,
+          "cognitive": 0,
+          "estimatedMinutes": 1
+        },
+        "byLanguage": [
+          {
+            "language": "TypeScript",
+            "files": 3,
+            "lines": 4,
+            "code": 3,
+            "comment": 1,
+            "blank": 0,
+            "complexity": 0
+          }
+        ],
+        "byFile": [
+          {
+            "path": "file1.ts",
+            "language": "TypeScript",
+            "lines": 2,
+            "code": 1,
+            "comment": 1,
+            "blank": 0,
+            "complexity": 0
+          },
+          {
+            "path": "file2.ts",
+            "language": "TypeScript",
+            "lines": 1,
+            "code": 1,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          },
+          {
+            "path": "file3.ts",
+            "language": "TypeScript",
+            "lines": 1,
+            "code": 1,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ]
+      },
+      "cachedAt": 1776209382826
+    },
+    "/tmp/mimo-impact-test-1776209382834-hwtons/upstream": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 1,
+          "removed": 0,
+          "net": 1
+        },
+        "complexity": {
+          "cyclomatic": 0,
+          "cognitive": 0,
+          "estimatedMinutes": 1
+        },
+        "byLanguage": [
+          {
+            "language": "TypeScript",
+            "files": 1,
+            "lines": 1,
+            "code": 1,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ],
+        "byFile": [
+          {
+            "path": "deleted.ts",
+            "language": "TypeScript",
+            "lines": 1,
+            "code": 1,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ]
+      },
+      "cachedAt": 1776209383848
+    },
+    "/tmp/mimo-impact-test-1776209382834-hwtons/workspace": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 1,
+          "removed": 0,
+          "net": 1
+        },
+        "complexity": {
+          "cyclomatic": 0,
+          "cognitive": 0,
+          "estimatedMinutes": 1
+        },
+        "byLanguage": [
+          {
+            "language": "TypeScript",
+            "files": 1,
+            "lines": 1,
+            "code": 1,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ],
+        "byFile": [
+          {
+            "path": "kept.ts",
+            "language": "TypeScript",
+            "lines": 1,
+            "code": 1,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ]
+      },
+      "cachedAt": 1776209383856
+    },
+    "/tmp/mimo-impact-test-1776209383860-nx0yn0/upstream-trend": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 0,
+          "removed": 0,
+          "net": 0
+        },
+        "complexity": {
+          "cyclomatic": 0,
+          "cognitive": 0,
+          "estimatedMinutes": 0
+        },
+        "byLanguage": [],
+        "byFile": []
+      },
+      "cachedAt": 1776209384773
+    },
+    "/tmp/mimo-impact-test-1776209383860-nx0yn0/workspace-trend": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 2,
+          "removed": 0,
+          "net": 2
+        },
+        "complexity": {
+          "cyclomatic": 0,
+          "cognitive": 0,
+          "estimatedMinutes": 1
+        },
+        "byLanguage": [
+          {
+            "language": "TypeScript",
+            "files": 2,
+            "lines": 2,
+            "code": 2,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ],
+        "byFile": [
+          {
+            "path": "file2.ts",
+            "language": "TypeScript",
+            "lines": 1,
+            "code": 1,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          },
+          {
+            "path": "file1.ts",
+            "language": "TypeScript",
+            "lines": 1,
+            "code": 1,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ]
+      },
+      "cachedAt": 1776209384785
+    },
+    "/tmp/mimo-impact-test-1776209384788-thqdbw/upstream": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 1,
+          "removed": 0,
+          "net": 1
+        },
+        "complexity": {
+          "cyclomatic": 0,
+          "cognitive": 0,
+          "estimatedMinutes": 1
+        },
+        "byLanguage": [
+          {
+            "language": "TypeScript",
+            "files": 1,
+            "lines": 1,
+            "code": 1,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ],
+        "byFile": [
+          {
+            "path": "unchanged.ts",
+            "language": "TypeScript",
+            "lines": 1,
+            "code": 1,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ]
+      },
+      "cachedAt": 1776209385650
+    },
+    "/tmp/mimo-impact-test-1776209384788-thqdbw/workspace": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 1,
+          "removed": 0,
+          "net": 1
+        },
+        "complexity": {
+          "cyclomatic": 0,
+          "cognitive": 0,
+          "estimatedMinutes": 1
+        },
+        "byLanguage": [
+          {
+            "language": "TypeScript",
+            "files": 1,
+            "lines": 1,
+            "code": 1,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ],
+        "byFile": [
+          {
+            "path": "unchanged.ts",
+            "language": "TypeScript",
+            "lines": 1,
+            "code": 1,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ]
+      },
+      "cachedAt": 1776209385657
+    },
+    "/tmp/mimo-impact-test-1776209520189-bufnde/test-project": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 11,
+          "removed": 0,
+          "net": 11
+        },
+        "complexity": {
+          "cyclomatic": 3,
+          "cognitive": 0,
+          "estimatedMinutes": 2
+        },
+        "byLanguage": [
+          {
+            "language": "Python",
+            "files": 1,
+            "lines": 10,
+            "code": 8,
+            "comment": 0,
+            "blank": 2,
+            "complexity": 3
+          },
+          {
+            "language": "Markdown",
+            "files": 1,
+            "lines": 5,
+            "code": 3,
+            "comment": 0,
+            "blank": 2,
+            "complexity": 0
+          }
+        ],
+        "byFile": [
+          {
+            "path": "hello.py",
+            "language": "Python",
+            "lines": 10,
+            "code": 8,
+            "comment": 0,
+            "blank": 2,
+            "complexity": 3
+          },
+          {
+            "path": "README.md",
+            "language": "Markdown",
+            "lines": 5,
+            "code": 3,
+            "comment": 0,
+            "blank": 2,
+            "complexity": 0
+          }
+        ]
+      },
+      "cachedAt": 1776209520196
+    },
+    "/tmp/mimo-impact-test-1776209520197-64e0pi/empty-project": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 0,
+          "removed": 0,
+          "net": 0
+        },
+        "complexity": {
+          "cyclomatic": 0,
+          "cognitive": 0,
+          "estimatedMinutes": 0
+        },
+        "byLanguage": [],
+        "byFile": []
+      },
+      "cachedAt": 1776209520200
+    },
+    "/tmp/mimo-impact-test-1776209787376-p0dvgl/test-project": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 11,
+          "removed": 0,
+          "net": 11
+        },
+        "complexity": {
+          "cyclomatic": 3,
+          "cognitive": 0,
+          "estimatedMinutes": 2
+        },
+        "byLanguage": [
+          {
+            "language": "Python",
+            "files": 1,
+            "lines": 10,
+            "code": 8,
+            "comment": 0,
+            "blank": 2,
+            "complexity": 3
+          },
+          {
+            "language": "Markdown",
+            "files": 1,
+            "lines": 5,
+            "code": 3,
+            "comment": 0,
+            "blank": 2,
+            "complexity": 0
+          }
+        ],
+        "byFile": [
+          {
+            "path": "hello.py",
+            "language": "Python",
+            "lines": 10,
+            "code": 8,
+            "comment": 0,
+            "blank": 2,
+            "complexity": 3
+          },
+          {
+            "path": "README.md",
+            "language": "Markdown",
+            "lines": 5,
+            "code": 3,
+            "comment": 0,
+            "blank": 2,
+            "complexity": 0
+          }
+        ]
+      },
+      "cachedAt": 1776209787383
+    },
+    "/tmp/mimo-impact-test-1776209787384-roywlm/empty-project": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 0,
+          "removed": 0,
+          "net": 0
+        },
+        "complexity": {
+          "cyclomatic": 0,
+          "cognitive": 0,
+          "estimatedMinutes": 0
+        },
+        "byLanguage": [],
+        "byFile": []
+      },
+      "cachedAt": 1776209787389
     }
   }
 }
