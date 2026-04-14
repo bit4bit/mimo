@@ -10,22 +10,13 @@ const DEFAULT_FOSSIL_PORT = 8000;
 // Cached config value - populated lazily
 let cachedConfigPort: number | undefined | null = null;
 
-// Port configuration - read from environment when needed, not at import time
-// Priority: MIMO_SHARED_FOSSIL_SERVER_PORT env var > config.yaml > default 8000
+// Port configuration - read from config.yaml > default 8000
 const getFossilServerPort = (): number => {
-  // Check env var first (highest priority)
-  if (process.env.MIMO_SHARED_FOSSIL_SERVER_PORT) {
-    const port = parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10);
-    if (!isNaN(port) && port >= 1024 && port <= 65535) {
-      return port;
-    }
-  }
-  
-  // Check cached config value (middle priority)
+  // Check cached config value
   if (cachedConfigPort !== null) {
     return cachedConfigPort ?? DEFAULT_FOSSIL_PORT;
   }
-  
+
   // Try to load from config file
   try {
     const { configService } = require("../config/service.js");
@@ -37,18 +28,14 @@ const getFossilServerPort = (): number => {
   } catch {
     // Config not available, will use default
   }
-  
+
   // Mark as checked and return default
   cachedConfigPort = undefined;
   return DEFAULT_FOSSIL_PORT;
 };
 
-// Directory where all fossil repos are stored
-// Priority: FOSSIL_REPOS_DIR env var > config.yaml > default ~/.mimo/session-fossils
+// Directory where all fossil repos are stored — fallback when not configured via configure()
 const getFossilReposDir = (): string => {
-  if (process.env.FOSSIL_REPOS_DIR) {
-    return process.env.FOSSIL_REPOS_DIR;
-  }
   return join(getPaths().data, "session-fossils");
 };
 
@@ -86,6 +73,18 @@ export class SharedFossilServer {
   private restartDelayMs: number = 2000;
   private maxRestartAttempts: number = 5;
   private restartAttempts: number = 0;
+
+  /**
+   * Configure the server with values from MimoContext.
+   * Must be called before the server is started.
+   */
+  configure(config: { reposDir?: string; port?: number }): void {
+    if (config.port !== undefined) this._port = config.port;
+    if (config.reposDir !== undefined) {
+      this._reposDir = config.reposDir;
+      this.ensureReposDir();
+    }
+  }
 
   /**
    * Get the port (lazy initialization)

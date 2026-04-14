@@ -7,52 +7,33 @@ import { SharedFossilServer, normalizeSessionIdForFossil } from "../src/vcs/shar
 describe("SharedFossilServer Integration Tests", () => {
   let testHome: string;
   let sharedServer: SharedFossilServer;
-  let originalReposDir: string | undefined;
-  let originalPort: string | undefined;
   let testPort: number;
 
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-shared-fossil-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     process.env.MIMO_HOME = testHome;
-    
+
     // Use a unique port for each test to avoid conflicts
     testPort = 18000 + Math.floor(Math.random() * 1000);
-    originalPort = process.env.MIMO_SHARED_FOSSIL_SERVER_PORT;
-    process.env.MIMO_SHARED_FOSSIL_SERVER_PORT = testPort.toString();
-    
-    originalReposDir = process.env.FOSSIL_REPOS_DIR;
-    process.env.FOSSIL_REPOS_DIR = join(testHome, "session-fossils");
-    
+
     // Clean up from previous run
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
-    
+
     mkdirSync(testHome, { recursive: true });
 
-    // Create fresh instance
+    // Create fresh instance configured with test-specific values
     sharedServer = new SharedFossilServer();
+    sharedServer.configure({ port: testPort, reposDir: join(testHome, "session-fossils") });
   });
 
   afterEach(async () => {
-    // Restore env
-    if (originalReposDir === undefined) {
-      delete process.env.FOSSIL_REPOS_DIR;
-    } else {
-      process.env.FOSSIL_REPOS_DIR = originalReposDir;
-    }
-
-    if (originalPort === undefined) {
-      delete process.env.MIMO_SHARED_FOSSIL_SERVER_PORT;
-    } else {
-      process.env.MIMO_SHARED_FOSSIL_SERVER_PORT = originalPort;
-    }
-    
     // Stop server
     try {
       await sharedServer.stop();
     } catch {}
-    
+
     // Clean up
     try {
       rmSync(testHome, { recursive: true, force: true });
@@ -157,13 +138,11 @@ describe("SharedFossilServer Integration Tests", () => {
       expect(sharedServer.getPort()).toBe(testPort);
     });
 
-    it("should use port from environment variable", () => {
-      process.env.MIMO_SHARED_FOSSIL_SERVER_PORT = "19000";
+    it("should use port set via configure()", () => {
       const freshServer = new SharedFossilServer();
+      freshServer.configure({ port: 19000 });
 
       expect(freshServer.getPort()).toBe(19000);
-
-      delete process.env.MIMO_SHARED_FOSSIL_SERVER_PORT;
     });
   });
 });

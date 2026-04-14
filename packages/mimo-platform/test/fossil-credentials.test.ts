@@ -18,7 +18,6 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
 
     // Use a unique port for each test to avoid conflicts
     testPort = 28000 + Math.floor(Math.random() * 1000);
-    process.env.MIMO_SHARED_FOSSIL_SERVER_PORT = testPort.toString();
 
     try {
       rmSync(testHome, { recursive: true, force: true });
@@ -30,8 +29,9 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
     VCS = vcsModule.VCS;
     vcs = new VCS();
 
-    // Create fresh SharedFossilServer instance
+    // Create fresh SharedFossilServer instance configured with test-specific values
     sharedFossilServer = new SharedFossilServer();
+    sharedFossilServer.configure({ port: testPort });
   });
 
   afterEach(async () => {
@@ -43,7 +43,6 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
 
-    delete process.env.MIMO_SHARED_FOSSIL_SERVER_PORT;
   });
 
   describe("createFossilUser", () => {

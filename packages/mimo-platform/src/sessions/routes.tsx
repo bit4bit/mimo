@@ -24,6 +24,9 @@ import type { Context } from "hono";
 import { normalizeFrameState, updateFrameState, loadNotes, saveNotes } from "./frame-state.js";
 
 type SessionsRoutesContext = {
+  env?: {
+    PLATFORM_URL: string;
+  };
   services: {
     auth: typeof defaultJwtService;
   };
@@ -38,6 +41,7 @@ const router = new Hono();
 const authService = mimoContext?.services.auth ?? defaultJwtService;
 const projectRepository = mimoContext?.repos?.projects ?? defaultProjectRepository;
 const sessionRepository = mimoContext?.repos?.sessions ?? defaultSessionRepository;
+const platformUrl = mimoContext?.env?.PLATFORM_URL ?? "http://localhost:3000";
 
 // Helper to get authenticated username from cookie
 async function getAuthUsername(c: Context): Promise<string | null> {
@@ -279,7 +283,6 @@ router.post("/", async (c: Context) => {
         const fossilUrl = sharedFossilServer.getUrl(session.id);
         await sessionRepository.update(session.id, { fossilPath });
         const sessionWithCreds = await sessionRepository.findById(session.id);
-        const platformUrl = process.env.PLATFORM_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
         agentWs.send(JSON.stringify({
           type: 'session_ready',
           platformUrl,

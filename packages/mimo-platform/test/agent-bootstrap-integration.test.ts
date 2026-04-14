@@ -22,7 +22,6 @@ describe("Agent Bootstrap Integration Tests", () => {
 
     // Use a unique port for each test to avoid conflicts
     testPort = 38000 + Math.floor(Math.random() * 1000);
-    process.env.MIMO_SHARED_FOSSIL_SERVER_PORT = testPort.toString();
 
     try {
       rmSync(testHome, { recursive: true, force: true });
@@ -44,8 +43,9 @@ describe("Agent Bootstrap Integration Tests", () => {
     AgentService = serviceModule.AgentService;
     agentService = serviceModule.agentService;
 
-    // Create fresh SharedFossilServer instance
+    // Create fresh SharedFossilServer instance configured with test-specific values
     sharedFossilServer = new SharedFossilServer();
+    sharedFossilServer.configure({ port: testPort });
   });
 
   afterEach(async () => {
@@ -57,7 +57,6 @@ describe("Agent Bootstrap Integration Tests", () => {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
 
-    delete process.env.MIMO_SHARED_FOSSIL_SERVER_PORT;
   });
 
   describe("11.1: Full flow - session creation to agent bootstrap", () => {

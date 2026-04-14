@@ -10,7 +10,7 @@ export interface JWTPayload {
 export class JwtService {
   private secret: Uint8Array;
 
-  constructor(secret: string = process.env.JWT_SECRET || DEFAULT_JWT_SECRET) {
+  constructor(secret: string = DEFAULT_JWT_SECRET) {
     this.secret = new TextEncoder().encode(secret);
   }
 

@@ -27,7 +27,7 @@ export class AgentService {
 
   constructor(
     private repository: AgentRepository = agentRepository,
-    jwtSecret: string = process.env.JWT_SECRET || DEFAULT_JWT_SECRET
+    jwtSecret: string = DEFAULT_JWT_SECRET
   ) {
     this.agentSecret = new TextEncoder().encode(jwtSecret);
   }

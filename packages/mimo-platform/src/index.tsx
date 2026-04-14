@@ -22,6 +22,10 @@ import { createMimoContext } from "./context/mimo-context.js";
 
 const app = new Hono();
 const mimoContext = createMimoContext();
+sharedFossilServer.configure({
+  reposDir: mimoContext.env.FOSSIL_REPOS_DIR,
+  port: mimoContext.env.MIMO_SHARED_FOSSIL_SERVER_PORT,
+});
 const agentService = mimoContext.services.agents;
 const PORT = mimoContext.env.PORT;
 const PLATFORM_URL = mimoContext.env.PLATFORM_URL;

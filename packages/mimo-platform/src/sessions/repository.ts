@@ -145,9 +145,6 @@ export class SessionRepository {
     if (this.deps.fossilReposDir) {
       return this.deps.fossilReposDir;
     }
-    if (process.env.FOSSIL_REPOS_DIR) {
-      return process.env.FOSSIL_REPOS_DIR;
-    }
     return join(this.getDataPath(), "session-fossils");
   }
 
