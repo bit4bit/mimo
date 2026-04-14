@@ -112,11 +112,15 @@ function renderMessage(message) {
   
   const content = document.createElement('div');
   content.className = 'message-content';
-  content.textContent = message.content;
-  
+  if (message.role === 'assistant') {
+    renderTextAsLines(message.content, content);
+  } else {
+    content.textContent = message.content;
+  }
+
   div.appendChild(header);
   div.appendChild(content);
-  
+
   return div;
 }
 
@@ -297,6 +301,22 @@ function renderNotification(message, type = 'info') {
   return div;
 }
 
+// View: Render text as per-line block elements (preserves newlines in clipboard)
+// Each line becomes a <div>; empty lines become <div><br></div> to hold height.
+function renderTextAsLines(text, container) {
+  container.textContent = '';
+  const lines = text.split('\n');
+  for (const line of lines) {
+    const div = document.createElement('div');
+    if (line === '') {
+      div.appendChild(document.createElement('br'));
+    } else {
+      div.textContent = line;
+    }
+    container.appendChild(div);
+  }
+}
+
 // View: Permission card
 function renderPermissionCard(requestId, toolCall, options) {
   const card = document.createElement('div');
@@ -372,6 +392,21 @@ function parseHistoryMessage(msg) {
   }
   
   return { type: 'regular', data: msg };
+}
+
+// Service: Extract plain text from a rendered message element
+// Joins per-line <div> children with \n, excluding the thought section.
+function extractMessageText(el) {
+  const responseEl = el.querySelector('.message-response');
+  if (responseEl) {
+    return Array.from(responseEl.children).map(div => div.textContent).join('\n');
+  }
+  const contentEl = el.querySelector('.message-content');
+  if (!contentEl) return '';
+  return Array.from(contentEl.children)
+    .filter(child => !child.classList.contains('message-thought'))
+    .map(div => div.textContent)
+    .join('\n');
 }
 
 // Service: Build WebSocket URL
@@ -973,10 +1008,9 @@ function insertMessage(message) {
   // Attach copy handler
   const copyBtn = el.querySelector('.copy-btn');
   copyBtn.addEventListener('click', () => {
-    const text = el.querySelector('.message-content').textContent;
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(extractMessageText(el));
   });
-  
+
   // Remove "no messages" placeholder if exists
   const placeholder = container.querySelector('.no-messages');
   if (placeholder) placeholder.remove();
@@ -1060,10 +1094,9 @@ function insertStreamingMessage() {
   // Attach copy handler
   const copyBtn = el.querySelector('.copy-btn');
   copyBtn.addEventListener('click', () => {
-    const text = el.querySelector('.message-content').textContent;
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(extractMessageText(el));
   });
-  
+
   container.appendChild(el);
   ChatState.streaming.messageElement = el;
   ChatState.streaming.content = '';
@@ -1094,6 +1127,8 @@ function finalizeMessageStream() {
   if (responseContent) {
     const cursor = responseContent.querySelector('.typing-cursor');
     if (cursor) cursor.remove();
+    const accumulated = responseContent.textContent;
+    renderTextAsLines(accumulated, responseContent);
   }
   
   const cancelBtn = ChatState.streaming.messageElement.querySelector('.cancel-streaming-btn');
