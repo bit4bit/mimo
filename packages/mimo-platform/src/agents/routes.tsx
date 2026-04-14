@@ -1,13 +1,11 @@
 /** @jsx jsx */
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";
-import { AgentTokenPayload } from "./service.js";
-import type { AgentRepository } from "./repository.js";
-import type { SessionRepository } from "../sessions/repository.js";
-import { Layout } from "../components/Layout.js";
-import { authMiddleware, createAuthMiddleware } from "../auth/middleware.js";
 import type { MimoContext } from "../context/mimo-context.js";
 import type { Context } from "hono";
+
+import { Layout } from "../components/Layout.js";
+import { authMiddleware, createAuthMiddleware } from "../auth/middleware.js";
 
 type AgentsRoutesContext = Pick<MimoContext, "services" | "repos">;
 

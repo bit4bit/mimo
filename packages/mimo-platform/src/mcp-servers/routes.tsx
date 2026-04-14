@@ -1,14 +1,13 @@
 /** @jsx jsx */
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";
-import { verifyToken } from "../auth/jwt.js";
 import { McpServerListPage } from "../components/McpServerListPage.js";
 import { McpServerFormPage } from "../components/McpServerFormPage.js";
 import type { Context } from "hono";
 import type { MimoContext } from "../context/mimo-context.js";
 
-// Helper to get authenticated username
-async function getAuthUsername(c: Context): Promise<string | null> {
+// Helper to get authenticated username - uses mimoContext
+async function getAuthUsername(c: Context, mimoContext: MimoContext): Promise<string | null> {
   const cookieHeader = c.req.header("Cookie");
   const usernameMatch = cookieHeader?.match(/username=([^;]+)/);
   const username = usernameMatch ? usernameMatch[1] : null;
@@ -18,7 +17,7 @@ async function getAuthUsername(c: Context): Promise<string | null> {
   const token = tokenMatch ? tokenMatch[1] : null;
 
   if (token) {
-    const payload = await verifyToken(token);
+    const payload = await mimoContext.services.auth.verifyToken(token);
     if (payload) return payload.username;
   }
 
@@ -32,7 +31,7 @@ export function createMcpServerRoutes(mimoContext: MimoContext): Hono {
 
 // GET /mcp-servers - List all MCP servers (HTML or JSON based on Accept header)
 router.get("/", async (c: Context) => {
-  const username = await getAuthUsername(c);
+  const username = await getAuthUsername(c, mimoContext);
   if (!username) {
     return c.redirect("/auth/login");
   }
@@ -51,7 +50,7 @@ router.get("/", async (c: Context) => {
 
 // GET /mcp-servers/new - Show create form
 router.get("/new", async (c: Context) => {
-  const username = await getAuthUsername(c);
+  const username = await getAuthUsername(c, mimoContext);
   if (!username) {
     return c.redirect("/auth/login");
   }
@@ -61,7 +60,7 @@ router.get("/new", async (c: Context) => {
 
 // GET /mcp-servers/:id/edit - Show edit form
 router.get("/:id/edit", async (c: Context) => {
-  const username = await getAuthUsername(c);
+  const username = await getAuthUsername(c, mimoContext);
   if (!username) {
     return c.redirect("/auth/login");
   }
@@ -78,7 +77,7 @@ router.get("/:id/edit", async (c: Context) => {
 
 // POST /mcp-servers - Create new MCP server (from form)
 router.post("/", async (c: Context) => {
-  const username = await getAuthUsername(c);
+  const username = await getAuthUsername(c, mimoContext);
   if (!username) {
     return c.json({ error: "Unauthorized" }, 401);
   }
@@ -156,7 +155,7 @@ router.post("/", async (c: Context) => {
 
 // POST /mcp-servers/:id/delete - Delete MCP server (from form)
 router.post("/:id/delete", async (c: Context) => {
-  const username = await getAuthUsername(c);
+  const username = await getAuthUsername(c, mimoContext);
   if (!username) {
     return c.redirect("/auth/login");
   }
@@ -169,7 +168,7 @@ router.post("/:id/delete", async (c: Context) => {
 
 // GET /mcp-servers/:id - Get one MCP server
 router.get("/:id", async (c: Context) => {
-  const username = await getAuthUsername(c);
+  const username = await getAuthUsername(c, mimoContext);
   if (!username) {
     return c.redirect("/auth/login");
   }
@@ -186,7 +185,7 @@ router.get("/:id", async (c: Context) => {
 
 // PATCH /mcp-servers/:id - Update MCP server (JSON API)
 router.patch("/:id", async (c: Context) => {
-  const username = await getAuthUsername(c);
+  const username = await getAuthUsername(c, mimoContext);
   if (!username) {
     return c.json({ error: "Unauthorized" }, 401);
   }
@@ -219,7 +218,7 @@ router.patch("/:id", async (c: Context) => {
 
 // POST /mcp-servers/:id - Update MCP server (form submission with _method=PATCH)
 router.post("/:id", async (c: Context) => {
-  const username = await getAuthUsername(c);
+  const username = await getAuthUsername(c, mimoContext);
   if (!username) {
     return c.redirect("/auth/login");
   }
@@ -290,7 +289,7 @@ router.post("/:id", async (c: Context) => {
 
 // DELETE /mcp-servers/:id - Delete MCP server (JSON API)
 router.delete("/:id", async (c: Context) => {
-  const username = await getAuthUsername(c);
+  const username = await getAuthUsername(c, mimoContext);
   if (!username) {
     return c.json({ error: "Unauthorized" }, 401);
   }
