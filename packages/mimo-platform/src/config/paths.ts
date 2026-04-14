@@ -1,9 +1,10 @@
 import { join } from "path";
 import { homedir } from "os";
 import { existsSync, mkdirSync } from "fs";
+import { getMimoHome as getGlobalMimoHome } from "./global-config.js";
 
 function getMimoHome(): string {
-  return process.env.MIMO_HOME || join(homedir(), ".mimo");
+  return getGlobalMimoHome() ?? join(homedir(), ".mimo");
 }
 
 export function getPaths() {

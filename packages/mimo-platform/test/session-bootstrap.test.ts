@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, mkdirSync, writeFileSync } from "fs";
@@ -12,7 +13,7 @@ describe("Session Bootstrap Integration Tests", () => {
 
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-bootstrap-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    process.env.MIMO_HOME = testHome;
+    setMimoHome(testHome);
     
     // Clean up from previous run
     try {

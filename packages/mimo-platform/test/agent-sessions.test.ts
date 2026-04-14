@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test";
+import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync } from "fs";
@@ -17,7 +18,7 @@ describe("Agent Sessions API Integration Tests", () => {
 
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-agent-sessions-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    process.env.MIMO_HOME = testHome;
+    setMimoHome(testHome);
     process.env.JWT_SECRET = "test-secret-key-for-testing";
 
     // Clean up from previous run

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync } from "fs";
@@ -18,7 +19,7 @@ describe("Chat History Persistence", () => {
 
   beforeAll(async () => {
     // Set up fresh environment
-    process.env.MIMO_HOME = testHome;
+    setMimoHome(testHome);
     process.env.JWT_SECRET = "test-secret-key-for-testing";
 
     // Import after setting environment

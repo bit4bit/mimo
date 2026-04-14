@@ -5,6 +5,7 @@ import {
   beforeEach,
   afterEach,
 } from "bun:test";
+import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync } from "fs";
@@ -20,7 +21,7 @@ describe("User Repository Integration Test", () => {
   beforeEach(async () => {
     // Generate unique test home for each test
     testHome = join(tmpdir(), `mimo-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    process.env.MIMO_HOME = testHome;
+    setMimoHome(testHome);
     
     // Re-import to get fresh module with new env
     const pathsModule = await import("../src/config/paths.ts");
@@ -35,7 +36,7 @@ describe("User Repository Integration Test", () => {
     if (existsSync(testHome)) {
       rmSync(testHome, { recursive: true, force: true });
     }
-    delete process.env.MIMO_HOME;
+    clearConfig();
   });
 
   test("should create a new user", async () => {

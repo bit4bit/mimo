@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { tmpdir } from "os";
 import { join, relative } from "path";
 import { rmSync, mkdirSync, existsSync, writeFileSync } from "fs";
@@ -18,7 +19,7 @@ describe("Agent Bootstrap Integration Tests", () => {
 
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-bootstrap-integ-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    process.env.MIMO_HOME = testHome;
+    setMimoHome(testHome);
 
     // Use a unique port for each test to avoid conflicts
     testPort = 38000 + Math.floor(Math.random() * 1000);

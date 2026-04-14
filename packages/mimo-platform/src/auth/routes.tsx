@@ -4,7 +4,6 @@ import { userRepository as defaultUserRepository } from "./user";
 import { jwtService as defaultJwtService } from "./jwt";
 import { LoginPage } from "../components/LoginPage";
 import { RegisterPage } from "../components/RegisterPage";
-import { ensureMimoHome } from "../config/paths";
 import type { MimoContext } from "../context/mimo-context.js";
 
 type AuthRoutesContext = Pick<MimoContext, "services" | "repos">;
@@ -14,8 +13,6 @@ export function createAuthRoutes(mimoContext?: AuthRoutesContext) {
   const authService = mimoContext?.services.auth ?? defaultJwtService;
   const userRepository = mimoContext?.repos.users ?? defaultUserRepository;
 
-  // Ensure directories exist
-  ensureMimoHome();
 
 // GET /auth/register - Show registration page
 auth.get("/register", (c) => {

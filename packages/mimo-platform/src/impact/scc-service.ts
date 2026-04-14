@@ -135,6 +135,13 @@ export class SccService {
     }
   }
 
+  configure(config: { mimoHome: string }): void {
+    this.sccPath = join(config.mimoHome, "bin", "scc");
+    if (!this.customCacheDir) {
+      this.cacheFilePath = join(config.mimoHome, ".mimo", "cache", "scc-cache.json");
+    }
+  }
+
   getSccPath(): string {
     return this.sccPath;
   }

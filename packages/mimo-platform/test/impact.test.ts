@@ -12,7 +12,6 @@ describe("Impact Buffer Tests", () => {
     
     // Set global config BEFORE any imports
     setMimoHome(testHome);
-    process.env.MIMO_HOME = testHome;
 
     try {
       rmSync(testHome, { recursive: true, force: true });
@@ -27,7 +26,6 @@ describe("Impact Buffer Tests", () => {
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
-    delete process.env.MIMO_HOME;
     clearConfig();
   });
 

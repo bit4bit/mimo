@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { McpServerRepository } from "../src/mcp-servers/repository.js";
 import { rmSync } from "fs";
 import { join } from "path";
@@ -9,13 +10,13 @@ describe("McpServerRepository", () => {
   const testHome = join(tmpdir(), `mimo-mcp-repo-test-${Date.now()}`);
 
   beforeEach(() => {
-    process.env.MIMO_HOME = testHome;
+    setMimoHome(testHome);
     repository = new McpServerRepository();
   });
 
   afterEach(() => {
     rmSync(testHome, { recursive: true, force: true });
-    delete process.env.MIMO_HOME;
+    clearConfig();
   });
 
   describe("create", () => {

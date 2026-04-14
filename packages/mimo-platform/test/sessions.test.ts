@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test";
+import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -20,7 +21,7 @@ describe("Session Management Integration Tests", () => {
     testHome = join(tmpdir(), `mimo-session-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     
     // Set up fresh environment
-    process.env.MIMO_HOME = testHome;
+    setMimoHome(testHome);
     process.env.JWT_SECRET = "test-secret-key-for-testing";
 
     // Re-import to get fresh modules

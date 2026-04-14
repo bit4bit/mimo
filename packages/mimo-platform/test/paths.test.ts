@@ -1,4 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync } from "fs";
@@ -8,14 +9,14 @@ describe("Filesystem Paths Integration Test", () => {
 
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    process.env.MIMO_HOME = testHome;
+    setMimoHome(testHome);
   });
 
   afterEach(() => {
     if (existsSync(testHome)) {
       rmSync(testHome, { recursive: true, force: true });
     }
-    delete process.env.MIMO_HOME;
+    clearConfig();
   });
 
   test("should use MIMO_HOME environment variable", async () => {

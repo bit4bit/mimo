@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test";
+import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -13,7 +14,7 @@ describe("Public Landing Page Integration Tests", () => {
   const testHome = join(tmpdir(), `mimo-landing-test-${Date.now()}`);
 
   beforeEach(async () => {
-    process.env.MIMO_HOME = testHome;
+    setMimoHome(testHome);
     process.env.JWT_SECRET = "test-secret-key-for-testing";
 
     try {

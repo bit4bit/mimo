@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test";
+import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { Hono } from "hono";
 import { createAutoCommitRouter } from "../src/auto-commit/routes";
 import { generateToken } from "../src/auth/jwt";
@@ -11,7 +12,7 @@ describe("auto-commit routes", () => {
 
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-auto-commit-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    process.env.MIMO_HOME = testHome;
+    setMimoHome(testHome);
     process.env.JWT_SECRET = "test-secret-key-for-testing";
 
     try {

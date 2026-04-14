@@ -1,6 +1,5 @@
 import { join, relative, dirname, resolve } from "path";
 import { existsSync, copyFileSync, mkdirSync, statSync, readFileSync, readdirSync, unlinkSync } from "fs";
-import { getPaths } from "../config/paths.js";
 import { sessionRepository } from "../sessions/repository.js";
 import crypto from "crypto";
 import { sccService } from "../impact/scc-service.js";

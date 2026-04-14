@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { SessionRepository } from "../src/sessions/repository.js";
 import { existsSync, rmdirSync, unlinkSync, readdirSync, mkdirSync, writeFileSync, readFileSync } from "fs";
 import { join } from "path";
@@ -17,7 +18,7 @@ describe("Session Creation with MCP Servers", () => {
     testBasePath = mkdtempSync(join(tmpdir(), "mimo-session-mcp-test-"));
     
     // Set MIMO_HOME environment variable
-    process.env.MIMO_HOME = testBasePath;
+    setMimoHome(testBasePath);
     
     // Create required directories
     mkdirSync(join(testBasePath, "projects"), { recursive: true });
@@ -27,7 +28,7 @@ describe("Session Creation with MCP Servers", () => {
 
   afterEach(() => {
     // Clean up
-    delete process.env.MIMO_HOME;
+    clearConfig();
     try {
       if (existsSync(testBasePath)) {
         const { rmSync } = require("fs");
