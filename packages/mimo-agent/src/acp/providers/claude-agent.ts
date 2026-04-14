@@ -25,9 +25,7 @@ export class ClaudeAgentProvider implements IAcpProvider {
     };
   }
 
-  extractState(
-    response: NewSessionResponse
-  ): {
+  extractState(response: NewSessionResponse): {
     modelState?: ModelState;
     modeState?: ModeState;
   } {
@@ -36,10 +34,10 @@ export class ClaudeAgentProvider implements IAcpProvider {
     if (!response.configOptions) return result;
 
     const modelConfig = response.configOptions.find(
-      (opt) => opt.category === "model" && opt.type === "select"
+      (opt) => opt.category === "model" && opt.type === "select",
     );
     const modeConfig = response.configOptions.find(
-      (opt) => opt.category === "mode" && opt.type === "select"
+      (opt) => opt.category === "mode" && opt.type === "select",
     );
 
     if (modelConfig && modelConfig.type === "select") {
@@ -52,7 +50,8 @@ export class ClaudeAgentProvider implements IAcpProvider {
         : [];
 
       result.modelState = {
-        currentModelId: modelConfig.currentValue || availableOptions[0]?.value || "",
+        currentModelId:
+          modelConfig.currentValue || availableOptions[0]?.value || "",
         availableModels: availableOptions,
         optionId: modelConfig.id,
       };
@@ -68,7 +67,8 @@ export class ClaudeAgentProvider implements IAcpProvider {
         : [];
 
       result.modeState = {
-        currentModeId: modeConfig.currentValue || availableOptions[0]?.value || "",
+        currentModeId:
+          modeConfig.currentValue || availableOptions[0]?.value || "",
         availableModes: availableOptions,
         optionId: modeConfig.id,
       };
@@ -81,7 +81,7 @@ export class ClaudeAgentProvider implements IAcpProvider {
     connection: any,
     acpSessionId: string,
     modelId: string,
-    optionId: string
+    optionId: string,
   ): Promise<void> {
     await connection.setSessionConfigOption({
       sessionId: acpSessionId,
@@ -94,7 +94,7 @@ export class ClaudeAgentProvider implements IAcpProvider {
     connection: any,
     acpSessionId: string,
     modeId: string,
-    optionId: string
+    optionId: string,
   ): Promise<void> {
     await connection.setSessionConfigOption({
       sessionId: acpSessionId,

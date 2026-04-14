@@ -14,12 +14,12 @@ export const RegisterPage: FC<RegisterProps> = ({ error, success }) => {
         <form method="POST" action="/auth/register">
           <label>Username</label>
           <input type="text" name="username" required />
-          
+
           <label>Password</label>
           <input type="password" name="password" required minLength="6" />
-          
+
           <button type="submit">Register</button>
-          
+
           {error && <div class="error">{error}</div>}
           {success && <div class="success">{success}</div>}
         </form>

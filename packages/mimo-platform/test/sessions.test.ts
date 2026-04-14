@@ -17,11 +17,17 @@ let testHome: string;
 describe("Session Management Integration Tests", () => {
   beforeEach(async () => {
     // Create unique test home for each test
-    testHome = join(tmpdir(), `mimo-session-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    
+    testHome = join(
+      tmpdir(),
+      `mimo-session-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
+
     // Set up fresh environment with createMimoContext
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
-    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({
+      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+    });
 
     userRepository = ctx.repos.users;
     projectRepository = ctx.repos.projects;
@@ -50,7 +56,10 @@ describe("Session Management Integration Tests", () => {
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
       // Create user and project
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -74,7 +83,7 @@ describe("Session Management Integration Tests", () => {
 
       expect(res.status).toBe(302);
       expect(res.headers.get("location")).toMatch(
-        /^\/projects\/[^\/]+\/sessions\/[^\/]+$/
+        /^\/projects\/[^\/]+\/sessions\/[^\/]+$/,
       );
 
       // Verify session was created
@@ -87,7 +96,10 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -121,7 +133,10 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -146,14 +161,17 @@ describe("Session Management Integration Tests", () => {
       const sessionId = location.split("/").pop();
 
       // Update idle timeout via API
-      const patchRes = await app.request(`/projects/${project.id}/sessions/${sessionId}/config`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: `token=${token}`,
+      const patchRes = await app.request(
+        `/projects/${project.id}/sessions/${sessionId}/config`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({ idleTimeoutMs: 120000 }), // 2 minutes
         },
-        body: JSON.stringify({ idleTimeoutMs: 120000 }), // 2 minutes
-      });
+      );
 
       expect(patchRes.status).toBe(200);
 
@@ -165,7 +183,10 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -189,14 +210,17 @@ describe("Session Management Integration Tests", () => {
       const location = res.headers.get("location") || "";
       const sessionId = location.split("/").pop();
 
-      const patchRes = await app.request(`/projects/${project.id}/sessions/${sessionId}/config`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: `token=${token}`,
+      const patchRes = await app.request(
+        `/projects/${project.id}/sessions/${sessionId}/config`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({ idleTimeoutMs: 5000 }), // Too low
         },
-        body: JSON.stringify({ idleTimeoutMs: 5000 }), // Too low
-      });
+      );
 
       expect(patchRes.status).toBe(400);
     });
@@ -229,7 +253,10 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -260,7 +287,10 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -297,7 +327,10 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -322,7 +355,10 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -338,9 +374,12 @@ describe("Session Management Integration Tests", () => {
 
       const token = await authService.generateToken("testuser");
 
-      const res = await app.request(`/projects/${project.id}/sessions/${session.id}`, {
-        headers: { Cookie: `token=${token}` },
-      });
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}`,
+        {
+          headers: { Cookie: `token=${token}` },
+        },
+      );
 
       expect(res.status).toBe(200);
       const html = await res.text();
@@ -355,7 +394,10 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -365,9 +407,12 @@ describe("Session Management Integration Tests", () => {
 
       const token = await authService.generateToken("testuser");
 
-      const res = await app.request(`/projects/${project.id}/sessions/non-existent-id`, {
-        headers: { Cookie: `token=${token}` },
-      });
+      const res = await app.request(
+        `/projects/${project.id}/sessions/non-existent-id`,
+        {
+          headers: { Cookie: `token=${token}` },
+        },
+      );
 
       expect(res.status).toBe(404);
     });
@@ -375,7 +420,10 @@ describe("Session Management Integration Tests", () => {
 
   describe("Session Branch Override", () => {
     async function createUserAndProject(extra: Record<string, unknown> = {}) {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -399,7 +447,9 @@ describe("Session Management Integration Tests", () => {
       };
       vcsModule.vcs.createFossilUser = async () => ({ success: true });
 
-      const { project, token } = await createUserAndProject({ newBranch: "project-default" });
+      const { project, token } = await createUserAndProject({
+        newBranch: "project-default",
+      });
 
       const res = await app.request(`/projects/${project.id}/sessions`, {
         method: "POST",
@@ -407,7 +457,10 @@ describe("Session Management Integration Tests", () => {
           "Content-Type": "application/x-www-form-urlencoded",
           Cookie: `token=${token}`,
         },
-        body: new URLSearchParams({ name: "My Session", branchName: "feature/override" }).toString(),
+        body: new URLSearchParams({
+          name: "My Session",
+          branchName: "feature/override",
+        }).toString(),
       });
 
       expect(res.status).toBe(302);
@@ -426,7 +479,9 @@ describe("Session Management Integration Tests", () => {
       };
       vcsModule.vcs.createFossilUser = async () => ({ success: true });
 
-      const { project, token } = await createUserAndProject({ newBranch: "project-default" });
+      const { project, token } = await createUserAndProject({
+        newBranch: "project-default",
+      });
 
       const res = await app.request(`/projects/${project.id}/sessions`, {
         method: "POST",
@@ -474,7 +529,10 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -490,13 +548,18 @@ describe("Session Management Integration Tests", () => {
 
       const token = await authService.generateToken("testuser");
 
-      const res = await app.request(`/projects/${project.id}/sessions/${session.id}/delete`, {
-        method: "POST",
-        headers: { Cookie: `token=${token}` },
-      });
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/delete`,
+        {
+          method: "POST",
+          headers: { Cookie: `token=${token}` },
+        },
+      );
 
       expect(res.status).toBe(302);
-      expect(res.headers.get("location")).toBe(`/projects/${project.id}/sessions`);
+      expect(res.headers.get("location")).toBe(
+        `/projects/${project.id}/sessions`,
+      );
 
       // Verify session was deleted
       const sessions = await sessionRepository.listByProject(project.id);

@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "bun:test";
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { tmpdir } from "os";
@@ -13,7 +20,7 @@ describe("SCC Smart Cache", () => {
     // Create test directory
     testDir = join(tmpdir(), `mimo-scc-cache-test-${Date.now()}`);
     mkdirSync(testDir, { recursive: true });
-    
+
     // Create mock SCC binary that returns valid JSON
     mockSccPath = join(testDir, "mock-scc");
     const mockOutput = JSON.stringify([
@@ -28,13 +35,17 @@ describe("SCC Smart Cache", () => {
             Comment: 10,
             Blank: 10,
             Complexity: 5,
-          }
-        ]
-      }
+          },
+        ],
+      },
     ]);
-    writeFileSync(mockSccPath, `#!/bin/bash
-echo '${mockOutput}'`, { mode: 0o755 });
-    
+    writeFileSync(
+      mockSccPath,
+      `#!/bin/bash
+echo '${mockOutput}'`,
+      { mode: 0o755 },
+    );
+
     sccService = new SccService(mockSccPath, testDir);
   });
 
@@ -51,7 +62,7 @@ echo '${mockOutput}'`, { mode: 0o755 });
     if (existsSync(cacheDir)) {
       rmSync(cacheDir, { recursive: true, force: true });
     }
-    
+
     // Clear service cache
     sccService.clearCache();
   });
@@ -62,8 +73,28 @@ echo '${mockOutput}'`, { mode: 0o755 });
       const mockMetrics: SccMetrics = {
         linesOfCode: { added: 100, removed: 0, net: 100 },
         complexity: { cyclomatic: 10, cognitive: 0, estimatedMinutes: 10 },
-        byLanguage: [{ language: "TypeScript", files: 1, lines: 100, code: 80, comment: 10, blank: 10, complexity: 5 }],
-        byFile: [{ path: "test.ts", language: "TypeScript", lines: 100, code: 80, comment: 10, blank: 10, complexity: 5 }],
+        byLanguage: [
+          {
+            language: "TypeScript",
+            files: 1,
+            lines: 100,
+            code: 80,
+            comment: 10,
+            blank: 10,
+            complexity: 5,
+          },
+        ],
+        byFile: [
+          {
+            path: "test.ts",
+            language: "TypeScript",
+            lines: 100,
+            code: 80,
+            comment: 10,
+            blank: 10,
+            complexity: 5,
+          },
+        ],
       };
 
       // WHEN updateCache and saveCache is called
@@ -78,22 +109,36 @@ echo '${mockOutput}'`, { mode: 0o755 });
     it("should load cache from disk on initialization", async () => {
       // GIVEN a cache file exists with valid data at testDir
       const cacheFile = join(testDir, "scc-cache.json");
-      
+
       const cacheData = {
         entries: {
           [testDir]: {
             valid: true,
             data: {
               linesOfCode: { added: 200, removed: 0, net: 200 },
-              complexity: { cyclomatic: 20, cognitive: 0, estimatedMinutes: 20 },
-              byLanguage: [{ language: "JavaScript", files: 2, lines: 200, code: 160, comment: 20, blank: 20, complexity: 10 }],
+              complexity: {
+                cyclomatic: 20,
+                cognitive: 0,
+                estimatedMinutes: 20,
+              },
+              byLanguage: [
+                {
+                  language: "JavaScript",
+                  files: 2,
+                  lines: 200,
+                  code: 160,
+                  comment: 20,
+                  blank: 20,
+                  complexity: 10,
+                },
+              ],
               byFile: [],
             },
             cachedAt: Date.now(),
-          }
-        }
+          },
+        },
       };
-      
+
       writeFileSync(cacheFile, JSON.stringify(cacheData, null, 2));
 
       // WHEN loadCache is called
@@ -110,28 +155,52 @@ echo '${mockOutput}'`, { mode: 0o755 });
     it("should return cached results when cache is valid", async () => {
       // GIVEN a valid cache entry exists at the service's cache location
       const cacheFile = join(testDir, "scc-cache.json");
-      
+
       const cacheData = {
         entries: {
           [testDir]: {
             valid: true,
             data: {
               linesOfCode: { added: 100, removed: 0, net: 100 },
-              complexity: { cyclomatic: 10, cognitive: 0, estimatedMinutes: 10 },
-              byLanguage: [{ language: "TypeScript", files: 1, lines: 100, code: 80, comment: 10, blank: 10, complexity: 5 }],
-              byFile: [{ path: "test.ts", language: "TypeScript", lines: 100, code: 80, comment: 10, blank: 10, complexity: 5 }],
+              complexity: {
+                cyclomatic: 10,
+                cognitive: 0,
+                estimatedMinutes: 10,
+              },
+              byLanguage: [
+                {
+                  language: "TypeScript",
+                  files: 1,
+                  lines: 100,
+                  code: 80,
+                  comment: 10,
+                  blank: 10,
+                  complexity: 5,
+                },
+              ],
+              byFile: [
+                {
+                  path: "test.ts",
+                  language: "TypeScript",
+                  lines: 100,
+                  code: 80,
+                  comment: 10,
+                  blank: 10,
+                  complexity: 5,
+                },
+              ],
             },
             cachedAt: Date.now(),
-          }
-        }
+          },
+        },
       };
-      
+
       writeFileSync(cacheFile, JSON.stringify(cacheData, null, 2));
       sccService.loadCache();
 
       // WHEN runScc is called
       // (This should return cached result without running SCC)
-      
+
       // THEN cached result is returned
       const cached = sccService.getCachedMetrics(testDir);
       expect(cached).toBeDefined();
@@ -141,17 +210,19 @@ echo '${mockOutput}'`, { mode: 0o755 });
     it("should invalidate cache when changes are reported", async () => {
       // GIVEN a valid cache entry exists at the service's cache location
       const cacheFile = join(testDir, "scc-cache.json");
-      
+
       const cacheData = {
         entries: {
           [testDir]: {
             valid: true,
-            data: { /* metrics */ },
+            data: {
+              /* metrics */
+            },
             cachedAt: Date.now(),
-          }
-        }
+          },
+        },
       };
-      
+
       writeFileSync(cacheFile, JSON.stringify(cacheData, null, 2));
       sccService.loadCache();
 
@@ -166,29 +237,29 @@ echo '${mockOutput}'`, { mode: 0o755 });
     it("should run SCC when cache is invalid", async () => {
       // GIVEN an invalid cache entry at testDir
       const cacheFile = join(testDir, "scc-cache.json");
-      
+
       const cacheData = {
         entries: {
           [testDir]: {
             valid: false,
             data: null,
             cachedAt: Date.now(),
-          }
-        }
+          },
+        },
       };
-      
+
       writeFileSync(cacheFile, JSON.stringify(cacheData, null, 2));
       sccService.loadCache();
 
       // WHEN runScc is called
       // (Should detect invalid cache and run SCC)
-      
+
       // SCC execution should occur (tested by mock being called)
       const result = await sccService.runScc(testDir);
-      
+
       // THEN result is from SCC execution, not cache
       expect(result).toBeDefined();
-      
+
       // AND cache is updated as valid
       const cached = sccService.getCacheEntry(testDir);
       expect(cached?.valid).toBe(true);
@@ -200,14 +271,14 @@ echo '${mockOutput}'`, { mode: 0o755 });
       // GIVEN cache entries for multiple directories using service methods
       const dir1 = join(testDir, "upstream");
       const dir2 = join(testDir, "workspace");
-      
+
       await sccService.updateCache(dir1, {
         linesOfCode: { added: 100, removed: 0, net: 100 },
         complexity: { cyclomatic: 10, cognitive: 0, estimatedMinutes: 10 },
         byLanguage: [],
         byFile: [],
       });
-      
+
       await sccService.updateCache(dir2, {
         linesOfCode: { added: 200, removed: 0, net: 200 },
         complexity: { cyclomatic: 20, cognitive: 0, estimatedMinutes: 20 },

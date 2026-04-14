@@ -8,12 +8,15 @@ describe("Agent Handoff Tests", () => {
   let testHome: string;
 
   beforeEach(async () => {
-    testHome = join(tmpdir(), `mimo-handoff-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    
+    testHome = join(
+      tmpdir(),
+      `mimo-handoff-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
+
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
-    
+
     mkdirSync(testHome, { recursive: true });
   });
 
@@ -28,7 +31,7 @@ describe("Agent Handoff Tests", () => {
       const workdir = "/home/user/work";
       const checkoutPath = "/home/user/work/projects/abc/sessions/xyz/checkout";
       const relativePath = relative(workdir, checkoutPath);
-      
+
       expect(relativePath).toBe("projects/abc/sessions/xyz/checkout");
     });
 
@@ -36,7 +39,7 @@ describe("Agent Handoff Tests", () => {
       const workdir = "/home/user/work";
       const checkoutPath = "/tmp/other/checkout";
       const relativePath = relative(workdir, checkoutPath);
-      
+
       // relative path will start with .. when outside workdir
       expect(relativePath.startsWith("..")).toBe(true);
     });
@@ -45,15 +48,16 @@ describe("Agent Handoff Tests", () => {
       const workdir = "/home/user/work";
       const checkoutPath = "/home/user/work";
       const relativePath = relative(workdir, checkoutPath);
-      
+
       expect(relativePath).toBe("");
     });
 
     it("should handle nested path", () => {
       const workdir = "/home/user/work/projects";
-      const checkoutPath = "/home/user/work/projects/my-app/sessions/123/checkout";
+      const checkoutPath =
+        "/home/user/work/projects/my-app/sessions/123/checkout";
       const relativePath = relative(workdir, checkoutPath);
-      
+
       expect(relativePath).toBe("my-app/sessions/123/checkout");
     });
 
@@ -61,7 +65,7 @@ describe("Agent Handoff Tests", () => {
       const workdir = "/home/user/work/projects/my-app/sessions/123";
       const checkoutPath = "/home/user/work/projects";
       const relativePath = relative(workdir, checkoutPath);
-      
+
       expect(relativePath.startsWith("..")).toBe(true);
     });
   });
@@ -103,9 +107,7 @@ describe("Agent Handoff Tests", () => {
       const message = {
         type: "session_ready" as const,
         platformUrl: "http://localhost:3000",
-        sessions: [
-          { sessionId: "session-1", port: 8080, acpSessionId: null },
-        ],
+        sessions: [{ sessionId: "session-1", port: 8080, acpSessionId: null }],
       };
 
       expect(message.sessions[0].acpSessionId).toBeNull();
@@ -157,7 +159,13 @@ describe("Agent Handoff Tests", () => {
         type: "session_ready" as const,
         platformUrl: "http://localhost:3000",
         sessions: [
-          { sessionId: "session-1", port: 8080, acpSessionId: null, modelState: null, modeState: null },
+          {
+            sessionId: "session-1",
+            port: 8080,
+            acpSessionId: null,
+            modelState: null,
+            modeState: null,
+          },
         ],
       };
 
@@ -292,18 +300,22 @@ describe("Agent Handoff Tests", () => {
     it("should construct correct fossil URL from platform URL", () => {
       const platformUrl = "http://localhost:3000";
       const port = 8080;
-      const platformHost = platformUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-      const fossilUrl = `http://${platformHost.split(':')[0]}:${port}/`;
-      
+      const platformHost = platformUrl
+        .replace(/^https?:\/\//, "")
+        .replace(/\/+$/, "");
+      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+
       expect(fossilUrl).toBe("http://localhost:8080/");
     });
 
     it("should handle platform URL with trailing slash", () => {
       const platformUrl = "http://localhost:3000/";
       const port = 8000;
-      const platformHost = platformUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-      const fossilUrl = `http://${platformHost.split(':')[0]}:${port}/`;
-      
+      const platformHost = platformUrl
+        .replace(/^https?:\/\//, "")
+        .replace(/\/+$/, "");
+      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+
       expect(fossilUrl).toBe("http://localhost:8000/");
     });
 
@@ -311,9 +323,11 @@ describe("Agent Handoff Tests", () => {
       // This was the bug: http://localhost:3000:8000
       const platformUrl = "http://localhost:3000";
       const port = 8000;
-      const platformHost = platformUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-      const fossilUrl = `http://${platformHost.split(':')[0]}:${port}/`;
-      
+      const platformHost = platformUrl
+        .replace(/^https?:\/\//, "")
+        .replace(/\/+$/, "");
+      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+
       // Should NOT be http://localhost:3000:8000
       expect(fossilUrl).not.toContain("3000:8000");
       expect(fossilUrl).toBe("http://localhost:8000/");
@@ -329,14 +343,14 @@ describe("Agent Handoff Tests", () => {
         assignedAgentId: agentId,
         status: "active",
       };
-      
+
       expect(session.assignedAgentId).toBe(agentId);
     });
 
     it("should handle agent with no assigned sessions", () => {
       const agentId = "agent-123";
       const sessions: any[] = [];
-      
+
       // Should return empty array, not undefined
       expect(sessions).toBeDefined();
       expect(sessions.length).toBe(0);
@@ -349,11 +363,11 @@ describe("Agent Handoff Tests", () => {
       const workdir = "/tmp/test";
       const repoPath = join(workdir, `${sessionId}.fossil`);
       const checkoutPath = join(workdir, sessionId);
-      
+
       // Simulate existing repo
       const repoExists = existsSync(repoPath);
       const checkoutExists = existsSync(checkoutPath);
-      
+
       // Logic: if repo exists, open it; else if checkout exists, ensure open; else clone
       if (repoExists) {
         expect(true).toBe(true); // Would open existing repo
@@ -369,7 +383,7 @@ describe("Agent Handoff Tests", () => {
         stderr: "file already exists: /tmp/demo/session.fossil\n",
         status: 1,
       };
-      
+
       expect(error.stderr).toContain("file already exists");
       expect(error.status).toBe(1);
     });

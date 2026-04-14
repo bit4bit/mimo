@@ -30,16 +30,21 @@ describe("provider selection", () => {
       const token = await createTestToken("opencode");
       const proc = Bun.spawn(
         [
-          process.execPath, "run", "src/index.ts",
-          "--token", token,
-          "--platform", "ws://localhost:3000/ws/agent",
-          "--provider", "invalid-provider",
+          process.execPath,
+          "run",
+          "src/index.ts",
+          "--token",
+          token,
+          "--platform",
+          "ws://localhost:3000/ws/agent",
+          "--provider",
+          "invalid-provider",
         ],
         {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
-        }
+        },
       );
 
       const exitCode = await proc.exited;
@@ -50,16 +55,21 @@ describe("provider selection", () => {
       const token = await createTestToken("opencode");
       const proc = Bun.spawn(
         [
-          process.execPath, "run", "src/index.ts",
-          "--token", token,
-          "--platform", "ws://localhost:3000/ws/agent",
-          "--provider", "unknown-xyz",
+          process.execPath,
+          "run",
+          "src/index.ts",
+          "--token",
+          token,
+          "--platform",
+          "ws://localhost:3000/ws/agent",
+          "--provider",
+          "unknown-xyz",
         ],
         {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
-        }
+        },
       );
 
       await proc.exited;
@@ -72,15 +82,19 @@ describe("provider selection", () => {
     it("should exit with code 1 when --provider is missing", async () => {
       const proc = Bun.spawn(
         [
-          process.execPath, "run", "src/index.ts",
-          "--token", "test-token",
-          "--platform", "ws://localhost:9999/ws/agent",
+          process.execPath,
+          "run",
+          "src/index.ts",
+          "--token",
+          "test-token",
+          "--platform",
+          "ws://localhost:9999/ws/agent",
         ],
         {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
-        }
+        },
       );
 
       const exitCode = await proc.exited;
@@ -90,15 +104,19 @@ describe("provider selection", () => {
     it("should show error message when --provider is missing", async () => {
       const proc = Bun.spawn(
         [
-          process.execPath, "run", "src/index.ts",
-          "--token", "test-token",
-          "--platform", "ws://localhost:9999/ws/agent",
+          process.execPath,
+          "run",
+          "src/index.ts",
+          "--token",
+          "test-token",
+          "--platform",
+          "ws://localhost:9999/ws/agent",
         ],
         {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
-        }
+        },
       );
 
       await proc.exited;
@@ -112,16 +130,21 @@ describe("provider selection", () => {
       const token = await createTestToken("opencode");
       const proc = Bun.spawn(
         [
-          process.execPath, "run", "src/index.ts",
-          "--token", token,
-          "--platform", "ws://localhost:9999/ws/agent",
-          "--provider", "opencode",
+          process.execPath,
+          "run",
+          "src/index.ts",
+          "--token",
+          token,
+          "--platform",
+          "ws://localhost:9999/ws/agent",
+          "--provider",
+          "opencode",
         ],
         {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
-        }
+        },
       );
 
       await proc.exited;
@@ -134,16 +157,21 @@ describe("provider selection", () => {
       const token = await createTestToken("claude"); // Token expects "claude"
       const proc = Bun.spawn(
         [
-          process.execPath, "run", "src/index.ts",
-          "--token", token,
-          "--platform", "ws://localhost:9999/ws/agent",
-          "--provider", "opencode", // But agent declares "opencode"
+          process.execPath,
+          "run",
+          "src/index.ts",
+          "--token",
+          token,
+          "--platform",
+          "ws://localhost:9999/ws/agent",
+          "--provider",
+          "opencode", // But agent declares "opencode"
         ],
         {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
-        }
+        },
       );
 
       const exitCode = await proc.exited;
@@ -154,16 +182,21 @@ describe("provider selection", () => {
       const token = await createTestToken("claude"); // Token expects "claude"
       const proc = Bun.spawn(
         [
-          process.execPath, "run", "src/index.ts",
-          "--token", token,
-          "--platform", "ws://localhost:9999/ws/agent",
-          "--provider", "opencode", // But agent declares "opencode"
+          process.execPath,
+          "run",
+          "src/index.ts",
+          "--token",
+          token,
+          "--platform",
+          "ws://localhost:9999/ws/agent",
+          "--provider",
+          "opencode", // But agent declares "opencode"
         ],
         {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
-        }
+        },
       );
 
       await proc.exited;
@@ -179,16 +212,21 @@ describe("provider selection", () => {
       const token = await createTestToken("claude");
       const proc = Bun.spawn(
         [
-          process.execPath, "run", "src/index.ts",
-          "--token", token,
-          "--platform", "ws://localhost:9999/ws/agent",
-          "--provider", "claude",
+          process.execPath,
+          "run",
+          "src/index.ts",
+          "--token",
+          token,
+          "--platform",
+          "ws://localhost:9999/ws/agent",
+          "--provider",
+          "claude",
         ],
         {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
-        }
+        },
       );
 
       await proc.exited;
@@ -201,16 +239,21 @@ describe("provider selection", () => {
       const token = await createTestToken("opencode"); // Token expects "opencode"
       const proc = Bun.spawn(
         [
-          process.execPath, "run", "src/index.ts",
-          "--token", token,
-          "--platform", "ws://localhost:9999/ws/agent",
-          "--provider", "claude", // But agent declares "claude"
+          process.execPath,
+          "run",
+          "src/index.ts",
+          "--token",
+          token,
+          "--platform",
+          "ws://localhost:9999/ws/agent",
+          "--provider",
+          "claude", // But agent declares "claude"
         ],
         {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
-        }
+        },
       );
 
       const exitCode = await proc.exited;
@@ -223,16 +266,21 @@ describe("provider selection", () => {
       const token = await createTestToken(); // No provider claim
       const proc = Bun.spawn(
         [
-          process.execPath, "run", "src/index.ts",
-          "--token", token,
-          "--platform", "ws://localhost:9999/ws/agent",
-          "--provider", "opencode",
+          process.execPath,
+          "run",
+          "src/index.ts",
+          "--token",
+          token,
+          "--platform",
+          "ws://localhost:9999/ws/agent",
+          "--provider",
+          "opencode",
         ],
         {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
-        }
+        },
       );
 
       await proc.exited;
@@ -244,16 +292,21 @@ describe("provider selection", () => {
       const token = await createTestToken(); // No provider claim
       const proc = Bun.spawn(
         [
-          process.execPath, "run", "src/index.ts",
-          "--token", token,
-          "--platform", "ws://localhost:9999/ws/agent",
-          "--provider", "opencode",
+          process.execPath,
+          "run",
+          "src/index.ts",
+          "--token",
+          token,
+          "--platform",
+          "ws://localhost:9999/ws/agent",
+          "--provider",
+          "opencode",
         ],
         {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
-        }
+        },
       );
 
       await proc.exited;
@@ -265,23 +318,27 @@ describe("provider selection", () => {
       const token = await createTestToken(); // No provider claim
       const proc = Bun.spawn(
         [
-          process.execPath, "run", "src/index.ts",
-          "--token", token,
-          "--platform", "ws://localhost:9999/ws/agent",
-          "--provider", "claude", // Legacy tokens default to "opencode"
+          process.execPath,
+          "run",
+          "src/index.ts",
+          "--token",
+          token,
+          "--platform",
+          "ws://localhost:9999/ws/agent",
+          "--provider",
+          "claude", // Legacy tokens default to "opencode"
         ],
         {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
-        }
+        },
       );
 
       const exitCode = await proc.exited;
       expect(exitCode).toBe(1);
     });
   });
-
 });
 
 describe("ClaudeAgentProvider", () => {
@@ -295,11 +352,15 @@ describe("ClaudeAgentProvider", () => {
 
   describe("mapUpdateType", () => {
     it("should map agent_thought_chunk to thought_chunk", () => {
-      expect(provider.mapUpdateType("agent_thought_chunk")).toBe("thought_chunk");
+      expect(provider.mapUpdateType("agent_thought_chunk")).toBe(
+        "thought_chunk",
+      );
     });
 
     it("should map agent_message_chunk to message_chunk", () => {
-      expect(provider.mapUpdateType("agent_message_chunk")).toBe("message_chunk");
+      expect(provider.mapUpdateType("agent_message_chunk")).toBe(
+        "message_chunk",
+      );
     });
 
     it("should map usage_update to usage_update", () => {
@@ -329,8 +390,16 @@ describe("ClaudeAgentProvider", () => {
             category: "model",
             type: "select",
             options: [
-              { value: "claude-opus-4-6", name: "Claude Opus", description: "Most capable" },
-              { value: "claude-sonnet-4-6", name: "Claude Sonnet", description: "Balanced" },
+              {
+                value: "claude-opus-4-6",
+                name: "Claude Opus",
+                description: "Most capable",
+              },
+              {
+                value: "claude-sonnet-4-6",
+                name: "Claude Sonnet",
+                description: "Balanced",
+              },
             ],
             currentValue: "claude-sonnet-4-6",
           },
@@ -339,7 +408,11 @@ describe("ClaudeAgentProvider", () => {
             category: "mode",
             type: "select",
             options: [
-              { value: "default", name: "Default", description: "Default mode" },
+              {
+                value: "default",
+                name: "Default",
+                description: "Default mode",
+              },
             ],
             currentValue: "default",
           },

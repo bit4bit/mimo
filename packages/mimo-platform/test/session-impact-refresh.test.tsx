@@ -23,7 +23,7 @@ describe("Session impact refresh UI", () => {
             leftFrame: { activeBufferId: "chat" },
             rightFrame: { activeBufferId: "impact" },
           }}
-        />
+        />,
       );
     });
 

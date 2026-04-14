@@ -20,7 +20,11 @@ interface ProjectEditProps {
   error?: string;
 }
 
-export const ProjectEditPage: FC<ProjectEditProps> = ({ project, credentials = [], error }) => {
+export const ProjectEditPage: FC<ProjectEditProps> = ({
+  project,
+  credentials = [],
+  error,
+}) => {
   return (
     <Layout title={`Edit ${project.name}`}>
       <div class="container">
@@ -32,32 +36,54 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({ project, credentials = [
           </div>
 
           <div class="form-group">
-            <label>Description (optional, max 500 chars, recommended ~200)</label>
-            <textarea name="description" rows="3" placeholder="Describe your project..." style="background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%;">{project.description || ""}</textarea>
+            <label>
+              Description (optional, max 500 chars, recommended ~200)
+            </label>
+            <textarea
+              name="description"
+              rows="3"
+              placeholder="Describe your project..."
+              style="background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%;"
+            >
+              {project.description || ""}
+            </textarea>
           </div>
 
           <div class="form-group">
             <label>Repository URL</label>
-            <input type="text" name="repoUrl" required value={project.repoUrl} />
-            <small>Git or Fossil repository URL. Supports HTTPS and SSH formats.</small>
+            <input
+              type="text"
+              name="repoUrl"
+              required
+              value={project.repoUrl}
+            />
+            <small>
+              Git or Fossil repository URL. Supports HTTPS and SSH formats.
+            </small>
           </div>
 
           <div class="form-group">
             <label>Repository Type</label>
             <select name="repoType">
-              <option value="git" selected={project.repoType === "git"}>Git</option>
-              <option value="fossil" selected={project.repoType === "fossil"}>Fossil</option>
+              <option value="git" selected={project.repoType === "git"}>
+                Git
+              </option>
+              <option value="fossil" selected={project.repoType === "fossil"}>
+                Fossil
+              </option>
             </select>
           </div>
 
           <div class="form-group">
             <label>Credential (optional)</label>
             <select name="credentialId" id="credentialSelect">
-              <option value="" selected={!project.credentialId}>None (public repository)</option>
+              <option value="" selected={!project.credentialId}>
+                None (public repository)
+              </option>
               {credentials.map((cred) => (
-                <option 
-                  key={cred.id} 
-                  value={cred.id} 
+                <option
+                  key={cred.id}
+                  value={cred.id}
                   data-type={cred.type}
                   selected={project.credentialId === cred.id}
                 >
@@ -65,18 +91,33 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({ project, credentials = [
                 </option>
               ))}
             </select>
-            <small>Select a credential for private repositories. Type must match URL (HTTPS for https://, SSH for git@).</small>
+            <small>
+              Select a credential for private repositories. Type must match URL
+              (HTTPS for https://, SSH for git@).
+            </small>
           </div>
 
           <div class="form-group">
             <label>Local Development Mirror (optional)</label>
-            <input type="text" name="defaultLocalDevMirrorPath" value={project.defaultLocalDevMirrorPath || ""} placeholder="/home/user/myproject-dev" />
-            <small class="form-help">Absolute path where agent changes will be synced in real-time for immediate testing</small>
+            <input
+              type="text"
+              name="defaultLocalDevMirrorPath"
+              value={project.defaultLocalDevMirrorPath || ""}
+              placeholder="/home/user/myproject-dev"
+            />
+            <small class="form-help">
+              Absolute path where agent changes will be synced in real-time for
+              immediate testing
+            </small>
           </div>
 
           <div class="actions">
-            <button type="submit" class="btn">Save Changes</button>
-            <a href={`/projects/${project.id}`} class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn">
+              Save Changes
+            </button>
+            <a href={`/projects/${project.id}`} class="btn-secondary">
+              Cancel
+            </a>
           </div>
 
           {error && <div class="error">{error}</div>}

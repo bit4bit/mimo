@@ -1,8 +1,21 @@
 import { join } from "path";
 import { homedir } from "os";
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+  rmdirSync,
+  unlinkSync,
+} from "fs";
 import { dump, load } from "js-yaml";
-import type { McpServer, McpServerData, CreateMcpServerInput, UpdateMcpServerInput } from "./types.js";
+import type {
+  McpServer,
+  McpServerData,
+  CreateMcpServerInput,
+  UpdateMcpServerInput,
+} from "./types.js";
 import { slugify } from "./types.js";
 
 interface McpServerRepositoryDeps {
@@ -14,7 +27,9 @@ export class McpServerRepository {
 
   private getMcpServersPath(): string {
     if (!this.deps.mcpServersPath) {
-      throw new Error("mcpServersPath is required - provide via McpServerRepository constructor");
+      throw new Error(
+        "mcpServersPath is required - provide via McpServerRepository constructor",
+      );
     }
     return this.deps.mcpServersPath;
   }
@@ -69,7 +84,7 @@ export class McpServerRepository {
     writeFileSync(
       this.getMcpServerConfigPath(id),
       dump(mcpServerData),
-      "utf-8"
+      "utf-8",
     );
 
     return {
@@ -122,7 +137,10 @@ export class McpServerRepository {
     return servers.sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  async update(id: string, input: UpdateMcpServerInput): Promise<McpServer | null> {
+  async update(
+    id: string,
+    input: UpdateMcpServerInput,
+  ): Promise<McpServer | null> {
     const existing = await this.findById(id);
     if (!existing) {
       return null;
@@ -131,7 +149,9 @@ export class McpServerRepository {
     const updatedData: McpServerData = {
       ...existing,
       ...(input.name !== undefined && { name: input.name }),
-      ...(input.description !== undefined && { description: input.description }),
+      ...(input.description !== undefined && {
+        description: input.description,
+      }),
       ...(input.transport !== undefined && { transport: input.transport }),
       ...(input.command !== undefined && { command: input.command }),
       ...(input.args !== undefined && { args: input.args }),
@@ -141,11 +161,7 @@ export class McpServerRepository {
       updatedAt: new Date().toISOString(),
     };
 
-    writeFileSync(
-      this.getMcpServerConfigPath(id),
-      dump(updatedData),
-      "utf-8"
-    );
+    writeFileSync(this.getMcpServerConfigPath(id), dump(updatedData), "utf-8");
 
     return {
       ...updatedData,

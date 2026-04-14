@@ -2,7 +2,11 @@ import { describe, it, expect } from "bun:test";
 import { AutoCommitService } from "../src/auto-commit/service";
 
 function makeService(overrides: {
-  duplication?: { percentage: number; duplicatedLines: number; clones: unknown[] };
+  duplication?: {
+    percentage: number;
+    duplicatedLines: number;
+    clones: unknown[];
+  };
   blockThreshold?: number;
   warningThreshold?: number;
   onCommit?: (msg: string) => void;
@@ -34,7 +38,11 @@ function makeService(overrides: {
         metrics: {
           files: { new: 1, changed: 0, deleted: 0, unchanged: 0 },
           linesOfCode: { added: 20, removed: 0, net: 20 },
-          duplication: overrides.duplication ?? { percentage: 0, duplicatedLines: 0, clones: [] },
+          duplication: overrides.duplication ?? {
+            percentage: 0,
+            duplicatedLines: 0,
+            clones: [],
+          },
         },
         trends: {},
       }),
@@ -84,7 +92,9 @@ describe("AutoCommitService", () => {
 
     expect(result.success).toBe(true);
     expect(commitMessages).toHaveLength(1);
-    expect(commitMessages[0]).toBe("[AuthSession] - 3 files changed (+10/-4 lines)");
+    expect(commitMessages[0]).toBe(
+      "[AuthSession] - 3 files changed (+10/-4 lines)",
+    );
     expect(statuses.some((s) => s.syncState === "syncing")).toBe(true);
     expect(statuses.some((s) => s.syncState === "idle")).toBe(true);
   });

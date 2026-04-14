@@ -1,6 +1,12 @@
 import { join } from "path";
 import { homedir } from "os";
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+} from "fs";
 import YAML from "yaml";
 import { logger } from "../logger.js";
 
@@ -47,8 +53,15 @@ export class ImpactRepository {
     return join(this.deps.projectsPath, projectId, "impacts");
   }
 
-  private getImpactPath(projectId: string, sessionId: string, commitHash: string): string {
-    return join(this.getImpactDir(projectId), `${sessionId}-${commitHash}.yaml`);
+  private getImpactPath(
+    projectId: string,
+    sessionId: string,
+    commitHash: string,
+  ): string {
+    return join(
+      this.getImpactDir(projectId),
+      `${sessionId}-${commitHash}.yaml`,
+    );
   }
 
   ensureImpactDir(projectId: string): void {
@@ -60,24 +73,28 @@ export class ImpactRepository {
 
   save(record: ImpactRecord): void {
     this.ensureImpactDir(record.projectId);
-    
-    const filePath = this.getImpactPath(record.projectId, record.sessionId, record.commitHash);
+
+    const filePath = this.getImpactPath(
+      record.projectId,
+      record.sessionId,
+      record.commitHash,
+    );
     const yamlContent = YAML.stringify({
       ...record,
       commitDate: record.commitDate.toISOString(),
     });
-    
+
     writeFileSync(filePath, yamlContent, "utf-8");
   }
 
   findByProject(projectId: string): ImpactRecord[] {
     const impactDir = this.getImpactDir(projectId);
-    
+
     if (!existsSync(impactDir)) {
       return [];
     }
 
-    const files = readdirSync(impactDir).filter(f => f.endsWith(".yaml"));
+    const files = readdirSync(impactDir).filter((f) => f.endsWith(".yaml"));
     const records: ImpactRecord[] = [];
 
     for (const file of files) {
@@ -90,21 +107,28 @@ export class ImpactRepository {
           commitDate: new Date(data.commitDate),
         });
       } catch (error) {
-        logger.error(`[impact] Failed to load impact record from ${filePath}:`, error);
+        logger.error(
+          `[impact] Failed to load impact record from ${filePath}:`,
+          error,
+        );
       }
     }
 
     // Sort by commit date descending (newest first)
-    return records.sort((a, b) => b.commitDate.getTime() - a.commitDate.getTime());
+    return records.sort(
+      (a, b) => b.commitDate.getTime() - a.commitDate.getTime(),
+    );
   }
 
   findBySession(projectId: string, sessionId: string): ImpactRecord[] {
-    return this.findByProject(projectId).filter(r => r.sessionId === sessionId);
+    return this.findByProject(projectId).filter(
+      (r) => r.sessionId === sessionId,
+    );
   }
 
   findByCommitHash(projectId: string, commitHash: string): ImpactRecord | null {
     const records = this.findByProject(projectId);
-    return records.find(r => r.commitHash === commitHash) || null;
+    return records.find((r) => r.commitHash === commitHash) || null;
   }
 
   delete(projectId: string, sessionId: string, commitHash: string): void {

@@ -1,16 +1,20 @@
 import { join } from "path";
 import { homedir } from "os";
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+  rmdirSync,
+  unlinkSync,
+} from "fs";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
 
-export type AgentStatus = 
-  | "online" 
-  | "offline";
+export type AgentStatus = "online" | "offline";
 
-export type AgentProvider =
-  | "opencode"
-  | "claude";
+export type AgentProvider = "opencode" | "claude";
 
 export interface Agent {
   id: string;
@@ -53,7 +57,9 @@ export class AgentRepository {
 
   private getAgentsPath(): string {
     if (!this.deps.agentsPath) {
-      throw new Error("agentsPath is required - provide via AgentRepository constructor");
+      throw new Error(
+        "agentsPath is required - provide via AgentRepository constructor",
+      );
     }
     return this.deps.agentsPath;
   }
@@ -73,7 +79,7 @@ export class AgentRepository {
   async create(input: CreateAgentInput): Promise<Agent> {
     const id = this.generateId();
     const agentPath = this.getAgentPath(id);
-    
+
     if (!existsSync(agentPath)) {
       mkdirSync(agentPath, { recursive: true });
     }
@@ -97,8 +103,8 @@ export class AgentRepository {
       ...agentData,
       startedAt: new Date(agentData.startedAt),
       updatedAt: new Date(agentData.updatedAt),
-      lastActivityAt: agentData.lastActivityAt 
-        ? new Date(agentData.lastActivityAt) 
+      lastActivityAt: agentData.lastActivityAt
+        ? new Date(agentData.lastActivityAt)
         : undefined,
     };
   }
@@ -120,8 +126,8 @@ export class AgentRepository {
       provider,
       startedAt: new Date(data.startedAt),
       updatedAt: new Date(data.updatedAt),
-      lastActivityAt: data.lastActivityAt 
-        ? new Date(data.lastActivityAt) 
+      lastActivityAt: data.lastActivityAt
+        ? new Date(data.lastActivityAt)
         : undefined,
     };
   }
@@ -149,8 +155,8 @@ export class AgentRepository {
               provider,
               startedAt: new Date(data.startedAt),
               updatedAt: new Date(data.updatedAt),
-              lastActivityAt: data.lastActivityAt 
-                ? new Date(data.lastActivityAt) 
+              lastActivityAt: data.lastActivityAt
+                ? new Date(data.lastActivityAt)
                 : undefined,
             });
           }
@@ -184,8 +190,8 @@ export class AgentRepository {
               provider,
               startedAt: new Date(data.startedAt),
               updatedAt: new Date(data.updatedAt),
-              lastActivityAt: data.lastActivityAt 
-                ? new Date(data.lastActivityAt) 
+              lastActivityAt: data.lastActivityAt
+                ? new Date(data.lastActivityAt)
                 : undefined,
             });
           }
@@ -197,8 +203,8 @@ export class AgentRepository {
   }
 
   async update(
-    agentId: string, 
-    updates: Partial<Omit<AgentData, "id" | "startedAt">>
+    agentId: string,
+    updates: Partial<Omit<AgentData, "id" | "startedAt">>,
   ): Promise<Agent | null> {
     const agent = await this.findById(agentId);
     if (!agent) return null;
@@ -216,13 +222,16 @@ export class AgentRepository {
       ...updatedData,
       startedAt: new Date(updatedData.startedAt),
       updatedAt: new Date(updatedData.updatedAt),
-      lastActivityAt: updatedData.lastActivityAt 
-        ? new Date(updatedData.lastActivityAt) 
+      lastActivityAt: updatedData.lastActivityAt
+        ? new Date(updatedData.lastActivityAt)
         : undefined,
     };
   }
 
-  async updateStatus(agentId: string, status: AgentStatus): Promise<Agent | null> {
+  async updateStatus(
+    agentId: string,
+    status: AgentStatus,
+  ): Promise<Agent | null> {
     return this.update(agentId, { status });
   }
 
@@ -230,10 +239,13 @@ export class AgentRepository {
     return this.update(agentId, { lastActivityAt: new Date().toISOString() });
   }
 
-  async assignSession(agentId: string, sessionId: string): Promise<Agent | null> {
+  async assignSession(
+    agentId: string,
+    sessionId: string,
+  ): Promise<Agent | null> {
     const agent = await this.findById(agentId);
     if (!agent) return null;
-    
+
     if (!agent.sessionIds.includes(sessionId)) {
       const updatedSessionIds = [...agent.sessionIds, sessionId];
       return this.update(agentId, { sessionIds: updatedSessionIds });
@@ -241,29 +253,40 @@ export class AgentRepository {
     return agent;
   }
 
-  async unassignSession(agentId: string, sessionId: string): Promise<Agent | null> {
+  async unassignSession(
+    agentId: string,
+    sessionId: string,
+  ): Promise<Agent | null> {
     const agent = await this.findById(agentId);
     if (!agent) return null;
-    
-    const updatedSessionIds = agent.sessionIds.filter(id => id !== sessionId);
+
+    const updatedSessionIds = agent.sessionIds.filter((id) => id !== sessionId);
     return this.update(agentId, { sessionIds: updatedSessionIds });
   }
 
-  async setSessionAssignment(agentId: string, sessionId: string, sessionRepo: any): Promise<boolean> {
+  async setSessionAssignment(
+    agentId: string,
+    sessionId: string,
+    sessionRepo: any,
+  ): Promise<boolean> {
     // Update agent's sessionIds
     const agent = await this.assignSession(agentId, sessionId);
     if (!agent) return false;
-    
+
     // Update session's assignedAgentId
     await sessionRepo.update(sessionId, { assignedAgentId: agentId });
     return true;
   }
 
-  async unsetSessionAssignment(agentId: string, sessionId: string, sessionRepo: any): Promise<boolean> {
+  async unsetSessionAssignment(
+    agentId: string,
+    sessionId: string,
+    sessionRepo: any,
+  ): Promise<boolean> {
     // Update agent's sessionIds
     const agent = await this.unassignSession(agentId, sessionId);
     if (!agent) return false;
-    
+
     // Update session's assignedAgentId
     await sessionRepo.update(sessionId, { assignedAgentId: null });
     return true;
@@ -280,7 +303,7 @@ export class AgentRepository {
     if (!existsSync(dirPath)) return;
 
     const entries = readdirSync(dirPath, { withFileTypes: true });
-    
+
     for (const entry of entries) {
       const entryPath = join(dirPath, entry.name);
       if (entry.isDirectory()) {

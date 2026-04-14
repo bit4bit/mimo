@@ -18,8 +18,11 @@ describe("Project Sessions Link Integration Tests", () => {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
-    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({
+      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+    });
 
     userRepository = ctx.repos.users;
     projectRepository = ctx.repos.projects;
@@ -39,7 +42,10 @@ describe("Project Sessions Link Integration Tests", () => {
 
   describe("Project Detail Page with Sessions", () => {
     it("should show sessions list on project detail page", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -74,7 +80,10 @@ describe("Project Sessions Link Integration Tests", () => {
     });
 
     it("should show empty state when no sessions exist", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -91,11 +100,16 @@ describe("Project Sessions Link Integration Tests", () => {
 
       expect(res.status).toBe(200);
       const html = await res.text();
-      expect(html).toContain("No sessions yet. Create one to start development.");
+      expect(html).toContain(
+        "No sessions yet. Create one to start development.",
+      );
     });
 
     it("should show New Session button", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -117,7 +131,10 @@ describe("Project Sessions Link Integration Tests", () => {
     });
 
     it("should show session links to session detail", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -144,7 +161,10 @@ describe("Project Sessions Link Integration Tests", () => {
     });
 
     it("should order sessions by creation date (most recent first)", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -162,7 +182,7 @@ describe("Project Sessions Link Integration Tests", () => {
       });
 
       // Small delay to ensure different timestamps
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       const session2 = await sessionRepository.create({
         name: "Second Session",
@@ -176,7 +196,7 @@ describe("Project Sessions Link Integration Tests", () => {
 
       expect(res.status).toBe(200);
       const html = await res.text();
-      
+
       // Second session should appear before first in the HTML
       const secondIndex = html.indexOf("Second Session");
       const firstIndex = html.indexOf("First Session");

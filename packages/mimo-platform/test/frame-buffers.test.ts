@@ -19,8 +19,11 @@ describe("Frame buffers integration", () => {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
-    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({
+      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+    });
 
     userRepository = ctx.repos.users;
     projectRepository = ctx.repos.projects;
@@ -75,12 +78,15 @@ describe("Frame buffers integration", () => {
   it("shows left Chat/Notes tabs and right Impact tab", async () => {
     const { app, project, token, sessionId } = await createSessionAppAndAuth();
 
-    const res = await app.request(`/projects/${project.id}/sessions/${sessionId}`, {
-      method: "GET",
-      headers: {
-        Cookie: `token=${token}`,
+    const res = await app.request(
+      `/projects/${project.id}/sessions/${sessionId}`,
+      {
+        method: "GET",
+        headers: {
+          Cookie: `token=${token}`,
+        },
       },
-    });
+    );
 
     const html = await res.text();
     expect(res.status).toBe(200);
@@ -100,35 +106,44 @@ describe("Frame buffers integration", () => {
   it("persists frame-state updates per session", async () => {
     const { app, token, sessionId } = await createSessionAppAndAuth();
 
-    const initialState = await app.request(`/sessions/${sessionId}/frame-state`, {
-      method: "GET",
-      headers: {
-        Cookie: `token=${token}`,
+    const initialState = await app.request(
+      `/sessions/${sessionId}/frame-state`,
+      {
+        method: "GET",
+        headers: {
+          Cookie: `token=${token}`,
+        },
       },
-    });
+    );
 
     expect(initialState.status).toBe(200);
     const initialJson = await initialState.json();
     expect(initialJson.leftFrame.activeBufferId).toBe("chat");
     expect(initialJson.rightFrame.activeBufferId).toBe("impact");
 
-    const updateState = await app.request(`/sessions/${sessionId}/frame-state`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: `token=${token}`,
+    const updateState = await app.request(
+      `/sessions/${sessionId}/frame-state`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `token=${token}`,
+        },
+        body: JSON.stringify({ frame: "right", activeBufferId: "notes" }),
       },
-      body: JSON.stringify({ frame: "right", activeBufferId: "notes" }),
-    });
+    );
 
     expect(updateState.status).toBe(200);
 
-    const updatedState = await app.request(`/sessions/${sessionId}/frame-state`, {
-      method: "GET",
-      headers: {
-        Cookie: `token=${token}`,
+    const updatedState = await app.request(
+      `/sessions/${sessionId}/frame-state`,
+      {
+        method: "GET",
+        headers: {
+          Cookie: `token=${token}`,
+        },
       },
-    });
+    );
     const updatedJson = await updatedState.json();
     expect(updatedJson.leftFrame.activeBufferId).toBe("chat");
     expect(updatedJson.rightFrame.activeBufferId).toBe("notes");
@@ -166,7 +181,14 @@ describe("Frame buffers integration", () => {
 
     const session = await sessionRepository.findById(sessionId);
     expect(session).toBeNull();
-    const notesPath = join(testHome, "projects", project.id, "sessions", sessionId, "notes.txt");
+    const notesPath = join(
+      testHome,
+      "projects",
+      project.id,
+      "sessions",
+      sessionId,
+      "notes.txt",
+    );
     expect(existsSync(notesPath)).toBe(false);
   });
 });

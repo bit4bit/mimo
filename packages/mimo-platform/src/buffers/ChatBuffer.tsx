@@ -16,14 +16,21 @@ export const ChatBuffer: FC<ChatBufferProps> = ({ chatHistory = [] }) => {
     <>
       <div class="buffer-content" id="chat-messages">
         {chatHistory.length === 0 ? (
-          <div class="no-messages" style="padding: 20px; color: #888; text-align: center;">
+          <div
+            class="no-messages"
+            style="padding: 20px; color: #888; text-align: center;"
+          >
             <p>No messages yet.</p>
-            <p style="font-size: 12px; margin-top: 10px;">Start chatting with the agent</p>
+            <p style="font-size: 12px; margin-top: 10px;">
+              Start chatting with the agent
+            </p>
           </div>
         ) : (
           chatHistory.map((msg, i) => (
             <div key={i} class={`message message-${msg.role}`}>
-              <div class="message-header">{msg.role === "user" ? "You" : "Agent"}</div>
+              <div class="message-header">
+                {msg.role === "user" ? "You" : "Agent"}
+              </div>
               <div class="message-content">{msg.content}</div>
             </div>
           ))

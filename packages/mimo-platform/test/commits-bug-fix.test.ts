@@ -7,10 +7,16 @@ describe("Commit Service Bug Fix - Untracked Files Preservation", () => {
   let testHome: string;
 
   beforeEach(async () => {
-    testHome = join(tmpdir(), `mimo-commit-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    testHome = join(
+      tmpdir(),
+      `mimo-commit-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
-    createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    createMimoContext({
+      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+    });
 
     try {
       rmSync(testHome, { recursive: true, force: true });
@@ -23,7 +29,7 @@ describe("Commit Service Bug Fix - Untracked Files Preservation", () => {
   describe("Commit Service Integration", () => {
     it("should have commit service with commitAndPush method", async () => {
       const { commitService } = await import("../src/commits/service.ts");
-      
+
       // Verify the service exists and has the expected method
       expect(commitService).toBeDefined();
       expect(typeof commitService.commitAndPush).toBe("function");
@@ -31,7 +37,7 @@ describe("Commit Service Bug Fix - Untracked Files Preservation", () => {
 
     it("should have VCS service with required methods", async () => {
       const { vcs } = await import("../src/vcs/index.ts");
-      
+
       // Verify VCS methods exist
       expect(vcs).toBeDefined();
       expect(typeof vcs.createFossilRepo).toBe("function");
@@ -40,8 +46,10 @@ describe("Commit Service Bug Fix - Untracked Files Preservation", () => {
     });
 
     it("should create repositories and sessions correctly", async () => {
-      const { SessionRepository } = await import("../src/sessions/repository.ts");
-      const { ProjectRepository } = await import("../src/projects/repository.ts");
+      const { SessionRepository } =
+        await import("../src/sessions/repository.ts");
+      const { ProjectRepository } =
+        await import("../src/projects/repository.ts");
       const { vcs } = await import("../src/vcs/index.ts");
 
       const sessionRepo = new SessionRepository();

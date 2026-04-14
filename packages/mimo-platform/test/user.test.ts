@@ -1,10 +1,4 @@
-import {
-  describe,
-  expect,
-  test,
-  beforeEach,
-  afterEach,
-} from "bun:test";
+import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync } from "fs";
@@ -16,9 +10,13 @@ describe("User Repository Integration Test", () => {
   let testHome: string;
 
   beforeEach(async () => {
-    testHome = join(tmpdir(), `mimo-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    testHome = join(
+      tmpdir(),
+      `mimo-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({ env: { MIMO_HOME: testHome } });
     userRepository = ctx.repos.users;
   });
@@ -50,7 +48,7 @@ describe("User Repository Integration Test", () => {
     await userRepository.create("alice", passwordHash);
 
     expect(userRepository.create("alice", passwordHash)).rejects.toThrow(
-      'User "alice" already exists'
+      'User "alice" already exists',
     );
   });
 
@@ -77,9 +75,6 @@ describe("User Repository Integration Test", () => {
 
     const users = await userRepository.listUsers();
     expect(users.length).toBe(2);
-    expect(users.map((u: any) => u.username).sort()).toEqual([
-      "alice",
-      "bob",
-    ]);
+    expect(users.map((u: any) => u.username).sort()).toEqual(["alice", "bob"]);
   });
 });

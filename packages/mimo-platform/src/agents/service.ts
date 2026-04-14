@@ -1,4 +1,9 @@
-import { Agent, AgentRepository, AgentStatus, AgentProvider } from "./repository.js";
+import {
+  Agent,
+  AgentRepository,
+  AgentStatus,
+  AgentProvider,
+} from "./repository.js";
 import { SignJWT, jwtVerify } from "jose";
 import { logger } from "../logger.js";
 
@@ -28,7 +33,7 @@ export class AgentService {
 
   constructor(
     private repository: AgentRepository,
-    jwtSecret: string = DEFAULT_JWT_SECRET
+    jwtSecret: string = DEFAULT_JWT_SECRET,
   ) {
     this.agentSecret = new TextEncoder().encode(jwtSecret);
   }
@@ -56,26 +61,34 @@ export class AgentService {
       provider: input.provider,
     });
 
-    const token = await this.generateAgentToken(agent, input.sessionId, input.projectId);
+    const token = await this.generateAgentToken(
+      agent,
+      input.sessionId,
+      input.projectId,
+    );
     await this.repository.update(agent.id, { token });
-    
+
     return { ...agent, token };
   }
 
-  async generateAgentToken(agent: Agent, sessionId?: string, projectId?: string): Promise<string> {
+  async generateAgentToken(
+    agent: Agent,
+    sessionId?: string,
+    projectId?: string,
+  ): Promise<string> {
     const tokenPayload: any = {
       agentId: agent.id,
       owner: agent.owner,
       provider: agent.provider,
     };
-    
+
     if (sessionId) {
       tokenPayload.sessionId = sessionId;
     }
     if (projectId) {
       tokenPayload.projectId = projectId;
     }
-    
+
     const token = await new SignJWT(tokenPayload)
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
@@ -96,12 +109,19 @@ export class AgentService {
         provider: payload.provider as AgentProvider,
       };
     } catch (error) {
-      logger.error("[verifyAgentToken] Token verification failed:", error?.message || error);
+      logger.error(
+        "[verifyAgentToken] Token verification failed:",
+        error?.message || error,
+      );
       return null;
     }
   }
 
-  async handleAgentConnect(agentId: string, ws: WebSocket, workdir?: string): Promise<void> {
+  async handleAgentConnect(
+    agentId: string,
+    ws: WebSocket,
+    workdir?: string,
+  ): Promise<void> {
     const agent = await this.repository.findById(agentId);
     if (!agent) {
       ws.close(1008, "Agent not found");
@@ -163,7 +183,7 @@ export class AgentService {
 
     this.currentAcpRequest.delete(agentId);
     await this.repository.delete(agentId);
-    
+
     return true;
   }
 
@@ -211,14 +231,20 @@ export class AgentService {
 
   async notifySessionEnded(sessionId: string, agentId: string): Promise<void> {
     const ws = this.activeConnections.get(agentId);
-    if (ws && ws.readyState === 1) { // 1 = OPEN
+    if (ws && ws.readyState === 1) {
+      // 1 = OPEN
       try {
-        ws.send(JSON.stringify({
-          type: "session_ended",
-          sessionId,
-        }));
+        ws.send(
+          JSON.stringify({
+            type: "session_ended",
+            sessionId,
+          }),
+        );
       } catch (error) {
-        logger.error(`[notifySessionEnded] Failed to notify agent ${agentId}:`, error);
+        logger.error(
+          `[notifySessionEnded] Failed to notify agent ${agentId}:`,
+          error,
+        );
       }
     }
     // Cleanup any in-flight ACP requests for this agent

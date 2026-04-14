@@ -34,11 +34,17 @@ export class ChatService {
     }
 
     const { readdirSync } = require("fs");
-    const projectEntries = readdirSync(this.paths.projects, { withFileTypes: true });
-    
+    const projectEntries = readdirSync(this.paths.projects, {
+      withFileTypes: true,
+    });
+
     for (const projectEntry of projectEntries) {
       if (projectEntry.isDirectory()) {
-        const sessionsDir = join(this.paths.projects, projectEntry.name, "sessions");
+        const sessionsDir = join(
+          this.paths.projects,
+          projectEntry.name,
+          "sessions",
+        );
         if (existsSync(sessionsDir)) {
           const sessionDir = join(sessionsDir, sessionId);
           if (existsSync(sessionDir)) {
@@ -65,15 +71,21 @@ export class ChatService {
       }
 
       const content = readFileSync(chatPath, "utf-8");
-      const lines = content.trim().split("\n").filter(line => line);
-      
+      const lines = content
+        .trim()
+        .split("\n")
+        .filter((line) => line);
+
       return lines.map((line) => JSON.parse(line) as ChatMessage);
     } catch {
       return [];
     }
   }
 
-  async appendToHistory(sessionId: string, messages: ChatMessage[]): Promise<void> {
+  async appendToHistory(
+    sessionId: string,
+    messages: ChatMessage[],
+  ): Promise<void> {
     const chatPath = this.getChatPath(sessionId);
     const lines = messages.map((msg) => JSON.stringify(msg)).join("\n") + "\n";
     appendFileSync(chatPath, lines, "utf-8");

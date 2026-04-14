@@ -8,15 +8,22 @@ describe("SessionRepository with mimoContext paths", () => {
   let homeB: string;
 
   beforeEach(() => {
-    homeA = join(tmpdir(), `mimo-session-repo-a-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    homeB = join(tmpdir(), `mimo-session-repo-b-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    homeA = join(
+      tmpdir(),
+      `mimo-session-repo-a-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
+    homeB = join(
+      tmpdir(),
+      `mimo-session-repo-b-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
 
     rmSync(homeA, { recursive: true, force: true });
     rmSync(homeB, { recursive: true, force: true });
   });
 
   it("uses injected context paths even if process env changes later", async () => {
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const mimoContext = createMimoContext({
       env: {
         MIMO_HOME: homeA,
@@ -29,7 +36,13 @@ describe("SessionRepository with mimoContext paths", () => {
       owner: "tester",
     });
 
-    expect(session.upstreamPath.startsWith(join(homeA, "projects", "project-ctx"))).toBe(true);
-    expect(session.agentWorkspacePath.startsWith(join(homeA, "projects", "project-ctx"))).toBe(true);
+    expect(
+      session.upstreamPath.startsWith(join(homeA, "projects", "project-ctx")),
+    ).toBe(true);
+    expect(
+      session.agentWorkspacePath.startsWith(
+        join(homeA, "projects", "project-ctx"),
+      ),
+    ).toBe(true);
   });
 });

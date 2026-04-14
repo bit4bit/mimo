@@ -6,7 +6,9 @@ interface McpServersBufferProps extends BufferProps {
   servers?: McpServer[];
 }
 
-export const McpServersBuffer: FC<McpServersBufferProps> = ({ servers = [] }) => {
+export const McpServersBuffer: FC<McpServersBufferProps> = ({
+  servers = [],
+}) => {
   return (
     <div class="buffer" id="mcp-servers-buffer">
       <div class="buffer-header">MCP Servers</div>
@@ -18,7 +20,9 @@ export const McpServersBuffer: FC<McpServersBufferProps> = ({ servers = [] }) =>
             <div class="mcp-server-card" key={server.id}>
               <div class="mcp-server-header">
                 <span class="mcp-server-name">{server.name}</span>
-                <span class={`mcp-transport-badge mcp-transport-${server.transport}`}>
+                <span
+                  class={`mcp-transport-badge mcp-transport-${server.transport}`}
+                >
                   {server.transport}
                 </span>
               </div>
@@ -29,7 +33,9 @@ export const McpServersBuffer: FC<McpServersBufferProps> = ({ servers = [] }) =>
                 {server.transport === "stdio" ? (
                   <code class="mcp-command">
                     {server.command}
-                    {server.args && server.args.length > 0 ? " " + server.args.join(" ") : ""}
+                    {server.args && server.args.length > 0
+                      ? " " + server.args.join(" ")
+                      : ""}
                   </code>
                 ) : (
                   <code class="mcp-command">{server.url}</code>

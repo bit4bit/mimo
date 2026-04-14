@@ -11,7 +11,11 @@ describe("impact refresh handler", () => {
       calculatingSessions,
       sendToRequester: (message) => sent.push(message),
       broadcast: (_sessionId, message) => sent.push(message),
-      findSessionById: async () => ({ id: "s1", upstreamPath: "/u", agentWorkspacePath: "/w" }),
+      findSessionById: async () => ({
+        id: "s1",
+        upstreamPath: "/u",
+        agentWorkspacePath: "/w",
+      }),
       calculateImpact: async () => ({
         metrics: {
           files: { new: 1, changed: 2, deleted: 0, unchanged: 3 },
@@ -64,7 +68,11 @@ describe("impact refresh handler", () => {
       calculatingSessions,
       sendToRequester: (message) => sent.push(message),
       broadcast: (_sessionId, message) => sent.push(message),
-      findSessionById: async () => ({ id: "s1", upstreamPath: "/u", agentWorkspacePath: "/w" }),
+      findSessionById: async () => ({
+        id: "s1",
+        upstreamPath: "/u",
+        agentWorkspacePath: "/w",
+      }),
       calculateImpact: async () => {
         throw new Error("scc failed");
       },

@@ -11,17 +11,25 @@ interface ConfigEditorProps {
   success?: boolean;
 }
 
-export const ConfigEditorPage: FC<ConfigEditorProps> = ({ config, errors = [], success }) => {
+export const ConfigEditorPage: FC<ConfigEditorProps> = ({
+  config,
+  errors = [],
+  success,
+}) => {
   return (
     <Layout title="Configuration Editor">
       <div class="config-editor-container">
         <div class="config-header">
           <h1>Configuration</h1>
-          <a href="/" class="btn-secondary">← Back to Projects</a>
+          <a href="/" class="btn-secondary">
+            ← Back to Projects
+          </a>
         </div>
 
         {success && (
-          <div class="alert alert-success">Configuration saved successfully!</div>
+          <div class="alert alert-success">
+            Configuration saved successfully!
+          </div>
         )}
 
         {errors.length > 0 && (
@@ -29,7 +37,9 @@ export const ConfigEditorPage: FC<ConfigEditorProps> = ({ config, errors = [], s
             <strong>Validation Errors:</strong>
             <ul>
               {errors.map((error, i) => (
-                <li key={i}>{error.field}: {error.message}</li>
+                <li key={i}>
+                  {error.field}: {error.message}
+                </li>
               ))}
             </ul>
           </div>
@@ -39,7 +49,7 @@ export const ConfigEditorPage: FC<ConfigEditorProps> = ({ config, errors = [], s
           {/* Appearance Section */}
           <div class="config-section">
             <h2>Appearance</h2>
-            
+
             <div class="form-group">
               <label>Theme</label>
               <select name="theme" value={config.theme}>
@@ -71,8 +81,12 @@ export const ConfigEditorPage: FC<ConfigEditorProps> = ({ config, errors = [], s
           </div>
 
           <div class="form-actions">
-            <button type="reset" class="btn-secondary">Reset to Defaults</button>
-            <button type="submit" class="btn-primary">Save Configuration</button>
+            <button type="reset" class="btn-secondary">
+              Reset to Defaults
+            </button>
+            <button type="submit" class="btn-primary">
+              Save Configuration
+            </button>
           </div>
         </form>
 

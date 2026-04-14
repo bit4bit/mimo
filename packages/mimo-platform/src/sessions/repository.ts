@@ -1,10 +1,22 @@
 import { join } from "path";
 import { homedir } from "os";
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+  rmdirSync,
+  unlinkSync,
+} from "fs";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
 import { normalizeSessionIdForFossil } from "../vcs/shared-fossil-server.js";
-import { createDefaultFrameState, normalizeFrameState, type FrameState } from "./frame-state.js";
+import {
+  createDefaultFrameState,
+  normalizeFrameState,
+  type FrameState,
+} from "./frame-state.js";
 
 export interface ModelState {
   currentModelId: string;
@@ -211,14 +223,16 @@ export class SessionRepository {
       frameState: createDefaultFrameState(),
       createdAt: now,
       updatedAt: now,
-      ...(input.localDevMirrorPath && { localDevMirrorPath: input.localDevMirrorPath }),
+      ...(input.localDevMirrorPath && {
+        localDevMirrorPath: input.localDevMirrorPath,
+      }),
       ...(input.agentSubpath && { agentSubpath: input.agentSubpath }),
     };
 
     writeFileSync(
       this.getSessionFilePath(input.projectId, id),
       dump(sessionData),
-      "utf-8"
+      "utf-8",
     );
 
     return {
@@ -236,7 +250,7 @@ export class SessionRepository {
     }
 
     const projectEntries = readdirSync(Paths.projects, { withFileTypes: true });
-    
+
     for (const projectEntry of projectEntries) {
       if (projectEntry.isDirectory()) {
         const sessionsDir = join(Paths.projects, projectEntry.name, "sessions");
@@ -250,7 +264,8 @@ export class SessionRepository {
             // Handle MCP Server defaults (backward compatibility)
             const sessionData = {
               ...data,
-              agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
+              agentWorkspacePath:
+                data.agentWorkspacePath || (data as any).checkoutPath,
               idleTimeoutMs: data.idleTimeoutMs ?? 600000,
               acpStatus: data.acpStatus ?? "active",
               syncState: data.syncState ?? "idle",
@@ -270,7 +285,10 @@ export class SessionRepository {
     return null;
   }
 
-  async findByProjectAndId(projectId: string, sessionId: string): Promise<Session | null> {
+  async findByProjectAndId(
+    projectId: string,
+    sessionId: string,
+  ): Promise<Session | null> {
     const filePath = this.getSessionFilePath(projectId, sessionId);
     if (!existsSync(filePath)) {
       return null;
@@ -315,12 +333,13 @@ export class SessionRepository {
           // Handle ACP Session Parking defaults (backward compatibility)
           const sessionData = {
             ...data,
-            agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
-              idleTimeoutMs: data.idleTimeoutMs ?? 600000,
-              acpStatus: data.acpStatus ?? "active",
-              syncState: data.syncState ?? "idle",
-              frameState: normalizeFrameState(data.frameState),
-            };
+            agentWorkspacePath:
+              data.agentWorkspacePath || (data as any).checkoutPath,
+            idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+            acpStatus: data.acpStatus ?? "active",
+            syncState: data.syncState ?? "idle",
+            frameState: normalizeFrameState(data.frameState),
+          };
           sessions.push({
             ...sessionData,
             createdAt: new Date(data.createdAt),
@@ -330,7 +349,9 @@ export class SessionRepository {
       }
     }
 
-    return sessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return sessions.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    );
   }
 
   async findByAssignedAgentId(agentId: string): Promise<Session[]> {
@@ -357,7 +378,8 @@ export class SessionRepository {
                 // Handle ACP Session Parking defaults (backward compatibility)
                 const sessionData = {
                   ...data,
-                  agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
+                  agentWorkspacePath:
+                    data.agentWorkspacePath || (data as any).checkoutPath,
                   idleTimeoutMs: data.idleTimeoutMs ?? 600000,
                   acpStatus: data.acpStatus ?? "active",
                   syncState: data.syncState ?? "idle",
@@ -377,10 +399,15 @@ export class SessionRepository {
       }
     }
 
-    return sessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return sessions.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    );
   }
 
-  async update(sessionId: string, updates: Partial<Omit<SessionData, "id" | "createdAt">>): Promise<Session | null> {
+  async update(
+    sessionId: string,
+    updates: Partial<Omit<SessionData, "id" | "createdAt">>,
+  ): Promise<Session | null> {
     const session = await this.findById(sessionId);
     if (!session) return null;
 
@@ -402,13 +429,13 @@ export class SessionRepository {
 
   async delete(projectId: string, sessionId: string): Promise<void> {
     const sessionPath = this.getSessionPath(projectId, sessionId);
-    
+
     // Delete the centralized fossil repository file
     const fossilPath = this.getFossilPath(sessionId);
     if (existsSync(fossilPath)) {
       unlinkSync(fossilPath);
     }
-    
+
     // Delete entire session directory (includes upstream/, agent-workspace/, session.yaml)
     if (existsSync(sessionPath)) {
       this.deleteDirectoryRecursive(sessionPath);
@@ -419,7 +446,7 @@ export class SessionRepository {
     if (!existsSync(dirPath)) return;
 
     const entries = readdirSync(dirPath, { withFileTypes: true });
-    
+
     for (const entry of entries) {
       const entryPath = join(dirPath, entry.name);
       if (entry.isDirectory()) {
@@ -436,14 +463,19 @@ export class SessionRepository {
     return existsSync(this.getSessionFilePath(projectId, sessionId));
   }
 
-  async updateSessionConfig(sessionId: string, config: UpdateSessionConfigInput): Promise<Session | null> {
+  async updateSessionConfig(
+    sessionId: string,
+    config: UpdateSessionConfigInput,
+  ): Promise<Session | null> {
     const session = await this.findById(sessionId);
     if (!session) return null;
 
     // Validate idleTimeoutMs if provided
     if (config.idleTimeoutMs !== undefined) {
       if (config.idleTimeoutMs !== 0 && config.idleTimeoutMs < 10000) {
-        throw new Error("idleTimeoutMs must be at least 10000ms or 0 to disable");
+        throw new Error(
+          "idleTimeoutMs must be at least 10000ms or 0 to disable",
+        );
       }
     }
 

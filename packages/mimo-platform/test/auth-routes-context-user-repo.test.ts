@@ -9,12 +9,16 @@ describe("Auth routes with injected user repository", () => {
   let testHome: string;
 
   beforeEach(() => {
-    testHome = join(tmpdir(), `mimo-auth-routes-context-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    testHome = join(
+      tmpdir(),
+      `mimo-auth-routes-context-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
     rmSync(testHome, { recursive: true, force: true });
   });
 
   it("logs in using credentials from injected user repository", async () => {
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const { createAuthRoutes } = await import("../src/auth/routes.tsx");
 
     const passwordHash = await bcrypt.hash("secret-pass", 10);
@@ -50,7 +54,7 @@ describe("Auth routes with injected user repository", () => {
           ...mimoContext.repos,
           users: fakeUserRepo,
         },
-      } as any)
+      } as any),
     );
 
     const formData = new URLSearchParams();

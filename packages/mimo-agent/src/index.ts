@@ -9,8 +9,17 @@ import { Writable, Readable } from "node:stream";
 import { SessionManager } from "./session.js";
 import type { SessionCallbacks } from "./session.js";
 import { SessionLifecycleManager } from "./lifecycle.js";
-import type { CachedAcpState, QueuedPrompt, SessionLifecycleCallbacks, AcpSessionState } from "./lifecycle.js";
-import { AcpClient, OpencodeProvider, ClaudeAgentProvider } from "./acp/index.js";
+import type {
+  CachedAcpState,
+  QueuedPrompt,
+  SessionLifecycleCallbacks,
+  AcpSessionState,
+} from "./lifecycle.js";
+import {
+  AcpClient,
+  OpencodeProvider,
+  ClaudeAgentProvider,
+} from "./acp/index.js";
 import type { IAcpProvider } from "./acp/index.js";
 import WebSocket from "ws";
 // Convert Node.js streams to Web Streams API
@@ -153,14 +162,14 @@ class MimoAgent {
     // Provider is now required
     if (!config.provider) {
       logger.error(
-        `[mimo-agent] Missing required argument: --provider. Valid values: ${Array.from(validProviders).join(", ")}`
+        `[mimo-agent] Missing required argument: --provider. Valid values: ${Array.from(validProviders).join(", ")}`,
       );
       process.exit(1);
     }
 
     if (!validProviders.has(config.provider as AgentConfig["provider"])) {
       logger.error(
-        `[mimo-agent] Unknown provider: "${config.provider}". Valid values: ${Array.from(validProviders).join(", ")}`
+        `[mimo-agent] Unknown provider: "${config.provider}". Valid values: ${Array.from(validProviders).join(", ")}`,
       );
       process.exit(1);
     }
@@ -171,7 +180,10 @@ class MimoAgent {
     return config as AgentConfig;
   }
 
-  private validateProviderWithToken(token: string, declaredProvider: string): void {
+  private validateProviderWithToken(
+    token: string,
+    declaredProvider: string,
+  ): void {
     try {
       // Decode JWT payload without verification to extract provider claim
       const payload = decodeJwt(token);
@@ -180,12 +192,12 @@ class MimoAgent {
       if (!tokenProvider) {
         // Backward compatibility: legacy tokens don't have provider claim
         logger.warn(
-          `[mimo-agent] Using legacy token, defaulting provider to 'opencode'. Consider recreating this agent.`
+          `[mimo-agent] Using legacy token, defaulting provider to 'opencode'. Consider recreating this agent.`,
         );
         // Treat missing provider as "opencode" for backward compatibility
         if (declaredProvider !== "opencode") {
           logger.error(
-            `[mimo-agent] Provider mismatch: agent declares '${declaredProvider}' but legacy token requires 'opencode'. Recreate the agent or use --provider opencode`
+            `[mimo-agent] Provider mismatch: agent declares '${declaredProvider}' but legacy token requires 'opencode'. Recreate the agent or use --provider opencode`,
           );
           process.exit(1);
         }
@@ -194,7 +206,7 @@ class MimoAgent {
 
       if (tokenProvider !== declaredProvider) {
         logger.error(
-          `[mimo-agent] Provider mismatch: agent declares '${declaredProvider}' but token requires '${tokenProvider}'. Use --provider ${tokenProvider}`
+          `[mimo-agent] Provider mismatch: agent declares '${declaredProvider}' but token requires '${tokenProvider}'. Use --provider ${tokenProvider}`,
         );
         process.exit(1);
       }
@@ -202,7 +214,7 @@ class MimoAgent {
       // Provider matches - validation passed
     } catch (error) {
       logger.error(
-        `[mimo-agent] Failed to decode token: ${error instanceof Error ? error.message : String(error)}`
+        `[mimo-agent] Failed to decode token: ${error instanceof Error ? error.message : String(error)}`,
       );
       process.exit(1);
     }
@@ -355,7 +367,7 @@ class MimoAgent {
 
       try {
         const checkoutPath = join(this.config.workDir, sessionId);
-        
+
         if (!fossilUrl) {
           throw new Error("No fossilUrl provided in session data");
         }
@@ -363,14 +375,20 @@ class MimoAgent {
         logger.debug(`[mimo-agent] Using fossil URL: ${fossilUrl}`);
 
         // Setup checkout directory with credentials
-        await this.setupCheckout(sessionId, checkoutPath, fossilUrl, agentWorkspaceUser, agentWorkspacePassword);
+        await this.setupCheckout(
+          sessionId,
+          checkoutPath,
+          fossilUrl,
+          agentWorkspaceUser,
+          agentWorkspacePassword,
+        );
 
         // Create session with credentials
         const sessionInfo = await this.sessionManager.createSession(
           sessionId,
           fossilUrl,
           agentWorkspaceUser,
-          agentWorkspacePassword
+          agentWorkspacePassword,
         );
 
         // Store acpSessionId for later use during ACP init
@@ -379,28 +397,40 @@ class MimoAgent {
         }
 
         // Store cached model/mode so it can be restored after ACP initialization
-        this.sessionManager.setSessionState(sessionId, modelState ?? undefined, modeState ?? undefined);
+        this.sessionManager.setSessionState(
+          sessionId,
+          modelState ?? undefined,
+          modeState ?? undefined,
+        );
 
         // Store localDevMirrorPath for file sync
         if (localDevMirrorPath) {
-          this.sessionManager.setSessionLocalDevMirrorPath(sessionId, localDevMirrorPath);
+          this.sessionManager.setSessionLocalDevMirrorPath(
+            sessionId,
+            localDevMirrorPath,
+          );
         }
 
         // Store MCP servers for ACP initialization
         if (mcpServers && Array.isArray(mcpServers) && mcpServers.length > 0) {
           this.sessionManager.setSessionMcpServers(sessionId, mcpServers);
-          logger.debug(`[mimo-agent] Session ${sessionId} has ${mcpServers.length} MCP server(s)`);
+          logger.debug(
+            `[mimo-agent] Session ${sessionId} has ${mcpServers.length} MCP server(s)`,
+          );
         }
 
         // Spawn ACP process
-        await this.spawnAcpProcess({ ...sessionInfo, agentSubpath: agentSubpath || undefined });
+        await this.spawnAcpProcess({
+          ...sessionInfo,
+          agentSubpath: agentSubpath || undefined,
+        });
 
         sessionIds.push(sessionId);
         logger.debug(`[mimo-agent] Session ${sessionId} ready`);
       } catch (error) {
         logger.error(
           `[mimo-agent] Failed to setup session ${sessionId}:`,
-          error
+          error,
         );
         this.send({
           type: "session_error",
@@ -423,7 +453,7 @@ class MimoAgent {
     checkoutPath: string,
     fossilUrl: string,
     agentWorkspaceUser?: string,
-    agentWorkspacePassword?: string
+    agentWorkspacePassword?: string,
   ): Promise<void> {
     const repoPath = join(checkoutPath, "..", `${sessionId}.fossil`);
 
@@ -433,7 +463,10 @@ class MimoAgent {
         mkdirSync(checkoutPath, { recursive: true });
       }
       try {
-        execSync(`fossil open ${repoPath}`, { cwd: checkoutPath, stdio: "pipe" });
+        execSync(`fossil open ${repoPath}`, {
+          cwd: checkoutPath,
+          stdio: "pipe",
+        });
       } catch {
         // Already open or error, continue
       }
@@ -443,9 +476,14 @@ class MimoAgent {
         url.username = agentWorkspaceUser;
         url.password = agentWorkspacePassword;
         const remoteUrl = url.toString();
-        logger.debug(`[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`);
+        logger.debug(
+          `[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`,
+        );
         try {
-          execSync(`fossil remote-url ${remoteUrl}`, { cwd: checkoutPath, stdio: "pipe" });
+          execSync(`fossil remote-url ${remoteUrl}`, {
+            cwd: checkoutPath,
+            stdio: "pipe",
+          });
         } catch {
           // Ignore error, may already be correct
         }
@@ -453,7 +491,7 @@ class MimoAgent {
         try {
           execSync(
             `fossil user password ${agentWorkspaceUser} ${agentWorkspacePassword}`,
-            { cwd: checkoutPath, stdio: "pipe" }
+            { cwd: checkoutPath, stdio: "pipe" },
           );
           logger.debug(`[mimo-agent]   Updated local user password`);
         } catch {
@@ -463,20 +501,20 @@ class MimoAgent {
         try {
           // Remove existing remote if exists, then add new one
           try {
-            execSync(`fossil remote rm server`, { cwd: checkoutPath, stdio: "pipe" });
+            execSync(`fossil remote rm server`, {
+              cwd: checkoutPath,
+              stdio: "pipe",
+            });
           } catch {
             // Remote may not exist, ignore
           }
-          execSync(
-            `fossil remote add server ${remoteUrl}`,
-            { cwd: checkoutPath, stdio: "pipe" }
-          );
+          execSync(`fossil remote add server ${remoteUrl}`, {
+            cwd: checkoutPath,
+            stdio: "pipe",
+          });
           logger.debug(`[mimo-agent]   Updated remote 'server'`);
           // Do a sync using the named remote to verify credentials work
-          execSync(
-            `fossil sync server`,
-            { cwd: checkoutPath, stdio: "pipe" }
-          );
+          execSync(`fossil sync server`, { cwd: checkoutPath, stdio: "pipe" });
           logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
         } catch {
           // Ignore error
@@ -495,9 +533,14 @@ class MimoAgent {
         url.username = agentWorkspaceUser;
         url.password = agentWorkspacePassword;
         const remoteUrl = url.toString();
-        logger.debug(`[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`);
+        logger.debug(
+          `[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`,
+        );
         try {
-          execSync(`fossil remote-url ${remoteUrl}`, { cwd: checkoutPath, stdio: "pipe" });
+          execSync(`fossil remote-url ${remoteUrl}`, {
+            cwd: checkoutPath,
+            stdio: "pipe",
+          });
         } catch {
           // Ignore error, may already be correct
         }
@@ -505,7 +548,7 @@ class MimoAgent {
         try {
           execSync(
             `fossil user password ${agentWorkspaceUser} ${agentWorkspacePassword}`,
-            { cwd: checkoutPath, stdio: "pipe" }
+            { cwd: checkoutPath, stdio: "pipe" },
           );
           logger.debug(`[mimo-agent]   Updated local user password`);
         } catch {
@@ -515,20 +558,20 @@ class MimoAgent {
         try {
           // Remove existing remote if exists, then add new one
           try {
-            execSync(`fossil remote rm server`, { cwd: checkoutPath, stdio: "pipe" });
+            execSync(`fossil remote rm server`, {
+              cwd: checkoutPath,
+              stdio: "pipe",
+            });
           } catch {
             // Remote may not exist, ignore
           }
-          execSync(
-            `fossil remote add server ${remoteUrl}`,
-            { cwd: checkoutPath, stdio: "pipe" }
-          );
+          execSync(`fossil remote add server ${remoteUrl}`, {
+            cwd: checkoutPath,
+            stdio: "pipe",
+          });
           logger.debug(`[mimo-agent]   Updated remote 'server'`);
           // Do a sync using the named remote to verify credentials work
-          execSync(
-            `fossil sync server`,
-            { cwd: checkoutPath, stdio: "pipe" }
-          );
+          execSync(`fossil sync server`, { cwd: checkoutPath, stdio: "pipe" });
           logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
         } catch {
           // Ignore error
@@ -543,32 +586,37 @@ class MimoAgent {
         url.username = agentWorkspaceUser;
         url.password = agentWorkspacePassword;
         cloneUrl = url.toString();
-        logger.debug(`[mimo-agent]   Using authenticated URL: ${url.protocol}//${url.username}:****@${url.host}/`);
+        logger.debug(
+          `[mimo-agent]   Using authenticated URL: ${url.protocol}//${url.username}:****@${url.host}/`,
+        );
       }
       execSync(`fossil clone ${cloneUrl} ${repoPath}`, { stdio: "pipe" });
       if (!existsSync(checkoutPath)) {
         mkdirSync(checkoutPath, { recursive: true });
       }
       // Open without sync first, then set remote with credentials
-      execSync(`fossil open --nosync ${repoPath}`, { cwd: checkoutPath, stdio: "pipe" });
+      execSync(`fossil open --nosync ${repoPath}`, {
+        cwd: checkoutPath,
+        stdio: "pipe",
+      });
       // Set remote URL with credentials for future syncs
-      execSync(`fossil remote-url ${cloneUrl}`, { cwd: checkoutPath, stdio: "pipe" });
+      execSync(`fossil remote-url ${cloneUrl}`, {
+        cwd: checkoutPath,
+        stdio: "pipe",
+      });
       // Set local password to match server password (fossil creates local admin with random password)
       if (agentWorkspaceUser && agentWorkspacePassword) {
         execSync(
           `fossil user password ${agentWorkspaceUser} ${agentWorkspacePassword}`,
-          { cwd: checkoutPath, stdio: "pipe" }
+          { cwd: checkoutPath, stdio: "pipe" },
         );
         // Add a named remote "server" with credentials embedded
-        execSync(
-          `fossil remote add server ${cloneUrl}`,
-          { cwd: checkoutPath, stdio: "pipe" }
-        );
+        execSync(`fossil remote add server ${cloneUrl}`, {
+          cwd: checkoutPath,
+          stdio: "pipe",
+        });
         // Do an initial sync using the named remote with credentials
-        execSync(
-          `fossil sync server`,
-          { cwd: checkoutPath, stdio: "pipe" }
-        );
+        execSync(`fossil sync server`, { cwd: checkoutPath, stdio: "pipe" });
       }
     }
   }
@@ -590,7 +638,10 @@ class MimoAgent {
     try {
       await acpClient.close(5000);
     } catch (err) {
-      logger.warn(`[mimo-agent] Error during ACP client close for ${sessionId}:`, err);
+      logger.warn(
+        `[mimo-agent] Error during ACP client close for ${sessionId}:`,
+        err,
+      );
     }
   }
 
@@ -605,7 +656,7 @@ class MimoAgent {
     // Safety-net: if the process still hasn't exited after the close timeout, kill it.
     if (sessionInfo.acpProcess && !sessionInfo.acpProcess.killed) {
       logger.debug(
-        `[mimo-agent] Force-killing old ACP process for ${session.sessionId}`
+        `[mimo-agent] Force-killing old ACP process for ${session.sessionId}`,
       );
       sessionInfo.acpProcess.kill("SIGTERM");
       sessionInfo.acpProcess = null;
@@ -620,71 +671,67 @@ class MimoAgent {
       : sessionInfo.checkoutPath;
 
     // Create ACP client
-    const acpClient = new AcpClient(
-      this.provider,
-      session.sessionId,
-      {
-        onThoughtStart: (sessionId) => {
+    const acpClient = new AcpClient(this.provider, session.sessionId, {
+      onThoughtStart: (sessionId) => {
+        this.send({
+          type: "thought_start",
+          sessionId,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onThoughtChunk: (sessionId, content) => {
+        this.send({
+          type: "thought_chunk",
+          sessionId,
+          content,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onThoughtEnd: (sessionId) => {
+        this.send({
+          type: "thought_end",
+          sessionId,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onMessageChunk: (sessionId, content) => {
+        this.send({
+          type: "message_chunk",
+          sessionId,
+          content,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onUsageUpdate: (sessionId, usage) => {
+        this.send({
+          type: "usage_update",
+          sessionId,
+          usage,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onGenericUpdate: (sessionId, content) => {
+        this.send({
+          type: "acp_response",
+          sessionId,
+          content,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onPermissionRequest: (sessionId, requestId, params) => {
+        return new Promise((resolve) => {
+          this.pendingPermissions.set(requestId, resolve);
           this.send({
-            type: "thought_start",
+            type: "permission_request",
             sessionId,
+            requestId,
+            toolCall: params.toolCall,
+            options: params.options,
             timestamp: new Date().toISOString(),
           });
-        },
-        onThoughtChunk: (sessionId, content) => {
-          this.send({
-            type: "thought_chunk",
-            sessionId,
-            content,
-            timestamp: new Date().toISOString(),
-          });
-        },
-        onThoughtEnd: (sessionId) => {
-          this.send({
-            type: "thought_end",
-            sessionId,
-            timestamp: new Date().toISOString(),
-          });
-        },
-        onMessageChunk: (sessionId, content) => {
-          this.send({
-            type: "message_chunk",
-            sessionId,
-            content,
-            timestamp: new Date().toISOString(),
-          });
-        },
-        onUsageUpdate: (sessionId, usage) => {
-          this.send({
-            type: "usage_update",
-            sessionId,
-            usage,
-            timestamp: new Date().toISOString(),
-          });
-        },
-        onGenericUpdate: (sessionId, content) => {
-          this.send({
-            type: "acp_response",
-            sessionId,
-            content,
-            timestamp: new Date().toISOString(),
-          });
-        },
-        onPermissionRequest: (sessionId, requestId, params) => {
-          return new Promise((resolve) => {
-            this.pendingPermissions.set(requestId, resolve);
-            this.send({
-              type: "permission_request",
-              sessionId,
-              requestId,
-              toolCall: params.toolCall,
-              options: params.options,
-              timestamp: new Date().toISOString(),
-            });
-          });
-        },
-      }
-    );
+        });
+      },
+    });
 
     // Initialize ACP client with MCP servers
     acpClient
@@ -693,7 +740,7 @@ class MimoAgent {
         toWebWritable(spawnResult.stdin),
         toWebReadable(spawnResult.stdout),
         sessionInfo.acpSessionId,
-        sessionInfo.mcpServers
+        sessionInfo.mcpServers,
       )
       .then(async (result) => {
         logger.debug(`[mimo-agent] ACP client ready for ${session.sessionId}`);
@@ -703,23 +750,37 @@ class MimoAgent {
         if (sessionInfo.modelState && acpClient.modelState) {
           try {
             await acpClient.setModel(sessionInfo.modelState.currentModelId);
-            logger.debug(`[mimo-agent] Restored model for ${session.sessionId}: ${sessionInfo.modelState.currentModelId}`);
+            logger.debug(
+              `[mimo-agent] Restored model for ${session.sessionId}: ${sessionInfo.modelState.currentModelId}`,
+            );
           } catch (err) {
-            logger.warn(`[mimo-agent] Failed to restore model for ${session.sessionId}:`, err);
+            logger.warn(
+              `[mimo-agent] Failed to restore model for ${session.sessionId}:`,
+              err,
+            );
           }
         }
 
         if (sessionInfo.modeState && acpClient.modeState) {
           try {
             await acpClient.setMode(sessionInfo.modeState.currentModeId);
-            logger.debug(`[mimo-agent] Restored mode for ${session.sessionId}: ${sessionInfo.modeState.currentModeId}`);
+            logger.debug(
+              `[mimo-agent] Restored mode for ${session.sessionId}: ${sessionInfo.modeState.currentModeId}`,
+            );
           } catch (err) {
-            logger.warn(`[mimo-agent] Failed to restore mode for ${session.sessionId}:`, err);
+            logger.warn(
+              `[mimo-agent] Failed to restore mode for ${session.sessionId}:`,
+              err,
+            );
           }
         }
 
         // Update session state with actual ACP values
-        this.sessionManager.setSessionState(session.sessionId, acpClient.modelState, acpClient.modeState);
+        this.sessionManager.setSessionState(
+          session.sessionId,
+          acpClient.modelState,
+          acpClient.modeState,
+        );
 
         // Send session initialized
         this.send({
@@ -743,7 +804,7 @@ class MimoAgent {
       .catch((err) => {
         logger.error(
           `[mimo-agent] ACP init error for ${session.sessionId}:`,
-          err
+          err,
         );
       });
 
@@ -751,13 +812,13 @@ class MimoAgent {
     process.stderr?.on("data", (data: Buffer) => {
       logger.error(
         `[mimo-agent] ACP stderr (${session.sessionId}):`,
-        data.toString()
+        data.toString(),
       );
     });
 
     process.on("close", (code: number | null) => {
       logger.debug(
-        `[mimo-agent] ACP exited for ${session.sessionId} with code ${code}`
+        `[mimo-agent] ACP exited for ${session.sessionId} with code ${code}`,
       );
       this.acpClients.delete(session.sessionId);
       this.sessionManager.setSessionAcpProcess(session.sessionId, null);
@@ -766,7 +827,7 @@ class MimoAgent {
     process.on("error", (err: Error) => {
       logger.error(
         `[mimo-agent] ACP process error for ${session.sessionId}:`,
-        err.message
+        err.message,
       );
       this.send({
         type: "session_error",
@@ -777,7 +838,10 @@ class MimoAgent {
     });
   }
 
-  private async respawnAcpProcess(sessionId: string, cachedState?: CachedAcpState): Promise<AcpClient | null> {
+  private async respawnAcpProcess(
+    sessionId: string,
+    cachedState?: CachedAcpState,
+  ): Promise<AcpClient | null> {
     const sessionInfo = this.sessionManager.getSession(sessionId);
     if (!sessionInfo) {
       throw new Error(`Session ${sessionId} not found`);
@@ -793,74 +857,70 @@ class MimoAgent {
     const acpCwd = sessionInfo.checkoutPath;
 
     // Create ACP client
-    const acpClient = new AcpClient(
-      this.provider,
-      sessionId,
-      {
-        onThoughtStart: (sid) => {
-          this.lifecycleManager.recordActivity(sid);
+    const acpClient = new AcpClient(this.provider, sessionId, {
+      onThoughtStart: (sid) => {
+        this.lifecycleManager.recordActivity(sid);
+        this.send({
+          type: "thought_start",
+          sessionId: sid,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onThoughtChunk: (sid, content) => {
+        this.lifecycleManager.recordActivity(sid);
+        this.send({
+          type: "thought_chunk",
+          sessionId: sid,
+          content,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onThoughtEnd: (sid) => {
+        this.send({
+          type: "thought_end",
+          sessionId: sid,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onMessageChunk: (sid, content) => {
+        this.lifecycleManager.recordActivity(sid);
+        this.send({
+          type: "message_chunk",
+          sessionId: sid,
+          content,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onUsageUpdate: (sid, usage) => {
+        this.send({
+          type: "usage_update",
+          sessionId: sid,
+          usage,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onGenericUpdate: (sid, content) => {
+        this.send({
+          type: "acp_response",
+          sessionId: sid,
+          content,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onPermissionRequest: (sid, requestId, params) => {
+        return new Promise((resolve) => {
+          this.pendingPermissions.set(requestId, resolve);
           this.send({
-            type: "thought_start",
+            type: "permission_request",
             sessionId: sid,
+            requestId,
+            toolCall: params.toolCall,
+            options: params.options,
             timestamp: new Date().toISOString(),
           });
-        },
-        onThoughtChunk: (sid, content) => {
-          this.lifecycleManager.recordActivity(sid);
-          this.send({
-            type: "thought_chunk",
-            sessionId: sid,
-            content,
-            timestamp: new Date().toISOString(),
-          });
-        },
-        onThoughtEnd: (sid) => {
-          this.send({
-            type: "thought_end",
-            sessionId: sid,
-            timestamp: new Date().toISOString(),
-          });
-        },
-        onMessageChunk: (sid, content) => {
-          this.lifecycleManager.recordActivity(sid);
-          this.send({
-            type: "message_chunk",
-            sessionId: sid,
-            content,
-            timestamp: new Date().toISOString(),
-          });
-        },
-        onUsageUpdate: (sid, usage) => {
-          this.send({
-            type: "usage_update",
-            sessionId: sid,
-            usage,
-            timestamp: new Date().toISOString(),
-          });
-        },
-        onGenericUpdate: (sid, content) => {
-          this.send({
-            type: "acp_response",
-            sessionId: sid,
-            content,
-            timestamp: new Date().toISOString(),
-          });
-        },
-        onPermissionRequest: (sid, requestId, params) => {
-          return new Promise((resolve) => {
-            this.pendingPermissions.set(requestId, resolve);
-            this.send({
-              type: "permission_request",
-              sessionId: sid,
-              requestId,
-              toolCall: params.toolCall,
-              options: params.options,
-              timestamp: new Date().toISOString(),
-            });
-          });
-        },
-      }
-    );
+        });
+      },
+    });
 
     try {
       // Initialize with cached session ID and MCP servers if available
@@ -869,7 +929,7 @@ class MimoAgent {
         toWebWritable(spawnResult.stdin),
         toWebReadable(spawnResult.stdout),
         cachedState?.acpSessionId,
-        sessionInfo.mcpServers
+        sessionInfo.mcpServers,
       );
 
       logger.debug(`[mimo-agent] ACP respawned for ${sessionId}`);
@@ -879,18 +939,28 @@ class MimoAgent {
       if (cachedState?.modelState && acpClient.modelState) {
         try {
           await acpClient.setModel(cachedState.modelState.currentModelId);
-          logger.debug(`[mimo-agent] Restored model for ${sessionId}: ${cachedState.modelState.currentModelId}`);
+          logger.debug(
+            `[mimo-agent] Restored model for ${sessionId}: ${cachedState.modelState.currentModelId}`,
+          );
         } catch (err) {
-          logger.warn(`[mimo-agent] Failed to restore model for ${sessionId}:`, err);
+          logger.warn(
+            `[mimo-agent] Failed to restore model for ${sessionId}:`,
+            err,
+          );
         }
       }
 
       if (cachedState?.modeState && acpClient.modeState) {
         try {
           await acpClient.setMode(cachedState.modeState.currentModeId);
-          logger.debug(`[mimo-agent] Restored mode for ${sessionId}: ${cachedState.modeState.currentModeId}`);
+          logger.debug(
+            `[mimo-agent] Restored mode for ${sessionId}: ${cachedState.modeState.currentModeId}`,
+          );
         } catch (err) {
-          logger.warn(`[mimo-agent] Failed to restore mode for ${sessionId}:`, err);
+          logger.warn(
+            `[mimo-agent] Failed to restore mode for ${sessionId}:`,
+            err,
+          );
         }
       }
 
@@ -898,7 +968,7 @@ class MimoAgent {
       this.sessionManager.setSessionState(
         sessionId,
         acpClient.modelState,
-        acpClient.modeState
+        acpClient.modeState,
       );
 
       // Send session initialized
@@ -924,17 +994,25 @@ class MimoAgent {
 
       // Handle process events
       process.stderr?.on("data", (data: Buffer) => {
-        logger.error(`[mimo-agent] ACP stderr (${sessionId}):`, data.toString());
+        logger.error(
+          `[mimo-agent] ACP stderr (${sessionId}):`,
+          data.toString(),
+        );
       });
 
       process.on("close", (code: number | null) => {
-        logger.debug(`[mimo-agent] ACP exited for ${sessionId} with code ${code}`);
+        logger.debug(
+          `[mimo-agent] ACP exited for ${sessionId} with code ${code}`,
+        );
         this.acpClients.delete(sessionId);
         this.sessionManager.setSessionAcpProcess(sessionId, null);
       });
 
       process.on("error", (err: Error) => {
-        logger.error(`[mimo-agent] ACP process error for ${sessionId}:`, err.message);
+        logger.error(
+          `[mimo-agent] ACP process error for ${sessionId}:`,
+          err.message,
+        );
         this.send({
           type: "session_error",
           sessionId,
@@ -986,7 +1064,10 @@ class MimoAgent {
     try {
       await acpClient.cancel();
     } catch (err: any) {
-      logger.warn(`[mimo-agent] Cancel notification error for ${sessionId}:`, err.message);
+      logger.warn(
+        `[mimo-agent] Cancel notification error for ${sessionId}:`,
+        err.message,
+      );
     }
 
     this.send({
@@ -999,7 +1080,7 @@ class MimoAgent {
   private handleFileSyncRequest(message: any): void {
     const sessionId = message.sessionId;
     logger.debug(
-      `[mimo-agent] File sync for session ${sessionId || "unknown"}`
+      `[mimo-agent] File sync for session ${sessionId || "unknown"}`,
     );
   }
 
@@ -1047,9 +1128,10 @@ class MimoAgent {
 
       if (result.error) {
         const err = result.error as Error & { code?: string };
-        const timeoutMessage = err.code === "ETIMEDOUT"
-          ? `fossil ${args.join(" ")} timed out`
-          : err.message;
+        const timeoutMessage =
+          err.code === "ETIMEDOUT"
+            ? `fossil ${args.join(" ")} timed out`
+            : err.message;
 
         return {
           success: false,
@@ -1074,7 +1156,10 @@ class MimoAgent {
           requestId,
           success: false,
           message: "Failed to stage changes in fossil checkout",
-          error: addremoveResult.error || addremoveResult.output || "fossil addremove failed",
+          error:
+            addremoveResult.error ||
+            addremoveResult.output ||
+            "fossil addremove failed",
           timestamp: new Date().toISOString(),
         });
         return;
@@ -1088,7 +1173,10 @@ class MimoAgent {
           requestId,
           success: false,
           message: "Failed to inspect fossil changes",
-          error: changesResult.error || changesResult.output || "fossil changes failed",
+          error:
+            changesResult.error ||
+            changesResult.output ||
+            "fossil changes failed",
           timestamp: new Date().toISOString(),
         });
         return;
@@ -1130,7 +1218,8 @@ class MimoAgent {
           requestId,
           success: false,
           message: "Failed to commit fossil changes",
-          error: commitResult.error || commitResult.output || "fossil commit failed",
+          error:
+            commitResult.error || commitResult.output || "fossil commit failed",
           timestamp: new Date().toISOString(),
         });
         return;
@@ -1182,7 +1271,7 @@ class MimoAgent {
 
     // Check session state via lifecycle manager
     const sessionState = this.lifecycleManager.getSessionState(sessionId);
-    
+
     if (sessionState === "parked") {
       // Session is parked, need to wake it up
       logger.debug(`[mimo-agent] Session ${sessionId} is parked, waking up...`);
@@ -1208,12 +1297,21 @@ class MimoAgent {
 
     if (sessionState === "waking") {
       // Session is waking, queue the prompt
-      logger.debug(`[mimo-agent] Session ${sessionId} is waking, queueing prompt...`);
+      logger.debug(
+        `[mimo-agent] Session ${sessionId} is waking, queueing prompt...`,
+      );
       try {
         await this.lifecycleManager.queuePrompt(sessionId, content);
-        await this.sendPrompt(this.acpClients.get(sessionId)!, sessionId, content);
+        await this.sendPrompt(
+          this.acpClients.get(sessionId)!,
+          sessionId,
+          content,
+        );
       } catch (err) {
-        logger.error(`[mimo-agent] Failed to queue prompt for ${sessionId}:`, err);
+        logger.error(
+          `[mimo-agent] Failed to queue prompt for ${sessionId}:`,
+          err,
+        );
         this.send({
           type: "error_response",
           sessionId,
@@ -1242,14 +1340,18 @@ class MimoAgent {
     await this.sendPrompt(acpClient, sessionId, content);
   }
 
-  private async sendPrompt(acpClient: AcpClient, sessionId: string, content: string): Promise<void> {
+  private async sendPrompt(
+    acpClient: AcpClient,
+    sessionId: string,
+    content: string,
+  ): Promise<void> {
     logger.debug(`[mimo-agent] Sending prompt for session ${sessionId}`);
     this.send({
       type: "prompt_received",
       sessionId,
       timestamp: new Date().toISOString(),
     });
-    
+
     try {
       await acpClient.prompt(content);
       logger.debug(`[mimo-agent] Prompt completed for ${sessionId}`);
@@ -1333,7 +1435,9 @@ class MimoAgent {
     const acpClient = this.acpClients.get(sessionId);
 
     if (!acpClient) {
-      logger.debug(`[mimo-agent] Unknown session ${sessionId} in request_state`);
+      logger.debug(
+        `[mimo-agent] Unknown session ${sessionId} in request_state`,
+      );
       return;
     }
 
@@ -1359,7 +1463,7 @@ class MimoAgent {
 
   private async handleClearSession(message: any): Promise<void> {
     const { sessionId } = message;
-    
+
     if (!sessionId) {
       logger.debug("[mimo-agent] No sessionId in clear_session");
       this.send({
@@ -1372,7 +1476,7 @@ class MimoAgent {
     }
 
     logger.debug(`[mimo-agent] Clearing session ${sessionId}`);
-    
+
     const acpClient = this.acpClients.get(sessionId);
     if (!acpClient) {
       logger.debug(`[mimo-agent] No ACP client for session ${sessionId}`);
@@ -1387,9 +1491,11 @@ class MimoAgent {
 
     try {
       const result = await acpClient.clear();
-      
-      logger.debug(`[mimo-agent] Session ${sessionId} cleared, new ACP session: ${result.acpSessionId}`);
-      
+
+      logger.debug(
+        `[mimo-agent] Session ${sessionId} cleared, new ACP session: ${result.acpSessionId}`,
+      );
+
       // Send success message to platform
       this.send({
         type: "acp_session_cleared",
@@ -1399,7 +1505,7 @@ class MimoAgent {
       });
     } catch (error) {
       logger.error(`[mimo-agent] Failed to clear session ${sessionId}:`, error);
-      
+
       // Send error message to platform
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.send({
@@ -1429,13 +1535,16 @@ class MimoAgent {
 
   private handleSessionConfigUpdated(message: any): void {
     const { sessionId, config } = message;
-    
+
     if (!sessionId) {
       logger.debug("[mimo-agent] No sessionId in session_config_updated");
       return;
     }
 
-    logger.debug(`[mimo-agent] Session config updated for ${sessionId}:`, config);
+    logger.debug(
+      `[mimo-agent] Session config updated for ${sessionId}:`,
+      config,
+    );
 
     // Update lifecycle manager with new idle timeout
     if (config.idleTimeoutMs !== undefined) {
@@ -1446,9 +1555,10 @@ class MimoAgent {
   private handleDisconnect(): void {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+      const delay =
+        this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
       logger.debug(
-        `[mimo-agent] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})...`
+        `[mimo-agent] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})...`,
       );
 
       setTimeout(() => {

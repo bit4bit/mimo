@@ -7,7 +7,10 @@ interface ProjectCreateProps {
   credentials?: Credential[];
 }
 
-export const ProjectCreatePage: FC<ProjectCreateProps> = ({ error, credentials = [] }) => {
+export const ProjectCreatePage: FC<ProjectCreateProps> = ({
+  error,
+  credentials = [],
+}) => {
   return (
     <Layout title="Create Project">
       <div class="container">
@@ -15,18 +18,37 @@ export const ProjectCreatePage: FC<ProjectCreateProps> = ({ error, credentials =
         <form method="POST" action="/projects">
           <div class="form-group">
             <label>Project Name</label>
-            <input type="text" name="name" required placeholder="My Awesome Project" />
+            <input
+              type="text"
+              name="name"
+              required
+              placeholder="My Awesome Project"
+            />
           </div>
 
           <div class="form-group">
-            <label>Description (optional, max 500 chars, recommended ~200)</label>
-            <textarea name="description" rows="3" placeholder="Describe your project..." style="background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%;"></textarea>
+            <label>
+              Description (optional, max 500 chars, recommended ~200)
+            </label>
+            <textarea
+              name="description"
+              rows="3"
+              placeholder="Describe your project..."
+              style="background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%;"
+            ></textarea>
           </div>
 
           <div class="form-group">
             <label>Repository URL</label>
-            <input type="text" name="repoUrl" required placeholder="https://github.com/user/repo.git or git@github.com:user/repo.git" />
-            <small>Git or Fossil repository URL. Supports HTTPS and SSH formats.</small>
+            <input
+              type="text"
+              name="repoUrl"
+              required
+              placeholder="https://github.com/user/repo.git or git@github.com:user/repo.git"
+            />
+            <small>
+              Git or Fossil repository URL. Supports HTTPS and SSH formats.
+            </small>
           </div>
 
           <div class="form-group">
@@ -47,30 +69,52 @@ export const ProjectCreatePage: FC<ProjectCreateProps> = ({ error, credentials =
                 </option>
               ))}
             </select>
-            <small>Select a credential for private repositories. Type must match URL (HTTPS for https://, SSH for git@).</small>
+            <small>
+              Select a credential for private repositories. Type must match URL
+              (HTTPS for https://, SSH for git@).
+            </small>
           </div>
 
           <div class="form-group">
             <label>Source Branch (optional)</label>
             <input type="text" name="sourceBranch" placeholder="main" />
-            <small class="form-help">Leave empty to use repository default branch</small>
+            <small class="form-help">
+              Leave empty to use repository default branch
+            </small>
           </div>
 
           <div class="form-group">
             <label>New Branch (optional)</label>
-            <input type="text" name="newBranch" placeholder="ai-session-my-feature" />
-            <small class="form-help">Create a dedicated branch for AI sessions</small>
+            <input
+              type="text"
+              name="newBranch"
+              placeholder="ai-session-my-feature"
+            />
+            <small class="form-help">
+              Create a dedicated branch for AI sessions
+            </small>
           </div>
 
           <div class="form-group">
             <label>Local Development Mirror (optional)</label>
-            <input type="text" name="defaultLocalDevMirrorPath" placeholder="/home/user/myproject-dev" />
-            <small class="form-help">Absolute path where agent changes will be synced in real-time for immediate testing</small>
+            <input
+              type="text"
+              name="defaultLocalDevMirrorPath"
+              placeholder="/home/user/myproject-dev"
+            />
+            <small class="form-help">
+              Absolute path where agent changes will be synced in real-time for
+              immediate testing
+            </small>
           </div>
 
           <div class="actions">
-            <button type="submit" class="btn">Create Project</button>
-            <a href="/projects" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn">
+              Create Project
+            </button>
+            <a href="/projects" class="btn-secondary">
+              Cancel
+            </a>
           </div>
 
           {error && <div class="error">{error}</div>}

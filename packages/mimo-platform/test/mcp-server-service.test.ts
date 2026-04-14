@@ -11,7 +11,9 @@ describe("McpServerService", () => {
   const testHome = join(tmpdir(), `mimo-mcp-service-test-${Date.now()}`);
 
   beforeEach(() => {
-    repository = new McpServerRepository({ mcpServersPath: join(testHome, "mcp-servers") });
+    repository = new McpServerRepository({
+      mcpServersPath: join(testHome, "mcp-servers"),
+    });
     service = new McpServerService(repository);
   });
 
@@ -303,7 +305,10 @@ describe("McpServerService", () => {
         args: [],
       });
 
-      const duplicate = await service.findDuplicateNames(["unique-one", "unique-two"]);
+      const duplicate = await service.findDuplicateNames([
+        "unique-one",
+        "unique-two",
+      ]);
       expect(duplicate).toBeNull();
     });
   });

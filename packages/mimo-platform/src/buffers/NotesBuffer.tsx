@@ -5,7 +5,10 @@ interface NotesBufferProps extends BufferProps {
   initialContent?: string;
 }
 
-export const NotesBuffer: FC<NotesBufferProps> = ({ initialContent = "", sessionId }) => {
+export const NotesBuffer: FC<NotesBufferProps> = ({
+  initialContent = "",
+  sessionId,
+}) => {
   return (
     <div class="notes-buffer" data-session-id={sessionId}>
       <textarea
@@ -15,7 +18,9 @@ export const NotesBuffer: FC<NotesBufferProps> = ({ initialContent = "", session
       >
         {initialContent}
       </textarea>
-      <div id="notes-save-status" class="notes-save-status">Saved</div>
+      <div id="notes-save-status" class="notes-save-status">
+        Saved
+      </div>
 
       <style>{`
         .notes-buffer {

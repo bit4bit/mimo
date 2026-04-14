@@ -21,7 +21,11 @@ const getFossilServerPort = (): number => {
   try {
     const { configService } = require("../config/service.js");
     const configPort = configService.get("sharedFossilServerPort");
-    if (typeof configPort === "number" && configPort >= 1024 && configPort <= 65535) {
+    if (
+      typeof configPort === "number" &&
+      configPort >= 1024 &&
+      configPort <= 65535
+    ) {
       cachedConfigPort = configPort;
       return configPort;
     }
@@ -122,7 +126,9 @@ export class SharedFossilServer {
   private ensureReposDir(): void {
     if (this._reposDir && !existsSync(this._reposDir)) {
       mkdirSync(this._reposDir, { recursive: true });
-      logger.debug(`[SharedFossilServer] Created repos directory: ${this._reposDir}`);
+      logger.debug(
+        `[SharedFossilServer] Created repos directory: ${this._reposDir}`,
+      );
     }
   }
 
@@ -144,7 +150,7 @@ export class SharedFossilServer {
       socket.on("error", (err: any) => {
         socket.destroy();
         // ECONNREFUSED means port is available, other errors might mean available too
-        resolve(err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET');
+        resolve(err.code === "ECONNREFUSED" || err.code === "ECONNRESET");
       });
     });
   }
@@ -168,22 +174,32 @@ export class SharedFossilServer {
     const available = await this.isPortAvailable(this.port);
     if (!available) {
       logger.warn(`[SharedFossilServer] Port ${this.port} is already in use`);
-      logger.warn("[SharedFossilServer] A fossil server may already be running on this port");
-      logger.warn("[SharedFossilServer] Attempting to use the existing server...");
+      logger.warn(
+        "[SharedFossilServer] A fossil server may already be running on this port",
+      );
+      logger.warn(
+        "[SharedFossilServer] Attempting to use the existing server...",
+      );
 
       // Check if it's actually a fossil server by trying to connect
       try {
         const response = await fetch(`http://localhost:${this.port}/`);
         if (response.ok || response.status === 404) {
           // Server is responding, assume it's a fossil server
-          logger.debug(`[SharedFossilServer] Existing server on port ${this.port} is responsive`);
+          logger.debug(
+            `[SharedFossilServer] Existing server on port ${this.port} is responsive`,
+          );
           // Mark as "running" without our own process
           this.restartAttempts = 0;
           return true;
         }
       } catch {
-        logger.error(`[SharedFossilServer] Port ${this.port} is in use but not responding as expected`);
-        logger.error("[SharedFossilServer] You may need to kill the existing process or use a different port");
+        logger.error(
+          `[SharedFossilServer] Port ${this.port} is in use but not responding as expected`,
+        );
+        logger.error(
+          "[SharedFossilServer] You may need to kill the existing process or use a different port",
+        );
         return false;
       }
       // If we get here, the check didn't throw but also didn't return true
@@ -194,13 +210,19 @@ export class SharedFossilServer {
     // fossil server --port <port> <directory>
     // This makes all .fossil files in the directory accessible via URL:
     // http://localhost:<port>/<filename>.fossil/
-    logger.debug(`[SharedFossilServer] Starting server on port ${this.port} serving ${this.reposDir}`);
+    logger.debug(
+      `[SharedFossilServer] Starting server on port ${this.port} serving ${this.reposDir}`,
+    );
 
-    this.process = spawn("fossil", ["server", "--port", this.port.toString(), this.reposDir], {
-      stdio: ["ignore", "pipe", "pipe"],
-      detached: false,
-      cwd: this.reposDir, // Ensure fossil server has valid working directory
-    });
+    this.process = spawn(
+      "fossil",
+      ["server", "--port", this.port.toString(), this.reposDir],
+      {
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: false,
+        cwd: this.reposDir, // Ensure fossil server has valid working directory
+      },
+    );
 
     // Reset restart attempts on successful start
     this.restartAttempts = 0;
@@ -215,11 +237,15 @@ export class SharedFossilServer {
       return false;
     }
 
-    logger.debug(`[SharedFossilServer] Server started with PID ${this.process.pid}`);
+    logger.debug(
+      `[SharedFossilServer] Server started with PID ${this.process.pid}`,
+    );
 
     // Set up process event handlers
     this.process.on("exit", (code, signal) => {
-      logger.debug(`[SharedFossilServer] Server process exited (code: ${code}, signal: ${signal})`);
+      logger.debug(
+        `[SharedFossilServer] Server process exited (code: ${code}, signal: ${signal})`,
+      );
       this.process = null;
 
       // Trigger watchdog restart if not a deliberate stop
@@ -288,10 +314,12 @@ export class SharedFossilServer {
     if (this.process !== null && this.process.pid !== undefined) {
       return true;
     }
-    
+
     // Also check if there's an external server responding on our port
     try {
-      const response = await fetch(`http://localhost:${this.port}/`, { signal: AbortSignal.timeout(1000) });
+      const response = await fetch(`http://localhost:${this.port}/`, {
+        signal: AbortSignal.timeout(1000),
+      });
       return response.ok || response.status === 404;
     } catch {
       return false;
@@ -355,7 +383,7 @@ export class SharedFossilServer {
   private scheduleRestart(): void {
     if (this.restartAttempts >= this.maxRestartAttempts) {
       logger.error(
-        `[SharedFossilServer] Max restart attempts (${this.maxRestartAttempts}) reached. Giving up.`
+        `[SharedFossilServer] Max restart attempts (${this.maxRestartAttempts}) reached. Giving up.`,
       );
       return;
     }
@@ -364,7 +392,7 @@ export class SharedFossilServer {
     const delay = this.restartDelayMs * this.restartAttempts;
 
     logger.debug(
-      `[SharedFossilServer] Scheduling restart attempt ${this.restartAttempts}/${this.maxRestartAttempts} in ${delay}ms`
+      `[SharedFossilServer] Scheduling restart attempt ${this.restartAttempts}/${this.maxRestartAttempts} in ${delay}ms`,
     );
 
     this.watchdogTimer = setTimeout(async () => {
@@ -373,7 +401,9 @@ export class SharedFossilServer {
       if (success) {
         logger.debug("[SharedFossilServer] Watchdog restart successful");
       } else {
-        logger.error("[SharedFossilServer] Watchdog restart failed, will retry");
+        logger.error(
+          "[SharedFossilServer] Watchdog restart failed, will retry",
+        );
       }
     }, delay);
   }
@@ -387,22 +417,28 @@ export const sharedFossilServer = new SharedFossilServer();
 // SIGTERM: Graceful termination request
 process.on("SIGINT", () => {
   logger.debug("[SharedFossilServer] Received SIGINT, stopping server...");
-  sharedFossilServer.stop().then(() => {
-    logger.debug("[SharedFossilServer] Server stopped, exiting...");
-    process.exit(0);
-  }).catch((err) => {
-    logger.error("[SharedFossilServer] Error during stop:", err);
-    process.exit(1);
-  });
+  sharedFossilServer
+    .stop()
+    .then(() => {
+      logger.debug("[SharedFossilServer] Server stopped, exiting...");
+      process.exit(0);
+    })
+    .catch((err) => {
+      logger.error("[SharedFossilServer] Error during stop:", err);
+      process.exit(1);
+    });
 });
 
 process.on("SIGTERM", () => {
   logger.debug("[SharedFossilServer] Received SIGTERM, stopping server...");
-  sharedFossilServer.stop().then(() => {
-    logger.debug("[SharedFossilServer] Server stopped, exiting...");
-    process.exit(0);
-  }).catch((err) => {
-    logger.error("[SharedFossilServer] Error during stop:", err);
-    process.exit(1);
-  });
+  sharedFossilServer
+    .stop()
+    .then(() => {
+      logger.debug("[SharedFossilServer] Server stopped, exiting...");
+      process.exit(0);
+    })
+    .catch((err) => {
+      logger.error("[SharedFossilServer] Error during stop:", err);
+      process.exit(1);
+    });
 });

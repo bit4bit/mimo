@@ -9,14 +9,18 @@ import { describe, it, expect } from "bun:test";
 // This test file defines the behavior contract and tests the algorithm logic.
 // The DOM implementation lives in chat.js's renderTextAsLines() function.
 
-function buildLineDescriptors(text: string): Array<{ isEmpty: boolean; text: string }> {
+function buildLineDescriptors(
+  text: string,
+): Array<{ isEmpty: boolean; text: string }> {
   return text.split("\n").map((line) => ({
     isEmpty: line === "",
     text: line,
   }));
 }
 
-function copyTextFromLines(lines: Array<{ isEmpty: boolean; text: string }>): string {
+function copyTextFromLines(
+  lines: Array<{ isEmpty: boolean; text: string }>,
+): string {
   return lines.map((l) => l.text).join("\n");
 }
 

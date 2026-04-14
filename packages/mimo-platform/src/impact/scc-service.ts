@@ -1,5 +1,13 @@
 import { join, dirname } from "path";
-import { existsSync, mkdirSync, writeFileSync, chmodSync, readFileSync, renameSync, unlinkSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  chmodSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+} from "fs";
 import { execSync, spawn } from "child_process";
 import { logger } from "../logger.js";
 
@@ -103,7 +111,7 @@ export class SccService {
   constructor(customPath: string, customCacheDir?: string) {
     this.sccPath = customPath;
     this.customCacheDir = customCacheDir;
-    
+
     // Initialize cache file path
     if (customCacheDir) {
       this.cacheFilePath = join(customCacheDir, "scc-cache.json");
@@ -111,7 +119,7 @@ export class SccService {
       // Fallback - caller should always provide cacheDir via configure()
       this.cacheFilePath = join(".mimo", "cache", "scc-cache.json");
     }
-    
+
     // Load existing cache on initialization (optional)
     try {
       this.loadCache();
@@ -125,7 +133,12 @@ export class SccService {
     if (!this.customCacheDir && config.cacheDir) {
       this.cacheFilePath = join(config.cacheDir, "scc-cache.json");
     } else if (!this.customCacheDir) {
-      this.cacheFilePath = join(config.mimoHome, ".mimo", "cache", "scc-cache.json");
+      this.cacheFilePath = join(
+        config.mimoHome,
+        ".mimo",
+        "cache",
+        "scc-cache.json",
+      );
     }
   }
 
@@ -196,7 +209,7 @@ export class SccService {
       const downloadPath = join(binDir, `scc${ext}`);
 
       logger.debug(`[scc] Downloading from ${url}...`);
-      
+
       // Download using curl
       execSync(`curl -L -o "${downloadPath}" "${url}"`, {
         timeout: 120000,
@@ -206,7 +219,9 @@ export class SccService {
 
       // Extract
       if (platform.os === "Windows") {
-        execSync(`powershell -command "Expand-Archive -Path '${downloadPath}' -DestinationPath '${binDir}' -Force"`);
+        execSync(
+          `powershell -command "Expand-Archive -Path '${downloadPath}' -DestinationPath '${binDir}' -Force"`,
+        );
       } else {
         execSync(`tar -xzf "${downloadPath}" -C "${binDir}"`);
       }
@@ -221,9 +236,9 @@ export class SccService {
       return { success: true };
     } catch (error) {
       logger.error("[scc] Installation failed:", error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error) 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -269,11 +284,11 @@ export class SccService {
         try {
           const output: SccJsonOutput = JSON.parse(stdout);
           const metrics = this.parseSccOutput(output);
-          
+
           // Update smart cache with new results
           await this.updateCache(directory, metrics);
           this.staleDirectories.delete(directory);
-          
+
           resolve(metrics);
         } catch (error) {
           reject(new Error(`Failed to parse scc output: ${error}`));
@@ -289,19 +304,19 @@ export class SccService {
   private parseSccOutput(output: SccJsonOutput): SccMetrics {
     // SCC returns an array of language groups, each containing files
     const languageGroups = Array.isArray(output) ? output : [];
-    
+
     // Calculate totals
     let totalLines = 0;
     let totalCode = 0;
     let totalComplexity = 0;
-    
+
     const languageMap = new Map<string, SccLanguageMetrics>();
     const fileMetrics: SccFileMetrics[] = [];
 
     // Process each language group
     for (const group of languageGroups) {
       const files = group.Files || [];
-      
+
       for (const file of files) {
         totalLines += file.Lines;
         totalCode += file.Code;
@@ -383,7 +398,10 @@ export class SccService {
    */
   async buildIgnoreFile(directory: string): Promise<string> {
     const ignoreSources = [
-      { path: join(directory, ".fossil-settings", "ignore-glob"), label: ".fossil-settings/ignore-glob" },
+      {
+        path: join(directory, ".fossil-settings", "ignore-glob"),
+        label: ".fossil-settings/ignore-glob",
+      },
       { path: join(directory, ".gitignore"), label: ".gitignore" },
       { path: join(directory, ".mimoignore"), label: ".mimoignore" },
     ];
@@ -404,7 +422,9 @@ export class SccService {
         compositeLines.push(content);
         compositeLines.push("");
       } else {
-        logger.warn(`[scc] Warning: ${source.label} not found at ${source.path}`);
+        logger.warn(
+          `[scc] Warning: ${source.label} not found at ${source.path}`,
+        );
       }
     }
 

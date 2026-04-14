@@ -1,7 +1,14 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { tmpdir } from "os";
 import { join, dirname } from "path";
-import { rmSync, existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
+import {
+  rmSync,
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+} from "fs";
 import { execSync } from "child_process";
 
 describe("Patch-based Sync", () => {
@@ -9,10 +16,16 @@ describe("Patch-based Sync", () => {
   let VCS: any;
 
   beforeEach(async () => {
-    testHome = join(tmpdir(), `mimo-patch-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    testHome = join(
+      tmpdir(),
+      `mimo-patch-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
-    createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    createMimoContext({
+      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+    });
 
     try {
       rmSync(testHome, { recursive: true, force: true });
@@ -37,10 +50,16 @@ describe("Patch-based Sync", () => {
       // Create and commit a file
       writeFileSync(join(workDir, "to-delete.txt"), "will be deleted");
       await vcs.execCommand(["fossil", "add", "to-delete.txt"], workDir);
-      await vcs.execCommand(["fossil", "commit", "-m", "Add file", "--no-warnings"], workDir);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Add file", "--no-warnings"],
+        workDir,
+      );
 
       // Remove via fossil rm (doesn't unlink from disk by default)
-      await vcs.execCommand(["fossil", "rm", "--hard", "to-delete.txt"], workDir);
+      await vcs.execCommand(
+        ["fossil", "rm", "--hard", "to-delete.txt"],
+        workDir,
+      );
 
       // File might still exist on disk after fossil rm --hard removes it
       // If fossil rm --hard DID delete it, the align step is a no-op (still correct)
@@ -71,7 +90,10 @@ describe("Patch-based Sync", () => {
 
       writeFileSync(join(workDir, "keep.txt"), "keeping this");
       await vcs.execCommand(["fossil", "add", "keep.txt"], workDir);
-      await vcs.execCommand(["fossil", "commit", "-m", "Add file", "--no-warnings"], workDir);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Add file", "--no-warnings"],
+        workDir,
+      );
 
       const result = await vcs.alignWorkspaceWithFossil(workDir);
       expect(result.success).toBe(true);
@@ -217,7 +239,11 @@ describe("Patch-based Sync", () => {
         "+new",
       ].join("\n");
 
-      const result = (vcs as any).normalizePatchPaths(input, "upstream", "agent-workspace");
+      const result = (vcs as any).normalizePatchPaths(
+        input,
+        "upstream",
+        "agent-workspace",
+      );
 
       expect(result).toContain("diff --git a/src/app.ts b/src/app.ts");
       expect(result).toContain("--- a/src/app.ts");
@@ -258,7 +284,8 @@ describe("Patch-based Sync", () => {
       const vcs = new VCS();
       const patchDir = join(testHome, "patches");
 
-      const patchContent = "diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n";
+      const patchContent =
+        "diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n";
       const patchPath = await vcs.storePatch(patchDir, patchContent);
 
       expect(existsSync(patchPath)).toBe(true);
@@ -291,8 +318,8 @@ describe("Patch-based Sync", () => {
 
       // Init git repo with initial file
       execSync("git init", { cwd: upstream });
-      execSync("git config user.email \"test@test.com\"", { cwd: upstream });
-      execSync("git config user.name \"Test\"", { cwd: upstream });
+      execSync('git config user.email "test@test.com"', { cwd: upstream });
+      execSync('git config user.name "Test"', { cwd: upstream });
       writeFileSync(join(upstream, "file.txt"), "original");
       execSync("git add .", { cwd: upstream });
       execSync('git commit -m "Initial"', { cwd: upstream });
@@ -311,7 +338,9 @@ describe("Patch-based Sync", () => {
       const result = await vcs.applyPatch(patchFile, upstream, "git");
 
       expect(result.success).toBe(true);
-      expect(readFileSync(join(upstream, "file.txt"), "utf-8")).toBe("modified");
+      expect(readFileSync(join(upstream, "file.txt"), "utf-8")).toBe(
+        "modified",
+      );
     }, 15000);
 
     it("should apply patch to fossil upstream using patch -p1", async () => {
@@ -341,7 +370,9 @@ describe("Patch-based Sync", () => {
       const result = await vcs.applyPatch(patchFile, upstream, "fossil");
 
       expect(result.success).toBe(true);
-      expect(readFileSync(join(upstream, "file.txt"), "utf-8").trim()).toBe("modified");
+      expect(readFileSync(join(upstream, "file.txt"), "utf-8").trim()).toBe(
+        "modified",
+      );
     }, 10000);
   });
 
@@ -356,8 +387,8 @@ describe("Patch-based Sync", () => {
       // Setup upstream as git repo
       mkdirSync(upstream, { recursive: true });
       execSync("git init", { cwd: upstream });
-      execSync("git config user.email \"test@test.com\"", { cwd: upstream });
-      execSync("git config user.name \"Test\"", { cwd: upstream });
+      execSync('git config user.email "test@test.com"', { cwd: upstream });
+      execSync('git config user.name "Test"', { cwd: upstream });
       writeFileSync(join(upstream, "existing.txt"), "existing content");
       execSync("git add .", { cwd: upstream });
       execSync('git commit -m "Initial"', { cwd: upstream });
@@ -368,19 +399,30 @@ describe("Patch-based Sync", () => {
       writeFileSync(join(agentWorkspace, "new-file.txt"), "brand new");
 
       // Run the full workflow
-      const result = await vcs.generateAndApplyPatch(agentWorkspace, upstream, patchDir, "git");
+      const result = await vcs.generateAndApplyPatch(
+        agentWorkspace,
+        upstream,
+        patchDir,
+        "git",
+      );
 
       expect(result.success).toBe(true);
       expect(result.patchPath).toBeTruthy();
 
       // Verify patch was stored
       expect(existsSync(result.patchPath!)).toBe(true);
-      const patches = readdirSync(patchDir).filter((f: string) => f.endsWith(".patch"));
+      const patches = readdirSync(patchDir).filter((f: string) =>
+        f.endsWith(".patch"),
+      );
       expect(patches.length).toBe(1);
 
       // Verify changes were applied to upstream
-      expect(readFileSync(join(upstream, "existing.txt"), "utf-8")).toBe("modified content");
-      expect(readFileSync(join(upstream, "new-file.txt"), "utf-8")).toBe("brand new");
+      expect(readFileSync(join(upstream, "existing.txt"), "utf-8")).toBe(
+        "modified content",
+      );
+      expect(readFileSync(join(upstream, "new-file.txt"), "utf-8")).toBe(
+        "brand new",
+      );
     }, 15000);
 
     it("should handle no changes gracefully", async () => {
@@ -396,7 +438,12 @@ describe("Patch-based Sync", () => {
       writeFileSync(join(upstream, "same.txt"), "same");
       writeFileSync(join(agentWorkspace, "same.txt"), "same");
 
-      const result = await vcs.generateAndApplyPatch(agentWorkspace, upstream, patchDir, "git");
+      const result = await vcs.generateAndApplyPatch(
+        agentWorkspace,
+        upstream,
+        patchDir,
+        "git",
+      );
 
       expect(result.success).toBe(true);
       expect(result.output).toContain("No changes");
@@ -404,7 +451,9 @@ describe("Patch-based Sync", () => {
 
       // No patch file should be created
       if (existsSync(patchDir)) {
-        const patches = readdirSync(patchDir).filter((f: string) => f.endsWith(".patch"));
+        const patches = readdirSync(patchDir).filter((f: string) =>
+          f.endsWith(".patch"),
+        );
         expect(patches.length).toBe(0);
       }
     }, 10000);
@@ -419,8 +468,8 @@ describe("Patch-based Sync", () => {
       // Setup upstream with a file
       mkdirSync(upstream, { recursive: true });
       execSync("git init", { cwd: upstream });
-      execSync("git config user.email \"test@test.com\"", { cwd: upstream });
-      execSync("git config user.name \"Test\"", { cwd: upstream });
+      execSync('git config user.email "test@test.com"', { cwd: upstream });
+      execSync('git config user.name "Test"', { cwd: upstream });
       writeFileSync(join(upstream, "to-delete.txt"), "will be removed");
       writeFileSync(join(upstream, "to-keep.txt"), "keep this");
       execSync("git add .", { cwd: upstream });
@@ -430,7 +479,12 @@ describe("Patch-based Sync", () => {
       mkdirSync(agentWorkspace, { recursive: true });
       writeFileSync(join(agentWorkspace, "to-keep.txt"), "keep this");
 
-      const result = await vcs.generateAndApplyPatch(agentWorkspace, upstream, patchDir, "git");
+      const result = await vcs.generateAndApplyPatch(
+        agentWorkspace,
+        upstream,
+        patchDir,
+        "git",
+      );
 
       expect(result.success).toBe(true);
       expect(existsSync(join(upstream, "to-delete.txt"))).toBe(false);
@@ -446,8 +500,8 @@ describe("Patch-based Sync", () => {
 
       mkdirSync(upstream, { recursive: true });
       execSync("git init", { cwd: upstream });
-      execSync("git config user.email \"test@test.com\"", { cwd: upstream });
-      execSync("git config user.name \"Test\"", { cwd: upstream });
+      execSync('git config user.email "test@test.com"', { cwd: upstream });
+      execSync('git config user.name "Test"', { cwd: upstream });
       mkdirSync(join(upstream, "src"), { recursive: true });
       writeFileSync(join(upstream, "src", "app.ts"), "old code");
       execSync("git add .", { cwd: upstream });
@@ -456,13 +510,25 @@ describe("Patch-based Sync", () => {
       // Agent workspace with nested structure
       mkdirSync(join(agentWorkspace, "src", "components"), { recursive: true });
       writeFileSync(join(agentWorkspace, "src", "app.ts"), "new code");
-      writeFileSync(join(agentWorkspace, "src", "components", "Button.tsx"), "export const Button = () => {}");
+      writeFileSync(
+        join(agentWorkspace, "src", "components", "Button.tsx"),
+        "export const Button = () => {}",
+      );
 
-      const result = await vcs.generateAndApplyPatch(agentWorkspace, upstream, patchDir, "git");
+      const result = await vcs.generateAndApplyPatch(
+        agentWorkspace,
+        upstream,
+        patchDir,
+        "git",
+      );
 
       expect(result.success).toBe(true);
-      expect(readFileSync(join(upstream, "src", "app.ts"), "utf-8")).toBe("new code");
-      expect(existsSync(join(upstream, "src", "components", "Button.tsx"))).toBe(true);
+      expect(readFileSync(join(upstream, "src", "app.ts"), "utf-8")).toBe(
+        "new code",
+      );
+      expect(
+        existsSync(join(upstream, "src", "components", "Button.tsx")),
+      ).toBe(true);
     }, 15000);
   });
 });

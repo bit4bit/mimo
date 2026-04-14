@@ -35,7 +35,10 @@ export interface AutoCommitRouterContext {
   autoCommitService: AutoCommitService;
   sessionRepository: {
     findById: (sessionId: string) => Promise<any | null>;
-    update: (sessionId: string, updates: Record<string, unknown>) => Promise<any | null>;
+    update: (
+      sessionId: string,
+      updates: Record<string, unknown>,
+    ) => Promise<any | null>;
     getFossilPath: (sessionId: string) => string;
   };
   agentService: {
@@ -69,7 +72,8 @@ export function resolveAgentSyncNowResult(result: {
     requestId: result.requestId,
     sessionId: result.sessionId || "",
     success: Boolean(result.success),
-    message: result.message || (result.success ? "Sync completed" : "Sync failed"),
+    message:
+      result.message || (result.success ? "Sync completed" : "Sync failed"),
     error: result.error,
     noChanges: result.noChanges,
   });
@@ -78,7 +82,7 @@ export function resolveAgentSyncNowResult(result: {
 
 export async function syncSessionViaAssignedAgent(
   sessionId: string,
-  context: AutoCommitRouterContext
+  context: AutoCommitRouterContext,
 ): Promise<AgentSyncNowResponse> {
   const session = await context.sessionRepository.findById(sessionId);
 
@@ -102,7 +106,9 @@ export async function syncSessionViaAssignedAgent(
     };
   }
 
-  const agentWs = context.agentService.getAgentConnection(session.assignedAgentId);
+  const agentWs = context.agentService.getAgentConnection(
+    session.assignedAgentId,
+  );
   if (!agentWs || agentWs.readyState !== 1) {
     return {
       success: false,
@@ -150,7 +156,7 @@ export async function syncSessionViaAssignedAgent(
         type: "sync_now",
         sessionId,
         requestId,
-      })
+      }),
     );
 
     agentResult = await agentResultPromise;
@@ -158,18 +164,29 @@ export async function syncSessionViaAssignedAgent(
     if (agentResult.success) {
       if (!agentResult.noChanges) {
         const fossilPath = context.sessionRepository.getFossilPath(sessionId);
-        const checkoutMarkerPath = join(session.agentWorkspacePath, ".fslckout");
+        const checkoutMarkerPath = join(
+          session.agentWorkspacePath,
+          ".fslckout",
+        );
 
         if (!existsSync(checkoutMarkerPath)) {
-          const openResult = await vcs.openFossil(fossilPath, session.agentWorkspacePath);
+          const openResult = await vcs.openFossil(
+            fossilPath,
+            session.agentWorkspacePath,
+          );
           if (!openResult.success) {
-            throw new Error(openResult.error || "Failed to open local fossil checkout");
+            throw new Error(
+              openResult.error || "Failed to open local fossil checkout",
+            );
           }
         }
 
         const upResult = await vcs.fossilUp(session.agentWorkspacePath);
         if (!upResult.success) {
-          throw new Error(upResult.error || "Failed to refresh local agent workspace from fossil");
+          throw new Error(
+            upResult.error ||
+              "Failed to refresh local agent workspace from fossil",
+          );
         }
 
         context.sccService.invalidateCache(session.agentWorkspacePath);
@@ -183,7 +200,8 @@ export async function syncSessionViaAssignedAgent(
     } else {
       await context.sessionRepository.update(sessionId, {
         syncState: "error",
-        lastSyncError: agentResult.error || agentResult.message || "Sync failed",
+        lastSyncError:
+          agentResult.error || agentResult.message || "Sync failed",
       });
     }
   } catch (error) {
@@ -216,7 +234,10 @@ export async function syncSessionViaAssignedAgent(
   };
 }
 
-export function createAutoCommitRouter(service: AutoCommitService, syncContext?: Omit<AutoCommitRouterContext, "autoCommitService">): Hono {
+export function createAutoCommitRouter(
+  service: AutoCommitService,
+  syncContext?: Omit<AutoCommitRouterContext, "autoCommitService">,
+): Hono {
   const router = new Hono();
 
   router.use("/*", authMiddleware);
@@ -224,9 +245,19 @@ export function createAutoCommitRouter(service: AutoCommitService, syncContext?:
   router.post("/:sessionId/sync", async (c) => {
     const sessionId = c.req.param("sessionId");
     if (!syncContext) {
-      return c.json({ success: false, error: "Sync context not configured", statusCode: 500 }, 500);
+      return c.json(
+        {
+          success: false,
+          error: "Sync context not configured",
+          statusCode: 500,
+        },
+        500,
+      );
     }
-    const result = await syncSessionViaAssignedAgent(sessionId, { autoCommitService: service, ...syncContext });
+    const result = await syncSessionViaAssignedAgent(sessionId, {
+      autoCommitService: service,
+      ...syncContext,
+    });
     return c.json(
       {
         success: result.success,
@@ -235,7 +266,7 @@ export function createAutoCommitRouter(service: AutoCommitService, syncContext?:
         noChanges: result.noChanges,
         syncStatus: result.syncStatus,
       },
-      result.statusCode
+      result.statusCode,
     );
   });
 

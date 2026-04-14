@@ -1,5 +1,11 @@
 import { join } from "path";
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+} from "fs";
 import { dump, load } from "js-yaml";
 
 export interface UserCredentials {
@@ -55,7 +61,7 @@ export class UserRepository {
     writeFileSync(
       this.getCredentialsPath(username),
       dump(credentials),
-      "utf-8"
+      "utf-8",
     );
 
     return {
@@ -85,11 +91,7 @@ export class UserRepository {
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const credentialsPath = join(
-          usersPath,
-          entry.name,
-          "credentials.yaml"
-        );
+        const credentialsPath = join(usersPath, entry.name, "credentials.yaml");
         if (existsSync(credentialsPath)) {
           const content = readFileSync(credentialsPath, "utf-8");
           const creds = load(content) as UserCredentials;

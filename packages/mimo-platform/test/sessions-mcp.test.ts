@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { SessionRepository } from "../src/sessions/repository.js";
-import { existsSync, rmdirSync, unlinkSync, readdirSync, mkdirSync, writeFileSync, readFileSync } from "fs";
+import {
+  existsSync,
+  rmdirSync,
+  unlinkSync,
+  readdirSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+} from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { mkdtempSync } from "fs";
@@ -15,11 +23,14 @@ describe("Session Creation with MCP Servers", () => {
   beforeEach(() => {
     // Create a temp directory for each test
     testBasePath = mkdtempSync(join(tmpdir(), "mimo-session-mcp-test-"));
-    
+
     // Create required directories
     mkdirSync(join(testBasePath, "projects"), { recursive: true });
-    
-    sessionRepository = new SessionRepository({ paths: { projects: join(testBasePath, "projects"), data: testBasePath }, fossilReposDir: join(testBasePath, "session-fossils") });
+
+    sessionRepository = new SessionRepository({
+      paths: { projects: join(testBasePath, "projects"), data: testBasePath },
+      fossilReposDir: join(testBasePath, "session-fossils"),
+    });
   });
 
   afterEach(() => {
@@ -36,7 +47,9 @@ describe("Session Creation with MCP Servers", () => {
 
   describe("Session with MCP servers", () => {
     it("should return the configured fossil repos dir", () => {
-      expect(sessionRepository.getFossilReposDir()).toBe(join(testBasePath, "session-fossils"));
+      expect(sessionRepository.getFossilReposDir()).toBe(
+        join(testBasePath, "session-fossils"),
+      );
     });
 
     it("should create session with mcpServerIds", async () => {
@@ -86,7 +99,11 @@ describe("Session Creation with MCP Servers", () => {
       });
 
       const updatedSession = await sessionRepository.findById(session.id);
-      expect(updatedSession?.mcpServerIds).toEqual(["filesystem", "github", "postgres"]);
+      expect(updatedSession?.mcpServerIds).toEqual([
+        "filesystem",
+        "github",
+        "postgres",
+      ]);
     });
   });
 
@@ -106,13 +123,13 @@ describe("Session Creation with MCP Servers", () => {
         "test-project",
         "sessions",
         session.id,
-        "session.yaml"
+        "session.yaml",
       );
-      
+
       // Read current content
       const content = readFileSync(sessionPath, "utf-8");
       const data = load(content) as any;
-      
+
       // Remove mcpServerIds to simulate old session
       delete data.mcpServerIds;
       writeFileSync(sessionPath, dump(data), "utf-8");

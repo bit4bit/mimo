@@ -56,15 +56,17 @@ export class ConfigService {
     try {
       const content = readFileSync(configPath, "utf-8");
       const loaded = load(content) as Partial<Config>;
-      
+
       this.config = {
         theme: loaded.theme ?? defaultConfig.theme,
         fontSize: loaded.fontSize ?? defaultConfig.fontSize,
         fontFamily: loaded.fontFamily ?? defaultConfig.fontFamily,
-        sharedFossilServerPort: loaded.sharedFossilServerPort ?? defaultConfig.sharedFossilServerPort,
-        streamingTimeoutMs: loaded.streamingTimeoutMs ?? defaultConfig.streamingTimeoutMs,
+        sharedFossilServerPort:
+          loaded.sharedFossilServerPort ?? defaultConfig.sharedFossilServerPort,
+        streamingTimeoutMs:
+          loaded.streamingTimeoutMs ?? defaultConfig.streamingTimeoutMs,
       };
-      
+
       return this.config;
     } catch (error) {
       logger.error("Failed to load config:", error);

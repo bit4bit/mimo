@@ -14,14 +14,20 @@ let testHome: string;
 
 describe("Authentication Integration Tests", () => {
   beforeEach(async () => {
-    testHome = join(tmpdir(), `mimo-auth-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    testHome = join(
+      tmpdir(),
+      `mimo-auth-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
 
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
-    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({
+      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+    });
     userRepository = ctx.repos.users;
 
     const { createAuthRoutes } = await import("../src/auth/routes.tsx");
@@ -62,7 +68,10 @@ describe("Authentication Integration Tests", () => {
       const app = new Hono();
       app.route("/auth", authRoutes);
 
-      await userRepository.create("dupeuser", await bcrypt.hash("password1", 10));
+      await userRepository.create(
+        "dupeuser",
+        await bcrypt.hash("password1", 10),
+      );
 
       const formData = new URLSearchParams();
       formData.append("username", "dupeuser");
@@ -99,7 +108,10 @@ describe("Authentication Integration Tests", () => {
       const app = new Hono();
       app.route("/auth", authRoutes);
 
-      await userRepository.create("logintest", await bcrypt.hash("testpass123", 10));
+      await userRepository.create(
+        "logintest",
+        await bcrypt.hash("testpass123", 10),
+      );
 
       const formData = new URLSearchParams();
       formData.append("username", "logintest");
@@ -123,7 +135,10 @@ describe("Authentication Integration Tests", () => {
       const app = new Hono();
       app.route("/auth", authRoutes);
 
-      await userRepository.create("validuser", await bcrypt.hash("correctpass", 10));
+      await userRepository.create(
+        "validuser",
+        await bcrypt.hash("correctpass", 10),
+      );
 
       const formData = new URLSearchParams();
       formData.append("username", "validuser");

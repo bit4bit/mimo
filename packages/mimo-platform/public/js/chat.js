@@ -1,6 +1,6 @@
 // ═════════════════════════════════════════════════════════════════════════════
 // MIMO CHAT SYSTEM - Functional Architecture
-// 
+//
 // Organization: Top-down by importance
 // 1. STATE        - Global mutable state (single source of truth)
 // 2. VIEWS        - Pure functions that render DOM elements
@@ -12,7 +12,7 @@
 // 8. BOOTSTRAP    - Entry point
 // ═════════════════════════════════════════════════════════════════════════════
 
-'use strict';
+"use strict";
 
 // ═════════════════════════════════════════════════════════════════════════════
 // SECTION 1: GLOBAL STATE
@@ -23,31 +23,31 @@
 const ChatState = {
   // Identity
   sessionId: null,
-  
+
   // Connection
   socket: null,
-  connectionStatus: 'disconnected', // 'connected' | 'disconnected' | 'error'
-  
+  connectionStatus: "disconnected", // 'connected' | 'disconnected' | 'error'
+
   // Agent Status
-  agentStatus: 'offline', // 'online' | 'offline'
-  acpStatus: 'active',    // 'active' | 'parked' | 'waking'
-  
+  agentStatus: "offline", // 'online' | 'offline'
+  acpStatus: "active", // 'active' | 'parked' | 'waking'
+
   // Streaming
   streaming: {
     active: false,
     messageElement: null,
     thoughtElement: null,
-    content: '',
-    thoughtContent: '',
+    content: "",
+    thoughtContent: "",
     timeout: null,
     lastActivity: null,
     reconstructed: false,
   },
-  
+
   // Input
   editableBubble: null,
   pendingMessages: new Set(),
-  
+
   // Config
   modelState: null,
   modeState: null,
@@ -61,14 +61,16 @@ const ChatState = {
   },
 
   frames: {
-    left: 'chat',
-    right: 'impact',
+    left: "chat",
+    right: "impact",
   },
 
   notesSaveTimeout: null,
-  
+
   // Constants
-  STREAMING_TIMEOUT_MS: (typeof window !== 'undefined' && window.MIMO_STREAMING_TIMEOUT_MS) || 600000,
+  STREAMING_TIMEOUT_MS:
+    (typeof window !== "undefined" && window.MIMO_STREAMING_TIMEOUT_MS) ||
+    600000,
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -79,40 +81,44 @@ const ChatState = {
 
 // View: Connection status indicator
 function renderConnectionStatus(status) {
-  const el = document.createElement('span');
+  const el = document.createElement("span");
   el.className = `connection-status ${status}`;
-  el.textContent = status === 'connected' ? '●' : '○';
-  el.style.color = status === 'connected' ? '#51cf66' : '#888';
+  el.textContent = status === "connected" ? "●" : "○";
+  el.style.color = status === "connected" ? "#51cf66" : "#888";
   el.title = `Connection: ${status}`;
   return el;
 }
 
 // View: Message bubble (user/agent/system)
 function renderMessage(message) {
-  const div = document.createElement('div');
+  const div = document.createElement("div");
   div.className = `message message-${message.role}`;
   div.dataset.messageId = message.id || Date.now().toString();
-  
-  const header = document.createElement('div');
-  header.className = 'message-header';
-  header.style.display = 'flex';
-  header.style.justifyContent = 'space-between';
-  header.style.alignItems = 'center';
-  
-  const label = document.createElement('span');
-  label.textContent = message.role === 'user' ? 'You' : 
-                       message.role === 'assistant' ? 'Agent' : 'System';
-  
-  const copyBtn = document.createElement('button');
-  copyBtn.className = 'copy-btn';
-  copyBtn.textContent = '📋';
-  
+
+  const header = document.createElement("div");
+  header.className = "message-header";
+  header.style.display = "flex";
+  header.style.justifyContent = "space-between";
+  header.style.alignItems = "center";
+
+  const label = document.createElement("span");
+  label.textContent =
+    message.role === "user"
+      ? "You"
+      : message.role === "assistant"
+        ? "Agent"
+        : "System";
+
+  const copyBtn = document.createElement("button");
+  copyBtn.className = "copy-btn";
+  copyBtn.textContent = "📋";
+
   header.appendChild(label);
   header.appendChild(copyBtn);
-  
-  const content = document.createElement('div');
-  content.className = 'message-content';
-  if (message.role === 'assistant') {
+
+  const content = document.createElement("div");
+  content.className = "message-content";
+  if (message.role === "assistant") {
     renderTextAsLines(message.content, content);
   } else {
     content.textContent = message.content;
@@ -126,190 +132,190 @@ function renderMessage(message) {
 
 // View: Thought section (collapsible)
 function renderThoughtSection(content) {
-  const div = document.createElement('div');
-  div.className = 'message-thought thought-collapsed';
-  div.style.marginBottom = '10px';
-  div.style.background = '#2d2d2d';
-  div.style.borderRadius = '4px';
-  
-  const header = document.createElement('div');
-  header.className = 'message-header';
-  header.style.background = '#3d3d3d';
+  const div = document.createElement("div");
+  div.className = "message-thought thought-collapsed";
+  div.style.marginBottom = "10px";
+  div.style.background = "#2d2d2d";
+  div.style.borderRadius = "4px";
+
+  const header = document.createElement("div");
+  header.className = "message-header";
+  header.style.background = "#3d3d3d";
   header.innerHTML = '<span class="thought-toggle">▶</span> Thought Process';
-  header.style.cursor = 'pointer';
-  header.style.fontSize = '0.9em';
-  header.style.padding = '4px 8px';
-  header.style.justifyContent = 'flex-start';
-  
-  const contentDiv = document.createElement('div');
-  contentDiv.className = 'message-content';
-  contentDiv.style.display = 'none';
-  contentDiv.style.padding = '8px';
-  contentDiv.style.fontSize = '0.9em';
-  contentDiv.style.color = '#d4d4d4';
-  contentDiv.style.background = '#2d2d2d';
+  header.style.cursor = "pointer";
+  header.style.fontSize = "0.9em";
+  header.style.padding = "4px 8px";
+  header.style.justifyContent = "flex-start";
+
+  const contentDiv = document.createElement("div");
+  contentDiv.className = "message-content";
+  contentDiv.style.display = "none";
+  contentDiv.style.padding = "8px";
+  contentDiv.style.fontSize = "0.9em";
+  contentDiv.style.color = "#d4d4d4";
+  contentDiv.style.background = "#2d2d2d";
   contentDiv.textContent = content;
-  
+
   div.appendChild(header);
   div.appendChild(contentDiv);
-  
+
   return div;
 }
 
 // View: Editable input bubble
 function renderEditableBubble() {
-  const bubble = document.createElement('div');
-  bubble.className = 'message message-user editable-bubble';
-  
-  const header = document.createElement('div');
-  header.className = 'message-header editable-bubble-header';
-  
-  const label = document.createElement('span');
-  label.textContent = 'You';
-  
+  const bubble = document.createElement("div");
+  bubble.className = "message message-user editable-bubble";
+
+  const header = document.createElement("div");
+  header.className = "message-header editable-bubble-header";
+
+  const label = document.createElement("span");
+  label.textContent = "You";
+
   const status = renderConnectionStatus(ChatState.connectionStatus);
-  status.className = 'editable-bubble-status';
-  status.title = 'Connection status';
-  
-  const spacer = document.createElement('span');
-  spacer.style.flex = '1';
-  
-  const sendBtn = document.createElement('button');
-  sendBtn.type = 'button';
-  sendBtn.className = 'editable-send-btn';
-  sendBtn.textContent = '⌃↵ Send';
-  
+  status.className = "editable-bubble-status";
+  status.title = "Connection status";
+
+  const spacer = document.createElement("span");
+  spacer.style.flex = "1";
+
+  const sendBtn = document.createElement("button");
+  sendBtn.type = "button";
+  sendBtn.className = "editable-send-btn";
+  sendBtn.textContent = "⌃↵ Send";
+
   header.appendChild(label);
   header.appendChild(status);
   header.appendChild(spacer);
   header.appendChild(sendBtn);
-  
-  const content = document.createElement('div');
-  content.className = 'message-content';
-  content.contentEditable = 'true';
-  content.setAttribute('data-placeholder', 'Type a message...');
-  
+
+  const content = document.createElement("div");
+  content.className = "message-content";
+  content.contentEditable = "true";
+  content.setAttribute("data-placeholder", "Type a message...");
+
   bubble.appendChild(header);
   bubble.appendChild(content);
-  
+
   return bubble;
 }
 
 // View: Streaming message (with cancel button)
 function renderStreamingMessage() {
-  const div = document.createElement('div');
-  div.className = 'message message-assistant streaming';
-  
-  const header = document.createElement('div');
-  header.className = 'message-header';
-  header.style.display = 'flex';
-  header.style.justifyContent = 'space-between';
-  header.style.alignItems = 'center';
-  
-  const agentLabel = document.createElement('span');
-  agentLabel.textContent = 'Agent';
-  
-  const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'cancel-streaming-btn';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.style.marginLeft = 'auto';
-  cancelBtn.style.fontFamily = 'monospace';
-  cancelBtn.style.fontSize = '11px';
-  cancelBtn.style.padding = '1px 8px';
-  cancelBtn.style.background = 'none';
-  cancelBtn.style.color = '#aaa';
-  cancelBtn.style.border = '1px solid #777';
-  cancelBtn.style.borderRadius = '3px';
-  cancelBtn.style.cursor = 'pointer';
-  
-  const copyBtn = document.createElement('button');
-  copyBtn.className = 'copy-btn';
-  copyBtn.textContent = '📋';
-  copyBtn.style.marginLeft = '5px';
-  
+  const div = document.createElement("div");
+  div.className = "message message-assistant streaming";
+
+  const header = document.createElement("div");
+  header.className = "message-header";
+  header.style.display = "flex";
+  header.style.justifyContent = "space-between";
+  header.style.alignItems = "center";
+
+  const agentLabel = document.createElement("span");
+  agentLabel.textContent = "Agent";
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.className = "cancel-streaming-btn";
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.style.marginLeft = "auto";
+  cancelBtn.style.fontFamily = "monospace";
+  cancelBtn.style.fontSize = "11px";
+  cancelBtn.style.padding = "1px 8px";
+  cancelBtn.style.background = "none";
+  cancelBtn.style.color = "#aaa";
+  cancelBtn.style.border = "1px solid #777";
+  cancelBtn.style.borderRadius = "3px";
+  cancelBtn.style.cursor = "pointer";
+
+  const copyBtn = document.createElement("button");
+  copyBtn.className = "copy-btn";
+  copyBtn.textContent = "📋";
+  copyBtn.style.marginLeft = "5px";
+
   header.appendChild(agentLabel);
   header.appendChild(cancelBtn);
   header.appendChild(copyBtn);
-  
-  const content = document.createElement('div');
-  content.className = 'message-content';
-  
-  const indicator = document.createElement('span');
-  indicator.className = 'streaming-indicator';
-  indicator.style.animation = 'blink 1s infinite';
-  indicator.textContent = '● Received, processing...';
-  
+
+  const content = document.createElement("div");
+  content.className = "message-content";
+
+  const indicator = document.createElement("span");
+  indicator.className = "streaming-indicator";
+  indicator.style.animation = "blink 1s infinite";
+  indicator.textContent = "● Received, processing...";
+
   div.appendChild(header);
   div.appendChild(content);
   div.appendChild(indicator);
-  
+
   return div;
 }
 
 // View: Agent status indicator
 function renderAgentStatus(agentStatus, acpStatus) {
-  const div = document.createElement('div');
-  div.id = 'agent-status-indicator';
-  div.className = 'agent-status-combined';
-  
+  const div = document.createElement("div");
+  div.id = "agent-status-indicator";
+  div.className = "agent-status-combined";
+
   let statusText, statusTitle, statusClass;
-  
-  if (!agentStatus || agentStatus === 'offline') {
-    statusText = '🔴 Agent offline';
-    statusTitle = 'Agent is disconnected';
-    statusClass = 'agent-status--offline';
-  } else if (acpStatus === 'active') {
-    statusText = '🟢 Agent ready';
-    statusTitle = 'Agent is active and ready';
-    statusClass = 'agent-status--active';
-  } else if (acpStatus === 'parked') {
-    statusText = '💤 Agent sleeping';
-    statusTitle = 'ACP is parked. Will wake on next message.';
-    statusClass = 'agent-status--parked';
-  } else if (acpStatus === 'waking') {
-    statusText = '⏳ Waking up...';
-    statusTitle = 'ACP is starting up';
-    statusClass = 'agent-status--waking';
+
+  if (!agentStatus || agentStatus === "offline") {
+    statusText = "🔴 Agent offline";
+    statusTitle = "Agent is disconnected";
+    statusClass = "agent-status--offline";
+  } else if (acpStatus === "active") {
+    statusText = "🟢 Agent ready";
+    statusTitle = "Agent is active and ready";
+    statusClass = "agent-status--active";
+  } else if (acpStatus === "parked") {
+    statusText = "💤 Agent sleeping";
+    statusTitle = "ACP is parked. Will wake on next message.";
+    statusClass = "agent-status--parked";
+  } else if (acpStatus === "waking") {
+    statusText = "⏳ Waking up...";
+    statusTitle = "ACP is starting up";
+    statusClass = "agent-status--waking";
   } else {
-    statusText = '🟢 Agent ready';
-    statusTitle = 'Agent is active and ready';
-    statusClass = 'agent-status--active';
+    statusText = "🟢 Agent ready";
+    statusTitle = "Agent is active and ready";
+    statusClass = "agent-status--active";
   }
-  
+
   div.classList.add(statusClass);
   div.textContent = statusText;
   div.title = statusTitle;
-  
+
   return div;
 }
 
 // View: Notification banner
-function renderNotification(message, type = 'info') {
-  const div = document.createElement('div');
+function renderNotification(message, type = "info") {
+  const div = document.createElement("div");
   div.className = `message message-system notification notification--${type}`;
   div.textContent = message;
   div.style.cssText = `
     padding: 8px 12px;
     margin: 8px 0;
     border-radius: 4px;
-    background: ${type === 'info' ? '#e3f2fd' : type === 'warning' ? '#fff3e0' : '#ffebee'};
-    color: ${type === 'info' ? '#1976d2' : type === 'warning' ? '#f57c00' : '#d32f2f'};
+    background: ${type === "info" ? "#e3f2fd" : type === "warning" ? "#fff3e0" : "#ffebee"};
+    color: ${type === "info" ? "#1976d2" : type === "warning" ? "#f57c00" : "#d32f2f"};
     font-size: 0.9em;
     text-align: center;
   `;
-  
+
   return div;
 }
 
 // View: Render text as per-line block elements (preserves newlines in clipboard)
 // Each line becomes a <div>; empty lines become <div><br></div> to hold height.
 function renderTextAsLines(text, container) {
-  container.textContent = '';
-  const lines = text.split('\n');
+  container.textContent = "";
+  const lines = text.split("\n");
   for (const line of lines) {
-    const div = document.createElement('div');
-    if (line === '') {
-      div.appendChild(document.createElement('br'));
+    const div = document.createElement("div");
+    if (line === "") {
+      div.appendChild(document.createElement("br"));
     } else {
       div.textContent = line;
     }
@@ -319,21 +325,31 @@ function renderTextAsLines(text, container) {
 
 // View: Permission card
 function renderPermissionCard(requestId, toolCall, options) {
-  const card = document.createElement('div');
-  card.className = 'permission-card';
+  const card = document.createElement("div");
+  card.className = "permission-card";
   card.dataset.requestId = requestId;
-  
-  const kindLabel = toolCall?.kind ? `<span class="permission-kind">${toolCall.kind}</span>` : '';
-  const title = toolCall?.title || 'Tool action';
+
+  const kindLabel = toolCall?.kind
+    ? `<span class="permission-kind">${toolCall.kind}</span>`
+    : "";
+  const title = toolCall?.title || "Tool action";
   const locations = (toolCall?.locations || [])
-    .map(loc => `<li>${loc.path}${loc.startLine != null ? `:${loc.startLine}` : ''}</li>`)
-    .join('');
-  const locationsList = locations ? `<ul class="permission-locations">${locations}</ul>` : '';
-  
-  const buttons = (options || []).map(opt =>
-    `<button class="permission-btn permission-btn--${opt.kind}" data-option-id="${opt.optionId}">${opt.name}</button>`
-  ).join('');
-  
+    .map(
+      (loc) =>
+        `<li>${loc.path}${loc.startLine != null ? `:${loc.startLine}` : ""}</li>`,
+    )
+    .join("");
+  const locationsList = locations
+    ? `<ul class="permission-locations">${locations}</ul>`
+    : "";
+
+  const buttons = (options || [])
+    .map(
+      (opt) =>
+        `<button class="permission-btn permission-btn--${opt.kind}" data-option-id="${opt.optionId}">${opt.name}</button>`,
+    )
+    .join("");
+
   card.innerHTML = `
     <div class="permission-card__header">
       <span class="permission-card__title">${title}</span>
@@ -342,7 +358,7 @@ function renderPermissionCard(requestId, toolCall, options) {
     ${locationsList}
     <div class="permission-card__actions">${buttons}</div>
   `;
-  
+
   return card;
 }
 
@@ -354,12 +370,16 @@ function renderPermissionCard(requestId, toolCall, options) {
 
 // Service: Parse thought/message from content
 function parseMessageContent(content) {
-  const detailsMatch = content.match(/\u003cdetails\u003e\s*\u003csummary\u003e(.+?)\u003c\/summary\u003e\s*([\s\S]*?)\u003c\/details\u003e/);
+  const detailsMatch = content.match(
+    /\u003cdetails\u003e\s*\u003csummary\u003e(.+?)\u003c\/summary\u003e\s*([\s\S]*?)\u003c\/details\u003e/,
+  );
   if (detailsMatch) {
     return {
       hasThought: true,
       thought: detailsMatch[2].trim(),
-      message: content.replace(/\u003cdetails\u003e[\s\S]*?\u003c\/details\u003e/, '').replace(/^\s*\n+/, ''),
+      message: content
+        .replace(/\u003cdetails\u003e[\s\S]*?\u003c\/details\u003e/, "")
+        .replace(/^\s*\n+/, ""),
     };
   }
   return { hasThought: false, thought: null, message: content };
@@ -367,63 +387,65 @@ function parseMessageContent(content) {
 
 // Service: Parse history message for streaming chunks
 function parseHistoryMessage(msg) {
-  if (msg.role !== 'assistant' || !msg.content) {
-    return { type: 'regular', data: msg };
+  if (msg.role !== "assistant" || !msg.content) {
+    return { type: "regular", data: msg };
   }
-  
+
   try {
     const parsed = JSON.parse(msg.content);
     if (parsed.update) {
       const updateType = parsed.update.sessionUpdate;
-      const text = parsed.update.content?.text || '';
-      
-      if (updateType === 'agent_thought_chunk') {
-        return { type: 'thought_chunk', content: text };
+      const text = parsed.update.content?.text || "";
+
+      if (updateType === "agent_thought_chunk") {
+        return { type: "thought_chunk", content: text };
       }
-      if (updateType === 'agent_message_chunk') {
-        return { type: 'message_chunk', content: text };
+      if (updateType === "agent_message_chunk") {
+        return { type: "message_chunk", content: text };
       }
-      if (updateType === 'usage_update') {
-        return { type: 'usage', cost: parsed.update.cost };
+      if (updateType === "usage_update") {
+        return { type: "usage", cost: parsed.update.cost };
       }
     }
   } catch (e) {
     // Not JSON, return as regular
   }
-  
-  return { type: 'regular', data: msg };
+
+  return { type: "regular", data: msg };
 }
 
 // Service: Extract plain text from a rendered message element
 // Joins per-line <div> children with \n, excluding the thought section.
 function extractMessageText(el) {
-  const responseEl = el.querySelector('.message-response');
+  const responseEl = el.querySelector(".message-response");
   if (responseEl) {
-    return Array.from(responseEl.children).map(div => div.textContent).join('\n');
+    return Array.from(responseEl.children)
+      .map((div) => div.textContent)
+      .join("\n");
   }
-  const contentEl = el.querySelector('.message-content');
-  if (!contentEl) return '';
+  const contentEl = el.querySelector(".message-content");
+  if (!contentEl) return "";
   return Array.from(contentEl.children)
-    .filter(child => !child.classList.contains('message-thought'))
-    .map(div => div.textContent)
-    .join('\n');
+    .filter((child) => !child.classList.contains("message-thought"))
+    .map((div) => div.textContent)
+    .join("\n");
 }
 
 // Service: Build WebSocket URL
 function buildWebSocketUrl(sessionId) {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${window.location.host}/ws/chat/${sessionId}`;
 }
 
 // Service: Calculate combined status
 function calculateCombinedStatus(agentStatus, acpStatus) {
-  if (!agentStatus || agentStatus === 'offline') {
-    return { canSend: false, placeholder: 'Agent offline...' };
+  if (!agentStatus || agentStatus === "offline") {
+    return { canSend: false, placeholder: "Agent offline..." };
   }
-  if (acpStatus === 'waking') {
-    return { canSend: false, placeholder: 'Waking agent...' };
+  if (acpStatus === "waking") {
+    return { canSend: false, placeholder: "Waking agent..." };
   }
-  return { canSend: true, placeholder: 'Type your message...' };
+  return { canSend: true, placeholder: "Type your message..." };
 }
 
 // Service: Format usage for display
@@ -438,24 +460,24 @@ function formatUsage(usage) {
   if (usage.size !== undefined) {
     parts.push(`Context: ${usage.size.toLocaleString()}`);
   }
-  return parts.join(' | ');
+  return parts.join(" | ");
 }
 
 function applyFrameState(frameId, activeBufferId) {
   const frame = document.querySelector(`.frame[data-frame-id="${frameId}"]`);
   if (!frame) return;
 
-  frame.querySelectorAll('.frame-tab').forEach((tab) => {
+  frame.querySelectorAll(".frame-tab").forEach((tab) => {
     const isActive = tab.dataset.bufferId === activeBufferId;
-    tab.classList.toggle('active', isActive);
-    tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    tab.classList.toggle("active", isActive);
+    tab.setAttribute("aria-selected", isActive ? "true" : "false");
   });
 
-  frame.querySelectorAll('.frame-buffer-panel').forEach((panel) => {
+  frame.querySelectorAll(".frame-buffer-panel").forEach((panel) => {
     const isActive = panel.dataset.bufferPanel === activeBufferId;
-    panel.style.display = isActive ? 'flex' : 'none';
-    panel.classList.toggle('active', isActive);
-    panel.classList.toggle('hidden', !isActive);
+    panel.style.display = isActive ? "flex" : "none";
+    panel.classList.toggle("active", isActive);
+    panel.classList.toggle("hidden", !isActive);
   });
 
   ChatState.frames[frameId] = activeBufferId;
@@ -466,56 +488,56 @@ async function switchFrameBuffer(frameId, bufferId) {
 
   try {
     await fetch(`/sessions/${ChatState.sessionId}/frame-state`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ frame: frameId, activeBufferId: bufferId }),
     });
   } catch (error) {
-    console.error('[frame] Failed to persist frame state:', error);
+    console.error("[frame] Failed to persist frame state:", error);
   }
 }
 
 async function loadNotesContent() {
-  const notesInput = document.querySelector('#notes-input');
+  const notesInput = document.querySelector("#notes-input");
   if (!notesInput || !ChatState.sessionId) return;
 
   try {
     const response = await fetch(`/sessions/${ChatState.sessionId}/notes`);
     if (!response.ok) return;
     const data = await response.json();
-    notesInput.value = data.content || '';
+    notesInput.value = data.content || "";
   } catch (error) {
-    console.error('[notes] Failed to load notes:', error);
+    console.error("[notes] Failed to load notes:", error);
   }
 }
 
 async function saveNotesContent() {
-  const notesInput = document.querySelector('#notes-input');
-  const status = document.querySelector('#notes-save-status');
+  const notesInput = document.querySelector("#notes-input");
+  const status = document.querySelector("#notes-save-status");
   if (!notesInput || !ChatState.sessionId) return;
 
   if (status) {
-    status.textContent = 'Saving...';
+    status.textContent = "Saving...";
   }
 
   try {
     await fetch(`/sessions/${ChatState.sessionId}/notes`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ content: notesInput.value }),
     });
 
     if (status) {
-      status.textContent = 'Saved';
+      status.textContent = "Saved";
     }
   } catch (error) {
-    console.error('[notes] Failed to save notes:', error);
+    console.error("[notes] Failed to save notes:", error);
     if (status) {
-      status.textContent = 'Save failed';
+      status.textContent = "Save failed";
     }
   }
 }
@@ -539,46 +561,50 @@ function initChat(sessionId) {
 function connectWebSocket(sessionId) {
   const url = buildWebSocketUrl(sessionId);
   ChatState.socket = new WebSocket(url);
-  
-  ChatState.socket.onopen = () => {
-    console.log('Chat WebSocket connected');
-    ChatState.connectionStatus = 'connected';
-    updateConnectionStatusUI();
-    
-    ChatState.socket.send(JSON.stringify({
-      type: 'request_state',
-      sessionId: ChatState.sessionId,
-    }));
 
-    ChatState.socket.send(JSON.stringify({
-      type: 'request_impact_stale',
-      sessionId: ChatState.sessionId,
-    }));
+  ChatState.socket.onopen = () => {
+    console.log("Chat WebSocket connected");
+    ChatState.connectionStatus = "connected";
+    updateConnectionStatusUI();
+
+    ChatState.socket.send(
+      JSON.stringify({
+        type: "request_state",
+        sessionId: ChatState.sessionId,
+      }),
+    );
+
+    ChatState.socket.send(
+      JSON.stringify({
+        type: "request_impact_stale",
+        sessionId: ChatState.sessionId,
+      }),
+    );
 
     loadInitialImpact();
   };
-  
+
   ChatState.socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
     handleWebSocketMessage(data);
   };
-  
+
   ChatState.socket.onclose = () => {
-    console.log('Chat WebSocket disconnected');
-    ChatState.connectionStatus = 'disconnected';
-    ChatState.agentStatus = 'offline';
+    console.log("Chat WebSocket disconnected");
+    ChatState.connectionStatus = "disconnected";
+    ChatState.agentStatus = "offline";
     updateConnectionStatusUI();
     updateAgentStatusUI();
-    
+
     setTimeout(() => {
       if (ChatState.sessionId) connectWebSocket(ChatState.sessionId);
     }, 3000);
   };
-  
+
   ChatState.socket.onerror = (error) => {
-    console.error('Chat WebSocket error:', error);
-    ChatState.connectionStatus = 'error';
-    ChatState.agentStatus = 'offline';
+    console.error("Chat WebSocket error:", error);
+    ChatState.connectionStatus = "error";
+    ChatState.agentStatus = "offline";
     updateConnectionStatusUI();
     updateAgentStatusUI();
   };
@@ -586,73 +612,73 @@ function connectWebSocket(sessionId) {
 
 // Controller: Handle incoming WebSocket messages
 function handleWebSocketMessage(data) {
-  console.log('[CHAT] Received:', data.type, data);
-  
+  console.log("[CHAT] Received:", data.type, data);
+
   switch (data.type) {
-    case 'prompt_received':
+    case "prompt_received":
       handlePromptReceived();
       break;
-    case 'thought_start':
+    case "thought_start":
       handleThoughtStart();
       break;
-    case 'thought_chunk':
+    case "thought_chunk":
       handleThoughtChunk(data.content);
       break;
-    case 'thought_end':
+    case "thought_end":
       handleThoughtEnd();
       break;
-    case 'message_chunk':
+    case "message_chunk":
       handleMessageChunk(data.content);
       break;
-    case 'usage_update':
+    case "usage_update":
       handleUsageUpdate(data.usage);
       break;
-    case 'message':
+    case "message":
       handleMessage(data);
       break;
-    case 'error':
+    case "error":
       handleErrorMessage(data.message);
       break;
-    case 'history':
+    case "history":
       loadChatHistory(data.messages);
       break;
-    case 'session_initialized':
+    case "session_initialized":
       handleSessionInitialized(data);
       break;
-    case 'model_state':
+    case "model_state":
       updateModelSelector(data.modelState);
       break;
-    case 'mode_state':
+    case "mode_state":
       updateModeSelector(data.modeState);
       break;
-    case 'streaming_state':
+    case "streaming_state":
       handleStreamingState(data);
       break;
-    case 'permission_request':
+    case "permission_request":
       showPermissionCard(data);
       break;
-    case 'permission_resolved':
+    case "permission_resolved":
       removePermissionCard(data.requestId);
       break;
-    case 'session_cleared':
+    case "session_cleared":
       handleSessionCleared(data);
       break;
-    case 'clear_session_error':
+    case "clear_session_error":
       handleClearSessionError(data);
       break;
-    case 'acp_status':
+    case "acp_status":
       handleAcpStatus(data);
       break;
-    case 'impact_stale':
+    case "impact_stale":
       handleImpactStale(data);
       break;
-    case 'impact_calculating':
+    case "impact_calculating":
       handleImpactCalculating();
       break;
-    case 'impact_updated':
+    case "impact_updated":
       handleImpactUpdated(data);
       break;
-    case 'impact_error':
+    case "impact_error":
       handleImpactError(data);
       break;
   }
@@ -712,7 +738,10 @@ function handleUsageUpdate(usage) {
 // Controller: Handle regular message
 function handleMessage(message) {
   // Skip if already added locally
-  if (message.role === 'user' && ChatState.pendingMessages.has(message.content)) {
+  if (
+    message.role === "user" &&
+    ChatState.pendingMessages.has(message.content)
+  ) {
     ChatState.pendingMessages.delete(message.content);
     return;
   }
@@ -730,22 +759,22 @@ function handleErrorMessage(message) {
 // Controller: Handle ACP status
 function handleAcpStatus(data) {
   const { status, wasReset, message } = data;
-  console.log('[CHAT] ACP status update:', { status, wasReset });
-  
+  console.log("[CHAT] ACP status update:", { status, wasReset });
+
   ChatState.acpStatus = status;
   updateAgentStatusUI();
-  
+
   if (wasReset && message) {
-    showNotification(message, 'info');
+    showNotification(message, "info");
   }
 }
 
 // Controller: Handle session initialized
 function handleSessionInitialized(data) {
-  console.log('[INIT] session_initialized received:', data);
-  ChatState.agentStatus = 'online';
+  console.log("[INIT] session_initialized received:", data);
+  ChatState.agentStatus = "online";
   updateAgentStatusUI();
-  
+
   if (data.modelState) updateModelSelector(data.modelState);
   if (data.modeState) updateModeSelector(data.modeState);
 }
@@ -753,12 +782,14 @@ function handleSessionInitialized(data) {
 // Controller: Send message
 function sendMessage(content) {
   ChatState.pendingMessages.add(content);
-  
+
   if (ChatState.socket?.readyState === WebSocket.OPEN) {
-    ChatState.socket.send(JSON.stringify({
-      type: 'send_message',
-      content: content,
-    }));
+    ChatState.socket.send(
+      JSON.stringify({
+        type: "send_message",
+        content: content,
+      }),
+    );
   } else {
     sendMessageHttp(content);
   }
@@ -768,13 +799,13 @@ function sendMessage(content) {
 async function sendMessageHttp(content) {
   try {
     const res = await fetch(`/sessions/${ChatState.sessionId}/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ message: content }).toString(),
     });
-    
+
     if (!res.ok) {
-      handleErrorMessage('Failed to send message');
+      handleErrorMessage("Failed to send message");
     }
   } catch (error) {
     handleErrorMessage(`Failed to send message: ${error.message}`);
@@ -783,16 +814,18 @@ async function sendMessageHttp(content) {
 
 // Controller: Cancel streaming
 function cancelStreaming() {
-  console.log('[CHAT] User cancelled streaming');
+  console.log("[CHAT] User cancelled streaming");
   clearStreamingTimeout();
-  
+
   if (ChatState.socket?.readyState === WebSocket.OPEN) {
-    ChatState.socket.send(JSON.stringify({
-      type: 'cancel_request',
-      sessionId: ChatState.sessionId,
-    }));
+    ChatState.socket.send(
+      JSON.stringify({
+        type: "cancel_request",
+        sessionId: ChatState.sessionId,
+      }),
+    );
   }
-  
+
   removeStreamingMessage();
   insertCancelledMessage();
   insertEditableBubble();
@@ -800,15 +833,17 @@ function cancelStreaming() {
 
 // Controller: Clear session
 function clearSession() {
-  console.log('[CHAT] User requested session clear');
-  
+  console.log("[CHAT] User requested session clear");
+
   if (ChatState.socket?.readyState === WebSocket.OPEN) {
-    ChatState.socket.send(JSON.stringify({
-      type: 'clear_session',
-      sessionId: ChatState.sessionId,
-    }));
+    ChatState.socket.send(
+      JSON.stringify({
+        type: "clear_session",
+        sessionId: ChatState.sessionId,
+      }),
+    );
   }
-  
+
   insertPendingClearMessage();
 }
 
@@ -832,17 +867,19 @@ function clearStreamingTimeout() {
 
 // Controller: Handle streaming timeout
 function handleStreamingTimeout() {
-  console.log(`[CHAT] Streaming timeout - agent did not respond within ${ChatState.STREAMING_TIMEOUT_MS / 1000} seconds`);
-  
+  console.log(
+    `[CHAT] Streaming timeout - agent did not respond within ${ChatState.STREAMING_TIMEOUT_MS / 1000} seconds`,
+  );
+
   if (ChatState.streaming.messageElement) {
     ChatState.streaming.messageElement.remove();
     ChatState.streaming.messageElement = null;
     ChatState.streaming.thoughtElement = null;
-    ChatState.streaming.content = '';
-    ChatState.streaming.thoughtContent = '';
+    ChatState.streaming.content = "";
+    ChatState.streaming.thoughtContent = "";
     ChatState.streaming.active = false;
   }
-  
+
   insertTimeoutWarning();
   insertEditableBubble();
 }
@@ -850,12 +887,12 @@ function handleStreamingTimeout() {
 // Controller: Handle streaming state (reconnection)
 function handleStreamingState(data) {
   const { thoughtContent, messageContent } = data;
-  
+
   ChatState.streaming.reconstructed = true;
   ChatState.streaming.lastActivity = Date.now();
-  
+
   removeEditableBubble();
-  
+
   if (thoughtContent) {
     insertStreamingMessage();
     insertThoughtSection();
@@ -863,7 +900,7 @@ function handleStreamingState(data) {
     updateThoughtContent(thoughtContent);
     finalizeThoughtSection();
   }
-  
+
   if (messageContent) {
     if (!ChatState.streaming.messageElement) {
       insertStreamingMessage();
@@ -871,13 +908,19 @@ function handleStreamingState(data) {
     ChatState.streaming.content += messageContent;
     updateMessageContent(messageContent);
   }
-  
+
   // Fallback: restore input if stale
   setTimeout(() => {
-    if (ChatState.streaming.reconstructed && !ChatState.editableBubble && !ChatState.streaming.messageElement) {
+    if (
+      ChatState.streaming.reconstructed &&
+      !ChatState.editableBubble &&
+      !ChatState.streaming.messageElement
+    ) {
       const timeSinceActivity = Date.now() - ChatState.streaming.lastActivity;
       if (timeSinceActivity >= 10000) {
-        console.log('[CHAT] Fallback: restoring input after stale reconstructed streaming');
+        console.log(
+          "[CHAT] Fallback: restoring input after stale reconstructed streaming",
+        );
         ChatState.streaming.reconstructed = false;
         insertEditableBubble();
       }
@@ -887,37 +930,42 @@ function handleStreamingState(data) {
 
 // Controller: Handle session cleared
 function handleSessionCleared(data) {
-  console.log('[CHAT] Session cleared:', data);
-  
-  const pending = document.querySelector('#clear-session-pending');
+  console.log("[CHAT] Session cleared:", data);
+
+  const pending = document.querySelector("#clear-session-pending");
   if (pending) pending.remove();
-  
+
   insertMessage({
-    role: 'system',
-    content: 'Session cleared - context reset',
+    role: "system",
+    content: "Session cleared - context reset",
     timestamp: new Date().toISOString(),
   });
 }
 
 // Controller: Handle clear session error
 function handleClearSessionError(data) {
-  console.error('[CHAT] Clear session error:', data);
-  
-  const pending = document.querySelector('#clear-session-pending');
+  console.error("[CHAT] Clear session error:", data);
+
+  const pending = document.querySelector("#clear-session-pending");
   if (pending) pending.remove();
-  
-  insertError(data.error || 'Failed to clear session');
+
+  insertError(data.error || "Failed to clear session");
 }
 
 function refreshImpact() {
-  if (ChatState.socket?.readyState !== WebSocket.OPEN || ChatState.impact.calculating) {
+  if (
+    ChatState.socket?.readyState !== WebSocket.OPEN ||
+    ChatState.impact.calculating
+  ) {
     return;
   }
 
-  ChatState.socket.send(JSON.stringify({
-    type: 'refresh_impact',
-    sessionId: ChatState.sessionId,
-  }));
+  ChatState.socket.send(
+    JSON.stringify({
+      type: "refresh_impact",
+      sessionId: ChatState.sessionId,
+    }),
+  );
 }
 
 async function loadInitialImpact() {
@@ -938,7 +986,7 @@ async function loadInitialImpact() {
     renderImpactMetrics(metrics, ChatState.impact.trends);
     updateImpactUiState();
   } catch (error) {
-    console.error('[impact] Initial load failed:', error);
+    console.error("[impact] Initial load failed:", error);
   }
 }
 
@@ -967,7 +1015,7 @@ function handleImpactUpdated(data) {
 function handleImpactError(data) {
   ChatState.impact.calculating = false;
   updateImpactUiState();
-  insertError(data.error || 'Impact calculation failed');
+  insertError(data.error || "Impact calculation failed");
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -978,70 +1026,72 @@ function handleImpactError(data) {
 
 // DOM: Insert message into chat container
 function insertMessage(message) {
-  const container = document.querySelector('#chat-messages');
+  const container = document.querySelector("#chat-messages");
   if (!container) return;
-  
+
   const parsed = parseMessageContent(message.content);
   const el = renderMessage({
     ...message,
     content: parsed.hasThought ? parsed.message : message.content,
   });
-  
+
   // Add thought section if present
   if (parsed.hasThought) {
     const thoughtEl = renderThoughtSection(parsed.thought);
-    const contentEl = el.querySelector('.message-content');
-    const header = thoughtEl.querySelector('.message-header');
-    const thoughtContentDiv = thoughtEl.querySelector('.message-content');
-    
-    header.addEventListener('click', () => {
-      const isVisible = thoughtContentDiv.style.display !== 'none';
-      thoughtContentDiv.style.display = isVisible ? 'none' : 'block';
-      thoughtEl.classList.toggle('thought-collapsed', isVisible);
-      thoughtEl.classList.toggle('thought-expanded', !isVisible);
-      header.querySelector('.thought-toggle').textContent = isVisible ? '▶' : '▼';
+    const contentEl = el.querySelector(".message-content");
+    const header = thoughtEl.querySelector(".message-header");
+    const thoughtContentDiv = thoughtEl.querySelector(".message-content");
+
+    header.addEventListener("click", () => {
+      const isVisible = thoughtContentDiv.style.display !== "none";
+      thoughtContentDiv.style.display = isVisible ? "none" : "block";
+      thoughtEl.classList.toggle("thought-collapsed", isVisible);
+      thoughtEl.classList.toggle("thought-expanded", !isVisible);
+      header.querySelector(".thought-toggle").textContent = isVisible
+        ? "▶"
+        : "▼";
     });
-    
+
     contentEl.prepend(thoughtEl);
   }
-  
+
   // Attach copy handler
-  const copyBtn = el.querySelector('.copy-btn');
-  copyBtn.addEventListener('click', () => {
+  const copyBtn = el.querySelector(".copy-btn");
+  copyBtn.addEventListener("click", () => {
     navigator.clipboard.writeText(extractMessageText(el));
   });
 
   // Remove "no messages" placeholder if exists
-  const placeholder = container.querySelector('.no-messages');
+  const placeholder = container.querySelector(".no-messages");
   if (placeholder) placeholder.remove();
-  
+
   container.appendChild(el);
   scrollToBottom();
 }
 
 // DOM: Insert editable bubble
 function insertEditableBubble() {
-  const container = document.querySelector('#chat-messages');
+  const container = document.querySelector("#chat-messages");
   if (!container || ChatState.editableBubble) return;
-  
+
   const bubble = renderEditableBubble();
-  const content = bubble.querySelector('.message-content');
-  const sendBtn = bubble.querySelector('.editable-send-btn');
-  
+  const content = bubble.querySelector(".message-content");
+  const sendBtn = bubble.querySelector(".editable-send-btn");
+
   // Event handlers
-  sendBtn.addEventListener('click', submitEditableBubble);
-  content.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && e.ctrlKey) {
+  sendBtn.addEventListener("click", submitEditableBubble);
+  content.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.ctrlKey) {
       e.preventDefault();
       submitEditableBubble();
     }
   });
-  content.addEventListener('paste', (e) => {
+  content.addEventListener("paste", (e) => {
     e.preventDefault();
-    const text = e.clipboardData.getData('text/plain');
-    document.execCommand('insertText', false, text);
+    const text = e.clipboardData.getData("text/plain");
+    document.execCommand("insertText", false, text);
   });
-  
+
   container.appendChild(bubble);
   content.focus();
   ChatState.editableBubble = bubble;
@@ -1059,47 +1109,49 @@ function removeEditableBubble() {
 // DOM: Submit editable bubble
 function submitEditableBubble() {
   if (!ChatState.editableBubble) return;
-  
-  const content = ChatState.editableBubble.querySelector('.message-content');
+
+  const content = ChatState.editableBubble.querySelector(".message-content");
   const message = content.innerText.trim();
   if (!message) return;
-  
+
   // Convert to static message
-  const header = ChatState.editableBubble.querySelector('.editable-bubble-header');
+  const header = ChatState.editableBubble.querySelector(
+    ".editable-bubble-header",
+  );
   if (header) header.remove();
-  content.removeAttribute('contenteditable');
-  ChatState.editableBubble.classList.remove('editable-bubble');
-  
-  const staticHeader = document.createElement('div');
-  staticHeader.className = 'message-header';
-  staticHeader.textContent = 'You';
+  content.removeAttribute("contenteditable");
+  ChatState.editableBubble.classList.remove("editable-bubble");
+
+  const staticHeader = document.createElement("div");
+  staticHeader.className = "message-header";
+  staticHeader.textContent = "You";
   ChatState.editableBubble.insertBefore(staticHeader, content);
-  
+
   ChatState.editableBubble = null;
-  
+
   sendMessage(message);
 }
 
 // DOM: Insert streaming message
 function insertStreamingMessage() {
-  const container = document.querySelector('#chat-messages');
+  const container = document.querySelector("#chat-messages");
   if (!container || ChatState.streaming.messageElement) return;
-  
+
   const el = renderStreamingMessage();
-  
+
   // Attach cancel handler
-  const cancelBtn = el.querySelector('.cancel-streaming-btn');
-  cancelBtn.addEventListener('click', cancelStreaming);
-  
+  const cancelBtn = el.querySelector(".cancel-streaming-btn");
+  cancelBtn.addEventListener("click", cancelStreaming);
+
   // Attach copy handler
-  const copyBtn = el.querySelector('.copy-btn');
-  copyBtn.addEventListener('click', () => {
+  const copyBtn = el.querySelector(".copy-btn");
+  copyBtn.addEventListener("click", () => {
     navigator.clipboard.writeText(extractMessageText(el));
   });
 
   container.appendChild(el);
   ChatState.streaming.messageElement = el;
-  ChatState.streaming.content = '';
+  ChatState.streaming.content = "";
   ChatState.streaming.active = true;
   scrollToBottom();
 }
@@ -1110,8 +1162,8 @@ function removeStreamingMessage() {
     ChatState.streaming.messageElement.remove();
     ChatState.streaming.messageElement = null;
     ChatState.streaming.thoughtElement = null;
-    ChatState.streaming.content = '';
-    ChatState.streaming.thoughtContent = '';
+    ChatState.streaming.content = "";
+    ChatState.streaming.thoughtContent = "";
     ChatState.streaming.active = false;
   }
 }
@@ -1119,48 +1171,56 @@ function removeStreamingMessage() {
 // DOM: Finalize message stream (remove indicators)
 function finalizeMessageStream() {
   if (!ChatState.streaming.messageElement) return;
-  
-  const indicator = ChatState.streaming.messageElement.querySelector('.streaming-indicator');
+
+  const indicator = ChatState.streaming.messageElement.querySelector(
+    ".streaming-indicator",
+  );
   if (indicator) indicator.remove();
-  
-  const responseContent = ChatState.streaming.messageElement.querySelector('.message-response');
+
+  const responseContent =
+    ChatState.streaming.messageElement.querySelector(".message-response");
   if (responseContent) {
-    const cursor = responseContent.querySelector('.typing-cursor');
+    const cursor = responseContent.querySelector(".typing-cursor");
     if (cursor) cursor.remove();
     const accumulated = responseContent.textContent;
     renderTextAsLines(accumulated, responseContent);
   }
-  
-  const cancelBtn = ChatState.streaming.messageElement.querySelector('.cancel-streaming-btn');
+
+  const cancelBtn = ChatState.streaming.messageElement.querySelector(
+    ".cancel-streaming-btn",
+  );
   if (cancelBtn) cancelBtn.remove();
-  
-  ChatState.streaming.messageElement.classList.remove('streaming');
+
+  ChatState.streaming.messageElement.classList.remove("streaming");
   ChatState.streaming.messageElement = null;
   ChatState.streaming.thoughtElement = null;
-  ChatState.streaming.content = '';
-  ChatState.streaming.thoughtContent = '';
+  ChatState.streaming.content = "";
+  ChatState.streaming.thoughtContent = "";
   ChatState.streaming.reconstructed = false;
   ChatState.streaming.active = false;
 }
 
 // DOM: Insert thought section
 function insertThoughtSection() {
-  if (!ChatState.streaming.messageElement || ChatState.streaming.thoughtElement) return;
-  
-  const contentEl = ChatState.streaming.messageElement.querySelector('.message-content');
-  const thoughtEl = renderThoughtSection('');
-  const header = thoughtEl.querySelector('.message-header');
-  const thoughtContentDiv = thoughtEl.querySelector('.message-content');
-  
-  header.addEventListener('click', () => {
-    const isVisible = thoughtContentDiv.style.display !== 'none';
-    thoughtContentDiv.style.display = isVisible ? 'none' : 'block';
-    header.querySelector('.thought-toggle').textContent = isVisible ? '▶' : '▼';
-    thoughtEl.classList.toggle('thought-collapsed', isVisible);
-    thoughtEl.classList.toggle('thought-expanded', !isVisible);
+  if (!ChatState.streaming.messageElement || ChatState.streaming.thoughtElement)
+    return;
+
+  const contentEl =
+    ChatState.streaming.messageElement.querySelector(".message-content");
+  const thoughtEl = renderThoughtSection("");
+  const header = thoughtEl.querySelector(".message-header");
+  const thoughtContentDiv = thoughtEl.querySelector(".message-content");
+
+  header.addEventListener("click", () => {
+    const isVisible = thoughtContentDiv.style.display !== "none";
+    thoughtContentDiv.style.display = isVisible ? "none" : "block";
+    header.querySelector(".thought-toggle").textContent = isVisible ? "▶" : "▼";
+    thoughtEl.classList.toggle("thought-collapsed", isVisible);
+    thoughtEl.classList.toggle("thought-expanded", !isVisible);
   });
-  
-  header.innerHTML = '<span class="thought-toggle" style="animation: blink 1s infinite; display: inline-block;">●</span> Thinking...';
+
+  header.innerHTML =
+    '<span class="thought-toggle" style="animation: blink 1s infinite; display: inline-block;">●</span> Thinking...';
   contentEl.insertBefore(thoughtEl, contentEl.firstChild);
   ChatState.streaming.thoughtElement = thoughtEl;
 }
@@ -1168,7 +1228,8 @@ function insertThoughtSection() {
 // DOM: Update thought content
 function updateThoughtContent(text) {
   if (!ChatState.streaming.thoughtElement) return;
-  const contentDiv = ChatState.streaming.thoughtElement.querySelector('.message-content');
+  const contentDiv =
+    ChatState.streaming.thoughtElement.querySelector(".message-content");
   contentDiv.textContent += text;
   scrollToBottom();
 }
@@ -1176,137 +1237,159 @@ function updateThoughtContent(text) {
 // DOM: Finalize thought section
 function finalizeThoughtSection() {
   if (!ChatState.streaming.thoughtElement) return;
-  const header = ChatState.streaming.thoughtElement.querySelector('.message-header');
+  const header =
+    ChatState.streaming.thoughtElement.querySelector(".message-header");
   header.innerHTML = '<span class="thought-toggle">▶</span> Thought Process';
 }
 
 // DOM: Update message content
 function updateMessageContent(text) {
   if (!ChatState.streaming.messageElement) return;
-  
-  let responseEl = ChatState.streaming.messageElement.querySelector('.message-response');
+
+  let responseEl =
+    ChatState.streaming.messageElement.querySelector(".message-response");
   if (!responseEl) {
-    responseEl = document.createElement('div');
-    responseEl.className = 'message-response';
-    ChatState.streaming.messageElement.querySelector('.message-content')?.appendChild(responseEl);
+    responseEl = document.createElement("div");
+    responseEl.className = "message-response";
+    ChatState.streaming.messageElement
+      .querySelector(".message-content")
+      ?.appendChild(responseEl);
   }
-  
-  const cursor = responseEl.querySelector('.typing-cursor');
+
+  const cursor = responseEl.querySelector(".typing-cursor");
   if (cursor) cursor.remove();
-  
+
   responseEl.textContent += text;
-  
-  const newCursor = document.createElement('span');
-  newCursor.className = 'typing-cursor';
-  newCursor.textContent = '▋';
-  newCursor.style.color = '#51cf66';
-  newCursor.style.animation = 'blink 1s infinite';
+
+  const newCursor = document.createElement("span");
+  newCursor.className = "typing-cursor";
+  newCursor.textContent = "▋";
+  newCursor.style.color = "#51cf66";
+  newCursor.style.animation = "blink 1s infinite";
   responseEl.appendChild(newCursor);
-  
+
   scrollToBottom();
 }
 
 // DOM: Update usage display
 function updateUsageDisplay(usage) {
-  const container = document.querySelector('#chat-usage');
+  const container = document.querySelector("#chat-usage");
   if (!container) return;
-  
+
   if (!usage) {
-    container.textContent = '';
-    container.style.display = 'none';
+    container.textContent = "";
+    container.style.display = "none";
     return;
   }
-  
+
   container.textContent = formatUsage(usage);
-  container.style.display = 'block';
+  container.style.display = "block";
 }
 
 // DOM: Update connection status UI
 function updateConnectionStatusUI() {
-  const statusEl = ChatState.editableBubble?.querySelector('.editable-bubble-status');
+  const statusEl = ChatState.editableBubble?.querySelector(
+    ".editable-bubble-status",
+  );
   if (!statusEl) return;
-  
-  const connected = ChatState.connectionStatus === 'connected';
-  statusEl.textContent = connected ? '●' : '○';
-  statusEl.style.color = connected ? '#51cf66' : '#888';
+
+  const connected = ChatState.connectionStatus === "connected";
+  statusEl.textContent = connected ? "●" : "○";
+  statusEl.style.color = connected ? "#51cf66" : "#888";
   statusEl.className = `editable-bubble-status ${ChatState.connectionStatus}`;
 }
 
 // DOM: Update agent status UI
 function updateAgentStatusUI() {
-  const chatInput = document.querySelector('#chat-input');
-  const sendButton = document.querySelector('#send-button');
-  
+  const chatInput = document.querySelector("#chat-input");
+  const sendButton = document.querySelector("#send-button");
+
   // Update subtitle ACP status text
-  const subtitleStatus = document.querySelector('#subtitle-acp-status');
+  const subtitleStatus = document.querySelector("#subtitle-acp-status");
   if (subtitleStatus) {
-    let statusText = '';
-    let statusClass = '';
-    
-    if (ChatState.acpStatus === 'active') {
-      statusText = '🟢 Agent ready';
-      statusClass = 'acp-status--active';
-    } else if (ChatState.acpStatus === 'parked') {
-      statusText = '💤 Agent sleeping';
-      statusClass = 'acp-status--parked';
-    } else if (ChatState.acpStatus === 'waking') {
-      statusText = '⏳ Waking agent...';
-      statusClass = 'acp-status--waking';
+    let statusText = "";
+    let statusClass = "";
+
+    if (ChatState.acpStatus === "active") {
+      statusText = "🟢 Agent ready";
+      statusClass = "acp-status--active";
+    } else if (ChatState.acpStatus === "parked") {
+      statusText = "💤 Agent sleeping";
+      statusClass = "acp-status--parked";
+    } else if (ChatState.acpStatus === "waking") {
+      statusText = "⏳ Waking agent...";
+      statusClass = "acp-status--waking";
     }
-    
+
     subtitleStatus.textContent = statusText;
     subtitleStatus.className = `acp-status ${statusClass}`;
   }
-  
+
   const { canSend, placeholder } = calculateCombinedStatus(
     ChatState.agentStatus,
-    ChatState.acpStatus
+    ChatState.acpStatus,
   );
-  
+
   if (chatInput) {
     chatInput.disabled = !canSend;
     chatInput.placeholder = placeholder;
   }
-  
+
   if (sendButton) {
     sendButton.disabled = !canSend;
   }
 }
 
 function updateImpactUiState() {
-  const staleBadge = document.querySelector('#impact-stale-badge');
-  const calculatingBadge = document.querySelector('#impact-calculating-badge');
-  const refreshBtn = document.querySelector('#impact-refresh-btn');
+  const staleBadge = document.querySelector("#impact-stale-badge");
+  const calculatingBadge = document.querySelector("#impact-calculating-badge");
+  const refreshBtn = document.querySelector("#impact-refresh-btn");
 
   if (staleBadge) {
-    staleBadge.style.display = ChatState.impact.stale ? 'inline' : 'none';
+    staleBadge.style.display = ChatState.impact.stale ? "inline" : "none";
   }
   if (calculatingBadge) {
-    calculatingBadge.style.display = ChatState.impact.calculating ? 'inline' : 'none';
+    calculatingBadge.style.display = ChatState.impact.calculating
+      ? "inline"
+      : "none";
   }
   if (refreshBtn) {
     refreshBtn.disabled = ChatState.impact.calculating;
-    refreshBtn.textContent = ChatState.impact.calculating ? 'Analyzing...' : 'Refresh';
+    refreshBtn.textContent = ChatState.impact.calculating
+      ? "Analyzing..."
+      : "Refresh";
   }
 }
 
 function renderImpactMetrics(metrics, trends) {
-  const content = document.querySelector('#impact-content');
+  const content = document.querySelector("#impact-content");
   if (!content || !metrics?.files) {
     return;
   }
 
-  const filesTrend = trends?.files || { new: '→', changed: '→', deleted: '→' };
-  const locTrend = trends?.linesOfCode || { added: '→', removed: '→', net: '→' };
-  const complexityTrend = trends?.complexity || { cyclomatic: '→', cognitive: '→' };
-  const netClass = metrics.linesOfCode.net >= 0 ? 'positive' : 'negative';
-  const netValue = metrics.linesOfCode.net >= 0 ? `+${metrics.linesOfCode.net}` : `${metrics.linesOfCode.net}`;
+  const filesTrend = trends?.files || { new: "→", changed: "→", deleted: "→" };
+  const locTrend = trends?.linesOfCode || {
+    added: "→",
+    removed: "→",
+    net: "→",
+  };
+  const complexityTrend = trends?.complexity || {
+    cyclomatic: "→",
+    cognitive: "→",
+  };
+  const netClass = metrics.linesOfCode.net >= 0 ? "positive" : "negative";
+  const netValue =
+    metrics.linesOfCode.net >= 0
+      ? `+${metrics.linesOfCode.net}`
+      : `${metrics.linesOfCode.net}`;
 
-  let duplicationHtml = '';
+  let duplicationHtml = "";
   if (metrics.duplication !== undefined) {
     const dup = metrics.duplication;
     const isHigh = dup.percentage >= 30;
-    const sectionClass = isHigh ? 'impact-section duplication-warning' : 'impact-section';
+    const sectionClass = isHigh
+      ? "impact-section duplication-warning"
+      : "impact-section";
 
     if (dup.clones.length === 0) {
       duplicationHtml = `
@@ -1315,37 +1398,53 @@ function renderImpactMetrics(metrics, trends) {
           <div class="impact-no-data">No duplication detected</div>
         </div>`;
     } else {
-      const valueClass = isHigh ? 'impact-metric-value negative' : 'impact-metric-value';
+      const valueClass = isHigh
+        ? "impact-metric-value negative"
+        : "impact-metric-value";
 
-      const crossClones = dup.clones.filter(c => c.type === 'cross');
-      const intraClones = dup.clones.filter(c => c.type === 'intra');
+      const crossClones = dup.clones.filter((c) => c.type === "cross");
+      const intraClones = dup.clones.filter((c) => c.type === "intra");
 
-      const shortPath = p => {
-        const parts = p.split('/');
-        return parts.length > 2 ? `.../${parts.slice(-2).join('/')}` : p;
+      const shortPath = (p) => {
+        const parts = p.split("/");
+        return parts.length > 2 ? `.../${parts.slice(-2).join("/")}` : p;
       };
 
-      const crossHtml = crossClones.length > 0 ? `
+      const crossHtml =
+        crossClones.length > 0
+          ? `
         <div class="impact-duplication-group">
           <div class="impact-duplication-group-title">Cross-File</div>
-          ${crossClones.map(c => `
+          ${crossClones
+            .map(
+              (c) => `
             <div class="impact-clone">
               <span class="impact-clone-file">${shortPath(c.firstFile.path)}</span>
               <span class="impact-clone-sep"> ↔ </span>
               <span class="impact-clone-file">${shortPath(c.secondFile.path)}</span>
               <span class="impact-clone-lines"> (${c.lines} lines)</span>
-            </div>`).join('')}
-        </div>` : '';
+            </div>`,
+            )
+            .join("")}
+        </div>`
+          : "";
 
-      const intraHtml = intraClones.length > 0 ? `
+      const intraHtml =
+        intraClones.length > 0
+          ? `
         <div class="impact-duplication-group">
           <div class="impact-duplication-group-title">Intra-File</div>
-          ${intraClones.map(c => `
+          ${intraClones
+            .map(
+              (c) => `
             <div class="impact-clone">
               <span class="impact-clone-file">${shortPath(c.firstFile.path)}</span>
               <span class="impact-clone-lines"> L${c.firstFile.startLine}-${c.firstFile.endLine} ↔ L${c.secondFile.startLine}-${c.secondFile.endLine}</span>
-            </div>`).join('')}
-        </div>` : '';
+            </div>`,
+            )
+            .join("")}
+        </div>`
+          : "";
 
       duplicationHtml = `
         <div class="${sectionClass}">
@@ -1362,20 +1461,20 @@ function renderImpactMetrics(metrics, trends) {
   content.innerHTML = `
     <div class="impact-section">
       <div class="impact-section-title">Files</div>
-      <div class="impact-metric"><span class="impact-metric-label">New:</span><span class="impact-metric-value">${metrics.files.new}</span><span class="impact-trend">${filesTrend.new || '→'}</span></div>
-      <div class="impact-metric"><span class="impact-metric-label">Changed:</span><span class="impact-metric-value">${metrics.files.changed}</span><span class="impact-trend">${filesTrend.changed || '→'}</span></div>
-      <div class="impact-metric"><span class="impact-metric-label">Deleted:</span><span class="impact-metric-value">${metrics.files.deleted}</span><span class="impact-trend">${filesTrend.deleted || '→'}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">New:</span><span class="impact-metric-value">${metrics.files.new}</span><span class="impact-trend">${filesTrend.new || "→"}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Changed:</span><span class="impact-metric-value">${metrics.files.changed}</span><span class="impact-trend">${filesTrend.changed || "→"}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Deleted:</span><span class="impact-metric-value">${metrics.files.deleted}</span><span class="impact-trend">${filesTrend.deleted || "→"}</span></div>
     </div>
     <div class="impact-section">
       <div class="impact-section-title">Lines of Code</div>
-      <div class="impact-metric"><span class="impact-metric-label">Added:</span><span class="impact-metric-value">+${metrics.linesOfCode.added}</span><span class="impact-trend">${locTrend.added || '→'}</span></div>
-      <div class="impact-metric"><span class="impact-metric-label">Removed:</span><span class="impact-metric-value">-${metrics.linesOfCode.removed}</span><span class="impact-trend">${locTrend.removed || '→'}</span></div>
-      <div class="impact-metric"><span class="impact-metric-label">Net:</span><span class="impact-metric-value ${netClass}">${netValue}</span><span class="impact-trend">${locTrend.net || '→'}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Added:</span><span class="impact-metric-value">+${metrics.linesOfCode.added}</span><span class="impact-trend">${locTrend.added || "→"}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Removed:</span><span class="impact-metric-value">-${metrics.linesOfCode.removed}</span><span class="impact-trend">${locTrend.removed || "→"}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Net:</span><span class="impact-metric-value ${netClass}">${netValue}</span><span class="impact-trend">${locTrend.net || "→"}</span></div>
     </div>
     <div class="impact-section">
       <div class="impact-section-title">Complexity</div>
-      <div class="impact-metric"><span class="impact-metric-label">Cyclomatic:</span><span class="impact-metric-value">${metrics.complexity.cyclomatic}</span><span class="impact-trend">${complexityTrend.cyclomatic || '→'}</span></div>
-      <div class="impact-metric"><span class="impact-metric-label">Cognitive:</span><span class="impact-metric-value">${metrics.complexity.cognitive}</span><span class="impact-trend">${complexityTrend.cognitive || '→'}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Cyclomatic:</span><span class="impact-metric-value">${metrics.complexity.cyclomatic}</span><span class="impact-trend">${complexityTrend.cyclomatic || "→"}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Cognitive:</span><span class="impact-metric-value">${metrics.complexity.cognitive}</span><span class="impact-trend">${complexityTrend.cognitive || "→"}</span></div>
       <div class="impact-metric"><span class="impact-metric-label">Est. Time:</span><span class="impact-metric-value">~${metrics.complexity.estimatedMinutes} min</span></div>
     </div>
     ${duplicationHtml}
@@ -1383,158 +1482,164 @@ function renderImpactMetrics(metrics, trends) {
 }
 
 // DOM: Show notification
-function showNotification(message, type = 'info') {
-  const container = document.querySelector('#chat-messages');
+function showNotification(message, type = "info") {
+  const container = document.querySelector("#chat-messages");
   if (!container) return;
-  
+
   const notification = renderNotification(message, type);
   container.appendChild(notification);
   scrollToBottom();
-  
+
   setTimeout(() => notification.remove(), 5000);
 }
 
 // DOM: Insert error message
 function insertError(message) {
-  const container = document.querySelector('#chat-messages');
+  const container = document.querySelector("#chat-messages");
   if (!container) return;
-  
+
   const el = renderMessage({
-    role: 'system',
+    role: "system",
     content: `Error: ${message}`,
   });
-  el.classList.add('error');
-  el.querySelector('.message-content').style.color = '#ff6b6b';
-  
+  el.classList.add("error");
+  el.querySelector(".message-content").style.color = "#ff6b6b";
+
   container.appendChild(el);
   scrollToBottom();
 }
 
 // DOM: Insert cancelled message
 function insertCancelledMessage() {
-  const container = document.querySelector('#chat-messages');
+  const container = document.querySelector("#chat-messages");
   if (!container) return;
-  
+
   const el = renderMessage({
-    role: 'system',
-    content: 'Response cancelled by user.',
+    role: "system",
+    content: "Response cancelled by user.",
   });
-  el.classList.add('info');
-  el.querySelector('.message-content').style.color = '#888';
-  el.querySelector('.message-content').style.fontStyle = 'italic';
-  
+  el.classList.add("info");
+  el.querySelector(".message-content").style.color = "#888";
+  el.querySelector(".message-content").style.fontStyle = "italic";
+
   container.appendChild(el);
   scrollToBottom();
 }
 
 // DOM: Insert timeout warning
 function insertTimeoutWarning() {
-  const container = document.querySelector('#chat-messages');
+  const container = document.querySelector("#chat-messages");
   if (!container) return;
-  
+
   const el = renderMessage({
-    role: 'system',
+    role: "system",
     content: `Warning: Agent did not respond within ${ChatState.STREAMING_TIMEOUT_MS / 1000} seconds. You can try sending your message again.`,
   });
-  el.classList.add('warning');
-  el.querySelector('.message-content').style.color = '#ffa500';
-  
+  el.classList.add("warning");
+  el.querySelector(".message-content").style.color = "#ffa500";
+
   container.appendChild(el);
   scrollToBottom();
 }
 
 // DOM: Insert pending clear message
 function insertPendingClearMessage() {
-  const container = document.querySelector('#chat-messages');
+  const container = document.querySelector("#chat-messages");
   if (!container) return;
-  
+
   const el = renderMessage({
-    role: 'system',
-    content: 'Clearing session context...',
+    role: "system",
+    content: "Clearing session context...",
   });
-  el.id = 'clear-session-pending';
-  el.querySelector('.message-content').style.color = '#888';
-  el.querySelector('.message-content').style.fontStyle = 'italic';
-  
+  el.id = "clear-session-pending";
+  el.querySelector(".message-content").style.color = "#888";
+  el.querySelector(".message-content").style.fontStyle = "italic";
+
   container.appendChild(el);
   scrollToBottom();
 }
 
 // DOM: Load chat history
 function loadChatHistory(messages) {
-  const container = document.querySelector('#chat-messages');
+  const container = document.querySelector("#chat-messages");
   if (!container) return;
-  
-  container.innerHTML = '';
+
+  container.innerHTML = "";
   ChatState.editableBubble = null;
-  
-  let currentThought = '';
-  let currentMessage = '';
+
+  let currentThought = "";
+  let currentMessage = "";
   let inThought = false;
   let inMessage = false;
   let lastRole = null;
-  
-  messages.forEach(msg => {
-    if (msg.content?.includes('available_commands_update')) return;
-    
+
+  messages.forEach((msg) => {
+    if (msg.content?.includes("available_commands_update")) return;
+
     const parsed = parseHistoryMessage(msg);
-    
-    if (parsed.type === 'thought_chunk') {
+
+    if (parsed.type === "thought_chunk") {
       if (!inThought) {
         inThought = true;
-        currentThought = '';
+        currentThought = "";
       }
       currentThought += parsed.content;
       return;
     }
-    
-    if (parsed.type === 'message_chunk') {
+
+    if (parsed.type === "message_chunk") {
       if (inThought) {
         insertMessage({
-          role: 'assistant',
+          role: "assistant",
           content: `<details><summary>Thought Process</summary>${currentThought}</details>`,
         });
         inThought = false;
-        currentThought = '';
+        currentThought = "";
       }
       if (!inMessage) {
         inMessage = true;
-        currentMessage = '';
+        currentMessage = "";
       }
       currentMessage += parsed.content;
       return;
     }
-    
-    if (parsed.type === 'usage') {
+
+    if (parsed.type === "usage") {
       updateUsageDisplay(parsed.cost);
       return;
     }
-    
+
     lastRole = msg.role;
     insertMessage(msg);
   });
-  
+
   // Flush any pending
   if (inThought && currentThought) {
     insertMessage({
-      role: 'assistant',
+      role: "assistant",
       content: `<details><summary>Thought Process</summary>${currentThought}</details>`,
     });
   }
-  
+
   if (inMessage && currentMessage) {
-    lastRole = 'assistant';
-    insertMessage({ role: 'assistant', content: currentMessage });
+    lastRole = "assistant";
+    insertMessage({ role: "assistant", content: currentMessage });
   }
-  
-  if (lastRole !== 'user' && !ChatState.streaming.reconstructed) {
+
+  if (lastRole !== "user" && !ChatState.streaming.reconstructed) {
     insertEditableBubble();
   }
-  
+
   // Fallback
   setTimeout(() => {
-    if (!ChatState.editableBubble && !ChatState.streaming.messageElement && !ChatState.streaming.reconstructed) {
-      console.log('[CHAT] Fallback: creating editable bubble after history load');
+    if (
+      !ChatState.editableBubble &&
+      !ChatState.streaming.messageElement &&
+      !ChatState.streaming.reconstructed
+    ) {
+      console.log(
+        "[CHAT] Fallback: creating editable bubble after history load",
+      );
       insertEditableBubble();
     }
   }, 2000);
@@ -1542,27 +1647,31 @@ function loadChatHistory(messages) {
 
 // DOM: Update model selector
 function updateModelSelector(modelState) {
-  console.log('[MODEL] Updating with state:', modelState);
-  const selector = document.querySelector('#model-selector');
-  const container = document.querySelector('#model-selector-container');
-  
+  console.log("[MODEL] Updating with state:", modelState);
+  const selector = document.querySelector("#model-selector");
+  const container = document.querySelector("#model-selector-container");
+
   if (!selector || !container) {
-    console.log('[MODEL] Elements not found');
+    console.log("[MODEL] Elements not found");
     return;
   }
-  
+
   if (!modelState?.availableModels?.length) {
-    console.log('[MODEL] No data available');
+    console.log("[MODEL] No data available");
     return;
   }
-  
-  console.log('[MODEL] Populating with', modelState.availableModels.length, 'options');
-  container.style.opacity = '1';
+
+  console.log(
+    "[MODEL] Populating with",
+    modelState.availableModels.length,
+    "options",
+  );
+  container.style.opacity = "1";
   selector.disabled = false;
-  selector.innerHTML = '';
-  
-  modelState.availableModels.forEach(model => {
-    const option = document.createElement('option');
+  selector.innerHTML = "";
+
+  modelState.availableModels.forEach((model) => {
+    const option = document.createElement("option");
     option.value = model.value;
     option.textContent = model.name;
     option.title = model.description || model.name;
@@ -1571,34 +1680,38 @@ function updateModelSelector(modelState) {
     }
     selector.appendChild(option);
   });
-  
+
   selector.dataset.current = modelState.currentModelId;
   container.title = modelState.currentModelId;
 }
 
 // DOM: Update mode selector
 function updateModeSelector(modeState) {
-  console.log('[MODE] Updating with state:', modeState);
-  const selector = document.querySelector('#mode-selector');
-  const container = document.querySelector('#mode-selector-container');
-  
+  console.log("[MODE] Updating with state:", modeState);
+  const selector = document.querySelector("#mode-selector");
+  const container = document.querySelector("#mode-selector-container");
+
   if (!selector || !container) {
-    console.log('[MODE] Elements not found');
+    console.log("[MODE] Elements not found");
     return;
   }
-  
+
   if (!modeState?.availableModes?.length) {
-    console.log('[MODE] No data available');
+    console.log("[MODE] No data available");
     return;
   }
-  
-  console.log('[MODE] Populating with', modeState.availableModes.length, 'options');
-  container.style.opacity = '1';
+
+  console.log(
+    "[MODE] Populating with",
+    modeState.availableModes.length,
+    "options",
+  );
+  container.style.opacity = "1";
   selector.disabled = false;
-  selector.innerHTML = '';
-  
-  modeState.availableModes.forEach(mode => {
-    const option = document.createElement('option');
+  selector.innerHTML = "";
+
+  modeState.availableModes.forEach((mode) => {
+    const option = document.createElement("option");
     option.value = mode.value;
     option.textContent = mode.name;
     option.title = mode.description || mode.name;
@@ -1607,57 +1720,61 @@ function updateModeSelector(modeState) {
     }
     selector.appendChild(option);
   });
-  
+
   selector.dataset.current = modeState.currentModeId;
   container.title = modeState.currentModeId;
 }
 
 // DOM: Show permission card
 function showPermissionCard(data) {
-  const container = document.querySelector('#chat-messages');
+  const container = document.querySelector("#chat-messages");
   if (!container) return;
-  
+
   const { requestId, toolCall, options } = data;
   const card = renderPermissionCard(requestId, toolCall, options);
-  
-  card.querySelectorAll('.permission-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+
+  card.querySelectorAll(".permission-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
       const optionId = btn.dataset.optionId;
       if (ChatState.socket?.readyState === WebSocket.OPEN) {
-        ChatState.socket.send(JSON.stringify({
-          type: 'permission_response',
-          requestId,
-          optionId,
-        }));
+        ChatState.socket.send(
+          JSON.stringify({
+            type: "permission_response",
+            requestId,
+            optionId,
+          }),
+        );
       }
       removePermissionCard(requestId);
     });
   });
-  
+
   container.appendChild(card);
   scrollToBottom();
 }
 
 // DOM: Remove permission card
 function removePermissionCard(requestId) {
-  const card = document.querySelector(`.permission-card[data-request-id="${requestId}"]`);
+  const card = document.querySelector(
+    `.permission-card[data-request-id="${requestId}"]`,
+  );
   if (card) card.remove();
 }
 
 // DOM: Scroll to bottom
 function scrollToBottom() {
-  const container = document.querySelector('#chat-messages');
+  const container = document.querySelector("#chat-messages");
   if (container) {
     container.scrollTop = container.scrollHeight;
   }
 }
 
 function focusEditableBubbleInput() {
-  let input = document.querySelector('.editable-bubble .message-content');
+  let input = document.querySelector(".editable-bubble .message-content");
 
   if (!input && !ChatState.streaming.messageElement) {
     insertEditableBubble();
-    input = document.querySelector('.editable-bubble .message-content');
+    input = document.querySelector(".editable-bubble .message-content");
   }
 
   if (!input) return false;
@@ -1677,13 +1794,15 @@ function focusEditableBubbleInput() {
 }
 
 function shouldIgnoreFocusShortcutTarget(target) {
-  if (!target || typeof target.closest !== 'function') return false;
+  if (!target || typeof target.closest !== "function") return false;
 
-  if (target.closest('.editable-bubble .message-content')) {
+  if (target.closest(".editable-bubble .message-content")) {
     return false;
   }
 
-  return !!target.closest('input, textarea, select, button, [contenteditable="true"]');
+  return !!target.closest(
+    'input, textarea, select, button, [contenteditable="true"]',
+  );
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1692,9 +1811,9 @@ function shouldIgnoreFocusShortcutTarget(target) {
 // ═════════════════════════════════════════════════════════════════════════════
 
 function setupEventListeners() {
-  document.addEventListener('keydown', (e) => {
+  document.addEventListener("keydown", (e) => {
     if (e.isComposing || e.metaKey || e.altKey) return;
-    if (!e.ctrlKey || String(e.key).toLowerCase() !== 'm') return;
+    if (!e.ctrlKey || String(e.key).toLowerCase() !== "m") return;
     if (shouldIgnoreFocusShortcutTarget(e.target)) return;
 
     if (focusEditableBubbleInput()) {
@@ -1703,56 +1822,60 @@ function setupEventListeners() {
   });
 
   // Model selector
-  const modelSelector = document.querySelector('#model-selector');
+  const modelSelector = document.querySelector("#model-selector");
   if (modelSelector) {
-    modelSelector.addEventListener('change', (e) => {
+    modelSelector.addEventListener("change", (e) => {
       const modelId = e.target.value;
       const currentId = e.target.dataset.current;
-      
+
       if (modelId !== currentId) {
         e.target.dataset.current = modelId;
         if (ChatState.socket?.readyState === WebSocket.OPEN) {
-          ChatState.socket.send(JSON.stringify({
-            type: 'set_model',
-            modelId,
-          }));
+          ChatState.socket.send(
+            JSON.stringify({
+              type: "set_model",
+              modelId,
+            }),
+          );
         }
       }
     });
   }
-  
+
   // Mode selector
-  const modeSelector = document.querySelector('#mode-selector');
+  const modeSelector = document.querySelector("#mode-selector");
   if (modeSelector) {
-    modeSelector.addEventListener('change', (e) => {
+    modeSelector.addEventListener("change", (e) => {
       const modeId = e.target.value;
       const currentId = e.target.dataset.current;
-      
+
       if (modeId !== currentId) {
         e.target.dataset.current = modeId;
         if (ChatState.socket?.readyState === WebSocket.OPEN) {
-          ChatState.socket.send(JSON.stringify({
-            type: 'set_mode',
-            modeId,
-          }));
+          ChatState.socket.send(
+            JSON.stringify({
+              type: "set_mode",
+              modeId,
+            }),
+          );
         }
       }
     });
   }
-  
+
   // Clear session button
-  const clearBtn = document.querySelector('#clear-session-btn');
+  const clearBtn = document.querySelector("#clear-session-btn");
   if (clearBtn) {
-    clearBtn.addEventListener('click', clearSession);
+    clearBtn.addEventListener("click", clearSession);
   }
 
-  const impactRefreshBtn = document.querySelector('#impact-refresh-btn');
+  const impactRefreshBtn = document.querySelector("#impact-refresh-btn");
   if (impactRefreshBtn) {
-    impactRefreshBtn.addEventListener('click', refreshImpact);
+    impactRefreshBtn.addEventListener("click", refreshImpact);
   }
 
-  document.querySelectorAll('.frame-tab').forEach((tab) => {
-    tab.addEventListener('click', () => {
+  document.querySelectorAll(".frame-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
       const frameId = tab.dataset.frameId;
       const bufferId = tab.dataset.bufferId;
       if (!frameId || !bufferId) return;
@@ -1760,12 +1883,12 @@ function setupEventListeners() {
     });
   });
 
-  const notesInput = document.querySelector('#notes-input');
+  const notesInput = document.querySelector("#notes-input");
   if (notesInput) {
-    notesInput.addEventListener('input', () => {
-      const status = document.querySelector('#notes-save-status');
+    notesInput.addEventListener("input", () => {
+      const status = document.querySelector("#notes-save-status");
       if (status) {
-        status.textContent = 'Unsaved';
+        status.textContent = "Unsaved";
       }
 
       if (ChatState.notesSaveTimeout) {
@@ -1788,25 +1911,27 @@ window.MIMO_CHAT = {
   init: initChat,
   send: (msg) => {
     if (ChatState.socket?.readyState === WebSocket.OPEN) {
-      ChatState.socket.send(JSON.stringify({
-        type: 'send_message',
-        content: msg,
-      }));
+      ChatState.socket.send(
+        JSON.stringify({
+          type: "send_message",
+          content: msg,
+        }),
+      );
     }
   },
   replay: () => {
     if (ChatState.socket?.readyState === WebSocket.OPEN) {
-      ChatState.socket.send(JSON.stringify({ type: 'request_replay' }));
+      ChatState.socket.send(JSON.stringify({ type: "request_replay" }));
     }
   },
   setModel: (modelId) => {
     if (ChatState.socket?.readyState === WebSocket.OPEN) {
-      ChatState.socket.send(JSON.stringify({ type: 'set_model', modelId }));
+      ChatState.socket.send(JSON.stringify({ type: "set_model", modelId }));
     }
   },
   setMode: (modeId) => {
     if (ChatState.socket?.readyState === WebSocket.OPEN) {
-      ChatState.socket.send(JSON.stringify({ type: 'set_mode', modeId }));
+      ChatState.socket.send(JSON.stringify({ type: "set_mode", modeId }));
     }
   },
 };
@@ -1817,9 +1942,9 @@ window.MIMO_CHAT = {
 // ═════════════════════════════════════════════════════════════════════════════
 
 // Add blinking cursor animation
-if (!document.getElementById('chat-animations')) {
-  const style = document.createElement('style');
-  style.id = 'chat-animations';
+if (!document.getElementById("chat-animations")) {
+  const style = document.createElement("style");
+  style.id = "chat-animations";
   style.textContent = `
     @keyframes blink {
       0%, 50% { opacity: 1; }
@@ -1829,9 +1954,9 @@ if (!document.getElementById('chat-animations')) {
   document.head.appendChild(style);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
-  
+
   if (window.MIMO_SESSION_ID) {
     initChat(window.MIMO_SESSION_ID);
   }

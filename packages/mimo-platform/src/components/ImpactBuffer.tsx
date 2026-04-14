@@ -5,13 +5,31 @@ interface ImpactBufferProps extends BufferProps {}
 
 export const ImpactBuffer: FC<ImpactBufferProps> = ({ sessionId }) => {
   return (
-    <div class="buffer buffer-right" id="impact-buffer" data-session-id={sessionId}>
+    <div
+      class="buffer buffer-right"
+      id="impact-buffer"
+      data-session-id={sessionId}
+    >
       <div class="buffer-header">
         <span>Impact</span>
         <div style="display: inline-flex; align-items: center; gap: 8px; float: right;">
-          <span id="impact-stale-badge" class="impact-stale-badge" style="display: none;">⚠ Outdated</span>
-          <span id="impact-calculating-badge" class="impact-calculating-badge" style="display: none;">⏳ Analyzing...</span>
-          <button id="impact-refresh-btn" type="button" class="btn-small">Refresh</button>
+          <span
+            id="impact-stale-badge"
+            class="impact-stale-badge"
+            style="display: none;"
+          >
+            ⚠ Outdated
+          </span>
+          <span
+            id="impact-calculating-badge"
+            class="impact-calculating-badge"
+            style="display: none;"
+          >
+            ⏳ Analyzing...
+          </span>
+          <button id="impact-refresh-btn" type="button" class="btn-small">
+            Refresh
+          </button>
         </div>
       </div>
       <div class="buffer-content" id="impact-content">

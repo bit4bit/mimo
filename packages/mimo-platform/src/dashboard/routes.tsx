@@ -38,7 +38,7 @@ export function createDashboardRoutes(mimoContext: MimoContext): Hono {
         projects={userProjects}
         agents={userAgents}
         sessions={allSessions.slice(0, 10)}
-      />
+      />,
     );
   });
 

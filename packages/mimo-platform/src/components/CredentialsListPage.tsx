@@ -6,15 +6,19 @@ interface CredentialsListPageProps {
   credentials: Credential[];
 }
 
-export const CredentialsListPage: FC<CredentialsListPageProps> = ({ credentials }) => {
+export const CredentialsListPage: FC<CredentialsListPageProps> = ({
+  credentials,
+}) => {
   return (
     <Layout title="Credentials">
       <div class="container" style="max-width: 800px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <h1>Credentials</h1>
-          <a href="/credentials/new" class="btn">New Credential</a>
+          <a href="/credentials/new" class="btn">
+            New Credential
+          </a>
         </div>
-        
+
         {credentials.length === 0 ? (
           <div class="empty-state">
             <p>No credentials configured yet.</p>
@@ -30,7 +34,7 @@ export const CredentialsListPage: FC<CredentialsListPageProps> = ({ credentials 
                     {cred.type.toUpperCase()}
                   </div>
                 </div>
-                
+
                 <div class="credential-details">
                   {cred.type === "https" ? (
                     <>
@@ -50,11 +54,22 @@ export const CredentialsListPage: FC<CredentialsListPageProps> = ({ credentials 
                     </div>
                   )}
                 </div>
-                
+
                 <div class="credential-actions">
-                  <a href={`/credentials/${cred.id}/edit`} class="btn-secondary">Edit</a>
-                  <form method="post" action={`/credentials/${cred.id}/delete`} style="display: inline;">
-                    <button type="submit" class="btn-danger">Delete</button>
+                  <a
+                    href={`/credentials/${cred.id}/edit`}
+                    class="btn-secondary"
+                  >
+                    Edit
+                  </a>
+                  <form
+                    method="post"
+                    action={`/credentials/${cred.id}/delete`}
+                    style="display: inline;"
+                  >
+                    <button type="submit" class="btn-danger">
+                      Delete
+                    </button>
                   </form>
                 </div>
               </div>

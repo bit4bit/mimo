@@ -33,9 +33,13 @@ interface ProjectDetailProps {
   credential?: Credential | null;
 }
 
-export const ProjectDetailPage: FC<ProjectDetailProps> = ({ project, sessions, credential }) => {
-  const sortedSessions = sessions.sort((a, b) => 
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+export const ProjectDetailPage: FC<ProjectDetailProps> = ({
+  project,
+  sessions,
+  credential,
+}) => {
+  const sortedSessions = sessions.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 
   return (
@@ -44,8 +48,12 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({ project, sessions, c
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <h1>{project.name}</h1>
           <div style="display: flex; gap: 10px;">
-            <a href={`/projects/${project.id}/edit`} class="btn">Edit</a>
-            <a href="/projects" class="btn-secondary">Back to Projects</a>
+            <a href={`/projects/${project.id}/edit`} class="btn">
+              Edit
+            </a>
+            <a href="/projects" class="btn-secondary">
+              Back to Projects
+            </a>
           </div>
         </div>
 
@@ -76,9 +84,13 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({ project, sessions, c
             <label>Credential:</label>
             <div>
               {credential ? (
-                <span>{credential.name} ({credential.type.toUpperCase()})</span>
+                <span>
+                  {credential.name} ({credential.type.toUpperCase()})
+                </span>
               ) : (
-                <span style="color: #888;">Public repository (no authentication)</span>
+                <span style="color: #888;">
+                  Public repository (no authentication)
+                </span>
               )}
             </div>
           </div>
@@ -99,9 +111,11 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({ project, sessions, c
         <div style="margin-top: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h2 style="margin: 0;">Sessions</h2>
-            <a href={`/projects/${project.id}/sessions/new`} class="btn">New Session</a>
+            <a href={`/projects/${project.id}/sessions/new`} class="btn">
+              New Session
+            </a>
           </div>
-          
+
           {sortedSessions.length === 0 ? (
             <div class="empty-state">
               <p>No sessions yet. Create one to start development.</p>
@@ -111,13 +125,21 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({ project, sessions, c
               {sortedSessions.map((session) => (
                 <div key={session.id} class="session-card">
                   <div class="session-header">
-                    <a href={`/projects/${project.id}/sessions/${session.id}`} class="session-name">
+                    <a
+                      href={`/projects/${project.id}/sessions/${session.id}`}
+                      class="session-name"
+                    >
                       {session.name}
                     </a>
-                    <span class={`session-status ${session.status}`}>{session.status}</span>
+                    <span class={`session-status ${session.status}`}>
+                      {session.status}
+                    </span>
                   </div>
                   <div class="session-meta">
-                    <span>Created: {new Date(session.createdAt).toLocaleDateString()}</span>
+                    <span>
+                      Created:{" "}
+                      {new Date(session.createdAt).toLocaleDateString()}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -132,7 +154,9 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({ project, sessions, c
               Impact History
             </a>
             <form method="POST" action={`/projects/${project.id}/delete`}>
-              <button type="submit" class="btn-danger">Delete Project</button>
+              <button type="submit" class="btn-danger">
+                Delete Project
+              </button>
             </form>
           </div>
         </div>

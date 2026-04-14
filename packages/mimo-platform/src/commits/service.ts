@@ -61,7 +61,9 @@ export class CommitService {
       };
     }
 
-    const project = await this.deps.projectRepository.findById(session.projectId);
+    const project = await this.deps.projectRepository.findById(
+      session.projectId,
+    );
     if (!project) {
       return {
         success: false,
@@ -76,7 +78,10 @@ export class CommitService {
     const fslckoutPath = join(session.agentWorkspacePath, ".fslckout");
 
     if (!existsSync(fslckoutPath)) {
-      const openResult = await this.deps.vcs.openFossil(fossilPath, session.agentWorkspacePath);
+      const openResult = await this.deps.vcs.openFossil(
+        fossilPath,
+        session.agentWorkspacePath,
+      );
       if (!openResult.success) {
         return {
           success: false,
@@ -88,16 +93,23 @@ export class CommitService {
     // Sync agent-workspace with repo.fossil
     const syncResult = await this.deps.vcs.fossilUp(session.agentWorkspacePath);
     if (!syncResult.success) {
-      if (syncResult.error?.includes("not within an open check-out") ||
-          syncResult.error?.includes("current directory is not within")) {
-        const openResult = await this.deps.vcs.openFossil(fossilPath, session.agentWorkspacePath);
+      if (
+        syncResult.error?.includes("not within an open check-out") ||
+        syncResult.error?.includes("current directory is not within")
+      ) {
+        const openResult = await this.deps.vcs.openFossil(
+          fossilPath,
+          session.agentWorkspacePath,
+        );
         if (!openResult.success) {
           return {
             success: false,
             error: `Failed to open fossil checkout: ${openResult.error}`,
           };
         }
-        const retryResult = await this.deps.vcs.fossilUp(session.agentWorkspacePath);
+        const retryResult = await this.deps.vcs.fossilUp(
+          session.agentWorkspacePath,
+        );
         if (!retryResult.success) {
           return {
             success: false,
@@ -115,7 +127,7 @@ export class CommitService {
     // Generate patch
     const genResult = await this.deps.vcs.generatePatch(
       session.agentWorkspacePath,
-      session.upstreamPath
+      session.upstreamPath,
     );
 
     if (!genResult.success) {
@@ -154,7 +166,7 @@ export class CommitService {
     sessionId: string,
     commitMessage: string,
     selectedPaths?: string[],
-    applyStatuses?: { added: boolean; modified: boolean; deleted: boolean }
+    applyStatuses?: { added: boolean; modified: boolean; deleted: boolean },
   ): Promise<SelectiveCommitResult> {
     // Get session and project
     const session = await this.deps.sessionRepository.findById(sessionId);
@@ -167,7 +179,9 @@ export class CommitService {
       };
     }
 
-    const project = await this.deps.projectRepository.findById(session.projectId);
+    const project = await this.deps.projectRepository.findById(
+      session.projectId,
+    );
     if (!project) {
       return {
         success: false,
@@ -196,7 +210,10 @@ export class CommitService {
     const fslckoutPath = join(session.agentWorkspacePath, ".fslckout");
 
     if (!existsSync(fslckoutPath)) {
-      const openResult = await this.deps.vcs.openFossil(fossilPath, session.agentWorkspacePath);
+      const openResult = await this.deps.vcs.openFossil(
+        fossilPath,
+        session.agentWorkspacePath,
+      );
       if (!openResult.success) {
         return {
           success: false,
@@ -210,9 +227,14 @@ export class CommitService {
     // Step 1: Sync agent-workspace with repo.fossil
     const syncResult = await this.deps.vcs.fossilUp(session.agentWorkspacePath);
     if (!syncResult.success) {
-      if (syncResult.error?.includes("not within an open check-out") ||
-          syncResult.error?.includes("current directory is not within")) {
-        const openResult = await this.deps.vcs.openFossil(fossilPath, session.agentWorkspacePath);
+      if (
+        syncResult.error?.includes("not within an open check-out") ||
+        syncResult.error?.includes("current directory is not within")
+      ) {
+        const openResult = await this.deps.vcs.openFossil(
+          fossilPath,
+          session.agentWorkspacePath,
+        );
         if (!openResult.success) {
           return {
             success: false,
@@ -221,7 +243,9 @@ export class CommitService {
             step: "sync",
           };
         }
-        const retryResult = await this.deps.vcs.fossilUp(session.agentWorkspacePath);
+        const retryResult = await this.deps.vcs.fossilUp(
+          session.agentWorkspacePath,
+        );
         if (!retryResult.success) {
           return {
             success: false,
@@ -243,7 +267,7 @@ export class CommitService {
     // Step 2: Generate patch
     const genResult = await this.deps.vcs.generatePatch(
       session.agentWorkspacePath,
-      session.upstreamPath
+      session.upstreamPath,
     );
 
     if (!genResult.success) {
@@ -281,9 +305,10 @@ export class CommitService {
     }
 
     // If no paths selected, use all available paths
-    const pathsToApply = selectedPaths && selectedPaths.length > 0
-      ? selectedPaths
-      : availablePaths;
+    const pathsToApply =
+      selectedPaths && selectedPaths.length > 0
+        ? selectedPaths
+        : availablePaths;
 
     // Validate selected paths
     const validPaths = new Set(preview.files.map((f) => f.path));
@@ -326,7 +351,11 @@ export class CommitService {
     const patchDir = join(sessionDir, "patches");
     const patchPath = await this.deps.vcs.storePatch(patchDir, filteredPatch);
 
-    const applyResult = await this.deps.vcs.applyPatch(patchPath, session.upstreamPath, repoType);
+    const applyResult = await this.deps.vcs.applyPatch(
+      patchPath,
+      session.upstreamPath,
+      repoType,
+    );
     if (!applyResult.success) {
       return {
         success: false,
@@ -337,10 +366,16 @@ export class CommitService {
     }
 
     // Step 4: Commit in upstream
-    const commitResult = await this.deps.vcs.commitUpstream(session.upstreamPath, repoType, commitMessage);
+    const commitResult = await this.deps.vcs.commitUpstream(
+      session.upstreamPath,
+      repoType,
+      commitMessage,
+    );
     if (!commitResult.success) {
-      if (commitResult.output?.includes("nothing to commit") ||
-          commitResult.output?.includes("No changes to commit")) {
+      if (
+        commitResult.output?.includes("nothing to commit") ||
+        commitResult.output?.includes("No changes to commit")
+      ) {
         return {
           success: true,
           message: "No changes to commit",
@@ -355,8 +390,10 @@ export class CommitService {
       };
     }
 
-    if (commitResult.output?.includes("nothing to commit") ||
-        commitResult.output?.includes("No changes to commit")) {
+    if (
+      commitResult.output?.includes("nothing to commit") ||
+      commitResult.output?.includes("No changes to commit")
+    ) {
       return {
         success: true,
         message: "No changes to commit",
@@ -366,7 +403,12 @@ export class CommitService {
 
     // Step 5: Push to remote
     const pushBranch = session.branch || project.newBranch || undefined;
-    const pushResult = await this.deps.vcs.pushUpstream(session.upstreamPath, repoType, undefined, pushBranch);
+    const pushResult = await this.deps.vcs.pushUpstream(
+      session.upstreamPath,
+      repoType,
+      undefined,
+      pushBranch,
+    );
     if (!pushResult.success) {
       return {
         success: false,
@@ -383,10 +425,12 @@ export class CommitService {
         const { metrics } = await this.deps.impactCalculator.calculateImpact(
           sessionId,
           session.upstreamPath,
-          session.agentWorkspacePath
+          session.agentWorkspacePath,
         );
 
-        const commitHash = commitResult.output?.match(/[a-f0-9]{40}|[a-f0-9]{64}/)?.[0] || "unknown";
+        const commitHash =
+          commitResult.output?.match(/[a-f0-9]{40}|[a-f0-9]{64}/)?.[0] ||
+          "unknown";
 
         this.deps.impactRepository.save({
           id: `${sessionId}-${commitHash}`,
@@ -428,9 +472,18 @@ export class CommitService {
     };
   }
 
-  async commitAndPush(sessionId: string, commitMessage?: string): Promise<CommitAndPushResult> {
+  async commitAndPush(
+    sessionId: string,
+    commitMessage?: string,
+  ): Promise<CommitAndPushResult> {
     // Use default message if none provided
-    const message = commitMessage?.trim() || `Mimo commit at ${new Date().toISOString()}`;
-    return this.commitAndPushSelective(sessionId, message, undefined, undefined);
+    const message =
+      commitMessage?.trim() || `Mimo commit at ${new Date().toISOString()}`;
+    return this.commitAndPushSelective(
+      sessionId,
+      message,
+      undefined,
+      undefined,
+    );
   }
 }

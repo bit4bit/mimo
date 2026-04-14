@@ -21,8 +21,11 @@ describe("Project Management Integration Tests", () => {
     } catch {}
 
     // Set up fresh environment with createMimoContext
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
-    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({
+      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+    });
 
     userRepository = ctx.repos.users;
 
@@ -41,7 +44,10 @@ describe("Project Management Integration Tests", () => {
       app.route("/projects", projectRoutes);
 
       // Create and authenticate user first
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -90,7 +96,10 @@ describe("Project Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -113,7 +122,10 @@ describe("Project Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -139,7 +151,10 @@ describe("Project Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -172,7 +187,10 @@ describe("Project Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -191,7 +209,10 @@ describe("Project Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -216,7 +237,10 @@ describe("Project Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -233,7 +257,10 @@ describe("Project Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -267,7 +294,10 @@ describe("Project Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -287,7 +317,10 @@ describe("Project Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -318,7 +351,10 @@ describe("Project Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -348,7 +384,10 @@ describe("Project Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -379,7 +418,10 @@ describe("Project Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -411,7 +453,10 @@ describe("Project Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -443,7 +488,10 @@ describe("Project Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -476,7 +524,10 @@ describe("Project Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
 
@@ -538,8 +589,12 @@ describe("Project Management Integration Tests", () => {
 
       const projects = await projectRepository.listByOwner("testuser");
       expect(projects.length).toBe(2);
-      expect(projects.find(p => p.name === "List Branch Project 1")?.sourceBranch).toBe("main");
-      expect(projects.find(p => p.name === "List Branch Project 2")?.newBranch).toBe("ai-branch");
+      expect(
+        projects.find((p) => p.name === "List Branch Project 1")?.sourceBranch,
+      ).toBe("main");
+      expect(
+        projects.find((p) => p.name === "List Branch Project 2")?.newBranch,
+      ).toBe("ai-branch");
     });
   });
 
@@ -553,7 +608,9 @@ describe("Project Management Integration Tests", () => {
         defaultLocalDevMirrorPath: "/home/user/dev/myproject",
       });
 
-      expect(project.defaultLocalDevMirrorPath).toBe("/home/user/dev/myproject");
+      expect(project.defaultLocalDevMirrorPath).toBe(
+        "/home/user/dev/myproject",
+      );
 
       const found = await projectRepository.findById(project.id);
       expect(found?.defaultLocalDevMirrorPath).toBe("/home/user/dev/myproject");

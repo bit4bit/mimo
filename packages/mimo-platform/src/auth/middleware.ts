@@ -5,7 +5,9 @@ export interface AuthContext {
   username: string;
 }
 
-export function createAuthMiddleware(auth: Pick<JwtService, "verifyToken"> = jwtService): MiddlewareHandler {
+export function createAuthMiddleware(
+  auth: Pick<JwtService, "verifyToken"> = jwtService,
+): MiddlewareHandler {
   return async (c, next) => {
     const cookie = c.req.header("Cookie");
     const tokenMatch = cookie?.match(/token=([^;]+)/);

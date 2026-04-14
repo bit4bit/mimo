@@ -8,12 +8,16 @@ describe("Auth middleware with mimoContext", () => {
   let testHome: string;
 
   beforeEach(() => {
-    testHome = join(tmpdir(), `mimo-auth-context-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    testHome = join(
+      tmpdir(),
+      `mimo-auth-context-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
     rmSync(testHome, { recursive: true, force: true });
   });
 
   it("verifies token using injected auth service secret", async () => {
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const { createAuthMiddleware } = await import("../src/auth/middleware.ts");
 
     const mimoContext = createMimoContext({
@@ -26,7 +30,11 @@ describe("Auth middleware with mimoContext", () => {
     const token = await mimoContext.services.auth.generateToken("context-user");
 
     const app = new Hono();
-    app.get("/protected", createAuthMiddleware(mimoContext.services.auth), (c) => c.text("ok"));
+    app.get(
+      "/protected",
+      createAuthMiddleware(mimoContext.services.auth),
+      (c) => c.text("ok"),
+    );
 
     const res = await app.request("/protected", {
       headers: {

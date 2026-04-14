@@ -14,7 +14,8 @@
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
     "@types/bun": "latest",
-    "@types/js-yaml": "^4.0.9"
+    "@types/js-yaml": "^4.0.9",
+    "prettier": "^3.8.2"
   },
   "peerDependencies": {
     "typescript": "^5"

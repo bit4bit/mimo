@@ -19,7 +19,7 @@ describe("SessionManager with MCP Servers", () => {
         "test-session",
         "http://example.com/repo",
         "testuser",
-        "testpass"
+        "testpass",
       );
 
       const mcpServers: McpServerConfig[] = [
@@ -39,7 +39,7 @@ describe("SessionManager with MCP Servers", () => {
     it("should overwrite existing MCP servers", async () => {
       const session = await sessionManager.createSession(
         "test-session",
-        "http://example.com/repo"
+        "http://example.com/repo",
       );
 
       const initialServers: McpServerConfig[] = [
@@ -59,7 +59,7 @@ describe("SessionManager with MCP Servers", () => {
     it("should handle empty MCP servers array", async () => {
       const session = await sessionManager.createSession(
         "test-session",
-        "http://example.com/repo"
+        "http://example.com/repo",
       );
 
       sessionManager.setSessionMcpServers(session.sessionId, []);
@@ -84,7 +84,7 @@ describe("SessionManager with MCP Servers", () => {
     it("should create session without MCP servers by default", async () => {
       const session = await sessionManager.createSession(
         "test-session",
-        "http://example.com/repo"
+        "http://example.com/repo",
       );
 
       expect(session.mcpServers).toBeUndefined();
@@ -95,7 +95,7 @@ describe("SessionManager with MCP Servers", () => {
         "test-session",
         "http://example.com/repo",
         "fossil-user",
-        "fossil-pass"
+        "fossil-pass",
       );
 
       expect(session.sessionId).toBe("test-session");
@@ -111,7 +111,7 @@ describe("SessionManager with MCP Servers", () => {
     it("should allow accessing MCP servers from session info", async () => {
       const session = await sessionManager.createSession(
         "test-session",
-        "http://example.com/repo"
+        "http://example.com/repo",
       );
 
       const mcpServers: McpServerConfig[] = [

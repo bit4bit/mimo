@@ -13,312 +13,424 @@ import type { MimoContext } from "../context/mimo-context.js";
 type ProjectsRoutesContext = Pick<MimoContext, "services" | "repos">;
 
 export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
-const projects = new Hono();
-const projectRepository = mimoContext.repos.projects;
-const sessionRepository = mimoContext.repos.sessions;
-const credentialRepository = mimoContext.repos.credentials;
-const impactRepository = mimoContext.repos.impacts
-const sessions = createSessionsRoutes(mimoContext);
+  const projects = new Hono();
+  const projectRepository = mimoContext.repos.projects;
+  const sessionRepository = mimoContext.repos.sessions;
+  const credentialRepository = mimoContext.repos.credentials;
+  const impactRepository = mimoContext.repos.impacts;
+  const sessions = createSessionsRoutes(mimoContext);
 
-// Helper to detect if URL is SSH
-function isSshUrl(url: string): boolean {
-  return url.startsWith("git@") || url.startsWith("ssh://");
-}
+  // Helper to detect if URL is SSH
+  function isSshUrl(url: string): boolean {
+    return url.startsWith("git@") || url.startsWith("ssh://");
+  }
 
-// Helper to get credential type from URL
-function getCredentialTypeFromUrl(url: string): "https" | "ssh" {
-  return isSshUrl(url) ? "ssh" : "https";
-}
+  // Helper to get credential type from URL
+  function getCredentialTypeFromUrl(url: string): "https" | "ssh" {
+    return isSshUrl(url) ? "ssh" : "https";
+  }
 
-// List all projects (GET /projects)
-projects.get("/", authMiddleware, async (c) => {
-  const user = c.get("user") as { username: string };
-  const projectsList = await projectRepository.listByOwner(user.username);
-  return c.html(<ProjectsListPage projects={projectsList} />);
-});
+  // List all projects (GET /projects)
+  projects.get("/", authMiddleware, async (c) => {
+    const user = c.get("user") as { username: string };
+    const projectsList = await projectRepository.listByOwner(user.username);
+    return c.html(<ProjectsListPage projects={projectsList} />);
+  });
 
-// Show create form (GET /projects/new)
-projects.get("/new", authMiddleware, async (c) => {
-  const user = c.get("user") as { username: string };
-  const credentials = await credentialRepository.findByOwner(user.username);
-  return c.html(<ProjectCreatePage credentials={credentials} />);
-});
-
-// Create project (POST /projects)
-projects.post("/", authMiddleware, async (c) => {
-  const body = await c.req.parseBody();
-  const name = body.name as string;
-  const repoUrl = body.repoUrl as string;
-  const repoType = (body.repoType as string) || "git";
-  const description = body.description as string | undefined;
-  const credentialId = body.credentialId as string | undefined;
-  const sourceBranch = body.sourceBranch as string | undefined;
-  const newBranch = body.newBranch as string | undefined;
-  const defaultLocalDevMirrorPath = body.defaultLocalDevMirrorPath as string | undefined;
-  const user = c.get("user") as { username: string };
-
-  if (!name || !repoUrl) {
+  // Show create form (GET /projects/new)
+  projects.get("/new", authMiddleware, async (c) => {
+    const user = c.get("user") as { username: string };
     const credentials = await credentialRepository.findByOwner(user.username);
-    return c.html(<ProjectCreatePage credentials={credentials} error="Name and repository URL are required" />, 400);
-  }
+    return c.html(<ProjectCreatePage credentials={credentials} />);
+  });
 
-  // Validate URL format
-  try {
-    new URL(repoUrl);
-  } catch {
-    // Allow SSH URLs (git@github.com:user/repo.git)
-    if (!isSshUrl(repoUrl)) {
-      const credentials = await credentialRepository.findByOwner(user.username);
-      return c.html(<ProjectCreatePage credentials={credentials} error="Invalid repository URL" />, 400);
-    }
-  }
+  // Create project (POST /projects)
+  projects.post("/", authMiddleware, async (c) => {
+    const body = await c.req.parseBody();
+    const name = body.name as string;
+    const repoUrl = body.repoUrl as string;
+    const repoType = (body.repoType as string) || "git";
+    const description = body.description as string | undefined;
+    const credentialId = body.credentialId as string | undefined;
+    const sourceBranch = body.sourceBranch as string | undefined;
+    const newBranch = body.newBranch as string | undefined;
+    const defaultLocalDevMirrorPath = body.defaultLocalDevMirrorPath as
+      | string
+      | undefined;
+    const user = c.get("user") as { username: string };
 
-  // Validate repo type
-  if (repoType !== "git" && repoType !== "fossil") {
-    const credentials = await credentialRepository.findByOwner(user.username);
-    return c.html(<ProjectCreatePage credentials={credentials} error="Repository type must be 'git' or 'fossil'" />, 400);
-  }
-
-  // Validate description length
-  if (description && description.length > 500) {
-    const credentials = await credentialRepository.findByOwner(user.username);
-    return c.html(<ProjectCreatePage credentials={credentials} error="Description must be 500 characters or less" />, 400);
-  }
-
-  // Validate credential if provided
-  if (credentialId) {
-    const credential = await credentialRepository.findById(credentialId, user.username);
-    if (!credential) {
-      const credentials = await credentialRepository.findByOwner(user.username);
-      return c.html(<ProjectCreatePage credentials={credentials} error="Selected credential not found" />, 400);
-    }
-    
-    // Validate credential type matches URL type
-    const expectedType = getCredentialTypeFromUrl(repoUrl);
-    if (credential.type !== expectedType) {
+    if (!name || !repoUrl) {
       const credentials = await credentialRepository.findByOwner(user.username);
       return c.html(
-        <ProjectCreatePage 
-          credentials={credentials} 
-          error={`Credential type does not match repository URL type. Expected ${expectedType.toUpperCase()} but got ${credential.type.toUpperCase()}`} 
-        />, 
-        400
+        <ProjectCreatePage
+          credentials={credentials}
+          error="Name and repository URL are required"
+        />,
+        400,
       );
     }
-  }
-  
-  try {
-    const project = await projectRepository.create({
-      name,
-      repoUrl,
-      repoType: repoType as "git" | "fossil",
-      owner: user.username,
-      description: description || undefined,
-      credentialId: credentialId || undefined,
-      sourceBranch: sourceBranch || undefined,
-      newBranch: newBranch || undefined,
-      defaultLocalDevMirrorPath: defaultLocalDevMirrorPath || undefined,
-    });
 
-    return c.redirect(`/projects/${project.id}`, 302);
-  } catch (error) {
-    const credentials = await credentialRepository.findByOwner(user.username);
-    return c.html(<ProjectCreatePage credentials={credentials} error="Failed to create project" />, 500);
-  }
-});
-
-// View project (GET /projects/:id)
-projects.get("/:id", authMiddleware, async (c) => {
-  const id = c.req.param("id");
-  const project = await projectRepository.findById(id);
-  
-  if (!project) {
-    return c.notFound();
-  }
-
-  const user = c.get("user") as { username: string };
-  if (project.owner !== user.username) {
-    return c.notFound();
-  }
-
-  // Load credential info if exists
-  let credential: Credential | null = null;
-  if (project.credentialId) {
-    credential = await credentialRepository.findById(project.credentialId, user.username);
-  }
-
-  const sessions = await sessionRepository.listByProject(id);
-
-  return c.html(<ProjectDetailPage project={project} sessions={sessions} credential={credential} />);
-});
-
-// Edit project form (GET /projects/:id/edit)
-projects.get("/:id/edit", authMiddleware, async (c) => {
-  const id = c.req.param("id");
-  const project = await projectRepository.findById(id);
-  
-  if (!project) {
-    return c.notFound();
-  }
-
-  const user = c.get("user") as { username: string };
-  if (project.owner !== user.username) {
-    return c.notFound();
-  }
-
-  const credentials = await credentialRepository.findByOwner(user.username);
-  return c.html(<ProjectEditPage project={project} credentials={credentials} />);
-});
-
-// Update project (POST /projects/:id/edit)
-projects.post("/:id/edit", authMiddleware, async (c) => {
-  const id = c.req.param("id");
-  const project = await projectRepository.findById(id);
-  
-  if (!project) {
-    return c.notFound();
-  }
-
-  const user = c.get("user") as { username: string };
-  if (project.owner !== user.username) {
-    return c.notFound();
-  }
-
-  const body = await c.req.parseBody();
-  const name = body.name as string;
-  const repoUrl = body.repoUrl as string;
-  const repoType = (body.repoType as string) || "git";
-  const description = body.description as string | undefined;
-  const credentialId = body.credentialId as string | undefined;
-  const defaultLocalDevMirrorPath = body.defaultLocalDevMirrorPath as string | undefined;
-
-  if (!name || !repoUrl) {
-    const credentials = await credentialRepository.findByOwner(user.username);
-    return c.html(<ProjectEditPage project={project} credentials={credentials} error="Name and repository URL are required" />, 400);
-  }
-
-  // Validate URL format
-  try {
-    new URL(repoUrl);
-  } catch {
-    if (!isSshUrl(repoUrl)) {
-      const credentials = await credentialRepository.findByOwner(user.username);
-      return c.html(<ProjectEditPage project={project} credentials={credentials} error="Invalid repository URL" />, 400);
+    // Validate URL format
+    try {
+      new URL(repoUrl);
+    } catch {
+      // Allow SSH URLs (git@github.com:user/repo.git)
+      if (!isSshUrl(repoUrl)) {
+        const credentials = await credentialRepository.findByOwner(
+          user.username,
+        );
+        return c.html(
+          <ProjectCreatePage
+            credentials={credentials}
+            error="Invalid repository URL"
+          />,
+          400,
+        );
+      }
     }
-  }
 
-  // Validate repo type
-  if (repoType !== "git" && repoType !== "fossil") {
-    const credentials = await credentialRepository.findByOwner(user.username);
-    return c.html(<ProjectEditPage project={project} credentials={credentials} error="Repository type must be 'git' or 'fossil'" />, 400);
-  }
-
-  // Validate description length
-  if (description && description.length > 500) {
-    const credentials = await credentialRepository.findByOwner(user.username);
-    return c.html(<ProjectEditPage project={project} credentials={credentials} error="Description must be 500 characters or less" />, 400);
-  }
-
-  // Validate credential if provided
-  if (credentialId) {
-    const credential = await credentialRepository.findById(credentialId, user.username);
-    if (!credential) {
-      const credentials = await credentialRepository.findByOwner(user.username);
-      return c.html(<ProjectEditPage project={project} credentials={credentials} error="Selected credential not found" />, 400);
-    }
-    
-    // Validate credential type matches URL type
-    const expectedType = getCredentialTypeFromUrl(repoUrl);
-    if (credential.type !== expectedType) {
+    // Validate repo type
+    if (repoType !== "git" && repoType !== "fossil") {
       const credentials = await credentialRepository.findByOwner(user.username);
       return c.html(
-        <ProjectEditPage 
+        <ProjectCreatePage
+          credentials={credentials}
+          error="Repository type must be 'git' or 'fossil'"
+        />,
+        400,
+      );
+    }
+
+    // Validate description length
+    if (description && description.length > 500) {
+      const credentials = await credentialRepository.findByOwner(user.username);
+      return c.html(
+        <ProjectCreatePage
+          credentials={credentials}
+          error="Description must be 500 characters or less"
+        />,
+        400,
+      );
+    }
+
+    // Validate credential if provided
+    if (credentialId) {
+      const credential = await credentialRepository.findById(
+        credentialId,
+        user.username,
+      );
+      if (!credential) {
+        const credentials = await credentialRepository.findByOwner(
+          user.username,
+        );
+        return c.html(
+          <ProjectCreatePage
+            credentials={credentials}
+            error="Selected credential not found"
+          />,
+          400,
+        );
+      }
+
+      // Validate credential type matches URL type
+      const expectedType = getCredentialTypeFromUrl(repoUrl);
+      if (credential.type !== expectedType) {
+        const credentials = await credentialRepository.findByOwner(
+          user.username,
+        );
+        return c.html(
+          <ProjectCreatePage
+            credentials={credentials}
+            error={`Credential type does not match repository URL type. Expected ${expectedType.toUpperCase()} but got ${credential.type.toUpperCase()}`}
+          />,
+          400,
+        );
+      }
+    }
+
+    try {
+      const project = await projectRepository.create({
+        name,
+        repoUrl,
+        repoType: repoType as "git" | "fossil",
+        owner: user.username,
+        description: description || undefined,
+        credentialId: credentialId || undefined,
+        sourceBranch: sourceBranch || undefined,
+        newBranch: newBranch || undefined,
+        defaultLocalDevMirrorPath: defaultLocalDevMirrorPath || undefined,
+      });
+
+      return c.redirect(`/projects/${project.id}`, 302);
+    } catch (error) {
+      const credentials = await credentialRepository.findByOwner(user.username);
+      return c.html(
+        <ProjectCreatePage
+          credentials={credentials}
+          error="Failed to create project"
+        />,
+        500,
+      );
+    }
+  });
+
+  // View project (GET /projects/:id)
+  projects.get("/:id", authMiddleware, async (c) => {
+    const id = c.req.param("id");
+    const project = await projectRepository.findById(id);
+
+    if (!project) {
+      return c.notFound();
+    }
+
+    const user = c.get("user") as { username: string };
+    if (project.owner !== user.username) {
+      return c.notFound();
+    }
+
+    // Load credential info if exists
+    let credential: Credential | null = null;
+    if (project.credentialId) {
+      credential = await credentialRepository.findById(
+        project.credentialId,
+        user.username,
+      );
+    }
+
+    const sessions = await sessionRepository.listByProject(id);
+
+    return c.html(
+      <ProjectDetailPage
+        project={project}
+        sessions={sessions}
+        credential={credential}
+      />,
+    );
+  });
+
+  // Edit project form (GET /projects/:id/edit)
+  projects.get("/:id/edit", authMiddleware, async (c) => {
+    const id = c.req.param("id");
+    const project = await projectRepository.findById(id);
+
+    if (!project) {
+      return c.notFound();
+    }
+
+    const user = c.get("user") as { username: string };
+    if (project.owner !== user.username) {
+      return c.notFound();
+    }
+
+    const credentials = await credentialRepository.findByOwner(user.username);
+    return c.html(
+      <ProjectEditPage project={project} credentials={credentials} />,
+    );
+  });
+
+  // Update project (POST /projects/:id/edit)
+  projects.post("/:id/edit", authMiddleware, async (c) => {
+    const id = c.req.param("id");
+    const project = await projectRepository.findById(id);
+
+    if (!project) {
+      return c.notFound();
+    }
+
+    const user = c.get("user") as { username: string };
+    if (project.owner !== user.username) {
+      return c.notFound();
+    }
+
+    const body = await c.req.parseBody();
+    const name = body.name as string;
+    const repoUrl = body.repoUrl as string;
+    const repoType = (body.repoType as string) || "git";
+    const description = body.description as string | undefined;
+    const credentialId = body.credentialId as string | undefined;
+    const defaultLocalDevMirrorPath = body.defaultLocalDevMirrorPath as
+      | string
+      | undefined;
+
+    if (!name || !repoUrl) {
+      const credentials = await credentialRepository.findByOwner(user.username);
+      return c.html(
+        <ProjectEditPage
           project={project}
           credentials={credentials}
-          error={`Credential type does not match repository URL type. Expected ${expectedType.toUpperCase()} but got ${credential.type.toUpperCase()}`} 
-        />, 
-        400
+          error="Name and repository URL are required"
+        />,
+        400,
       );
     }
-  }
 
-  try {
-    await projectRepository.update(id, {
-      name,
-      repoUrl,
-      repoType: repoType as "git" | "fossil",
-      description: description || undefined,
-      credentialId: credentialId || undefined,
-      defaultLocalDevMirrorPath: defaultLocalDevMirrorPath || undefined,
-    });
+    // Validate URL format
+    try {
+      new URL(repoUrl);
+    } catch {
+      if (!isSshUrl(repoUrl)) {
+        const credentials = await credentialRepository.findByOwner(
+          user.username,
+        );
+        return c.html(
+          <ProjectEditPage
+            project={project}
+            credentials={credentials}
+            error="Invalid repository URL"
+          />,
+          400,
+        );
+      }
+    }
 
-    return c.redirect(`/projects/${id}`, 302);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Failed to update project";
-    const credentials = await credentialRepository.findByOwner(user.username);
-    return c.html(<ProjectEditPage project={project} credentials={credentials} error={errorMessage} />, 500);
-  }
-});
+    // Validate repo type
+    if (repoType !== "git" && repoType !== "fossil") {
+      const credentials = await credentialRepository.findByOwner(user.username);
+      return c.html(
+        <ProjectEditPage
+          project={project}
+          credentials={credentials}
+          error="Repository type must be 'git' or 'fossil'"
+        />,
+        400,
+      );
+    }
 
-// Delete project (POST /projects/:id/delete)
-projects.post("/:id/delete", authMiddleware, async (c) => {
-  const id = c.req.param("id");
-  const project = await projectRepository.findById(id);
-  
-  if (!project) {
-    return c.notFound();
-  }
+    // Validate description length
+    if (description && description.length > 500) {
+      const credentials = await credentialRepository.findByOwner(user.username);
+      return c.html(
+        <ProjectEditPage
+          project={project}
+          credentials={credentials}
+          error="Description must be 500 characters or less"
+        />,
+        400,
+      );
+    }
 
-  const user = c.get("user") as { username: string };
-  if (project.owner !== user.username) {
-    return c.notFound();
-  }
+    // Validate credential if provided
+    if (credentialId) {
+      const credential = await credentialRepository.findById(
+        credentialId,
+        user.username,
+      );
+      if (!credential) {
+        const credentials = await credentialRepository.findByOwner(
+          user.username,
+        );
+        return c.html(
+          <ProjectEditPage
+            project={project}
+            credentials={credentials}
+            error="Selected credential not found"
+          />,
+          400,
+        );
+      }
 
-  await projectRepository.delete(id);
-  return c.redirect("/projects", 302);
-});
+      // Validate credential type matches URL type
+      const expectedType = getCredentialTypeFromUrl(repoUrl);
+      if (credential.type !== expectedType) {
+        const credentials = await credentialRepository.findByOwner(
+          user.username,
+        );
+        return c.html(
+          <ProjectEditPage
+            project={project}
+            credentials={credentials}
+            error={`Credential type does not match repository URL type. Expected ${expectedType.toUpperCase()} but got ${credential.type.toUpperCase()}`}
+          />,
+          400,
+        );
+      }
+    }
 
-// GET /projects/:id/impacts - Impact history page
-projects.get("/:id/impacts", authMiddleware, async (c) => {
-  const id = c.req.param("id");
-  const project = await projectRepository.findById(id);
-  
-  if (!project) {
-    return c.notFound();
-  }
+    try {
+      await projectRepository.update(id, {
+        name,
+        repoUrl,
+        repoType: repoType as "git" | "fossil",
+        description: description || undefined,
+        credentialId: credentialId || undefined,
+        defaultLocalDevMirrorPath: defaultLocalDevMirrorPath || undefined,
+      });
 
-  const user = c.get("user") as { username: string };
-  if (project.owner !== user.username) {
-    return c.notFound();
-  }
+      return c.redirect(`/projects/${id}`, 302);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to update project";
+      const credentials = await credentialRepository.findByOwner(user.username);
+      return c.html(
+        <ProjectEditPage
+          project={project}
+          credentials={credentials}
+          error={errorMessage}
+        />,
+        500,
+      );
+    }
+  });
 
-  // Get all impact records for this project
-  const impacts = await impactRepository.findByProject(id);
+  // Delete project (POST /projects/:id/delete)
+  projects.post("/:id/delete", authMiddleware, async (c) => {
+    const id = c.req.param("id");
+    const project = await projectRepository.findById(id);
 
-  // Get all sessions for this project to check existence
-  const allSessions = await sessionRepository.listByProject(id);
-  const sessionMap = new Map();
-  
-  for (const impact of impacts) {
-    const session = allSessions.find(s => s.id === impact.sessionId);
-    sessionMap.set(impact.sessionId, {
-      id: impact.sessionId,
-      name: impact.sessionName,
-      exists: !!session,
-    });
-  }
+    if (!project) {
+      return c.notFound();
+    }
 
-  return c.html(
-    <ImpactHistoryPage 
-      project={project}
-      impacts={impacts}
-      sessions={sessionMap}
-    />
-  );
-});
+    const user = c.get("user") as { username: string };
+    if (project.owner !== user.username) {
+      return c.notFound();
+    }
 
-// Nested session routes
-projects.route("/:projectId/sessions", sessions);
+    await projectRepository.delete(id);
+    return c.redirect("/projects", 302);
+  });
 
-return projects;
+  // GET /projects/:id/impacts - Impact history page
+  projects.get("/:id/impacts", authMiddleware, async (c) => {
+    const id = c.req.param("id");
+    const project = await projectRepository.findById(id);
+
+    if (!project) {
+      return c.notFound();
+    }
+
+    const user = c.get("user") as { username: string };
+    if (project.owner !== user.username) {
+      return c.notFound();
+    }
+
+    // Get all impact records for this project
+    const impacts = await impactRepository.findByProject(id);
+
+    // Get all sessions for this project to check existence
+    const allSessions = await sessionRepository.listByProject(id);
+    const sessionMap = new Map();
+
+    for (const impact of impacts) {
+      const session = allSessions.find((s) => s.id === impact.sessionId);
+      sessionMap.set(impact.sessionId, {
+        id: impact.sessionId,
+        name: impact.sessionName,
+        exists: !!session,
+      });
+    }
+
+    return c.html(
+      <ImpactHistoryPage
+        project={project}
+        impacts={impacts}
+        sessions={sessionMap}
+      />,
+    );
+  });
+
+  // Nested session routes
+  projects.route("/:projectId/sessions", sessions);
+
+  return projects;
 }

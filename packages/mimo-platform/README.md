@@ -16,9 +16,9 @@ This project was created using `bun init` in bun v1.2.23. [Bun](https://bun.com)
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3000` | Port the platform listens on |
+| Variable       | Default                 | Description                                                                                                                                                    |
+| -------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`         | `3000`                  | Port the platform listens on                                                                                                                                   |
 | `PLATFORM_URL` | `http://localhost:PORT` | Public URL of the platform, used to tell agents where to connect for Fossil sync. **Must be set when mimo-agent runs on a different host than mimo-platform.** |
 
 ### Remote agent setup
@@ -38,17 +38,20 @@ The agent uses this URL to construct the Fossil server address for each session.
 An optional path that enables real-time sync of agent changes to a local directory.
 
 **Field:** `defaultLocalDevMirrorPath`
+
 - **Location:** Project creation and edit forms
 - **Purpose:** Sets a default mirror path for all sessions in the project
 - **Behavior:** Pre-fills the mirror path when creating new sessions
 - **Format:** Absolute filesystem path (e.g., `/home/user/myproject-dev`)
 
 **Related Session Field:** `localDevMirrorPath`
+
 - Each session can override the project default
 - Can be cleared to disable sync for a specific session
 - Empty/null means no sync is performed
 
 **Example use case:**
+
 1. User creates a project with `defaultLocalDevMirrorPath: /home/user/dev/myproject`
 2. When creating a session, the mirror path is pre-filled
 3. User can modify or clear the path before creating the session

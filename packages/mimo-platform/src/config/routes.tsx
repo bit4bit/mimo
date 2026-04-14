@@ -41,7 +41,7 @@ export function createConfigRoutes(mimoContext: MimoContext): Hono {
           config={validation.sanitized}
           errors={validation.errors}
         />,
-        400
+        400,
       );
     }
 
@@ -49,10 +49,7 @@ export function createConfigRoutes(mimoContext: MimoContext): Hono {
     service.save(validation.sanitized);
 
     return c.html(
-      <ConfigEditorPage
-        config={validation.sanitized}
-        success={true}
-      />
+      <ConfigEditorPage config={validation.sanitized} success={true} />,
     );
   });
 
@@ -77,10 +74,13 @@ export function createConfigRoutes(mimoContext: MimoContext): Hono {
     const validation = configValidator.validate(body);
 
     if (validation.errors.length > 0) {
-      return c.json({
-        success: false,
-        errors: validation.errors,
-      }, 400);
+      return c.json(
+        {
+          success: false,
+          errors: validation.errors,
+        },
+        400,
+      );
     }
 
     service.save(validation.sanitized);

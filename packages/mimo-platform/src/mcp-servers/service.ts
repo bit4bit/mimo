@@ -1,10 +1,14 @@
 import { McpServerRepository } from "./repository.js";
-import { McpServer, CreateMcpServerInput, UpdateMcpServerInput, McpServerConfig, slugify } from "./types.js";
+import {
+  McpServer,
+  CreateMcpServerInput,
+  UpdateMcpServerInput,
+  McpServerConfig,
+  slugify,
+} from "./types.js";
 
 export class McpServerService {
-  constructor(
-    private repository: McpServerRepository
-  ) {}
+  constructor(private repository: McpServerRepository) {}
 
   async create(input: CreateMcpServerInput): Promise<McpServer> {
     // Validation: name required
@@ -41,13 +45,15 @@ export class McpServerService {
       name: input.name.trim(),
       description: input.description?.trim(),
       transport: input.transport,
-      ...(input.transport === "stdio" ? {
-        command: input.command!.trim(),
-        args: input.args || [],
-      } : {
-        url: input.url!.trim(),
-        headers: input.headers,
-      }),
+      ...(input.transport === "stdio"
+        ? {
+            command: input.command!.trim(),
+            args: input.args || [],
+          }
+        : {
+            url: input.url!.trim(),
+            headers: input.headers,
+          }),
     });
   }
 
@@ -59,7 +65,10 @@ export class McpServerService {
     return this.repository.findAll();
   }
 
-  async update(id: string, input: UpdateMcpServerInput): Promise<McpServer | null> {
+  async update(
+    id: string,
+    input: UpdateMcpServerInput,
+  ): Promise<McpServer | null> {
     // If name is being updated, validate it's not empty and check uniqueness
     if (input.name !== undefined) {
       if (input.name.trim().length === 0) {
@@ -73,7 +82,9 @@ export class McpServerService {
         const newId = slugify(input.name);
         const idExists = await this.repository.exists(newId);
         if (idExists && newId !== id) {
-          throw new Error(`MCP server with name '${input.name}' already exists`);
+          throw new Error(
+            `MCP server with name '${input.name}' already exists`,
+          );
         }
       }
     }
@@ -93,7 +104,9 @@ export class McpServerService {
 
     return this.repository.update(id, {
       ...(input.name !== undefined && { name: input.name.trim() }),
-      ...(input.description !== undefined && { description: input.description?.trim() }),
+      ...(input.description !== undefined && {
+        description: input.description?.trim(),
+      }),
       ...(input.transport !== undefined && { transport: input.transport }),
       ...(input.command !== undefined && { command: input.command.trim() }),
       ...(input.args !== undefined && { args: input.args }),
@@ -132,7 +145,12 @@ export class McpServerService {
           type: "http",
           name: server.name,
           url: server.url!,
-          headers: server.headers ? Object.entries(server.headers).map(([name, value]) => ({ name, value })) : [],
+          headers: server.headers
+            ? Object.entries(server.headers).map(([name, value]) => ({
+                name,
+                value,
+              }))
+            : [],
         });
       } else if (server.transport === "sse") {
         // SSE transport - requires 'type: "sse"'
@@ -140,7 +158,12 @@ export class McpServerService {
           type: "sse",
           name: server.name,
           url: server.url!,
-          headers: server.headers ? Object.entries(server.headers).map(([name, value]) => ({ name, value })) : [],
+          headers: server.headers
+            ? Object.entries(server.headers).map(([name, value]) => ({
+                name,
+                value,
+              }))
+            : [],
         });
       }
     }

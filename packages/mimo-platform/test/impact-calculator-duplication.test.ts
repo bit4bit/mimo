@@ -24,7 +24,10 @@ describe("ImpactCalculator duplication integration", () => {
   let workspaceDir: string;
 
   beforeEach(() => {
-    const base = join(tmpdir(), `mimo-calc-dup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    const base = join(
+      tmpdir(),
+      `mimo-calc-dup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
     upstreamDir = join(base, "upstream");
     workspaceDir = join(base, "workspace");
     mkdirSync(upstreamDir, { recursive: true });
@@ -49,7 +52,11 @@ describe("ImpactCalculator duplication integration", () => {
     writeFileSync(join(workspaceDir, "module-b.ts"), BLOCK_B + "\n");
 
     const calc = new ImpactCalculator(undefined, jscpdService);
-    const { metrics } = await calc.calculateImpact("session-1", upstreamDir, workspaceDir);
+    const { metrics } = await calc.calculateImpact(
+      "session-1",
+      upstreamDir,
+      workspaceDir,
+    );
 
     expect(metrics.duplication).toBeDefined();
     expect(metrics.duplication!.clones.length).toBeGreaterThan(0);
@@ -63,10 +70,17 @@ describe("ImpactCalculator duplication integration", () => {
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
     const jscpdService = new JscpdService(jscpdBin);
 
-    writeFileSync(join(workspaceDir, "unique.ts"), `export const x = 1;\nexport const y = 2;\n`);
+    writeFileSync(
+      join(workspaceDir, "unique.ts"),
+      `export const x = 1;\nexport const y = 2;\n`,
+    );
 
     const calc = new ImpactCalculator(undefined, jscpdService);
-    const { metrics } = await calc.calculateImpact("session-2", upstreamDir, workspaceDir);
+    const { metrics } = await calc.calculateImpact(
+      "session-2",
+      upstreamDir,
+      workspaceDir,
+    );
 
     expect(metrics.duplication).toBeDefined();
     expect(metrics.duplication!.clones).toHaveLength(0);
@@ -84,7 +98,11 @@ describe("ImpactCalculator duplication integration", () => {
     writeFileSync(join(workspaceDir, "file-b.ts"), BLOCK_B + "\n");
 
     const calc = new ImpactCalculator(undefined, jscpdService);
-    const { metrics } = await calc.calculateImpact("session-3", upstreamDir, workspaceDir);
+    const { metrics } = await calc.calculateImpact(
+      "session-3",
+      upstreamDir,
+      workspaceDir,
+    );
 
     expect(metrics.duplication!.percentage).toBeGreaterThanOrEqual(0);
     expect(metrics.duplication!.percentage).toBeLessThanOrEqual(100);
@@ -101,7 +119,11 @@ describe("ImpactCalculator duplication integration", () => {
     writeFileSync(join(workspaceDir, "comp-b.ts"), BLOCK_B + "\n");
 
     const calc = new ImpactCalculator(undefined, jscpdService);
-    const { metrics } = await calc.calculateImpact("session-4", upstreamDir, workspaceDir);
+    const { metrics } = await calc.calculateImpact(
+      "session-4",
+      upstreamDir,
+      workspaceDir,
+    );
 
     expect(metrics.duplication!.byFile).toBeDefined();
     const fileKeys = Object.keys(metrics.duplication!.byFile);
@@ -116,7 +138,11 @@ describe("ImpactCalculator duplication integration", () => {
     const jscpdService = new JscpdService(jscpdBin);
 
     const calc = new ImpactCalculator(undefined, jscpdService);
-    const { metrics } = await calc.calculateImpact("session-5", upstreamDir, workspaceDir);
+    const { metrics } = await calc.calculateImpact(
+      "session-5",
+      upstreamDir,
+      workspaceDir,
+    );
 
     expect(metrics).toHaveProperty("duplication");
     expect(metrics.duplication).toMatchObject({

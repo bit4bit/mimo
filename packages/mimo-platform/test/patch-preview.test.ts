@@ -263,8 +263,16 @@ Binary files a/old-image.gif and /dev/null differ
 
     it("should handle nested directories", () => {
       const files: FileChange[] = [
-        { path: "src/components/modals/dialog.tsx", status: "added", isBinary: false },
-        { path: "src/components/buttons/Button.tsx", status: "modified", isBinary: false },
+        {
+          path: "src/components/modals/dialog.tsx",
+          status: "added",
+          isBinary: false,
+        },
+        {
+          path: "src/components/buttons/Button.tsx",
+          status: "modified",
+          isBinary: false,
+        },
         { path: "src/utils/date.ts", status: "deleted", isBinary: false },
       ];
 
@@ -307,9 +315,13 @@ Binary files a/old-image.gif and /dev/null differ
       const tree = buildTreeFromFiles(files);
 
       expect(tree.find((n) => n.name === "added.txt")?.status).toBe("added");
-      expect(tree.find((n) => n.name === "modified.txt")?.status).toBe("modified");
+      expect(tree.find((n) => n.name === "modified.txt")?.status).toBe(
+        "modified",
+      );
       expect(tree.find((n) => n.name === "modified.txt")?.isBinary).toBe(true);
-      expect(tree.find((n) => n.name === "deleted.txt")?.status).toBe("deleted");
+      expect(tree.find((n) => n.name === "deleted.txt")?.status).toBe(
+        "deleted",
+      );
     });
   });
 
@@ -442,7 +454,9 @@ index 1234567..abcdefg 100644
       const result = parsePatchPreview(patch);
 
       expect(result.files).toHaveLength(1);
-      expect(result.files[0].hunks![0].lines).toContain("\\ No newline at end of file");
+      expect(result.files[0].hunks![0].lines).toContain(
+        "\\ No newline at end of file",
+      );
     });
   });
 });

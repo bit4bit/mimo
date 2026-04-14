@@ -14,126 +14,167 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
   const agentService = mimoContext.services.agents;
   const agentRepository = mimoContext.repos.agents;
   const sessionRepository = mimoContext.repos.sessions;
-  const authMiddlewareWithContext = createAuthMiddleware(mimoContext.services.auth);
-
-// Agent API endpoint - uses agent JWT, not user auth
-router.get("/me/sessions", async (c: Context) => {
-  const authHeader = c.req.header("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return c.json({ error: "Missing token" }, 401);
-  }
-
-  const token = authHeader.slice(7); // Remove "Bearer "
-  const payload = await agentService.verifyAgentToken(token);
-  if (!payload) {
-    return c.json({ error: "Invalid token" }, 401);
-  }
-
-  const agent = await agentRepository.findById(payload.agentId);
-  if (!agent) {
-    return c.json({ error: "Agent not found" }, 404);
-  }
-
-  // Get all sessions assigned to this agent
-  const sessions = await sessionRepository.findByAssignedAgentId(agent.id);
-  
-  return c.json(sessions.map(session => ({
-    sessionId: session.id,
-    projectId: session.projectId,
-    sessionName: session.name,
-    status: session.status,
-    port: session.port,
-  })));
-});
-
-router.use("/*", mimoContext ? authMiddlewareWithContext : authMiddleware);
-
-router.get("/", async (c: Context) => {
-  const user = c.get("user") as { username: string };
-  const username = user.username;
-
-  const agents = await agentService.listAgentsByOwner(username);
-  
-  const agentsWithDetails = await Promise.all(
-    agents.map(async (agent) => {
-      const sessions = await sessionRepository.findByAssignedAgentId(agent.id);
-      return {
-        ...agent,
-        sessionCount: sessions.length,
-        status: agent.status,
-      };
-    })
+  const authMiddlewareWithContext = createAuthMiddleware(
+    mimoContext.services.auth,
   );
 
-  const statusFilter = c.req.query("status");
-  const filteredAgents = statusFilter
-    ? agentsWithDetails.filter((agent) => agent.status === statusFilter)
-    : agentsWithDetails;
+  // Agent API endpoint - uses agent JWT, not user auth
+  router.get("/me/sessions", async (c: Context) => {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Missing token" }, 401);
+    }
 
-  return c.html(
-    <Layout title="Agents">
-      <div class="agents-container">
-        <h1>Agents</h1>
-        
-        <div style="margin: 20px 0;">
-          <a href="/agents/new" class="btn-primary">Create Agent</a>
+    const token = authHeader.slice(7); // Remove "Bearer "
+    const payload = await agentService.verifyAgentToken(token);
+    if (!payload) {
+      return c.json({ error: "Invalid token" }, 401);
+    }
+
+    const agent = await agentRepository.findById(payload.agentId);
+    if (!agent) {
+      return c.json({ error: "Agent not found" }, 404);
+    }
+
+    // Get all sessions assigned to this agent
+    const sessions = await sessionRepository.findByAssignedAgentId(agent.id);
+
+    return c.json(
+      sessions.map((session) => ({
+        sessionId: session.id,
+        projectId: session.projectId,
+        sessionName: session.name,
+        status: session.status,
+        port: session.port,
+      })),
+    );
+  });
+
+  router.use("/*", mimoContext ? authMiddlewareWithContext : authMiddleware);
+
+  router.get("/", async (c: Context) => {
+    const user = c.get("user") as { username: string };
+    const username = user.username;
+
+    const agents = await agentService.listAgentsByOwner(username);
+
+    const agentsWithDetails = await Promise.all(
+      agents.map(async (agent) => {
+        const sessions = await sessionRepository.findByAssignedAgentId(
+          agent.id,
+        );
+        return {
+          ...agent,
+          sessionCount: sessions.length,
+          status: agent.status,
+        };
+      }),
+    );
+
+    const statusFilter = c.req.query("status");
+    const filteredAgents = statusFilter
+      ? agentsWithDetails.filter((agent) => agent.status === statusFilter)
+      : agentsWithDetails;
+
+    return c.html(
+      <Layout title="Agents">
+        <div class="agents-container">
+          <h1>Agents</h1>
+
+          <div style="margin: 20px 0;">
+            <a href="/agents/new" class="btn-primary">
+              Create Agent
+            </a>
+          </div>
+
+          <div class="filters">
+            <span>Filter by status: </span>
+            <a
+              href="/agents"
+              class={!statusFilter ? "filter-link active" : "filter-link"}
+            >
+              All
+            </a>
+            <a
+              href="/agents?status=online"
+              class={
+                statusFilter === "online" ? "filter-link active" : "filter-link"
+              }
+            >
+              Online
+            </a>
+            <a
+              href="/agents?status=offline"
+              class={
+                statusFilter === "offline"
+                  ? "filter-link active"
+                  : "filter-link"
+              }
+            >
+              Offline
+            </a>
+          </div>
+
+          {filteredAgents.length === 0 ? (
+            <p>No agents found. Create an agent to get started.</p>
+          ) : (
+            <table class="agents-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>ID</th>
+                  <th>Status</th>
+                  <th>Provider</th>
+                  <th>Sessions</th>
+                  <th>Created</th>
+                  <th>Last Active</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredAgents.map((agent) => (
+                  <tr key={agent.id}>
+                    <td>
+                      <a href={`/agents/${agent.id}`}>{agent.name}</a>
+                    </td>
+                    <td>
+                      <span class="agent-id">{agent.id.slice(0, 8)}...</span>
+                    </td>
+                    <td>
+                      <span class={`status-badge status-${agent.status}`}>
+                        {agent.status === "online" ? "🟢" : "🔴"} {agent.status}
+                      </span>
+                    </td>
+                    <td>{agent.provider || "opencode"}</td>
+                    <td>{agent.sessionCount}</td>
+                    <td>{new Date(agent.startedAt).toLocaleString()}</td>
+                    <td>
+                      {agent.lastActivityAt
+                        ? new Date(agent.lastActivityAt).toLocaleString()
+                        : "-"}
+                    </td>
+                    <td>
+                      <a href={`/agents/${agent.id}`} class="btn-secondary">
+                        View
+                      </a>
+                      <form
+                        method="POST"
+                        action={`/agents/${agent.id}/delete`}
+                        style="display: inline;"
+                      >
+                        <button type="submit" class="btn-danger">
+                          Delete
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
-        <div class="filters">
-          <span>Filter by status: </span>
-          <a href="/agents" class={!statusFilter ? "filter-link active" : "filter-link"}>All</a>
-          <a href="/agents?status=online" class={statusFilter === "online" ? "filter-link active" : "filter-link"}>Online</a>
-          <a href="/agents?status=offline" class={statusFilter === "offline" ? "filter-link active" : "filter-link"}>Offline</a>
-        </div>
-
-        {filteredAgents.length === 0 ? (
-          <p>No agents found. Create an agent to get started.</p>
-        ) : (
-          <table class="agents-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>ID</th>
-                <th>Status</th>
-                <th>Provider</th>
-                <th>Sessions</th>
-                <th>Created</th>
-                <th>Last Active</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-        {filteredAgents.map((agent) => (
-          <tr key={agent.id}>
-            <td>
-              <a href={`/agents/${agent.id}`}>{agent.name}</a>
-            </td>
-            <td>
-              <span class="agent-id">{agent.id.slice(0, 8)}...</span>
-            </td>
-            <td>
-              <span class={`status-badge status-${agent.status}`}>
-                {agent.status === "online" ? "🟢" : "🔴"} {agent.status}
-              </span>
-            </td>
-            <td>{agent.provider || "opencode"}</td>
-            <td>{agent.sessionCount}</td>
-            <td>{new Date(agent.startedAt).toLocaleString()}</td>
-            <td>{agent.lastActivityAt ? new Date(agent.lastActivityAt).toLocaleString() : "-"}</td>
-            <td>
-              <a href={`/agents/${agent.id}`} class="btn-secondary">View</a>
-              <form method="POST" action={`/agents/${agent.id}/delete`} style="display: inline;">
-                <button type="submit" class="btn-danger">Delete</button>
-              </form>
-            </td>
-          </tr>
-        ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      <style>{`
+        <style>{`
         .agents-container { padding: 20px; }
         .btn-primary {
           background: #74c0fc;
@@ -213,41 +254,61 @@ router.get("/", async (c: Context) => {
           font-family: monospace;
         }
       `}</style>
-    </Layout>
-  );
-});
+      </Layout>,
+    );
+  });
 
-router.get("/new", async (c: Context) => {
-  return c.html(
-    <Layout title="Create Agent">
-      <div class="agent-create-container">
-        <h1>Create Agent</h1>
-        <p style="color: #888; margin-bottom: 20px;">
-          Create an agent to run mimo-agent locally. After creation, you'll receive a token
-          to use when running <code>mimo-agent --token=XXX --provider=PROVIDER</code>.
-        </p>
-        
-        <form method="POST" action="/agents">
-          <div class="form-group">
-            <label for="name">Agent Name:</label>
-            <input type="text" id="name" name="name" required maxlength="64" placeholder="e.g., MacBook Pro Dev" />
-            <span class="form-help">A descriptive name to identify this agent</span>
-          </div>
-          <div class="form-group">
-            <label for="provider">Provider:</label>
-            <select id="provider" name="provider" required>
-              <option value="opencode">Opencode</option>
-              <option value="claude">Claude</option>
-            </select>
-            <span class="form-help">Select the AI provider this agent will use</span>
-          </div>
-          <button type="submit" class="btn-primary">Create Agent</button>
-        </form>
-        
-        <a href="/agents" class="btn-secondary" style="display: inline-block; margin-left: 10px;">Cancel</a>
-      </div>
+  router.get("/new", async (c: Context) => {
+    return c.html(
+      <Layout title="Create Agent">
+        <div class="agent-create-container">
+          <h1>Create Agent</h1>
+          <p style="color: #888; margin-bottom: 20px;">
+            Create an agent to run mimo-agent locally. After creation, you'll
+            receive a token to use when running{" "}
+            <code>mimo-agent --token=XXX --provider=PROVIDER</code>.
+          </p>
 
-      <style>{`
+          <form method="POST" action="/agents">
+            <div class="form-group">
+              <label for="name">Agent Name:</label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                required
+                maxlength="64"
+                placeholder="e.g., MacBook Pro Dev"
+              />
+              <span class="form-help">
+                A descriptive name to identify this agent
+              </span>
+            </div>
+            <div class="form-group">
+              <label for="provider">Provider:</label>
+              <select id="provider" name="provider" required>
+                <option value="opencode">Opencode</option>
+                <option value="claude">Claude</option>
+              </select>
+              <span class="form-help">
+                Select the AI provider this agent will use
+              </span>
+            </div>
+            <button type="submit" class="btn-primary">
+              Create Agent
+            </button>
+          </form>
+
+          <a
+            href="/agents"
+            class="btn-secondary"
+            style="display: inline-block; margin-left: 10px;"
+          >
+            Cancel
+          </a>
+        </div>
+
+        <style>{`
         .agent-create-container { padding: 20px; max-width: 600px; }
         code {
           background: #2d2d2d;
@@ -256,181 +317,253 @@ router.get("/new", async (c: Context) => {
           font-family: monospace;
         }
       `}</style>
-    </Layout>
-  );
-});
-
-router.post("/", async (c: Context) => {
-  const user = c.get("user") as { username: string };
-  const username = user.username;
-
-  const body = await c.req.parseBody();
-  const name = body.name as string;
-  const provider = body.provider as "opencode" | "claude";
-
-  if (!name || name.trim().length === 0) {
-    return c.html(
-      <Layout title="Create Agent">
-        <div class="agent-create-container">
-          <h1>Create Agent</h1>
-          <div class="error-message">Name is required</div>
-          <form method="POST" action="/agents">
-            <div class="form-group">
-              <label for="name">Agent Name:</label>
-              <input type="text" id="name" name="name" required maxlength="64" placeholder="e.g., MacBook Pro Dev" />
-              <span class="form-help">A descriptive name to identify this agent</span>
-            </div>
-            <div class="form-group">
-              <label for="provider">Provider:</label>
-              <select id="provider" name="provider" required>
-                <option value="opencode">Opencode</option>
-                <option value="claude">Claude</option>
-              </select>
-              <span class="form-help">Select the AI provider this agent will use</span>
-            </div>
-            <button type="submit" class="btn-primary">Create Agent</button>
-          </form>
-          <a href="/agents" class="btn-secondary" style="display: inline-block; margin-left: 10px;">Cancel</a>
-        </div>
-      </Layout>
+      </Layout>,
     );
-  }
+  });
 
-  try {
-    const agent = await agentService.createAgent({ name: name.trim(), owner: username, provider });
-    return c.redirect(`/agents/${agent.id}?created=1`);
-  } catch (error) {
+  router.post("/", async (c: Context) => {
+    const user = c.get("user") as { username: string };
+    const username = user.username;
+
+    const body = await c.req.parseBody();
+    const name = body.name as string;
+    const provider = body.provider as "opencode" | "claude";
+
+    if (!name || name.trim().length === 0) {
+      return c.html(
+        <Layout title="Create Agent">
+          <div class="agent-create-container">
+            <h1>Create Agent</h1>
+            <div class="error-message">Name is required</div>
+            <form method="POST" action="/agents">
+              <div class="form-group">
+                <label for="name">Agent Name:</label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  required
+                  maxlength="64"
+                  placeholder="e.g., MacBook Pro Dev"
+                />
+                <span class="form-help">
+                  A descriptive name to identify this agent
+                </span>
+              </div>
+              <div class="form-group">
+                <label for="provider">Provider:</label>
+                <select id="provider" name="provider" required>
+                  <option value="opencode">Opencode</option>
+                  <option value="claude">Claude</option>
+                </select>
+                <span class="form-help">
+                  Select the AI provider this agent will use
+                </span>
+              </div>
+              <button type="submit" class="btn-primary">
+                Create Agent
+              </button>
+            </form>
+            <a
+              href="/agents"
+              class="btn-secondary"
+              style="display: inline-block; margin-left: 10px;"
+            >
+              Cancel
+            </a>
+          </div>
+        </Layout>,
+      );
+    }
+
+    try {
+      const agent = await agentService.createAgent({
+        name: name.trim(),
+        owner: username,
+        provider,
+      });
+      return c.redirect(`/agents/${agent.id}?created=1`);
+    } catch (error) {
+      return c.html(
+        <Layout title="Create Agent">
+          <div class="agent-create-container">
+            <h1>Create Agent</h1>
+            <div class="error-message">
+              {error instanceof Error
+                ? error.message
+                : "Failed to create agent"}
+            </div>
+            <form method="POST" action="/agents">
+              <div class="form-group">
+                <label for="name">Agent Name:</label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  required
+                  maxlength="64"
+                  placeholder="e.g., MacBook Pro Dev"
+                  value={name}
+                />
+                <span class="form-help">
+                  A descriptive name to identify this agent
+                </span>
+              </div>
+              <div class="form-group">
+                <label for="provider">Provider:</label>
+                <select id="provider" name="provider" required>
+                  <option value="opencode" selected={provider === "opencode"}>
+                    Opencode
+                  </option>
+                  <option value="claude" selected={provider === "claude"}>
+                    Claude
+                  </option>
+                </select>
+                <span class="form-help">
+                  Select the AI provider this agent will use
+                </span>
+              </div>
+              <button type="submit" class="btn-primary">
+                Create Agent
+              </button>
+            </form>
+            <a
+              href="/agents"
+              class="btn-secondary"
+              style="display: inline-block; margin-left: 10px;"
+            >
+              Cancel
+            </a>
+          </div>
+        </Layout>,
+      );
+    }
+  });
+
+  router.get("/:id", async (c: Context) => {
+    const user = c.get("user") as { username: string };
+    const username = user.username;
+    const agentId = c.req.param("id");
+    const showToken = c.req.query("created") === "1";
+
+    const agent = await agentRepository.findById(agentId);
+    if (!agent || agent.owner !== username) {
+      return c.text("Agent not found", 404);
+    }
+
+    const sessions = await sessionRepository.findByAssignedAgentId(agentId);
+
     return c.html(
-      <Layout title="Create Agent">
-        <div class="agent-create-container">
-          <h1>Create Agent</h1>
-          <div class="error-message">{error instanceof Error ? error.message : "Failed to create agent"}</div>
-          <form method="POST" action="/agents">
-            <div class="form-group">
-              <label for="name">Agent Name:</label>
-              <input type="text" id="name" name="name" required maxlength="64" placeholder="e.g., MacBook Pro Dev" value={name} />
-              <span class="form-help">A descriptive name to identify this agent</span>
+      <Layout title={`Agent ${agent.name}`}>
+        <div class="agent-detail-container">
+          <div class="agent-header">
+            <h1>Agent: {agent.name}</h1>
+            <span class={`status-badge status-${agent.status}`}>
+              {agent.status === "online" ? "🟢" : "🔴"} {agent.status}
+            </span>
+          </div>
+
+          {showToken && (
+            <div class="token-notice">
+              <strong>Agent created!</strong> Copy the token below. You won't be
+              able to see it again without visiting this page.
             </div>
-            <div class="form-group">
-              <label for="provider">Provider:</label>
-              <select id="provider" name="provider" required>
-                <option value="opencode" selected={provider === "opencode"}>Opencode</option>
-                <option value="claude" selected={provider === "claude"}>Claude</option>
-              </select>
-              <span class="form-help">Select the AI provider this agent will use</span>
-            </div>
-            <button type="submit" class="btn-primary">Create Agent</button>
-          </form>
-          <a href="/agents" class="btn-secondary" style="display: inline-block; margin-left: 10px;">Cancel</a>
-        </div>
-      </Layout>
-    );
-  }
-});
-
-router.get("/:id", async (c: Context) => {
-  const user = c.get("user") as { username: string };
-  const username = user.username;
-  const agentId = c.req.param("id");
-  const showToken = c.req.query("created") === "1";
-
-  const agent = await agentRepository.findById(agentId);
-  if (!agent || agent.owner !== username) {
-    return c.text("Agent not found", 404);
-  }
-
-  const sessions = await sessionRepository.findByAssignedAgentId(agentId);
-
-  return c.html(
-    <Layout title={`Agent ${agent.name}`}>
-      <div class="agent-detail-container">
-        <div class="agent-header">
-          <h1>Agent: {agent.name}</h1>
-          <span class={`status-badge status-${agent.status}`}>
-            {agent.status === "online" ? "🟢" : "🔴"} {agent.status}
-          </span>
-        </div>
-
-        {showToken && (
-          <div class="token-notice">
-            <strong>Agent created!</strong> Copy the token below. You won't be able to see it again without visiting this page.
-          </div>
-        )}
-
-        <div class="agent-info">
-          <div class="info-row">
-            <label>Name:</label>
-            <span class="agent-name-display">{agent.name}</span>
-          </div>
-          <div class="info-row">
-            <label>Agent ID:</label>
-            <code>{agent.id}</code>
-          </div>
-          <div class="info-row">
-            <label>Status:</label>
-            <span>{agent.status}</span>
-          </div>
-          <div class="info-row">
-            <label>Provider:</label>
-            <span>{agent.provider || "opencode"}</span>
-          </div>
-          <div class="info-row">
-            <label>Created:</label>
-            <span>{new Date(agent.startedAt).toLocaleString()}</span>
-          </div>
-          <div class="info-row">
-            <label>Last Active:</label>
-            <span>{agent.lastActivityAt ? new Date(agent.lastActivityAt).toLocaleString() : "Never"}</span>
-          </div>
-          
-          <div class="token-section">
-            <label>Token:</label>
-            <div class="token-box">
-              <code id="agent-token">{agent.token}</code>
-              <button type="button" onclick="copyToken()" class="btn-secondary">Copy Token</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="sessions-section">
-          <h2>Sessions using this agent ({sessions.length})</h2>
-          {sessions.length === 0 ? (
-            <p style="color: #888;">No sessions are using this agent yet.</p>
-          ) : (
-            <table class="sessions-table">
-              <thead>
-                <tr>
-                  <th>Session Name</th>
-                  <th>Project</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((session) => (
-                  <tr key={session.id}>
-                    <td>
-                      <a href={`/projects/${session.projectId}/sessions/${session.id}`}>
-                        {session.name}
-                      </a>
-                    </td>
-                    <td>{session.projectId.slice(0, 8)}...</td>
-                    <td>{session.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           )}
+
+          <div class="agent-info">
+            <div class="info-row">
+              <label>Name:</label>
+              <span class="agent-name-display">{agent.name}</span>
+            </div>
+            <div class="info-row">
+              <label>Agent ID:</label>
+              <code>{agent.id}</code>
+            </div>
+            <div class="info-row">
+              <label>Status:</label>
+              <span>{agent.status}</span>
+            </div>
+            <div class="info-row">
+              <label>Provider:</label>
+              <span>{agent.provider || "opencode"}</span>
+            </div>
+            <div class="info-row">
+              <label>Created:</label>
+              <span>{new Date(agent.startedAt).toLocaleString()}</span>
+            </div>
+            <div class="info-row">
+              <label>Last Active:</label>
+              <span>
+                {agent.lastActivityAt
+                  ? new Date(agent.lastActivityAt).toLocaleString()
+                  : "Never"}
+              </span>
+            </div>
+
+            <div class="token-section">
+              <label>Token:</label>
+              <div class="token-box">
+                <code id="agent-token">{agent.token}</code>
+                <button
+                  type="button"
+                  onclick="copyToken()"
+                  class="btn-secondary"
+                >
+                  Copy Token
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="sessions-section">
+            <h2>Sessions using this agent ({sessions.length})</h2>
+            {sessions.length === 0 ? (
+              <p style="color: #888;">No sessions are using this agent yet.</p>
+            ) : (
+              <table class="sessions-table">
+                <thead>
+                  <tr>
+                    <th>Session Name</th>
+                    <th>Project</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sessions.map((session) => (
+                    <tr key={session.id}>
+                      <td>
+                        <a
+                          href={`/projects/${session.projectId}/sessions/${session.id}`}
+                        >
+                          {session.name}
+                        </a>
+                      </td>
+                      <td>{session.projectId.slice(0, 8)}...</td>
+                      <td>{session.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div style="margin-top: 30px;">
+            <a href="/agents" class="btn-secondary">
+              Back to Agents
+            </a>
+            <form
+              method="POST"
+              action={`/agents/${agent.id}/delete`}
+              style="display: inline; margin-left: 10px;"
+            >
+              <button type="submit" class="btn-danger">
+                Delete Agent
+              </button>
+            </form>
+          </div>
         </div>
 
-        <div style="margin-top: 30px;">
-          <a href="/agents" class="btn-secondary">Back to Agents</a>
-          <form method="POST" action={`/agents/${agent.id}/delete`} style="display: inline; margin-left: 10px;">
-            <button type="submit" class="btn-danger">Delete Agent</button>
-          </form>
-        </div>
-      </div>
-
-      <script>{`
+        <script>{`
         function copyToken() {
           const token = document.getElementById('agent-token').textContent;
           navigator.clipboard.writeText(token);
@@ -438,7 +571,7 @@ router.get("/:id", async (c: Context) => {
         }
       `}</script>
 
-      <style>{`
+        <style>{`
         .agent-detail-container { padding: 20px; max-width: 900px; }
         .agent-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
         .agent-header h1 { margin: 0; }
@@ -482,23 +615,23 @@ router.get("/:id", async (c: Context) => {
         .sessions-table th, .sessions-table td { padding: 10px; text-align: left; border-bottom: 1px solid #444; }
         .sessions-table th { background: #2d2d2d; color: #888; text-transform: uppercase; font-size: 11px; }
       `}</style>
-    </Layout>
-  );
-});
+      </Layout>,
+    );
+  });
 
-router.post("/:id/delete", async (c: Context) => {
-  const user = c.get("user") as { username: string };
-  const username = user.username;
-  const agentId = c.req.param("id");
+  router.post("/:id/delete", async (c: Context) => {
+    const user = c.get("user") as { username: string };
+    const username = user.username;
+    const agentId = c.req.param("id");
 
-  const agent = await agentRepository.findById(agentId);
-  if (!agent || agent.owner !== username) {
-    return c.text("Agent not found", 404);
-  }
+    const agent = await agentRepository.findById(agentId);
+    if (!agent || agent.owner !== username) {
+      return c.text("Agent not found", 404);
+    }
 
-  await agentService.deleteAgent(agentId);
-  return c.redirect("/agents");
-});
+    await agentService.deleteAgent(agentId);
+    return c.redirect("/agents");
+  });
 
   return router;
 }

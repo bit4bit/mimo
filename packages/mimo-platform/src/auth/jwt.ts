@@ -16,7 +16,7 @@ export class JwtService {
 
   async generateToken(
     username: string,
-    expiresIn: string = "7d"
+    expiresIn: string = "7d",
   ): Promise<string> {
     const token = await new SignJWT({ username })
       .setProtectedHeader({ alg: "HS256" })
@@ -42,7 +42,10 @@ export class JwtService {
 
 export const jwtService = new JwtService();
 
-export async function generateToken(username: string, expiresIn: string = "7d"): Promise<string> {
+export async function generateToken(
+  username: string,
+  expiresIn: string = "7d",
+): Promise<string> {
   return jwtService.generateToken(username, expiresIn);
 }
 

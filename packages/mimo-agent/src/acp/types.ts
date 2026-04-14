@@ -58,9 +58,7 @@ export interface IAcpProvider {
   /**
    * Extract model/mode state from session response
    */
-  extractState(
-    response: NewSessionResponse
-  ): {
+  extractState(response: NewSessionResponse): {
     modelState?: ModelState;
     modeState?: ModeState;
   };
@@ -72,7 +70,7 @@ export interface IAcpProvider {
     connection: any,
     acpSessionId: string,
     modelId: string,
-    optionId: string
+    optionId: string,
   ): Promise<void>;
 
   /**
@@ -82,7 +80,7 @@ export interface IAcpProvider {
     connection: any,
     acpSessionId: string,
     modeId: string,
-    optionId: string
+    optionId: string,
   ): Promise<void>;
 
   /**

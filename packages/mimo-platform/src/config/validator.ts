@@ -8,9 +8,13 @@ export interface ValidationError {
 export class ConfigValidator {
   private errors: ValidationError[] = [];
 
-  validate(config: unknown): { valid: boolean; errors: ValidationError[]; sanitized: Config } {
+  validate(config: unknown): {
+    valid: boolean;
+    errors: ValidationError[];
+    sanitized: Config;
+  } {
     this.errors = [];
-    
+
     if (!config || typeof config !== "object") {
       return {
         valid: false,
@@ -24,7 +28,9 @@ export class ConfigValidator {
       theme: this.validateTheme(configObj.theme),
       fontSize: this.validateFontSize(configObj.fontSize),
       fontFamily: this.validateFontFamily(configObj.fontFamily),
-      sharedFossilServerPort: this.validateSharedFossilServerPort(configObj.sharedFossilServerPort),
+      sharedFossilServerPort: this.validateSharedFossilServerPort(
+        configObj.sharedFossilServerPort,
+      ),
     };
 
     return {
@@ -36,7 +42,7 @@ export class ConfigValidator {
 
   private validateTheme(theme: unknown): "dark" | "light" {
     if (theme === undefined) return defaultConfig.theme!;
-    
+
     if (theme !== "dark" && theme !== "light") {
       this.errors.push({
         field: "theme",
@@ -49,7 +55,7 @@ export class ConfigValidator {
 
   private validateFontSize(fontSize: unknown): number {
     if (fontSize === undefined) return defaultConfig.fontSize!;
-    
+
     const size = Number(fontSize);
     if (isNaN(size) || size < 8 || size > 32) {
       this.errors.push({
@@ -63,7 +69,7 @@ export class ConfigValidator {
 
   private validateFontFamily(fontFamily: unknown): string {
     if (fontFamily === undefined) return defaultConfig.fontFamily!;
-    
+
     if (typeof fontFamily !== "string" || fontFamily.length === 0) {
       this.errors.push({
         field: "fontFamily",
@@ -76,9 +82,14 @@ export class ConfigValidator {
 
   private validateSharedFossilServerPort(port: unknown): number {
     if (port === undefined) return defaultConfig.sharedFossilServerPort!;
-    
+
     const portNum = Number(port);
-    if (isNaN(portNum) || portNum < 1024 || portNum > 65535 || !Number.isInteger(portNum)) {
+    if (
+      isNaN(portNum) ||
+      portNum < 1024 ||
+      portNum > 65535 ||
+      !Number.isInteger(portNum)
+    ) {
       this.errors.push({
         field: "sharedFossilServerPort",
         message: `Port must be an integer between 1024 and 65535, got: ${port}`,
@@ -87,7 +98,6 @@ export class ConfigValidator {
     }
     return portNum;
   }
-
 }
 
 export const configValidator = new ConfigValidator();

@@ -3,12 +3,18 @@ type ServerInstance = {
 };
 
 type ServerFactory = (config: {
-  fetch: (req: Request, server: any) => Response | Promise<Response | undefined> | undefined;
+  fetch: (
+    req: Request,
+    server: any,
+  ) => Response | Promise<Response | undefined> | undefined;
   port: number;
   websocket: any;
 }) => ServerInstance;
 
-type ScheduleFn = (callback: () => void | Promise<void>, delayMs: number) => any;
+type ScheduleFn = (
+  callback: () => void | Promise<void>,
+  delayMs: number,
+) => any;
 
 type Logger = {
   log: (...args: any[]) => void;
@@ -16,7 +22,10 @@ type Logger = {
 };
 
 export type MimoServerSetup = {
-  fetch: (req: Request, server: any) => Response | Promise<Response | undefined> | undefined;
+  fetch: (
+    req: Request,
+    server: any,
+  ) => Response | Promise<Response | undefined> | undefined;
   port: number;
   websocket: any;
 };
@@ -55,11 +64,11 @@ export class MimoServer {
       const success = await this.deps.ensureSharedFossilRunning();
       if (success) {
         this.deps.logger.log(
-          `[SharedFossilServer] Fossil server running on port ${this.deps.getSharedFossilPort()}`
+          `[SharedFossilServer] Fossil server running on port ${this.deps.getSharedFossilPort()}`,
         );
       } else {
         this.deps.logger.error(
-          "[SharedFossilServer] Failed to start fossil server. Agent synchronization may be unavailable."
+          "[SharedFossilServer] Failed to start fossil server. Agent synchronization may be unavailable.",
         );
       }
     }, 100);

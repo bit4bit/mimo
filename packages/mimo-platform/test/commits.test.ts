@@ -12,10 +12,16 @@ describe("Commit Service Tests", () => {
   let VCS: any;
 
   beforeEach(async () => {
-    testHome = join(tmpdir(), `mimo-commit-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    testHome = join(
+      tmpdir(),
+      `mimo-commit-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
-    createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    createMimoContext({
+      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+    });
 
     try {
       rmSync(testHome, { recursive: true, force: true });
@@ -62,8 +68,8 @@ describe("Commit Service Tests", () => {
       const upstreamPath = session.upstreamPath;
       mkdirSync(upstreamPath, { recursive: true });
       execSync("git init", { cwd: upstreamPath });
-      execSync("git config user.email \"test@test.com\"", { cwd: upstreamPath });
-      execSync("git config user.name \"Test User\"", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
 
       // Initialize agent-workspace with fossil
       const agentWorkspacePath = session.agentWorkspacePath;
@@ -77,7 +83,10 @@ describe("Commit Service Tests", () => {
 
       // Commit in agent workspace
       await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
-      await vcs.execCommand(["fossil", "commit", "-m", "Agent commit"], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Agent commit"],
+        agentWorkspacePath,
+      );
 
       // Run commit and push
       const result = await CommitService.commitAndPush(session.id);
@@ -116,10 +125,10 @@ describe("Commit Service Tests", () => {
       const upstreamPath = session.upstreamPath;
       mkdirSync(upstreamPath, { recursive: true });
       execSync("git init", { cwd: upstreamPath });
-      execSync("git config user.email \"test@test.com\"", { cwd: upstreamPath });
-      execSync("git config user.name \"Test User\"", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
       execSync(`git remote add origin ${remotePath}`, { cwd: upstreamPath });
-      
+
       // Create initial commit and push to master
       writeFileSync(join(upstreamPath, "initial.txt"), "initial");
       execSync("git add .", { cwd: upstreamPath });
@@ -141,7 +150,10 @@ describe("Commit Service Tests", () => {
 
       // Commit in agent workspace
       await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
-      await vcs.execCommand(["fossil", "commit", "-m", "Agent commit"], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Agent commit"],
+        agentWorkspacePath,
+      );
 
       // Run commit and push
       const result = await CommitService.commitAndPush(session.id);
@@ -150,12 +162,17 @@ describe("Commit Service Tests", () => {
       expect(result.message).toContain("committed and pushed");
 
       // Verify the branch was pushed to remote
-      const remoteBranches = execSync("git branch -a", { cwd: remotePath, encoding: "utf8" });
+      const remoteBranches = execSync("git branch -a", {
+        cwd: remotePath,
+        encoding: "utf8",
+      });
       expect(remoteBranches).toContain("ai-session-feature-x");
     }, 30000);
 
     it("should fail gracefully when session not found", async () => {
-      const result = await CommitService.commitAndPush("nonexistent-session-id");
+      const result = await CommitService.commitAndPush(
+        "nonexistent-session-id",
+      );
 
       expect(result.success).toBe(false);
       expect(result.message).toBe("Session not found");
@@ -203,8 +220,8 @@ describe("Commit Service Tests", () => {
       const upstreamPath = session.upstreamPath;
       mkdirSync(upstreamPath, { recursive: true });
       execSync("git init", { cwd: upstreamPath });
-      execSync("git config user.email \"test@test.com\"", { cwd: upstreamPath });
-      execSync("git config user.name \"Test User\"", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
 
       // Initialize agent-workspace with fossil
       const agentWorkspacePath = session.agentWorkspacePath;
@@ -244,8 +261,8 @@ describe("Commit Service Tests", () => {
       const upstreamPath = session.upstreamPath;
       mkdirSync(upstreamPath, { recursive: true });
       execSync("git init", { cwd: upstreamPath });
-      execSync("git config user.email \"test@test.com\"", { cwd: upstreamPath });
-      execSync("git config user.name \"Test User\"", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
 
       const agentWorkspacePath = session.agentWorkspacePath;
       const fossilPath = join(testHome, "repo.fossil");
@@ -255,7 +272,10 @@ describe("Commit Service Tests", () => {
 
       writeFileSync(join(agentWorkspacePath, "test.txt"), "test content");
       await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
-      await vcs.execCommand(["fossil", "commit", "-m", "Agent commit"], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Agent commit"],
+        agentWorkspacePath,
+      );
 
       const userMessage = "feat(session): keep my commit title";
       const result = await CommitService.commitAndPush(session.id, userMessage);
@@ -306,10 +326,13 @@ describe("Commit Service Tests", () => {
       writeFileSync(join(agentWorkspacePath, "src/file1.txt"), "content 1");
       writeFileSync(join(agentWorkspacePath, "src/file2.txt"), "content 2");
       writeFileSync(join(agentWorkspacePath, "root.txt"), "root content");
-      
+
       // Commit files to fossil
       await vcs.execCommand(["fossil", "addremove"], agentWorkspacePath);
-      await vcs.execCommand(["fossil", "commit", "-m", "Initial"], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Initial"],
+        agentWorkspacePath,
+      );
 
       // Get preview (comparing agent-workspace with empty upstream)
       const preview = await CommitService.getPreview(session.id);
@@ -319,12 +342,32 @@ describe("Commit Service Tests", () => {
       expect(preview.preview!.summary.added).toBeGreaterThan(0);
       expect(preview.preview!.tree.length).toBeGreaterThan(0);
       // Tree should have "src" directory and "root.txt" file
-      expect(preview.preview!.tree.some(n => n.name === "src" && n.type === "directory")).toBe(true);
-      expect(preview.preview!.tree.some(n => n.name === "root.txt" && n.type === "file")).toBe(true);
+      expect(
+        preview.preview!.tree.some(
+          (n) => n.name === "src" && n.type === "directory",
+        ),
+      ).toBe(true);
+      expect(
+        preview.preview!.tree.some(
+          (n) => n.name === "root.txt" && n.type === "file",
+        ),
+      ).toBe(true);
       // Files should have correct paths and status
-      expect(preview.preview!.files.some(f => f.path === "src/file1.txt" && f.status === "added")).toBe(true);
-      expect(preview.preview!.files.some(f => f.path === "src/file2.txt" && f.status === "added")).toBe(true);
-      expect(preview.preview!.files.some(f => f.path === "root.txt" && f.status === "added")).toBe(true);
+      expect(
+        preview.preview!.files.some(
+          (f) => f.path === "src/file1.txt" && f.status === "added",
+        ),
+      ).toBe(true);
+      expect(
+        preview.preview!.files.some(
+          (f) => f.path === "src/file2.txt" && f.status === "added",
+        ),
+      ).toBe(true);
+      expect(
+        preview.preview!.files.some(
+          (f) => f.path === "root.txt" && f.status === "added",
+        ),
+      ).toBe(true);
     }, 30000);
 
     it("should block commit with empty message", async () => {
@@ -348,7 +391,7 @@ describe("Commit Service Tests", () => {
         session.id,
         "", // Empty message
         undefined,
-        undefined
+        undefined,
       );
 
       expect(result.success).toBe(false);
@@ -387,14 +430,17 @@ describe("Commit Service Tests", () => {
 
       writeFileSync(join(agentWorkspacePath, "test.txt"), "test content");
       await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
-      await vcs.execCommand(["fossil", "commit", "-m", "Initial"], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Initial"],
+        agentWorkspacePath,
+      );
 
       // Try to commit with invalid path
       const result = await CommitService.commitAndPushSelective(
         session.id,
         "Test commit",
         ["nonexistent-file.txt"],
-        undefined
+        undefined,
       );
 
       expect(result.success).toBe(false);
@@ -435,14 +481,17 @@ describe("Commit Service Tests", () => {
       writeFileSync(join(agentWorkspacePath, "file1.txt"), "content 1");
       writeFileSync(join(agentWorkspacePath, "file2.txt"), "content 2");
       await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
-      await vcs.execCommand(["fossil", "commit", "-m", "Initial"], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Initial"],
+        agentWorkspacePath,
+      );
 
       // Commit only file1
       const result = await CommitService.commitAndPushSelective(
         session.id,
         "Selective commit",
         ["file1.txt"],
-        undefined
+        undefined,
       );
 
       expect(result.success).toBe(true);

@@ -15,7 +15,10 @@ describe("JscpdService", () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = join(tmpdir(), `mimo-jscpd-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    testDir = join(
+      tmpdir(),
+      `mimo-jscpd-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
     mkdirSync(testDir, { recursive: true });
   });
 
@@ -68,12 +71,18 @@ describe("JscpdService", () => {
 
     // Write a single file with the same block twice
     const fileA = join(testDir, "intra.ts");
-    writeFileSync(fileA, DUPLICATED_BLOCK + "\n\n" + DUPLICATED_BLOCK.replace("compute", "compute2") + "\n");
+    writeFileSync(
+      fileA,
+      DUPLICATED_BLOCK +
+        "\n\n" +
+        DUPLICATED_BLOCK.replace("compute", "compute2") +
+        "\n",
+    );
 
     const metrics = await service.runOnFiles([fileA], testDir);
 
     expect(metrics.clones.length).toBeGreaterThan(0);
-    const intraClone = metrics.clones.find(c => c.type === "intra");
+    const intraClone = metrics.clones.find((c) => c.type === "intra");
     expect(intraClone).toBeDefined();
     expect(intraClone!.firstFile.path).toBe(intraClone!.secondFile.path);
   });

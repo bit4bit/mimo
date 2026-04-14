@@ -15,7 +15,11 @@ interface SessionSettingsPageProps {
   streamingTimeoutMs?: number;
 }
 
-export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({ session, project, streamingTimeoutMs }) => {
+export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
+  session,
+  project,
+  streamingTimeoutMs,
+}) => {
   // Format timeout for display
   const formatTimeout = (ms: number) => {
     if (ms === 0) return "Never (Disabled)";
@@ -28,18 +32,26 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({ session, pro
   };
 
   return (
-    <Layout title={`Settings - ${session.name}`} showStatusLine={true} sessionId={session.id} streamingTimeoutMs={streamingTimeoutMs}>
+    <Layout
+      title={`Settings - ${session.name}`}
+      showStatusLine={true}
+      sessionId={session.id}
+      streamingTimeoutMs={streamingTimeoutMs}
+    >
       <div class="container" style="max-width: 600px;">
         <h1>Session Settings</h1>
         <p style="color: #888; margin-bottom: 20px;">
           {session.name} · {project.name}
         </p>
 
-        <form method="POST" action={`/projects/${project.id}/sessions/${session.id}/settings/timeout`}>
+        <form
+          method="POST"
+          action={`/projects/${project.id}/sessions/${session.id}/settings/timeout`}
+        >
           <div class="form-group">
             <label>
               Idle Timeout
-              <span 
+              <span
                 style={{
                   display: "inline-block",
                   marginLeft: "10px",
@@ -47,15 +59,21 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({ session, pro
                   borderRadius: "4px",
                   fontSize: "11px",
                   fontWeight: 500,
-                  ...(session.acpStatus === 'active' ? { background: '#1e4620', color: '#4caf50' } : 
-                      session.acpStatus === 'parked' ? { background: '#332d1a', color: '#ffc107' } : 
-                      { background: '#333', color: '#888' })
+                  ...(session.acpStatus === "active"
+                    ? { background: "#1e4620", color: "#4caf50" }
+                    : session.acpStatus === "parked"
+                      ? { background: "#332d1a", color: "#ffc107" }
+                      : { background: "#333", color: "#888" }),
                 }}
               >
-                {session.acpStatus === 'active' ? '● Active' : session.acpStatus === 'parked' ? '💤 Parked' : '○ Unknown'}
+                {session.acpStatus === "active"
+                  ? "● Active"
+                  : session.acpStatus === "parked"
+                    ? "💤 Parked"
+                    : "○ Unknown"}
               </span>
             </label>
-            
+
             <select name="idleTimeoutMs" required>
               <option value="0" selected={session.idleTimeoutMs === 0}>
                 Never (Always Active)
@@ -63,31 +81,52 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({ session, pro
               <option value="60000" selected={session.idleTimeoutMs === 60000}>
                 1 minute
               </option>
-              <option value="120000" selected={session.idleTimeoutMs === 120000}>
+              <option
+                value="120000"
+                selected={session.idleTimeoutMs === 120000}
+              >
                 2 minutes
               </option>
-              <option value="300000" selected={session.idleTimeoutMs === 300000}>
+              <option
+                value="300000"
+                selected={session.idleTimeoutMs === 300000}
+              >
                 5 minutes
               </option>
-              <option value="600000" selected={session.idleTimeoutMs === 600000}>
+              <option
+                value="600000"
+                selected={session.idleTimeoutMs === 600000}
+              >
                 10 minutes (Default)
               </option>
-              <option value="900000" selected={session.idleTimeoutMs === 900000}>
+              <option
+                value="900000"
+                selected={session.idleTimeoutMs === 900000}
+              >
                 15 minutes
               </option>
-              <option value="1800000" selected={session.idleTimeoutMs === 1800000}>
+              <option
+                value="1800000"
+                selected={session.idleTimeoutMs === 1800000}
+              >
                 30 minutes
               </option>
             </select>
-            
+
             <p class="form-help">
-              When inactive for this duration, the ACP agent will automatically "park" to save resources. 
-              The agent will wake up when you send a new message.
+              When inactive for this duration, the ACP agent will automatically
+              "park" to save resources. The agent will wake up when you send a
+              new message.
             </p>
           </div>
 
-          <div class="form-group" style="background: '#1e1e1e', padding: '15px', borderRadius: '4px', borderLeft: '3px solid #007acc'">
-            <label style="font-weight: 'normal', color: '#888', fontSize: '12px', marginBottom: '5px'">Current Setting</label>
+          <div
+            class="form-group"
+            style="background: '#1e1e1e', padding: '15px', borderRadius: '4px', borderLeft: '3px solid #007acc'"
+          >
+            <label style="font-weight: 'normal', color: '#888', fontSize: '12px', marginBottom: '5px'">
+              Current Setting
+            </label>
             <div style="color: '#d4d4d4', fontSize: '14px'">
               {formatTimeout(session.idleTimeoutMs)}
             </div>
@@ -95,11 +134,19 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({ session, pro
 
           <div class="form-group">
             <label>ACP Session Information</label>
-            
+
             <div style="background: '#1e1e1e', padding: '15px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px'">
               <div style="margin-bottom: '8px'">
                 <span style="color: '#888'">Status: </span>
-                <span style={session.acpStatus === 'active' ? 'color: #4caf50' : session.acpStatus === 'parked' ? 'color: #ffc107' : 'color: #888'}>
+                <span
+                  style={
+                    session.acpStatus === "active"
+                      ? "color: #4caf50"
+                      : session.acpStatus === "parked"
+                        ? "color: #ffc107"
+                        : "color: #888"
+                  }
+                >
                   {session.acpStatus}
                 </span>
               </div>
@@ -110,32 +157,45 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({ session, pro
               <div>
                 <span style="color: '#888'">Auto-park: </span>
                 <span style="color: '#d4d4d4'">
-                  {session.idleTimeoutMs === 0 ? 'Disabled' : `After ${formatTimeout(session.idleTimeoutMs)} of inactivity`}
+                  {session.idleTimeoutMs === 0
+                    ? "Disabled"
+                    : `After ${formatTimeout(session.idleTimeoutMs)} of inactivity`}
                 </span>
               </div>
             </div>
           </div>
 
-          <div class="form-group" style="background: '#2d2d2d', padding: '15px', borderRadius: '4px', borderLeft: '3px solid #ffc107'">
+          <div
+            class="form-group"
+            style="background: '#2d2d2d', padding: '15px', borderRadius: '4px', borderLeft: '3px solid #ffc107'"
+          >
             <label style="margin: '0 0 10px 0', color: '#ffc107', fontSize: '14px'">
               💡 Tips
             </label>
             <ul style="margin: '0', paddingLeft: '20px', color: '#ccc', fontSize: '13px'">
               <li style="margin-bottom: '8px'">
-                <strong>Short timeouts (1-2 min):</strong> Good for quick tasks. Saves resources but may have 1-2s wake-up delay.
+                <strong>Short timeouts (1-2 min):</strong> Good for quick tasks.
+                Saves resources but may have 1-2s wake-up delay.
               </li>
               <li style="margin-bottom: '8px'">
-                <strong>Medium timeouts (5-10 min):</strong> Good for focused work. Balances responsiveness and resource usage.
+                <strong>Medium timeouts (5-10 min):</strong> Good for focused
+                work. Balances responsiveness and resource usage.
               </li>
               <li>
-                <strong>Always active:</strong> Best for critical workflows requiring immediate response. Uses more resources.
+                <strong>Always active:</strong> Best for critical workflows
+                requiring immediate response. Uses more resources.
               </li>
             </ul>
           </div>
 
           <div class="actions">
-            <button type="submit" class="btn">Update Settings</button>
-            <a href={`/projects/${project.id}/sessions/${session.id}`} class="btn-secondary">
+            <button type="submit" class="btn">
+              Update Settings
+            </button>
+            <a
+              href={`/projects/${project.id}/sessions/${session.id}`}
+              class="btn-secondary"
+            >
               Cancel
             </a>
           </div>

@@ -26,13 +26,17 @@ export const ProjectsListPage: FC<ProjectsListProps> = ({ projects }) => {
       <div class="container" style="max-width: 800px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <h1>Projects</h1>
-          <a href="/projects/new" class="btn">Create Project</a>
+          <a href="/projects/new" class="btn">
+            Create Project
+          </a>
         </div>
 
         {projects.length === 0 ? (
           <div class="empty-state">
             <p>No projects yet.</p>
-            <a href="/projects/new" class="btn">Create your first project</a>
+            <a href="/projects/new" class="btn">
+              Create your first project
+            </a>
           </div>
         ) : (
           <div class="project-list">
@@ -42,10 +46,16 @@ export const ProjectsListPage: FC<ProjectsListProps> = ({ projects }) => {
                   <a href={`/projects/${project.id}`} class="project-name">
                     {project.name}
                   </a>
-                  <span class={`repo-type ${project.repoType}`}>{project.repoType}</span>
+                  <span class={`repo-type ${project.repoType}`}>
+                    {project.repoType}
+                  </span>
                 </div>
                 <div style="color: #888; margin: 8px 0; font-size: 14px;">
-                  {project.description ? truncateText(project.description, 200) : <span style="color: #666;">No description</span>}
+                  {project.description ? (
+                    truncateText(project.description, 200)
+                  ) : (
+                    <span style="color: #666;">No description</span>
+                  )}
                 </div>
                 <div class="project-meta">
                   <span>{project.repoUrl}</span>

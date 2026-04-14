@@ -8,12 +8,16 @@ describe("Sessions routes with mimoContext", () => {
   let testHome: string;
 
   beforeEach(() => {
-    testHome = join(tmpdir(), `mimo-sessions-context-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    testHome = join(
+      tmpdir(),
+      `mimo-sessions-context-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
     rmSync(testHome, { recursive: true, force: true });
   });
 
   it("uses injected auth service for token verification", async () => {
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
 
     const mimoContext = createMimoContext({

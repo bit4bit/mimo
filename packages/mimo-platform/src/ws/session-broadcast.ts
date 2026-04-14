@@ -6,7 +6,7 @@ export interface SessionWsClient {
 export function broadcastToSession(
   chatSessions: Map<string, Set<SessionWsClient>>,
   sessionId: string,
-  message: Record<string, unknown>
+  message: Record<string, unknown>,
 ): void {
   const subscribers = chatSessions.get(sessionId);
   if (!subscribers) {

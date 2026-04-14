@@ -90,7 +90,7 @@ export function parsePatchPreview(patch: string): PatchPreview {
  */
 function parseFileDiff(
   lines: string[],
-  startIndex: number
+  startIndex: number,
 ): { file: FileChange | null; nextIndex: number } {
   const headerLine = lines[startIndex];
   const match = headerLine.match(/^diff --git a\/(.+?) b\/(.+)$/);
@@ -237,7 +237,7 @@ function parseFileDiff(
  */
 function parseHunk(
   lines: string[],
-  startIndex: number
+  startIndex: number,
 ): { hunk: DiffHunk | null; nextIndex: number } {
   const headerLine = lines[startIndex];
   const match = headerLine.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
@@ -326,9 +326,11 @@ export function buildTreeFromFiles(files: FileChange[]): TreeNode[] {
   }
 
   // Convert internal structure to TreeNode arrays recursively
-  function convertToTreeNodes(level: Map<string, TreeNodeInternal>): TreeNode[] {
+  function convertToTreeNodes(
+    level: Map<string, TreeNodeInternal>,
+  ): TreeNode[] {
     const result: TreeNode[] = [];
-    
+
     for (const [_, internal] of level) {
       const node: TreeNode = { ...internal.node };
       if (internal.children.size > 0) {
@@ -374,7 +376,10 @@ function sortTreeNodes(nodes: TreeNode[]): void {
 /**
  * Filter a patch to include only selected file paths.
  */
-export function filterPatchByPaths(patch: string, selectedPaths: string[]): string {
+export function filterPatchByPaths(
+  patch: string,
+  selectedPaths: string[],
+): string {
   if (selectedPaths.length === 0) {
     return "";
   }
@@ -410,7 +415,10 @@ export function filterPatchByPaths(patch: string, selectedPaths: string[]): stri
         // Collect this entire file diff
         const fileDiffStart = i;
         let fileDiffEnd = i + 1;
-        while (fileDiffEnd < lines.length && !lines[fileDiffEnd].startsWith("diff --git")) {
+        while (
+          fileDiffEnd < lines.length &&
+          !lines[fileDiffEnd].startsWith("diff --git")
+        ) {
           fileDiffEnd++;
         }
 
@@ -443,7 +451,7 @@ export function getAllFilePaths(preview: PatchPreview): string[] {
  */
 export function validateSelectedPaths(
   preview: PatchPreview,
-  selectedPaths: string[]
+  selectedPaths: string[],
 ): string[] {
   const validPaths = new Set(preview.files.map((f) => f.path));
   return selectedPaths.filter((p) => !validPaths.has(p));

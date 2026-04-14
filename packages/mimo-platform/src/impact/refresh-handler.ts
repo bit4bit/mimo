@@ -21,12 +21,14 @@ interface HandleRefreshImpactOptions {
     sessionId: string,
     upstreamPath: string,
     agentWorkspacePath: string,
-    forceRefresh: boolean
+    forceRefresh: boolean,
   ) => Promise<RefreshResult>;
   now?: () => string;
 }
 
-export async function handleRefreshImpact(options: HandleRefreshImpactOptions): Promise<void> {
+export async function handleRefreshImpact(
+  options: HandleRefreshImpactOptions,
+): Promise<void> {
   const {
     sessionId,
     calculatingSessions,
@@ -65,7 +67,12 @@ export async function handleRefreshImpact(options: HandleRefreshImpactOptions): 
   });
 
   try {
-    const result = await calculateImpact(sessionId, session.upstreamPath, session.agentWorkspacePath, true);
+    const result = await calculateImpact(
+      sessionId,
+      session.upstreamPath,
+      session.agentWorkspacePath,
+      true,
+    );
 
     broadcast(sessionId, {
       type: "impact_updated",

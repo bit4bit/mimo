@@ -1,7 +1,21 @@
-import { SessionInfo, FileChange, ModelState, ModeState, McpServerConfig } from "./types";
+import {
+  SessionInfo,
+  FileChange,
+  ModelState,
+  ModeState,
+  McpServerConfig,
+} from "./types";
 import { logger } from "./logger.js";
 import { resolve, join, dirname } from "node:path";
-import { watch, existsSync, mkdirSync, unlinkSync, statSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  watch,
+  existsSync,
+  mkdirSync,
+  unlinkSync,
+  statSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 export interface SessionCallbacks {
   onFileChange: (sessionId: string, changes: FileChange[]) => void;
   onSessionError: (sessionId: string, error: string) => void;
@@ -31,7 +45,7 @@ export class SessionManager {
     sessionId: string,
     fossilUrl: string,
     fossilUser?: string,
-    fossilPassword?: string
+    fossilPassword?: string,
   ): Promise<SessionInfo> {
     const checkoutPath = join(this.workDir, sessionId);
 
@@ -73,7 +87,7 @@ export class SessionManager {
   setSessionState(
     sessionId: string,
     modelState?: ModelState,
-    modeState?: ModeState
+    modeState?: ModeState,
   ): void {
     const session = this.sessions.get(sessionId);
     if (session) {
@@ -89,7 +103,10 @@ export class SessionManager {
     }
   }
 
-  setSessionLocalDevMirrorPath(sessionId: string, localDevMirrorPath: string): void {
+  setSessionLocalDevMirrorPath(
+    sessionId: string,
+    localDevMirrorPath: string,
+  ): void {
     const session = this.sessions.get(sessionId);
     if (session) {
       session.localDevMirrorPath = localDevMirrorPath;
@@ -143,7 +160,7 @@ export class SessionManager {
           this.flushPendingChanges(sessionId);
         }, 500);
         this.changeTimeouts.set(sessionId, timeout);
-      }
+      },
     );
 
     const session = this.sessions.get(sessionId);
@@ -165,29 +182,42 @@ export class SessionManager {
       uniqueChanges.set(change.path, change);
     }
 
-    this.callbacks.onFileChange(
-      sessionId,
-      Array.from(uniqueChanges.values())
-    );
+    this.callbacks.onFileChange(sessionId, Array.from(uniqueChanges.values()));
 
     // Sync to local dev mirror
     const session = this.sessions.get(sessionId);
     if (session?.localDevMirrorPath) {
-      this.syncToMirror(sessionId, session.checkoutPath, session.localDevMirrorPath, Array.from(uniqueChanges.values()));
+      this.syncToMirror(
+        sessionId,
+        session.checkoutPath,
+        session.localDevMirrorPath,
+        Array.from(uniqueChanges.values()),
+      );
     }
   }
 
-  private syncToMirror(sessionId: string, checkoutPath: string, mirrorPath: string, changes: FileChange[]): void {
+  private syncToMirror(
+    sessionId: string,
+    checkoutPath: string,
+    mirrorPath: string,
+    changes: FileChange[],
+  ): void {
     if (!mirrorPath) return;
 
     for (const change of changes) {
       try {
         // Skip VCS metadata (directories and files)
-        if (change.path.includes(".git/") || change.path.includes(".fossil/") ||
-            change.path.startsWith(".git") || change.path.startsWith(".fossil") ||
-            change.path === ".fslckout" || change.path === "_FOSSIL_" ||
-            change.path.endsWith("/.fslckout") || change.path.endsWith("/_FOSSIL_") ||
-            change.path === ".fslckout-journal") {
+        if (
+          change.path.includes(".git/") ||
+          change.path.includes(".fossil/") ||
+          change.path.startsWith(".git") ||
+          change.path.startsWith(".fossil") ||
+          change.path === ".fslckout" ||
+          change.path === "_FOSSIL_" ||
+          change.path.endsWith("/.fslckout") ||
+          change.path.endsWith("/_FOSSIL_") ||
+          change.path === ".fslckout-journal"
+        ) {
           continue;
         }
 
@@ -220,7 +250,10 @@ export class SessionManager {
           writeFileSync(destPath, content);
         }
       } catch (err) {
-        logger.warn(`[mimo-agent] Failed to sync ${change.path} to mirror:`, err);
+        logger.warn(
+          `[mimo-agent] Failed to sync ${change.path} to mirror:`,
+          err,
+        );
       }
     }
   }

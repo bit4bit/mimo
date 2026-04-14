@@ -12,7 +12,9 @@ describe("Credentials Management", () => {
 
   beforeEach(async () => {
     const { createMimoContext } = await import("../src/context/mimo-context");
-    ctx = createMimoContext({ env: { MIMO_HOME: "/tmp/test-mimo-credentials" } });
+    ctx = createMimoContext({
+      env: { MIMO_HOME: "/tmp/test-mimo-credentials" },
+    });
     credentialRepository = ctx.repos.credentials;
     projectRepository = ctx.repos.projects;
     testUser = "testuser-credentials";
@@ -92,7 +94,7 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
             type: "ssh",
             privateKey: invalidKey,
             owner: testUser,
-          })
+          }),
         ).rejects.toThrow("Invalid SSH private key format");
       });
     });
@@ -108,7 +110,10 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
         });
 
         const otherUser = "otheruser";
-        const found = await credentialRepository.findById(credential.id, otherUser);
+        const found = await credentialRepository.findById(
+          credential.id,
+          otherUser,
+        );
         expect(found).toBeNull();
       });
 
@@ -130,7 +135,8 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
           owner: otherUser,
         });
 
-        const user1Credentials = await credentialRepository.findByOwner(testUser);
+        const user1Credentials =
+          await credentialRepository.findByOwner(testUser);
         expect(user1Credentials).toHaveLength(1);
         expect(user1Credentials[0].name).toBe("User1 Credential");
       });
@@ -208,15 +214,21 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
         }
 
         // HTTPS URL should require HTTPS credential
-        expect(getCredentialTypeFromUrl("https://github.com/user/repo.git")).toBe("https");
+        expect(
+          getCredentialTypeFromUrl("https://github.com/user/repo.git"),
+        ).toBe("https");
         expect(isSshUrl("https://github.com/user/repo.git")).toBe(false);
 
         // SSH URL should require SSH credential
-        expect(getCredentialTypeFromUrl("git@github.com:user/repo.git")).toBe("ssh");
+        expect(getCredentialTypeFromUrl("git@github.com:user/repo.git")).toBe(
+          "ssh",
+        );
         expect(isSshUrl("git@github.com:user/repo.git")).toBe(true);
 
         // ssh:// URL should require SSH credential
-        expect(getCredentialTypeFromUrl("ssh://git@github.com/user/repo.git")).toBe("ssh");
+        expect(
+          getCredentialTypeFromUrl("ssh://git@github.com/user/repo.git"),
+        ).toBe("ssh");
         expect(isSshUrl("ssh://git@github.com/user/repo.git")).toBe(true);
       });
 
@@ -239,7 +251,8 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
 
         // Verify HTTPS URL would need HTTPS credential
         const httpsUrl = "https://github.com/user/repo.git";
-        const isSsh = httpsUrl.startsWith("git@") || httpsUrl.startsWith("ssh://");
+        const isSsh =
+          httpsUrl.startsWith("git@") || httpsUrl.startsWith("ssh://");
         expect(isSsh).toBe(false);
 
         // This means the validation logic in routes would catch this mismatch
@@ -277,7 +290,9 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
         };
 
         const result = (vcs as any).injectHttpsCredentials(repoUrl, credential);
-        expect(result).toBe("https://testuser:testtoken@github.com/user/repo.git");
+        expect(result).toBe(
+          "https://testuser:testtoken@github.com/user/repo.git",
+        );
       });
 
       it("should handle special characters in credentials", () => {
@@ -298,7 +313,8 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
     describe("11.9 Test SSH temp key file cleanup", () => {
       it("should create and clean up temp SSH key files", () => {
         const { vcs } = require("../src/vcs/index");
-        const privateKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest-key-data\n-----END OPENSSH PRIVATE KEY-----";
+        const privateKey =
+          "-----BEGIN OPENSSH PRIVATE KEY-----\ntest-key-data\n-----END OPENSSH PRIVATE KEY-----";
 
         const keyPath = (vcs as any).createTempSshKeyFile(privateKey);
         expect(existsSync(keyPath)).toBe(true);

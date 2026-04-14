@@ -20,7 +20,10 @@ export interface SessionLifecycleCallbacks {
   onStatusChange: (sessionId: string, status: AcpSessionState) => void;
   onCacheState: (sessionId: string, state: CachedAcpState) => void;
   onGetCachedState: (sessionId: string) => CachedAcpState | undefined;
-  onSpawnAcp: (sessionId: string, cachedState?: CachedAcpState) => Promise<AcpClient | null>;
+  onSpawnAcp: (
+    sessionId: string,
+    cachedState?: CachedAcpState,
+  ) => Promise<AcpClient | null>;
   onTerminateSession: (sessionId: string) => Promise<void>;
 }
 
@@ -43,7 +46,7 @@ export class SessionLifecycleManager {
     this.idleTimeouts.set(sessionId, idleTimeoutMs);
     this.sessionStates.set(sessionId, "active");
     this.lastActivity.set(sessionId, Date.now());
-    
+
     if (idleTimeoutMs > 0) {
       this.startIdleTimer(sessionId, idleTimeoutMs);
     }
@@ -54,7 +57,7 @@ export class SessionLifecycleManager {
    */
   updateIdleTimeout(sessionId: string, idleTimeoutMs: number): void {
     this.idleTimeouts.set(sessionId, idleTimeoutMs);
-    
+
     // Clear existing timer
     const existingTimer = this.idleTimers.get(sessionId);
     if (existingTimer) {
@@ -75,7 +78,7 @@ export class SessionLifecycleManager {
     const currentState = this.getSessionState(sessionId);
     if (currentState === "active") {
       this.lastActivity.set(sessionId, Date.now());
-      
+
       // Reset the timer
       const idleTimeoutMs = this.idleTimeouts.get(sessionId) ?? 600000;
       if (idleTimeoutMs > 0) {
@@ -192,7 +195,10 @@ export class SessionLifecycleManager {
     this.sessionStates.set(sessionId, state);
   }
 
-  private async wakeAndQueuePrompt(sessionId: string, content: string): Promise<void> {
+  private async wakeAndQueuePrompt(
+    sessionId: string,
+    content: string,
+  ): Promise<void> {
     // Set state to waking
     this.setSessionState(sessionId, "waking");
     this.callbacks.onStatusChange(sessionId, "waking");
@@ -212,7 +218,7 @@ export class SessionLifecycleManager {
       // Session is now active
       this.setSessionState(sessionId, "active");
       this.lastActivity.set(sessionId, Date.now());
-      
+
       // Restart idle timer
       const idleTimeoutMs = this.idleTimeouts.get(sessionId) ?? 600000;
       if (idleTimeoutMs > 0) {
@@ -224,19 +230,20 @@ export class SessionLifecycleManager {
 
       // Process any queued prompts
       await this.processQueue(sessionId);
-
     } catch (error) {
       // If wake fails, go back to parked state
       this.setSessionState(sessionId, "parked");
       this.callbacks.onStatusChange(sessionId, "parked");
-      
+
       // Reject all queued prompts
       const queue = this.promptQueues.get(sessionId) ?? [];
       for (const prompt of queue) {
-        prompt.reject(error instanceof Error ? error : new Error(String(error)));
+        prompt.reject(
+          error instanceof Error ? error : new Error(String(error)),
+        );
       }
       this.promptQueues.delete(sessionId);
-      
+
       throw error;
     }
 
@@ -248,7 +255,7 @@ export class SessionLifecycleManager {
       if (!this.promptQueues.has(sessionId)) {
         this.promptQueues.set(sessionId, []);
       }
-      
+
       this.promptQueues.get(sessionId)!.push({
         content,
         resolve,
@@ -267,7 +274,9 @@ export class SessionLifecycleManager {
         // to indicate the prompt can now be sent
         prompt.resolve();
       } catch (error) {
-        prompt.reject(error instanceof Error ? error : new Error(String(error)));
+        prompt.reject(
+          error instanceof Error ? error : new Error(String(error)),
+        );
       }
     }
   }

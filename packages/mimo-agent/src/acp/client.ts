@@ -8,7 +8,11 @@ export interface AcpClientCallbacks {
   onMessageChunk: (sessionId: string, content: string) => void;
   onUsageUpdate: (sessionId: string, usage: any) => void;
   onGenericUpdate: (sessionId: string, content: string) => void;
-  onPermissionRequest: (sessionId: string, requestId: string, params: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>;
+  onPermissionRequest: (
+    sessionId: string,
+    requestId: string,
+    params: acp.RequestPermissionRequest,
+  ) => Promise<acp.RequestPermissionResponse>;
 }
 
 export interface AcpClientSession {
@@ -38,7 +42,7 @@ export class AcpClient {
   constructor(
     provider: IAcpProvider,
     sessionId: string,
-    callbacks: AcpClientCallbacks
+    callbacks: AcpClientCallbacks,
   ) {
     this.provider = provider;
     this.sessionId = sessionId;
@@ -62,14 +66,18 @@ export class AcpClient {
     input: WritableStream<Uint8Array>,
     output: ReadableStream<Uint8Array>,
     existingSessionId?: string,
-    mcpServers?: McpServerConfig[]
+    mcpServers?: McpServerConfig[],
   ): Promise<InitializeResult> {
     const stream = acp.ndJsonStream(input, output);
 
     const client: acp.Client = {
       requestPermission: async (params) => {
         const requestId = crypto.randomUUID();
-        return this.callbacks.onPermissionRequest(this.sessionId, requestId, params);
+        return this.callbacks.onPermissionRequest(
+          this.sessionId,
+          requestId,
+          params,
+        );
       },
       sessionUpdate: async (params) => {
         this.handleSessionUpdate(params.update as any);
@@ -83,7 +91,9 @@ export class AcpClient {
       clientInfo: { name: "mimo-agent", version: "0.1.0" },
     });
 
-    logger.debug(`[mimo-agent] ACP initialized: ${initResponse.protocolVersion}`);
+    logger.debug(
+      `[mimo-agent] ACP initialized: ${initResponse.protocolVersion}`,
+    );
 
     this.capabilities = {
       loadSession: initResponse.agentCapabilities?.loadSession ?? false,
@@ -96,25 +106,33 @@ export class AcpClient {
 
     if (existingSessionId && this.capabilities.loadSession) {
       try {
-        logger.debug(`[mimo-agent] Attempting to load existing session: ${existingSessionId}`);
+        logger.debug(
+          `[mimo-agent] Attempting to load existing session: ${existingSessionId}`,
+        );
         const loadResponse = await connection.loadSession({
           sessionId: existingSessionId,
           cwd,
-          mcpServers: mcpServers as any || [],
+          mcpServers: (mcpServers as any) || [],
         });
         sessionResponse = loadResponse as acp.NewSessionResponse;
-        logger.debug(`[mimo-agent] Session loaded successfully: ${sessionResponse.sessionId}`);
+        logger.debug(
+          `[mimo-agent] Session loaded successfully: ${sessionResponse.sessionId}`,
+        );
       } catch (error) {
         // ACP errors are plain objects { code, message, data }, not Error instances
-        const errorMsg = error instanceof Error
-          ? error.message
-          : (error as any)?.message ?? String(error);
-        logger.debug(`[mimo-agent] Failed to load session, creating new session:`, error);
+        const errorMsg =
+          error instanceof Error
+            ? error.message
+            : ((error as any)?.message ?? String(error));
+        logger.debug(
+          `[mimo-agent] Failed to load session, creating new session:`,
+          error,
+        );
         wasReset = true;
         resetReason = `loadSession failed: ${errorMsg}`;
         sessionResponse = await connection.newSession({
           cwd,
-          mcpServers: mcpServers as any || [],
+          mcpServers: (mcpServers as any) || [],
         });
       }
     } else {
@@ -124,12 +142,12 @@ export class AcpClient {
       }
       sessionResponse = await connection.newSession({
         cwd,
-        mcpServers: mcpServers as any || [],
+        mcpServers: (mcpServers as any) || [],
       });
     }
 
     const state = this.provider.extractState(
-      sessionResponse as NewSessionResponse
+      sessionResponse as NewSessionResponse,
     );
 
     this.session = {
@@ -182,7 +200,7 @@ export class AcpClient {
     cwd: string,
     input: WritableStream<Uint8Array>,
     output: ReadableStream<Uint8Array>,
-    sessionId: string
+    sessionId: string,
   ): Promise<InitializeResult> {
     return this.initialize(cwd, input, output, sessionId);
   }
@@ -207,7 +225,7 @@ export class AcpClient {
         this.session.currentThoughtBuffer += update.content?.text || "";
         this.callbacks.onThoughtChunk(
           this.sessionId,
-          update.content?.text || ""
+          update.content?.text || "",
         );
         break;
 
@@ -219,7 +237,7 @@ export class AcpClient {
         }
         this.callbacks.onMessageChunk(
           this.sessionId,
-          update.content?.text || ""
+          update.content?.text || "",
         );
         break;
 
@@ -248,11 +266,11 @@ export class AcpClient {
       sessionId: this.session.acpSessionId,
       prompt: [{ type: "text", text: content }],
     });
-    
+
     // Note: thought_end is sent by usage_update handler, not here.
     // Codex sends content in multiple phases (initial + after tool calls),
     // so we can't send thought_end until usage_update signals completion.
-    
+
     return response;
   }
 
@@ -279,7 +297,7 @@ export class AcpClient {
       this.session.connection,
       this.session.acpSessionId,
       modelId,
-      this.session.modelState.optionId
+      this.session.modelState.optionId,
     );
 
     // Update local state
@@ -299,14 +317,18 @@ export class AcpClient {
       this.session.connection,
       this.session.acpSessionId,
       modeId,
-      this.session.modeState.optionId
+      this.session.modeState.optionId,
     );
 
     // Update local state
     this.session.modeState.currentModeId = modeId;
   }
 
-  async clear(): Promise<{ acpSessionId: string; wasReset: boolean; resetReason?: string }> {
+  async clear(): Promise<{
+    acpSessionId: string;
+    wasReset: boolean;
+    resetReason?: string;
+  }> {
     if (!this.session) {
       throw new Error("Session not initialized");
     }
@@ -321,7 +343,9 @@ export class AcpClient {
     });
 
     // Extract state from new session
-    const state = this.provider.extractState(sessionResponse as NewSessionResponse);
+    const state = this.provider.extractState(
+      sessionResponse as NewSessionResponse,
+    );
 
     // Update session with new info
     this.session = {
@@ -335,7 +359,9 @@ export class AcpClient {
       checkoutPath: currentSession.checkoutPath,
     };
 
-    logger.debug(`[mimo-agent] Session cleared: old=${currentSession.acpSessionId}, new=${sessionResponse.sessionId}`);
+    logger.debug(
+      `[mimo-agent] Session cleared: old=${currentSession.acpSessionId}, new=${sessionResponse.sessionId}`,
+    );
 
     return {
       acpSessionId: sessionResponse.sessionId,

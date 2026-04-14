@@ -1,15 +1,23 @@
 import { join, relative, dirname, resolve } from "path";
-import { existsSync, copyFileSync, mkdirSync, statSync, readFileSync, readdirSync, unlinkSync } from "fs";
+import {
+  existsSync,
+  copyFileSync,
+  mkdirSync,
+  statSync,
+  readFileSync,
+  readdirSync,
+  unlinkSync,
+} from "fs";
 import crypto from "crypto";
 import { logger } from "../logger.js";
 import type { SccService } from "../impact/scc-service.js";
 
 export type FileStatus =
-  | "clean"      // File hasn't changed
-  | "modified"   // File modified by agent [M]
-  | "new"        // New file created by agent [?]
-  | "deleted"    // File deleted by agent [D]
-  | "conflict";  // Conflict with original repo [!]
+  | "clean" // File hasn't changed
+  | "modified" // File modified by agent [M]
+  | "new" // New file created by agent [?]
+  | "deleted" // File deleted by agent [D]
+  | "conflict"; // Conflict with original repo [!]
 
 export interface FileChange {
   path: string;
@@ -54,7 +62,7 @@ export class FileSyncService {
   async initializeSession(
     sessionId: string,
     agentWorkspacePath: string,
-    upstreamPath?: string
+    upstreamPath?: string,
   ): Promise<void> {
     // Get paths from session if not provided
     if (!upstreamPath || !agentWorkspacePath) {
@@ -76,7 +84,7 @@ export class FileSyncService {
     };
 
     this.syncStates.set(sessionId, syncState);
-    
+
     // Initialize empty pending changes buffer
     this.pendingChanges.set(sessionId, []);
 
@@ -85,8 +93,8 @@ export class FileSyncService {
   }
 
   async handleFileChanges(
-    sessionId: string, 
-    changes: Array<{ path: string; isNew?: boolean; deleted?: boolean }>
+    sessionId: string,
+    changes: Array<{ path: string; isNew?: boolean; deleted?: boolean }>,
   ): Promise<FileChange[]> {
     const syncState = this.syncStates.get(sessionId);
     if (!syncState) {
@@ -97,7 +105,7 @@ export class FileSyncService {
 
     for (const change of changes) {
       let status: FileStatus = "modified";
-      
+
       if (change.deleted) {
         status = "deleted";
       } else if (change.isNew) {
@@ -106,7 +114,7 @@ export class FileSyncService {
         // Check if file exists in original repo
         const originalPath = join(syncState!.upstreamPath, change.path);
         const sessionPath = join(syncState!.agentWorkspacePath, change.path);
-        
+
         if (!existsSync(originalPath) && existsSync(sessionPath)) {
           status = "new";
         }
@@ -114,16 +122,17 @@ export class FileSyncService {
 
       // Check for conflicts
       const conflictStatus = await this.checkConflict(
-        sessionId, 
-        change.path, 
-        status
+        sessionId,
+        change.path,
+        status,
       );
 
       const fileChange: FileChange = {
         path: change.path,
         status: conflictStatus || status,
         timestamp: new Date(),
-        ...(status !== "deleted" && await this.getFileInfo(sessionId, change.path)),
+        ...(status !== "deleted" &&
+          (await this.getFileInfo(sessionId, change.path))),
       };
 
       syncState!.changes.set(change.path, fileChange);
@@ -145,7 +154,7 @@ export class FileSyncService {
   private async checkConflict(
     sessionId: string,
     filePath: string,
-    agentStatus: FileStatus
+    agentStatus: FileStatus,
   ): Promise<FileStatus | null> {
     const syncState = this.syncStates.get(sessionId);
     if (!syncState) return null;
@@ -154,7 +163,7 @@ export class FileSyncService {
     if (agentStatus === "new") return null;
 
     const originalPath = join(syncState.upstreamPath, filePath);
-    
+
     // If file doesn't exist in original, no conflict
     if (!existsSync(originalPath)) {
       return null;
@@ -162,13 +171,13 @@ export class FileSyncService {
 
     // Get checksums
     const sessionPath = join(syncState.agentWorkspacePath, filePath);
-    
+
     if (!existsSync(sessionPath)) {
       // File was deleted in session but exists in original
       // Check if original was modified since last sync
       const originalChecksum = await this.calculateChecksum(originalPath);
       const baselineChecksum = syncState.baselineChecksums.get(filePath);
-      
+
       if (baselineChecksum && originalChecksum !== baselineChecksum) {
         return "conflict";
       }
@@ -181,9 +190,11 @@ export class FileSyncService {
     const baselineChecksum = syncState.baselineChecksums.get(filePath);
 
     // If original changed since last sync and agent also changed it, it's a conflict
-    if (baselineChecksum && 
-        originalChecksum !== baselineChecksum && 
-        sessionChecksum !== baselineChecksum) {
+    if (
+      baselineChecksum &&
+      originalChecksum !== baselineChecksum &&
+      sessionChecksum !== baselineChecksum
+    ) {
       return "conflict";
     }
 
@@ -191,8 +202,8 @@ export class FileSyncService {
   }
 
   private async syncChangesToUpstream(
-    sessionId: string, 
-    changes: FileChange[]
+    sessionId: string,
+    changes: FileChange[],
   ): Promise<void> {
     const syncState = this.syncStates.get(sessionId);
     if (!syncState) return;
@@ -223,13 +234,17 @@ export class FileSyncService {
           // Copy file with permissions
           if (existsSync(sessionPath)) {
             copyFileSync(sessionPath, originalPath);
-            
+
             // Preserve timestamps if available
             if (change.lastModified) {
               const fs = require("fs");
-              fs.utimesSync(originalPath, change.lastModified, change.lastModified);
+              fs.utimesSync(
+                originalPath,
+                change.lastModified,
+                change.lastModified,
+              );
             }
-            
+
             // Update baseline checksum
             const newChecksum = await this.calculateChecksum(sessionPath);
             syncState.baselineChecksums.set(change.path, newChecksum);
@@ -258,7 +273,7 @@ export class FileSyncService {
       syncState.upstreamPath,
       async (originalPath, relativePath) => {
         const sessionPath = join(syncState.agentWorkspacePath, relativePath);
-        
+
         // Check if file exists in session
         if (!existsSync(sessionPath)) {
           // File exists in original but not in session - copy it
@@ -266,30 +281,33 @@ export class FileSyncService {
           if (!existsSync(sessionDir)) {
             mkdirSync(sessionDir, { recursive: true });
           }
-          
+
           copyFileSync(originalPath, sessionPath);
-          
+
           const fileChange: FileChange = {
             path: relativePath,
             status: "modified",
             timestamp: new Date(),
-            ...await this.getFileInfo(sessionId, relativePath),
+            ...(await this.getFileInfo(sessionId, relativePath)),
           };
-          
+
           syncState.changes.set(relativePath, fileChange);
           changes.push(fileChange);
         } else {
           // File exists in both - check if different
           const originalChecksum = await this.calculateChecksum(originalPath);
           const sessionChecksum = await this.calculateChecksum(sessionPath);
-          const baselineChecksum = syncState.baselineChecksums.get(relativePath);
-          
+          const baselineChecksum =
+            syncState.baselineChecksums.get(relativePath);
+
           if (originalChecksum !== sessionChecksum) {
             // Check if session file is modified by agent (differs from baseline)
-            const sessionModified = baselineChecksum && sessionChecksum !== baselineChecksum;
+            const sessionModified =
+              baselineChecksum && sessionChecksum !== baselineChecksum;
             // Check if original file is modified
-            const originalModified = baselineChecksum && originalChecksum !== baselineChecksum;
-            
+            const originalModified =
+              baselineChecksum && originalChecksum !== baselineChecksum;
+
             if (sessionModified && originalModified) {
               // Conflict! Both changed
               const conflictChange: FileChange = {
@@ -297,30 +315,30 @@ export class FileSyncService {
                 status: "conflict",
                 timestamp: new Date(),
               };
-              
+
               syncState.changes.set(relativePath, conflictChange);
               changes.push(conflictChange);
             } else {
               // Only original changed or only session changed (not both)
               // Copy from original to session
               copyFileSync(originalPath, sessionPath);
-              
+
               // Update baseline
               syncState.baselineChecksums.set(relativePath, originalChecksum);
-              
+
               const fileChange: FileChange = {
                 path: relativePath,
                 status: "modified",
                 timestamp: new Date(),
-                ...await this.getFileInfo(sessionId, relativePath),
+                ...(await this.getFileInfo(sessionId, relativePath)),
               };
-              
+
               syncState.changes.set(relativePath, fileChange);
               changes.push(fileChange);
             }
           }
         }
-      }
+      },
     );
 
     syncState.lastSyncAt = new Date();
@@ -330,7 +348,7 @@ export class FileSyncService {
   async resolveConflict(
     sessionId: string,
     filePath: string,
-    resolution: "session" | "original" | "merge"
+    resolution: "session" | "original" | "merge",
   ): Promise<void> {
     const syncState = this.syncStates.get(sessionId);
     if (!syncState) {
@@ -366,7 +384,7 @@ export class FileSyncService {
       path: filePath,
       status: "clean",
       timestamp: new Date(),
-      ...await this.getFileInfo(sessionId, filePath),
+      ...(await this.getFileInfo(sessionId, filePath)),
     };
 
     syncState.changes.set(filePath, fileChange);
@@ -383,17 +401,20 @@ export class FileSyncService {
     }
 
     const files = Array.from(syncState.changes.values());
-    const hasConflicts = files.some(f => f.status === "conflict");
+    const hasConflicts = files.some((f) => f.status === "conflict");
 
     return {
       sessionId,
-      files: files.filter(f => f.status !== "clean"),
+      files: files.filter((f) => f.status !== "clean"),
       hasConflicts,
       syncedAt: syncState.lastSyncAt,
     };
   }
 
-  async getFileStatus(sessionId: string, filePath: string): Promise<FileStatus> {
+  async getFileStatus(
+    sessionId: string,
+    filePath: string,
+  ): Promise<FileStatus> {
     const syncState = this.syncStates.get(sessionId);
     if (!syncState) return "clean";
 
@@ -412,7 +433,7 @@ export class FileSyncService {
       async (fullPath, relativePath) => {
         const checksum = await this.calculateChecksum(fullPath);
         syncState.baselineChecksums.set(relativePath, checksum);
-      }
+      },
     );
 
     // Then scan session worktree
@@ -424,23 +445,23 @@ export class FileSyncService {
           path: relativePath,
           status: "clean",
           timestamp: new Date(),
-          ...await this.getFileInfo(sessionId, relativePath),
+          ...(await this.getFileInfo(sessionId, relativePath)),
         };
 
         syncState.changes.set(relativePath, fileChange);
-      }
+      },
     );
   }
 
   private async scanDirectory(
     dirPath: string,
     basePath: string,
-    callback: (fullPath: string, relativePath: string) => Promise<void>
+    callback: (fullPath: string, relativePath: string) => Promise<void>,
   ): Promise<void> {
     if (!existsSync(dirPath)) return;
 
     const entries = readdirSync(dirPath, { withFileTypes: true });
-    
+
     for (const entry of entries) {
       const fullPath = join(dirPath, entry.name);
       const relativePath = relative(basePath, fullPath);
@@ -456,12 +477,15 @@ export class FileSyncService {
     }
   }
 
-  private async getFileInfo(sessionId: string, filePath: string): Promise<Partial<FileChange>> {
+  private async getFileInfo(
+    sessionId: string,
+    filePath: string,
+  ): Promise<Partial<FileChange>> {
     const syncState = this.syncStates.get(sessionId);
     if (!syncState) return {};
 
     const sessionPath = join(syncState.agentWorkspacePath, filePath);
-    
+
     if (!existsSync(sessionPath)) {
       return {};
     }
@@ -482,8 +506,8 @@ export class FileSyncService {
   }
 
   async bufferChangesForReconnect(
-    sessionId: string, 
-    changes: FileChange[]
+    sessionId: string,
+    changes: FileChange[],
   ): Promise<void> {
     const buffered = this.pendingChanges.get(sessionId) || [];
     this.pendingChanges.set(sessionId, [...buffered, ...changes]);

@@ -6,13 +6,25 @@ describe("session broadcast", () => {
     const sentA: string[] = [];
     const sentB: string[] = [];
 
-    const clientA = { readyState: 1, send: (message: string) => sentA.push(message) };
-    const clientB = { readyState: 1, send: (message: string) => sentB.push(message) };
+    const clientA = {
+      readyState: 1,
+      send: (message: string) => sentA.push(message),
+    };
+    const clientB = {
+      readyState: 1,
+      send: (message: string) => sentB.push(message),
+    };
 
-    const chatSessions = new Map<string, Set<{ readyState: number; send: (message: string) => void }>>();
+    const chatSessions = new Map<
+      string,
+      Set<{ readyState: number; send: (message: string) => void }>
+    >();
     chatSessions.set("s1", new Set([clientA, clientB]));
 
-    broadcastToSession(chatSessions, "s1", { type: "impact_updated", sessionId: "s1" });
+    broadcastToSession(chatSessions, "s1", {
+      type: "impact_updated",
+      sessionId: "s1",
+    });
 
     expect(sentA).toHaveLength(1);
     expect(sentB).toHaveLength(1);

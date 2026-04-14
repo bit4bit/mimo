@@ -76,7 +76,10 @@ export class ImpactCalculator {
   private customSccService: SccService | undefined;
   private customJscpdService: JscpdService | undefined;
 
-  constructor(customSccService?: SccService, customJscpdService?: JscpdService) {
+  constructor(
+    customSccService?: SccService,
+    customJscpdService?: JscpdService,
+  ) {
     this.customSccService = customSccService;
     this.customJscpdService = customJscpdService;
   }
@@ -85,21 +88,25 @@ export class ImpactCalculator {
     if (this.customSccService) {
       return this.customSccService;
     }
-    throw new Error("SccService must be provided via mimoContext - use createMimoContext()");
+    throw new Error(
+      "SccService must be provided via mimoContext - use createMimoContext()",
+    );
   }
 
   private async getJscpdService(): Promise<JscpdService> {
     if (this.customJscpdService) {
       return this.customJscpdService;
     }
-    throw new Error("JscpdService must be provided via mimoContext - use createMimoContext()");
+    throw new Error(
+      "JscpdService must be provided via mimoContext - use createMimoContext()",
+    );
   }
 
   async calculateImpact(
     sessionId: string,
     upstreamPath: string,
     agentWorkspacePath: string,
-    forceRefresh = false
+    forceRefresh = false,
   ): Promise<{ metrics: ImpactMetrics; trends: ImpactTrend }> {
     const sccService = await this.getSccService();
 
@@ -109,9 +116,17 @@ export class ImpactCalculator {
     }
 
     // Get scc metrics for both directories
-    let upstreamMetrics: ReturnType<typeof sccService.runScc> extends Promise<infer T> ? T : never | null = null;
-    let workspaceMetrics: ReturnType<typeof sccService.runScc> extends Promise<infer T> ? T : never | null = null;
-    
+    let upstreamMetrics: ReturnType<typeof sccService.runScc> extends Promise<
+      infer T
+    >
+      ? T
+      : never | null = null;
+    let workspaceMetrics: ReturnType<typeof sccService.runScc> extends Promise<
+      infer T
+    >
+      ? T
+      : never | null = null;
+
     try {
       upstreamMetrics = await sccService.runScc(upstreamPath, forceRefresh);
       logger.debug(`[impact] Upstream scc metrics:`, upstreamMetrics);
@@ -120,21 +135,34 @@ export class ImpactCalculator {
     }
 
     try {
-      workspaceMetrics = await sccService.runScc(agentWorkspacePath, forceRefresh);
+      workspaceMetrics = await sccService.runScc(
+        agentWorkspacePath,
+        forceRefresh,
+      );
       logger.debug(`[impact] Workspace scc metrics:`, workspaceMetrics);
     } catch (error) {
       logger.error(`[impact] Failed to get workspace metrics:`, error);
     }
 
     // Calculate file changes by scanning directories
-    const fileChanges = await this.calculateFileChanges(upstreamPath, agentWorkspacePath);
+    const fileChanges = await this.calculateFileChanges(
+      upstreamPath,
+      agentWorkspacePath,
+    );
 
     // Build file map for quick lookup
     const upstreamFiles = new Map<string, { checksum: string; size: number }>();
-    const workspaceFiles = new Map<string, { checksum: string; size: number }>();
+    const workspaceFiles = new Map<
+      string,
+      { checksum: string; size: number }
+    >();
 
     await this.scanDirectory(upstreamPath, upstreamPath, upstreamFiles);
-    await this.scanDirectory(agentWorkspacePath, agentWorkspacePath, workspaceFiles);
+    await this.scanDirectory(
+      agentWorkspacePath,
+      agentWorkspacePath,
+      workspaceFiles,
+    );
 
     // Calculate file counts
     const files = {
@@ -149,7 +177,7 @@ export class ImpactCalculator {
     // Check workspace files
     for (const [relPath, workspaceInfo] of workspaceFiles) {
       const upstreamInfo = upstreamFiles.get(relPath);
-      
+
       if (!upstreamInfo) {
         files.new++;
         byFile.push({
@@ -195,13 +223,17 @@ export class ImpactCalculator {
 
     if (upstreamMetrics && workspaceMetrics) {
       // Create file lookup maps
-      const upstreamFilesByPath = new Map(upstreamMetrics.byFile.map(f => [f.path, f]));
-      const workspaceFilesByPath = new Map(workspaceMetrics.byFile.map(f => [f.path, f]));
+      const upstreamFilesByPath = new Map(
+        upstreamMetrics.byFile.map((f) => [f.path, f]),
+      );
+      const workspaceFilesByPath = new Map(
+        workspaceMetrics.byFile.map((f) => [f.path, f]),
+      );
 
       // Calculate deltas
       for (const [relPath, workspaceFile] of workspaceFilesByPath) {
         const upstreamFile = upstreamFilesByPath.get(relPath);
-        
+
         if (!upstreamFile) {
           // New file - add all its metrics
           linesAdded += workspaceFile.code;
@@ -230,12 +262,13 @@ export class ImpactCalculator {
             if (delta > 0) existing.linesAdded += delta;
             else existing.linesRemoved += Math.abs(delta);
           }
-          existing.complexityDelta += workspaceFile.complexity - (upstreamFile?.complexity || 0);
+          existing.complexityDelta +=
+            workspaceFile.complexity - (upstreamFile?.complexity || 0);
         } else {
-          const linesAdded = upstreamFile 
+          const linesAdded = upstreamFile
             ? Math.max(0, workspaceFile.code - upstreamFile.code)
             : workspaceFile.code;
-          const linesRemoved = upstreamFile 
+          const linesRemoved = upstreamFile
             ? Math.max(0, upstreamFile.code - workspaceFile.code)
             : 0;
           languageMap.set(lang, {
@@ -243,7 +276,8 @@ export class ImpactCalculator {
             files: 1,
             linesAdded,
             linesRemoved,
-            complexityDelta: workspaceFile.complexity - (upstreamFile?.complexity || 0),
+            complexityDelta:
+              workspaceFile.complexity - (upstreamFile?.complexity || 0),
           });
         }
       }
@@ -274,11 +308,12 @@ export class ImpactCalculator {
     }
 
     // Add scc metrics for files
-    const byFileWithDetails: FileImpactDetail[] = byFile.map(f => {
+    const byFileWithDetails: FileImpactDetail[] = byFile.map((f) => {
       // Find matching scc data if available
-      const sccFile = workspaceMetrics?.byFile.find(sf => sf.path === f.path) ||
-                      upstreamMetrics?.byFile.find(sf => sf.path === f.path);
-      
+      const sccFile =
+        workspaceMetrics?.byFile.find((sf) => sf.path === f.path) ||
+        upstreamMetrics?.byFile.find((sf) => sf.path === f.path);
+
       if (sccFile) {
         return {
           ...f,
@@ -292,14 +327,14 @@ export class ImpactCalculator {
 
     // Calculate duplication for changed files
     const changedFilePaths = byFile
-      .filter(f => f.status === "new" || f.status === "changed")
-      .map(f => join(agentWorkspacePath, f.path))
-      .filter(p => existsSync(p));
+      .filter((f) => f.status === "new" || f.status === "changed")
+      .map((f) => join(agentWorkspacePath, f.path))
+      .filter((p) => existsSync(p));
 
     const duplication = await this.calculateDuplication(
       changedFilePaths,
       agentWorkspacePath,
-      linesAdded + linesRemoved
+      linesAdded + linesRemoved,
     );
 
     const metrics: ImpactMetrics = {
@@ -324,8 +359,16 @@ export class ImpactCalculator {
 
     // Store current state for next trend calculation
     this.previousStates.set(sessionId, {
-      fileCounts: { new: files.new, changed: files.changed, deleted: files.deleted },
-      loc: { added: linesAdded, removed: linesRemoved, net: linesAdded - linesRemoved },
+      fileCounts: {
+        new: files.new,
+        changed: files.changed,
+        deleted: files.deleted,
+      },
+      loc: {
+        added: linesAdded,
+        removed: linesRemoved,
+        net: linesAdded - linesRemoved,
+      },
       complexity: { cyclomatic: cyclomaticDelta, cognitive: cognitiveDelta },
       timestamp: Date.now(),
     });
@@ -336,19 +379,34 @@ export class ImpactCalculator {
   private async calculateDuplication(
     changedFilePaths: string[],
     workspacePath: string,
-    totalChangedLines: number
+    totalChangedLines: number,
   ): Promise<DuplicationMetrics> {
     if (changedFilePaths.length === 0) {
-      return { duplicatedLines: 0, duplicatedTokens: 0, percentage: 0, clones: [], byFile: {} };
+      return {
+        duplicatedLines: 0,
+        duplicatedTokens: 0,
+        percentage: 0,
+        clones: [],
+        byFile: {},
+      };
     }
 
     try {
       const jscpdService = await this.getJscpdService();
       if (!jscpdService.isInstalled()) {
-        return { duplicatedLines: 0, duplicatedTokens: 0, percentage: 0, clones: [], byFile: {} };
+        return {
+          duplicatedLines: 0,
+          duplicatedTokens: 0,
+          percentage: 0,
+          clones: [],
+          byFile: {},
+        };
       }
 
-      const jscpdMetrics = await jscpdService.runOnFiles(changedFilePaths, workspacePath);
+      const jscpdMetrics = await jscpdService.runOnFiles(
+        changedFilePaths,
+        workspacePath,
+      );
 
       // Group clones by file
       const byFile: Record<string, Clone[]> = {};
@@ -363,9 +421,10 @@ export class ImpactCalculator {
         }
       }
 
-      const percentage = totalChangedLines > 0
-        ? (jscpdMetrics.duplicatedLines / totalChangedLines) * 100
-        : jscpdMetrics.percentage;
+      const percentage =
+        totalChangedLines > 0
+          ? (jscpdMetrics.duplicatedLines / totalChangedLines) * 100
+          : jscpdMetrics.percentage;
 
       return {
         duplicatedLines: jscpdMetrics.duplicatedLines,
@@ -376,16 +435,22 @@ export class ImpactCalculator {
       };
     } catch (error) {
       logger.error("[impact] Failed to calculate duplication:", error);
-      return { duplicatedLines: 0, duplicatedTokens: 0, percentage: 0, clones: [], byFile: {} };
+      return {
+        duplicatedLines: 0,
+        duplicatedTokens: 0,
+        percentage: 0,
+        clones: [],
+        byFile: {},
+      };
     }
   }
 
   private async calculateFileChanges(
     upstreamPath: string,
-    agentWorkspacePath: string
+    agentWorkspacePath: string,
   ): Promise<FileImpact[]> {
     const changes: FileImpact[] = [];
-    
+
     // This is a simplified version - the main logic is in the calculateImpact method
     return changes;
   }
@@ -393,7 +458,7 @@ export class ImpactCalculator {
   private async scanDirectory(
     dirPath: string,
     basePath: string,
-    fileMap: Map<string, { checksum: string; size: number }>
+    fileMap: Map<string, { checksum: string; size: number }>,
   ): Promise<void> {
     if (!existsSync(dirPath)) return;
 
@@ -412,15 +477,18 @@ export class ImpactCalculator {
         const stats = statSync(fullPath);
         const content = readFileSync(fullPath);
         const checksum = crypto.createHash("md5").update(content).digest("hex");
-        
+
         fileMap.set(relativePath, { checksum, size: stats.size });
       }
     }
   }
 
-  private calculateTrends(sessionId: string, current: ImpactMetrics): ImpactTrend {
+  private calculateTrends(
+    sessionId: string,
+    current: ImpactMetrics,
+  ): ImpactTrend {
     const previous = this.previousStates.get(sessionId);
-    
+
     if (!previous) {
       // No previous state - all trends are stable
       return {
@@ -448,8 +516,14 @@ export class ImpactCalculator {
         net: getTrend(current.linesOfCode.net, previous.loc.net),
       },
       complexity: {
-        cyclomatic: getTrend(current.complexity.cyclomatic, previous.complexity.cyclomatic),
-        cognitive: getTrend(current.complexity.cognitive, previous.complexity.cognitive),
+        cyclomatic: getTrend(
+          current.complexity.cyclomatic,
+          previous.complexity.cyclomatic,
+        ),
+        cognitive: getTrend(
+          current.complexity.cognitive,
+          previous.complexity.cognitive,
+        ),
       },
     };
   }

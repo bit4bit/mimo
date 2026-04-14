@@ -16,7 +16,10 @@ describe("MCP Server API Integration Tests", () => {
   let mimoContext: any;
 
   function cleanupTestDir() {
-    const testMcpServersPath = join(mimoContext?.paths?.root || "/tmp", "mcp-servers");
+    const testMcpServersPath = join(
+      mimoContext?.paths?.root || "/tmp",
+      "mcp-servers",
+    );
     if (!existsSync(testMcpServersPath)) {
       return;
     }
@@ -34,10 +37,10 @@ describe("MCP Server API Integration Tests", () => {
 
   beforeAll(async () => {
     testHome = mkdtempSync(join(tmpdir(), "mimo-mcp-api-test-"));
-    
+
     // Set environment variable for MIMO_HOME
     process.env.MIMO_HOME = testHome;
-    
+
     // Initialize mimoContext for path access
     const { createMimoContext } = await import("../src/context/mimo-context");
     mimoContext = createMimoContext({ env: { MIMO_HOME: testHome } });
@@ -141,7 +144,10 @@ describe("MCP Server API Integration Tests", () => {
       expect(created.id).toBe("postgresql-server");
       expect(created.name).toBe("PostgreSQL Server");
       expect(created.command).toBe("npx");
-      expect(created.args).toEqual(["-y", "@modelcontextprotocol/server-postgres"]);
+      expect(created.args).toEqual([
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+      ]);
     });
 
     it("should reject duplicate MCP server names", async () => {
@@ -204,11 +210,14 @@ describe("MCP Server API Integration Tests", () => {
 
   describe("GET /mcp-servers/:id", () => {
     it("should return a specific MCP server", async () => {
-      const response = await fetch(`${testBaseUrl}/mcp-servers/postgresql-server`, {
-        headers: {
-          Cookie: AUTH_COOKIE,
+      const response = await fetch(
+        `${testBaseUrl}/mcp-servers/postgresql-server`,
+        {
+          headers: {
+            Cookie: AUTH_COOKIE,
+          },
         },
-      });
+      );
 
       expect(response.status).toBe(200);
       const found = (await response.json()) as McpServer;
@@ -231,16 +240,19 @@ describe("MCP Server API Integration Tests", () => {
 
   describe("PATCH /mcp-servers/:id", () => {
     it("should update an MCP server", async () => {
-      const response = await fetch(`${testBaseUrl}/mcp-servers/postgresql-server`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: AUTH_COOKIE,
+      const response = await fetch(
+        `${testBaseUrl}/mcp-servers/postgresql-server`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: AUTH_COOKIE,
+          },
+          body: JSON.stringify({
+            args: ["postgresql://localhost/db"],
+          }),
         },
-        body: JSON.stringify({
-          args: ["postgresql://localhost/db"],
-        }),
-      });
+      );
 
       expect(response.status).toBe(200);
       const updated = (await response.json()) as McpServer;
@@ -248,16 +260,19 @@ describe("MCP Server API Integration Tests", () => {
     });
 
     it("should update MCP server name without changing ID", async () => {
-      const response = await fetch(`${testBaseUrl}/mcp-servers/postgresql-server`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: AUTH_COOKIE,
+      const response = await fetch(
+        `${testBaseUrl}/mcp-servers/postgresql-server`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: AUTH_COOKIE,
+          },
+          body: JSON.stringify({
+            name: "Production Database",
+          }),
         },
-        body: JSON.stringify({
-          name: "Production Database",
-        }),
-      });
+      );
 
       expect(response.status).toBe(200);
       const updated = (await response.json()) as McpServer;

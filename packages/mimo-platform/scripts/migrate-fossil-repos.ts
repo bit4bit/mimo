@@ -51,8 +51,14 @@ interface MigrationStats {
   errorsDetails: string[];
 }
 
-async function findSessions(): Promise<Array<{ projectId: string; sessionId: string; oldPath: string }>> {
-  const sessions: Array<{ projectId: string; sessionId: string; oldPath: string }> = [];
+async function findSessions(): Promise<
+  Array<{ projectId: string; sessionId: string; oldPath: string }>
+> {
+  const sessions: Array<{
+    projectId: string;
+    sessionId: string;
+    oldPath: string;
+  }> = [];
   const projectsDir = getProjectsDir();
 
   if (!existsSync(projectsDir)) {
@@ -89,7 +95,7 @@ async function findSessions(): Promise<Array<{ projectId: string; sessionId: str
 
 async function migrateSession(
   session: { projectId: string; sessionId: string; oldPath: string },
-  dryRun: boolean
+  dryRun: boolean,
 ): Promise<{ success: boolean; newPath: string | null; error?: string }> {
   try {
     const normalizedId = normalizeSessionIdForFossil(session.sessionId);
@@ -134,9 +140,9 @@ async function main() {
   const dataDir = getDataDir();
   const sessionFossilsDir = getSessionFossilsDir();
 
-  console.log("=" .repeat(70));
+  console.log("=".repeat(70));
   console.log("Fossil Repository Migration Script");
-  console.log("=" .repeat(70));
+  console.log("=".repeat(70));
   console.log();
   console.log(`Data directory: ${dataDir}`);
   console.log(`Session fossils directory: ${sessionFossilsDir}`);
@@ -169,7 +175,7 @@ async function main() {
   for (const session of sessions) {
     const newPath = join(
       getSessionFossilsDir(),
-      `${normalizeSessionIdForFossil(session.sessionId)}.fossil`
+      `${normalizeSessionIdForFossil(session.sessionId)}.fossil`,
     );
     console.log(`  - ${session.sessionId}`);
     console.log(`    From: ${session.oldPath}`);
@@ -215,9 +221,9 @@ async function main() {
 
   // Report results
   console.log();
-  console.log("=" .repeat(70));
+  console.log("=".repeat(70));
   console.log("Migration Complete");
-  console.log("=" .repeat(70));
+  console.log("=".repeat(70));
   console.log();
   console.log(`Total sessions:     ${stats.totalSessions}`);
   console.log(`Successfully moved: ${stats.migrated}`);

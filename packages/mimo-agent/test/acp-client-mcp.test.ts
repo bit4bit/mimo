@@ -44,7 +44,7 @@ describe("AcpClient with MCP Servers", () => {
       const client = new AcpClient(
         mockProvider as any,
         "test-session",
-        mockCallbacks
+        mockCallbacks,
       );
 
       const mcpServers: McpServerConfig[] = [
@@ -64,7 +64,7 @@ describe("AcpClient with MCP Servers", () => {
       const client = new AcpClient(
         mockProvider as any,
         "test-session",
-        mockCallbacks
+        mockCallbacks,
       );
 
       expect(client).toBeDefined();
@@ -74,7 +74,7 @@ describe("AcpClient with MCP Servers", () => {
       const client = new AcpClient(
         mockProvider as any,
         "test-session",
-        mockCallbacks
+        mockCallbacks,
       );
 
       expect(client).toBeDefined();
@@ -99,9 +99,7 @@ describe("AcpClient with MCP Servers", () => {
         name: "test-server",
         command: "npx",
         args: ["script.js"],
-        env: [
-          { name: "API_KEY", value: "secret123" },
-        ],
+        env: [{ name: "API_KEY", value: "secret123" }],
       };
 
       expect(config.env).toHaveLength(1);

@@ -44,8 +44,16 @@ describe("OpencodeProvider", () => {
         models: {
           currentModelId: "model-1",
           availableModels: [
-            { modelId: "model-1", name: "Model 1", description: "Test model 1" },
-            { modelId: "model-2", name: "Model 2", description: "Test model 2" },
+            {
+              modelId: "model-1",
+              name: "Model 1",
+              description: "Test model 1",
+            },
+            {
+              modelId: "model-2",
+              name: "Model 2",
+              description: "Test model 2",
+            },
           ],
         },
         modes: {
@@ -123,9 +131,7 @@ describe("OpencodeProvider", () => {
       const response: NewSessionResponse = {
         sessionId: "test-session",
         models: {
-          availableModels: [
-            { modelId: "model-a", name: "Model A" },
-          ],
+          availableModels: [{ modelId: "model-a", name: "Model A" }],
         },
       };
 

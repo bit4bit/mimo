@@ -1,7 +1,10 @@
 import type { FC } from "hono/jsx";
 import { Layout } from "./Layout.js";
 import { Frame } from "./Frame.js";
-import { ensureDefaultBuffersRegistered, getBuffersForFrame } from "../buffers/index.js";
+import {
+  ensureDefaultBuffersRegistered,
+  getBuffersForFrame,
+} from "../buffers/index.js";
 import type { FrameState } from "../sessions/frame-state.js";
 import type { McpServer } from "../mcp-servers/types.js";
 
@@ -84,7 +87,12 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   const rightBuffers = getBuffersForFrame("right");
 
   return (
-    <Layout title={`${session.name} - ${project.name}`} showStatusLine={true} sessionId={session.id} streamingTimeoutMs={streamingTimeoutMs}>
+    <Layout
+      title={`${session.name} - ${project.name}`}
+      showStatusLine={true}
+      sessionId={session.id}
+      streamingTimeoutMs={streamingTimeoutMs}
+    >
       <div class="session-container">
         <div class="session-header-bar">
           <div>
@@ -100,22 +108,30 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 >
                   🌿
                 </a>
-              )} | Status: {session.status}
-              {agent && ` | Agent: ${agent.name}`} | 
-              <span id="subtitle-acp-status" class={`acp-status acp-status--${acpStatus}`}>
-                {acpStatus === 'active' && '🟢 Agent ready'}
-                {acpStatus === 'parked' && '💤 Agent sleeping'}
-                {acpStatus === 'waking' && '⏳ Waking agent...'}
+              )}{" "}
+              | Status: {session.status}
+              {agent && ` | Agent: ${agent.name}`} |
+              <span
+                id="subtitle-acp-status"
+                class={`acp-status acp-status--${acpStatus}`}
+              >
+                {acpStatus === "active" && "🟢 Agent ready"}
+                {acpStatus === "parked" && "💤 Agent sleeping"}
+                {acpStatus === "waking" && "⏳ Waking agent..."}
               </span>
             </span>
           </div>
           <div style="display: flex; gap: 10px; align-items: center;">
             {/* Model Selector - always visible with placeholder */}
-            <div 
-              id="model-selector-container" 
-              class="selector-container" 
+            <div
+              id="model-selector-container"
+              class="selector-container"
               style={modelState ? "opacity: 1;" : "opacity: 0.5;"}
-              title={modelState ? modelState.currentModelId : "Waiting for ACP server to provide model options..."}
+              title={
+                modelState
+                  ? modelState.currentModelId
+                  : "Waiting for ACP server to provide model options..."
+              }
             >
               <label class="selector-label">Model:</label>
               <select
@@ -125,7 +141,10 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               >
                 {modelState ? (
                   modelState.availableModels.map((model) => (
-                    <option value={model.value} selected={model.value === modelState.currentModelId}>
+                    <option
+                      value={model.value}
+                      selected={model.value === modelState.currentModelId}
+                    >
                       {model.name}
                     </option>
                   ))
@@ -136,11 +155,15 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             </div>
 
             {/* Mode Selector - always visible with placeholder */}
-            <div 
-              id="mode-selector-container" 
+            <div
+              id="mode-selector-container"
               class="selector-container"
               style={modeState ? "opacity: 1;" : "opacity: 0.5;"}
-              title={modeState ? modeState.currentModeId : "Waiting for ACP server to provide mode options..."}
+              title={
+                modeState
+                  ? modeState.currentModeId
+                  : "Waiting for ACP server to provide mode options..."
+              }
             >
               <label class="selector-label">Mode:</label>
               <select
@@ -150,7 +173,10 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               >
                 {modeState ? (
                   modeState.availableModes.map((mode) => (
-                    <option value={mode.value} selected={mode.value === modeState.currentModeId}>
+                    <option
+                      value={mode.value}
+                      selected={mode.value === modeState.currentModeId}
+                    >
                       {mode.name}
                     </option>
                   ))
@@ -161,10 +187,14 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             </div>
 
             {agent && (
-              <a href={`/agents/${agent.id}`} class="btn-secondary">Agent Details</a>
+              <a href={`/agents/${agent.id}`} class="btn-secondary">
+                Agent Details
+              </a>
             )}
             {!agent && (
-              <a href="/agents/new" class="btn-primary">Create Agent</a>
+              <a href="/agents/new" class="btn-primary">
+                Create Agent
+              </a>
             )}
             <a href={`/projects/${project.id}/sessions`} class="btn-secondary">
               Back to Sessions
@@ -203,16 +233,29 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             <button type="button" id="sync-now-btn" class="btn-secondary">
               Sync Now
             </button>
-            <button type="button" id="clear-session-btn" class="btn-secondary" title="Clear agent context while preserving history">
+            <button
+              type="button"
+              id="clear-session-btn"
+              class="btn-secondary"
+              title="Clear agent context while preserving history"
+            >
               Clear
             </button>
-            <a href={`/projects/${project.id}/sessions/${session.id}/settings`} class="btn-secondary">Settings</a>
+            <a
+              href={`/projects/${project.id}/sessions/${session.id}/settings`}
+              class="btn-secondary"
+            >
+              Settings
+            </a>
           </div>
           <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
             <span id="sync-status" style="color: #888; font-size: 12px;">
               Sync: {session.syncState || "idle"}
             </span>
-            <span id="commit-status" style="color: #888; font-size: 12px;"></span>
+            <span
+              id="commit-status"
+              style="color: #888; font-size: 12px;"
+            ></span>
           </div>
           <form
             method="POST"
@@ -229,51 +272,65 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       <div id="commit-dialog" class="modal" style="display: none;">
         <div class="modal-content commit-modal">
           <h3>Commit Changes</h3>
-          
+
           <div class="commit-preview-container">
             <div class="commit-status-filters">
               <label class="status-filter">
                 <input type="checkbox" id="filter-added" checked />
                 <span class="status-badge status-added">Added</span>
-                <span id="count-added" class="status-count">0</span>
+                <span id="count-added" class="status-count">
+                  0
+                </span>
               </label>
               <label class="status-filter">
                 <input type="checkbox" id="filter-modified" checked />
                 <span class="status-badge status-modified">Modified</span>
-                <span id="count-modified" class="status-count">0</span>
+                <span id="count-modified" class="status-count">
+                  0
+                </span>
               </label>
               <label class="status-filter">
                 <input type="checkbox" id="filter-deleted" checked />
                 <span class="status-badge status-deleted">Deleted</span>
-                <span id="count-deleted" class="status-count">0</span>
+                <span id="count-deleted" class="status-count">
+                  0
+                </span>
               </label>
             </div>
-            
+
             <div id="commit-tree" class="commit-tree">
               <div class="commit-empty-state">Loading changes...</div>
             </div>
           </div>
-          
+
           <div class="commit-message-section">
             <div class="commit-file-count">
-              <span id="selected-count">0</span> of <span id="total-count">0</span> files selected
+              <span id="selected-count">0</span> of{" "}
+              <span id="total-count">0</span> files selected
             </div>
-            <textarea 
-              id="commit-message" 
+            <textarea
+              id="commit-message"
               placeholder="Enter commit message..."
               rows="3"
             ></textarea>
             <div id="commit-error" class="commit-error"></div>
           </div>
-          
+
           <div class="commit-actions">
-            <button type="button" id="commit-cancel" class="btn-secondary">Cancel</button>
-            <button type="button" id="commit-confirm" class="btn-primary" disabled>Commit & Push</button>
+            <button type="button" id="commit-cancel" class="btn-secondary">
+              Cancel
+            </button>
+            <button
+              type="button"
+              id="commit-confirm"
+              class="btn-primary"
+              disabled
+            >
+              Commit & Push
+            </button>
           </div>
         </div>
       </div>
-
-
 
       <style>{`
         .session-container {

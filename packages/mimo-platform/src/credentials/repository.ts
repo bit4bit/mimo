@@ -1,5 +1,14 @@
 import { join } from "path";
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, unlinkSync, rmdirSync, chmodSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+  unlinkSync,
+  rmdirSync,
+  chmodSync,
+} from "fs";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
 
@@ -54,7 +63,9 @@ export interface CreateSshCredentialInput {
   owner: string;
 }
 
-export type CreateCredentialInput = CreateHttpsCredentialInput | CreateSshCredentialInput;
+export type CreateCredentialInput =
+  | CreateHttpsCredentialInput
+  | CreateSshCredentialInput;
 
 interface CredentialRepositoryDeps {
   usersPath: string;
@@ -81,11 +92,13 @@ export class CredentialRepository {
     const rsaPattern = /^-----BEGIN RSA PRIVATE KEY-----/;
     const pemPattern = /^-----BEGIN EC PRIVATE KEY-----/;
     const ed25519Pattern = /^-----BEGIN PRIVATE KEY-----/;
-    
-    return opensshPattern.test(key) || 
-           rsaPattern.test(key) || 
-           pemPattern.test(key) || 
-           ed25519Pattern.test(key);
+
+    return (
+      opensshPattern.test(key) ||
+      rsaPattern.test(key) ||
+      pemPattern.test(key) ||
+      ed25519Pattern.test(key)
+    );
   }
 
   async create(input: CreateCredentialInput): Promise<Credential> {
@@ -95,7 +108,7 @@ export class CredentialRepository {
 
     const id = this.generateId();
     const credentialsDir = this.getCredentialsDirPath(input.owner);
-    
+
     if (!existsSync(credentialsDir)) {
       mkdirSync(credentialsDir, { recursive: true });
     }
@@ -117,7 +130,7 @@ export class CredentialRepository {
       if (!this.validateSshPrivateKey(input.privateKey)) {
         throw new Error("Invalid SSH private key format");
       }
-      
+
       credentialData = {
         id,
         name: input.name,
@@ -130,7 +143,7 @@ export class CredentialRepository {
 
     const filePath = this.getCredentialFilePath(input.owner, id);
     writeFileSync(filePath, dump(credentialData), "utf-8");
-    
+
     // Set file permissions to 600 (owner read/write only)
     chmodSync(filePath, 0o600);
 
@@ -179,7 +192,11 @@ export class CredentialRepository {
     return credentials;
   }
 
-  async update(id: string, owner: string, updates: Partial<CreateCredentialInput>): Promise<Credential> {
+  async update(
+    id: string,
+    owner: string,
+    updates: Partial<CreateCredentialInput>,
+  ): Promise<Credential> {
     const credential = await this.findById(id, owner);
     if (!credential) {
       throw new Error("Credential not found");

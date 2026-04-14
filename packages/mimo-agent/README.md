@@ -61,6 +61,7 @@ PLATFORM_URL=http://192.168.1.10:3000 bun run src/index.tsx
 ### Multi-Session Model
 
 mimo-agent supports **multiple concurrent sessions**, each with its own:
+
 - Fossil checkout directory (cloned from platform's fossil proxy)
 - ACP process (spawned in the checkout directory)
 - File watcher (for change notifications)
@@ -134,6 +135,7 @@ No path coordination needed between platform and agent.
 ### Handshake
 
 1. **Agent sends `agent_ready`:**
+
    ```json
    {
      "type": "agent_ready",
@@ -143,6 +145,7 @@ No path coordination needed between platform and agent.
    ```
 
 2. **Platform responds with `session_ready`:**
+
    ```json
    {
      "type": "session_ready",
@@ -176,9 +179,7 @@ No path coordination needed between platform and agent.
 {
   "type": "file_changed",
   "sessionId": "session-uuid",
-  "files": [
-    { "path": "src/app.js", "isNew": false, "deleted": false }
-  ],
+  "files": [{ "path": "src/app.js", "isNew": false, "deleted": false }],
   "timestamp": "2024-01-15T10:35:00Z"
 }
 ```
@@ -217,29 +218,34 @@ No path coordination needed between platform and agent.
 ## Features
 
 ### Multi-Session Support
+
 - Maintains map of sessions with individual checkouts
 - Routes messages to correct session by sessionId
 - Spawns separate ACP process per session
 - Independent file watcher per session
 
 ### Fossil Clone
+
 - Clones from platform's fossil proxy server on session_ready
 - Opens existing checkout if already present (reconnection scenario)
 - Relative checkout paths from workdir
 
 ### File Watching
+
 - Watches checkout directory recursively for each session
 - Debounces changes (500ms) to batch rapid modifications
 - Reports changes to platform with sessionId
-- Ignores hidden files and common directories (node_modules, __pycache__)
+- Ignores hidden files and common directories (node_modules, **pycache**)
 
 ### ACP Integration
+
 - Uses `@agentclientprotocol/sdk` for ACP communication
 - Spawns ACP process in session checkout directory
 - Proxies stdin/stdout between platform and ACP
 - Supports request cancellation (SIGTERM)
 
 ### Reconnection
+
 - Automatically reconnects on WebSocket disconnect
 - Exponential backoff (max 5 attempts)
 - Opens existing checkouts on reconnect (no re-clone)
@@ -249,28 +255,34 @@ No path coordination needed between platform and agent.
 The agent can sync file changes to a local development directory in real-time, allowing you to test changes immediately in your IDE without committing.
 
 **How it works:**
+
 1. Set `defaultLocalDevMirrorPath` on a Project (optional - serves as default for all sessions)
 2. Set `localDevMirrorPath` on a Session (inherited from project, can be customized per session)
 3. When files change in the checkout, the agent syncs them to the mirror path
 
 **Sync behavior:**
+
 - **Agent wins**: When files change, the agent immediately overwrites the mirror copy
 - **Skips VCS directories**: `.git/` and `.fossil/` are never synced (preserves your own VCS state)
 - **Graceful errors**: Missing paths or permission errors log a warning but don't block operation
 
 **Configuration:**
+
 ```json
 // session_ready message includes the mirror path:
 {
   "type": "session_ready",
-  "sessions": [{
-    "sessionId": "uuid",
-    "localDevMirrorPath": "/home/user/myproject-dev"
-  }]
+  "sessions": [
+    {
+      "sessionId": "uuid",
+      "localDevMirrorPath": "/home/user/myproject-dev"
+    }
+  ]
 }
 ```
 
 **Example scenario:**
+
 ```bash
 # User wants agent changes synced to their local working directory
 # 1. Create project with default mirror path: /home/user/dev/myproject

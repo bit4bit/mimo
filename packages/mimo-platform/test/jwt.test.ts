@@ -46,7 +46,7 @@ describe("JWT Service", () => {
     const serviceB = new JwtService("secret-b");
 
     const tokenA = await serviceA.generateToken("alice");
-    
+
     // Token from serviceA should not verify with serviceB
     const payloadFromB = await serviceB.verifyToken(tokenA);
     expect(payloadFromB).toBeNull();

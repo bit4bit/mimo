@@ -28,7 +28,12 @@ interface SessionCreateProps {
   error?: string;
 }
 
-export const SessionCreatePage: FC<SessionCreateProps> = ({ project, agents, mcpServers, error }) => {
+export const SessionCreatePage: FC<SessionCreateProps> = ({
+  project,
+  agents,
+  mcpServers,
+  error,
+}) => {
   return (
     <Layout title={`New Session - ${project.name}`}>
       <div class="container" style="max-width: 600px;">
@@ -52,19 +57,22 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({ project, agents, mcp
               <option value="">None</option>
               {agents.map((agent) => (
                 <option value={agent.id}>
-                  {agent.name} ({agent.status === "online" ? "🟢 online" : "🔴 offline"})
+                  {agent.name} (
+                  {agent.status === "online" ? "🟢 online" : "🔴 offline"})
                 </option>
               ))}
             </select>
             <p style="color: #888; font-size: 12px; margin-top: 5px;">
-              Select an agent to work on this session. You can assign one later if needed.
+              Select an agent to work on this session. You can assign one later
+              if needed.
             </p>
           </div>
 
           <div class="form-group">
             <label>Session Type</label>
             <p style="color: #888; font-size: 14px;">
-              Creates a worktree for isolated development. Changes will be tracked separately from the main branch.
+              Creates a worktree for isolated development. Changes will be
+              tracked separately from the main branch.
             </p>
           </div>
 
@@ -76,7 +84,8 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({ project, agents, mcp
               placeholder="packages/backend"
             />
             <p style="color: #888; font-size: 12px; margin-top: 5px;">
-              Relative path within the repository where the agent will start. Useful for monorepos.
+              Relative path within the repository where the agent will start.
+              Useful for monorepos.
             </p>
           </div>
 
@@ -89,7 +98,8 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({ project, agents, mcp
               placeholder="/home/user/myproject-dev"
             />
             <p style="color: #888; font-size: 12px; margin-top: 5px;">
-              Path to sync agent changes in real-time. Leave empty to disable sync.
+              Path to sync agent changes in real-time. Leave empty to disable
+              sync.
             </p>
           </div>
 
@@ -101,7 +111,8 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({ project, agents, mcp
               placeholder="feature/my-session-work"
             />
             <p style="color: #888; font-size: 12px; margin-top: 5px;">
-              Create a custom branch for this session. Leave empty to use the project default
+              Create a custom branch for this session. Leave empty to use the
+              project default
               {project.newBranch ? ` (${project.newBranch})` : " (none)"}.
             </p>
           </div>
@@ -111,16 +122,24 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({ project, agents, mcp
             <div style="border: 1px solid #ddd; border-radius: 4px; padding: 10px; max-height: 150px; overflow-y: auto;">
               {mcpServers.length === 0 ? (
                 <p style="color: #888; font-size: 12px; margin: 0;">
-                  No MCP servers configured. <a href="/mcp-servers">Configure MCP servers</a>
+                  No MCP servers configured.{" "}
+                  <a href="/mcp-servers">Configure MCP servers</a>
                 </p>
               ) : (
                 mcpServers.map((server) => (
-                  <label key={server.id} style={{ display: 'block', margin: '5px 0', cursor: 'pointer' }}>
+                  <label
+                    key={server.id}
+                    style={{
+                      display: "block",
+                      margin: "5px 0",
+                      cursor: "pointer",
+                    }}
+                  >
                     <input
                       type="checkbox"
                       name="mcpServerIds"
                       value={server.id}
-                      style={{ marginRight: '8px' }}
+                      style={{ marginRight: "8px" }}
                     />
                     <strong>{server.name}</strong>
                     {server.description && (
@@ -133,12 +152,15 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({ project, agents, mcp
               )}
             </div>
             <p style="color: #888; font-size: 12px; margin-top: 5px;">
-              Select MCP servers to attach to this session. These provide tools and resources to the AI agent.
+              Select MCP servers to attach to this session. These provide tools
+              and resources to the AI agent.
             </p>
           </div>
 
           <div class="actions">
-            <button type="submit" class="btn">Create Session</button>
+            <button type="submit" class="btn">
+              Create Session
+            </button>
             <a href={`/projects/${project.id}/sessions`} class="btn-secondary">
               Cancel
             </a>

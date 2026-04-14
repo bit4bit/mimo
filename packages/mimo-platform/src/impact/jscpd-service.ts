@@ -70,19 +70,30 @@ export class JscpdService {
     };
   }
 
-  async runOnFiles(filePaths: string[], directory: string): Promise<JscpdMetrics> {
+  async runOnFiles(
+    filePaths: string[],
+    directory: string,
+  ): Promise<JscpdMetrics> {
     if (!this.isInstalled()) {
       throw new Error(`jscpd not installed at ${this.jscpdPath}`);
     }
 
     if (filePaths.length === 0) {
-      return { duplicatedLines: 0, duplicatedTokens: 0, percentage: 0, clones: [] };
+      return {
+        duplicatedLines: 0,
+        duplicatedTokens: 0,
+        percentage: 0,
+        clones: [],
+      };
     }
 
     // Build composite ignore file
     await this.buildIgnoreFile(directory);
 
-    const outputDir = join(tmpdir(), `jscpd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    const outputDir = join(
+      tmpdir(),
+      `jscpd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
     mkdirSync(outputDir, { recursive: true });
 
     try {
@@ -95,20 +106,29 @@ export class JscpdService {
     }
   }
 
-  private runJscpd(filePaths: string[], outputDir: string): Promise<JscpdReport> {
+  private runJscpd(
+    filePaths: string[],
+    outputDir: string,
+  ): Promise<JscpdReport> {
     return new Promise((resolve, reject) => {
       const args = [
-        "--reporters", "json",
-        "--output", outputDir,
-        "--min-lines", "3",
-        "--min-tokens", "30",
+        "--reporters",
+        "json",
+        "--output",
+        outputDir,
+        "--min-lines",
+        "3",
+        "--min-tokens",
+        "30",
         ...filePaths,
       ];
 
       const child = spawn(this.jscpdPath, args, { timeout: 30000 });
 
       let stderr = "";
-      child.stderr.on("data", (data) => { stderr += data.toString(); });
+      child.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
 
       child.on("close", (code) => {
         if (code !== 0 && code !== 1) {
@@ -119,19 +139,28 @@ export class JscpdService {
 
         const reportPath = join(outputDir, "jscpd-report.json");
         if (!existsSync(reportPath)) {
-          resolve({ duplicates: [], statistics: { total: { duplicatedLines: 0, duplicatedTokens: 0, percentage: 0 } } });
+          resolve({
+            duplicates: [],
+            statistics: {
+              total: { duplicatedLines: 0, duplicatedTokens: 0, percentage: 0 },
+            },
+          });
           return;
         }
 
         try {
-          const report: JscpdReport = JSON.parse(readFileSync(reportPath, "utf-8"));
+          const report: JscpdReport = JSON.parse(
+            readFileSync(reportPath, "utf-8"),
+          );
           resolve(report);
         } catch (err) {
           reject(new Error(`Failed to parse jscpd report: ${err}`));
         }
       });
 
-      child.on("error", (err) => reject(new Error(`Failed to run jscpd: ${err.message}`)));
+      child.on("error", (err) =>
+        reject(new Error(`Failed to run jscpd: ${err.message}`)),
+      );
     });
   }
 
@@ -139,8 +168,16 @@ export class JscpdService {
     const clones: Clone[] = (report.duplicates || []).map((dup) => {
       const isSameFile = dup.firstFile.name === dup.secondFile.name;
       return {
-        firstFile: { path: dup.firstFile.name, startLine: dup.firstFile.start, endLine: dup.firstFile.end },
-        secondFile: { path: dup.secondFile.name, startLine: dup.secondFile.start, endLine: dup.secondFile.end },
+        firstFile: {
+          path: dup.firstFile.name,
+          startLine: dup.firstFile.start,
+          endLine: dup.firstFile.end,
+        },
+        secondFile: {
+          path: dup.secondFile.name,
+          startLine: dup.secondFile.start,
+          endLine: dup.secondFile.end,
+        },
         lines: dup.lines,
         tokens: dup.tokens || 0,
         fragment: dup.fragment || "",
@@ -148,7 +185,11 @@ export class JscpdService {
       };
     });
 
-    const stats = report.statistics?.total || { duplicatedLines: 0, duplicatedTokens: 0, percentage: 0 };
+    const stats = report.statistics?.total || {
+      duplicatedLines: 0,
+      duplicatedTokens: 0,
+      percentage: 0,
+    };
 
     return {
       duplicatedLines: stats.duplicatedLines || 0,

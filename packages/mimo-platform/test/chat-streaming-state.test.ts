@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync } from "fs";
@@ -12,8 +19,11 @@ describe("Chat Streaming State on Reconnect", () => {
   const testHome = join(tmpdir(), `mimo-streaming-test-${Date.now()}`);
 
   beforeAll(async () => {
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
-    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({
+      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+    });
 
     const chatModule = await import("../src/sessions/chat.ts");
 
@@ -161,7 +171,9 @@ describe("Chat Streaming State on Reconnect", () => {
         messageContent: "X is a ",
       };
 
-      const shouldReconstruct = !!(streamingState.thoughtContent || streamingState.messageContent);
+      const shouldReconstruct = !!(
+        streamingState.thoughtContent || streamingState.messageContent
+      );
       expect(shouldReconstruct).toBe(true);
     });
 

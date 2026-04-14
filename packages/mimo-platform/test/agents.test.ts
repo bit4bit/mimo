@@ -19,8 +19,11 @@ describe("Agent Lifecycle Integration Tests", () => {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
-    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({
+      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+    });
 
     userRepository = ctx.repos.users;
     sessionRepository = ctx.repos.sessions;
@@ -33,7 +36,10 @@ describe("Agent Lifecycle Integration Tests", () => {
 
   describe("Agent Creation", () => {
     it("should create agent record with JWT token", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
 
       const agent = await agentService.createAgent({
         name: "Test Agent",
@@ -50,7 +56,10 @@ describe("Agent Lifecycle Integration Tests", () => {
     });
 
     it("should reject agent creation without provider", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
 
       expect(async () => {
         await agentService.createAgent({
@@ -63,7 +72,10 @@ describe("Agent Lifecycle Integration Tests", () => {
     });
 
     it("should reject empty name", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
 
       expect(async () => {
         await agentService.createAgent({
@@ -75,7 +87,10 @@ describe("Agent Lifecycle Integration Tests", () => {
     });
 
     it("should reject whitespace-only name", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
 
       expect(async () => {
         await agentService.createAgent({
@@ -87,7 +102,10 @@ describe("Agent Lifecycle Integration Tests", () => {
     });
 
     it("should reject name longer than 64 characters", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
 
       expect(async () => {
         await agentService.createAgent({
@@ -99,7 +117,10 @@ describe("Agent Lifecycle Integration Tests", () => {
     });
 
     it("should verify agent JWT token includes provider", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
 
       const agent = await agentRepository.create({
         name: "JWT Test Agent",
@@ -117,7 +138,10 @@ describe("Agent Lifecycle Integration Tests", () => {
     });
 
     it("should verify agent JWT token", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
 
       const agent = await agentRepository.create({
         name: "JWT Test Agent",
@@ -141,7 +165,10 @@ describe("Agent Lifecycle Integration Tests", () => {
 
   describe("Agent Status Tracking", () => {
     it("should update agent status to online on connect", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
 
       const agent = await agentRepository.create({
         name: "Online Test Agent",
@@ -155,7 +182,10 @@ describe("Agent Lifecycle Integration Tests", () => {
     });
 
     it("should update agent status to offline on disconnect", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
 
       const agent = await agentRepository.create({
         name: "Offline Test Agent",
@@ -165,7 +195,7 @@ describe("Agent Lifecycle Integration Tests", () => {
 
       await agentRepository.updateStatus(agent.id, "online");
       await agentRepository.updateStatus(agent.id, "offline");
-      
+
       const updated = await agentRepository.findById(agent.id);
       expect(updated?.status).toBe("offline");
     });
@@ -174,8 +204,16 @@ describe("Agent Lifecycle Integration Tests", () => {
       await userRepository.create("user1", await bcrypt.hash("pass1", 10));
       await userRepository.create("user2", await bcrypt.hash("pass2", 10));
 
-      await agentRepository.create({ name: "User1 Agent", owner: "user1", provider: "opencode" });
-      await agentRepository.create({ name: "User2 Agent", owner: "user2", provider: "claude" });
+      await agentRepository.create({
+        name: "User1 Agent",
+        owner: "user1",
+        provider: "opencode",
+      });
+      await agentRepository.create({
+        name: "User2 Agent",
+        owner: "user2",
+        provider: "claude",
+      });
 
       const user1Agents = await agentRepository.findByOwner("user1");
       expect(user1Agents.length).toBe(1);
@@ -183,10 +221,21 @@ describe("Agent Lifecycle Integration Tests", () => {
     });
 
     it("should list agents by status", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
 
-      await agentRepository.create({ name: "Offline Agent", owner: "testuser", provider: "opencode" });
-      const agent2 = await agentRepository.create({ name: "Online Agent", owner: "testuser", provider: "claude" });
+      await agentRepository.create({
+        name: "Offline Agent",
+        owner: "testuser",
+        provider: "opencode",
+      });
+      const agent2 = await agentRepository.create({
+        name: "Online Agent",
+        owner: "testuser",
+        provider: "claude",
+      });
       await agentRepository.updateStatus(agent2.id, "online");
 
       const onlineAgents = await agentRepository.findByStatus("online");
@@ -195,7 +244,10 @@ describe("Agent Lifecycle Integration Tests", () => {
     });
 
     it("should delete agent", async () => {
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
 
       const agent = await agentRepository.create({
         name: "Delete Test Agent",
@@ -216,9 +268,16 @@ describe("Agent Lifecycle Integration Tests", () => {
       const app = new Hono();
       app.route("/agents", agentRoutes);
 
-      await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
 
-      const agent = await agentRepository.create({ name: "List Page Agent", owner: "testuser", provider: "opencode" });
+      const agent = await agentRepository.create({
+        name: "List Page Agent",
+        owner: "testuser",
+        provider: "opencode",
+      });
       const token = await agentService.generateAgentToken(agent);
       await agentRepository.update(agent.id, { token });
 

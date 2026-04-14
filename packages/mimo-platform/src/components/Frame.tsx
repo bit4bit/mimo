@@ -17,8 +17,11 @@ export const Frame: FC<FrameProps> = ({
   activeBufferId,
   bufferProps = {},
 }) => {
-  const resolvedActiveBufferId =
-    buffers.some((buffer) => buffer.id === activeBufferId) ? activeBufferId : buffers[0]?.id;
+  const resolvedActiveBufferId = buffers.some(
+    (buffer) => buffer.id === activeBufferId,
+  )
+    ? activeBufferId
+    : buffers[0]?.id;
 
   return (
     <div class={`frame frame-${frameId}`} data-frame-id={frameId}>
@@ -40,7 +43,9 @@ export const Frame: FC<FrameProps> = ({
       </div>
 
       <div class="frame-content">
-        {buffers.length === 0 && <div class="frame-empty">No buffers configured</div>}
+        {buffers.length === 0 && (
+          <div class="frame-empty">No buffers configured</div>
+        )}
         {buffers.map((buffer) => {
           const BufferComponent = buffer.component;
           const isActive = buffer.id === resolvedActiveBufferId;
@@ -52,7 +57,11 @@ export const Frame: FC<FrameProps> = ({
               data-buffer-panel={buffer.id}
               style={isActive ? "display: flex;" : "display: none;"}
             >
-              <BufferComponent sessionId={sessionId} isActive={isActive} {...extraProps} />
+              <BufferComponent
+                sessionId={sessionId}
+                isActive={isActive}
+                {...extraProps}
+              />
             </div>
           );
         })}

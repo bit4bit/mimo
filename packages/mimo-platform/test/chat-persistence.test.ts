@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync } from "fs";
@@ -18,8 +25,11 @@ describe("Chat History Persistence", () => {
 
   beforeAll(async () => {
     // Set up fresh environment with createMimoContext
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
-    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({
+      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+    });
 
     userRepository = ctx.repos.users;
     projectRepository = ctx.repos.projects;
@@ -130,12 +140,7 @@ I'm an AI assistant for software engineering tasks.`,
   describe("Streaming message persistence", () => {
     it("should save message assembled from chunks", async () => {
       // Simulate streaming message chunks
-      const chunks = [
-        "I'm ",
-        "an ",
-        "AI ",
-        "assistant.",
-      ];
+      const chunks = ["I'm ", "an ", "AI ", "assistant."];
 
       const fullContent = chunks.join("");
 
@@ -226,10 +231,26 @@ I'm an AI assistant.`,
     it("should preserve message order after multiple operations", async () => {
       // Interleave user and assistant messages
       const messages = [
-        { role: "user", content: "First question", timestamp: new Date().toISOString() },
-        { role: "assistant", content: "First answer", timestamp: new Date().toISOString() },
-        { role: "user", content: "Second question", timestamp: new Date().toISOString() },
-        { role: "assistant", content: "Second answer", timestamp: new Date().toISOString() },
+        {
+          role: "user",
+          content: "First question",
+          timestamp: new Date().toISOString(),
+        },
+        {
+          role: "assistant",
+          content: "First answer",
+          timestamp: new Date().toISOString(),
+        },
+        {
+          role: "user",
+          content: "Second question",
+          timestamp: new Date().toISOString(),
+        },
+        {
+          role: "assistant",
+          content: "Second answer",
+          timestamp: new Date().toISOString(),
+        },
       ];
 
       for (const msg of messages) {
@@ -239,7 +260,7 @@ I'm an AI assistant.`,
       const loaded = await chatService.loadHistory(testSession.id);
 
       expect(loaded.length).toBe(4);
-      expect(loaded.map(m => m.content)).toEqual([
+      expect(loaded.map((m) => m.content)).toEqual([
         "First question",
         "First answer",
         "Second question",

@@ -1,4 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "fs";
 import { join } from "path";
 import type { MimoPaths } from "../context/mimo-context.js";
 
@@ -23,13 +29,19 @@ export function createDefaultFrameState(): FrameState {
   };
 }
 
-export function normalizeFrameState(state?: Partial<FrameState> | null): FrameState {
+export function normalizeFrameState(
+  state?: Partial<FrameState> | null,
+): FrameState {
   return {
     leftFrame: {
-      activeBufferId: state?.leftFrame?.activeBufferId || DEFAULT_FRAME_STATE.leftFrame.activeBufferId,
+      activeBufferId:
+        state?.leftFrame?.activeBufferId ||
+        DEFAULT_FRAME_STATE.leftFrame.activeBufferId,
     },
     rightFrame: {
-      activeBufferId: state?.rightFrame?.activeBufferId || DEFAULT_FRAME_STATE.rightFrame.activeBufferId,
+      activeBufferId:
+        state?.rightFrame?.activeBufferId ||
+        DEFAULT_FRAME_STATE.rightFrame.activeBufferId,
     },
   };
 }
@@ -66,13 +78,19 @@ export class FrameStateService {
       return null;
     }
 
-    const projectEntries = readdirSync(this.paths.projects, { withFileTypes: true });
+    const projectEntries = readdirSync(this.paths.projects, {
+      withFileTypes: true,
+    });
     for (const projectEntry of projectEntries) {
       if (!projectEntry.isDirectory()) {
         continue;
       }
 
-      const sessionsDir = join(this.paths.projects, projectEntry.name, "sessions");
+      const sessionsDir = join(
+        this.paths.projects,
+        projectEntry.name,
+        "sessions",
+      );
       if (!existsSync(sessionsDir)) {
         continue;
       }
@@ -123,9 +141,13 @@ export function createFrameStateService(paths: MimoPaths): FrameStateService {
 // Legacy function exports - will be removed once all consumers use FrameStateService
 // These use empty paths and will fail at runtime if called without proper initialization
 export function loadNotes(sessionId: string): string {
-  throw new Error("loadNotes() requires FrameStateService - use createFrameStateService(paths) instead");
+  throw new Error(
+    "loadNotes() requires FrameStateService - use createFrameStateService(paths) instead",
+  );
 }
 
 export function saveNotes(sessionId: string, content: string): void {
-  throw new Error("saveNotes() requires FrameStateService - use createFrameStateService(paths) instead");
+  throw new Error(
+    "saveNotes() requires FrameStateService - use createFrameStateService(paths) instead",
+  );
 }

@@ -8,14 +8,24 @@ interface LayoutProps {
   streamingTimeoutMs?: number;
 }
 
-export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = false, sessionId, streamingTimeoutMs }) => {
+export const Layout: FC<LayoutProps> = ({
+  title,
+  children,
+  showStatusLine = false,
+  sessionId,
+  streamingTimeoutMs,
+}) => {
   return (
     <html lang="en">
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{title} | MIMO</title>
-        <script dangerouslySetInnerHTML={{ __html: `window.MIMO_SESSION_ID = "${sessionId || ''}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};` }} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};`,
+          }}
+        />
         {sessionId && <script src="/js/chat.js" defer></script>}
         {sessionId && <script src="/js/commit.js" defer></script>}
         <style>{`
@@ -309,30 +319,30 @@ export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = fals
               padding: 4px;
             }
           `}</style>
-        </head>
-        <body>
-          <nav class="top-nav">
-            <div class="nav-brand">
-              <a href="/dashboard">MIMO</a>
-            </div>
-             <div class="nav-links">
-               <a href="/dashboard">Dashboard</a>
-               <a href="/projects">Projects</a>
-               <a href="/mcp-servers">MCP Servers</a>
-               <a href="/credentials">Credentials</a>
-               <a href="/agents">Agents</a>
-               <a href="/auth/logout">Logout</a>
-             </div>
-          </nav>
-          <main style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto;">
+      </head>
+      <body>
+        <nav class="top-nav">
+          <div class="nav-brand">
+            <a href="/dashboard">MIMO</a>
+          </div>
+          <div class="nav-links">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/projects">Projects</a>
+            <a href="/mcp-servers">MCP Servers</a>
+            <a href="/credentials">Credentials</a>
+            <a href="/agents">Agents</a>
+            <a href="/auth/logout">Logout</a>
+          </div>
+        </nav>
+        <main style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto;">
           {children}
-          </main>
-         {showStatusLine && (
-           <div class="status-line">
-              <span class="status-line-message"></span>
-            </div>
-          )}
-       </body>
+        </main>
+        {showStatusLine && (
+          <div class="status-line">
+            <span class="status-line-message"></span>
+          </div>
+        )}
+      </body>
     </html>
   );
 };

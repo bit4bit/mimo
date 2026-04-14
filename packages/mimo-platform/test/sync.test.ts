@@ -1,6 +1,20 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "bun:test";
 import { fileSyncService, FileChange, FileStatus } from "../src/sync/service";
-import { mkdtempSync, writeFileSync, mkdirSync, readFileSync, existsSync, rmSync } from "fs";
+import {
+  mkdtempSync,
+  writeFileSync,
+  mkdirSync,
+  readFileSync,
+  existsSync,
+  rmSync,
+} from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 
@@ -13,12 +27,12 @@ describe("File Synchronization", () => {
     // Create temporary directories for testing
     sessionWorktree = mkdtempSync(join(tmpdir(), "mimo-session-"));
     originalRepo = mkdtempSync(join(tmpdir(), "mimo-original-"));
-    
+
     // Create some test files in original repo
     mkdirSync(join(originalRepo, "src"), { recursive: true });
     writeFileSync(join(originalRepo, "src", "app.js"), "console.log('hello');");
     writeFileSync(join(originalRepo, "README.md"), "# Test Project");
-    
+
     // Initialize sync service
     fileSyncService.initializeSession(sessionId, sessionWorktree, originalRepo);
   });
@@ -35,13 +49,19 @@ describe("File Synchronization", () => {
     it("should receive and process single file change", async () => {
       // Simulate agent modifying a file
       const changes = [{ path: "src/app.js", isNew: false, deleted: false }];
-      
+
       // Create the file in session worktree first
       mkdirSync(join(sessionWorktree, "src"), { recursive: true });
-      writeFileSync(join(sessionWorktree, "src", "app.js"), "console.log('modified');");
-      
-      const result = await fileSyncService.handleFileChanges(sessionId, changes);
-      
+      writeFileSync(
+        join(sessionWorktree, "src", "app.js"),
+        "console.log('modified');",
+      );
+
+      const result = await fileSyncService.handleFileChanges(
+        sessionId,
+        changes,
+      );
+
       expect(result).toHaveLength(1);
       expect(result[0].path).toBe("src/app.js");
       expect(result[0].status).toBe("modified");
@@ -52,26 +72,35 @@ describe("File Synchronization", () => {
         { path: "src/app.js", isNew: false, deleted: false },
         { path: "README.md", isNew: false, deleted: false },
       ];
-      
+
       // Create files in session worktree
       mkdirSync(join(sessionWorktree, "src"), { recursive: true });
-      writeFileSync(join(sessionWorktree, "src", "app.js"), "console.log('modified');");
+      writeFileSync(
+        join(sessionWorktree, "src", "app.js"),
+        "console.log('modified');",
+      );
       writeFileSync(join(sessionWorktree, "README.md"), "# Modified");
-      
-      const result = await fileSyncService.handleFileChanges(sessionId, changes);
-      
+
+      const result = await fileSyncService.handleFileChanges(
+        sessionId,
+        changes,
+      );
+
       expect(result).toHaveLength(2);
     });
 
     it("should detect new file creation", async () => {
       const changes = [{ path: "src/new.ts", isNew: true, deleted: false }];
-      
+
       // Create the file in session worktree
       mkdirSync(join(sessionWorktree, "src"), { recursive: true });
       writeFileSync(join(sessionWorktree, "src", "new.ts"), "const x = 1;");
-      
-      const result = await fileSyncService.handleFileChanges(sessionId, changes);
-      
+
+      const result = await fileSyncService.handleFileChanges(
+        sessionId,
+        changes,
+      );
+
       expect(result[0].status).toBe("new");
     });
 
@@ -83,7 +112,10 @@ describe("File Synchronization", () => {
 
       const changes = [{ path: "src/app.js", isNew: false, deleted: false }];
       mkdirSync(join(sessionWorktree, "src"), { recursive: true });
-      writeFileSync(join(sessionWorktree, "src", "app.js"), "console.log('changed');");
+      writeFileSync(
+        join(sessionWorktree, "src", "app.js"),
+        "console.log('changed');",
+      );
 
       await fileSyncService.handleFileChanges(sessionId, changes);
 
@@ -97,26 +129,38 @@ describe("File Synchronization", () => {
       mkdirSync(join(sessionWorktree, "src"), { recursive: true });
       const newContent = "console.log('synced');";
       writeFileSync(join(sessionWorktree, "src", "app.js"), newContent);
-      
+
       const changes = [{ path: "src/app.js", isNew: false, deleted: false }];
       await fileSyncService.handleFileChanges(sessionId, changes);
-      
+
       // Verify file was copied to original repo
-      const originalContent = readFileSync(join(originalRepo, "src", "app.js"), "utf-8");
+      const originalContent = readFileSync(
+        join(originalRepo, "src", "app.js"),
+        "utf-8",
+      );
       expect(originalContent).toBe(newContent);
     });
 
     it("should create parent directories when syncing new files", async () => {
-      const changes = [{ path: "src/components/Button.tsx", isNew: true, deleted: false }];
-      
+      const changes = [
+        { path: "src/components/Button.tsx", isNew: true, deleted: false },
+      ];
+
       // Create file in session worktree
-      mkdirSync(join(sessionWorktree, "src", "components"), { recursive: true });
-      writeFileSync(join(sessionWorktree, "src", "components", "Button.tsx"), "export const Button = () => {};");
-      
+      mkdirSync(join(sessionWorktree, "src", "components"), {
+        recursive: true,
+      });
+      writeFileSync(
+        join(sessionWorktree, "src", "components", "Button.tsx"),
+        "export const Button = () => {};",
+      );
+
       await fileSyncService.handleFileChanges(sessionId, changes);
-      
+
       // Verify directories and file were created
-      expect(existsSync(join(originalRepo, "src", "components", "Button.tsx"))).toBe(true);
+      expect(
+        existsSync(join(originalRepo, "src", "components", "Button.tsx")),
+      ).toBe(true);
     });
   });
 
@@ -124,14 +168,20 @@ describe("File Synchronization", () => {
     it("should detect conflict when both original and session modified", async () => {
       // Modify in session
       mkdirSync(join(sessionWorktree, "src"), { recursive: true });
-      writeFileSync(join(sessionWorktree, "src", "app.js"), "// session version");
-      
+      writeFileSync(
+        join(sessionWorktree, "src", "app.js"),
+        "// session version",
+      );
+
       // Modify in original repo
       writeFileSync(join(originalRepo, "src", "app.js"), "// original version");
-      
+
       const changes = [{ path: "src/app.js", isNew: false, deleted: false }];
-      const result = await fileSyncService.handleFileChanges(sessionId, changes);
-      
+      const result = await fileSyncService.handleFileChanges(
+        sessionId,
+        changes,
+      );
+
       expect(result[0].status).toBe("conflict");
     });
 
@@ -140,10 +190,10 @@ describe("File Synchronization", () => {
       mkdirSync(join(sessionWorktree, "src"), { recursive: true });
       writeFileSync(join(sessionWorktree, "src", "app.js"), "// session");
       writeFileSync(join(originalRepo, "src", "app.js"), "// original");
-      
+
       const changes = [{ path: "src/app.js", isNew: false, deleted: false }];
       await fileSyncService.handleFileChanges(sessionId, changes);
-      
+
       const changeSet = await fileSyncService.getChangeSet(sessionId);
       expect(changeSet.hasConflicts).toBe(true);
     });
@@ -155,28 +205,44 @@ describe("File Synchronization", () => {
       mkdirSync(join(sessionWorktree, "src"), { recursive: true });
       writeFileSync(join(sessionWorktree, "src", "app.js"), "// session");
       writeFileSync(join(originalRepo, "src", "app.js"), "// original");
-      
+
       const changes = [{ path: "src/app.js", isNew: false, deleted: false }];
       await fileSyncService.handleFileChanges(sessionId, changes);
     });
 
     it("should resolve conflict by keeping session version", async () => {
       await fileSyncService.resolveConflict(sessionId, "src/app.js", "session");
-      
-      const status = await fileSyncService.getFileStatus(sessionId, "src/app.js");
+
+      const status = await fileSyncService.getFileStatus(
+        sessionId,
+        "src/app.js",
+      );
       expect(status).toBe("clean");
-      
-      const content = readFileSync(join(originalRepo, "src", "app.js"), "utf-8");
+
+      const content = readFileSync(
+        join(originalRepo, "src", "app.js"),
+        "utf-8",
+      );
       expect(content).toBe("// session");
     });
 
     it("should resolve conflict by keeping original version", async () => {
-      await fileSyncService.resolveConflict(sessionId, "src/app.js", "original");
-      
-      const status = await fileSyncService.getFileStatus(sessionId, "src/app.js");
+      await fileSyncService.resolveConflict(
+        sessionId,
+        "src/app.js",
+        "original",
+      );
+
+      const status = await fileSyncService.getFileStatus(
+        sessionId,
+        "src/app.js",
+      );
       expect(status).toBe("clean");
-      
-      const content = readFileSync(join(sessionWorktree, "src", "app.js"), "utf-8");
+
+      const content = readFileSync(
+        join(sessionWorktree, "src", "app.js"),
+        "utf-8",
+      );
       expect(content).toBe("// original");
     });
   });
@@ -187,10 +253,10 @@ describe("File Synchronization", () => {
         { path: "src/app.js", status: "modified", timestamp: new Date() },
         { path: "README.md", status: "modified", timestamp: new Date() },
       ];
-      
+
       await fileSyncService.bufferChangesForReconnect(sessionId, changes);
       const buffered = await fileSyncService.getBufferedChanges(sessionId);
-      
+
       expect(buffered).toHaveLength(2);
     });
 
@@ -198,10 +264,10 @@ describe("File Synchronization", () => {
       const changes: FileChange[] = [
         { path: "src/app.js", status: "modified", timestamp: new Date() },
       ];
-      
+
       await fileSyncService.bufferChangesForReconnect(sessionId, changes);
       await fileSyncService.clearBufferedChanges(sessionId);
-      
+
       const buffered = await fileSyncService.getBufferedChanges(sessionId);
       expect(buffered).toHaveLength(0);
     });
@@ -213,10 +279,10 @@ describe("File Synchronization", () => {
       mkdirSync(join(sessionWorktree, "src"), { recursive: true });
       writeFileSync(join(sessionWorktree, "src", "old.js"), "// old");
       writeFileSync(join(originalRepo, "src", "old.js"), "// old");
-      
+
       const changes = [{ path: "src/old.js", isNew: false, deleted: true }];
       await fileSyncService.handleFileChanges(sessionId, changes);
-      
+
       expect(existsSync(join(originalRepo, "src", "old.js"))).toBe(false);
     });
 
@@ -224,10 +290,13 @@ describe("File Synchronization", () => {
       // Create and delete file
       mkdirSync(join(sessionWorktree, "src"), { recursive: true });
       writeFileSync(join(originalRepo, "src", "old.js"), "// old");
-      
+
       const changes = [{ path: "src/old.js", isNew: false, deleted: true }];
-      const result = await fileSyncService.handleFileChanges(sessionId, changes);
-      
+      const result = await fileSyncService.handleFileChanges(
+        sessionId,
+        changes,
+      );
+
       expect(result[0].status).toBe("deleted");
     });
   });
@@ -236,13 +305,18 @@ describe("File Synchronization", () => {
     it("should pull new files from original repo", async () => {
       // Add new file to original repo
       mkdirSync(join(originalRepo, "src"), { recursive: true });
-      writeFileSync(join(originalRepo, "src", "new-feature.js"), "// new feature");
-      
+      writeFileSync(
+        join(originalRepo, "src", "new-feature.js"),
+        "// new feature",
+      );
+
       const changes = await fileSyncService.manualPullFromOriginal(sessionId);
-      
+
       expect(changes.length).toBeGreaterThan(0);
-      expect(changes.some(c => c.path === "src/new-feature.js")).toBe(true);
-      expect(existsSync(join(sessionWorktree, "src", "new-feature.js"))).toBe(true);
+      expect(changes.some((c) => c.path === "src/new-feature.js")).toBe(true);
+      expect(existsSync(join(sessionWorktree, "src", "new-feature.js"))).toBe(
+        true,
+      );
     });
 
     it("should detect conflicts during pull", async () => {
@@ -250,10 +324,12 @@ describe("File Synchronization", () => {
       mkdirSync(join(sessionWorktree, "src"), { recursive: true });
       writeFileSync(join(sessionWorktree, "src", "app.js"), "// session");
       writeFileSync(join(originalRepo, "src", "app.js"), "// original changed");
-      
+
       const changes = await fileSyncService.manualPullFromOriginal(sessionId);
-      
-      expect(changes.some(c => c.path === "src/app.js" && c.status === "conflict")).toBe(true);
+
+      expect(
+        changes.some((c) => c.path === "src/app.js" && c.status === "conflict"),
+      ).toBe(true);
     });
   });
 });
@@ -272,10 +348,10 @@ describe("File Sync API Routes", () => {
   beforeEach(() => {
     sessionWorktree = mkdtempSync(join(tmpdir(), "mimo-session-"));
     originalRepo = mkdtempSync(join(tmpdir(), "mimo-original-"));
-    
+
     mkdirSync(join(originalRepo, "src"), { recursive: true });
     writeFileSync(join(originalRepo, "src", "app.js"), "console.log('hello');");
-    
+
     fileSyncService.initializeSession(sessionId, sessionWorktree, originalRepo);
   });
 
@@ -284,7 +360,7 @@ describe("File Sync API Routes", () => {
       rmSync(sessionWorktree, { recursive: true, force: true });
       rmSync(originalRepo, { recursive: true, force: true });
     } catch {}
-    
+
     fileSyncService.cleanupSession(sessionId);
   });
 
@@ -296,7 +372,9 @@ describe("File Sync API Routes", () => {
 
   it("should get file status", async () => {
     const status = await fileSyncService.getFileStatus(sessionId, "src/app.js");
-    expect(["clean", "modified", "new", "deleted", "conflict"]).toContain(status);
+    expect(["clean", "modified", "new", "deleted", "conflict"]).toContain(
+      status,
+    );
   });
 
   it("should return change set with conflicts flag", async () => {

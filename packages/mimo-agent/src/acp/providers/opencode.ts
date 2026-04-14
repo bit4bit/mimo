@@ -25,9 +25,7 @@ export class OpencodeProvider implements IAcpProvider {
     };
   }
 
-  extractState(
-    response: NewSessionResponse
-  ): {
+  extractState(response: NewSessionResponse): {
     modelState?: ModelState;
     modeState?: ModeState;
   } {
@@ -36,10 +34,10 @@ export class OpencodeProvider implements IAcpProvider {
     // Try modern configOptions first
     if (response.configOptions) {
       const modelConfig = response.configOptions.find(
-        (opt) => opt.category === "model" && opt.type === "select"
+        (opt) => opt.category === "model" && opt.type === "select",
       );
       const modeConfig = response.configOptions.find(
-        (opt) => opt.category === "mode" && opt.type === "select"
+        (opt) => opt.category === "mode" && opt.type === "select",
       );
 
       if (modelConfig && modelConfig.type === "select") {
@@ -52,7 +50,8 @@ export class OpencodeProvider implements IAcpProvider {
           : [];
 
         result.modelState = {
-          currentModelId: modelConfig.currentValue || availableOptions[0]?.value || "",
+          currentModelId:
+            modelConfig.currentValue || availableOptions[0]?.value || "",
           availableModels: availableOptions,
           optionId: modelConfig.id,
         };
@@ -68,7 +67,8 @@ export class OpencodeProvider implements IAcpProvider {
           : [];
 
         result.modeState = {
-          currentModeId: modeConfig.currentValue || availableOptions[0]?.value || "",
+          currentModeId:
+            modeConfig.currentValue || availableOptions[0]?.value || "",
           availableModes: availableOptions,
           optionId: modeConfig.id,
         };
@@ -88,7 +88,8 @@ export class OpencodeProvider implements IAcpProvider {
           : [];
 
         result.modelState = {
-          currentModelId: models.currentModelId || availableOptions[0]?.value || "",
+          currentModelId:
+            models.currentModelId || availableOptions[0]?.value || "",
           availableModels: availableOptions,
           optionId: "model",
         };
@@ -106,7 +107,8 @@ export class OpencodeProvider implements IAcpProvider {
           : [];
 
         result.modeState = {
-          currentModeId: modes.currentModeId || availableOptions[0]?.value || "",
+          currentModeId:
+            modes.currentModeId || availableOptions[0]?.value || "",
           availableModes: availableOptions,
           optionId: "mode",
         };
@@ -120,7 +122,7 @@ export class OpencodeProvider implements IAcpProvider {
     connection: any,
     acpSessionId: string,
     modelId: string,
-    optionId: string
+    optionId: string,
   ): Promise<void> {
     // Opencode doesn't support setSessionConfigOption, always use extMethod
     await connection.extMethod("session/set_model", {
@@ -133,7 +135,7 @@ export class OpencodeProvider implements IAcpProvider {
     connection: any,
     acpSessionId: string,
     modeId: string,
-    optionId: string
+    optionId: string,
   ): Promise<void> {
     // Opencode doesn't support setSessionConfigOption, always use extMethod
     // Note: opencode expects "modeId", not "mode"

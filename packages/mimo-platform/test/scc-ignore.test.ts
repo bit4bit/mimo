@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "bun:test";
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -13,12 +20,16 @@ describe("SCC Composite Ignore File", () => {
     // Create test directory
     testDir = join(tmpdir(), `mimo-scc-ignore-test-${Date.now()}`);
     mkdirSync(testDir, { recursive: true });
-    
+
     // Create mock SCC binary
     mockSccPath = join(testDir, "mock-scc");
-    writeFileSync(mockSccPath, `#!/bin/bash
-echo '[]'`, { mode: 0o755 });
-    
+    writeFileSync(
+      mockSccPath,
+      `#!/bin/bash
+echo '[]'`,
+      { mode: 0o755 },
+    );
+
     sccService = new SccService(mockSccPath);
   });
 
@@ -37,19 +48,19 @@ echo '[]'`, { mode: 0o755 });
       join(testDir, ".mimoignore"),
       join(testDir, ".sccignore"),
     ];
-    files.forEach(f => {
+    files.forEach((f) => {
       if (existsSync(f)) {
         rmSync(f, { force: true });
       }
     });
-    
+
     // Clean up directories
     const dirs = [
       join(testDir, ".fossil-settings"),
       join(testDir, ".mimo", "cache"),
       join(testDir, ".mimo"),
     ];
-    dirs.forEach(d => {
+    dirs.forEach((d) => {
       if (existsSync(d)) {
         rmSync(d, { recursive: true, force: true });
       }
@@ -60,7 +71,10 @@ echo '[]'`, { mode: 0o755 });
     it("should create composite ignore file from all three sources", async () => {
       // GIVEN all three ignore files exist
       mkdirSync(join(testDir, ".fossil-settings"), { recursive: true });
-      writeFileSync(join(testDir, ".fossil-settings", "ignore-glob"), "node_modules/\n.git/");
+      writeFileSync(
+        join(testDir, ".fossil-settings", "ignore-glob"),
+        "node_modules/\n.git/",
+      );
       writeFileSync(join(testDir, ".gitignore"), "dist/\nbuild/");
       writeFileSync(join(testDir, ".mimoignore"), ".mimo/cache/\n*.tmp");
 
@@ -70,13 +84,13 @@ echo '[]'`, { mode: 0o755 });
       // THEN composite file is created at correct path (.sccignore in target directory)
       const compositePath = join(testDir, ".sccignore");
       expect(existsSync(compositePath)).toBe(true);
-      
+
       // AND result is the path to composite file
       expect(result).toBe(compositePath);
-      
+
       // AND file contains patterns from all sources
       const content = new TextDecoder().decode(
-        await Bun.file(compositePath).arrayBuffer()
+        await Bun.file(compositePath).arrayBuffer(),
       );
       expect(content).toContain("node_modules/");
       expect(content).toContain("dist/");
@@ -86,7 +100,10 @@ echo '[]'`, { mode: 0o755 });
     it("should include source annotations in composite file", async () => {
       // GIVEN multiple ignore sources exist
       mkdirSync(join(testDir, ".fossil-settings"), { recursive: true });
-      writeFileSync(join(testDir, ".fossil-settings", "ignore-glob"), "vendor/");
+      writeFileSync(
+        join(testDir, ".fossil-settings", "ignore-glob"),
+        "vendor/",
+      );
       writeFileSync(join(testDir, ".gitignore"), "*.log");
       writeFileSync(join(testDir, ".mimoignore"), "cache/");
 
@@ -96,9 +113,9 @@ echo '[]'`, { mode: 0o755 });
       // THEN composite file has source annotations
       const compositePath = join(testDir, ".sccignore");
       const content = new TextDecoder().decode(
-        await Bun.file(compositePath).arrayBuffer()
+        await Bun.file(compositePath).arrayBuffer(),
       );
-      
+
       expect(content).toContain("# --- From: .fossil-settings/ignore-glob ---");
       expect(content).toContain("# --- From: .gitignore ---");
       expect(content).toContain("# --- From: .mimoignore ---");
@@ -113,9 +130,9 @@ echo '[]'`, { mode: 0o755 });
       const consoleSpy = [];
       const originalWarn = console.warn;
       console.warn = (...args) => consoleSpy.push(args);
-      
+
       await sccService.buildIgnoreFile(testDir);
-      
+
       console.warn = originalWarn;
 
       // THEN warnings are logged for missing files
@@ -135,9 +152,9 @@ echo '[]'`, { mode: 0o755 });
       // THEN composite file is created with .gitignore content (.sccignore)
       const compositePath = join(testDir, ".sccignore");
       expect(existsSync(compositePath)).toBe(true);
-      
+
       const content = new TextDecoder().decode(
-        await Bun.file(compositePath).arrayBuffer()
+        await Bun.file(compositePath).arrayBuffer(),
       );
       expect(content).toContain("node_modules/");
       expect(content).toContain("dist/");
@@ -156,9 +173,9 @@ echo '[]'`, { mode: 0o755 });
       // THEN all occurrences are preserved
       const compositePath = join(testDir, ".sccignore");
       const content = new TextDecoder().decode(
-        await Bun.file(compositePath).arrayBuffer()
+        await Bun.file(compositePath).arrayBuffer(),
       );
-      
+
       // Should appear 3 times (once per source)
       const matches = content.match(/temp\//g);
       expect(matches?.length).toBe(3);

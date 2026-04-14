@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync } from "fs";
@@ -30,8 +37,11 @@ describe("Chat Input Recovery", () => {
   const testHome = join(tmpdir(), `mimo-chat-recovery-test-${Date.now()}`);
 
   beforeAll(async () => {
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
-    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({
+      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+    });
 
     const chatModule = await import("../src/sessions/chat.ts");
     chatService = chatModule.chatService;
@@ -74,7 +84,8 @@ describe("Chat Input Recovery", () => {
       clearStreamingTimeoutMock();
 
       // Fast forward time
-      const advanceTime = () => new Promise(resolve => setTimeout(resolve, TIMEOUT_MS + 100));
+      const advanceTime = () =>
+        new Promise((resolve) => setTimeout(resolve, TIMEOUT_MS + 100));
       advanceTime().then(() => {
         expect(timeoutCalled).toBe(false);
       });
@@ -137,7 +148,8 @@ describe("Chat Input Recovery", () => {
 
       // Agent is dead (no activity recorded)
       const isAgentAlive = chatService.isAgentAlive(sessionId);
-      const shouldSendState = !!(thoughtContent || messageContent) && isAgentAlive;
+      const shouldSendState =
+        !!(thoughtContent || messageContent) && isAgentAlive;
 
       expect(isAgentAlive).toBe(false);
       expect(shouldSendState).toBe(false);
@@ -151,7 +163,8 @@ describe("Chat Input Recovery", () => {
       // Agent is alive
       chatService.updateAgentActivity(sessionId);
       const isAgentAlive = chatService.isAgentAlive(sessionId);
-      const shouldSendState = !!(thoughtContent || messageContent) && isAgentAlive;
+      const shouldSendState =
+        !!(thoughtContent || messageContent) && isAgentAlive;
 
       expect(isAgentAlive).toBe(true);
       expect(shouldSendState).toBe(true);
@@ -172,7 +185,7 @@ describe("Chat Input Recovery", () => {
       mockForceInput();
 
       // Wait for timeout
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      await new Promise((resolve) => setTimeout(resolve, 2500));
 
       expect(inputCreated).toBe(true);
     });

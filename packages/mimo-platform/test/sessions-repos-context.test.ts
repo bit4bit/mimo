@@ -8,12 +8,16 @@ describe("Sessions routes with injected repositories", () => {
   let testHome: string;
 
   beforeEach(() => {
-    testHome = join(tmpdir(), `mimo-sessions-repos-context-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    testHome = join(
+      tmpdir(),
+      `mimo-sessions-repos-context-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
     rmSync(testHome, { recursive: true, force: true });
   });
 
   it("uses injected project and session repositories", async () => {
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
 
     const mimoContext = createMimoContext({
@@ -55,7 +59,7 @@ describe("Sessions routes with injected repositories", () => {
           projects: fakeProjectRepo,
           sessions: fakeSessionRepo,
         },
-      } as any)
+      } as any),
     );
 
     const res = await app.request("/sessions?projectId=project-injected", {

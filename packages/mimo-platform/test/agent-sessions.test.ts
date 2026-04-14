@@ -16,7 +16,10 @@ describe("Agent Sessions API Integration Tests", () => {
   let generateToken: any;
 
   beforeEach(async () => {
-    testHome = join(tmpdir(), `mimo-agent-sessions-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    testHome = join(
+      tmpdir(),
+      `mimo-agent-sessions-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
 
     // Clean up from previous run
     try {
@@ -25,8 +28,11 @@ describe("Agent Sessions API Integration Tests", () => {
 
     mkdirSync(testHome, { recursive: true });
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
-    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({
+      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+    });
 
     userRepository = ctx.repos.users;
     projectRepository = ctx.repos.projects;
@@ -43,11 +49,15 @@ describe("Agent Sessions API Integration Tests", () => {
 
   describe("Agent Token Generation", () => {
     it("should generate token with only agentId and owner", async () => {
-      const agent = await agentService.createAgent({ name: "Token Gen Agent", owner: "testuser", provider: "opencode" });
-      
+      const agent = await agentService.createAgent({
+        name: "Token Gen Agent",
+        owner: "testuser",
+        provider: "opencode",
+      });
+
       // Verify token format
       const payload = await agentService.verifyAgentToken(agent.token);
-      
+
       expect(payload).toBeDefined();
       expect(payload.agentId).toBe(agent.id);
       expect(payload.owner).toBe("testuser");
@@ -64,7 +74,11 @@ describe("Agent Sessions API Integration Tests", () => {
 
   describe("Agent Session Assignment", () => {
     it("should assign session to agent", async () => {
-      const agent = await agentRepository.create({ name: "Session Assignment Agent", owner: "testuser", provider: "opencode" });
+      const agent = await agentRepository.create({
+        name: "Session Assignment Agent",
+        owner: "testuser",
+        provider: "opencode",
+      });
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -79,13 +93,17 @@ describe("Agent Sessions API Integration Tests", () => {
 
       // Assign session to agent
       const updated = await agentRepository.assignSession(agent.id, session.id);
-      
+
       expect(updated).not.toBeNull();
       expect(updated?.sessionIds).toContain(session.id);
     });
 
     it("should allow multiple sessions per agent", async () => {
-      const agent = await agentRepository.create({ name: "Multi Session Agent", owner: "testuser", provider: "opencode" });
+      const agent = await agentRepository.create({
+        name: "Multi Session Agent",
+        owner: "testuser",
+        provider: "opencode",
+      });
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -113,7 +131,11 @@ describe("Agent Sessions API Integration Tests", () => {
     });
 
     it("should unassign session from agent", async () => {
-      const agent = await agentRepository.create({ name: "Unassignment Test Agent", owner: "testuser", provider: "opencode" });
+      const agent = await agentRepository.create({
+        name: "Unassignment Test Agent",
+        owner: "testuser",
+        provider: "opencode",
+      });
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -139,7 +161,11 @@ describe("Agent Sessions API Integration Tests", () => {
       const app = new Hono();
       app.route("/agents", agentRoutes);
 
-      const agent = await agentService.createAgent({ name: "Sessions API Agent", owner: "testuser", provider: "opencode" });
+      const agent = await agentService.createAgent({
+        name: "Sessions API Agent",
+        owner: "testuser",
+        provider: "opencode",
+      });
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -153,7 +179,11 @@ describe("Agent Sessions API Integration Tests", () => {
       });
 
       // Assign session to agent (both agent.sessionIds AND session.assignedAgentId)
-      await agentRepository.setSessionAssignment(agent.id, session.id, sessionRepository);
+      await agentRepository.setSessionAssignment(
+        agent.id,
+        session.id,
+        sessionRepository,
+      );
 
       const res = await app.request("/agents/me/sessions", {
         headers: {
@@ -174,7 +204,11 @@ describe("Agent Sessions API Integration Tests", () => {
       const app = new Hono();
       app.route("/agents", agentRoutes);
 
-      const agent = await agentService.createAgent({ name: "No Sessions Agent", owner: "testuser", provider: "opencode" });
+      const agent = await agentService.createAgent({
+        name: "No Sessions Agent",
+        owner: "testuser",
+        provider: "opencode",
+      });
 
       const res = await app.request("/agents/me/sessions", {
         headers: {
@@ -218,7 +252,11 @@ describe("Agent Sessions API Integration Tests", () => {
       const app = new Hono();
       app.route("/agents", agentRoutes);
 
-      const agent = await agentService.createAgent({ name: "Port Session Agent", owner: "testuser", provider: "opencode" });
+      const agent = await agentService.createAgent({
+        name: "Port Session Agent",
+        owner: "testuser",
+        provider: "opencode",
+      });
       const project = await projectRepository.create({
         name: "Test Project",
         repoUrl: "https://github.com/user/repo.git",
@@ -232,7 +270,11 @@ describe("Agent Sessions API Integration Tests", () => {
       });
 
       // Assign session and set port
-      await agentRepository.setSessionAssignment(agent.id, session.id, sessionRepository);
+      await agentRepository.setSessionAssignment(
+        agent.id,
+        session.id,
+        sessionRepository,
+      );
       await sessionRepository.update(session.id, { port: 8042 });
 
       const res = await app.request("/agents/me/sessions", {

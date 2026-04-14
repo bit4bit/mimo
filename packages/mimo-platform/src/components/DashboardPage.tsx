@@ -34,10 +34,15 @@ interface DashboardProps {
   sessions: Session[];
 }
 
-export const DashboardPage: FC<DashboardProps> = ({ username, projects, agents, sessions }) => {
-  const onlineAgents = agents.filter(a => a.status === "online").length;
-  const offlineAgents = agents.filter(a => a.status === "offline").length;
-  const activeSessions = sessions.filter(s => s.status === "active").length;
+export const DashboardPage: FC<DashboardProps> = ({
+  username,
+  projects,
+  agents,
+  sessions,
+}) => {
+  const onlineAgents = agents.filter((a) => a.status === "online").length;
+  const offlineAgents = agents.filter((a) => a.status === "offline").length;
+  const activeSessions = sessions.filter((s) => s.status === "active").length;
 
   return (
     <Layout title="Dashboard">
@@ -59,7 +64,9 @@ export const DashboardPage: FC<DashboardProps> = ({ username, projects, agents, 
           <div class="stat-card">
             <div class="stat-value">
               <span class="online-dot">🟢</span> {onlineAgents}
-              <span style="margin-left: 10px;"><span class="offline-dot">🔴</span> {offlineAgents}</span>
+              <span style="margin-left: 10px;">
+                <span class="offline-dot">🔴</span> {offlineAgents}
+              </span>
             </div>
             <div class="stat-label">Agents</div>
           </div>
@@ -69,12 +76,16 @@ export const DashboardPage: FC<DashboardProps> = ({ username, projects, agents, 
           <div class="dashboard-section">
             <div class="section-header">
               <h2>Projects</h2>
-              <a href="/projects/new" class="btn-small">+ New Project</a>
+              <a href="/projects/new" class="btn-small">
+                + New Project
+              </a>
             </div>
             {projects.length === 0 ? (
               <div class="empty-state">
                 <p>No projects yet.</p>
-                <a href="/projects/new" class="btn-primary">Create your first project</a>
+                <a href="/projects/new" class="btn-primary">
+                  Create your first project
+                </a>
               </div>
             ) : (
               <ul class="item-list">
@@ -82,26 +93,34 @@ export const DashboardPage: FC<DashboardProps> = ({ username, projects, agents, 
                   <li key={project.id}>
                     <a href={`/projects/${project.id}`} class="item-link">
                       <span class="item-name">{project.name}</span>
-                      <span class="item-meta">{project.isPublic ? "Public" : "Private"}</span>
+                      <span class="item-meta">
+                        {project.isPublic ? "Public" : "Private"}
+                      </span>
                     </a>
                   </li>
                 ))}
               </ul>
             )}
             {projects.length > 5 && (
-              <a href="/projects" class="view-all">View all {projects.length} projects</a>
+              <a href="/projects" class="view-all">
+                View all {projects.length} projects
+              </a>
             )}
           </div>
 
           <div class="dashboard-section">
             <div class="section-header">
               <h2>Agents</h2>
-              <a href="/agents/new" class="btn-small">+ New Agent</a>
+              <a href="/agents/new" class="btn-small">
+                + New Agent
+              </a>
             </div>
             {agents.length === 0 ? (
               <div class="empty-state">
                 <p>No agents yet.</p>
-                <a href="/agents/new" class="btn-primary">Create your first agent</a>
+                <a href="/agents/new" class="btn-primary">
+                  Create your first agent
+                </a>
               </div>
             ) : (
               <ul class="item-list">
@@ -118,7 +137,9 @@ export const DashboardPage: FC<DashboardProps> = ({ username, projects, agents, 
               </ul>
             )}
             {agents.length > 5 && (
-              <a href="/agents" class="view-all">View all {agents.length} agents</a>
+              <a href="/agents" class="view-all">
+                View all {agents.length} agents
+              </a>
             )}
           </div>
 
@@ -129,17 +150,26 @@ export const DashboardPage: FC<DashboardProps> = ({ username, projects, agents, 
             {sessions.length === 0 ? (
               <div class="empty-state">
                 <p>No sessions yet.</p>
-                <p style="color: #666; font-size: 12px;">Create a project first, then add sessions.</p>
+                <p style="color: #666; font-size: 12px;">
+                  Create a project first, then add sessions.
+                </p>
               </div>
             ) : (
               <ul class="item-list">
                 {sessions.slice(0, 5).map((session) => {
-                  const project = projects.find(p => p.id === session.projectId);
+                  const project = projects.find(
+                    (p) => p.id === session.projectId,
+                  );
                   return (
                     <li key={session.id}>
-                      <a href={`/projects/${session.projectId}/sessions/${session.id}`} class="item-link">
+                      <a
+                        href={`/projects/${session.projectId}/sessions/${session.id}`}
+                        class="item-link"
+                      >
                         <span class="item-name">{session.name}</span>
-                        <span class="item-meta">{project?.name || "Unknown"}</span>
+                        <span class="item-meta">
+                          {project?.name || "Unknown"}
+                        </span>
                       </a>
                     </li>
                   );

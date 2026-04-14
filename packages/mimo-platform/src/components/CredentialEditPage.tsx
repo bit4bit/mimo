@@ -7,7 +7,10 @@ interface CredentialEditPageProps {
   error?: string;
 }
 
-export const CredentialEditPage: FC<CredentialEditPageProps> = ({ credential, error }) => {
+export const CredentialEditPage: FC<CredentialEditPageProps> = ({
+  credential,
+  error,
+}) => {
   const isHttps = credential.type === "https";
   const cred = isHttps ? credential : null;
   const sshCred = !isHttps ? credential : null;
@@ -16,12 +19,14 @@ export const CredentialEditPage: FC<CredentialEditPageProps> = ({ credential, er
     <Layout title="Edit Credential">
       <div class="container">
         <h1>Edit Credential</h1>
-        
-        {error && (
-          <div class="error-message">{error}</div>
-        )}
-        
-        <form method="post" action={`/credentials/${credential.id}/edit`} class="credential-form">
+
+        {error && <div class="error-message">{error}</div>}
+
+        <form
+          method="post"
+          action={`/credentials/${credential.id}/edit`}
+          class="credential-form"
+        >
           <div class="form-group">
             <label htmlFor="type">Type</label>
             <input
@@ -33,7 +38,7 @@ export const CredentialEditPage: FC<CredentialEditPageProps> = ({ credential, er
             />
             <p class="form-help">Credential type cannot be changed.</p>
           </div>
-          
+
           <div class="form-group">
             <label htmlFor="name">Name</label>
             <input
@@ -46,7 +51,7 @@ export const CredentialEditPage: FC<CredentialEditPageProps> = ({ credential, er
               class="form-input"
             />
           </div>
-          
+
           {isHttps ? (
             <>
               <div class="form-group">
@@ -60,7 +65,7 @@ export const CredentialEditPage: FC<CredentialEditPageProps> = ({ credential, er
                   class="form-input"
                 />
               </div>
-              
+
               <div class="form-group">
                 <label htmlFor="password">Password / Token</label>
                 <input
@@ -71,7 +76,8 @@ export const CredentialEditPage: FC<CredentialEditPageProps> = ({ credential, er
                   class="form-input"
                 />
                 <p class="form-help">
-                  Leave blank to keep the existing password. Enter a new value to update it.
+                  Leave blank to keep the existing password. Enter a new value
+                  to update it.
                 </p>
               </div>
             </>
@@ -86,15 +92,19 @@ export const CredentialEditPage: FC<CredentialEditPageProps> = ({ credential, er
                 class="form-textarea"
               />
               <p class="form-help">
-                Leave blank to keep the existing key. Paste a new key to update it.
-                Supported formats: OpenSSH, RSA, ECDSA, Ed25519.
+                Leave blank to keep the existing key. Paste a new key to update
+                it. Supported formats: OpenSSH, RSA, ECDSA, Ed25519.
               </p>
             </div>
           )}
-          
+
           <div class="form-actions">
-            <button type="submit" class="btn">Update Credential</button>
-            <a href="/credentials" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn">
+              Update Credential
+            </button>
+            <a href="/credentials" class="btn-secondary">
+              Cancel
+            </a>
           </div>
         </form>
       </div>

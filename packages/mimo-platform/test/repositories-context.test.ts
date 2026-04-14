@@ -8,23 +8,33 @@ describe("Repositories with mimoContext paths", () => {
   let homeB: string;
 
   beforeEach(() => {
-    homeA = join(tmpdir(), `mimo-repos-context-a-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    homeB = join(tmpdir(), `mimo-repos-context-b-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    homeA = join(
+      tmpdir(),
+      `mimo-repos-context-a-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
+    homeB = join(
+      tmpdir(),
+      `mimo-repos-context-b-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
     rmSync(homeA, { recursive: true, force: true });
     rmSync(homeB, { recursive: true, force: true });
   });
 
   it("uses injected paths for user repository", async () => {
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const mimoContext = createMimoContext({ env: { MIMO_HOME: homeA } });
 
     await mimoContext.repos.users.create("ctx-user", "hash");
 
-    expect(existsSync(join(homeA, "users", "ctx-user", "credentials.yaml"))).toBe(true);
+    expect(
+      existsSync(join(homeA, "users", "ctx-user", "credentials.yaml")),
+    ).toBe(true);
   });
 
   it("uses injected paths for project repository", async () => {
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const mimoContext = createMimoContext({ env: { MIMO_HOME: homeA } });
 
     const project = await mimoContext.repos.projects.create({
@@ -34,11 +44,14 @@ describe("Repositories with mimoContext paths", () => {
       repoUrl: "https://github.com/example/repo.git",
     });
 
-    expect(existsSync(join(homeA, "projects", project.id, "project.yaml"))).toBe(true);
+    expect(
+      existsSync(join(homeA, "projects", project.id, "project.yaml")),
+    ).toBe(true);
   });
 
   it("uses injected paths for agent repository", async () => {
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const mimoContext = createMimoContext({ env: { MIMO_HOME: homeA } });
 
     const agent = await mimoContext.repos.agents.create({
@@ -47,11 +60,14 @@ describe("Repositories with mimoContext paths", () => {
       provider: "opencode",
     });
 
-    expect(existsSync(join(homeA, "agents", agent.id, "agent.yaml"))).toBe(true);
+    expect(existsSync(join(homeA, "agents", agent.id, "agent.yaml"))).toBe(
+      true,
+    );
   });
 
   it("uses injected paths for mcp server repository", async () => {
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const mimoContext = createMimoContext({ env: { MIMO_HOME: homeA } });
 
     const server = await mimoContext.repos.mcpServers.create({
@@ -61,6 +77,8 @@ describe("Repositories with mimoContext paths", () => {
       args: ["server.js"],
     });
 
-    expect(existsSync(join(homeA, "mcp-servers", server.id, "config.yaml"))).toBe(true);
+    expect(
+      existsSync(join(homeA, "mcp-servers", server.id, "config.yaml")),
+    ).toBe(true);
   });
 });

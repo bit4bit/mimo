@@ -9,7 +9,9 @@ describe("McpServerRepository", () => {
   const testHome = join(tmpdir(), `mimo-mcp-repo-test-${Date.now()}`);
 
   beforeEach(() => {
-    repository = new McpServerRepository({ mcpServersPath: join(testHome, "mcp-servers") });
+    repository = new McpServerRepository({
+      mcpServersPath: join(testHome, "mcp-servers"),
+    });
   });
 
   afterEach(() => {
@@ -32,7 +34,10 @@ describe("McpServerRepository", () => {
       expect(server.name).toBe("GitHub API");
       expect(server.transport).toBe("stdio");
       expect(server.command).toBe("npx");
-      expect(server.args).toEqual(["-y", "@modelcontextprotocol/server-github"]);
+      expect(server.args).toEqual([
+        "-y",
+        "@modelcontextprotocol/server-github",
+      ]);
       expect(server.createdAt).toBeInstanceOf(Date);
       expect(server.updatedAt).toBeInstanceOf(Date);
     });

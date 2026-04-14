@@ -5,16 +5,16 @@ interface CredentialCreatePageProps {
   error?: string;
 }
 
-export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({ error }) => {
+export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({
+  error,
+}) => {
   return (
     <Layout title="New Credential">
       <div class="container">
         <h1>New Credential</h1>
-        
-        {error && (
-          <div class="error-message">{error}</div>
-        )}
-        
+
+        {error && <div class="error-message">{error}</div>}
+
         <form method="post" action="/credentials" class="credential-form">
           <div class="form-group">
             <label htmlFor="type">Type</label>
@@ -24,7 +24,7 @@ export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({ error }) =
               <option value="ssh">SSH (Private Key)</option>
             </select>
           </div>
-          
+
           <div class="form-group">
             <label htmlFor="name">Name</label>
             <input
@@ -36,7 +36,7 @@ export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({ error }) =
               class="form-input"
             />
           </div>
-          
+
           <div id="https-fields">
             <div class="form-group">
               <label htmlFor="username">Username</label>
@@ -48,7 +48,7 @@ export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({ error }) =
                 class="form-input"
               />
             </div>
-            
+
             <div class="form-group">
               <label htmlFor="password">Password / Token</label>
               <input
@@ -63,7 +63,7 @@ export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({ error }) =
               </p>
             </div>
           </div>
-          
+
           <div id="ssh-fields" style="display: none;">
             <div class="form-group">
               <label htmlFor="privateKey">SSH Private Key</label>
@@ -75,19 +75,25 @@ export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({ error }) =
                 class="form-textarea"
               />
               <p class="form-help">
-                Paste your SSH private key. Supported formats: OpenSSH, RSA, ECDSA, Ed25519.
+                Paste your SSH private key. Supported formats: OpenSSH, RSA,
+                ECDSA, Ed25519.
               </p>
             </div>
           </div>
-          
+
           <div class="form-actions">
-            <button type="submit" class="btn">Create Credential</button>
-            <a href="/credentials" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn">
+              Create Credential
+            </button>
+            <a href="/credentials" class="btn-secondary">
+              Cancel
+            </a>
           </div>
         </form>
-        
-        <script dangerouslySetInnerHTML={{
-          __html: `
+
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
             document.getElementById('type').addEventListener('change', function() {
               const type = this.value;
               const httpsFields = document.getElementById('https-fields');
@@ -110,8 +116,9 @@ export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({ error }) =
                 sshFields.querySelectorAll('textarea').forEach(input => input.required = false);
               }
             });
-          `
-        }} />
+          `,
+          }}
+        />
       </div>
     </Layout>
   );

@@ -50,14 +50,23 @@ interface ImpactHistoryProps {
   sessions: Map<string, SessionInfo>;
 }
 
-export const ImpactHistoryPage: FC<ImpactHistoryProps> = ({ project, impacts, sessions }) => {
+export const ImpactHistoryPage: FC<ImpactHistoryProps> = ({
+  project,
+  impacts,
+  sessions,
+}) => {
   return (
     <Layout title={`Impact History - ${project.name}`}>
-      <div class="container" style="max-width: 1200px; margin: 0 auto; padding: 20px;">
+      <div
+        class="container"
+        style="max-width: 1200px; margin: 0 auto; padding: 20px;"
+      >
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <div>
             <h1>Impact History</h1>
-            <p style="color: #888; margin: 5px 0 0 0;">Project: {project.name}</p>
+            <p style="color: #888; margin: 5px 0 0 0;">
+              Project: {project.name}
+            </p>
           </div>
           <a href={`/projects/${project.id}`} class="btn-secondary">
             Back to Project
@@ -89,7 +98,7 @@ export const ImpactHistoryPage: FC<ImpactHistoryProps> = ({ project, impacts, se
                 {impacts.map((impact) => {
                   const sessionInfo = sessions.get(impact.sessionId);
                   const sessionExists = sessionInfo?.exists ?? false;
-                  
+
                   return (
                     <tr key={impact.id}>
                       <td>
@@ -120,36 +129,52 @@ export const ImpactHistoryPage: FC<ImpactHistoryProps> = ({ project, impacts, se
                       </td>
                       <td>
                         <div class="metric-group">
-                          <span class="metric-new" title="New files">+{impact.files.new}</span>
-                          <span class="metric-changed" title="Changed files">~{impact.files.changed}</span>
-                          <span class="metric-deleted" title="Deleted files">-{impact.files.deleted}</span>
+                          <span class="metric-new" title="New files">
+                            +{impact.files.new}
+                          </span>
+                          <span class="metric-changed" title="Changed files">
+                            ~{impact.files.changed}
+                          </span>
+                          <span class="metric-deleted" title="Deleted files">
+                            -{impact.files.deleted}
+                          </span>
                         </div>
                       </td>
                       <td>
                         <div class="metric-group">
-                          <span class="metric-added" title="Lines added">+{impact.linesOfCode.added}</span>
-                          <span class="metric-removed" title="Lines removed">-{impact.linesOfCode.removed}</span>
+                          <span class="metric-added" title="Lines added">
+                            +{impact.linesOfCode.added}
+                          </span>
+                          <span class="metric-removed" title="Lines removed">
+                            -{impact.linesOfCode.removed}
+                          </span>
                           <span
-                            class={`metric-net ${impact.linesOfCode.net >= 0 ? 'positive' : 'negative'}`}
+                            class={`metric-net ${impact.linesOfCode.net >= 0 ? "positive" : "negative"}`}
                             title="Net change"
                           >
-                            ({impact.linesOfCode.net >= 0 ? '+' : ''}{impact.linesOfCode.net})
+                            ({impact.linesOfCode.net >= 0 ? "+" : ""}
+                            {impact.linesOfCode.net})
                           </span>
                         </div>
                       </td>
                       <td>
                         <div class="metric-group">
                           <span title="Cyclomatic complexity">
-                            {impact.complexity.cyclomatic > 0 ? '+' : ''}
+                            {impact.complexity.cyclomatic > 0 ? "+" : ""}
                             {impact.complexity.cyclomatic} cyc
                           </span>
                         </div>
                       </td>
                       <td>
-                        {formatEstimatedTime(impact.complexity.estimatedMinutes)}
+                        {formatEstimatedTime(
+                          impact.complexity.estimatedMinutes,
+                        )}
                       </td>
                       <td>
-                        <span class="date-cell" title={impact.commitDate.toISOString()}>
+                        <span
+                          class="date-cell"
+                          title={impact.commitDate.toISOString()}
+                        >
                           {formatRelativeDate(impact.commitDate)}
                         </span>
                       </td>
@@ -301,7 +326,7 @@ function formatRelativeDate(date: Date): string {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  
+
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",

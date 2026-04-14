@@ -21,18 +21,22 @@ describe("Agent Handoff Tests", () => {
     it("should construct correct fossil URL from platform URL", () => {
       const platformUrl = "http://localhost:3000";
       const port = 8080;
-      const platformHost = platformUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-      const fossilUrl = `http://${platformHost.split(':')[0]}:${port}/`;
-      
+      const platformHost = platformUrl
+        .replace(/^https?:\/\//, "")
+        .replace(/\/+$/, "");
+      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+
       expect(fossilUrl).toBe("http://localhost:8080/");
     });
 
     it("should handle platform URL with port", () => {
       const platformUrl = "http://localhost:3000";
       const port = 8000;
-      const platformHost = platformUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-      const fossilUrl = `http://${platformHost.split(':')[0]}:${port}/`;
-      
+      const platformHost = platformUrl
+        .replace(/^https?:\/\//, "")
+        .replace(/\/+$/, "");
+      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+
       // Should extract just "localhost" and add new port
       expect(fossilUrl).toBe("http://localhost:8000/");
       expect(fossilUrl).not.toContain("3000:8000");
@@ -41,18 +45,22 @@ describe("Agent Handoff Tests", () => {
     it("should handle https platform URL", () => {
       const platformUrl = "https://example.com";
       const port = 8080;
-      const platformHost = platformUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-      const fossilUrl = `http://${platformHost.split(':')[0]}:${port}/`;
-      
+      const platformHost = platformUrl
+        .replace(/^https?:\/\//, "")
+        .replace(/\/+$/, "");
+      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+
       expect(fossilUrl).toBe("http://example.com:8080/");
     });
 
     it("should handle platform URL with trailing slash", () => {
       const platformUrl = "http://localhost:3000/";
       const port = 8000;
-      const platformHost = platformUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-      const fossilUrl = `http://${platformHost.split(':')[0]}:${port}/`;
-      
+      const platformHost = platformUrl
+        .replace(/^https?:\/\//, "")
+        .replace(/\/+$/, "");
+      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+
       expect(fossilUrl).toBe("http://localhost:8000/");
     });
   });
@@ -62,7 +70,7 @@ describe("Agent Handoff Tests", () => {
       const workdir = "/tmp/demo";
       const sessionId = "abc-123";
       const checkoutPath = join(workdir, sessionId);
-      
+
       expect(checkoutPath).toBe("/tmp/demo/abc-123");
     });
 
@@ -70,7 +78,7 @@ describe("Agent Handoff Tests", () => {
       const workdir = "/home/user/work/agents/agent-1";
       const sessionId = "session-456";
       const checkoutPath = join(workdir, sessionId);
-      
+
       expect(checkoutPath).toBe("/home/user/work/agents/agent-1/session-456");
     });
   });
@@ -80,7 +88,7 @@ describe("Agent Handoff Tests", () => {
       const sessionId = "test-session";
       const checkoutPath = "/tmp/demo/test-session";
       const repoPath = join(checkoutPath, "..", `${sessionId}.fossil`);
-      
+
       // join() normalizes the path, removing the ".." and duplicate segment
       expect(repoPath).toBe("/tmp/demo/test-session.fossil");
     });
@@ -91,16 +99,16 @@ describe("Agent Handoff Tests", () => {
       const sessionId = "test-session";
       const repoDir = join(tempDir, "repos");
       mkdirSync(repoDir, { recursive: true });
-      
+
       const repoPath = join(repoDir, `${sessionId}.fossil`);
       const checkoutPath = join(repoDir, sessionId);
-      
+
       // Simulate existing repo file
       writeFileSync(repoPath, "fake fossil data");
-      
+
       expect(existsSync(repoPath)).toBe(true);
       expect(existsSync(checkoutPath)).toBe(false);
-      
+
       // Logic: if repo exists, open it without cloning
       if (existsSync(repoPath)) {
         // Would open existing repo
@@ -113,12 +121,12 @@ describe("Agent Handoff Tests", () => {
       const workdir = tempDir;
       const checkoutPath = join(workdir, sessionId);
       const fossilDir = join(checkoutPath, ".fossil");
-      
+
       mkdirSync(checkoutPath, { recursive: true });
       mkdirSync(fossilDir, { recursive: true });
-      
+
       expect(existsSync(fossilDir)).toBe(true);
-      
+
       // Logic: if checkout/.fossil exists, ensure it's open
       if (existsSync(fossilDir)) {
         // Would run fossil open
@@ -131,7 +139,7 @@ describe("Agent Handoff Tests", () => {
         stderr: "file already exists: /tmp/demo/session.fossil\n",
         status: 1,
       };
-      
+
       expect(error.stderr).toContain("file already exists");
       expect(error.status).toBe(1);
     });
@@ -142,7 +150,7 @@ describe("Agent Handoff Tests", () => {
       const sessionId = "session-123";
       const checkoutPath = "/tmp/demo/session-123";
       const fossilUrl = "http://localhost:8080/";
-      
+
       const sessionInfo = {
         sessionId,
         checkoutPath,
@@ -150,7 +158,7 @@ describe("Agent Handoff Tests", () => {
         acpProcess: null,
         fileWatcher: null,
       };
-      
+
       expect(sessionInfo.sessionId).toBe("session-123");
       expect(sessionInfo.checkoutPath).toBe("/tmp/demo/session-123");
       expect(sessionInfo.fossilUrl).toBe("http://localhost:8080/");
@@ -159,12 +167,14 @@ describe("Agent Handoff Tests", () => {
     it("should derive fossil URL from platform URL and port", () => {
       const platformUrl = "http://localhost:3000";
       const port = 8000;
-      
+
       // This was the bug - would produce http://localhost:3000:8000
       // Fixed version extracts hostname and uses new port
-      const platformHost = platformUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-      const fossilUrl = `http://${platformHost.split(':')[0]}:${port}/`;
-      
+      const platformHost = platformUrl
+        .replace(/^https?:\/\//, "")
+        .replace(/\/+$/, "");
+      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+
       expect(fossilUrl).not.toContain("3000:8000");
       expect(fossilUrl).toBe("http://localhost:8000/");
     });
@@ -177,7 +187,7 @@ describe("Agent Handoff Tests", () => {
         workdir: "/tmp/demo",
         timestamp: new Date().toISOString(),
       };
-      
+
       expect(message.type).toBe("agent_ready");
       expect(message.workdir).toBe("/tmp/demo");
     });
@@ -188,7 +198,7 @@ describe("Agent Handoff Tests", () => {
         platformUrl: "http://localhost:3000",
         sessions: [{ sessionId: "abc", port: 8080 }],
       };
-      
+
       expect(message.platformUrl).toBe("http://localhost:3000");
     });
 
@@ -199,7 +209,7 @@ describe("Agent Handoff Tests", () => {
         error: "Clone failed",
         timestamp: new Date().toISOString(),
       };
-      
+
       expect(message.sessionId).toBe("abc");
       expect(message.error).toBe("Clone failed");
     });
@@ -210,7 +220,7 @@ describe("Agent Handoff Tests", () => {
         sessionIds: ["abc", "def"],
         timestamp: new Date().toISOString(),
       };
-      
+
       expect(message.sessionIds).toContain("abc");
       expect(message.sessionIds).toContain("def");
     });
@@ -336,7 +346,9 @@ describe("Agent Handoff Tests", () => {
         checkoutPath: "/tmp/checkout",
       };
 
-      const shouldSync = session.localDevMirrorPath != null && session.localDevMirrorPath.length > 0;
+      const shouldSync =
+        session.localDevMirrorPath != null &&
+        session.localDevMirrorPath.length > 0;
       expect(shouldSync).toBe(false);
     });
 
@@ -346,7 +358,9 @@ describe("Agent Handoff Tests", () => {
         checkoutPath: "/tmp/checkout",
       };
 
-      const shouldSync = session.localDevMirrorPath != null && session.localDevMirrorPath.length > 0;
+      const shouldSync =
+        session.localDevMirrorPath != null &&
+        session.localDevMirrorPath.length > 0;
       expect(shouldSync).toBe(true);
     });
 
@@ -364,8 +378,11 @@ describe("Agent Handoff Tests", () => {
       const path2 = "src/.git/hooks";
       const path3 = ".fossil/config";
 
-      const isVcsPath = (path: string) => path.includes(".git/") || path.includes(".fossil/") ||
-        path.startsWith(".git") || path.startsWith(".fossil");
+      const isVcsPath = (path: string) =>
+        path.includes(".git/") ||
+        path.includes(".fossil/") ||
+        path.startsWith(".git") ||
+        path.startsWith(".fossil");
 
       expect(isVcsPath(path1)).toBe(true);
       expect(isVcsPath(path2)).toBe(true);
@@ -377,8 +394,11 @@ describe("Agent Handoff Tests", () => {
       const path2 = "lib/utils.ts";
       const path3 = "README.md";
 
-      const isVcsPath = (path: string) => path.includes(".git/") || path.includes(".fossil/") ||
-        path.startsWith(".git") || path.startsWith(".fossil");
+      const isVcsPath = (path: string) =>
+        path.includes(".git/") ||
+        path.includes(".fossil/") ||
+        path.startsWith(".git") ||
+        path.startsWith(".fossil");
 
       expect(isVcsPath(path1)).toBe(false);
       expect(isVcsPath(path2)).toBe(false);

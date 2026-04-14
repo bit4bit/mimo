@@ -17,14 +17,22 @@ describe("AcpClient.onPermissionRequest", () => {
       onMessageChunk: () => {},
       onUsageUpdate: () => {},
       onGenericUpdate: () => {},
-      onPermissionRequest: async (sessionId: string, requestId: string, params: any) => {
+      onPermissionRequest: async (
+        sessionId: string,
+        requestId: string,
+        params: any,
+      ) => {
         receivedRequestIds.push(requestId);
         // Return a cancelled outcome so we don't block
         return { outcome: { outcome: "cancelled" as const } };
       },
     };
 
-    const client = new AcpClient(new OpencodeProvider(), "test-session", callbacks);
+    const client = new AcpClient(
+      new OpencodeProvider(),
+      "test-session",
+      callbacks,
+    );
 
     // The callback is wired inside initialize(); we verify the interface compiles
     // and the callback signature is satisfied (TypeScript would catch mismatches).
@@ -38,12 +46,18 @@ describe("AcpClient.onPermissionRequest", () => {
       ],
     };
 
-    const result = await callbacks.onPermissionRequest("test-session", crypto.randomUUID(), mockParams as any);
+    const result = await callbacks.onPermissionRequest(
+      "test-session",
+      crypto.randomUUID(),
+      mockParams as any,
+    );
     expect(receivedRequestIds.length).toBe(1);
 
     // requestId must be a valid UUID v4
     const uuid = receivedRequestIds[0];
-    expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(uuid).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
 
     expect(result.outcome.outcome).toBe("cancelled");
   });
@@ -137,7 +151,10 @@ describe("auto-cancel on last client disconnect", () => {
     const cancelledOutcomes: string[] = [];
 
     // Simulate platform pendingPermissions map
-    const pendingPermissions = new Map<string, { agentWs: any; sessionId: string }>();
+    const pendingPermissions = new Map<
+      string,
+      { agentWs: any; sessionId: string }
+    >();
 
     const req1 = crypto.randomUUID();
     const req2 = crypto.randomUUID();
@@ -146,7 +163,9 @@ describe("auto-cancel on last client disconnect", () => {
     const mockAgentWs = {
       readyState: 1, // OPEN
       sentMessages: [] as any[],
-      send(msg: string) { this.sentMessages.push(JSON.parse(msg)); },
+      send(msg: string) {
+        this.sentMessages.push(JSON.parse(msg));
+      },
     };
 
     pendingPermissions.set(req1, { agentWs: mockAgentWs, sessionId });
@@ -157,11 +176,13 @@ describe("auto-cancel on last client disconnect", () => {
       if (pending.sessionId === sessionId) {
         pendingPermissions.delete(requestId);
         if (pending.agentWs.readyState === 1) {
-          pending.agentWs.send(JSON.stringify({
-            type: "permission_response",
-            requestId,
-            outcome: { outcome: "cancelled" },
-          }));
+          pending.agentWs.send(
+            JSON.stringify({
+              type: "permission_response",
+              requestId,
+              outcome: { outcome: "cancelled" },
+            }),
+          );
         }
       }
     }
@@ -178,8 +199,17 @@ describe("auto-cancel on last client disconnect", () => {
     const sessionA = "session-a";
     const sessionB = "session-b";
 
-    const pendingPermissions = new Map<string, { agentWs: any; sessionId: string }>();
-    const mockWs = { readyState: 1, sentMessages: [] as any[], send(m: string) { this.sentMessages.push(JSON.parse(m)); } };
+    const pendingPermissions = new Map<
+      string,
+      { agentWs: any; sessionId: string }
+    >();
+    const mockWs = {
+      readyState: 1,
+      sentMessages: [] as any[],
+      send(m: string) {
+        this.sentMessages.push(JSON.parse(m));
+      },
+    };
 
     const reqA = crypto.randomUUID();
     const reqB = crypto.randomUUID();
@@ -190,7 +220,13 @@ describe("auto-cancel on last client disconnect", () => {
     for (const [requestId, pending] of pendingPermissions) {
       if (pending.sessionId === sessionA) {
         pendingPermissions.delete(requestId);
-        pending.agentWs.send(JSON.stringify({ type: "permission_response", requestId, outcome: { outcome: "cancelled" } }));
+        pending.agentWs.send(
+          JSON.stringify({
+            type: "permission_response",
+            requestId,
+            outcome: { outcome: "cancelled" },
+          }),
+        );
       }
     }
 

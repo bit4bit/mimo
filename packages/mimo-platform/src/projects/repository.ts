@@ -1,6 +1,14 @@
 import { join } from "path";
 import { homedir } from "os";
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+  rmdirSync,
+  unlinkSync,
+} from "fs";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
 
@@ -64,7 +72,9 @@ export class ProjectRepository {
 
   private getProjectsPath(): string {
     if (!this.deps.projectsPath) {
-      throw new Error("projectsPath is required - provide via ProjectRepository constructor");
+      throw new Error(
+        "projectsPath is required - provide via ProjectRepository constructor",
+      );
     }
     return this.deps.projectsPath;
   }
@@ -88,7 +98,7 @@ export class ProjectRepository {
 
     const id = this.generateId();
     const projectPath = this.getProjectPath(id);
-    
+
     if (!existsSync(projectPath)) {
       mkdirSync(projectPath, { recursive: true });
     }
@@ -104,14 +114,12 @@ export class ProjectRepository {
       ...(input.credentialId && { credentialId: input.credentialId }),
       ...(input.sourceBranch && { sourceBranch: input.sourceBranch }),
       ...(input.newBranch && { newBranch: input.newBranch }),
-      ...(input.defaultLocalDevMirrorPath && { defaultLocalDevMirrorPath: input.defaultLocalDevMirrorPath }),
+      ...(input.defaultLocalDevMirrorPath && {
+        defaultLocalDevMirrorPath: input.defaultLocalDevMirrorPath,
+      }),
     };
 
-    writeFileSync(
-      this.getProjectFilePath(id),
-      dump(projectData),
-      "utf-8"
-    );
+    writeFileSync(this.getProjectFilePath(id), dump(projectData), "utf-8");
 
     return {
       ...projectData,
@@ -127,7 +135,7 @@ export class ProjectRepository {
 
     const content = readFileSync(filePath, "utf-8");
     const data = load(content) as ProjectData;
-    
+
     return {
       ...data,
       createdAt: new Date(data.createdAt),
@@ -145,7 +153,7 @@ export class ProjectRepository {
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-          const projectFile = join(projectsPath, entry.name, "project.yaml");
+        const projectFile = join(projectsPath, entry.name, "project.yaml");
         if (existsSync(projectFile)) {
           const content = readFileSync(projectFile, "utf-8");
           const data = load(content) as ProjectData;
@@ -173,7 +181,7 @@ export class ProjectRepository {
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-          const projectFile = join(projectsPath, entry.name, "project.yaml");
+        const projectFile = join(projectsPath, entry.name, "project.yaml");
         if (existsSync(projectFile)) {
           const content = readFileSync(projectFile, "utf-8");
           const data = load(content) as ProjectData;
@@ -190,7 +198,7 @@ export class ProjectRepository {
 
   async listAllPublic(): Promise<PublicProject[]> {
     const projects = await this.listAll();
-    return projects.map(project => ({
+    return projects.map((project) => ({
       id: project.id,
       name: project.name,
       description: project.description,
@@ -202,14 +210,14 @@ export class ProjectRepository {
 
   async delete(id: string): Promise<void> {
     const projectPath = this.getProjectPath(id);
-    
+
     if (existsSync(projectPath)) {
       // Delete project.yaml first
       const projectFile = this.getProjectFilePath(id);
       if (existsSync(projectFile)) {
         unlinkSync(projectFile);
       }
-      
+
       // Delete any other files in the directory
       const entries = readdirSync(projectPath);
       for (const entry of entries) {
@@ -218,7 +226,7 @@ export class ProjectRepository {
           unlinkSync(entryPath);
         }
       }
-      
+
       // Delete the directory
       rmdirSync(projectPath);
     }
@@ -228,7 +236,17 @@ export class ProjectRepository {
     return existsSync(this.getProjectFilePath(id));
   }
 
-  async update(id: string, updates: { name?: string; repoUrl?: string; repoType?: "git" | "fossil"; description?: string; credentialId?: string; defaultLocalDevMirrorPath?: string | null }): Promise<Project> {
+  async update(
+    id: string,
+    updates: {
+      name?: string;
+      repoUrl?: string;
+      repoType?: "git" | "fossil";
+      description?: string;
+      credentialId?: string;
+      defaultLocalDevMirrorPath?: string | null;
+    },
+  ): Promise<Project> {
     const project = await this.findById(id);
     if (!project) {
       throw new Error("Project not found");
@@ -248,7 +266,10 @@ export class ProjectRepository {
       description: updates.description,
       sourceBranch: project.sourceBranch,
       newBranch: project.newBranch,
-      defaultLocalDevMirrorPath: updates.defaultLocalDevMirrorPath !== undefined ? updates.defaultLocalDevMirrorPath : project.defaultLocalDevMirrorPath,
+      defaultLocalDevMirrorPath:
+        updates.defaultLocalDevMirrorPath !== undefined
+          ? updates.defaultLocalDevMirrorPath
+          : project.defaultLocalDevMirrorPath,
     };
 
     // Handle credentialId specially - if undefined, keep existing; if null, remove; if string, set
@@ -260,11 +281,7 @@ export class ProjectRepository {
       updatedData.credentialId = project.credentialId;
     }
 
-    writeFileSync(
-      this.getProjectFilePath(id),
-      dump(updatedData),
-      "utf-8"
-    );
+    writeFileSync(this.getProjectFilePath(id), dump(updatedData), "utf-8");
 
     return {
       ...updatedData,

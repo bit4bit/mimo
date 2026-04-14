@@ -22,13 +22,21 @@ describe("mimo-agent", () => {
   describe("CLI argument parsing", () => {
     it("should parse --token argument", async () => {
       const proc = Bun.spawn(
-        [process.execPath, "run", "src/index.ts", "--token", "test-token-123", "--platform", "ws://localhost:3000/ws/agent"],
+        [
+          process.execPath,
+          "run",
+          "src/index.ts",
+          "--token",
+          "test-token-123",
+          "--platform",
+          "ws://localhost:3000/ws/agent",
+        ],
         {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
           env: { ...process.env, NODE_ENV: "test" },
-        }
+        },
       );
 
       // Wait a bit then kill
@@ -41,12 +49,18 @@ describe("mimo-agent", () => {
 
     it("should fail without --token", async () => {
       const proc = Bun.spawn(
-        [process.execPath, "run", "src/index.ts", "--platform", "ws://localhost:3000"],
+        [
+          process.execPath,
+          "run",
+          "src/index.ts",
+          "--platform",
+          "ws://localhost:3000",
+        ],
         {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
-        }
+        },
       );
 
       const exitCode = await proc.exited;
@@ -60,7 +74,7 @@ describe("mimo-agent", () => {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
-        }
+        },
       );
 
       const exitCode = await proc.exited;
@@ -81,7 +95,9 @@ describe("mimo-agent", () => {
       const expected = resolve(workdir, relativePath);
 
       // Test path resolution
-      expect(expected).toBe("/home/user/work/projects/abc/sessions/xyz/checkout");
+      expect(expected).toBe(
+        "/home/user/work/projects/abc/sessions/xyz/checkout",
+      );
     });
 
     it("should handle absolute path resolution", () => {
@@ -119,12 +135,20 @@ describe("mimo-agent", () => {
   describe("Graceful shutdown", () => {
     it("should handle SIGTERM gracefully", async () => {
       const proc = Bun.spawn(
-        [process.execPath, "run", "src/index.ts", "--token", "test", "--platform", "ws://localhost:3000"],
+        [
+          process.execPath,
+          "run",
+          "src/index.ts",
+          "--token",
+          "test",
+          "--platform",
+          "ws://localhost:3000",
+        ],
         {
           cwd: AGENT_CWD,
           stdout: "pipe",
           stderr: "pipe",
-        }
+        },
       );
 
       // Wait for startup
@@ -153,7 +177,12 @@ describe("mimo-agent", () => {
 
       // Create a session
       const sessionId = "test-session-1";
-      await manager.createSession(sessionId, "http://example.com/repo", "user", "pass");
+      await manager.createSession(
+        sessionId,
+        "http://example.com/repo",
+        "user",
+        "pass",
+      );
 
       // Verify session exists
       expect(manager.getSession(sessionId)).toBeDefined();
@@ -176,7 +205,12 @@ describe("mimo-agent", () => {
       const manager = new SessionManager(tempDir, mockCallbacks);
 
       const sessionId = "test-session-2";
-      await manager.createSession(sessionId, "http://example.com/repo", "user", "pass");
+      await manager.createSession(
+        sessionId,
+        "http://example.com/repo",
+        "user",
+        "pass",
+      );
 
       // First termination
       manager.terminateSession(sessionId);
@@ -198,7 +232,9 @@ describe("mimo-agent", () => {
       const manager = new SessionManager(tempDir, mockCallbacks);
 
       // Terminate a session that was never created (should not throw)
-      expect(() => manager.terminateSession("non-existent-session")).not.toThrow();
+      expect(() =>
+        manager.terminateSession("non-existent-session"),
+      ).not.toThrow();
       expect(manager.getSession("non-existent-session")).toBeUndefined();
     });
 
@@ -213,7 +249,12 @@ describe("mimo-agent", () => {
       const manager = new SessionManager(tempDir, mockCallbacks);
 
       const sessionId = "test-session-3";
-      const session = await manager.createSession(sessionId, "http://example.com/repo", "user", "pass");
+      const session = await manager.createSession(
+        sessionId,
+        "http://example.com/repo",
+        "user",
+        "pass",
+      );
 
       // Verify file watcher was started
       expect(session.fileWatcher).toBeDefined();

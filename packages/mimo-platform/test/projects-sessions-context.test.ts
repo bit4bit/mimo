@@ -8,12 +8,16 @@ describe("Projects nested sessions with mimoContext", () => {
   let testHome: string;
 
   beforeEach(() => {
-    testHome = join(tmpdir(), `mimo-projects-sessions-context-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    testHome = join(
+      tmpdir(),
+      `mimo-projects-sessions-context-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
     rmSync(testHome, { recursive: true, force: true });
   });
 
   it("uses injected auth service for nested sessions routes", async () => {
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const { createProjectsRoutes } = await import("../src/projects/routes.tsx");
 
     const mimoContext = createMimoContext({

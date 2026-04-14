@@ -53,10 +53,14 @@ export const fossilServer = {
       }
 
       // Start fossil server
-      const proc = spawn("fossil", ["server", repoPath, "--port", port.toString()], {
-        stdio: ["ignore", "pipe", "pipe"],
-        detached: false,
-      });
+      const proc = spawn(
+        "fossil",
+        ["server", repoPath, "--port", port.toString()],
+        {
+          stdio: ["ignore", "pipe", "pipe"],
+          detached: false,
+        },
+      );
 
       let started = false;
       let errorOutput = "";
@@ -64,7 +68,10 @@ export const fossilServer = {
       proc.stdout?.on("data", (data: Buffer) => {
         const output = data.toString();
         // Fossil server usually outputs something when it starts
-        if (!started && output.includes("Listening") || output.includes("listening")) {
+        if (
+          (!started && output.includes("Listening")) ||
+          output.includes("listening")
+        ) {
           started = true;
         }
       });

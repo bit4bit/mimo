@@ -14,14 +14,21 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
       <div class="container" style="max-width: 800px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <h1>MCP Servers</h1>
-          <a href="/mcp-servers/new" class="btn">New MCP Server</a>
+          <a href="/mcp-servers/new" class="btn">
+            New MCP Server
+          </a>
         </div>
-        
+
         {servers.length === 0 ? (
           <div class="empty-state">
             <p>No MCP servers configured yet.</p>
-            <p>MCP servers extend your AI agent's capabilities with tools and resources.</p>
-            <a href="/mcp-servers/new" class="btn" style="margin-top: 20px;">Create your first MCP server</a>
+            <p>
+              MCP servers extend your AI agent's capabilities with tools and
+              resources.
+            </p>
+            <a href="/mcp-servers/new" class="btn" style="margin-top: 20px;">
+              Create your first MCP server
+            </a>
           </div>
         ) : (
           <div class="mcp-servers-list">
@@ -31,7 +38,7 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
                   <div class="mcp-server-name">{server.name}</div>
                   <div class="mcp-server-id">ID: {server.id}</div>
                 </div>
-                
+
                 <div class="mcp-server-meta">
                   <span class={`transport-badge transport-${server.transport}`}>
                     {server.transport.toUpperCase()}
@@ -40,22 +47,35 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
                     <span class="server-description">{server.description}</span>
                   )}
                 </div>
-                
-                {server.transport === 'stdio' ? (
+
+                {server.transport === "stdio" ? (
                   <div class="mcp-server-command">
-                    <code>{server.command} {server.args?.join(' ')}</code>
+                    <code>
+                      {server.command} {server.args?.join(" ")}
+                    </code>
                   </div>
                 ) : (
                   <div class="mcp-server-url">
                     <code>{server.url}</code>
                   </div>
                 )}
-                
+
                 <div class="mcp-server-actions">
-                  <a href={`/mcp-servers/${server.id}/edit`} class="btn-secondary">Edit</a>
-                  <form method="post" action={`/mcp-servers/${server.id}/delete`} style="display: inline;" 
-                        onsubmit="return confirm('Are you sure you want to delete this MCP server? Sessions using it may fail to start.')">
-                    <button type="submit" class="btn-danger">Delete</button>
+                  <a
+                    href={`/mcp-servers/${server.id}/edit`}
+                    class="btn-secondary"
+                  >
+                    Edit
+                  </a>
+                  <form
+                    method="post"
+                    action={`/mcp-servers/${server.id}/delete`}
+                    style="display: inline;"
+                    onsubmit="return confirm('Are you sure you want to delete this MCP server? Sessions using it may fail to start.')"
+                  >
+                    <button type="submit" class="btn-danger">
+                      Delete
+                    </button>
                   </form>
                 </div>
               </div>
@@ -63,7 +83,7 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
           </div>
         )}
       </div>
-      
+
       <style>{`
         .mcp-servers-list {
           display: flex;

@@ -66,6 +66,8 @@ describe("MimoServer", () => {
       },
     });
 
-    expect(() => mimoServer.start()).toThrow("MimoServer must be setup before start");
+    expect(() => mimoServer.start()).toThrow(
+      "MimoServer must be setup before start",
+    );
   });
 });

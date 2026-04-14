@@ -7,7 +7,7 @@ describe("ImpactBuffer", () => {
     const { ImpactBuffer } = await import("../src/components/ImpactBuffer.tsx");
 
     const html = await renderToString(
-      jsx(ImpactBuffer, { sessionId: "test-session" })
+      jsx(ImpactBuffer, { sessionId: "test-session" }),
     );
 
     expect(html).toContain("Impact");
@@ -19,7 +19,7 @@ describe("ImpactBuffer", () => {
     const { ImpactBuffer } = await import("../src/components/ImpactBuffer.tsx");
 
     const html = await renderToString(
-      jsx(ImpactBuffer, { sessionId: "test-session" })
+      jsx(ImpactBuffer, { sessionId: "test-session" }),
     );
 
     expect(html).toContain("Click Refresh");
@@ -29,7 +29,7 @@ describe("ImpactBuffer", () => {
     const { ImpactBuffer } = await import("../src/components/ImpactBuffer.tsx");
 
     const html = await renderToString(
-      jsx(ImpactBuffer, { sessionId: "test-session" })
+      jsx(ImpactBuffer, { sessionId: "test-session" }),
     );
 
     // These classes are referenced by renderImpactMetrics in chat.js

@@ -10,10 +10,16 @@ describe("auto-commit routes", () => {
   let testHome: string;
 
   beforeEach(async () => {
-    testHome = join(tmpdir(), `mimo-auto-commit-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    testHome = join(
+      tmpdir(),
+      `mimo-auto-commit-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
-    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({
+      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+    });
 
     try {
       rmSync(testHome, { recursive: true, force: true });
@@ -25,7 +31,11 @@ describe("auto-commit routes", () => {
   it("returns sync status for a session", async () => {
     const app = new Hono();
     const router = createAutoCommitRouter({
-      getSyncStatus: async () => ({ syncState: "idle", lastSyncAt: undefined, lastSyncError: undefined }),
+      getSyncStatus: async () => ({
+        syncState: "idle",
+        lastSyncAt: undefined,
+        lastSyncError: undefined,
+      }),
       syncNow: async () => ({ success: true, message: "Synced" }),
       handleThoughtEnd: async () => ({ success: true, message: "Synced" }),
     } as any);
@@ -51,8 +61,15 @@ describe("auto-commit routes", () => {
     // For unit testing, we verify the route structure is correct
     const app = new Hono();
     const router = createAutoCommitRouter({
-      getSyncStatus: async () => ({ syncState: "idle", lastSyncAt: undefined, lastSyncError: undefined }),
-      syncNow: async () => ({ success: true, message: "Changes committed and pushed successfully!" }),
+      getSyncStatus: async () => ({
+        syncState: "idle",
+        lastSyncAt: undefined,
+        lastSyncError: undefined,
+      }),
+      syncNow: async () => ({
+        success: true,
+        message: "Changes committed and pushed successfully!",
+      }),
       handleThoughtEnd: async () => ({ success: true, message: "Synced" }),
     } as any);
 

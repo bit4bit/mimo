@@ -8,7 +8,6 @@ import type { MimoContext } from "../context/mimo-context.js";
 export function createCommitRoutes(mimoContext: MimoContext): Hono {
   const service = mimoContext.services.commits;
 
-
   const router = new Hono();
 
   // Apply auth middleware to all routes
@@ -26,7 +25,7 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
           success: false,
           error: result.error,
         },
-        400
+        400,
       );
     }
 
@@ -42,7 +41,9 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
 
     let message: string | undefined;
     let selectedPaths: string[] | undefined;
-    let applyStatuses: { added: boolean; modified: boolean; deleted: boolean } | undefined;
+    let applyStatuses:
+      | { added: boolean; modified: boolean; deleted: boolean }
+      | undefined;
 
     try {
       const body = await c.req.json();
@@ -67,7 +68,7 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
       sessionId,
       message || "",
       selectedPaths,
-      applyStatuses
+      applyStatuses,
     );
 
     const status = result.success ? 200 : 400;
@@ -91,7 +92,9 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
 
     let message: string | undefined;
     let selectedPaths: string[] | undefined;
-    let applyStatuses: { added: boolean; modified: boolean; deleted: boolean } | undefined;
+    let applyStatuses:
+      | { added: boolean; modified: boolean; deleted: boolean }
+      | undefined;
 
     try {
       const body = await c.req.json();
@@ -116,7 +119,7 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
       sessionId,
       message || "",
       selectedPaths,
-      applyStatuses
+      applyStatuses,
     );
 
     const status = result.success ? 200 : 400;

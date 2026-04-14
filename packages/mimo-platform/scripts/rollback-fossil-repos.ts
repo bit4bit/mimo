@@ -52,7 +52,13 @@ interface RollbackStats {
   errorsDetails: string[];
 }
 
-async function findSessionForFossil(normalizedId: string): Promise<{ projectId: string; sessionId: string; sessionFile: string } | null> {
+async function findSessionForFossil(
+  normalizedId: string,
+): Promise<{
+  projectId: string;
+  sessionId: string;
+  sessionFile: string;
+} | null> {
   const originalId = denormalizeSessionId(normalizedId);
   const projectsDir = getProjectsDir();
 
@@ -88,8 +94,26 @@ async function findSessionForFossil(normalizedId: string): Promise<{ projectId: 
   return null;
 }
 
-async function findFossilFiles(): Promise<Array<{ normalizedId: string; currentPath: string; originalSession: { projectId: string; sessionId: string; sessionFile: string } | null }>> {
-  const files: Array<{ normalizedId: string; currentPath: string; originalSession: { projectId: string; sessionId: string; sessionFile: string } | null }> = [];
+async function findFossilFiles(): Promise<
+  Array<{
+    normalizedId: string;
+    currentPath: string;
+    originalSession: {
+      projectId: string;
+      sessionId: string;
+      sessionFile: string;
+    } | null;
+  }>
+> {
+  const files: Array<{
+    normalizedId: string;
+    currentPath: string;
+    originalSession: {
+      projectId: string;
+      sessionId: string;
+      sessionFile: string;
+    } | null;
+  }> = [];
   const sessionFossilsDir = getSessionFossilsDir();
 
   if (!existsSync(sessionFossilsDir)) {
@@ -116,8 +140,16 @@ async function findFossilFiles(): Promise<Array<{ normalizedId: string; currentP
 }
 
 async function rollbackFile(
-  file: { normalizedId: string; currentPath: string; originalSession: { projectId: string; sessionId: string; sessionFile: string } | null },
-  dryRun: boolean
+  file: {
+    normalizedId: string;
+    currentPath: string;
+    originalSession: {
+      projectId: string;
+      sessionId: string;
+      sessionFile: string;
+    } | null;
+  },
+  dryRun: boolean,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (!file.originalSession) {
@@ -132,7 +164,7 @@ async function rollbackFile(
       file.originalSession.projectId,
       "sessions",
       file.originalSession.sessionId,
-      "repo.fossil"
+      "repo.fossil",
     );
 
     // Check if file already exists at destination
@@ -172,15 +204,17 @@ async function main() {
   const dataDir = getDataDir();
   const sessionFossilsDir = getSessionFossilsDir();
 
-  console.log("=" .repeat(70));
+  console.log("=".repeat(70));
   console.log("Fossil Repository Rollback Script");
-  console.log("=" .repeat(70));
+  console.log("=".repeat(70));
   console.log();
   console.log(`Data directory: ${dataDir}`);
   console.log(`Session fossils directory: ${sessionFossilsDir}`);
   console.log(`Mode: ${dryRun ? "DRY-RUN (no changes will be made)" : "LIVE"}`);
   console.log();
-  console.log("⚠️  WARNING: This will move fossil repositories BACK to session directories");
+  console.log(
+    "⚠️  WARNING: This will move fossil repositories BACK to session directories",
+  );
   console.log("   Only use this if you need to revert the migration!");
   console.log();
 
@@ -205,7 +239,7 @@ async function main() {
         file.originalSession.projectId,
         "sessions",
         file.originalSession.sessionId,
-        "repo.fossil"
+        "repo.fossil",
       );
       console.log(`  - ${file.originalSession.sessionId}`);
       console.log(`    From: ${file.currentPath}`);
@@ -218,8 +252,12 @@ async function main() {
   console.log();
 
   if (unknownSessions > 0) {
-    console.log(`⚠️  Warning: ${unknownSessions} repositories cannot be rolled back (session not found)`);
-    console.log("   These may have been deleted or the session ID doesn't match.");
+    console.log(
+      `⚠️  Warning: ${unknownSessions} repositories cannot be rolled back (session not found)`,
+    );
+    console.log(
+      "   These may have been deleted or the session ID doesn't match.",
+    );
     console.log();
   }
 
@@ -230,7 +268,9 @@ async function main() {
   }
 
   // Confirm before proceeding
-  console.log("⚠️  Press Ctrl+C to cancel, or wait 5 seconds to proceed with rollback...");
+  console.log(
+    "⚠️  Press Ctrl+C to cancel, or wait 5 seconds to proceed with rollback...",
+  );
   await new Promise((resolve) => setTimeout(resolve, 5000));
   console.log("Proceeding with rollback...");
   console.log();
@@ -257,19 +297,25 @@ async function main() {
       stats.rolledBack++;
     } else if (result.error?.includes("already exists")) {
       stats.skipped++;
-      console.log(`⚠ Skipped ${file.originalSession.sessionId}: ${result.error}`);
+      console.log(
+        `⚠ Skipped ${file.originalSession.sessionId}: ${result.error}`,
+      );
     } else {
       stats.errors++;
-      stats.errorsDetails.push(`${file.originalSession.sessionId}: ${result.error}`);
-      console.log(`✗ Error rolling back ${file.originalSession.sessionId}: ${result.error}`);
+      stats.errorsDetails.push(
+        `${file.originalSession.sessionId}: ${result.error}`,
+      );
+      console.log(
+        `✗ Error rolling back ${file.originalSession.sessionId}: ${result.error}`,
+      );
     }
   }
 
   // Report results
   console.log();
-  console.log("=" .repeat(70));
+  console.log("=".repeat(70));
   console.log("Rollback Complete");
-  console.log("=" .repeat(70));
+  console.log("=".repeat(70));
   console.log();
   console.log(`Total files:        ${stats.totalFiles}`);
   console.log(`Successfully moved: ${stats.rolledBack}`);
