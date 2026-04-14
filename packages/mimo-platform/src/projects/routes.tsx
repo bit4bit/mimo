@@ -9,9 +9,14 @@ import { ProjectDetailPage } from "../components/ProjectDetailPage";
 import { ProjectCreatePage } from "../components/ProjectCreatePage";
 import { ProjectEditPage } from "../components/ProjectEditPage";
 import { ImpactHistoryPage } from "../components/ImpactHistoryPage";
-import sessions from "../sessions/routes";
+import { createSessionsRoutes } from "../sessions/routes";
+import type { MimoContext } from "../context/mimo-context.js";
 
+type ProjectsRoutesContext = Pick<MimoContext, "services">;
+
+export function createProjectsRoutes(mimoContext?: ProjectsRoutesContext) {
 const projects = new Hono();
+const sessions = createSessionsRoutes(mimoContext);
 
 // Helper to detect if URL is SSH
 function isSshUrl(url: string): boolean {
@@ -313,4 +318,7 @@ projects.get("/:id/impacts", authMiddleware, async (c) => {
 // Nested session routes
 projects.route("/:projectId/sessions", sessions);
 
-export default projects;
+return projects;
+}
+
+export default createProjectsRoutes();

@@ -1,8 +1,7 @@
 import { Agent, AgentRepository, AgentStatus, AgentProvider, agentRepository } from "./repository.js";
 import { SignJWT, jwtVerify } from "jose";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
-const AGENT_SECRET = new TextEncoder().encode(JWT_SECRET);
+const DEFAULT_JWT_SECRET = "your-secret-key-change-in-production";
 
 export interface AgentTokenPayload {
   agentId: string;
@@ -24,10 +23,14 @@ export class AgentService {
   private activeConnections: Map<string, WebSocket> = new Map();
   private currentAcpRequest: Map<string, AbortController> = new Map();
   private agentWorkdirs: Map<string, string> = new Map();
+  private agentSecret: Uint8Array;
 
   constructor(
-    private repository: AgentRepository = agentRepository
-  ) {}
+    private repository: AgentRepository = agentRepository,
+    jwtSecret: string = process.env.JWT_SECRET || DEFAULT_JWT_SECRET
+  ) {
+    this.agentSecret = new TextEncoder().encode(jwtSecret);
+  }
 
   async createAgent(input: CreateAgentInput): Promise<Agent> {
     // Validate name
@@ -76,14 +79,14 @@ export class AgentService {
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
       .setExpirationTime("1y")
-      .sign(AGENT_SECRET);
+      .sign(this.agentSecret);
 
     return token;
   }
 
   async verifyAgentToken(token: string): Promise<AgentTokenPayload | null> {
     try {
-      const { payload } = await jwtVerify(token, AGENT_SECRET);
+      const { payload } = await jwtVerify(token, this.agentSecret);
       return {
         agentId: payload.agentId as string,
         sessionId: payload.sessionId as string | undefined,

@@ -9,7 +9,7 @@ import { agentRepository } from "../agents/repository.js";
 import { agentService } from "../agents/service.js";
 import { chatService } from "./chat.js";
 import { vcs } from "../vcs/index.js";
-import { verifyToken } from "../auth/jwt.js";
+import { jwtService as defaultJwtService } from "../auth/jwt.js";
 import { fileSyncService } from "../sync/service.js";
 import { impactCalculator } from "../impact/calculator.js";
 
@@ -23,7 +23,15 @@ import { mcpServerService } from "../mcp-servers/service.js";
 import type { Context } from "hono";
 import { normalizeFrameState, updateFrameState, loadNotes, saveNotes } from "./frame-state.js";
 
+type SessionsRoutesContext = {
+  services: {
+    auth: typeof defaultJwtService;
+  };
+};
+
+export function createSessionsRoutes(mimoContext?: SessionsRoutesContext) {
 const router = new Hono();
+const authService = mimoContext?.services.auth ?? defaultJwtService;
 
 // Helper to get authenticated username from cookie
 async function getAuthUsername(c: Context): Promise<string | null> {
@@ -37,7 +45,7 @@ async function getAuthUsername(c: Context): Promise<string | null> {
   const token = tokenMatch ? tokenMatch[1] : null;
   
   if (token) {
-    const payload = await verifyToken(token);
+    const payload = await authService.verifyToken(token);
     if (payload) return payload.username;
   }
   
@@ -884,4 +892,7 @@ router.post("/:id/settings/timeout", async (c: Context) => {
   }
 });
 
-export default router;
+return router;
+}
+
+export default createSessionsRoutes();

@@ -1,14 +1,43 @@
 /** @jsx jsx */
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";
-import { agentService, AgentTokenPayload } from "./service.js";
-import { agentRepository } from "./repository.js";
-import { sessionRepository } from "../sessions/repository.js";
+import { agentService as defaultAgentService, AgentTokenPayload } from "./service.js";
+import { agentRepository as defaultAgentRepository } from "./repository.js";
+import { sessionRepository as defaultSessionRepository } from "../sessions/repository.js";
 import { Layout } from "../components/Layout.js";
-import { authMiddleware } from "../auth/middleware.js";
+import { authMiddleware, createAuthMiddleware } from "../auth/middleware.js";
+import { jwtService as defaultJwtService } from "../auth/jwt.js";
 import type { Context } from "hono";
 
-const router = new Hono();
+type AgentsRoutesContext = {
+  services: {
+    auth: typeof defaultJwtService;
+    agents: typeof defaultAgentService;
+  };
+  repos: {
+    agents: typeof defaultAgentRepository;
+    sessions: typeof defaultSessionRepository;
+  };
+};
+
+export function createAgentsRoutes(mimoContext?: AgentsRoutesContext) {
+  const router = new Hono();
+  const context: AgentsRoutesContext =
+    mimoContext ?? {
+      services: {
+        auth: defaultJwtService,
+        agents: defaultAgentService,
+      },
+      repos: {
+        agents: defaultAgentRepository,
+        sessions: defaultSessionRepository,
+      },
+    };
+
+  const agentService = context.services.agents;
+  const agentRepository = context.repos.agents;
+  const sessionRepository = context.repos.sessions;
+  const authMiddlewareWithContext = createAuthMiddleware(context.services.auth);
 
 // Agent API endpoint - uses agent JWT, not user auth
 router.get("/me/sessions", async (c: Context) => {
@@ -40,7 +69,7 @@ router.get("/me/sessions", async (c: Context) => {
   })));
 });
 
-router.use("/*", authMiddleware);
+router.use("/*", mimoContext ? authMiddlewareWithContext : authMiddleware);
 
 router.get("/", async (c: Context) => {
   const user = c.get("user") as { username: string };
@@ -494,4 +523,7 @@ router.post("/:id/delete", async (c: Context) => {
   return c.redirect("/agents");
 });
 
-export default router;
+  return router;
+}
+
+export default createAgentsRoutes();

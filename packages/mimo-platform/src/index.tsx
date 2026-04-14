@@ -1,13 +1,11 @@
 import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
-import auth from "./auth/routes";
+import { createAuthRoutes } from "./auth/routes";
 import protectedRoutes from "./protected/routes";
-import projects from "./projects/routes";
-import agents from "./agents/routes";
-import sessions from "./sessions/routes";
+import { createProjectsRoutes } from "./projects/routes";
+import { createAgentsRoutes } from "./agents/routes.js";
+import { createSessionsRoutes } from "./sessions/routes";
 import dashboard from "./dashboard/routes";
-import { agentService } from "./agents/service.js";
-import { agentRepository } from "./agents/repository.js";
 import { fileSyncService } from "./sync/service.js";
 import { chatService } from "./sessions/chat.js";
 import { sessionRepository } from "./sessions/repository.js";
@@ -20,10 +18,13 @@ import { sccService } from "./impact/scc-service.js";
 import { broadcastToSession, type SessionWsClient } from "./ws/session-broadcast.js";
 import { relative } from "path";
 import { MimoServer } from "./server/mimo-server.js";
+import { createMimoContext } from "./context/mimo-context.js";
 
 const app = new Hono();
-const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
-const PLATFORM_URL = process.env.PLATFORM_URL ?? `http://localhost:${PORT}`;
+const mimoContext = createMimoContext();
+const agentService = mimoContext.services.agents;
+const PORT = mimoContext.env.PORT;
+const PLATFORM_URL = mimoContext.env.PLATFORM_URL;
 
 function createMimoServer() {
   return new MimoServer({
@@ -77,7 +78,7 @@ fileSyncService.setImpactStaleHandler((sessionId: string) => {
 });
 
 // Auth routes
-app.route("/auth", auth);
+app.route("/auth", createAuthRoutes(mimoContext));
 
 // Dashboard (protected)
 app.route("/dashboard", dashboard);
@@ -107,13 +108,13 @@ app.get("/api/projects/public", async (c) => {
 app.route("/", protectedRoutes);
 
 // Project routes (protected)
-app.route("/projects", projects);
+app.route("/projects", createProjectsRoutes(mimoContext));
 
 // Session routes (protected)
-app.route("/sessions", sessions);
+app.route("/sessions", createSessionsRoutes(mimoContext));
 
 // Agent routes (protected)
-app.route("/agents", agents);
+app.route("/agents", createAgentsRoutes(mimoContext));
 
 // File sync routes (protected)
 import syncRoutes from "./sync/routes";

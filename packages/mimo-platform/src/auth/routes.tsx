@@ -1,15 +1,21 @@
 import { Hono } from "hono";
 import bcrypt from "bcrypt";
-import { userRepository } from "./user";
-import { generateToken } from "./jwt";
+import { userRepository as defaultUserRepository } from "./user";
+import { jwtService as defaultJwtService } from "./jwt";
 import { LoginPage } from "../components/LoginPage";
 import { RegisterPage } from "../components/RegisterPage";
 import { ensureMimoHome } from "../config/paths";
+import type { MimoContext } from "../context/mimo-context.js";
 
-const auth = new Hono();
+type AuthRoutesContext = Pick<MimoContext, "services" | "repos">;
 
-// Ensure directories exist
-ensureMimoHome();
+export function createAuthRoutes(mimoContext?: AuthRoutesContext) {
+  const auth = new Hono();
+  const authService = mimoContext?.services.auth ?? defaultJwtService;
+  const userRepository = mimoContext?.repos.users ?? defaultUserRepository;
+
+  // Ensure directories exist
+  ensureMimoHome();
 
 // GET /auth/register - Show registration page
 auth.get("/register", (c) => {
@@ -65,7 +71,7 @@ auth.post("/login", async (c) => {
     return c.html(<LoginPage error="Invalid credentials" />, 401);
   }
 
-  const token = await generateToken(username);
+  const token = await authService.generateToken(username);
 
   // Set cookie with token
   c.header(
@@ -86,4 +92,7 @@ auth.get("/logout", (c) => {
   return c.redirect("/auth/login");
 });
 
-export default auth;
+  return auth;
+}
+
+export default createAuthRoutes();
