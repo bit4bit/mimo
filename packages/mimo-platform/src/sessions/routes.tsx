@@ -481,10 +481,10 @@ router.post("/:id/delete", async (c: Context) => {
   sessionStateService.clearSessionState(sessionId);
 
   // Cleanup sync tracking data
-  await fileSyncService.cleanupSession(sessionId);
+  await mimoContext.services.fileSync.cleanupSession(sessionId);
 
   // Clear impact calculator cache
-  impactCalculator.clearState(sessionId);
+  mimoContext.services.impactCalculator.clearState(sessionId);
 
   // Notify assigned agent if any
   if (session.assignedAgentId) {

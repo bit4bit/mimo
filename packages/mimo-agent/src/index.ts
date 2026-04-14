@@ -4,6 +4,7 @@ import { decodeJwt } from "jose";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { existsSync, mkdirSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { Writable, Readable } from "node:stream";
 import { SessionManager } from "./session.js";
 import type { SessionCallbacks } from "./session.js";

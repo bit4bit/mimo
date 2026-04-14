@@ -85,16 +85,14 @@ export class ImpactCalculator {
     if (this.customSccService) {
       return this.customSccService;
     }
-    const { getSccService } = await import("./scc-service.js");
-    return getSccService();
+    throw new Error("SccService must be provided via mimoContext - use createMimoContext()");
   }
 
   private async getJscpdService(): Promise<JscpdService> {
     if (this.customJscpdService) {
       return this.customJscpdService;
     }
-    const { getJscpdService } = await import("./jscpd-service.js");
-    return getJscpdService();
+    throw new Error("JscpdService must be provided via mimoContext - use createMimoContext()");
   }
 
   async calculateImpact(

@@ -146,8 +146,11 @@ export function createMimoContext(overrides: CreateMimoContextOverrides = {}): M
       new ImpactRepository({ projectsPath: paths.projects }),
   };
 
-  // Create shared impactCalculator instance to avoid duplicate SCC processes
-  const impactCalculator = overrides.services?.impactCalculator ?? new ImpactCalculator();
+  // Create shared scc service instance to be passed to ImpactCalculator
+  const sccService = overrides.services?.scc ?? new SccService(join(paths.root, "bin", "scc"), join(paths.root, "cache"));
+
+  // Create shared impactCalculator instance with injected sccService
+  const impactCalculator = overrides.services?.impactCalculator ?? new ImpactCalculator(sccService);
 
   const services: MimoContext["services"] = {
     auth: overrides.services?.auth ?? new JwtService(env.JWT_SECRET),
@@ -160,9 +163,7 @@ export function createMimoContext(overrides: CreateMimoContextOverrides = {}): M
     frameState:
       overrides.services?.frameState ??
       new FrameStateService(paths),
-    scc:
-      overrides.services?.scc ??
-      new SccService(join(paths.root, "bin", "scc"), join(paths.root, "cache")),
+    scc: sccService,
     commits:
       overrides.services?.commits ??
       new CommitService({
@@ -176,7 +177,7 @@ export function createMimoContext(overrides: CreateMimoContextOverrides = {}): M
       overrides.services?.fileSync ??
       new FileSyncService({
         sessionRepository: repos.sessions,
-        sccService: overrides.services?.scc ?? new SccService(join(paths.root, "bin", "scc"), join(paths.root, "cache")),
+        sccService,
       }),
     autoCommit:
       overrides.services?.autoCommit ??
