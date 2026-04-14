@@ -24,6 +24,12 @@ describe("Filesystem Paths Integration Test", () => {
     expect(paths.root).toBe(testHome);
   });
 
+  test("should expose data directory rooted at MIMO_HOME", async () => {
+    const { getPaths } = await import("../src/config/paths.ts");
+    const paths = getPaths();
+    expect(paths.data).toBe(testHome);
+  });
+
   test("should create all directories on ensureMimoHome", async () => {
     const { ensureMimoHome, getPaths } = await import("../src/config/paths.ts");
     const paths = getPaths();

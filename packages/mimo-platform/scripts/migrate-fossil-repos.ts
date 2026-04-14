@@ -18,6 +18,7 @@
 import { existsSync, mkdirSync, renameSync, statSync, readdirSync } from "fs";
 import { join, dirname, basename } from "path";
 import { load } from "js-yaml";
+import { getPaths } from "../src/config/paths.js";
 
 // Normalize session ID for fossil filename (same as in shared-fossil-server.ts)
 function normalizeSessionIdForFossil(sessionId: string): string {
@@ -26,7 +27,7 @@ function normalizeSessionIdForFossil(sessionId: string): string {
 
 // Get the data directory
 function getDataDir(): string {
-  return process.env.MIMO_HOME || join(process.env.HOME || "~", ".mimo");
+  return getPaths().data;
 }
 
 // Get the centralized fossil repos directory

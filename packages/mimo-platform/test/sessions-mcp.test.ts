@@ -39,6 +39,11 @@ describe("Session Creation with MCP Servers", () => {
   });
 
   describe("Session with MCP servers", () => {
+    it("should resolve fossil repos dir under MIMO_HOME by default", () => {
+      delete process.env.FOSSIL_REPOS_DIR;
+      expect(sessionRepository.getFossilReposDir()).toBe(join(testBasePath, "session-fossils"));
+    });
+
     it("should create session with mcpServerIds", async () => {
       const session = await sessionRepository.create({
         name: "Test Session",

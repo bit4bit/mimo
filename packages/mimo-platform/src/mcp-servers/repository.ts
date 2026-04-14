@@ -7,7 +7,7 @@ import { slugify } from "./types.js";
 
 export class McpServerRepository {
   private getMcpServersPath(): string {
-    return join(getPaths().root, "mcp-servers");
+    return getPaths().mcpServers;
   }
 
   private getMcpServerPath(id: string): string {

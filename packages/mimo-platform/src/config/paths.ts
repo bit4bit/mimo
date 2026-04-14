@@ -10,6 +10,7 @@ export function getPaths() {
   const MIMO_HOME = getMimoHome();
   return {
     root: MIMO_HOME,
+    data: MIMO_HOME,
     users: join(MIMO_HOME, "users"),
     projects: join(MIMO_HOME, "projects"),
     agents: join(MIMO_HOME, "agents"),
@@ -17,17 +18,6 @@ export function getPaths() {
     config: join(MIMO_HOME, "config.yaml"),
   } as const;
 }
-
-export const MIMO_HOME = getMimoHome();
-
-export const Paths = {
-  root: MIMO_HOME,
-  users: join(MIMO_HOME, "users"),
-  projects: join(MIMO_HOME, "projects"),
-  agents: join(MIMO_HOME, "agents"),
-  mcpServers: join(MIMO_HOME, "mcp-servers"),
-  config: join(MIMO_HOME, "config.yaml"),
-} as const;
 
 export function ensureMimoHome(): void {
   const paths = getPaths();

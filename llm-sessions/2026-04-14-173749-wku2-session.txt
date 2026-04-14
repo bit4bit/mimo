@@ -1,0 +1,19 @@
+[2026-04-14 17:00:12] User: the mcp server tests are changing my local environment, help to analyze this
+[2026-04-14 17:00:28] LLM: I’ll trace where MCP server tests can leak state and pinpoint likely offenders.
+[2026-04-14 17:05:41] LLM: You’re right — MCP tests were mutating local state via localhost API calls and ~/.mimo paths.
+[2026-04-14 17:06:02] User: Ok understood the issue, let's go to refactor, i want to have a entity MimoServer that is the only responsible for setup and start the server
+[2026-04-14 17:06:24] LLM: I’ll add a failing test, implement MimoServer, refactor bootstrap to use it, and run tests.
+[2026-04-14 17:17:07] LLM: MimoServer was implemented and wired; targeted tests passed.
+[2026-04-14 17:17:22] User: now update mcp-server-api and use the mimoserver
+[2026-04-14 17:17:39] LLM: I’ll refactor mcp-server-api.test.ts to boot an isolated server via MimoServer and stop touching ~/.mimo.
+[2026-04-14 17:29:52] LLM: Done — MCP API tests now run in isolated MimoServer instance with temp MIMO_HOME.
+[2026-04-14 17:30:06] User: nice, commit and push
+[2026-04-14 17:30:20] LLM: Committed and pushed branch mimo-server with the MimoServer and MCP API test isolation changes.
+[2026-04-14 17:30:45] User: now ensure mimo server also in the main application
+[2026-04-14 17:31:03] LLM: Confirmed main app entrypoint already boots through MimoServer.
+[2026-04-14 17:31:40] User: nice. Now i can see we are using process.env.MIMO_HOME multiple places, review the impact of using config/paths.ts directly
+[2026-04-14 17:32:02] LLM: I reviewed usage and found path contract drift, especially missing getPaths().data causing fallback path inconsistencies.
+[2026-04-14 17:32:30] User: do ti
+[2026-04-14 17:32:45] LLM: I’ll implement the path cleanup with tests-first, then run full suites.
+[2026-04-14 17:37:20] LLM: Completed path contract fixes and script alignment; mimo-platform and mimo-agent suites are green.
+[2026-04-14 17:37:35] User: yes

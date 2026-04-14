@@ -49,12 +49,7 @@ const getFossilReposDir = (): string => {
   if (process.env.FOSSIL_REPOS_DIR) {
     return process.env.FOSSIL_REPOS_DIR;
   }
-  try {
-    return join(getPaths().data, "session-fossils");
-  } catch {
-    // Fallback for tests or when paths aren't initialized
-    return join(process.env.MIMO_HOME || process.env.HOME || "~", ".mimo", "session-fossils");
-  }
+  return join(getPaths().data, "session-fossils");
 };
 
 /**
