@@ -2,6 +2,7 @@ import { writeFileSync, chmodSync, unlinkSync, existsSync, mkdirSync, readFileSy
 import { tmpdir } from "os";
 import { join, dirname, basename } from "path";
 import type { Credential } from "../credentials/repository";
+import { logger } from "../logger.js";
 
 export interface VCSResult {
   success: boolean;
@@ -865,7 +866,7 @@ export class VCS {
         const target = join(upstreamPath, name);
         if (fsExistsSync(target)) {
           unlinkSync(target);
-          console.log(`[vcs] Removed stray ${name} from fossil upstream`);
+          logger.debug(`[vcs] Removed stray ${name} from fossil upstream`);
         }
       }
 
@@ -994,7 +995,7 @@ export class VCS {
       const fullPath = join(workspacePath, file);
       if (existsSync(fullPath)) {
         unlinkSync(fullPath);
-        console.log(`[vcs] Aligned fossil DELETED file: ${file}`);
+        logger.debug(`[vcs] Aligned fossil DELETED file: ${file}`);
       }
     }
 
@@ -1221,7 +1222,7 @@ export class VCS {
 
     // Step 3: Store patch
     const patchPath = await this.storePatch(patchDir, genResult.patch);
-    console.log(`[vcs] Patch stored: ${patchPath}`);
+    logger.debug(`[vcs] Patch stored: ${patchPath}`);
 
     // Step 4: Apply patch
     const applyResult = await this.applyPatch(patchPath, upstreamPath, repoType);

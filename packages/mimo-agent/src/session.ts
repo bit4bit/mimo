@@ -1,8 +1,6 @@
-import { watch, existsSync, mkdirSync, readdirSync, statSync, readFileSync, writeFileSync, unlinkSync, rmdirSync } from "fs";
-import { join, dirname, resolve } from "path";
-import { spawn } from "child_process";
 import { SessionInfo, FileChange, ModelState, ModeState, McpServerConfig } from "./types";
-
+import { SessionInfo, FileChange, ModelState, ModeState, McpServerConfig } from "./types";
+import { logger } from "./logger.js";
 export interface SessionCallbacks {
   onFileChange: (sessionId: string, changes: FileChange[]) => void;
   onSessionError: (sessionId: string, error: string) => void;
@@ -36,9 +34,9 @@ export class SessionManager {
   ): Promise<SessionInfo> {
     const checkoutPath = join(this.workDir, sessionId);
 
-    console.log(`[mimo-agent] Creating session ${sessionId}`);
-    console.log(`[mimo-agent]   Fossil URL: ${fossilUrl}`);
-    console.log(`[mimo-agent]   Checkout: ${checkoutPath}`);
+    logger.debug(`[mimo-agent] Creating session ${sessionId}`);
+    logger.debug(`[mimo-agent]   Fossil URL: ${fossilUrl}`);
+    logger.debug(`[mimo-agent]   Checkout: ${checkoutPath}`);
 
     // Clone/checkout logic handled by platform via fossil server
     // Just ensure the checkout directory exists
@@ -105,7 +103,7 @@ export class SessionManager {
   }
 
   private startFileWatcher(sessionId: string, checkoutPath: string): void {
-    console.log(`[mimo-agent] Starting file watcher for session ${sessionId}`);
+    logger.debug(`[mimo-agent] Starting file watcher for session ${sessionId}`);
 
     const watcher = watch(
       checkoutPath,
@@ -201,7 +199,7 @@ export class SessionManager {
             try {
               unlinkSync(destPath);
             } catch (err) {
-              console.warn(`[mimo-agent] Failed to delete ${destPath}:`, err);
+              logger.warn(`[mimo-agent] Failed to delete ${destPath}:`, err);
             }
           }
         } else if (existsSync(srcPath)) {
@@ -221,7 +219,7 @@ export class SessionManager {
           writeFileSync(destPath, content);
         }
       } catch (err) {
-        console.warn(`[mimo-agent] Failed to sync ${change.path} to mirror:`, err);
+        logger.warn(`[mimo-agent] Failed to sync ${change.path} to mirror:`, err);
       }
     }
   }
@@ -239,7 +237,7 @@ export class SessionManager {
       // Safety-net kill: the caller should have already closed the ACP client
       // (which sends EOF and waits for the process to exit). This kill is only
       // reached if the process did not exit within the close timeout.
-      console.log(`[mimo-agent] Force-killing ACP process for ${sessionId}`);
+      logger.debug(`[mimo-agent] Force-killing ACP process for ${sessionId}`);
       session.acpProcess.kill("SIGTERM");
       session.acpProcess = null;
     }

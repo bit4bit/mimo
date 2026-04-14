@@ -3,6 +3,7 @@ import { existsSync, copyFileSync, mkdirSync, statSync, readFileSync, readdirSyn
 import { sessionRepository } from "../sessions/repository.js";
 import crypto from "crypto";
 import { sccService } from "../impact/scc-service.js";
+import { logger } from "../logger.js";
 
 export type FileStatus = 
   | "clean"      // File hasn't changed
@@ -230,7 +231,7 @@ export class FileSyncService {
           }
         }
       } catch (error) {
-        console.error(`Failed to sync ${change.path}:`, error);
+        logger.error(`Failed to sync ${change.path}:`, error);
       }
     }
 

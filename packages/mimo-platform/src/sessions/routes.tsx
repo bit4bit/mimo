@@ -22,6 +22,7 @@ import { configService } from "../config/service.js";
 import { mcpServerService } from "../mcp-servers/service.js";
 import type { Context } from "hono";
 import { normalizeFrameState, updateFrameState, loadNotes, saveNotes } from "./frame-state.js";
+import { logger } from "../logger.js";
 
 type SessionsRoutesContext = {
   env?: {
@@ -239,7 +240,7 @@ router.post("/", async (c: Context) => {
     const userResult = await vcs.createFossilUser(fossilPath, agentWorkspaceUser, agentWorkspacePassword);
     
     if (!userResult.success) {
-      console.error("[session] Failed to create fossil user:", userResult.error);
+      logger.error("[session] Failed to create fossil user:", userResult.error);
       // Non-fatal - session can still work, just log the error
     }
     
@@ -252,7 +253,7 @@ router.post("/", async (c: Context) => {
     // Step 5: Open fossil checkout in agent-workspace
     const openResult = await vcs.openFossil(fossilPath, session.agentWorkspacePath);
     if (!openResult.success) {
-      console.error("[session] Failed to open fossil in agent-workspace:", openResult.error);
+      logger.error("[session] Failed to open fossil in agent-workspace:", openResult.error);
       await sessionRepository.delete(projectId, session.id);
       return c.text("Failed to open fossil checkout", 500);
     }
@@ -260,7 +261,7 @@ router.post("/", async (c: Context) => {
     // Step 5.5: Sync .gitignore and .mimoignore to .fossil-settings/ignore-glob in agent-workspace
     const ignoreResult = await vcs.syncIgnoresToFossil(session.upstreamPath, session.agentWorkspacePath);
     if (!ignoreResult.success) {
-      console.warn("[session] Failed to sync .gitignore to fossil ignore-glob:", ignoreResult.error);
+      logger.warn("[session] Failed to sync .gitignore to fossil ignore-glob:", ignoreResult.error);
       // Non-fatal: continue session creation
     }
 
@@ -270,7 +271,7 @@ router.post("/", async (c: Context) => {
       try {
         mcpServers = await mcpServerService.resolveMcpServers(mcpServerIds);
       } catch (error) {
-        console.error(`[session] Failed to resolve MCP servers for session ${session.id}:`, error);
+        logger.error(`[session] Failed to resolve MCP servers for session ${session.id}:`, error);
         // Continue without MCP servers - agent will work without them
       }
     }
@@ -300,11 +301,11 @@ router.post("/", async (c: Context) => {
             mcpServers: mcpServers.length > 0 ? mcpServers : undefined,
           }],
         }));
-        console.log(`[session] Notified running agent ${assignedAgentId} of new session ${session.id}`);
+        logger.debug(`[session] Notified running agent ${assignedAgentId} of new session ${session.id}`);
       }
     }
   } catch (error) {
-    console.error("Failed to setup session:", error);
+    logger.error("Failed to setup session:", error);
     await sessionRepository.delete(projectId, session.id);
     return c.text("Failed to setup session repository", 500);
   }
@@ -557,7 +558,7 @@ router.get("/:id/files", async (c: Context) => {
   try {
     scanDir(session.agentWorkspacePath, session.agentWorkspacePath);
   } catch (error) {
-    console.error("Error scanning checkout:", error);
+    logger.error("Error scanning checkout:", error);
   }
 
   // Return HTML file tree
@@ -640,11 +641,11 @@ router.get("/:id/impact", async (c: Context) => {
     if (existsSync(fossilPath)) {
       if (!existsSync(fslckoutPath)) {
         // Initialize fossil checkout if not exists
-        console.log(`[impact] Initializing fossil checkout in agent-workspace...`);
+        logger.debug(`[impact] Initializing fossil checkout in agent-workspace...`);
         await vcs.openFossil(fossilPath, session.agentWorkspacePath);
       }
       // Sync with repo.fossil to get latest changes from agent
-      console.log(`[impact] Syncing agent-workspace with repo.fossil...`);
+      logger.debug(`[impact] Syncing agent-workspace with repo.fossil...`);
       await vcs.fossilUp(session.agentWorkspacePath);
     }
 
@@ -712,7 +713,7 @@ router.get("/:id/impact", async (c: Context) => {
       sccInstalled: true,
     });
   } catch (error) {
-    console.error("[impact] Failed to calculate impact:", error);
+    logger.error("[impact] Failed to calculate impact:", error);
     return c.json({ error: "Failed to calculate impact" }, 500);
   }
 });

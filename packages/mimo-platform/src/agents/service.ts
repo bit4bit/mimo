@@ -1,5 +1,6 @@
 import { Agent, AgentRepository, AgentStatus, AgentProvider, agentRepository } from "./repository.js";
 import { SignJWT, jwtVerify } from "jose";
+import { logger } from "../logger.js";
 
 const DEFAULT_JWT_SECRET = "your-secret-key-change-in-production";
 
@@ -95,7 +96,7 @@ export class AgentService {
         provider: payload.provider as AgentProvider,
       };
     } catch (error) {
-      console.error("[verifyAgentToken] Token verification failed:", error?.message || error);
+      logger.error("[verifyAgentToken] Token verification failed:", error?.message || error);
       return null;
     }
   }
@@ -217,7 +218,7 @@ export class AgentService {
           sessionId,
         }));
       } catch (error) {
-        console.error(`[notifySessionEnded] Failed to notify agent ${agentId}:`, error);
+        logger.error(`[notifySessionEnded] Failed to notify agent ${agentId}:`, error);
       }
     }
     // Cleanup any in-flight ACP requests for this agent

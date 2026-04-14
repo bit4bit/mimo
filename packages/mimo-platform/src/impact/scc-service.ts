@@ -1,6 +1,7 @@
 import { join, dirname } from "path";
 import { existsSync, mkdirSync, writeFileSync, chmodSync, readFileSync, renameSync, unlinkSync } from "fs";
 import { execSync, spawn } from "child_process";
+import { logger } from "../logger.js";
 
 export interface SccPlatform {
   os: "Linux" | "Darwin" | "Windows";
@@ -194,14 +195,14 @@ export class SccService {
       const ext = platform.os === "Windows" ? ".zip" : ".tar.gz";
       const downloadPath = join(binDir, `scc${ext}`);
 
-      console.log(`[scc] Downloading from ${url}...`);
+      logger.debug(`[scc] Downloading from ${url}...`);
       
       // Download using curl
       execSync(`curl -L -o "${downloadPath}" "${url}"`, {
         timeout: 120000,
       });
 
-      console.log("[scc] Extracting...");
+      logger.debug("[scc] Extracting...");
 
       // Extract
       if (platform.os === "Windows") {
@@ -216,10 +217,10 @@ export class SccService {
       // Clean up archive
       execSync(`rm "${downloadPath}"`);
 
-      console.log(`[scc] Installed to ${this.sccPath}`);
+      logger.debug(`[scc] Installed to ${this.sccPath}`);
       return { success: true };
     } catch (error) {
-      console.error("[scc] Installation failed:", error);
+      logger.error("[scc] Installation failed:", error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : String(error) 
@@ -403,7 +404,7 @@ export class SccService {
         compositeLines.push(content);
         compositeLines.push("");
       } else {
-        console.warn(`[scc] Warning: ${source.label} not found at ${source.path}`);
+        logger.warn(`[scc] Warning: ${source.label} not found at ${source.path}`);
       }
     }
 
@@ -426,7 +427,7 @@ export class SccService {
         this.smartCache = new Map(Object.entries(data.entries || {}));
       }
     } catch (error) {
-      console.warn("[scc] Failed to load cache:", error);
+      logger.warn("[scc] Failed to load cache:", error);
       this.smartCache = new Map();
     }
   }
@@ -450,7 +451,7 @@ export class SccService {
       writeFileSync(tempPath, JSON.stringify(data, null, 2), "utf-8");
       renameSync(tempPath, this.cacheFilePath);
     } catch (error) {
-      console.error("[scc] Failed to save cache:", error);
+      logger.error("[scc] Failed to save cache:", error);
     }
   }
 

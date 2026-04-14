@@ -1,5 +1,6 @@
 import { readFileSync, existsSync, writeFileSync } from "fs";
 import { load, dump } from "js-yaml";
+import { logger } from "../logger.js";
 
 export interface Config {
   theme?: "dark" | "light";
@@ -66,7 +67,7 @@ export class ConfigService {
       
       return this.config;
     } catch (error) {
-      console.error("Failed to load config:", error);
+      logger.error("Failed to load config:", error);
       return defaultConfig;
     }
   }
@@ -74,14 +75,14 @@ export class ConfigService {
   save(config: Config): void {
     const configPath = this.getConfigPath();
     if (!configPath) {
-      console.error("Cannot save config: config path not available");
+      logger.error("Cannot save config: config path not available");
       return;
     }
     try {
       writeFileSync(configPath, dump(config), "utf-8");
       this.config = config;
     } catch (error) {
-      console.error("Failed to save config:", error);
+      logger.error("Failed to save config:", error);
     }
   }
 

@@ -3,6 +3,7 @@ import { sessionRepository } from "../sessions/repository.js";
 import { projectRepository } from "../projects/repository.js";
 import { impactRepository } from "../impact/repository.js";
 import { impactCalculator } from "../impact/calculator.js";
+import { logger } from "../logger.js";
 import {
   parsePatchPreview,
   type PatchPreview,
@@ -408,10 +409,10 @@ export class CommitService {
           fossilUrl: ``,
         });
       } else {
-        console.log(`[commit] Skipping impact metrics - scc not installed`);
+        logger.debug(`[commit] Skipping impact metrics - scc not installed`);
       }
     } catch (error) {
-      console.error(`[commit] Failed to capture impact metrics:`, error);
+      logger.error(`[commit] Failed to capture impact metrics:`, error);
       // Don't fail the commit if impact capture fails
     }
 

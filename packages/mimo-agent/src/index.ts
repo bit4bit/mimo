@@ -1,17 +1,6 @@
-import { WebSocket } from "ws";
-import { ChildProcess, execSync, spawnSync } from "child_process";
-import { existsSync, mkdirSync } from "fs";
-import { join } from "path";
-import { homedir } from "os";
-import { Readable, Writable } from "node:stream";
-import { decodeJwt } from "jose";
-import { AgentConfig } from "./types";
-import { SessionManager } from "./session";
-import { AcpClient, OpencodeProvider, ClaudeAgentProvider } from "./acp";
-import type { IAcpProvider } from "./acp";
-import { SessionLifecycleManager, CachedAcpState } from "./lifecycle";
 import type { ModelState, ModeState } from "./types";
-
+import type { ModelState, ModeState } from "./types";
+import { logger } from "./logger.js";
 // Convert Node.js streams to Web Streams API
 function toWebWritable(nodeWritable: Writable): WritableStream<Uint8Array> {
   return Writable.toWeb(nodeWritable) as WritableStream<Uint8Array>;
@@ -141,7 +130,7 @@ class MimoAgent {
     // Ensure workDir exists
     if (!existsSync(config.workDir)) {
       mkdirSync(config.workDir, { recursive: true });
-      console.log(`[mimo-agent] Created workDir: ${config.workDir}`);
+      logger.debug(`[mimo-agent] Created workDir: ${config.workDir}`);
     }
 
     const validProviders = new Set<AgentConfig["provider"]>([
@@ -151,14 +140,14 @@ class MimoAgent {
 
     // Provider is now required
     if (!config.provider) {
-      console.error(
+      logger.error(
         `[mimo-agent] Missing required argument: --provider. Valid values: ${Array.from(validProviders).join(", ")}`
       );
       process.exit(1);
     }
 
     if (!validProviders.has(config.provider as AgentConfig["provider"])) {
-      console.error(
+      logger.error(
         `[mimo-agent] Unknown provider: "${config.provider}". Valid values: ${Array.from(validProviders).join(", ")}`
       );
       process.exit(1);
@@ -178,12 +167,12 @@ class MimoAgent {
 
       if (!tokenProvider) {
         // Backward compatibility: legacy tokens don't have provider claim
-        console.warn(
+        logger.warn(
           `[mimo-agent] Using legacy token, defaulting provider to 'opencode'. Consider recreating this agent.`
         );
         // Treat missing provider as "opencode" for backward compatibility
         if (declaredProvider !== "opencode") {
-          console.error(
+          logger.error(
             `[mimo-agent] Provider mismatch: agent declares '${declaredProvider}' but legacy token requires 'opencode'. Recreate the agent or use --provider opencode`
           );
           process.exit(1);
@@ -192,7 +181,7 @@ class MimoAgent {
       }
 
       if (tokenProvider !== declaredProvider) {
-        console.error(
+        logger.error(
           `[mimo-agent] Provider mismatch: agent declares '${declaredProvider}' but token requires '${tokenProvider}'. Use --provider ${tokenProvider}`
         );
         process.exit(1);
@@ -200,7 +189,7 @@ class MimoAgent {
 
       // Provider matches - validation passed
     } catch (error) {
-      console.error(
+      logger.error(
         `[mimo-agent] Failed to decode token: ${error instanceof Error ? error.message : String(error)}`
       );
       process.exit(1);
@@ -208,9 +197,9 @@ class MimoAgent {
   }
 
   async start(): Promise<void> {
-    console.log("[mimo-agent] Starting...");
-    console.log(`[mimo-agent] Platform: ${this.config.platform}`);
-    console.log(`[mimo-agent] WorkDir: ${this.config.workDir}`);
+    logger.debug("[mimo-agent] Starting...");
+    logger.debug(`[mimo-agent] Platform: ${this.config.platform}`);
+    logger.debug(`[mimo-agent] WorkDir: ${this.config.workDir}`);
 
     await this.connect();
     this.setupShutdownHandlers();
@@ -220,12 +209,12 @@ class MimoAgent {
     const wsUrl = `${this.config.platform}?token=${this.config.token}`;
 
     return new Promise((resolve, reject) => {
-      console.log(`[mimo-agent] Connecting to ${this.config.platform}...`);
+      logger.debug(`[mimo-agent] Connecting to ${this.config.platform}...`);
 
       this.ws = new WebSocket(wsUrl);
 
       this.ws.on("open", () => {
-        console.log("[mimo-agent] Connected to platform");
+        logger.debug("[mimo-agent] Connected to platform");
         this.reconnectAttempts = 0;
 
         this.send({
@@ -242,17 +231,17 @@ class MimoAgent {
           const message = JSON.parse(data.toString());
           this.handleMessage(message);
         } catch (error) {
-          console.error("[mimo-agent] Failed to parse message:", error);
+          logger.error("[mimo-agent] Failed to parse message:", error);
         }
       });
 
       this.ws.on("close", () => {
-        console.log("[mimo-agent] Disconnected");
+        logger.debug("[mimo-agent] Disconnected");
         this.handleDisconnect();
       });
 
       this.ws.on("error", (error: Error) => {
-        console.error("[mimo-agent] WebSocket error:", error.message);
+        logger.error("[mimo-agent] WebSocket error:", error.message);
         reject(error);
       });
 
@@ -323,7 +312,7 @@ class MimoAgent {
         break;
 
       default:
-        console.log("[mimo-agent] Unknown message type:", message.type);
+        logger.debug("[mimo-agent] Unknown message type:", message.type);
     }
   }
 
@@ -331,11 +320,11 @@ class MimoAgent {
     const { platformUrl, sessions } = message;
 
     if (!sessions || sessions.length === 0) {
-      console.log("[mimo-agent] No sessions assigned");
+      logger.debug("[mimo-agent] No sessions assigned");
       return;
     }
 
-    console.log(`[mimo-agent] Received ${sessions.length} session(s)`);
+    logger.debug(`[mimo-agent] Received ${sessions.length} session(s)`);
     const sessionIds: string[] = [];
 
     for (const session of sessions) {
@@ -359,7 +348,7 @@ class MimoAgent {
           throw new Error("No fossilUrl provided in session data");
         }
 
-        console.log(`[mimo-agent] Using fossil URL: ${fossilUrl}`);
+        logger.debug(`[mimo-agent] Using fossil URL: ${fossilUrl}`);
 
         // Setup checkout directory with credentials
         await this.setupCheckout(sessionId, checkoutPath, fossilUrl, agentWorkspaceUser, agentWorkspacePassword);
@@ -388,16 +377,16 @@ class MimoAgent {
         // Store MCP servers for ACP initialization
         if (mcpServers && Array.isArray(mcpServers) && mcpServers.length > 0) {
           this.sessionManager.setSessionMcpServers(sessionId, mcpServers);
-          console.log(`[mimo-agent] Session ${sessionId} has ${mcpServers.length} MCP server(s)`);
+          logger.debug(`[mimo-agent] Session ${sessionId} has ${mcpServers.length} MCP server(s)`);
         }
 
         // Spawn ACP process
         await this.spawnAcpProcess({ ...sessionInfo, agentSubpath: agentSubpath || undefined });
 
         sessionIds.push(sessionId);
-        console.log(`[mimo-agent] Session ${sessionId} ready`);
+        logger.debug(`[mimo-agent] Session ${sessionId} ready`);
       } catch (error) {
-        console.error(
+        logger.error(
           `[mimo-agent] Failed to setup session ${sessionId}:`,
           error
         );
@@ -427,7 +416,7 @@ class MimoAgent {
     const repoPath = join(checkoutPath, "..", `${sessionId}.fossil`);
 
     if (existsSync(repoPath)) {
-      console.log(`[mimo-agent]   Fossil repo exists, opening`);
+      logger.debug(`[mimo-agent]   Fossil repo exists, opening`);
       if (!existsSync(checkoutPath)) {
         mkdirSync(checkoutPath, { recursive: true });
       }
@@ -442,7 +431,7 @@ class MimoAgent {
         url.username = agentWorkspaceUser;
         url.password = agentWorkspacePassword;
         const remoteUrl = url.toString();
-        console.log(`[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`);
+        logger.debug(`[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`);
         try {
           execSync(`fossil remote-url ${remoteUrl}`, { cwd: checkoutPath, stdio: "pipe" });
         } catch {
@@ -454,7 +443,7 @@ class MimoAgent {
             `fossil user password ${agentWorkspaceUser} ${agentWorkspacePassword}`,
             { cwd: checkoutPath, stdio: "pipe" }
           );
-          console.log(`[mimo-agent]   Updated local user password`);
+          logger.debug(`[mimo-agent]   Updated local user password`);
         } catch {
           // Ignore error
         }
@@ -470,19 +459,19 @@ class MimoAgent {
             `fossil remote add server ${remoteUrl}`,
             { cwd: checkoutPath, stdio: "pipe" }
           );
-          console.log(`[mimo-agent]   Updated remote 'server'`);
+          logger.debug(`[mimo-agent]   Updated remote 'server'`);
           // Do a sync using the named remote to verify credentials work
           execSync(
             `fossil sync server`,
             { cwd: checkoutPath, stdio: "pipe" }
           );
-          console.log(`[mimo-agent]   Verified sync with remote 'server'`);
+          logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
         } catch {
           // Ignore error
         }
       }
     } else if (existsSync(join(checkoutPath, ".fossil"))) {
-      console.log(`[mimo-agent]   Checkout exists, ensuring open`);
+      logger.debug(`[mimo-agent]   Checkout exists, ensuring open`);
       try {
         execSync(`fossil open`, { cwd: checkoutPath, stdio: "pipe" });
       } catch {
@@ -494,7 +483,7 @@ class MimoAgent {
         url.username = agentWorkspaceUser;
         url.password = agentWorkspacePassword;
         const remoteUrl = url.toString();
-        console.log(`[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`);
+        logger.debug(`[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`);
         try {
           execSync(`fossil remote-url ${remoteUrl}`, { cwd: checkoutPath, stdio: "pipe" });
         } catch {
@@ -506,7 +495,7 @@ class MimoAgent {
             `fossil user password ${agentWorkspaceUser} ${agentWorkspacePassword}`,
             { cwd: checkoutPath, stdio: "pipe" }
           );
-          console.log(`[mimo-agent]   Updated local user password`);
+          logger.debug(`[mimo-agent]   Updated local user password`);
         } catch {
           // Ignore error
         }
@@ -522,19 +511,19 @@ class MimoAgent {
             `fossil remote add server ${remoteUrl}`,
             { cwd: checkoutPath, stdio: "pipe" }
           );
-          console.log(`[mimo-agent]   Updated remote 'server'`);
+          logger.debug(`[mimo-agent]   Updated remote 'server'`);
           // Do a sync using the named remote to verify credentials work
           execSync(
             `fossil sync server`,
             { cwd: checkoutPath, stdio: "pipe" }
           );
-          console.log(`[mimo-agent]   Verified sync with remote 'server'`);
+          logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
         } catch {
           // Ignore error
         }
       }
     } else {
-      console.log(`[mimo-agent]   Cloning from fossil`);
+      logger.debug(`[mimo-agent]   Cloning from fossil`);
       // Use credentials in URL if available
       let cloneUrl = fossilUrl;
       if (agentWorkspaceUser && agentWorkspacePassword) {
@@ -542,7 +531,7 @@ class MimoAgent {
         url.username = agentWorkspaceUser;
         url.password = agentWorkspacePassword;
         cloneUrl = url.toString();
-        console.log(`[mimo-agent]   Using authenticated URL: ${url.protocol}//${url.username}:****@${url.host}/`);
+        logger.debug(`[mimo-agent]   Using authenticated URL: ${url.protocol}//${url.username}:****@${url.host}/`);
       }
       execSync(`fossil clone ${cloneUrl} ${repoPath}`, { stdio: "pipe" });
       if (!existsSync(checkoutPath)) {
@@ -589,7 +578,7 @@ class MimoAgent {
     try {
       await acpClient.close(5000);
     } catch (err) {
-      console.warn(`[mimo-agent] Error during ACP client close for ${sessionId}:`, err);
+      logger.warn(`[mimo-agent] Error during ACP client close for ${sessionId}:`, err);
     }
   }
 
@@ -603,7 +592,7 @@ class MimoAgent {
 
     // Safety-net: if the process still hasn't exited after the close timeout, kill it.
     if (sessionInfo.acpProcess && !sessionInfo.acpProcess.killed) {
-      console.log(
+      logger.debug(
         `[mimo-agent] Force-killing old ACP process for ${session.sessionId}`
       );
       sessionInfo.acpProcess.kill("SIGTERM");
@@ -695,25 +684,25 @@ class MimoAgent {
         sessionInfo.mcpServers
       )
       .then(async (result) => {
-        console.log(`[mimo-agent] ACP client ready for ${session.sessionId}`);
+        logger.debug(`[mimo-agent] ACP client ready for ${session.sessionId}`);
         this.acpClients.set(session.sessionId, acpClient);
 
         // Restore model/mode from persisted session state if available
         if (sessionInfo.modelState && acpClient.modelState) {
           try {
             await acpClient.setModel(sessionInfo.modelState.currentModelId);
-            console.log(`[mimo-agent] Restored model for ${session.sessionId}: ${sessionInfo.modelState.currentModelId}`);
+            logger.debug(`[mimo-agent] Restored model for ${session.sessionId}: ${sessionInfo.modelState.currentModelId}`);
           } catch (err) {
-            console.warn(`[mimo-agent] Failed to restore model for ${session.sessionId}:`, err);
+            logger.warn(`[mimo-agent] Failed to restore model for ${session.sessionId}:`, err);
           }
         }
 
         if (sessionInfo.modeState && acpClient.modeState) {
           try {
             await acpClient.setMode(sessionInfo.modeState.currentModeId);
-            console.log(`[mimo-agent] Restored mode for ${session.sessionId}: ${sessionInfo.modeState.currentModeId}`);
+            logger.debug(`[mimo-agent] Restored mode for ${session.sessionId}: ${sessionInfo.modeState.currentModeId}`);
           } catch (err) {
-            console.warn(`[mimo-agent] Failed to restore mode for ${session.sessionId}:`, err);
+            logger.warn(`[mimo-agent] Failed to restore mode for ${session.sessionId}:`, err);
           }
         }
 
@@ -740,7 +729,7 @@ class MimoAgent {
         });
       })
       .catch((err) => {
-        console.error(
+        logger.error(
           `[mimo-agent] ACP init error for ${session.sessionId}:`,
           err
         );
@@ -748,14 +737,14 @@ class MimoAgent {
 
     // Handle process events
     process.stderr?.on("data", (data: Buffer) => {
-      console.error(
+      logger.error(
         `[mimo-agent] ACP stderr (${session.sessionId}):`,
         data.toString()
       );
     });
 
     process.on("close", (code: number | null) => {
-      console.log(
+      logger.debug(
         `[mimo-agent] ACP exited for ${session.sessionId} with code ${code}`
       );
       this.acpClients.delete(session.sessionId);
@@ -763,7 +752,7 @@ class MimoAgent {
     });
 
     process.on("error", (err: Error) => {
-      console.error(
+      logger.error(
         `[mimo-agent] ACP process error for ${session.sessionId}:`,
         err.message
       );
@@ -782,7 +771,7 @@ class MimoAgent {
       throw new Error(`Session ${sessionId} not found`);
     }
 
-    console.log(`[mimo-agent] Respawning ACP for ${sessionId}`);
+    logger.debug(`[mimo-agent] Respawning ACP for ${sessionId}`);
 
     // Spawn ACP process
     const spawnResult = this.provider.spawn(sessionInfo.checkoutPath);
@@ -871,25 +860,25 @@ class MimoAgent {
         sessionInfo.mcpServers
       );
 
-      console.log(`[mimo-agent] ACP respawned for ${sessionId}`);
+      logger.debug(`[mimo-agent] ACP respawned for ${sessionId}`);
       this.acpClients.set(sessionId, acpClient);
 
       // Restore model/mode from cache if available
       if (cachedState?.modelState && acpClient.modelState) {
         try {
           await acpClient.setModel(cachedState.modelState.currentModelId);
-          console.log(`[mimo-agent] Restored model for ${sessionId}: ${cachedState.modelState.currentModelId}`);
+          logger.debug(`[mimo-agent] Restored model for ${sessionId}: ${cachedState.modelState.currentModelId}`);
         } catch (err) {
-          console.warn(`[mimo-agent] Failed to restore model for ${sessionId}:`, err);
+          logger.warn(`[mimo-agent] Failed to restore model for ${sessionId}:`, err);
         }
       }
 
       if (cachedState?.modeState && acpClient.modeState) {
         try {
           await acpClient.setMode(cachedState.modeState.currentModeId);
-          console.log(`[mimo-agent] Restored mode for ${sessionId}: ${cachedState.modeState.currentModeId}`);
+          logger.debug(`[mimo-agent] Restored mode for ${sessionId}: ${cachedState.modeState.currentModeId}`);
         } catch (err) {
-          console.warn(`[mimo-agent] Failed to restore mode for ${sessionId}:`, err);
+          logger.warn(`[mimo-agent] Failed to restore mode for ${sessionId}:`, err);
         }
       }
 
@@ -923,17 +912,17 @@ class MimoAgent {
 
       // Handle process events
       process.stderr?.on("data", (data: Buffer) => {
-        console.error(`[mimo-agent] ACP stderr (${sessionId}):`, data.toString());
+        logger.error(`[mimo-agent] ACP stderr (${sessionId}):`, data.toString());
       });
 
       process.on("close", (code: number | null) => {
-        console.log(`[mimo-agent] ACP exited for ${sessionId} with code ${code}`);
+        logger.debug(`[mimo-agent] ACP exited for ${sessionId} with code ${code}`);
         this.acpClients.delete(sessionId);
         this.sessionManager.setSessionAcpProcess(sessionId, null);
       });
 
       process.on("error", (err: Error) => {
-        console.error(`[mimo-agent] ACP process error for ${sessionId}:`, err.message);
+        logger.error(`[mimo-agent] ACP process error for ${sessionId}:`, err.message);
         this.send({
           type: "session_error",
           sessionId,
@@ -944,7 +933,7 @@ class MimoAgent {
 
       return acpClient;
     } catch (err) {
-      console.error(`[mimo-agent] Failed to respawn ACP for ${sessionId}:`, err);
+      logger.error(`[mimo-agent] Failed to respawn ACP for ${sessionId}:`, err);
       throw err;
     }
   }
@@ -952,40 +941,40 @@ class MimoAgent {
   private handleAcpRequest(message: any): void {
     const sessionId = message.sessionId;
     if (!sessionId) {
-      console.log("[mimo-agent] No sessionId in acp_request");
+      logger.debug("[mimo-agent] No sessionId in acp_request");
       return;
     }
 
     const session = this.sessionManager.getSession(sessionId);
     if (!session) {
-      console.log(`[mimo-agent] Unknown session ${sessionId}`);
+      logger.debug(`[mimo-agent] Unknown session ${sessionId}`);
       return;
     }
 
-    console.log(`[mimo-agent] Restarting ACP for session ${sessionId}`);
+    logger.debug(`[mimo-agent] Restarting ACP for session ${sessionId}`);
     this.spawnAcpProcess(session).catch((err) => {
-      console.error(`[mimo-agent] Failed to restart ACP for ${sessionId}:`, err);
+      logger.error(`[mimo-agent] Failed to restart ACP for ${sessionId}:`, err);
     });
   }
 
   private async handleCancelRequest(message: any): Promise<void> {
     const sessionId = message.sessionId;
     if (!sessionId) {
-      console.log("[mimo-agent] No sessionId in cancel_request");
+      logger.debug("[mimo-agent] No sessionId in cancel_request");
       return;
     }
 
     const acpClient = this.acpClients.get(sessionId);
     if (!acpClient) {
-      console.log(`[mimo-agent] No ACP client for session ${sessionId}`);
+      logger.debug(`[mimo-agent] No ACP client for session ${sessionId}`);
       return;
     }
 
-    console.log(`[mimo-agent] Cancelling prompt for ${sessionId}`);
+    logger.debug(`[mimo-agent] Cancelling prompt for ${sessionId}`);
     try {
       await acpClient.cancel();
     } catch (err: any) {
-      console.warn(`[mimo-agent] Cancel notification error for ${sessionId}:`, err.message);
+      logger.warn(`[mimo-agent] Cancel notification error for ${sessionId}:`, err.message);
     }
 
     this.send({
@@ -997,7 +986,7 @@ class MimoAgent {
 
   private handleFileSyncRequest(message: any): void {
     const sessionId = message.sessionId;
-    console.log(
+    logger.debug(
       `[mimo-agent] File sync for session ${sessionId || "unknown"}`
     );
   }
@@ -1175,7 +1164,7 @@ class MimoAgent {
     const content = message.content;
 
     if (!sessionId) {
-      console.log("[mimo-agent] No sessionId in user_message");
+      logger.debug("[mimo-agent] No sessionId in user_message");
       return;
     }
 
@@ -1184,7 +1173,7 @@ class MimoAgent {
     
     if (sessionState === "parked") {
       // Session is parked, need to wake it up
-      console.log(`[mimo-agent] Session ${sessionId} is parked, waking up...`);
+      logger.debug(`[mimo-agent] Session ${sessionId} is parked, waking up...`);
       try {
         await this.lifecycleManager.queuePrompt(sessionId, content);
         // After waking, get the ACP client (it should now exist)
@@ -1194,7 +1183,7 @@ class MimoAgent {
         }
         await this.sendPrompt(acpClient, sessionId, content);
       } catch (err) {
-        console.error(`[mimo-agent] Failed to wake session ${sessionId}:`, err);
+        logger.error(`[mimo-agent] Failed to wake session ${sessionId}:`, err);
         this.send({
           type: "error_response",
           sessionId,
@@ -1207,12 +1196,12 @@ class MimoAgent {
 
     if (sessionState === "waking") {
       // Session is waking, queue the prompt
-      console.log(`[mimo-agent] Session ${sessionId} is waking, queueing prompt...`);
+      logger.debug(`[mimo-agent] Session ${sessionId} is waking, queueing prompt...`);
       try {
         await this.lifecycleManager.queuePrompt(sessionId, content);
         await this.sendPrompt(this.acpClients.get(sessionId)!, sessionId, content);
       } catch (err) {
-        console.error(`[mimo-agent] Failed to queue prompt for ${sessionId}:`, err);
+        logger.error(`[mimo-agent] Failed to queue prompt for ${sessionId}:`, err);
         this.send({
           type: "error_response",
           sessionId,
@@ -1226,7 +1215,7 @@ class MimoAgent {
     // Normal active session flow
     const acpClient = this.acpClients.get(sessionId);
     if (!acpClient) {
-      console.log(`[mimo-agent] No ACP client for session ${sessionId}`);
+      logger.debug(`[mimo-agent] No ACP client for session ${sessionId}`);
       this.send({
         type: "error_response",
         sessionId,
@@ -1242,7 +1231,7 @@ class MimoAgent {
   }
 
   private async sendPrompt(acpClient: AcpClient, sessionId: string, content: string): Promise<void> {
-    console.log(`[mimo-agent] Sending prompt for session ${sessionId}`);
+    logger.debug(`[mimo-agent] Sending prompt for session ${sessionId}`);
     this.send({
       type: "prompt_received",
       sessionId,
@@ -1251,9 +1240,9 @@ class MimoAgent {
     
     try {
       await acpClient.prompt(content);
-      console.log(`[mimo-agent] Prompt completed for ${sessionId}`);
+      logger.debug(`[mimo-agent] Prompt completed for ${sessionId}`);
     } catch (err) {
-      console.error(`[mimo-agent] Prompt error:`, err);
+      logger.error(`[mimo-agent] Prompt error:`, err);
       this.send({
         type: "error_response",
         sessionId,
@@ -1265,11 +1254,11 @@ class MimoAgent {
 
   private async handleSetModel(message: any): Promise<void> {
     const { sessionId, modelId } = message;
-    console.log(`[mimo-agent] Set model for ${sessionId}: ${modelId}`);
+    logger.debug(`[mimo-agent] Set model for ${sessionId}: ${modelId}`);
 
     const acpClient = this.acpClients.get(sessionId);
     if (!acpClient) {
-      console.log(`[mimo-agent] No ACP client for session ${sessionId}`);
+      logger.debug(`[mimo-agent] No ACP client for session ${sessionId}`);
       return;
     }
 
@@ -1283,9 +1272,9 @@ class MimoAgent {
         timestamp: new Date().toISOString(),
       });
 
-      console.log(`[mimo-agent] Model changed to ${modelId}`);
+      logger.debug(`[mimo-agent] Model changed to ${modelId}`);
     } catch (err: any) {
-      console.error(`[mimo-agent] Failed to set model:`, err);
+      logger.error(`[mimo-agent] Failed to set model:`, err);
       this.send({
         type: "error_response",
         sessionId,
@@ -1297,11 +1286,11 @@ class MimoAgent {
 
   private async handleSetMode(message: any): Promise<void> {
     const { sessionId, modeId } = message;
-    console.log(`[mimo-agent] Set mode for ${sessionId}: ${modeId}`);
+    logger.debug(`[mimo-agent] Set mode for ${sessionId}: ${modeId}`);
 
     const acpClient = this.acpClients.get(sessionId);
     if (!acpClient) {
-      console.log(`[mimo-agent] No ACP client for session ${sessionId}`);
+      logger.debug(`[mimo-agent] No ACP client for session ${sessionId}`);
       return;
     }
 
@@ -1315,9 +1304,9 @@ class MimoAgent {
         timestamp: new Date().toISOString(),
       });
 
-      console.log(`[mimo-agent] Mode changed to ${modeId}`);
+      logger.debug(`[mimo-agent] Mode changed to ${modeId}`);
     } catch (err: any) {
-      console.error(`[mimo-agent] Failed to set mode:`, err);
+      logger.error(`[mimo-agent] Failed to set mode:`, err);
       this.send({
         type: "error_response",
         sessionId,
@@ -1332,7 +1321,7 @@ class MimoAgent {
     const acpClient = this.acpClients.get(sessionId);
 
     if (!acpClient) {
-      console.log(`[mimo-agent] Unknown session ${sessionId} in request_state`);
+      logger.debug(`[mimo-agent] Unknown session ${sessionId} in request_state`);
       return;
     }
 
@@ -1344,7 +1333,7 @@ class MimoAgent {
       timestamp: new Date().toISOString(),
     });
 
-    console.log(`[mimo-agent] Sent state for session ${sessionId}`);
+    logger.debug(`[mimo-agent] Sent state for session ${sessionId}`);
   }
 
   private handlePermissionResponse(message: any): void {
@@ -1360,7 +1349,7 @@ class MimoAgent {
     const { sessionId } = message;
     
     if (!sessionId) {
-      console.log("[mimo-agent] No sessionId in clear_session");
+      logger.debug("[mimo-agent] No sessionId in clear_session");
       this.send({
         type: "clear_session_error",
         sessionId,
@@ -1370,11 +1359,11 @@ class MimoAgent {
       return;
     }
 
-    console.log(`[mimo-agent] Clearing session ${sessionId}`);
+    logger.debug(`[mimo-agent] Clearing session ${sessionId}`);
     
     const acpClient = this.acpClients.get(sessionId);
     if (!acpClient) {
-      console.log(`[mimo-agent] No ACP client for session ${sessionId}`);
+      logger.debug(`[mimo-agent] No ACP client for session ${sessionId}`);
       this.send({
         type: "clear_session_error",
         sessionId,
@@ -1387,7 +1376,7 @@ class MimoAgent {
     try {
       const result = await acpClient.clear();
       
-      console.log(`[mimo-agent] Session ${sessionId} cleared, new ACP session: ${result.acpSessionId}`);
+      logger.debug(`[mimo-agent] Session ${sessionId} cleared, new ACP session: ${result.acpSessionId}`);
       
       // Send success message to platform
       this.send({
@@ -1397,7 +1386,7 @@ class MimoAgent {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      console.error(`[mimo-agent] Failed to clear session ${sessionId}:`, error);
+      logger.error(`[mimo-agent] Failed to clear session ${sessionId}:`, error);
       
       // Send error message to platform
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -1413,11 +1402,11 @@ class MimoAgent {
   private handleSessionEnded(message: any): void {
     const sessionId = message.sessionId;
     if (!sessionId) {
-      console.log("[mimo-agent] No sessionId in session_ended");
+      logger.debug("[mimo-agent] No sessionId in session_ended");
       return;
     }
 
-    console.log(`[mimo-agent] Session ended: ${sessionId}`);
+    logger.debug(`[mimo-agent] Session ended: ${sessionId}`);
 
     // Remove from acpClients - idempotent if doesn't exist
     this.acpClients.delete(sessionId);
@@ -1430,11 +1419,11 @@ class MimoAgent {
     const { sessionId, config } = message;
     
     if (!sessionId) {
-      console.log("[mimo-agent] No sessionId in session_config_updated");
+      logger.debug("[mimo-agent] No sessionId in session_config_updated");
       return;
     }
 
-    console.log(`[mimo-agent] Session config updated for ${sessionId}:`, config);
+    logger.debug(`[mimo-agent] Session config updated for ${sessionId}:`, config);
 
     // Update lifecycle manager with new idle timeout
     if (config.idleTimeoutMs !== undefined) {
@@ -1446,17 +1435,17 @@ class MimoAgent {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-      console.log(
+      logger.debug(
         `[mimo-agent] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})...`
       );
 
       setTimeout(() => {
         this.connect().catch((error) => {
-          console.error("[mimo-agent] Reconnect failed:", error.message);
+          logger.error("[mimo-agent] Reconnect failed:", error.message);
         });
       }, delay);
     } else {
-      console.error("[mimo-agent] Max reconnect attempts reached");
+      logger.error("[mimo-agent] Max reconnect attempts reached");
       process.exit(1);
     }
   }
@@ -1465,13 +1454,13 @@ class MimoAgent {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
     } else {
-      console.log("[mimo-agent] WebSocket not connected");
+      logger.debug("[mimo-agent] WebSocket not connected");
     }
   }
 
   private setupShutdownHandlers(): void {
     const shutdown = () => {
-      console.log("[mimo-agent] Shutting down...");
+      logger.debug("[mimo-agent] Shutting down...");
       this.sessionManager.terminateAll();
       this.ws?.close();
       process.exit(0);
@@ -1482,7 +1471,7 @@ class MimoAgent {
     process.on("SIGUSR2", shutdown);
 
     process.on("uncaughtException", (error) => {
-      console.error("[mimo-agent] Uncaught exception:", error);
+      logger.error("[mimo-agent] Uncaught exception:", error);
       shutdown();
     });
   }
@@ -1490,6 +1479,6 @@ class MimoAgent {
 
 const agent = new MimoAgent();
 agent.start().catch((error) => {
-  console.error("[mimo-agent] Failed to start:", error.message);
+  logger.error("[mimo-agent] Failed to start:", error.message);
   process.exit(1);
 });

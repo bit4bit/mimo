@@ -1,6 +1,7 @@
 import { join } from "path";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
 import YAML from "yaml";
+import { logger } from "../logger.js";
 
 export interface ImpactRecord {
   id: string;
@@ -88,7 +89,7 @@ export class ImpactRepository {
           commitDate: new Date(data.commitDate),
         });
       } catch (error) {
-        console.error(`[impact] Failed to load impact record from ${filePath}:`, error);
+        logger.error(`[impact] Failed to load impact record from ${filePath}:`, error);
       }
     }
 

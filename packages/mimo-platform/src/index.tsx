@@ -19,6 +19,7 @@ import { broadcastToSession, type SessionWsClient } from "./ws/session-broadcast
 import { relative } from "path";
 import { MimoServer } from "./server/mimo-server.js";
 import { createMimoContext } from "./context/mimo-context.js";
+import { logger } from "./logger.js";
 
 const app = new Hono();
 const _port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -86,7 +87,7 @@ async function broadcastImpactStale(sessionId: string): Promise<void> {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("[impact] Failed to broadcast stale status:", error);
+    logger.error("[impact] Failed to broadcast stale status:", error);
   }
 }
 
@@ -162,13 +163,13 @@ app.route("/sessions", autoCommitRoutes);
 
 // Health check
 app.get("/health", (c) => {
-  console.log("Health check hit");
+  logger.debug("Health check hit");
   return c.json({ status: "healthy" });
 });
 
 // 404 handler
 app.notFound((c) => {
-  console.log(`404: ${c.req.url}`);
+  logger.debug(`404: ${c.req.url}`);
   return c.json({ error: "Not Found", path: c.req.path }, 404);
 });
 
@@ -183,17 +184,17 @@ mimoServer.setup({
       if (type === 'agent') {
         const token = url.searchParams.get("token");
         if (!token) {
-          console.log("[WS] Missing token");
+          logger.debug("[WS] Missing token");
           return new Response("Missing token", { status: 400 });
         }
         
         const payload = await agentService.verifyAgentToken(token);
         if (!payload) {
-          console.log("[WS] Invalid token");
+          logger.debug("[WS] Invalid token");
           return new Response("Invalid token", { status: 401 });
         }
         
-        console.log("[WS] Token verified, agentId:", payload.agentId);
+        logger.debug("[WS] Token verified, agentId:", payload.agentId);
         
         const upgraded = server.upgrade(req, {
           data: {
@@ -204,10 +205,10 @@ mimoServer.setup({
         });
         
         if (!upgraded) {
-          console.log("[WS] WebSocket upgrade failed");
+          logger.debug("[WS] WebSocket upgrade failed");
           return new Response("WebSocket upgrade failed", { status: 500 });
         }
-        console.log("[WS] WebSocket upgraded successfully for agent:", payload.agentId);
+        logger.debug("[WS] WebSocket upgraded successfully for agent:", payload.agentId);
         return undefined;
       }
       
@@ -252,10 +253,10 @@ mimoServer.setup({
             await handleChatMessage(ws, data);
             break;
           default:
-            console.log("Unknown connection type");
+            logger.debug("Unknown connection type");
         }
       } catch (error) {
-        console.error("WebSocket message error:", error);
+        logger.error("WebSocket message error:", error);
       }
     },
     async open(ws) {
@@ -295,7 +296,7 @@ mimoServer.setup({
           }));
         }
         
-        console.log(`Chat client connected to session ${sessionId}`);
+        logger.debug(`Chat client connected to session ${sessionId}`);
       } else {
         // Agent connection
         const token = url.searchParams.get("token");
@@ -316,7 +317,7 @@ mimoServer.setup({
         ws.data.authenticated = true;  // Mark as authenticated, waiting for agent_ready
         
         await agentService.handleAgentConnect(payload.agentId, ws);
-        console.log(`Agent ${payload.agentId} connected, waiting for agent_ready`);
+        logger.debug(`Agent ${payload.agentId} connected, waiting for agent_ready`);
       }
     },
     async close(ws) {
@@ -345,12 +346,12 @@ mimoServer.setup({
             }
           }
         }
-        console.log(`Chat client disconnected from session ${sessionId}`);
+        logger.debug(`Chat client disconnected from session ${sessionId}`);
       } else if (connectionType === 'agent') {
         const agentId = ws.data.agentId;
         if (agentId) {
           await agentService.handleAgentDisconnect(agentId);
-          console.log(`Agent ${agentId} disconnected`);
+          logger.debug(`Agent ${agentId} disconnected`);
 
           // Note: With shared fossil server, no per-session servers to stop
           // The shared server continues running for all sessions
@@ -365,7 +366,7 @@ const server = mimoServer.start();
 // Handle agent messages
 async function triggerAutoSync(sessionId: string, reason: "thought_end" | "usage_update"): Promise<void> {
   if (autoSyncInFlight.has(sessionId)) {
-    console.log(`[auto-commit] Skipping ${reason} sync for ${sessionId} (in-flight)`);
+    logger.debug(`[auto-commit] Skipping ${reason} sync for ${sessionId} (in-flight)`);
     return;
   }
 
@@ -394,14 +395,14 @@ async function triggerAutoSync(sessionId: string, reason: "thought_end" | "usage
       }
     });
   } catch (error) {
-    console.error(`[auto-commit] Failed on ${reason}:`, error);
+    logger.error(`[auto-commit] Failed on ${reason}:`, error);
   } finally {
     autoSyncInFlight.delete(sessionId);
   }
 }
 
 async function handleAgentMessage(ws, data) {
-  console.log("[agent] Received message:", data.type, data);
+  logger.debug("[agent] Received message:", data.type, data);
   process.stdout?.write?.(""); // Flush stdout
   
   switch (data.type) {
@@ -409,7 +410,7 @@ async function handleAgentMessage(ws, data) {
       ws.send(JSON.stringify({ type: "pong" }));
       break;
     case "agent_ready":
-      console.log("[agent] Agent ready:", data.agentId, "workdir:", data.workdir);
+      logger.debug("[agent] Agent ready:", data.agentId, "workdir:", data.workdir);
       process.stdout?.write?.(""); // Flush stdout
       
       // Store workdir for relative path computation
@@ -421,25 +422,25 @@ async function handleAgentMessage(ws, data) {
       // Start Fossil servers for sessions assigned to this agent
       // Note: Sessions are assigned via assignedAgentId, not in agent.sessionIds
       const sessions = await sessionRepository.findByAssignedAgentId(agentId);
-      console.log("[agent] Found", sessions.length, "sessions assigned to agent", agentId);
+      logger.debug("[agent] Found", sessions.length, "sessions assigned to agent", agentId);
       process.stdout?.write?.(""); // Flush stdout
       
       if (sessions.length > 0) {
         const sessionsReady = [];
         const workdir = agentService.getAgentWorkdir(agentId);
-        console.log("[agent] Workdir:", workdir);
+        logger.debug("[agent] Workdir:", workdir);
         process.stdout?.write?.(""); // Flush stdout
         
       // Use shared fossil server - no per-session server to start
       for (const session of sessions) {
         const sessionId = session.id;
-        console.log("[agent] Session:", sessionId, "status:", session.status);
+        logger.debug("[agent] Session:", sessionId, "status:", session.status);
         process.stdout?.write?.(""); // Flush stdout
         
         if (session.status === "active") {
           const fossilPath = sessionRepository.getFossilPath(sessionId);
           const fossilUrl = sharedFossilServer.getUrl(sessionId);
-          console.log("[agent] Using shared fossil server for session:", sessionId, "fossil:", fossilPath, "url:", fossilUrl);
+          logger.debug("[agent] Using shared fossil server for session:", sessionId, "fossil:", fossilPath, "url:", fossilUrl);
           process.stdout?.write?.(""); // Flush stdout
           
           // Get session with credentials
@@ -469,21 +470,21 @@ async function handleAgentMessage(ws, data) {
             platformUrl: PLATFORM_URL,
             sessions: sessionsReady,
           };
-          console.log("[agent] Sending session_ready:", JSON.stringify(message));
+          logger.debug("[agent] Sending session_ready:", JSON.stringify(message));
           process.stdout?.write?.(""); // Flush stdout
           ws.send(JSON.stringify(message));
         } else {
-          console.log("[agent] No sessions ready to send");
+          logger.debug("[agent] No sessions ready to send");
         }
       } else {
-        console.log("[agent] No sessions assigned to agent");
+        logger.debug("[agent] No sessions assigned to agent");
       }
       break;
     case "thought_start":
       {
         const startSessionId = data.sessionId;
         if (!startSessionId) {
-          console.log("No sessionId in thought_start");
+          logger.debug("No sessionId in thought_start");
           return;
         }
 
@@ -512,7 +513,7 @@ async function handleAgentMessage(ws, data) {
       {
         const chunkSessionId = data.sessionId;
         if (!chunkSessionId) {
-          console.log("No sessionId in thought_chunk");
+          logger.debug("No sessionId in thought_chunk");
           return;
         }
         
@@ -543,7 +544,7 @@ async function handleAgentMessage(ws, data) {
       {
         const endSessionId = data.sessionId;
         if (!endSessionId) {
-          console.log("No sessionId in thought_end");
+          logger.debug("No sessionId in thought_end");
           return;
         }
         
@@ -568,7 +569,7 @@ async function handleAgentMessage(ws, data) {
       {
         const msgSessionId = data.sessionId;
         if (!msgSessionId) {
-          console.log("No sessionId in message_chunk");
+          logger.debug("No sessionId in message_chunk");
           return;
         }
         
@@ -599,7 +600,7 @@ async function handleAgentMessage(ws, data) {
       {
         const usageSessionId = data.sessionId;
         if (!usageSessionId) {
-          console.log("No sessionId in usage_update");
+          logger.debug("No sessionId in usage_update");
           return;
         }
         
@@ -652,7 +653,7 @@ async function handleAgentMessage(ws, data) {
       // Agent must specify which session this is for
       const sessionId = data.sessionId;
       if (!sessionId) {
-        console.log("No sessionId in acp_response");
+        logger.debug("No sessionId in acp_response");
         return;
       }
       
@@ -679,11 +680,11 @@ async function handleAgentMessage(ws, data) {
       });
       break;
     case "file_changed":
-      console.log("File changed:", data.files);
+      logger.debug("File changed:", data.files);
       
       const fileSessionId = data.sessionId;
       if (!fileSessionId) {
-        console.log("No sessionId in file_changed");
+        logger.debug("No sessionId in file_changed");
         return;
       }
       
@@ -697,15 +698,15 @@ async function handleAgentMessage(ws, data) {
       await fileSyncService.handleFileChanges(fileSessionId, changes);
       break;
     case "session_error":
-      console.log("[agent] Session error:", data.sessionId, data.error);
+      logger.debug("[agent] Session error:", data.sessionId, data.error);
       break;
     case "agent_sessions_ready":
-      console.log("[agent] Agent sessions ready:", data.sessionIds);
+      logger.debug("[agent] Agent sessions ready:", data.sessionIds);
       break;
     case "acp_session_created":
       {
         const { sessionId, acpSessionId, wasReset, resetReason } = data;
-        console.log("[agent] ACP session created:", { sessionId, acpSessionId, wasReset, resetReason });
+        logger.debug("[agent] ACP session created:", { sessionId, acpSessionId, wasReset, resetReason });
         
         if (sessionId && acpSessionId) {
           await sessionRepository.update(sessionId, { acpSessionId });
@@ -727,7 +728,7 @@ async function handleAgentMessage(ws, data) {
     case "acp_session_cleared":
       {
         const { sessionId, acpSessionId } = data;
-        console.log("[agent] ACP session cleared:", { sessionId, acpSessionId });
+        logger.debug("[agent] ACP session cleared:", { sessionId, acpSessionId });
         
         if (sessionId && acpSessionId) {
           // Update session with new acpSessionId
@@ -761,7 +762,7 @@ async function handleAgentMessage(ws, data) {
     case "clear_session_error":
       {
         const { sessionId, error } = data;
-        console.log("[agent] Clear session error:", { sessionId, error });
+        logger.debug("[agent] Clear session error:", { sessionId, error });
         
         if (sessionId) {
           // Broadcast error to all UI clients
@@ -789,14 +790,14 @@ async function handleAgentMessage(ws, data) {
           await sessionRepository.update(data.sessionId, {
             modelState: data.modelState,
           });
-          console.log(`[agent] Session ${data.sessionId} model state:`, data.modelState.currentModelId);
+          logger.debug(`[agent] Session ${data.sessionId} model state:`, data.modelState.currentModelId);
         }
         if (data.modeState) {
           sessionStateService.setModeState(data.sessionId, data.modeState);
           await sessionRepository.update(data.sessionId, {
             modeState: data.modeState,
           });
-          console.log(`[agent] Session ${data.sessionId} mode state:`, data.modeState.currentModeId);
+          logger.debug(`[agent] Session ${data.sessionId} mode state:`, data.modeState.currentModeId);
         }
         
         // Broadcast to chat clients
@@ -871,7 +872,7 @@ async function handleAgentMessage(ws, data) {
     case "acp_status":
       {
         const { sessionId, status } = data;
-        console.log("[agent] ACP status update:", { sessionId, status });
+        logger.debug("[agent] ACP status update:", { sessionId, status });
         
         if (sessionId) {
           // Update session acpStatus in repository
@@ -923,7 +924,7 @@ async function handleAgentMessage(ws, data) {
       {
         const resolved = resolveAgentSyncNowResult(data);
         if (!resolved) {
-          console.log("[agent] No pending sync request for result:", data.requestId);
+          logger.debug("[agent] No pending sync request for result:", data.requestId);
         }
       }
       break;
@@ -953,7 +954,7 @@ async function handleAgentMessage(ws, data) {
       }
       break;
     default:
-      console.log("[agent] Unknown message type:", data.type);
+      logger.debug("[agent] Unknown message type:", data.type);
   }
 }
 
@@ -1096,7 +1097,7 @@ async function handleChatMessage(ws, data) {
       {
         const cancelSessionId = data.sessionId;
         if (!cancelSessionId) {
-          console.log("No sessionId in cancel_request");
+          logger.debug("No sessionId in cancel_request");
           return;
         }
         
@@ -1111,7 +1112,7 @@ async function handleChatMessage(ws, data) {
               sessionId: cancelSessionId,
               timestamp: new Date().toISOString(),
             }));
-            console.log(`Cancel request forwarded to agent for session ${cancelSessionId}`);
+            logger.debug(`Cancel request forwarded to agent for session ${cancelSessionId}`);
           }
         }
         
@@ -1125,11 +1126,11 @@ async function handleChatMessage(ws, data) {
       {
         const clearSessionId = data.sessionId;
         if (!clearSessionId) {
-          console.log("No sessionId in clear_session");
+          logger.debug("No sessionId in clear_session");
           return;
         }
         
-        console.log(`[clear_session] Received for session ${clearSessionId}`);
+        logger.debug(`[clear_session] Received for session ${clearSessionId}`);
         
         // Find assigned agent
         const clearSession = await sessionRepository.findById(clearSessionId);
@@ -1142,9 +1143,9 @@ async function handleChatMessage(ws, data) {
               sessionId: clearSessionId,
               timestamp: new Date().toISOString(),
             }));
-            console.log(`Clear session request forwarded to agent for session ${clearSessionId}`);
+            logger.debug(`Clear session request forwarded to agent for session ${clearSessionId}`);
           } else {
-            console.log(`[clear_session] Agent not connected for session ${clearSessionId}`);
+            logger.debug(`[clear_session] Agent not connected for session ${clearSessionId}`);
             // Send error back to UI
             const subscribers = chatSessions.get(clearSessionId);
             if (subscribers) {
@@ -1160,7 +1161,7 @@ async function handleChatMessage(ws, data) {
             }
           }
         } else {
-          console.log(`[clear_session] No agent assigned to session ${clearSessionId}`);
+          logger.debug(`[clear_session] No agent assigned to session ${clearSessionId}`);
           // Send error back to UI
           const subscribers = chatSessions.get(clearSessionId);
           if (subscribers) {
@@ -1219,6 +1220,6 @@ async function handleChatMessage(ws, data) {
       break;
 
     default:
-      console.log("Unknown chat message type:", data.type);
+      logger.debug("Unknown chat message type:", data.type);
   }
 }

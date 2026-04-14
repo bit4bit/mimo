@@ -3,6 +3,7 @@ import { existsSync, readdirSync, statSync, readFileSync } from "fs";
 import crypto from "crypto";
 import type { SccService, SccMetrics, SccFileMetrics } from "./scc-service.js";
 import type { JscpdService, Clone } from "./jscpd-service.js";
+import { logger } from "../logger.js";
 
 export type FileStatus = "new" | "changed" | "deleted" | "unchanged";
 
@@ -115,16 +116,16 @@ export class ImpactCalculator {
     
     try {
       upstreamMetrics = await sccService.runScc(upstreamPath, forceRefresh);
-      console.log(`[impact] Upstream scc metrics:`, upstreamMetrics);
+      logger.debug(`[impact] Upstream scc metrics:`, upstreamMetrics);
     } catch (error) {
-      console.error(`[impact] Failed to get upstream metrics:`, error);
+      logger.error(`[impact] Failed to get upstream metrics:`, error);
     }
-    
+
     try {
       workspaceMetrics = await sccService.runScc(agentWorkspacePath, forceRefresh);
-      console.log(`[impact] Workspace scc metrics:`, workspaceMetrics);
+      logger.debug(`[impact] Workspace scc metrics:`, workspaceMetrics);
     } catch (error) {
-      console.error(`[impact] Failed to get workspace metrics:`, error);
+      logger.error(`[impact] Failed to get workspace metrics:`, error);
     }
 
     // Calculate file changes by scanning directories
@@ -376,7 +377,7 @@ export class ImpactCalculator {
         byFile,
       };
     } catch (error) {
-      console.error("[impact] Failed to calculate duplication:", error);
+      logger.error("[impact] Failed to calculate duplication:", error);
       return { duplicatedLines: 0, duplicatedTokens: 0, percentage: 0, clones: [], byFile: {} };
     }
   }

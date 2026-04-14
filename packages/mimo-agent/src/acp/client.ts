@@ -1,7 +1,6 @@
-import * as acp from "@agentclientprotocol/sdk";
-import { IAcpProvider, NewSessionResponse } from "./types";
 import { ModelState, ModeState, McpServerConfig } from "../types";
-
+import { ModelState, ModeState, McpServerConfig } from "../types";
+import { logger } from "../logger.js";
 export interface AcpClientCallbacks {
   onThoughtStart: (sessionId: string) => void;
   onThoughtChunk: (sessionId: string, content: string) => void;
@@ -84,12 +83,12 @@ export class AcpClient {
       clientInfo: { name: "mimo-agent", version: "0.1.0" },
     });
 
-    console.log(`[mimo-agent] ACP initialized: ${initResponse.protocolVersion}`);
+    logger.debug(`[mimo-agent] ACP initialized: ${initResponse.protocolVersion}`);
 
     this.capabilities = {
       loadSession: initResponse.agentCapabilities?.loadSession ?? false,
     };
-    console.log(`[mimo-agent] Agent capabilities:`, this.capabilities);
+    logger.debug(`[mimo-agent] Agent capabilities:`, this.capabilities);
 
     let sessionResponse: acp.NewSessionResponse;
     let wasReset = false;
@@ -97,20 +96,20 @@ export class AcpClient {
 
     if (existingSessionId && this.capabilities.loadSession) {
       try {
-        console.log(`[mimo-agent] Attempting to load existing session: ${existingSessionId}`);
+        logger.debug(`[mimo-agent] Attempting to load existing session: ${existingSessionId}`);
         const loadResponse = await connection.loadSession({
           sessionId: existingSessionId,
           cwd,
           mcpServers: mcpServers as any || [],
         });
         sessionResponse = loadResponse as acp.NewSessionResponse;
-        console.log(`[mimo-agent] Session loaded successfully: ${sessionResponse.sessionId}`);
+        logger.debug(`[mimo-agent] Session loaded successfully: ${sessionResponse.sessionId}`);
       } catch (error) {
         // ACP errors are plain objects { code, message, data }, not Error instances
         const errorMsg = error instanceof Error
           ? error.message
           : (error as any)?.message ?? String(error);
-        console.log(`[mimo-agent] Failed to load session, creating new session:`, error);
+        logger.debug(`[mimo-agent] Failed to load session, creating new session:`, error);
         wasReset = true;
         resetReason = `loadSession failed: ${errorMsg}`;
         sessionResponse = await connection.newSession({
@@ -336,7 +335,7 @@ export class AcpClient {
       checkoutPath: currentSession.checkoutPath,
     };
 
-    console.log(`[mimo-agent] Session cleared: old=${currentSession.acpSessionId}, new=${sessionResponse.sessionId}`);
+    logger.debug(`[mimo-agent] Session cleared: old=${currentSession.acpSessionId}, new=${sessionResponse.sessionId}`);
 
     return {
       acpSessionId: sessionResponse.sessionId,
