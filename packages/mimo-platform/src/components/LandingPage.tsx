@@ -45,11 +45,11 @@ export const LandingPage: FC<LandingPageProps> = ({ projects, isAuthenticated, u
         <div style="margin-bottom: 40px;">
           <h2 style="margin-bottom: 15px;">Minimal IDE for Modern Operations</h2>
           <p style="color: #888; line-height: 1.6; margin-bottom: 20px;">
-            MIMO provides an Emacs-style interface for session-based development with AI integration.
+            MIMO provides a web-based interface for session-based development with AI integration.
             Manage projects, run agents, and sync files seamlessly.
           </p>
           <ul style="color: #888; line-height: 1.8; margin-left: 20px;">
-            <li><strong style="color: #d4d4d4;">Emacs-style UI</strong> - Keyboard-driven interface inspired by Emacs</li>
+            <li><strong style="color: #d4d4d4;">Two-Frame UI</strong> - Chat and buffer-based interface for focused workflows</li>
             <li><strong style="color: #d4d4d4;">Session Management</strong> - Create isolated development sessions</li>
             <li><strong style="color: #d4d4d4;">AI Integration</strong> - Work with AI agents in your workspace</li>
             <li><strong style="color: #d4d4d4;">File Sync</strong> - Automatic synchronization of changes</li>
