@@ -1,8 +1,8 @@
 import { join, relative, dirname, resolve } from "path";
 import { existsSync, copyFileSync, mkdirSync, statSync, readFileSync, readdirSync, unlinkSync } from "fs";
 import crypto from "crypto";
-import { sccService } from "../impact/scc-service.js";
 import { logger } from "../logger.js";
+import type { SccService } from "../impact/scc-service.js";
 
 export type FileStatus =
   | "clean"      // File hasn't changed
@@ -38,6 +38,7 @@ export interface FileSyncState {
 
 export interface FileSyncServiceDeps {
   sessionRepository: typeof sessionRepository;
+  sccService: typeof sccService;
 }
 
 export class FileSyncService {
@@ -134,7 +135,7 @@ export class FileSyncService {
 
     // Invalidate SCC cache when there are real changes
     if (fileChanges.length > 0 && syncState) {
-      sccService.invalidateCache(syncState.agentWorkspacePath);
+      this.deps.sccService.invalidateCache(syncState.agentWorkspacePath);
       this.impactStaleHandler?.(sessionId);
     }
 

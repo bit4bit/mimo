@@ -1,0 +1,127 @@
+{
+  "entries": {
+    "/tmp/mimo-scc-determinism-1776205840121/test-project": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 14,
+          "removed": 0,
+          "net": 14
+        },
+        "complexity": {
+          "cyclomatic": 0,
+          "cognitive": 0,
+          "estimatedMinutes": 2
+        },
+        "byLanguage": [
+          {
+            "language": "TypeScript",
+            "files": 2,
+            "lines": 17,
+            "code": 14,
+            "comment": 0,
+            "blank": 3,
+            "complexity": 0
+          }
+        ],
+        "byFile": [
+          {
+            "path": "utils.ts",
+            "language": "TypeScript",
+            "lines": 7,
+            "code": 6,
+            "comment": 0,
+            "blank": 1,
+            "complexity": 0
+          },
+          {
+            "path": "main.ts",
+            "language": "TypeScript",
+            "lines": 10,
+            "code": 8,
+            "comment": 0,
+            "blank": 2,
+            "complexity": 0
+          }
+        ]
+      },
+      "cachedAt": 1776205840219
+    },
+    "/tmp/mimo-scc-determinism-1776205840220/upstream": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 3,
+          "removed": 0,
+          "net": 3
+        },
+        "complexity": {
+          "cyclomatic": 0,
+          "cognitive": 0,
+          "estimatedMinutes": 1
+        },
+        "byLanguage": [
+          {
+            "language": "TypeScript",
+            "files": 1,
+            "lines": 3,
+            "code": 3,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ],
+        "byFile": [
+          {
+            "path": "test.ts",
+            "language": "TypeScript",
+            "lines": 3,
+            "code": 3,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ]
+      },
+      "cachedAt": 1776205840231
+    },
+    "/tmp/mimo-scc-determinism-1776205840220/workspace": {
+      "valid": true,
+      "data": {
+        "linesOfCode": {
+          "added": 3,
+          "removed": 0,
+          "net": 3
+        },
+        "complexity": {
+          "cyclomatic": 0,
+          "cognitive": 0,
+          "estimatedMinutes": 1
+        },
+        "byLanguage": [
+          {
+            "language": "TypeScript",
+            "files": 1,
+            "lines": 3,
+            "code": 3,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ],
+        "byFile": [
+          {
+            "path": "test.ts",
+            "language": "TypeScript",
+            "lines": 3,
+            "code": 3,
+            "comment": 0,
+            "blank": 0,
+            "complexity": 0
+          }
+        ]
+      },
+      "cachedAt": 1776205840242
+    }
+  }
+}

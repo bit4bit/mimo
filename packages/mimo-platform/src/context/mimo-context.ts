@@ -176,6 +176,7 @@ export function createMimoContext(overrides: CreateMimoContextOverrides = {}): M
       overrides.services?.fileSync ??
       new FileSyncService({
         sessionRepository: repos.sessions,
+        sccService: overrides.services?.scc ?? new SccService(join(paths.root, "bin", "scc"), join(paths.root, "cache")),
       }),
     autoCommit:
       overrides.services?.autoCommit ??

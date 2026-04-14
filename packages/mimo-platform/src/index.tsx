@@ -15,7 +15,7 @@ import { createAutoCommitRouter, resolveAgentSyncNowResult, syncSessionViaAssign
 import { LandingPage } from "./components/LandingPage.js";
 import { sharedFossilServer } from "./vcs/shared-fossil-server.js";
 import { handleRefreshImpact } from "./impact/refresh-handler.js";
-import { sccService } from "./impact/scc-service.js";
+
 import { broadcastToSession, type SessionWsClient } from "./ws/session-broadcast.js";
 import { relative } from "path";
 import { MimoServer } from "./server/mimo-server.js";
@@ -40,7 +40,7 @@ sharedFossilServer.configure({
   reposDir: mimoContext.env.FOSSIL_REPOS_DIR,
   port: mimoContext.env.MIMO_SHARED_FOSSIL_SERVER_PORT,
 });
-sccService.configure({ mimoHome: mimoContext.env.MIMO_HOME });
+mimoContext.services.scc.configure({ mimoHome: mimoContext.env.MIMO_HOME });
 const agentService = mimoContext.services.agents;
 const sessionRepository = mimoContext.repos.sessions;
 const PORT = mimoContext.env.PORT;
@@ -85,7 +85,7 @@ async function broadcastImpactStale(sessionId: string): Promise<void> {
     broadcastToSession(chatSessions, sessionId, {
       type: "impact_stale",
       sessionId,
-      stale: sccService.isStale(session.agentWorkspacePath),
+      stale: mimoContext.services.scc.isStale(session.agentWorkspacePath),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
@@ -1076,7 +1076,7 @@ async function handleChatMessage(ws, data) {
         ws.send(JSON.stringify({
           type: "impact_stale",
           sessionId,
-          stale: sccService.isStale(staleSession.agentWorkspacePath),
+          stale: mimoContext.services.scc.isStale(staleSession.agentWorkspacePath),
           timestamp: new Date().toISOString(),
         }));
       }

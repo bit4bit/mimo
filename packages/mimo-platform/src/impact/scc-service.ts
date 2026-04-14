@@ -522,14 +522,3 @@ export class SccService {
     await this.saveCache();
   }
 }
-
-let _sccService: SccService | undefined;
-
-export function getSccService(): SccService {
-  if (!_sccService) {
-    _sccService = new SccService();
-  }
-  return _sccService;
-}
-
-export const sccService = getSccService();
