@@ -395,3 +395,4 @@ cd packages/mimo-agent && bun test
 - A failing test suite is a blocker, not a suggestion
 - Keep tests fast, reliable, and meaningful
 - When tests fail, investigate immediately — don't accumulate broken tests
+- Do not HTML/Component content, test should verify HTTP endpoints instead.
