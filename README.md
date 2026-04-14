@@ -1,6 +1,6 @@
 # MIMO Platform
 
-An Emacs-style web-based interface for AI-assisted development with session-based worktrees, structured change management, and multi-provider agent support.
+A web-based interface for AI-assisted development with session-based worktrees, structured change management, and multi-provider agent support.
 
 ## Table of Contents
 
@@ -18,11 +18,11 @@ An Emacs-style web-based interface for AI-assisted development with session-base
 
 ## Overview
 
-MIMO (Minimal IDE for Modern Operations) is a platform that enables AI-assisted development through an Emacs-style web-based interface. It provides session-based development with worktrees, file synchronization, integrated chat with AI agents, session parking for resource management, MCP server integration, and structured OpenSpec change management.
+MIMO (Minimal IDE for Modern Operations) is a platform that enables AI-assisted development through a web-based interface. It provides session-based development with worktrees, file synchronization, integrated chat with AI agents, session parking for resource management, MCP server integration, and structured OpenSpec change management.
 
 ## Features
 
-- **Emacs-Style Two-Frame Interface**: Keyboard-driven UI with Chat (left), Notes/Impact/MCP (right) buffers
+- **Two-Frame Interface**: Chat (left), Notes/Impact/MCP (right) buffers
 - **Public Landing Page**: View platform overview and public projects without authentication
 - **Dashboard**: Authenticated view of your projects, agents, and recent sessions
 - **Session-Based Development**: Work with isolated Fossil worktrees for each development session
