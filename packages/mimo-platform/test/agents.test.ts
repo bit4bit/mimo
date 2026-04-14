@@ -281,8 +281,12 @@ describe("Agent Lifecycle Integration Tests", () => {
       const token = await agentService.generateAgentToken(agent);
       await agentRepository.update(agent.id, { token });
 
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token2 = await generateToken("testuser");
+      // Use mimoContext's JwtService instead of the singleton
+      const { createMimoContext } = await import("../src/context/mimo-context.ts");
+      const ctx = createMimoContext({
+        env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+      });
+      const token2 = await ctx.services.auth.generateToken("testuser");
 
       const res = await app.request("/agents", {
         headers: { Cookie: `token=${token2}` },
