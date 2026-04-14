@@ -258,21 +258,20 @@ describe("McpServerService", () => {
       const configs = await service.resolveMcpServers(["filesystem", "github"]);
 
       expect(configs).toHaveLength(2);
+      // Stdio transport has no 'type' field
       expect(configs[0]).toEqual({
         name: "Filesystem",
-        transport: "stdio",
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-filesystem", "."],
       });
       expect(configs[1]).toEqual({
         name: "GitHub",
-        transport: "stdio",
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-github"],
       });
     });
 
-    it("should resolve HTTP MCP server to config", async () => {
+    it("should resolve HTTP MCP server to config with type field", async () => {
       await service.create({
         name: "Remote",
         transport: "http",
@@ -283,9 +282,10 @@ describe("McpServerService", () => {
       const configs = await service.resolveMcpServers(["remote"]);
 
       expect(configs).toHaveLength(1);
+      // HTTP transport requires 'type: "http"' field
       expect(configs[0]).toEqual({
+        type: "http",
         name: "Remote",
-        transport: "http",
         url: "http://localhost:3001/mcp",
         headers: [{ name: "Authorization", value: "Bearer token123" }],
       });

@@ -120,19 +120,27 @@ export class McpServerService {
       }
 
       if (server.transport === "stdio") {
+        // Stdio transport - no 'type' field
         configs.push({
           name: server.name,
-          transport: "stdio",
           command: server.command!,
           args: server.args || [],
         });
-      } else {
-        // HTTP or SSE transport
+      } else if (server.transport === "http") {
+        // HTTP transport - requires 'type: "http"'
         configs.push({
+          type: "http",
           name: server.name,
-          transport: server.transport,
           url: server.url!,
-          headers: server.headers ? Object.entries(server.headers).map(([name, value]) => ({ name, value })) : undefined,
+          headers: server.headers ? Object.entries(server.headers).map(([name, value]) => ({ name, value })) : [],
+        });
+      } else if (server.transport === "sse") {
+        // SSE transport - requires 'type: "sse"'
+        configs.push({
+          type: "sse",
+          name: server.name,
+          url: server.url!,
+          headers: server.headers ? Object.entries(server.headers).map(([name, value]) => ({ name, value })) : [],
         });
       }
     }

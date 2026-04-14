@@ -22,19 +22,27 @@ export interface ModeState {
 
 /**
  * MCP server configuration passed to ACP newSession
- * Supports both stdio and HTTP/SSE transports
+ * Matches ACP SDK McpServer type exactly
  */
 export type McpServerConfig =
   | {
+      // Stdio transport - no type field
       name: string;
-      transport: "stdio";
       command: string;
       args: string[];
       env?: Array<{ name: string; value: string }>;
     }
   | {
+      // HTTP transport
+      type: "http";
       name: string;
-      transport: "http" | "sse";
+      url: string;
+      headers?: Array<{ name: string; value: string }>;
+    }
+  | {
+      // SSE transport
+      type: "sse";
+      name: string;
       url: string;
       headers?: Array<{ name: string; value: string }>;
     };
