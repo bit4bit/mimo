@@ -3,12 +3,9 @@ import { jsx } from "hono/jsx";
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import crypto from "crypto";
-import { vcs } from "../vcs/index.js";
 import { SessionDetailPage } from "../components/SessionDetailPage.js";
 import { SessionCreatePage } from "../components/SessionCreatePage.js";
 import { SessionListPage } from "../components/SessionListPage.js";
-import { sessionStateService } from "./state.js";
-import { sharedFossilServer } from "../vcs/shared-fossil-server.js";
 import type { Context } from "hono";
 import { normalizeFrameState, updateFrameState } from "./frame-state.js";
 import { logger } from "../logger.js";
@@ -27,6 +24,9 @@ const projectRepository = mimoContext.repos.projects;
 const sessionRepository = mimoContext.repos.sessions;
 const agentRepository = mimoContext.repos.agents;
 const frameStateService = mimoContext.services.frameState;
+const sessionStateService = mimoContext.services.sessionState;
+const sharedFossilServer = mimoContext.services.sharedFossil;
+const vcs = mimoContext.services.vcs;
 const platformUrl = mimoContext.env?.PLATFORM_URL ?? "http://localhost:3000";
 
 // Helper to get authenticated username from cookie

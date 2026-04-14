@@ -20,6 +20,8 @@ import { McpServerService } from "../mcp-servers/service.js";
 import { ConfigService } from "../config/service.js";
 import { ImpactCalculator } from "../impact/calculator.js";
 import { vcs } from "../vcs/index.js";
+import { sessionStateService } from "../sessions/state.js";
+import { SharedFossilServer } from "../vcs/shared-fossil-server.js";
 
 export interface MimoEnv {
   PORT: number;
@@ -64,6 +66,9 @@ export interface MimoContext {
     mcpServer: McpServerService;
     config: ConfigService;
     impactCalculator: ImpactCalculator;
+    vcs: typeof vcs;
+    sessionState: typeof sessionStateService;
+    sharedFossil: SharedFossilServer;
   };
 }
 
@@ -200,6 +205,9 @@ export function createMimoContext(overrides: CreateMimoContextOverrides = {}): M
       overrides.services?.config ??
       new ConfigService(paths.config),
     impactCalculator,
+    vcs: vcs,
+    sessionState: sessionStateService,
+    sharedFossil: new SharedFossilServer(),
   };
 
   return {

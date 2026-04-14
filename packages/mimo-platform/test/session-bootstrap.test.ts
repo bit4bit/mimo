@@ -5,29 +5,38 @@ import { rmSync, existsSync, mkdirSync, writeFileSync } from "fs";
 import { execSync } from "child_process";
 
 describe("Session Bootstrap Integration Tests", () => {
-  let testHome: string;
+    let testHome: string;
+    let projectsDir: string;
+    let fossilReposDir: string;
   let VCS: any;
-  let SessionRepository: any;
   let sessionRepository: any;
 
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-bootstrap-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    
+      projectsDir = join(testHome, "projects");
+      fossilReposDir = join(testHome, "fossil-repos");
     // Clean up from previous run
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
     
     mkdirSync(testHome, { recursive: true });
-    mkdirSync(join(testHome, "projects"), { recursive: true });
+      mkdirSync(projectsDir, { recursive: true });
+      mkdirSync(fossilReposDir, { recursive: true });
 
     // Re-import to get fresh modules
     const vcsModule = await import("../src/vcs/index.ts");
     VCS = vcsModule.VCS;
 
     const sessionModule = await import("../src/sessions/repository.ts");
-    SessionRepository = sessionModule.SessionRepository;
-    sessionRepository = sessionModule.sessionRepository;
+     sessionRepository = new sessionModule.SessionRepository({
+          paths: {
+              projects: projectsDir,
+              data: testHome
+          },
+          fossilReposDir: fossilReposDir
+      }
+      );
   });
 
   afterEach(() => {
