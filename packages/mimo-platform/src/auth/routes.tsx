@@ -1,6 +1,10 @@
+/** @jsx jsx */
+import { jsx } from "hono/jsx";
 import { Hono } from "hono";
 import bcrypt from "bcrypt";
 import type { MimoContext } from "../context/mimo-context.js";
+import { LoginPage } from "../components/LoginPage.js";
+import { RegisterPage } from "../components/RegisterPage.js";
 
 type AuthRoutesContext = Pick<MimoContext, "services" | "repos">;
 
@@ -9,9 +13,9 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
   const authService = mimoContext.services.auth;
   const userRepository = mimoContext.repos.users;
 
-  // GET /auth/register - Show registration page (returns JSON in test mode)
+  // GET /auth/register - Show registration page
   auth.get("/register", (c) => {
-    return c.json({ message: "Registration page" });
+    return c.html(<RegisterPage />);
   });
 
   // POST /auth/register - Process registration
@@ -21,12 +25,15 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
     const password = body.password as string;
 
     if (!username || !password) {
-      return c.json({ error: "Username and password required" }, 400);
+      return c.html(
+        <RegisterPage error="Username and password required" />,
+        400,
+      );
     }
 
     const existingUser = await userRepository.getCredentials(username);
     if (existingUser) {
-      return c.json({ error: "Username already exists" }, 409);
+      return c.html(<RegisterPage error="Username already exists" />, 409);
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -35,9 +42,9 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
     return c.redirect("/auth/login");
   });
 
-  // GET /auth/login - Show login page (returns JSON in test mode)
+  // GET /auth/login - Show login page
   auth.get("/login", (c) => {
-    return c.json({ message: "Login page" });
+    return c.html(<LoginPage />);
   });
 
   // POST /auth/login - Process login
@@ -47,12 +54,12 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
     const password = body.password as string;
 
     if (!username || !password) {
-      return c.json({ error: "Username and password required" }, 400);
+      return c.html(<LoginPage error="Username and password required" />, 400);
     }
 
     const credentials = await userRepository.getCredentials(username);
     if (!credentials) {
-      return c.json({ error: "Invalid credentials" }, 401);
+      return c.html(<LoginPage error="Invalid credentials" />, 401);
     }
 
     const isValidPassword = await bcrypt.compare(
@@ -60,7 +67,7 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
       credentials.passwordHash,
     );
     if (!isValidPassword) {
-      return c.json({ error: "Invalid credentials" }, 401);
+      return c.html(<LoginPage error="Invalid credentials" />, 401);
     }
 
     const token = await authService.generateToken(username);

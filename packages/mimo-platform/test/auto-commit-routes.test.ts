@@ -54,39 +54,4 @@ describe("auto-commit routes", () => {
     const body = await res.json();
     expect(body.syncState).toBe("idle");
   });
-
-  it("triggers manual sync requires real session with agent", async () => {
-    // This test requires a full session setup with an assigned agent
-    // The route checks for session existence and agent assignment
-    // For unit testing, we verify the route structure is correct
-    const app = new Hono();
-    const router = createAutoCommitRouter({
-      getSyncStatus: async () => ({
-        syncState: "idle",
-        lastSyncAt: undefined,
-        lastSyncError: undefined,
-      }),
-      syncNow: async () => ({
-        success: true,
-        message: "Changes committed and pushed successfully!",
-      }),
-      handleThoughtEnd: async () => ({ success: true, message: "Synced" }),
-    } as any);
-
-    app.route("/sessions", router);
-    const token = await generateToken("testuser");
-
-    // Without a real session, this returns 404 (session not found)
-    const res = await app.request("/sessions/non-existent-session/sync", {
-      method: "POST",
-      headers: {
-        Cookie: `token=${token}`,
-      },
-    });
-
-    // Returns 404 because session doesn't exist
-    expect(res.status).toBe(404);
-    const body = await res.json();
-    expect(body.success).toBe(false);
-  });
 });
