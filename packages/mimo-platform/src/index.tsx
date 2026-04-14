@@ -19,10 +19,23 @@ import { handleRefreshImpact } from "./impact/refresh-handler.js";
 import { sccService } from "./impact/scc-service.js";
 import { broadcastToSession, type SessionWsClient } from "./ws/session-broadcast.js";
 import { relative } from "path";
+import { MimoServer } from "./server/mimo-server.js";
 
 const app = new Hono();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 const PLATFORM_URL = process.env.PLATFORM_URL ?? `http://localhost:${PORT}`;
+
+function createMimoServer() {
+  return new MimoServer({
+    serve: (config) => Bun.serve(config as any) as any,
+    schedule: (callback, delayMs) => setTimeout(callback, delayMs),
+    ensureSharedFossilRunning: () => sharedFossilServer.ensureRunning(),
+    getSharedFossilPort: () => sharedFossilServer.getPort(),
+    logger: console,
+  });
+}
+
+const mimoServer = createMimoServer();
 
 // Serve static files from public/
 app.use("/js/*", serveStatic({ root: "./public" }));
@@ -141,7 +154,7 @@ app.notFound((c) => {
   return c.json({ error: "Not Found", path: c.req.path }, 404);
 });
 
-const server = Bun.serve({
+mimoServer.setup({
   async fetch(req: Request, server: any) {
     const url = new URL(req.url);
     
@@ -328,6 +341,8 @@ const server = Bun.serve({
     },
   },
 });
+
+const server = mimoServer.start();
 
 // Handle agent messages
 async function triggerAutoSync(sessionId: string, reason: "thought_end" | "usage_update"): Promise<void> {
@@ -1189,17 +1204,3 @@ async function handleChatMessage(ws, data) {
       console.log("Unknown chat message type:", data.type);
   }
 }
-
-// Server is ready
-console.log(`Server running at http://localhost:${server.port}`);
-
-// Ensure shared fossil server is running
-// This starts after the main server is up to ensure proper initialization
-setTimeout(async () => {
-  const success = await sharedFossilServer.ensureRunning();
-  if (success) {
-    console.log(`[SharedFossilServer] Fossil server running on port ${sharedFossilServer.getPort()}`);
-  } else {
-    console.error("[SharedFossilServer] Failed to start fossil server. Agent synchronization may be unavailable.");
-  }
-}, 100);
