@@ -3,6 +3,7 @@ import { Layout } from "./Layout.js";
 import { Frame } from "./Frame.js";
 import { ensureDefaultBuffersRegistered, getBuffersForFrame } from "../buffers/index.js";
 import type { FrameState } from "../sessions/frame-state.js";
+import type { McpServer } from "../mcp-servers/types.js";
 
 interface Project {
   id: string;
@@ -60,6 +61,7 @@ interface SessionDetailProps {
   acpStatus?: "active" | "parked";
   frameState: FrameState;
   notesContent?: string;
+  mcpServers?: McpServer[];
   streamingTimeoutMs?: number;
 }
 
@@ -74,6 +76,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   acpStatus = "active",
   frameState,
   notesContent = "",
+  mcpServers = [],
   streamingTimeoutMs,
 }) => {
   ensureDefaultBuffersRegistered();
@@ -186,6 +189,9 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             sessionId={session.id}
             buffers={rightBuffers}
             activeBufferId={frameState.rightFrame.activeBufferId}
+            bufferProps={{
+              "mcp-servers": { servers: mcpServers },
+            }}
           />
         </div>
 

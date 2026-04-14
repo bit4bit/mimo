@@ -331,6 +331,11 @@ router.get("/:id", async (c: Context) => {
   // If it's not running yet, the URL will still be valid but the server won't respond
   const fossilUrl = sharedFossilServer.getUrl(sessionId);
 
+  // Resolve attached MCP servers for display
+  const mcpServers = await Promise.all(
+    (session.mcpServerIds ?? []).map((id) => mcpServerService.findById(id))
+  ).then((results) => results.filter((s): s is NonNullable<typeof s> => s !== null));
+
   const streamingTimeoutMs = configService.load().streamingTimeoutMs;
 
   return c.html(
@@ -345,6 +350,7 @@ router.get("/:id", async (c: Context) => {
       modeState={modeState}
       fossilUrl={fossilUrl}
       acpStatus={session.acpStatus}
+      mcpServers={mcpServers}
       streamingTimeoutMs={streamingTimeoutMs}
     />
   );

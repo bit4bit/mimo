@@ -2,6 +2,7 @@ import { registerBuffer } from "./registry.js";
 import { ChatBuffer } from "./ChatBuffer.js";
 import { NotesBuffer } from "./NotesBuffer.js";
 import { ImpactBuffer } from "../components/ImpactBuffer.js";
+import { McpServersBuffer } from "./McpServersBuffer.js";
 
 let initialized = false;
 
@@ -29,6 +30,13 @@ export function ensureDefaultBuffersRegistered(): void {
     name: "Impact",
     frame: "right",
     component: ImpactBuffer,
+  });
+
+  registerBuffer({
+    id: "mcp-servers",
+    name: "MCP",
+    frame: "right",
+    component: McpServersBuffer,
   });
 
   initialized = true;
