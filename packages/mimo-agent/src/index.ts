@@ -1,6 +1,17 @@
 import type { ModelState, ModeState } from "./types";
-import type { ModelState, ModeState } from "./types";
 import { logger } from "./logger.js";
+import { decodeJwt } from "jose";
+import { join } from "node:path";
+import { homedir } from "node:os";
+import { existsSync, mkdirSync } from "node:fs";
+import { Writable, Readable } from "node:stream";
+import { SessionManager } from "./session.js";
+import type { SessionCallbacks } from "./session.js";
+import { SessionLifecycleManager } from "./lifecycle.js";
+import type { CachedAcpState, QueuedPrompt, SessionLifecycleCallbacks, AcpSessionState } from "./lifecycle.js";
+import { AcpClient, OpencodeProvider, ClaudeAgentProvider } from "./acp/index.js";
+import type { IAcpProvider } from "./acp/index.js";
+import WebSocket from "ws";
 // Convert Node.js streams to Web Streams API
 function toWebWritable(nodeWritable: Writable): WritableStream<Uint8Array> {
   return Writable.toWeb(nodeWritable) as WritableStream<Uint8Array>;

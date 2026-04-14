@@ -1,4 +1,5 @@
 import { join } from "path";
+import { homedir } from "os";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from "fs";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
@@ -272,4 +273,7 @@ export class ProjectRepository {
   }
 }
 
-export const projectRepository = new ProjectRepository();
+// Legacy singleton export - will be removed once all consumers use mimoContext
+export const projectRepository = new ProjectRepository({
+  projectsPath: join(homedir(), ".mimo", "projects"),
+});

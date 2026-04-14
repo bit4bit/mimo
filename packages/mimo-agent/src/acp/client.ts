@@ -1,6 +1,6 @@
 import { ModelState, ModeState, McpServerConfig } from "../types";
-import { ModelState, ModeState, McpServerConfig } from "../types";
 import { logger } from "../logger.js";
+import * as acp from "@agentclientprotocol/sdk";
 export interface AcpClientCallbacks {
   onThoughtStart: (sessionId: string) => void;
   onThoughtChunk: (sessionId: string, content: string) => void;

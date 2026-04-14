@@ -1,4 +1,5 @@
 import { join } from "path";
+import { homedir } from "os";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
 import YAML from "yaml";
 import { logger } from "../logger.js";
@@ -115,4 +116,7 @@ export class ImpactRepository {
   }
 }
 
-export const impactRepository = new ImpactRepository();
+// Legacy singleton export - will be removed once all consumers use mimoContext
+export const impactRepository = new ImpactRepository({
+  projectsPath: join(homedir(), ".mimo", "projects"),
+});

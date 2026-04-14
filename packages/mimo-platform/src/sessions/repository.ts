@@ -1,4 +1,5 @@
 import { join } from "path";
+import { homedir } from "os";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from "fs";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
@@ -455,4 +456,11 @@ export class SessionRepository {
   }
 }
 
-export const sessionRepository = new SessionRepository();
+// Legacy singleton export - will be removed once all consumers use mimoContext
+const _defaultMimoHome = join(homedir(), ".mimo");
+export const sessionRepository = new SessionRepository({
+  paths: {
+    projects: join(_defaultMimoHome, "projects"),
+    data: _defaultMimoHome,
+  },
+});

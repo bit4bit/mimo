@@ -1,4 +1,5 @@
 import { join } from "path";
+import { homedir } from "os";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from "fs";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
@@ -297,4 +298,7 @@ export class AgentRepository {
   }
 }
 
-export const agentRepository = new AgentRepository();
+// Legacy singleton export - will be removed once all consumers use mimoContext
+export const agentRepository = new AgentRepository({
+  agentsPath: join(homedir(), ".mimo", "agents"),
+});

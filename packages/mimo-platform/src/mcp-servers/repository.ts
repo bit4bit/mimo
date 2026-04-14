@@ -1,4 +1,5 @@
 import { join } from "path";
+import { homedir } from "os";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from "fs";
 import { dump, load } from "js-yaml";
 import type { McpServer, McpServerData, CreateMcpServerInput, UpdateMcpServerInput } from "./types.js";
@@ -175,4 +176,7 @@ export class McpServerRepository {
   }
 }
 
-export const mcpServerRepository = new McpServerRepository();
+// Legacy singleton export - will be removed once all consumers use mimoContext
+export const mcpServerRepository = new McpServerRepository({
+  mcpServersPath: join(homedir(), ".mimo", "mcp-servers"),
+});

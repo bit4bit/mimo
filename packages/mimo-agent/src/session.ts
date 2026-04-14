@@ -1,6 +1,7 @@
 import { SessionInfo, FileChange, ModelState, ModeState, McpServerConfig } from "./types";
-import { SessionInfo, FileChange, ModelState, ModeState, McpServerConfig } from "./types";
 import { logger } from "./logger.js";
+import { resolve, join, dirname } from "node:path";
+import { watch, existsSync, mkdirSync, unlinkSync, statSync, readFileSync, writeFileSync } from "node:fs";
 export interface SessionCallbacks {
   onFileChange: (sessionId: string, changes: FileChange[]) => void;
   onSessionError: (sessionId: string, error: string) => void;
