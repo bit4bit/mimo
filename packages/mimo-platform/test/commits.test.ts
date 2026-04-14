@@ -6,9 +6,8 @@ import { execSync } from "child_process";
 
 describe("Commit Service Tests", () => {
   let testHome: string;
+  let ctx: any;
   let CommitService: any;
-  let SessionRepository: any;
-  let ProjectRepository: any;
   let VCS: any;
 
   beforeEach(async () => {
@@ -17,12 +16,6 @@ describe("Commit Service Tests", () => {
       `mimo-commit-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     );
 
-    const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
-    createMimoContext({
-      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
-    });
-
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
@@ -30,14 +23,14 @@ describe("Commit Service Tests", () => {
     mkdirSync(testHome, { recursive: true });
     mkdirSync(join(testHome, "projects"), { recursive: true });
 
-    const commitModule = await import("../src/commits/service.ts");
-    CommitService = commitModule.commitService;
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    ctx = createMimoContext({
+      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+    });
 
-    const sessionModule = await import("../src/sessions/repository.ts");
-    SessionRepository = sessionModule.SessionRepository;
-
-    const projectModule = await import("../src/projects/repository.ts");
-    ProjectRepository = projectModule.ProjectRepository;
+    // Use services from mimoContext
+    CommitService = ctx.services.commits;
 
     const vcsModule = await import("../src/vcs/index.ts");
     VCS = vcsModule.VCS;
@@ -46,8 +39,8 @@ describe("Commit Service Tests", () => {
   describe("Commit and Push Flow", () => {
     it("should successfully complete 4-step commit flow for Git project", async () => {
       const vcs = new VCS();
-      const sessionRepo = new SessionRepository();
-      const projectRepo = new ProjectRepository();
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
 
       // Create a project
       const project = await projectRepo.create({
@@ -89,7 +82,7 @@ describe("Commit Service Tests", () => {
       );
 
       // Run commit and push
-      const result = await CommitService.commitAndPush(session.id);
+      const result = await ctx.services.commits.commitAndPush(session.id);
 
       expect(result.success).toBe(true);
       expect(result.message).toContain("committed and pushed");
@@ -97,8 +90,8 @@ describe("Commit Service Tests", () => {
 
     it("should push to newBranch when project has newBranch configured", async () => {
       const vcs = new VCS();
-      const sessionRepo = new SessionRepository();
-      const projectRepo = new ProjectRepository();
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
 
       // Create a remote repo
       const remotePath = join(testHome, "remote-repo");
@@ -156,7 +149,7 @@ describe("Commit Service Tests", () => {
       );
 
       // Run commit and push
-      const result = await CommitService.commitAndPush(session.id);
+      const result = await ctx.services.commits.commitAndPush(session.id);
 
       expect(result.success).toBe(true);
       expect(result.message).toContain("committed and pushed");
@@ -170,7 +163,7 @@ describe("Commit Service Tests", () => {
     }, 30000);
 
     it("should fail gracefully when session not found", async () => {
-      const result = await CommitService.commitAndPush(
+      const result = await ctx.services.commits.commitAndPush(
         "nonexistent-session-id",
       );
 
@@ -180,7 +173,7 @@ describe("Commit Service Tests", () => {
     });
 
     it("should fail gracefully when project not found", async () => {
-      const sessionRepo = new SessionRepository();
+      const sessionRepo = ctx.repos.sessions;
 
       // Create a session without a valid project
       const session = await sessionRepo.create({
@@ -189,7 +182,7 @@ describe("Commit Service Tests", () => {
         owner: "testuser",
       });
 
-      const result = await CommitService.commitAndPush(session.id);
+      const result = await ctx.services.commits.commitAndPush(session.id);
 
       expect(result.success).toBe(false);
       expect(result.message).toBe("Project not found");
@@ -198,8 +191,8 @@ describe("Commit Service Tests", () => {
 
     it("should report no changes when agent-workspace is empty", async () => {
       const vcs = new VCS();
-      const sessionRepo = new SessionRepository();
-      const projectRepo = new ProjectRepository();
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
 
       // Create a project
       const project = await projectRepo.create({
@@ -232,7 +225,7 @@ describe("Commit Service Tests", () => {
 
       // Don't add any files - this should result in "no changes"
 
-      const result = await CommitService.commitAndPush(session.id);
+      const result = await ctx.services.commits.commitAndPush(session.id);
 
       // When no changes, the service returns success=true with message "No changes to commit"
       // This is expected behavior - no changes is not an error
@@ -242,8 +235,8 @@ describe("Commit Service Tests", () => {
 
     it("should use user-provided commit message in upstream repository", async () => {
       const vcs = new VCS();
-      const sessionRepo = new SessionRepository();
-      const projectRepo = new ProjectRepository();
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
 
       const project = await projectRepo.create({
         name: "Test Project",
@@ -278,7 +271,7 @@ describe("Commit Service Tests", () => {
       );
 
       const userMessage = "feat(session): keep my commit title";
-      const result = await CommitService.commitAndPush(session.id, userMessage);
+      const result = await ctx.services.commits.commitAndPush(session.id, userMessage);
 
       expect(result.success).toBe(true);
 
@@ -293,8 +286,8 @@ describe("Commit Service Tests", () => {
   describe("5. Commit Preview and Selective Apply", () => {
     it("should return correct tree and statuses from preview endpoint", async () => {
       const vcs = new VCS();
-      const sessionRepo = new SessionRepository();
-      const projectRepo = new ProjectRepository();
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
 
       const project = await projectRepo.create({
         name: "Test Project",
@@ -335,7 +328,7 @@ describe("Commit Service Tests", () => {
       );
 
       // Get preview (comparing agent-workspace with empty upstream)
-      const preview = await CommitService.getPreview(session.id);
+      const preview = await ctx.services.commits.getPreview(session.id);
 
       expect(preview.success).toBe(true);
       expect(preview.preview).toBeDefined();
@@ -371,8 +364,8 @@ describe("Commit Service Tests", () => {
     }, 30000);
 
     it("should block commit with empty message", async () => {
-      const sessionRepo = new SessionRepository();
-      const projectRepo = new ProjectRepository();
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
 
       const project = await projectRepo.create({
         name: "Test Project",
@@ -387,7 +380,7 @@ describe("Commit Service Tests", () => {
         owner: "testuser",
       });
 
-      const result = await CommitService.commitAndPushSelective(
+      const result = await ctx.services.commits.commitAndPushSelective(
         session.id,
         "", // Empty message
         undefined,
@@ -400,8 +393,8 @@ describe("Commit Service Tests", () => {
 
     it("should validate that selected paths exist in preview set", async () => {
       const vcs = new VCS();
-      const sessionRepo = new SessionRepository();
-      const projectRepo = new ProjectRepository();
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
 
       const project = await projectRepo.create({
         name: "Test Project",
@@ -436,7 +429,7 @@ describe("Commit Service Tests", () => {
       );
 
       // Try to commit with invalid path
-      const result = await CommitService.commitAndPushSelective(
+      const result = await ctx.services.commits.commitAndPushSelective(
         session.id,
         "Test commit",
         ["nonexistent-file.txt"],
@@ -449,8 +442,8 @@ describe("Commit Service Tests", () => {
 
     it("should apply selective commit with only chosen files", async () => {
       const vcs = new VCS();
-      const sessionRepo = new SessionRepository();
-      const projectRepo = new ProjectRepository();
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
 
       const project = await projectRepo.create({
         name: "Test Project",
@@ -487,7 +480,7 @@ describe("Commit Service Tests", () => {
       );
 
       // Commit only file1
-      const result = await CommitService.commitAndPushSelective(
+      const result = await ctx.services.commits.commitAndPushSelective(
         session.id,
         "Selective commit",
         ["file1.txt"],
