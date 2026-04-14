@@ -24,11 +24,6 @@ describe("SessionManager with MCP Servers", () => {
 
       const mcpServers: McpServerConfig[] = [
         {
-          name: "filesystem",
-          command: "npx",
-          args: ["-y", "@modelcontextprotocol/server-filesystem", "."],
-        },
-        {
           name: "github",
           command: "npx",
           args: ["-y", "@modelcontextprotocol/server-github"],

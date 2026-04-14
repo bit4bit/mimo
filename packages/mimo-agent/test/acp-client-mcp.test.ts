@@ -49,9 +49,9 @@ describe("AcpClient with MCP Servers", () => {
 
       const mcpServers: McpServerConfig[] = [
         {
-          name: "filesystem",
+          name: "github",
           command: "npx",
-          args: ["-y", "@modelcontextprotocol/server-filesystem", "."],
+          args: ["-y", "@modelcontextprotocol/server-github"],
         },
       ];
 

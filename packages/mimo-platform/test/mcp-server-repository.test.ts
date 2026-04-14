@@ -59,10 +59,10 @@ describe("McpServerRepository", () => {
 
     it("should throw error for duplicate name", async () => {
       const input = {
-        name: "Filesystem",
+        name: "PostgreSQL",
         transport: "stdio" as const,
         command: "npx",
-        args: ["-y", "@modelcontextprotocol/server-filesystem", "."],
+        args: ["-y", "@modelcontextprotocol/server-postgres"],
       };
 
       await repository.create(input);
@@ -143,35 +143,35 @@ describe("McpServerRepository", () => {
   describe("update", () => {
     it("should update an MCP server", async () => {
       await repository.create({
-        name: "Filesystem",
+        name: "PostgreSQL",
         transport: "stdio" as const,
         command: "npx",
-        args: ["-y", "@modelcontextprotocol/server-filesystem", "."],
+        args: ["-y", "@modelcontextprotocol/server-postgres"],
       });
 
-      const updated = await repository.update("filesystem", {
-        args: ["/home/user/project"],
+      const updated = await repository.update("postgresql", {
+        args: ["postgresql://localhost/db"],
       });
 
       expect(updated).not.toBeNull();
-      expect(updated?.args).toEqual(["/home/user/project"]);
-      expect(updated?.id).toBe("filesystem"); // ID unchanged
+      expect(updated?.args).toEqual(["postgresql://localhost/db"]);
+      expect(updated?.id).toBe("postgresql"); // ID unchanged
     });
 
     it("should update the name without changing ID", async () => {
       await repository.create({
-        name: "Filesystem",
+        name: "PostgreSQL",
         transport: "stdio" as const,
         command: "npx",
-        args: ["-y", "@modelcontextprotocol/server-filesystem", "."],
+        args: ["-y", "@modelcontextprotocol/server-postgres"],
       });
 
-      const updated = await repository.update("filesystem", {
-        name: "Project Files",
+      const updated = await repository.update("postgresql", {
+        name: "Local Database",
       });
 
-      expect(updated?.name).toBe("Project Files");
-      expect(updated?.id).toBe("filesystem");
+      expect(updated?.name).toBe("Local Database");
+      expect(updated?.id).toBe("postgresql");
     });
 
     it("should return null for non-existent server", async () => {

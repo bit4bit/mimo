@@ -90,18 +90,18 @@ describe("MCP Server API Integration Tests", () => {
           Cookie: AUTH_COOKIE,
         },
         body: JSON.stringify({
-          name: "Filesystem Server",
+          name: "PostgreSQL Server",
           command: "npx",
-          args: ["-y", "@modelcontextprotocol/server-filesystem", "."],
+          args: ["-y", "@modelcontextprotocol/server-postgres"],
         }),
       });
 
       expect(response.status).toBe(201);
       const server = await response.json() as McpServer;
-      expect(server.id).toBe("filesystem-server");
-      expect(server.name).toBe("Filesystem Server");
+      expect(server.id).toBe("postgresql-server");
+      expect(server.name).toBe("PostgreSQL Server");
       expect(server.command).toBe("npx");
-      expect(server.args).toEqual(["-y", "@modelcontextprotocol/server-filesystem", "."]);
+      expect(server.args).toEqual(["-y", "@modelcontextprotocol/server-postgres"]);
     });
 
     it("should reject duplicate MCP server names", async () => {
@@ -112,7 +112,7 @@ describe("MCP Server API Integration Tests", () => {
           Cookie: AUTH_COOKIE,
         },
         body: JSON.stringify({
-          name: "Filesystem Server",
+          name: "PostgreSQL Server",
           command: "npx",
           args: [],
         }),
@@ -164,7 +164,7 @@ describe("MCP Server API Integration Tests", () => {
 
   describe("GET /mcp-servers/:id", () => {
     it("should return a specific MCP server", async () => {
-      const response = await fetch(`${TEST_BASE_URL}/mcp-servers/filesystem-server`, {
+      const response = await fetch(`${TEST_BASE_URL}/mcp-servers/postgresql-server`, {
         headers: {
           Cookie: AUTH_COOKIE,
         },
@@ -172,8 +172,8 @@ describe("MCP Server API Integration Tests", () => {
 
       expect(response.status).toBe(200);
       const server = await response.json() as McpServer;
-      expect(server.id).toBe("filesystem-server");
-      expect(server.name).toBe("Filesystem Server");
+      expect(server.id).toBe("postgresql-server");
+      expect(server.name).toBe("PostgreSQL Server");
     });
 
     it("should return 404 for non-existent server", async () => {
@@ -191,38 +191,38 @@ describe("MCP Server API Integration Tests", () => {
 
   describe("PATCH /mcp-servers/:id", () => {
     it("should update an MCP server", async () => {
-      const response = await fetch(`${TEST_BASE_URL}/mcp-servers/filesystem-server`, {
+      const response = await fetch(`${TEST_BASE_URL}/mcp-servers/postgresql-server`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Cookie: AUTH_COOKIE,
         },
         body: JSON.stringify({
-          args: ["/home/user/project"],
+          args: ["postgresql://localhost/db"],
         }),
       });
 
       expect(response.status).toBe(200);
       const server = await response.json() as McpServer;
-      expect(server.args).toEqual(["/home/user/project"]);
+      expect(server.args).toEqual(["postgresql://localhost/db"]);
     });
 
     it("should update MCP server name without changing ID", async () => {
-      const response = await fetch(`${TEST_BASE_URL}/mcp-servers/filesystem-server`, {
+      const response = await fetch(`${TEST_BASE_URL}/mcp-servers/postgresql-server`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Cookie: AUTH_COOKIE,
         },
         body: JSON.stringify({
-          name: "Project Filesystem",
+          name: "Production Database",
         }),
       });
 
       expect(response.status).toBe(200);
       const server = await response.json() as McpServer;
-      expect(server.name).toBe("Project Filesystem");
-      expect(server.id).toBe("filesystem-server");
+      expect(server.name).toBe("Production Database");
+      expect(server.id).toBe("postgresql-server");
     });
 
     it("should return 404 for non-existent server", async () => {
