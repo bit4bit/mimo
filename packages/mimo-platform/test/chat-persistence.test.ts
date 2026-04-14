@@ -18,8 +18,6 @@ describe("Chat History Persistence", () => {
 
   beforeAll(async () => {
     // Set up fresh environment with createMimoContext
-    process.env.JWT_SECRET = "test-secret-key-for-testing";
-
     const { createMimoContext } = await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
 

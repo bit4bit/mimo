@@ -11,7 +11,7 @@ let sessionRepository: any;
 let chatService: any;
 let userRepository: any;
 let projectRepository: any;
-let generateToken: any;
+let authService: any;
 let testHome: string;
 
 describe("Session Management Integration Tests", () => {
@@ -20,8 +20,6 @@ describe("Session Management Integration Tests", () => {
     testHome = join(tmpdir(), `mimo-session-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     
     // Set up fresh environment with createMimoContext
-    process.env.JWT_SECRET = "test-secret-key-for-testing";
-
     const { createMimoContext } = await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
 
@@ -32,8 +30,7 @@ describe("Session Management Integration Tests", () => {
     const chatModule = await import("../src/sessions/chat.ts");
     chatService = chatModule.chatService;
 
-    const jwtModule = await import("../src/auth/jwt.ts");
-    generateToken = jwtModule.generateToken;
+    authService = ctx.services.auth;
 
     // Mock VCS methods to avoid actual git/fossil operations in these tests
     const vcsModule = await import("../src/vcs/index.ts");
@@ -61,7 +58,7 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      const token = await generateToken("testuser");
+      const token = await authService.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Feature Branch Session");
@@ -98,7 +95,7 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      const token = await generateToken("testuser");
+      const token = await authService.generateToken("testuser");
 
       const res = await app.request(`/projects/${project.id}/sessions`, {
         method: "POST",
@@ -132,7 +129,7 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      const token = await generateToken("testuser");
+      const token = await authService.generateToken("testuser");
 
       const res = await app.request(`/projects/${project.id}/sessions`, {
         method: "POST",
@@ -176,7 +173,7 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      const token = await generateToken("testuser");
+      const token = await authService.generateToken("testuser");
 
       const res = await app.request(`/projects/${project.id}/sessions`, {
         method: "POST",
@@ -240,7 +237,7 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      const token = await generateToken("testuser");
+      const token = await authService.generateToken("testuser");
 
       const formData = new URLSearchParams();
       // No name
@@ -284,7 +281,7 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      const token = await generateToken("testuser");
+      const token = await authService.generateToken("testuser");
 
       const res = await app.request(`/projects/${project.id}/sessions`, {
         headers: { Cookie: `token=${token}` },
@@ -308,7 +305,7 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      const token = await generateToken("testuser");
+      const token = await authService.generateToken("testuser");
 
       const res = await app.request(`/projects/${project.id}/sessions`, {
         headers: { Cookie: `token=${token}` },
@@ -339,7 +336,7 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      const token = await generateToken("testuser");
+      const token = await authService.generateToken("testuser");
 
       const res = await app.request(`/projects/${project.id}/sessions/${session.id}`, {
         headers: { Cookie: `token=${token}` },
@@ -366,7 +363,7 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      const token = await generateToken("testuser");
+      const token = await authService.generateToken("testuser");
 
       const res = await app.request(`/projects/${project.id}/sessions/non-existent-id`, {
         headers: { Cookie: `token=${token}` },
@@ -386,7 +383,7 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
         ...extra,
       });
-      const token = await generateToken("testuser");
+      const token = await authService.generateToken("testuser");
       return { project, token };
     }
 
@@ -491,7 +488,7 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      const token = await generateToken("testuser");
+      const token = await authService.generateToken("testuser");
 
       const res = await app.request(`/projects/${project.id}/sessions/${session.id}/delete`, {
         method: "POST",

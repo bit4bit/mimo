@@ -15,7 +15,6 @@ let testHome: string;
 describe("Authentication Integration Tests", () => {
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-auth-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    process.env.JWT_SECRET = "test-secret-key-for-testing";
 
     try {
       rmSync(testHome, { recursive: true, force: true });

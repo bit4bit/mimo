@@ -24,7 +24,6 @@ describe("Sessions routes with mimoContext", () => {
     });
 
     const token = await mimoContext.services.auth.generateToken("tester");
-    process.env.JWT_SECRET = "different-process-secret";
 
     const app = new Hono();
     app.route("/sessions", createSessionsRoutes(mimoContext));

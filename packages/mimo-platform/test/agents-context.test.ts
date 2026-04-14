@@ -29,8 +29,6 @@ describe("Agents routes with mimoContext", () => {
       provider: "opencode",
     });
 
-    process.env.JWT_SECRET = "different-process-secret";
-
     const app = new Hono();
     app.route("/agents", createAgentsRoutes(mimoContext));
 

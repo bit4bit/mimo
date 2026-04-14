@@ -12,8 +12,6 @@ describe("Chat Streaming State on Reconnect", () => {
   const testHome = join(tmpdir(), `mimo-streaming-test-${Date.now()}`);
 
   beforeAll(async () => {
-    process.env.JWT_SECRET = "test-secret-key-for-testing";
-
     const { createMimoContext } = await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
 

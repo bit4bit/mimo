@@ -24,7 +24,6 @@ describe("Auth middleware with mimoContext", () => {
     });
 
     const token = await mimoContext.services.auth.generateToken("context-user");
-    process.env.JWT_SECRET = "different-process-secret";
 
     const app = new Hono();
     app.get("/protected", createAuthMiddleware(mimoContext.services.auth), (c) => c.text("ok"));

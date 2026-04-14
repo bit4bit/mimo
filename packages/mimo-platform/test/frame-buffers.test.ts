@@ -15,8 +15,6 @@ describe("Frame buffers integration", () => {
   const testHome = join(tmpdir(), `mimo-frame-buffers-${Date.now()}`);
 
   beforeEach(async () => {
-    process.env.JWT_SECRET = "test-secret-key-for-testing";
-
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
