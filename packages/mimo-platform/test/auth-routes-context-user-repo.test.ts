@@ -37,6 +37,7 @@ describe("Auth routes with injected user repository", () => {
 
     const mimoContext = createMimoContext({
       env: {
+        MIMO_HOME: testHome,
         JWT_SECRET: "auth-route-context-secret",
       },
     });

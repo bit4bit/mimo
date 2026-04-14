@@ -50,10 +50,6 @@ type CreateMimoContextOverrides = {
   services?: Partial<MimoContext["services"]>;
 };
 
-function resolveMimoHome(override?: string): string {
-  return override || process.env.MIMO_HOME || join(homedir(), ".mimo");
-}
-
 function resolvePaths(mimoHome: string): MimoPaths {
   return {
     root: mimoHome,
@@ -75,31 +71,16 @@ function ensurePaths(paths: MimoPaths): void {
 }
 
 export function createMimoContext(overrides: CreateMimoContextOverrides = {}): MimoContext {
-  const mimoHome = resolveMimoHome(overrides.env?.MIMO_HOME);
-  const port = overrides.env?.PORT ?? (process.env.PORT ? parseInt(process.env.PORT, 10) : 3000);
+  const mimoHome = overrides.env?.MIMO_HOME ?? join(homedir(), ".mimo");
+  const port = overrides.env?.PORT ?? 3000;
   const env: MimoEnv = {
     PORT: port,
-    PLATFORM_URL:
-      overrides.env?.PLATFORM_URL ??
-      process.env.PLATFORM_URL ??
-      `http://localhost:${port}`,
-    JWT_SECRET:
-      overrides.env?.JWT_SECRET ??
-      process.env.JWT_SECRET ??
-      "your-secret-key-change-in-production",
+    PLATFORM_URL: overrides.env?.PLATFORM_URL ?? `http://localhost:${port}`,
+    JWT_SECRET: overrides.env?.JWT_SECRET ?? "your-secret-key-change-in-production",
     MIMO_HOME: mimoHome,
-    FOSSIL_REPOS_DIR:
-      overrides.env?.FOSSIL_REPOS_DIR ??
-      process.env.FOSSIL_REPOS_DIR ??
-      join(mimoHome, "session-fossils"),
-    MIMO_SHARED_FOSSIL_SERVER_PORT:
-      overrides.env?.MIMO_SHARED_FOSSIL_SERVER_PORT ??
-      (process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
-        ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
-        : undefined),
+    FOSSIL_REPOS_DIR: overrides.env?.FOSSIL_REPOS_DIR ?? join(mimoHome, "session-fossils"),
+    MIMO_SHARED_FOSSIL_SERVER_PORT: overrides.env?.MIMO_SHARED_FOSSIL_SERVER_PORT,
   };
-
-  process.env.MIMO_HOME = env.MIMO_HOME;
 
   const paths = resolvePaths(env.MIMO_HOME);
   ensurePaths(paths);

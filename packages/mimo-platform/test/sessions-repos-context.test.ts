@@ -19,6 +19,7 @@ describe("Sessions routes with injected repositories", () => {
 
     const mimoContext = createMimoContext({
       env: {
+        MIMO_HOME: testHome,
         JWT_SECRET: "sessions-repos-context-secret",
       },
     });

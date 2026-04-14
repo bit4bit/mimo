@@ -20,6 +20,7 @@ describe("Projects nested sessions with mimoContext", () => {
 
     const mimoContext = createMimoContext({
       env: {
+        MIMO_HOME: testHome,
         JWT_SECRET: "projects-sessions-context-secret-a",
       },
     });

@@ -21,7 +21,19 @@ import { MimoServer } from "./server/mimo-server.js";
 import { createMimoContext } from "./context/mimo-context.js";
 
 const app = new Hono();
-const mimoContext = createMimoContext();
+const _port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const mimoContext = createMimoContext({
+  env: {
+    PORT: _port,
+    PLATFORM_URL: process.env.PLATFORM_URL ?? `http://localhost:${_port}`,
+    JWT_SECRET: process.env.JWT_SECRET ?? "your-secret-key-change-in-production",
+    MIMO_HOME: process.env.MIMO_HOME,
+    FOSSIL_REPOS_DIR: process.env.FOSSIL_REPOS_DIR,
+    MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
+      ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
+      : undefined,
+  },
+});
 sharedFossilServer.configure({
   reposDir: mimoContext.env.FOSSIL_REPOS_DIR,
   port: mimoContext.env.MIMO_SHARED_FOSSIL_SERVER_PORT,

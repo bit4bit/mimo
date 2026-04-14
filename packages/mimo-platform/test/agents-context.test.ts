@@ -19,6 +19,7 @@ describe("Agents routes with mimoContext", () => {
 
     const mimoContext = createMimoContext({
       env: {
+        MIMO_HOME: testHome,
         JWT_SECRET: "context-secret-a",
       },
     });

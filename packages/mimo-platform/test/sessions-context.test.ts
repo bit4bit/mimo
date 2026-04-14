@@ -19,6 +19,7 @@ describe("Sessions routes with mimoContext", () => {
 
     const mimoContext = createMimoContext({
       env: {
+        MIMO_HOME: testHome,
         JWT_SECRET: "sessions-context-secret-a",
       },
     });

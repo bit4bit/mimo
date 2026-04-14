@@ -19,6 +19,7 @@ describe("Auth middleware with mimoContext", () => {
 
     const mimoContext = createMimoContext({
       env: {
+        MIMO_HOME: testHome,
         JWT_SECRET: "context-auth-secret-a",
       },
     });
