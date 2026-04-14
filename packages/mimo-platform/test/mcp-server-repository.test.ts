@@ -42,6 +42,7 @@ describe("McpServerRepository", () => {
       const input = {
         name: "GitHub API",
         description: "Access to GitHub API",
+        transport: "stdio" as const,
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-github"],
       };
@@ -50,15 +51,35 @@ describe("McpServerRepository", () => {
 
       expect(server.id).toBe("github-api");
       expect(server.name).toBe("GitHub API");
+      expect(server.transport).toBe("stdio");
       expect(server.command).toBe("npx");
       expect(server.args).toEqual(["-y", "@modelcontextprotocol/server-github"]);
       expect(server.createdAt).toBeInstanceOf(Date);
       expect(server.updatedAt).toBeInstanceOf(Date);
     });
 
+    it("should create an MCP server with HTTP transport", async () => {
+      const input = {
+        name: "Remote HTTP",
+        description: "Remote MCP server",
+        transport: "http" as const,
+        url: "http://localhost:3001/mcp",
+        headers: { Authorization: "Bearer token123" },
+      };
+
+      const server = await repository.create(input);
+
+      expect(server.id).toBe("remote-http");
+      expect(server.transport).toBe("http");
+      expect(server.url).toBe("http://localhost:3001/mcp");
+      expect(server.command).toBeUndefined();
+      expect(server.args).toBeUndefined();
+    });
+
     it("should throw error for duplicate name", async () => {
       const input = {
         name: "Filesystem",
+        transport: "stdio" as const,
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-filesystem", "."],
       };
@@ -68,7 +89,7 @@ describe("McpServerRepository", () => {
       try {
         await repository.create(input);
         expect(false).toBe(true); // Should not reach here
-      } catch (error) {
+      } catch (error: any) {
         expect(error.message).toContain("already exists");
       }
     });
@@ -76,6 +97,7 @@ describe("McpServerRepository", () => {
     it("should slugify special characters", async () => {
       const input = {
         name: "My   Server!!!",
+        transport: "stdio" as const,
         command: "node",
         args: ["server.js"],
       };
@@ -89,6 +111,7 @@ describe("McpServerRepository", () => {
     it("should find an existing MCP server", async () => {
       const input = {
         name: "PostgreSQL",
+        transport: "stdio" as const,
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-postgres"],
       };
@@ -98,6 +121,7 @@ describe("McpServerRepository", () => {
 
       expect(found).not.toBeNull();
       expect(found?.name).toBe("PostgreSQL");
+      expect(found?.transport).toBe("stdio");
     });
 
     it("should return null for non-existent server", async () => {
@@ -115,12 +139,14 @@ describe("McpServerRepository", () => {
     it("should return all MCP servers sorted by name", async () => {
       await repository.create({
         name: "Zebra Server",
+        transport: "stdio" as const,
         command: "node",
         args: ["zebra.js"],
       });
 
       await repository.create({
         name: "Alpha Server",
+        transport: "stdio" as const,
         command: "node",
         args: ["alpha.js"],
       });
@@ -137,6 +163,7 @@ describe("McpServerRepository", () => {
     it("should update an MCP server", async () => {
       await repository.create({
         name: "Filesystem",
+        transport: "stdio" as const,
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-filesystem", "."],
       });
@@ -153,6 +180,7 @@ describe("McpServerRepository", () => {
     it("should update the name without changing ID", async () => {
       await repository.create({
         name: "Filesystem",
+        transport: "stdio" as const,
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-filesystem", "."],
       });
@@ -177,6 +205,7 @@ describe("McpServerRepository", () => {
     it("should delete an MCP server", async () => {
       await repository.create({
         name: "Temp Server",
+        transport: "stdio" as const,
         command: "node",
         args: ["temp.js"],
       });
@@ -198,6 +227,7 @@ describe("McpServerRepository", () => {
     it("should return true for existing server", async () => {
       await repository.create({
         name: "Test Server",
+        transport: "stdio" as const,
         command: "node",
         args: ["test.js"],
       });

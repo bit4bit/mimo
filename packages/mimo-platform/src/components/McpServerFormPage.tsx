@@ -2,7 +2,7 @@
 import { jsx } from "hono/jsx";
 import type { FC } from "hono/jsx";
 import { Layout } from "./Layout.js";
-import type { McpServer } from "../mcp-servers/types.js";
+import type { McpServer, TransportType } from "../mcp-servers/types.js";
 
 interface McpServerFormPageProps {
   server?: McpServer;
@@ -17,6 +17,7 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
 }) => {
   const title = isEditing ? `Edit ${server?.name}` : "New MCP Server";
   const action = isEditing ? `/mcp-servers/${server?.id}` : "/mcp-servers";
+  const transport: TransportType = server?.transport || "stdio";
   
   return (
     <Layout title={title}>
@@ -70,32 +71,88 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
           </div>
           
           <div class="form-group">
-            <label htmlFor="command">Command *</label>
-            <input
-              type="text"
-              id="command"
-              name="command"
-              placeholder="e.g., npx, node, python"
+            <label htmlFor="transport">Transport Type *</label>
+            <select
+              id="transport"
+              name="transport"
               required
-              defaultValue={server?.command}
-              class="form-input"
-            />
-            <p class="form-help">The command to run the MCP server (e.g., npx, node, python, docker).</p>
+              class="form-select"
+              defaultValue={transport}
+              disabled={isEditing}
+              style={isEditing ? { background: '#1a1a1a', color: '#666' } : undefined}
+              onchange="toggleTransportFields()"
+            >
+              <option value="stdio">Standard I/O (stdio) - Spawn local process</option>
+              <option value="http">HTTP - Connect to remote HTTP endpoint</option>
+              <option value="sse">SSE - Server-Sent Events endpoint</option>
+            </select>
+            <p class="form-help">
+              {isEditing 
+                ? "Transport type cannot be changed after creation."
+                : "Choose how to connect to this MCP server."
+              }
+            </p>
           </div>
           
-          <div class="form-group">
-            <label htmlFor="args">Arguments</label>
-            <textarea
-              id="args"
-              name="args"
-              placeholder={`-y
+          {/* Stdio Transport Fields */}
+          <div id="stdio-fields" class="transport-fields">
+            <div class="form-group">
+              <label htmlFor="command">Command *</label>
+              <input
+                type="text"
+                id="command"
+                name="command"
+                placeholder="e.g., npx, node, python"
+                defaultValue={server?.command}
+                class="form-input"
+              />
+              <p class="form-help">The command to run the MCP server (e.g., npx, node, python, docker).</p>
+            </div>
+            
+            <div class="form-group">
+              <label htmlFor="args">Arguments</label>
+              <textarea
+                id="args"
+                name="args"
+                placeholder={`-y
 @modelcontextprotocol/server-filesystem
 .`}
-              rows={5}
-              class="form-textarea"
-              defaultValue={server?.args?.join('\n')}
-            />
-            <p class="form-help">Command-line arguments, one per line. These will be passed to the command.</p>
+                rows={5}
+                class="form-textarea"
+                defaultValue={server?.args?.join('\n')}
+              />
+              <p class="form-help">Command-line arguments, one per line. These will be passed to the command.</p>
+            </div>
+          </div>
+          
+          {/* HTTP/SSE Transport Fields */}
+          <div id="http-fields" class="transport-fields" style="display: none;">
+            <div class="form-group">
+              <label htmlFor="url">Server URL *</label>
+              <input
+                type="url"
+                id="url"
+                name="url"
+                placeholder="e.g., http://localhost:3000/mcp"
+                defaultValue={server?.url}
+                class="form-input"
+              />
+              <p class="form-help">The URL of the MCP server endpoint (HTTP or SSE).</p>
+            </div>
+            
+            <div class="form-group">
+              <label htmlFor="headers">HTTP Headers</label>
+              <textarea
+                id="headers"
+                name="headers"
+                placeholder={`Authorization: Bearer token123
+X-Custom-Header: value`}
+                rows={4}
+                class="form-textarea"
+                defaultValue={server?.headers ? Object.entries(server.headers).map(([k, v]) => `${k}: ${v}`).join('\n') : ''}
+              />
+              <p class="form-help">Optional HTTP headers, one per line in "Key: Value" format (e.g., Authorization: Bearer token).</p>
+            </div>
           </div>
           
           <div class="form-actions">
@@ -107,10 +164,11 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
         </form>
         
         <div style="margin-top: 40px; padding: 15px; background: #2d2d2d; border: 1px solid #444; border-radius: 4px;">
-          <h3 style="margin-bottom: 10px; font-size: 14px; color: #888;">Common Examples</h3>
+          <h3 style="margin-bottom: 10px; font-size: 14px; color: #888;">Transport Type Examples</h3>
           
           <div style="margin-bottom: 15px;">
-            <strong style="color: #74c0fc; font-size: 13px;">Filesystem:</strong>
+            <strong style="color: #74c0fc; font-size: 13px;">Standard I/O (stdio):</strong>
+            <p style="color: #888; font-size: 12px; margin: 5px 0;">Spawn a local process. Best for npm packages and local tools.</p>
             <pre style="background: #1a1a1a; padding: 8px; margin-top: 5px; font-size: 12px; overflow-x: auto;"><code>Command: npx
 Args:
   - -y
@@ -119,22 +177,19 @@ Args:
           </div>
           
           <div style="margin-bottom: 15px;">
-            <strong style="color: #74c0fc; font-size: 13px;">GitHub:</strong>
-            <pre style="background: #1a1a1a; padding: 8px; margin-top: 5px; font-size: 12px; overflow-x: auto;"><code>Command: npx
-Args:
-  - -y
-  - @modelcontextprotocol/server-github
-
-Note: Requires GITHUB_TOKEN environment variable</code></pre>
+            <strong style="color: #74c0fc; font-size: 13px;">HTTP:</strong>
+            <p style="color: #888; font-size: 12px; margin: 5px 0;">Connect to a remote HTTP MCP server endpoint.</p>
+            <pre style="background: #1a1a1a; padding: 8px; margin-top: 5px; font-size: 12px; overflow-x: auto;"><code>URL: http://localhost:3000/mcp
+Headers:
+  Authorization: Bearer token123</code></pre>
           </div>
           
           <div>
-            <strong style="color: #74c0fc; font-size: 13px;">PostgreSQL:</strong>
-            <pre style="background: #1a1a1a; padding: 8px; margin-top: 5px; font-size: 12px; overflow-x: auto;"><code>Command: npx
-Args:
-  - -y
-  - @modelcontextprotocol/server-postgres
-  - postgresql://localhost/mydb</code></pre>
+            <strong style="color: #74c0fc; font-size: 13px;">SSE (Server-Sent Events):</strong>
+            <p style="color: #888; font-size: 12px; margin: 5px 0;">Connect to an SSE-based MCP server for real-time streaming.</p>
+            <pre style="background: #1a1a1a; padding: 8px; margin-top: 5px; font-size: 12px; overflow-x: auto;"><code>URL: http://localhost:3000/sse
+Headers:
+  X-API-Key: secret123</code></pre>
           </div>
         </div>
       </div>
@@ -156,7 +211,7 @@ Args:
           margin-bottom: 5px;
         }
         
-        .form-input, .form-textarea {
+        .form-input, .form-textarea, .form-select {
           width: 100%;
           background: #2d2d2d;
           border: 1px solid #444;
@@ -167,7 +222,7 @@ Args:
           border-radius: 3px;
         }
         
-        .form-input:focus, .form-textarea:focus {
+        .form-input:focus, .form-textarea:focus, .form-select:focus {
           outline: none;
           border-color: #666;
         }
@@ -175,6 +230,11 @@ Args:
         .form-textarea {
           resize: vertical;
           min-height: 100px;
+        }
+        
+        .form-select option {
+          background: #2d2d2d;
+          color: #d4d4d4;
         }
         
         .form-help {
@@ -189,10 +249,45 @@ Args:
           gap: 10px;
         }
         
+        .transport-fields {
+          border-left: 3px solid #74c0fc;
+          padding-left: 15px;
+          margin-bottom: 20px;
+        }
+        
         pre code {
           color: #d4d4d4;
         }
       `}</style>
+      
+      <script dangerouslySetInnerHTML={{
+        __html: `
+          function toggleTransportFields() {
+            const transport = document.getElementById('transport').value;
+            const stdioFields = document.getElementById('stdio-fields');
+            const httpFields = document.getElementById('http-fields');
+            
+            // Update required attributes
+            const commandInput = document.getElementById('command');
+            const urlInput = document.getElementById('url');
+            
+            if (transport === 'stdio') {
+              stdioFields.style.display = 'block';
+              httpFields.style.display = 'none';
+              commandInput.required = true;
+              urlInput.required = false;
+            } else {
+              stdioFields.style.display = 'none';
+              httpFields.style.display = 'block';
+              commandInput.required = false;
+              urlInput.required = true;
+            }
+          }
+          
+          // Initialize on page load
+          toggleTransportFields();
+        `
+      }} />
     </Layout>
   );
 };

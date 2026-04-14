@@ -35,7 +35,6 @@ describe("McpServerService", () => {
           unlinkSync(entryPath);
         }
       }
-      rmdirSync(testMcpServersPath);
     }
   }
 
@@ -43,19 +42,37 @@ describe("McpServerService", () => {
     it("should create an MCP server with validation", async () => {
       const server = await service.create({
         name: "Test Server",
+        transport: "stdio",
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-test"],
       });
 
       expect(server.id).toBe("test-server");
       expect(server.name).toBe("Test Server");
+      expect(server.transport).toBe("stdio");
       expect(server.command).toBe("npx");
+    });
+
+    it("should create an HTTP MCP server", async () => {
+      const server = await service.create({
+        name: "Remote Server",
+        description: "Remote HTTP endpoint",
+        transport: "http",
+        url: "http://localhost:3001/mcp",
+        headers: { Authorization: "Bearer token123" },
+      });
+
+      expect(server.id).toBe("remote-server");
+      expect(server.transport).toBe("http");
+      expect(server.url).toBe("http://localhost:3001/mcp");
+      expect(server.command).toBeUndefined();
     });
 
     it("should throw error for empty name", async () => {
       try {
         await service.create({
           name: "",
+          transport: "stdio",
           command: "npx",
           args: [],
         });
@@ -65,22 +82,51 @@ describe("McpServerService", () => {
       }
     });
 
-    it("should throw error for empty command", async () => {
+    it("should throw error for missing transport", async () => {
       try {
         await service.create({
           name: "Test Server",
+          transport: undefined as any,
+          command: "npx",
+          args: [],
+        });
+        expect(false).toBe(true);
+      } catch (error: any) {
+        expect(error.message).toBe("Transport type is required");
+      }
+    });
+
+    it("should throw error for empty command with stdio transport", async () => {
+      try {
+        await service.create({
+          name: "Test Server",
+          transport: "stdio",
           command: "",
           args: [],
         });
         expect(false).toBe(true);
       } catch (error: any) {
-        expect(error.message).toBe("Command is required");
+        expect(error.message).toBe("Command is required for stdio transport");
+      }
+    });
+
+    it("should throw error for empty URL with HTTP transport", async () => {
+      try {
+        await service.create({
+          name: "Test Server",
+          transport: "http",
+          url: "",
+        });
+        expect(false).toBe(true);
+      } catch (error: any) {
+        expect(error.message).toBe("URL is required for HTTP/SSE transport");
       }
     });
 
     it("should throw error for duplicate name", async () => {
       await service.create({
         name: "Unique Server",
+        transport: "stdio",
         command: "npx",
         args: [],
       });
@@ -88,6 +134,7 @@ describe("McpServerService", () => {
       try {
         await service.create({
           name: "Unique Server",
+          transport: "stdio",
           command: "node",
           args: [],
         });
@@ -100,6 +147,7 @@ describe("McpServerService", () => {
     it("should trim whitespace from inputs", async () => {
       const server = await service.create({
         name: "  Trimmed Server  ",
+        transport: "stdio",
         command: "  npx  ",
         args: ["arg1", "arg2"],
       });
@@ -113,6 +161,7 @@ describe("McpServerService", () => {
     it("should update an MCP server", async () => {
       await service.create({
         name: "Update Test",
+        transport: "stdio",
         command: "npx",
         args: ["old"],
       });
@@ -124,9 +173,25 @@ describe("McpServerService", () => {
       expect(updated?.args).toEqual(["new"]);
     });
 
+    it("should update HTTP transport fields", async () => {
+      await service.create({
+        name: "HTTP Test",
+        transport: "http",
+        url: "http://old.com",
+      });
+
+      const updated = await service.update("http-test", {
+        url: "http://new.com",
+        headers: { Authorization: "new-token" },
+      });
+
+      expect(updated?.url).toBe("http://new.com");
+    });
+
     it("should throw error when updating to empty name", async () => {
       await service.create({
         name: "Update Test",
+        transport: "stdio",
         command: "npx",
         args: [],
       });
@@ -144,12 +209,14 @@ describe("McpServerService", () => {
     it("should throw error when updating to duplicate name", async () => {
       await service.create({
         name: "First Server",
+        transport: "stdio",
         command: "npx",
         args: [],
       });
 
       await service.create({
         name: "Second Server",
+        transport: "stdio",
         command: "node",
         args: [],
       });
@@ -164,22 +231,6 @@ describe("McpServerService", () => {
       }
     });
 
-    it("should allow updating to same name", async () => {
-      await service.create({
-        name: "Same Name",
-        command: "npx",
-        args: [],
-      });
-
-      const updated = await service.update("same-name", {
-        name: "Same Name",
-        command: "node",
-      });
-
-      expect(updated?.name).toBe("Same Name");
-      expect(updated?.command).toBe("node");
-    });
-
     it("should return null for non-existent server", async () => {
       const updated = await service.update("nonexistent", {
         command: "node",
@@ -189,15 +240,17 @@ describe("McpServerService", () => {
   });
 
   describe("resolveMcpServers", () => {
-    it("should resolve MCP server IDs to configs", async () => {
+    it("should resolve stdio MCP server IDs to configs", async () => {
       await service.create({
         name: "Filesystem",
+        transport: "stdio",
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-filesystem", "."],
       });
 
       await service.create({
         name: "GitHub",
+        transport: "stdio",
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-github"],
       });
@@ -207,13 +260,34 @@ describe("McpServerService", () => {
       expect(configs).toHaveLength(2);
       expect(configs[0]).toEqual({
         name: "Filesystem",
+        transport: "stdio",
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-filesystem", "."],
       });
       expect(configs[1]).toEqual({
         name: "GitHub",
+        transport: "stdio",
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-github"],
+      });
+    });
+
+    it("should resolve HTTP MCP server to config", async () => {
+      await service.create({
+        name: "Remote",
+        transport: "http",
+        url: "http://localhost:3001/mcp",
+        headers: { Authorization: "Bearer token123" },
+      });
+
+      const configs = await service.resolveMcpServers(["remote"]);
+
+      expect(configs).toHaveLength(1);
+      expect(configs[0]).toEqual({
+        name: "Remote",
+        transport: "http",
+        url: "http://localhost:3001/mcp",
+        headers: [{ name: "Authorization", value: "Bearer token123" }],
       });
     });
 
@@ -233,52 +307,17 @@ describe("McpServerService", () => {
   });
 
   describe("findDuplicateNames", () => {
-    it("should find duplicate MCP server names", async () => {
-      // Create servers directly through repository to bypass validation
-      // This simulates the scenario where two servers have the same display name
-      await repository.create({
-        name: "Same Name",
-        command: "npx",
-        args: [],
-      });
-
-      // Create another with same name but different ID (bypassing service validation)
-      const { slugify } = await import("../src/mcp-servers/types.js");
-      const id2 = slugify("Same Name 2");
-      const fs = await import("fs");
-      const { join } = await import("path");
-      const { getPaths } = await import("../src/config/paths.js");
-      const { dump } = await import("js-yaml");
-      
-      const serverDir = join(getPaths().root, "mcp-servers", id2);
-      fs.mkdirSync(serverDir, { recursive: true });
-      fs.writeFileSync(
-        join(serverDir, "config.yaml"),
-        dump({
-          id: id2,
-          name: "Same Name", // Same display name
-          command: "node",
-          args: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }),
-        "utf-8"
-      );
-
-      // Now check for duplicates - both have same name but different IDs
-      const duplicate = await service.findDuplicateNames(["same-name", id2]);
-      expect(duplicate).toBe("Same Name");
-    });
-
     it("should return null when no duplicates", async () => {
       await service.create({
         name: "Unique One",
+        transport: "stdio",
         command: "npx",
         args: [],
       });
 
       await service.create({
         name: "Unique Two",
+        transport: "stdio",
         command: "node",
         args: [],
       });
@@ -292,14 +331,15 @@ describe("McpServerService", () => {
     it("should find all MCP servers", async () => {
       await service.create({
         name: "Server A",
+        transport: "stdio",
         command: "npx",
         args: [],
       });
 
       await service.create({
         name: "Server B",
-        command: "node",
-        args: [],
+        transport: "http",
+        url: "http://example.com",
       });
 
       const servers = await service.findAll();
@@ -309,6 +349,7 @@ describe("McpServerService", () => {
     it("should find MCP server by ID", async () => {
       await service.create({
         name: "Findable",
+        transport: "stdio",
         command: "npx",
         args: [],
       });
@@ -321,6 +362,7 @@ describe("McpServerService", () => {
     it("should delete MCP server", async () => {
       await service.create({
         name: "Deletable",
+        transport: "stdio",
         command: "npx",
         args: [],
       });

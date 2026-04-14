@@ -2,7 +2,8 @@ import { join } from "path";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from "fs";
 import { dump, load } from "js-yaml";
 import { getPaths } from "../config/paths.js";
-import { McpServer, McpServerData, CreateMcpServerInput, UpdateMcpServerInput, slugify } from "./types.js";
+import type { McpServer, McpServerData, CreateMcpServerInput, UpdateMcpServerInput } from "./types.js";
+import { slugify } from "./types.js";
 
 export class McpServerRepository {
   private getMcpServersPath(): string {
@@ -43,8 +44,15 @@ export class McpServerRepository {
       id,
       name: input.name,
       description: input.description,
-      command: input.command,
-      args: input.args,
+      transport: input.transport,
+      ...(input.transport === "stdio" && {
+        command: input.command,
+        args: input.args || [],
+      }),
+      ...(input.transport !== "stdio" && {
+        url: input.url,
+        headers: input.headers,
+      }),
       createdAt: now,
       updatedAt: now,
     };
@@ -115,8 +123,11 @@ export class McpServerRepository {
       ...existing,
       ...(input.name !== undefined && { name: input.name }),
       ...(input.description !== undefined && { description: input.description }),
+      ...(input.transport !== undefined && { transport: input.transport }),
       ...(input.command !== undefined && { command: input.command }),
       ...(input.args !== undefined && { args: input.args }),
+      ...(input.url !== undefined && { url: input.url }),
+      ...(input.headers !== undefined && { headers: input.headers }),
       id, // ID is immutable
       updatedAt: new Date().toISOString(),
     };

@@ -12,9 +12,21 @@ export class McpServerService {
       throw new Error("Name is required");
     }
 
-    // Validation: command required
-    if (!input.command || input.command.trim().length === 0) {
-      throw new Error("Command is required");
+    // Validation: transport required
+    if (!input.transport) {
+      throw new Error("Transport type is required");
+    }
+
+    // Validation based on transport type
+    if (input.transport === "stdio") {
+      if (!input.command || input.command.trim().length === 0) {
+        throw new Error("Command is required for stdio transport");
+      }
+    } else {
+      // HTTP or SSE transport
+      if (!input.url || input.url.trim().length === 0) {
+        throw new Error("URL is required for HTTP/SSE transport");
+      }
     }
 
     // Validation: name uniqueness check
@@ -28,8 +40,14 @@ export class McpServerService {
     return this.repository.create({
       name: input.name.trim(),
       description: input.description?.trim(),
-      command: input.command.trim(),
-      args: input.args || [],
+      transport: input.transport,
+      ...(input.transport === "stdio" ? {
+        command: input.command!.trim(),
+        args: input.args || [],
+      } : {
+        url: input.url!.trim(),
+        headers: input.headers,
+      }),
     });
   }
 
@@ -60,11 +78,27 @@ export class McpServerService {
       }
     }
 
+    // Validate transport-specific fields
+    if (input.transport !== undefined) {
+      if (input.transport === "stdio") {
+        if (input.command !== undefined && input.command.trim().length === 0) {
+          throw new Error("Command is required for stdio transport");
+        }
+      } else {
+        if (input.url !== undefined && input.url.trim().length === 0) {
+          throw new Error("URL is required for HTTP/SSE transport");
+        }
+      }
+    }
+
     return this.repository.update(id, {
       ...(input.name !== undefined && { name: input.name.trim() }),
       ...(input.description !== undefined && { description: input.description?.trim() }),
+      ...(input.transport !== undefined && { transport: input.transport }),
       ...(input.command !== undefined && { command: input.command.trim() }),
       ...(input.args !== undefined && { args: input.args }),
+      ...(input.url !== undefined && { url: input.url.trim() }),
+      ...(input.headers !== undefined && { headers: input.headers }),
     });
   }
 
@@ -85,11 +119,22 @@ export class McpServerService {
         throw new Error(`MCP server '${id}' not found`);
       }
 
-      configs.push({
-        name: server.name,
-        command: server.command,
-        args: server.args,
-      });
+      if (server.transport === "stdio") {
+        configs.push({
+          name: server.name,
+          transport: "stdio",
+          command: server.command!,
+          args: server.args || [],
+        });
+      } else {
+        // HTTP or SSE transport
+        configs.push({
+          name: server.name,
+          transport: server.transport,
+          url: server.url!,
+          headers: server.headers ? Object.entries(server.headers).map(([name, value]) => ({ name, value })) : undefined,
+        });
+      }
     }
 
     return configs;

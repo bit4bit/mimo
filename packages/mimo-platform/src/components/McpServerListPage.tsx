@@ -32,13 +32,24 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
                   <div class="mcp-server-id">ID: {server.id}</div>
                 </div>
                 
-                {server.description && (
-                  <div class="mcp-server-description">{server.description}</div>
-                )}
-                
-                <div class="mcp-server-command">
-                  <code>{server.command} {server.args.join(' ')}</code>
+                <div class="mcp-server-meta">
+                  <span class={`transport-badge transport-${server.transport}`}>
+                    {server.transport.toUpperCase()}
+                  </span>
+                  {server.description && (
+                    <span class="server-description">{server.description}</span>
+                  )}
                 </div>
+                
+                {server.transport === 'stdio' ? (
+                  <div class="mcp-server-command">
+                    <code>{server.command} {server.args?.join(' ')}</code>
+                  </div>
+                ) : (
+                  <div class="mcp-server-url">
+                    <code>{server.url}</code>
+                  </div>
+                )}
                 
                 <div class="mcp-server-actions">
                   <a href={`/mcp-servers/${server.id}/edit`} class="btn-secondary">Edit</a>
@@ -112,12 +123,63 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
           white-space: pre-wrap;
           word-break: break-all;
         }
-        
+
+        .mcp-server-meta {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+
+        .transport-badge {
+          font-size: 10px;
+          text-transform: uppercase;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-weight: bold;
+        }
+
+        .transport-badge.transport-stdio {
+          background: #2d5a2d;
+          color: #6bff6b;
+        }
+
+        .transport-badge.transport-http {
+          background: #5a4a2d;
+          color: #ffd46b;
+        }
+
+        .transport-badge.transport-sse {
+          background: #2d4a5a;
+          color: #6bafff;
+        }
+
+        .server-description {
+          color: #888;
+          font-size: 13px;
+        }
+
+        .mcp-server-url {
+          background: #1a1a1a;
+          border: 1px solid #333;
+          padding: 10px;
+          border-radius: 3px;
+          margin-bottom: 15px;
+          overflow-x: auto;
+        }
+
+        .mcp-server-url code {
+          font-family: monospace;
+          font-size: 13px;
+          color: #d4d4d4;
+          word-break: break-all;
+        }
+
         .mcp-server-actions {
           display: flex;
           gap: 10px;
         }
-        
+
         .mcp-server-actions form {
           margin: 0;
         }

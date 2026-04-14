@@ -22,13 +22,22 @@ export interface ModeState {
 
 /**
  * MCP server configuration passed to ACP newSession
+ * Supports both stdio and HTTP/SSE transports
  */
-export interface McpServerConfig {
-  name: string;
-  command: string;
-  args: string[];
-  env?: Array<{ name: string; value: string }>;
-}
+export type McpServerConfig =
+  | {
+      name: string;
+      transport: "stdio";
+      command: string;
+      args: string[];
+      env?: Array<{ name: string; value: string }>;
+    }
+  | {
+      name: string;
+      transport: "http" | "sse";
+      url: string;
+      headers?: Array<{ name: string; value: string }>;
+    };
 
 export interface SessionInfo {
   sessionId: string;

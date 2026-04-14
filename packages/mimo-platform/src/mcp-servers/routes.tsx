@@ -86,13 +86,16 @@ router.post("/", async (c: Context) => {
     if (contentType?.includes("application/json")) {
       // JSON API request
       const body = await c.req.json();
-      const { name, description, command, args } = body;
+      const { name, description, transport, command, args, url, headers } = body;
 
       const server = await mcpServerService.create({
         name,
         description,
+        transport: transport || "stdio",
         command,
         args: args || [],
+        url,
+        headers,
       });
 
       return c.json(server, 201);
@@ -101,16 +104,41 @@ router.post("/", async (c: Context) => {
       const body = await c.req.parseBody();
       const name = body.name as string;
       const description = body.description as string;
-      const command = body.command as string;
-      const argsText = body.args as string;
-      const args = argsText ? argsText.split('\n').filter(line => line.trim()) : [];
+      const transport = (body.transport as string) || "stdio";
+      
+      if (transport === "stdio") {
+        const command = body.command as string;
+        const argsText = body.args as string;
+        const args = argsText ? argsText.split('\n').filter(line => line.trim()) : [];
 
-      const server = await mcpServerService.create({
-        name,
-        description,
-        command,
-        args,
-      });
+        const server = await mcpServerService.create({
+          name,
+          description,
+          transport,
+          command,
+          args,
+        });
+      } else {
+        // HTTP or SSE transport
+        const url = body.url as string;
+        const headersText = body.headers as string;
+        let headers: Record<string, string> | undefined;
+        if (headersText) {
+          headers = {};
+          headersText.split('\n').forEach(line => {
+            const [key, value] = line.split(':').map(s => s.trim());
+            if (key && value) headers![key] = value;
+          });
+        }
+
+        const server = await mcpServerService.create({
+          name,
+          description,
+          transport: transport as "http" | "sse",
+          url,
+          headers,
+        });
+      }
 
       return c.redirect("/mcp-servers");
     }
@@ -164,13 +192,16 @@ router.patch("/:id", async (c: Context) => {
 
   try {
     const body = await c.req.json();
-    const { name, description, command, args } = body;
+    const { name, description, transport, command, args, url, headers } = body;
 
     const server = await mcpServerService.update(id, {
       name,
       description,
+      transport,
       command,
       args,
+      url,
+      headers,
     });
 
     if (!server) {
@@ -199,19 +230,48 @@ router.post("/:id", async (c: Context) => {
     try {
       const name = body.name as string;
       const description = body.description as string;
-      const command = body.command as string;
-      const argsText = body.args as string;
-      const args = argsText ? argsText.split('\n').filter(line => line.trim()) : [];
+      const transport = (body.transport as string) || "stdio";
 
-      const server = await mcpServerService.update(id, {
-        name,
-        description,
-        command,
-        args,
-      });
+      if (transport === "stdio") {
+        const command = body.command as string;
+        const argsText = body.args as string;
+        const args = argsText ? argsText.split('\n').filter(line => line.trim()) : [];
 
-      if (!server) {
-        return c.html(<McpServerFormPage error="MCP server not found" isEditing={true} />);
+        const server = await mcpServerService.update(id, {
+          name,
+          description,
+          transport,
+          command,
+          args,
+        });
+
+        if (!server) {
+          return c.html(<McpServerFormPage error="MCP server not found" isEditing={true} />);
+        }
+      } else {
+        // HTTP or SSE transport
+        const url = body.url as string;
+        const headersText = body.headers as string;
+        let headers: Record<string, string> | undefined;
+        if (headersText) {
+          headers = {};
+          headersText.split('\n').forEach(line => {
+            const [key, value] = line.split(':').map(s => s.trim());
+            if (key && value) headers![key] = value;
+          });
+        }
+
+        const server = await mcpServerService.update(id, {
+          name,
+          description,
+          transport: transport as "http" | "sse",
+          url,
+          headers,
+        });
+
+        if (!server) {
+          return c.html(<McpServerFormPage error="MCP server not found" isEditing={true} />);
+        }
       }
 
       return c.redirect("/mcp-servers");
