@@ -44,9 +44,19 @@ export interface CreateAgentInput {
   provider: AgentProvider;
 }
 
+interface AgentRepositoryDeps {
+  agentsPath?: string;
+}
+
 export class AgentRepository {
+  constructor(private deps: AgentRepositoryDeps = {}) {}
+
+  private getAgentsPath(): string {
+    return this.deps.agentsPath ?? getPaths().agents;
+  }
+
   private getAgentPath(agentId: string): string {
-    return join(getPaths().agents, agentId);
+    return join(this.getAgentsPath(), agentId);
   }
 
   private getAgentFilePath(agentId: string): string {
@@ -114,17 +124,17 @@ export class AgentRepository {
   }
 
   async findByStatus(status: AgentStatus): Promise<Agent[]> {
-    const Paths = getPaths();
-    if (!existsSync(Paths.agents)) {
+    const agentsPath = this.getAgentsPath();
+    if (!existsSync(agentsPath)) {
       return [];
     }
 
-    const entries = readdirSync(Paths.agents, { withFileTypes: true });
+    const entries = readdirSync(agentsPath, { withFileTypes: true });
     const agents: Agent[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const agentFile = join(Paths.agents, entry.name, "agent.yaml");
+        const agentFile = join(agentsPath, entry.name, "agent.yaml");
         if (existsSync(agentFile)) {
           const content = readFileSync(agentFile, "utf-8");
           const data = load(content) as AgentData;
@@ -149,17 +159,17 @@ export class AgentRepository {
   }
 
   async findByOwner(owner: string): Promise<Agent[]> {
-    const Paths = getPaths();
-    if (!existsSync(Paths.agents)) {
+    const agentsPath = this.getAgentsPath();
+    if (!existsSync(agentsPath)) {
       return [];
     }
 
-    const entries = readdirSync(Paths.agents, { withFileTypes: true });
+    const entries = readdirSync(agentsPath, { withFileTypes: true });
     const agents: Agent[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const agentFile = join(Paths.agents, entry.name, "agent.yaml");
+        const agentFile = join(agentsPath, entry.name, "agent.yaml");
         if (existsSync(agentFile)) {
           const content = readFileSync(agentFile, "utf-8");
           const data = load(content) as AgentData;

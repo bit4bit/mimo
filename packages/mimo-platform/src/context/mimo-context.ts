@@ -6,6 +6,8 @@ import { SessionRepository } from "../sessions/repository.js";
 import { AgentService } from "../agents/service.js";
 import { JwtService } from "../auth/jwt.js";
 import { UserRepository } from "../auth/user.js";
+import { ProjectRepository } from "../projects/repository.js";
+import { McpServerRepository } from "../mcp-servers/repository.js";
 
 export interface MimoEnv {
   PORT: number;
@@ -29,7 +31,9 @@ export interface MimoContext {
   paths: MimoPaths;
   repos: {
     users: UserRepository;
+    projects: ProjectRepository;
     agents: AgentRepository;
+    mcpServers: McpServerRepository;
     sessions: SessionRepository;
   };
   services: {
@@ -89,9 +93,35 @@ export function createMimoContext(overrides: CreateMimoContextOverrides = {}): M
   ensurePaths(paths);
 
   const repos: MimoContext["repos"] = {
-    users: overrides.repos?.users ?? new UserRepository(),
-    agents: overrides.repos?.agents ?? new AgentRepository(),
-    sessions: overrides.repos?.sessions ?? new SessionRepository(),
+    users:
+      overrides.repos?.users ??
+      new UserRepository({
+        usersPath: paths.users,
+      }),
+    projects:
+      overrides.repos?.projects ??
+      new ProjectRepository({
+        projectsPath: paths.projects,
+      }),
+    agents:
+      overrides.repos?.agents ??
+      new AgentRepository({
+        agentsPath: paths.agents,
+      }),
+    mcpServers:
+      overrides.repos?.mcpServers ??
+      new McpServerRepository({
+        mcpServersPath: paths.mcpServers,
+      }),
+    sessions:
+      overrides.repos?.sessions ??
+      new SessionRepository({
+        paths: {
+          projects: paths.projects,
+          data: paths.data,
+        },
+        fossilReposDir: process.env.FOSSIL_REPOS_DIR,
+      }),
   };
 
   const services: MimoContext["services"] = {

@@ -97,9 +97,27 @@ export interface UpdateSessionConfigInput {
   idleTimeoutMs?: number;
 }
 
+interface SessionRepositoryDeps {
+  paths?: {
+    projects: string;
+    data: string;
+  };
+  fossilReposDir?: string;
+}
+
 export class SessionRepository {
+  constructor(private deps: SessionRepositoryDeps = {}) {}
+
+  private getProjectsPath(): string {
+    return this.deps.paths?.projects ?? getPaths().projects;
+  }
+
+  private getDataPath(): string {
+    return this.deps.paths?.data ?? getPaths().data;
+  }
+
   private getSessionPath(projectId: string, sessionId: string): string {
-    return join(getPaths().projects, projectId, "sessions", sessionId);
+    return join(this.getProjectsPath(), projectId, "sessions", sessionId);
   }
 
   private getSessionFilePath(projectId: string, sessionId: string): string {
@@ -124,10 +142,13 @@ export class SessionRepository {
    * Uses lazy initialization to handle cases where paths aren't set yet.
    */
   getFossilReposDir(): string {
+    if (this.deps.fossilReposDir) {
+      return this.deps.fossilReposDir;
+    }
     if (process.env.FOSSIL_REPOS_DIR) {
       return process.env.FOSSIL_REPOS_DIR;
     }
-    return join(getPaths().data, "session-fossils");
+    return join(this.getDataPath(), "session-fossils");
   }
 
   /**
@@ -212,7 +233,7 @@ export class SessionRepository {
 
   async findById(sessionId: string): Promise<Session | null> {
     // Search across all projects for the session
-    const Paths = getPaths();
+    const Paths = { projects: this.getProjectsPath() };
     if (!existsSync(Paths.projects)) {
       return null;
     }
@@ -279,7 +300,7 @@ export class SessionRepository {
   }
 
   async listByProject(projectId: string): Promise<Session[]> {
-    const sessionsDir = join(getPaths().projects, projectId, "sessions");
+    const sessionsDir = join(this.getProjectsPath(), projectId, "sessions");
     if (!existsSync(sessionsDir)) {
       return [];
     }
@@ -316,7 +337,7 @@ export class SessionRepository {
   }
 
   async findByAssignedAgentId(agentId: string): Promise<Session[]> {
-    const Paths = getPaths();
+    const Paths = { projects: this.getProjectsPath() };
     if (!existsSync(Paths.projects)) {
       return [];
     }

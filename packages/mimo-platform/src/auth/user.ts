@@ -1,6 +1,6 @@
 import { join } from "path";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
-import { getUserPath, getPaths } from "../config/paths.js";
+import { getPaths } from "../config/paths.js";
 import { dump, load } from "js-yaml";
 
 export interface UserCredentials {
@@ -14,9 +14,23 @@ export interface User {
   createdAt: Date;
 }
 
+interface UserRepositoryDeps {
+  usersPath?: string;
+}
+
 export class UserRepository {
+  constructor(private deps: UserRepositoryDeps = {}) {}
+
+  private getUsersPath(): string {
+    return this.deps.usersPath ?? getPaths().users;
+  }
+
+  private getUserPath(username: string): string {
+    return join(this.getUsersPath(), username);
+  }
+
   private getCredentialsPath(username: string): string {
-    return join(getUserPath(username), "credentials.yaml");
+    return join(this.getUserPath(username), "credentials.yaml");
   }
 
   async exists(username: string): Promise<boolean> {
@@ -28,7 +42,7 @@ export class UserRepository {
       throw new Error(`User "${username}" already exists`);
     }
 
-    const userPath = getUserPath(username);
+    const userPath = this.getUserPath(username);
     if (!existsSync(userPath)) {
       mkdirSync(userPath, { recursive: true });
     }
@@ -62,18 +76,18 @@ export class UserRepository {
   }
 
   async listUsers(): Promise<User[]> {
-    const Paths = getPaths();
-    if (!existsSync(Paths.users)) {
+    const usersPath = this.getUsersPath();
+    if (!existsSync(usersPath)) {
       return [];
     }
 
-    const entries = readdirSync(Paths.users, { withFileTypes: true });
+    const entries = readdirSync(usersPath, { withFileTypes: true });
     const users: User[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
         const credentialsPath = join(
-          Paths.users,
+          usersPath,
           entry.name,
           "credentials.yaml"
         );

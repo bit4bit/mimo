@@ -5,9 +5,15 @@ import { getPaths } from "../config/paths.js";
 import type { McpServer, McpServerData, CreateMcpServerInput, UpdateMcpServerInput } from "./types.js";
 import { slugify } from "./types.js";
 
+interface McpServerRepositoryDeps {
+  mcpServersPath?: string;
+}
+
 export class McpServerRepository {
+  constructor(private deps: McpServerRepositoryDeps = {}) {}
+
   private getMcpServersPath(): string {
-    return getPaths().mcpServers;
+    return this.deps.mcpServersPath ?? getPaths().mcpServers;
   }
 
   private getMcpServerPath(id: string): string {

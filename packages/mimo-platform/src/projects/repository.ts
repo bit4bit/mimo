@@ -55,9 +55,19 @@ export interface CreateProjectInput {
   defaultLocalDevMirrorPath?: string;
 }
 
+interface ProjectRepositoryDeps {
+  projectsPath?: string;
+}
+
 export class ProjectRepository {
+  constructor(private deps: ProjectRepositoryDeps = {}) {}
+
+  private getProjectsPath(): string {
+    return this.deps.projectsPath ?? getPaths().projects;
+  }
+
   private getProjectPath(id: string): string {
-    return join(getPaths().projects, id);
+    return join(this.getProjectsPath(), id);
   }
 
   private getProjectFilePath(id: string): string {
@@ -122,17 +132,17 @@ export class ProjectRepository {
   }
 
   async listByOwner(owner: string): Promise<Project[]> {
-    const Paths = getPaths();
-    if (!existsSync(Paths.projects)) {
+    const projectsPath = this.getProjectsPath();
+    if (!existsSync(projectsPath)) {
       return [];
     }
 
-    const entries = readdirSync(Paths.projects, { withFileTypes: true });
+    const entries = readdirSync(projectsPath, { withFileTypes: true });
     const projects: Project[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const projectFile = join(Paths.projects, entry.name, "project.yaml");
+          const projectFile = join(projectsPath, entry.name, "project.yaml");
         if (existsSync(projectFile)) {
           const content = readFileSync(projectFile, "utf-8");
           const data = load(content) as ProjectData;
@@ -150,17 +160,17 @@ export class ProjectRepository {
   }
 
   async listAll(): Promise<Project[]> {
-    const Paths = getPaths();
-    if (!existsSync(Paths.projects)) {
+    const projectsPath = this.getProjectsPath();
+    if (!existsSync(projectsPath)) {
       return [];
     }
 
-    const entries = readdirSync(Paths.projects, { withFileTypes: true });
+    const entries = readdirSync(projectsPath, { withFileTypes: true });
     const projects: Project[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const projectFile = join(Paths.projects, entry.name, "project.yaml");
+          const projectFile = join(projectsPath, entry.name, "project.yaml");
         if (existsSync(projectFile)) {
           const content = readFileSync(projectFile, "utf-8");
           const data = load(content) as ProjectData;

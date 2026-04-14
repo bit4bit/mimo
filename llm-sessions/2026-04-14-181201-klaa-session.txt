@@ -1,0 +1,7 @@
+[2026-04-14 18:03:12] User: commit and continue
+[2026-04-14 18:04:35] LLM: Committed as a9d627d and continued by refactoring SessionRepository to accept injected context paths/fossil dir from mimoContext, adding test packages/mimo-platform/test/session-repository-context.test.ts, and validating full suites pass.
+[2026-04-14 18:04:58] User: next
+[2026-04-14 18:08:20] LLM: Continued with repository path injection for users and projects by updating auth/user and projects/repository constructors for injected paths, extending mimoContext repos, adding packages/mimo-platform/test/repositories-context.test.ts, and validating full suites pass.
+[2026-04-14 18:08:44] User: next
+[2026-04-14 18:11:25] LLM: Continued by injecting paths for AgentRepository and McpServerRepository, extending mimoContext with repos.mcpServers and injected agentsPath/mcpServersPath, expanding repositories-context tests, and validating full suites pass.
+[2026-04-14 18:11:56] User: commit
