@@ -3,8 +3,8 @@ import { jsx } from "hono/jsx";
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import crypto from "crypto";
-import { sessionRepository } from "./repository.js";
-import { projectRepository } from "../projects/repository.js";
+import { sessionRepository as defaultSessionRepository } from "./repository.js";
+import { projectRepository as defaultProjectRepository } from "../projects/repository.js";
 import { agentRepository } from "../agents/repository.js";
 import { agentService } from "../agents/service.js";
 import { chatService } from "./chat.js";
@@ -27,11 +27,17 @@ type SessionsRoutesContext = {
   services: {
     auth: typeof defaultJwtService;
   };
+  repos?: {
+    projects: typeof defaultProjectRepository;
+    sessions: typeof defaultSessionRepository;
+  };
 };
 
 export function createSessionsRoutes(mimoContext?: SessionsRoutesContext) {
 const router = new Hono();
 const authService = mimoContext?.services.auth ?? defaultJwtService;
+const projectRepository = mimoContext?.repos?.projects ?? defaultProjectRepository;
+const sessionRepository = mimoContext?.repos?.sessions ?? defaultSessionRepository;
 
 // Helper to get authenticated username from cookie
 async function getAuthUsername(c: Context): Promise<string | null> {
