@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -16,30 +15,22 @@ describe("Agent Lifecycle Integration Tests", () => {
   const testHome = join(tmpdir(), `mimo-agent-test-${Date.now()}`);
 
   beforeEach(async () => {
-    setMimoHome(testHome);
-    process.env.JWT_SECRET = "test-secret-key-for-testing";
-
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
 
-    const pathsModule = await import("../src/config/paths.ts");
-    pathsModule.ensureMimoHome();
+    process.env.JWT_SECRET = "test-secret-key-for-testing";
 
-    const userModule = await import("../src/auth/user.ts");
-    userRepository = userModule.userRepository;
+    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
 
-    const sessionModule = await import("../src/sessions/repository.ts");
-    sessionRepository = sessionModule.sessionRepository;
+    userRepository = ctx.repos.users;
+    sessionRepository = ctx.repos.sessions;
+    agentRepository = ctx.repos.agents;
+    agentService = ctx.services.agents;
 
-    const agentRepoModule = await import("../src/agents/repository.ts");
-    agentRepository = agentRepoModule.agentRepository;
-
-    const agentSvcModule = await import("../src/agents/service.ts");
-    agentService = agentSvcModule.agentService;
-
-    const routesModule = await import("../src/agents/routes.tsx");
-    agentRoutes = routesModule.default;
+    const { createAgentsRoutes } = await import("../src/agents/routes.tsx");
+    agentRoutes = createAgentsRoutes(ctx);
   });
 
   describe("Agent Creation", () => {

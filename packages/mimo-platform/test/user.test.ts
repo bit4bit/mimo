@@ -5,38 +5,28 @@ import {
   beforeEach,
   afterEach,
 } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync } from "fs";
 import bcrypt from "bcrypt";
 
-// We'll import the module after setting up the environment
 let userRepository: any;
-let ensureMimoHome: any;
 
 describe("User Repository Integration Test", () => {
   let testHome: string;
 
   beforeEach(async () => {
-    // Generate unique test home for each test
     testHome = join(tmpdir(), `mimo-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    setMimoHome(testHome);
-    
-    // Re-import to get fresh module with new env
-    const pathsModule = await import("../src/config/paths.ts");
-    ensureMimoHome = pathsModule.ensureMimoHome;
-    ensureMimoHome();
 
-    const userModule = await import("../src/auth/user.ts");
-    userRepository = userModule.userRepository;
+    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({ env: { MIMO_HOME: testHome } });
+    userRepository = ctx.repos.users;
   });
 
   afterEach(() => {
     if (existsSync(testHome)) {
       rmSync(testHome, { recursive: true, force: true });
     }
-    clearConfig();
   });
 
   test("should create a new user", async () => {

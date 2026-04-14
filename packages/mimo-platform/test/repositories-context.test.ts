@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { existsSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -16,32 +15,18 @@ describe("Repositories with mimoContext paths", () => {
   });
 
   it("uses injected paths for user repository", async () => {
-    setMimoHome(homeA);
     const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const mimoContext = createMimoContext({ env: { MIMO_HOME: homeA } });
 
-    const mimoContext = createMimoContext({
-      env: {
-        MIMO_HOME: homeA,
-      },
-    });
-
-    setMimoHome(homeB);
     await mimoContext.repos.users.create("ctx-user", "hash");
 
     expect(existsSync(join(homeA, "users", "ctx-user", "credentials.yaml"))).toBe(true);
   });
 
   it("uses injected paths for project repository", async () => {
-    setMimoHome(homeA);
     const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const mimoContext = createMimoContext({ env: { MIMO_HOME: homeA } });
 
-    const mimoContext = createMimoContext({
-      env: {
-        MIMO_HOME: homeA,
-      },
-    });
-
-    setMimoHome(homeB);
     const project = await mimoContext.repos.projects.create({
       name: "context-project",
       owner: "ctx-user",
@@ -53,16 +38,9 @@ describe("Repositories with mimoContext paths", () => {
   });
 
   it("uses injected paths for agent repository", async () => {
-    setMimoHome(homeA);
     const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const mimoContext = createMimoContext({ env: { MIMO_HOME: homeA } });
 
-    const mimoContext = createMimoContext({
-      env: {
-        MIMO_HOME: homeA,
-      },
-    });
-
-    setMimoHome(homeB);
     const agent = await mimoContext.repos.agents.create({
       name: "context-agent",
       owner: "ctx-user",
@@ -73,16 +51,9 @@ describe("Repositories with mimoContext paths", () => {
   });
 
   it("uses injected paths for mcp server repository", async () => {
-    setMimoHome(homeA);
     const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const mimoContext = createMimoContext({ env: { MIMO_HOME: homeA } });
 
-    const mimoContext = createMimoContext({
-      env: {
-        MIMO_HOME: homeA,
-      },
-    });
-
-    setMimoHome(homeB);
     const server = await mimoContext.repos.mcpServers.create({
       name: "Context MCP",
       transport: "stdio",

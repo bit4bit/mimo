@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -16,24 +15,18 @@ describe("Frame buffers integration", () => {
   const testHome = join(tmpdir(), `mimo-frame-buffers-${Date.now()}`);
 
   beforeEach(async () => {
-    setMimoHome(testHome);
     process.env.JWT_SECRET = "test-secret-key-for-testing";
 
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
 
-    const pathsModule = await import("../src/config/paths.ts");
-    pathsModule.ensureMimoHome();
+    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
 
-    const userModule = await import("../src/auth/user.ts");
-    userRepository = userModule.userRepository;
-
-    const projectModule = await import("../src/projects/repository.ts");
-    projectRepository = projectModule.projectRepository;
-
-    const sessionModule = await import("../src/sessions/repository.ts");
-    sessionRepository = sessionModule.sessionRepository;
+    userRepository = ctx.repos.users;
+    projectRepository = ctx.repos.projects;
+    sessionRepository = ctx.repos.sessions;
 
     const jwtModule = await import("../src/auth/jwt.ts");
     generateToken = jwtModule.generateToken;
@@ -45,8 +38,8 @@ describe("Frame buffers integration", () => {
     vcsModule.vcs.openFossil = async () => ({ success: true });
     vcsModule.vcs.createFossilUser = async () => ({ success: true });
 
-    const routesModule = await import("../src/sessions/routes.tsx");
-    sessionRoutes = routesModule.default;
+    const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
+    sessionRoutes = createSessionsRoutes(ctx);
   });
 
   async function createSessionAppAndAuth() {

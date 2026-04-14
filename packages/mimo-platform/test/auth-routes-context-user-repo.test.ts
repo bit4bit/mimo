@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { Hono } from "hono";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -12,7 +11,6 @@ describe("Auth routes with injected user repository", () => {
   beforeEach(() => {
     testHome = join(tmpdir(), `mimo-auth-routes-context-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     rmSync(testHome, { recursive: true, force: true });
-    setMimoHome(testHome);
   });
 
   it("logs in using credentials from injected user repository", async () => {

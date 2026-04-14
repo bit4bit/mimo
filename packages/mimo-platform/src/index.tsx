@@ -19,7 +19,6 @@ import { broadcastToSession, type SessionWsClient } from "./ws/session-broadcast
 import { relative } from "path";
 import { MimoServer } from "./server/mimo-server.js";
 import { createMimoContext } from "./context/mimo-context.js";
-import { setMimoHome } from "./config/global-config.js";
 
 const app = new Hono();
 const _port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -35,7 +34,6 @@ const mimoContext = createMimoContext({
       : undefined,
   },
 });
-setMimoHome(mimoContext.env.MIMO_HOME);
 sharedFossilServer.configure({
   reposDir: mimoContext.env.FOSSIL_REPOS_DIR,
   port: mimoContext.env.MIMO_SHARED_FOSSIL_SERVER_PORT,

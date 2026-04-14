@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { tmpdir } from "os";
 import { join, relative } from "path";
 import { rmSync, mkdirSync, existsSync, writeFileSync } from "fs";
@@ -19,7 +18,9 @@ describe("Agent Bootstrap Integration Tests", () => {
 
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-bootstrap-integ-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    setMimoHome(testHome);
+
+    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
 
     // Use a unique port for each test to avoid conflicts
     testPort = 38000 + Math.floor(Math.random() * 1000);
@@ -34,11 +35,11 @@ describe("Agent Bootstrap Integration Tests", () => {
 
     const sessionModule = await import("../src/sessions/repository.ts");
     SessionRepository = sessionModule.SessionRepository;
-    sessionRepository = sessionModule.sessionRepository;
+    sessionRepository = ctx.repos.sessions;
 
     const agentModule = await import("../src/agents/repository.ts");
     AgentRepository = agentModule.AgentRepository;
-    agentRepository = agentModule.agentRepository;
+    agentRepository = ctx.repos.agents;
 
     const serviceModule = await import("../src/agents/service.ts");
     AgentService = serviceModule.AgentService;
@@ -57,7 +58,6 @@ describe("Agent Bootstrap Integration Tests", () => {
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
-
   });
 
   describe("11.1: Full flow - session creation to agent bootstrap", () => {

@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, mkdirSync } from "fs";
@@ -12,7 +11,6 @@ describe("VCS Integration Tests", () => {
 
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-vcs-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    setMimoHome(testHome);
     
     // Clean up from previous run
     try {

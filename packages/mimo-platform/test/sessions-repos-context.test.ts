@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { Hono } from "hono";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -11,7 +10,6 @@ describe("Sessions routes with injected repositories", () => {
   beforeEach(() => {
     testHome = join(tmpdir(), `mimo-sessions-repos-context-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     rmSync(testHome, { recursive: true, force: true });
-    setMimoHome(testHome);
   });
 
   it("uses injected project and session repositories", async () => {

@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync } from "fs";
@@ -18,7 +17,6 @@ describe("Agent Sessions API Integration Tests", () => {
 
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-agent-sessions-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    setMimoHome(testHome);
     process.env.JWT_SECRET = "test-secret-key-for-testing";
 
     // Clean up from previous run
@@ -28,30 +26,20 @@ describe("Agent Sessions API Integration Tests", () => {
 
     mkdirSync(testHome, { recursive: true });
 
-    // Re-import to get fresh modules
-    const pathsModule = await import("../src/config/paths.ts");
-    pathsModule.ensureMimoHome();
+    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
 
-    const userModule = await import("../src/auth/user.ts");
-    userRepository = userModule.userRepository;
-
-    const projectModule = await import("../src/projects/repository.ts");
-    projectRepository = projectModule.projectRepository;
-
-    const sessionModule = await import("../src/sessions/repository.ts");
-    sessionRepository = sessionModule.sessionRepository;
-
-    const agentRepoModule = await import("../src/agents/repository.ts");
-    agentRepository = agentRepoModule.agentRepository;
-
-    const agentServiceModule = await import("../src/agents/service.ts");
-    agentService = agentServiceModule.agentService;
+    userRepository = ctx.repos.users;
+    projectRepository = ctx.repos.projects;
+    sessionRepository = ctx.repos.sessions;
+    agentRepository = ctx.repos.agents;
+    agentService = ctx.services.agents;
 
     const jwtModule = await import("../src/auth/jwt.ts");
     generateToken = jwtModule.generateToken;
 
-    const routesModule = await import("../src/agents/routes.tsx");
-    agentRoutes = routesModule.default;
+    const { createAgentsRoutes } = await import("../src/agents/routes.tsx");
+    agentRoutes = createAgentsRoutes(ctx);
   });
 
   describe("Agent Token Generation", () => {

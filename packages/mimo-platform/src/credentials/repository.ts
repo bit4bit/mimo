@@ -57,9 +57,15 @@ export interface CreateSshCredentialInput {
 
 export type CreateCredentialInput = CreateHttpsCredentialInput | CreateSshCredentialInput;
 
+interface CredentialRepositoryDeps {
+  usersPath?: string;
+}
+
 export class CredentialRepository {
+  constructor(private deps: CredentialRepositoryDeps = {}) {}
+
   private getCredentialsDirPath(username: string): string {
-    return join(getPaths().users, username, "credentials");
+    return join(this.deps.usersPath ?? getPaths().users, username, "credentials");
   }
 
   private getCredentialFilePath(username: string, id: string): string {

@@ -2,7 +2,6 @@ import { join, dirname } from "path";
 import { existsSync, mkdirSync, writeFileSync, chmodSync, readFileSync, renameSync, unlinkSync } from "fs";
 import { execSync, spawn } from "child_process";
 import { homedir } from "os";
-import { getMimoHome } from "../config/global-config.js";
 import { getPaths } from "../config/paths.js";
 
 export interface SccPlatform {
@@ -106,15 +105,8 @@ export class SccService {
     if (customPath) {
       this.sccPath = customPath;
     } else {
-      // Check global config first (for tests)
-      const globalHome = getMimoHome();
-      if (globalHome) {
-        this.sccPath = join(globalHome, "bin", "scc");
-      } else {
-        // Fall back to paths module
-        const paths = getPaths();
-        this.sccPath = join(paths.root, "bin", "scc");
-      }
+      const paths = getPaths();
+      this.sccPath = join(paths.root, "bin", "scc");
     }
     
     this.customCacheDir = customCacheDir;
@@ -189,11 +181,8 @@ export class SccService {
 
   async install(): Promise<{ success: boolean; error?: string }> {
     try {
-      // Recalculate sccPath in case MIMO_HOME changed (e.g., between tests)
-      const globalHome = getMimoHome();
-      const binDir = globalHome 
-        ? join(globalHome, "bin")
-        : join(getPaths().root, "bin");
+      // Recalculate sccPath using configured path or default
+      const binDir = join(getPaths().root, "bin");
       this.sccPath = join(binDir, "scc");
 
       if (this.isInstalled()) {

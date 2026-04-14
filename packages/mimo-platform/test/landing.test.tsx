@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -14,8 +13,8 @@ describe("Public Landing Page Integration Tests", () => {
   const testHome = join(tmpdir(), `mimo-landing-test-${Date.now()}`);
 
   beforeEach(async () => {
-    setMimoHome(testHome);
-    process.env.JWT_SECRET = "test-secret-key-for-testing";
+    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
 
     try {
       rmSync(testHome, { recursive: true, force: true });
@@ -24,22 +23,19 @@ describe("Public Landing Page Integration Tests", () => {
     const pathsModule = await import("../src/config/paths.ts");
     pathsModule.ensureMimoHome();
 
-    const userModule = await import("../src/auth/user.ts");
-    userRepository = userModule.userRepository;
-
-    const projectModule = await import("../src/projects/repository.ts");
-    projectRepository = projectModule.projectRepository;
+    userRepository = ctx.repos.users;
+    projectRepository = ctx.repos.projects;
 
     app = new Hono();
-    
+
     const authModule = await import("../src/auth/routes.tsx");
-    app.route("/auth", authModule.default);
+    app.route("/auth", authModule.createAuthRoutes(ctx));
 
     const protectedModule = await import("../src/protected/routes.tsx");
     app.route("/", protectedModule.default);
 
     const projectsModule = await import("../src/projects/routes.tsx");
-    app.route("/projects", projectsModule.default);
+    app.route("/projects", projectsModule.createProjectsRoutes(ctx));
 
     const LandingPageModule = await import("../src/components/LandingPage.tsx");
     const LandingPage = LandingPageModule.LandingPage;

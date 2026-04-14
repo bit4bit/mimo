@@ -8,6 +8,8 @@ import { JwtService } from "../auth/jwt.js";
 import { UserRepository } from "../auth/user.js";
 import { ProjectRepository } from "../projects/repository.js";
 import { McpServerRepository } from "../mcp-servers/repository.js";
+import { CredentialRepository } from "../credentials/repository.js";
+import { ImpactRepository } from "../impact/repository.js";
 
 export interface MimoEnv {
   PORT: number;
@@ -37,6 +39,8 @@ export interface MimoContext {
     agents: AgentRepository;
     mcpServers: McpServerRepository;
     sessions: SessionRepository;
+    credentials: CredentialRepository;
+    impacts: ImpactRepository;
   };
   services: {
     auth: JwtService;
@@ -115,6 +119,12 @@ export function createMimoContext(overrides: CreateMimoContextOverrides = {}): M
         },
         fossilReposDir: env.FOSSIL_REPOS_DIR,
       }),
+    credentials:
+      overrides.repos?.credentials ??
+      new CredentialRepository({ usersPath: paths.users }),
+    impacts:
+      overrides.repos?.impacts ??
+      new ImpactRepository({ projectsPath: paths.projects }),
   };
 
   const services: MimoContext["services"] = {

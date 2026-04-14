@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import { projectRepository, CreateProjectInput } from "../projects/repository";
-import { sessionRepository } from "../sessions/repository";
-import { credentialRepository, Credential } from "../credentials/repository";
-import { impactRepository } from "../impact/repository";
+import { projectRepository as defaultProjectRepository, CreateProjectInput } from "../projects/repository";
+import { sessionRepository as defaultSessionRepository } from "../sessions/repository";
+import { credentialRepository as defaultCredentialRepository, Credential } from "../credentials/repository";
+import { impactRepository as defaultImpactRepository } from "../impact/repository";
 import { authMiddleware } from "../auth/middleware";
 import { ProjectsListPage } from "../components/ProjectsListPage";
 import { ProjectDetailPage } from "../components/ProjectDetailPage";
@@ -12,10 +12,14 @@ import { ImpactHistoryPage } from "../components/ImpactHistoryPage";
 import { createSessionsRoutes } from "../sessions/routes";
 import type { MimoContext } from "../context/mimo-context.js";
 
-type ProjectsRoutesContext = Pick<MimoContext, "services">;
+type ProjectsRoutesContext = Pick<MimoContext, "services" | "repos">;
 
 export function createProjectsRoutes(mimoContext?: ProjectsRoutesContext) {
 const projects = new Hono();
+const projectRepository = mimoContext?.repos?.projects ?? defaultProjectRepository;
+const sessionRepository = mimoContext?.repos?.sessions ?? defaultSessionRepository;
+const credentialRepository = mimoContext?.repos?.credentials ?? defaultCredentialRepository;
+const impactRepository = mimoContext?.repos?.impacts ?? defaultImpactRepository;
 const sessions = createSessionsRoutes(mimoContext);
 
 // Helper to detect if URL is SSH

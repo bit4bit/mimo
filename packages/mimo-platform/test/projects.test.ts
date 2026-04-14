@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -16,30 +15,26 @@ describe("Project Management Integration Tests", () => {
   const testHome = join(tmpdir(), `mimo-project-test-${Date.now()}`);
 
   beforeEach(async () => {
-    // Set up fresh environment
-    setMimoHome(testHome);
-    process.env.JWT_SECRET = "test-secret-key-for-testing";
-
     // Clean up from previous run
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
 
-    // Re-import to get fresh modules
-    const pathsModule = await import("../src/config/paths.ts");
-    pathsModule.ensureMimoHome();
+    // Set up fresh environment with createMimoContext
+    process.env.JWT_SECRET = "test-secret-key-for-testing";
 
-    const userModule = await import("../src/auth/user.ts");
-    userRepository = userModule.userRepository;
+    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+
+    userRepository = ctx.repos.users;
 
     const middlewareModule = await import("../src/auth/middleware.ts");
     authMiddleware = middlewareModule.authMiddleware;
 
-    const projectModule = await import("../src/projects/repository.ts");
-    projectRepository = projectModule.projectRepository;
+    projectRepository = ctx.repos.projects;
 
-    const routesModule = await import("../src/projects/routes.tsx");
-    projectRoutes = routesModule.default;
+    const { createProjectsRoutes } = await import("../src/projects/routes.tsx");
+    projectRoutes = createProjectsRoutes(ctx);
   });
 
   describe("Project Creation", () => {

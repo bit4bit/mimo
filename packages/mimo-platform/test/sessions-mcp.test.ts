@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { SessionRepository } from "../src/sessions/repository.js";
 import { existsSync, rmdirSync, unlinkSync, readdirSync, mkdirSync, writeFileSync, readFileSync } from "fs";
 import { join } from "path";
@@ -17,18 +16,14 @@ describe("Session Creation with MCP Servers", () => {
     // Create a temp directory for each test
     testBasePath = mkdtempSync(join(tmpdir(), "mimo-session-mcp-test-"));
     
-    // Set MIMO_HOME environment variable
-    setMimoHome(testBasePath);
-    
     // Create required directories
     mkdirSync(join(testBasePath, "projects"), { recursive: true });
     
-    sessionRepository = new SessionRepository();
+    sessionRepository = new SessionRepository({ paths: { projects: join(testBasePath, "projects"), data: testBasePath }, fossilReposDir: join(testBasePath, "session-fossils") });
   });
 
   afterEach(() => {
     // Clean up
-    clearConfig();
     try {
       if (existsSync(testBasePath)) {
         const { rmSync } = require("fs");

@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { Hono } from "hono";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -11,13 +10,11 @@ describe("Projects nested sessions with mimoContext", () => {
   beforeEach(() => {
     testHome = join(tmpdir(), `mimo-projects-sessions-context-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     rmSync(testHome, { recursive: true, force: true });
-    setMimoHome(testHome);
   });
 
   it("uses injected auth service for nested sessions routes", async () => {
     const { createMimoContext } = await import("../src/context/mimo-context.ts");
     const { createProjectsRoutes } = await import("../src/projects/routes.tsx");
-    const { projectRepository } = await import("../src/projects/repository.ts");
 
     const mimoContext = createMimoContext({
       env: {
@@ -26,7 +23,7 @@ describe("Projects nested sessions with mimoContext", () => {
       },
     });
 
-    const project = await projectRepository.create({
+    const project = await mimoContext.repos.projects.create({
       name: "Nested Sessions Context Project",
       repoUrl: "https://github.com/example/repo.git",
       repoType: "git",

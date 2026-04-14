@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, mkdirSync, writeFileSync, unlinkSync } from "fs";
@@ -14,7 +13,9 @@ describe("Commit Service Tests", () => {
 
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-commit-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    setMimoHome(testHome);
+
+    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
 
     try {
       rmSync(testHome, { recursive: true, force: true });

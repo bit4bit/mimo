@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { Hono } from "hono";
 import { existsSync, mkdtempSync, readdirSync, rmSync, unlinkSync } from "fs";
 import { join } from "path";
@@ -35,7 +34,9 @@ describe("MCP Server API Integration Tests", () => {
 
   beforeAll(() => {
     testHome = mkdtempSync(join(tmpdir(), "mimo-mcp-api-test-"));
-    setMimoHome(testHome);
+    
+    // Set environment variable for MIMO_HOME instead of using setMimoHome
+    process.env.MIMO_HOME = testHome;
 
     const app = new Hono();
     app.route("/mcp-servers", mcpServers);
@@ -66,7 +67,6 @@ describe("MCP Server API Integration Tests", () => {
   afterAll(() => {
     cleanupTestDir();
     server?.stop?.(true);
-    clearConfig();
     if (testHome) {
       rmSync(testHome, { recursive: true, force: true });
     }

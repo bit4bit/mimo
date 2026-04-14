@@ -2,16 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, mkdirSync, writeFileSync, chmodSync } from "fs";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 
 describe("Impact Buffer Tests", () => {
   let testHome: string;
 
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-impact-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    
-    // Set global config BEFORE any imports
-    setMimoHome(testHome);
 
     try {
       rmSync(testHome, { recursive: true, force: true });
@@ -26,7 +22,6 @@ describe("Impact Buffer Tests", () => {
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
-    clearConfig();
   });
 
   describe("SccService", () => {

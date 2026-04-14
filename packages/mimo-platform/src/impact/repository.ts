@@ -35,9 +35,15 @@ export interface ImpactRecord {
   fossilUrl: string;
 }
 
+interface ImpactRepositoryDeps {
+  projectsPath?: string;
+}
+
 export class ImpactRepository {
+  constructor(private deps: ImpactRepositoryDeps = {}) {}
+
   private getImpactDir(projectId: string): string {
-    return join(getPaths().projects, projectId, "impacts");
+    return join(this.deps.projectsPath ?? getPaths().projects, projectId, "impacts");
   }
 
   private getImpactPath(projectId: string, sessionId: string, commitHash: string): string {

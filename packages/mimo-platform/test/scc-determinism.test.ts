@@ -10,7 +10,10 @@ describe("SCC Determinism Test", () => {
   beforeEach(async () => {
     testHome = join(tmpdir(), `mimo-scc-determinism-${Date.now()}`);
     testDir = join(testHome, "test-project");
-    
+
+    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
+
     mkdirSync(testDir, { recursive: true });
     
     // Create stable test files with realistic content
@@ -98,9 +101,6 @@ export function multiply(x: number, y: number): number {
   it("should return identical delta calculations on unchanged files", async () => {
     const { ImpactCalculator } = await import("../src/impact/calculator.ts");
     const { SccService } = await import("../src/impact/scc-service.ts");
-    const { setMimoHome } = await import("../src/config/global-config.js");
-    
-    setMimoHome(testHome);
     
     const sccPath = join(process.env.HOME || "/usr/local/bin", ".mimo", "bin", "scc");
     const sccService = new SccService(sccPath);

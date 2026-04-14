@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync } from "fs";
@@ -18,22 +17,15 @@ describe("Chat History Persistence", () => {
   let testSession: { id: string };
 
   beforeAll(async () => {
-    // Set up fresh environment
-    setMimoHome(testHome);
+    // Set up fresh environment with createMimoContext
     process.env.JWT_SECRET = "test-secret-key-for-testing";
 
-    // Import after setting environment
-    const pathsModule = await import("../src/config/paths.ts");
-    pathsModule.ensureMimoHome();
+    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
 
-    const userModule = await import("../src/auth/user.ts");
-    userRepository = userModule.userRepository;
-
-    const projectModule = await import("../src/projects/repository.ts");
-    projectRepository = projectModule.projectRepository;
-
-    const sessionModule = await import("../src/sessions/repository.ts");
-    sessionRepository = sessionModule.sessionRepository;
+    userRepository = ctx.repos.users;
+    projectRepository = ctx.repos.projects;
+    sessionRepository = ctx.repos.sessions;
 
     const chatModule = await import("../src/sessions/chat.ts");
     chatService = chatModule.chatService;

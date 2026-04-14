@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -20,22 +19,15 @@ describe("Session Management Integration Tests", () => {
     // Create unique test home for each test
     testHome = join(tmpdir(), `mimo-session-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     
-    // Set up fresh environment
-    setMimoHome(testHome);
+    // Set up fresh environment with createMimoContext
     process.env.JWT_SECRET = "test-secret-key-for-testing";
 
-    // Re-import to get fresh modules
-    const pathsModule = await import("../src/config/paths.ts");
-    pathsModule.ensureMimoHome();
+    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
 
-    const userModule = await import("../src/auth/user.ts");
-    userRepository = userModule.userRepository;
-
-    const projectModule = await import("../src/projects/repository.ts");
-    projectRepository = projectModule.projectRepository;
-
-    const sessionModule = await import("../src/sessions/repository.ts");
-    sessionRepository = sessionModule.sessionRepository;
+    userRepository = ctx.repos.users;
+    projectRepository = ctx.repos.projects;
+    sessionRepository = ctx.repos.sessions;
 
     const chatModule = await import("../src/sessions/chat.ts");
     chatService = chatModule.chatService;
@@ -51,8 +43,8 @@ describe("Session Management Integration Tests", () => {
     vcsModule.vcs.openFossil = async () => ({ success: true });
     vcsModule.vcs.syncIgnoresToFossil = async () => ({ success: true });
 
-    const routesModule = await import("../src/sessions/routes.tsx");
-    sessionRoutes = routesModule.default;
+    const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
+    sessionRoutes = createSessionsRoutes(ctx);
   });
 
   describe("Session Creation with ACP Session Parking", () => {

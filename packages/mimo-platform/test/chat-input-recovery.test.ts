@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
-import { setMimoHome, clearConfig } from "../src/config/global-config.js";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync } from "fs";
@@ -31,11 +30,10 @@ describe("Chat Input Recovery", () => {
   const testHome = join(tmpdir(), `mimo-chat-recovery-test-${Date.now()}`);
 
   beforeAll(async () => {
-    setMimoHome(testHome);
     process.env.JWT_SECRET = "test-secret-key-for-testing";
 
-    const pathsModule = await import("../src/config/paths.ts");
-    pathsModule.ensureMimoHome();
+    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
 
     const chatModule = await import("../src/sessions/chat.ts");
     chatService = chatModule.chatService;
