@@ -57,8 +57,8 @@ When in doubt, delete code, not add it. Prefer the simpler solution.
 
 ## Commits
 
-Use the following message description
-,
+Use the following message format **strictly**. Do not add any extra lines (e.g. no `Co-Authored-By`, no trailers, no blank lines beyond what is shown).
+
 ```
 <type>(<scope>): <short description>
 
