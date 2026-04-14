@@ -221,19 +221,49 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       </div>
 
       <div id="commit-dialog" class="modal" style="display: none;">
-        <div class="modal-content">
+        <div class="modal-content commit-modal">
           <h3>Commit Changes</h3>
-          <textarea 
-            id="commit-message" 
-            placeholder="Enter commit message..."
-            rows="3"
-            style="width: 100%; margin: 10px 0; padding: 8px; background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; font-family: monospace;"
-          ></textarea>
-          <div style="display: flex; gap: 10px; justify-content: flex-end;">
-            <button type="button" id="commit-cancel" class="btn-secondary">Cancel</button>
-            <button type="button" id="commit-confirm" class="btn-primary">Commit & Push</button>
+          
+          <div class="commit-preview-container">
+            <div class="commit-status-filters">
+              <label class="status-filter">
+                <input type="checkbox" id="filter-added" checked />
+                <span class="status-badge status-added">Added</span>
+                <span id="count-added" class="status-count">0</span>
+              </label>
+              <label class="status-filter">
+                <input type="checkbox" id="filter-modified" checked />
+                <span class="status-badge status-modified">Modified</span>
+                <span id="count-modified" class="status-count">0</span>
+              </label>
+              <label class="status-filter">
+                <input type="checkbox" id="filter-deleted" checked />
+                <span class="status-badge status-deleted">Deleted</span>
+                <span id="count-deleted" class="status-count">0</span>
+              </label>
+            </div>
+            
+            <div id="commit-tree" class="commit-tree">
+              <div class="commit-empty-state">Loading changes...</div>
+            </div>
           </div>
-          <div id="commit-error" style="color: #ff6b6b; margin-top: 10px; font-size: 12px;"></div>
+          
+          <div class="commit-message-section">
+            <div class="commit-file-count">
+              <span id="selected-count">0</span> of <span id="total-count">0</span> files selected
+            </div>
+            <textarea 
+              id="commit-message" 
+              placeholder="Enter commit message..."
+              rows="3"
+            ></textarea>
+            <div id="commit-error" class="commit-error"></div>
+          </div>
+          
+          <div class="commit-actions">
+            <button type="button" id="commit-cancel" class="btn-secondary">Cancel</button>
+            <button type="button" id="commit-confirm" class="btn-primary" disabled>Commit & Push</button>
+          </div>
         </div>
       </div>
 
@@ -494,6 +524,254 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         }
         .fossil-icon-link:hover {
           opacity: 1;
+        }
+        
+        /* Commit Modal Styles */
+        .commit-modal {
+          max-width: 700px !important;
+          max-height: 85vh;
+          display: flex;
+          flex-direction: column;
+        }
+        .commit-preview-container {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          border: 1px solid #444;
+          border-radius: 4px;
+          margin-bottom: 15px;
+        }
+        .commit-status-filters {
+          display: flex;
+          gap: 15px;
+          padding: 10px 15px;
+          background: #252525;
+          border-bottom: 1px solid #444;
+          flex-shrink: 0;
+        }
+        .status-filter {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          cursor: pointer;
+          font-size: 12px;
+        }
+        .status-filter input[type="checkbox"] {
+          cursor: pointer;
+        }
+        .status-badge {
+          padding: 2px 8px;
+          border-radius: 3px;
+          font-size: 11px;
+          font-weight: bold;
+        }
+        .status-added {
+          background: #0b3d0b;
+          color: #51cf66;
+        }
+        .status-modified {
+          background: #3d3d0b;
+          color: #ffd43b;
+        }
+        .status-deleted {
+          background: #3d0b0b;
+          color: #ff6b6b;
+        }
+        .status-count {
+          color: #888;
+          font-size: 11px;
+        }
+        .commit-tree {
+          flex: 1;
+          overflow-y: auto;
+          padding: 10px;
+          background: #1a1a1a;
+          min-height: 150px;
+          max-height: 350px;
+        }
+        .commit-empty-state {
+          color: #888;
+          text-align: center;
+          padding: 40px;
+          font-style: italic;
+        }
+        .tree-node {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 0;
+          font-size: 13px;
+        }
+        .tree-node--directory {
+          cursor: pointer;
+        }
+        .tree-node--file {
+          padding-left: 20px;
+        }
+        .tree-toggle {
+          width: 16px;
+          height: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          color: #888;
+          cursor: pointer;
+          user-select: none;
+        }
+        .tree-checkbox {
+          cursor: pointer;
+        }
+        .tree-node--directory > .tree-checkbox {
+          opacity: 0.7;
+        }
+        .tree-node--directory > .tree-checkbox:checked {
+          opacity: 1;
+        }
+        .tree-node--directory > .tree-checkbox:indeterminate {
+          opacity: 1;
+        }
+        .tree-label {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .tree-icon {
+          font-size: 14px;
+        }
+        .tree-icon--folder {
+          color: #74c0fc;
+        }
+        .tree-icon--file {
+          color: #888;
+        }
+        .tree-icon--expanded {
+          color: #888;
+        }
+        .tree-children {
+          margin-left: 20px;
+        }
+        .file-status {
+          font-size: 10px;
+          padding: 1px 6px;
+          border-radius: 3px;
+          margin-left: auto;
+        }
+        .file-status--added {
+          background: #0b3d0b;
+          color: #51cf66;
+        }
+        .file-status--modified {
+          background: #3d3d0b;
+          color: #ffd43b;
+        }
+        .file-status--deleted {
+          background: #3d0b0b;
+          color: #ff6b6b;
+        }
+        .file-status--binary {
+          background: #3d0b3d;
+          color: #da77f2;
+        }
+        .file-diff {
+          margin: 8px 0 8px 36px;
+          padding: 10px;
+          background: #2d2d2d;
+          border: 1px solid #444;
+          border-radius: 4px;
+          font-family: monospace;
+          font-size: 12px;
+        }
+        .file-diff-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid #444;
+        }
+        .file-diff-title {
+          color: #888;
+          font-size: 11px;
+        }
+        .file-diff-close {
+          background: none;
+          border: none;
+          color: #888;
+          cursor: pointer;
+          font-size: 14px;
+        }
+        .diff-hunk {
+          margin-bottom: 10px;
+        }
+        .diff-hunk-header {
+          color: #74c0fc;
+          font-size: 11px;
+          margin-bottom: 4px;
+        }
+        .diff-line {
+          padding: 1px 4px;
+          white-space: pre;
+          overflow-x: auto;
+        }
+        .diff-line--added {
+          background: #0b3d0b;
+          color: #51cf66;
+        }
+        .diff-line--removed {
+          background: #3d0b0b;
+          color: #ff6b6b;
+        }
+        .diff-line--context {
+          color: #888;
+        }
+        .diff-binary {
+          color: #888;
+          font-style: italic;
+          padding: 10px;
+        }
+        .commit-message-section {
+          margin-bottom: 15px;
+        }
+        .commit-file-count {
+          font-size: 12px;
+          color: #888;
+          margin-bottom: 8px;
+        }
+        .commit-file-count span {
+          color: #d4d4d4;
+          font-weight: bold;
+        }
+        #commit-message {
+          width: 100%;
+          padding: 8px;
+          background: #2d2d2d;
+          border: 1px solid #444;
+          color: #d4d4d4;
+          font-family: monospace;
+          border-radius: 4px;
+        }
+        #commit-message:invalid {
+          border-color: #ff6b6b;
+        }
+        .commit-error {
+          color: #ff6b6b;
+          font-size: 12px;
+          margin-top: 8px;
+          min-height: 18px;
+        }
+        .commit-actions {
+          display: flex;
+          gap: 10px;
+          justify-content: flex-end;
+          padding-top: 10px;
+          border-top: 1px solid #444;
+        }
+        .btn-primary:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
       `}</style>
     </Layout>

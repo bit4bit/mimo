@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
-import { rmSync, existsSync, mkdirSync, writeFileSync } from "fs";
+import { rmSync, existsSync, mkdirSync, writeFileSync, unlinkSync } from "fs";
 import { execSync } from "child_process";
 
 describe("Commit Service Tests", () => {
@@ -265,6 +265,188 @@ describe("Commit Service Tests", () => {
         encoding: "utf8",
       }).trim();
       expect(upstreamCommitMessage).toBe(userMessage);
+    }, 30000);
+  });
+
+  describe("5. Commit Preview and Selective Apply", () => {
+    it("should return correct tree and statuses from preview endpoint", async () => {
+      const vcs = new VCS();
+      const sessionRepo = new SessionRepository();
+      const projectRepo = new ProjectRepository();
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      const agentWorkspacePath = session.agentWorkspacePath;
+      const fossilPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(fossilPath);
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      await vcs.openFossil(fossilPath, agentWorkspacePath);
+
+      // Create a nested structure in agent workspace
+      mkdirSync(join(agentWorkspacePath, "src"), { recursive: true });
+      writeFileSync(join(agentWorkspacePath, "src/file1.txt"), "content 1");
+      writeFileSync(join(agentWorkspacePath, "src/file2.txt"), "content 2");
+      writeFileSync(join(agentWorkspacePath, "root.txt"), "root content");
+      
+      // Commit files to fossil
+      await vcs.execCommand(["fossil", "addremove"], agentWorkspacePath);
+      await vcs.execCommand(["fossil", "commit", "-m", "Initial"], agentWorkspacePath);
+
+      // Get preview (comparing agent-workspace with empty upstream)
+      const preview = await CommitService.getPreview(session.id);
+
+      expect(preview.success).toBe(true);
+      expect(preview.preview).toBeDefined();
+      expect(preview.preview!.summary.added).toBeGreaterThan(0);
+      expect(preview.preview!.tree.length).toBeGreaterThan(0);
+      // Tree should have "src" directory and "root.txt" file
+      expect(preview.preview!.tree.some(n => n.name === "src" && n.type === "directory")).toBe(true);
+      expect(preview.preview!.tree.some(n => n.name === "root.txt" && n.type === "file")).toBe(true);
+      // Files should have correct paths and status
+      expect(preview.preview!.files.some(f => f.path === "src/file1.txt" && f.status === "added")).toBe(true);
+      expect(preview.preview!.files.some(f => f.path === "src/file2.txt" && f.status === "added")).toBe(true);
+      expect(preview.preview!.files.some(f => f.path === "root.txt" && f.status === "added")).toBe(true);
+    }, 30000);
+
+    it("should block commit with empty message", async () => {
+      const sessionRepo = new SessionRepository();
+      const projectRepo = new ProjectRepository();
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const result = await CommitService.commitAndPushSelective(
+        session.id,
+        "", // Empty message
+        undefined,
+        undefined
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Commit message is required");
+    });
+
+    it("should validate that selected paths exist in preview set", async () => {
+      const vcs = new VCS();
+      const sessionRepo = new SessionRepository();
+      const projectRepo = new ProjectRepository();
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      const agentWorkspacePath = session.agentWorkspacePath;
+      const fossilPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(fossilPath);
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      await vcs.openFossil(fossilPath, agentWorkspacePath);
+
+      writeFileSync(join(agentWorkspacePath, "test.txt"), "test content");
+      await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
+      await vcs.execCommand(["fossil", "commit", "-m", "Initial"], agentWorkspacePath);
+
+      // Try to commit with invalid path
+      const result = await CommitService.commitAndPushSelective(
+        session.id,
+        "Test commit",
+        ["nonexistent-file.txt"],
+        undefined
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.invalidPaths).toContain("nonexistent-file.txt");
+    }, 30000);
+
+    it("should apply selective commit with only chosen files", async () => {
+      const vcs = new VCS();
+      const sessionRepo = new SessionRepository();
+      const projectRepo = new ProjectRepository();
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      const agentWorkspacePath = session.agentWorkspacePath;
+      const fossilPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(fossilPath);
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      await vcs.openFossil(fossilPath, agentWorkspacePath);
+
+      // Create two files
+      writeFileSync(join(agentWorkspacePath, "file1.txt"), "content 1");
+      writeFileSync(join(agentWorkspacePath, "file2.txt"), "content 2");
+      await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
+      await vcs.execCommand(["fossil", "commit", "-m", "Initial"], agentWorkspacePath);
+
+      // Commit only file1
+      const result = await CommitService.commitAndPushSelective(
+        session.id,
+        "Selective commit",
+        ["file1.txt"],
+        undefined
+      );
+
+      expect(result.success).toBe(true);
+
+      // Verify only file1 is in upstream
+      expect(existsSync(join(upstreamPath, "file1.txt"))).toBe(true);
     }, 30000);
   });
 });
