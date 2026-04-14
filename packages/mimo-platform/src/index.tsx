@@ -118,6 +118,10 @@ app.route("/config", configRoutes);
 import credentialsRoutes from "./credentials/routes";
 app.route("/credentials", credentialsRoutes);
 
+// MCP Server routes (protected)
+import mcpServers from "./mcp-servers/routes.js";
+app.route("/mcp-servers", mcpServers);
+
 // Auto-commit routes (protected)
 import autoCommitRoutes, {
   resolveAgentSyncNowResult,

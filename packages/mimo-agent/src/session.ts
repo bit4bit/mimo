@@ -1,7 +1,7 @@
 import { watch, existsSync, mkdirSync, readdirSync, statSync, readFileSync, writeFileSync, unlinkSync, rmdirSync } from "fs";
 import { join, dirname, resolve } from "path";
 import { spawn } from "child_process";
-import { SessionInfo, FileChange, ModelState, ModeState } from "./types";
+import { SessionInfo, FileChange, ModelState, ModeState, McpServerConfig } from "./types";
 
 export interface SessionCallbacks {
   onFileChange: (sessionId: string, changes: FileChange[]) => void;
@@ -94,6 +94,13 @@ export class SessionManager {
     const session = this.sessions.get(sessionId);
     if (session) {
       session.localDevMirrorPath = localDevMirrorPath;
+    }
+  }
+
+  setSessionMcpServers(sessionId: string, mcpServers: McpServerConfig[]): void {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.mcpServers = mcpServers;
     }
   }
 

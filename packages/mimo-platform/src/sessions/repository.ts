@@ -35,6 +35,8 @@ export interface Session {
   localDevMirrorPath?: string;
   agentSubpath?: string;
   branch?: string;
+  // MCP Server attachments
+  mcpServerIds: string[];
   // ACP Session Parking fields
   idleTimeoutMs: number;
   acpStatus: "active" | "parked";
@@ -65,6 +67,8 @@ export interface SessionData {
   localDevMirrorPath?: string;
   agentSubpath?: string;
   branch?: string;
+  // MCP Server attachments
+  mcpServerIds?: string[];
   // ACP Session Parking fields
   idleTimeoutMs?: number;
   acpStatus?: "active" | "parked";
@@ -86,6 +90,7 @@ export interface CreateSessionInput {
   localDevMirrorPath?: string;
   agentSubpath?: string;
   branchName?: string;
+  mcpServerIds?: string[];
 }
 
 export interface UpdateSessionConfigInput {
@@ -184,6 +189,8 @@ export class SessionRepository {
       assignedAgentId: input.assignedAgentId,
       status: "active",
       port: null,
+      // MCP Server defaults
+      mcpServerIds: input.mcpServerIds || [],
       // ACP Session Parking defaults
       idleTimeoutMs: 600000, // 10 minutes default
       acpStatus: "active",
@@ -227,12 +234,14 @@ export class SessionRepository {
             const data = load(content) as SessionData;
             // Handle migration from checkoutPath to agentWorkspacePath
             // Handle ACP Session Parking defaults (backward compatibility)
+            // Handle MCP Server defaults (backward compatibility)
             const sessionData = {
               ...data,
               agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
               idleTimeoutMs: data.idleTimeoutMs ?? 600000,
               acpStatus: data.acpStatus ?? "active",
               syncState: data.syncState ?? "idle",
+              mcpServerIds: data.mcpServerIds ?? [],
               frameState: normalizeFrameState(data.frameState),
             };
             return {
