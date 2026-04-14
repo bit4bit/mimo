@@ -57,6 +57,12 @@ When in doubt, delete code, not add it. Prefer the simpler solution.
 
 ## Commits
 
+**Before committing, always format the code:**
+
+```bash
+cd packages/mimo-platform && bun prettier . --write
+```
+
 Use the following message format **strictly**. Do not add any extra lines (e.g. no `Co-Authored-By`, no trailers, no blank lines beyond what is shown).
 
 ```

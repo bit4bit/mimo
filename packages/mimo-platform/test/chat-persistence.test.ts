@@ -16,6 +16,7 @@ let projectRepository: any;
 let userRepository: any;
 let chatService: any;
 let ChatMessage: any;
+let ctx: any;
 
 describe("Chat History Persistence", () => {
   const testHome = join(tmpdir(), `mimo-chat-test-${Date.now()}`);
@@ -27,7 +28,7 @@ describe("Chat History Persistence", () => {
     // Set up fresh environment with createMimoContext
     const { createMimoContext } =
       await import("../src/context/mimo-context.ts");
-    const ctx = createMimoContext({
+    ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
 
@@ -35,8 +36,9 @@ describe("Chat History Persistence", () => {
     projectRepository = ctx.repos.projects;
     sessionRepository = ctx.repos.sessions;
 
+    // Use ChatService from mimoContext instead of singleton
+    chatService = ctx.services.chat;
     const chatModule = await import("../src/sessions/chat.ts");
-    chatService = chatModule.chatService;
     ChatMessage = chatModule.ChatMessage;
 
     // Create test user
