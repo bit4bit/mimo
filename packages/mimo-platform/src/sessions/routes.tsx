@@ -614,7 +614,6 @@ router.get("/:id/impact", async (c: Context) => {
 
   try {
     const { impactCalculator } = await import("../impact/calculator.js");
-    const { getSccService } = await import("../impact/scc-service.js");
     const { vcs } = await import("../vcs/index.js");
 
     // Sync agent-workspace with repo.fossil before calculating impact
@@ -622,7 +621,7 @@ router.get("/:id/impact", async (c: Context) => {
     const { existsSync } = await import("fs");
     const { join } = await import("path");
     const fslckoutPath = join(session.agentWorkspacePath, ".fslckout");
-    
+
     if (existsSync(fossilPath)) {
       if (!existsSync(fslckoutPath)) {
         // Initialize fossil checkout if not exists
@@ -634,8 +633,8 @@ router.get("/:id/impact", async (c: Context) => {
       await vcs.fossilUp(session.agentWorkspacePath);
     }
 
-    // Check if scc is installed - use getter to avoid TDZ issues
-    const sccService = getSccService();
+    // Check if scc is installed using mimoContext service
+    const sccService = mimoContext.services.scc;
     const sccInstalled = sccService.isInstalled();
 
     if (!sccInstalled) {
