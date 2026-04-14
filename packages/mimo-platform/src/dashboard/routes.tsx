@@ -1,42 +1,46 @@
 import { Hono } from "hono";
 import { DashboardPage } from "../components/DashboardPage.js";
 import { authMiddleware } from "../auth/middleware.js";
-import { projectRepository } from "../projects/repository.js";
-import { agentRepository } from "../agents/repository.js";
-import { sessionRepository } from "../sessions/repository.js";
+import type { MimoContext } from "../context/mimo-context.js";
 
-const dashboard = new Hono();
+export function createDashboardRoutes(mimoContext: MimoContext): Hono {
+  const projects = mimoContext.repos.projects;
+  const agents = mimoContext.repos.agents;
+  const sessions = mimoContext.repos.sessions;
 
-dashboard.use(authMiddleware);
+  const dashboard = new Hono();
 
-dashboard.get("/", async (c) => {
-  const user = c.get("user") as { username: string };
-  const username = user.username;
+  dashboard.use(authMiddleware);
 
-  // Get user's projects
-  const projects = await projectRepository.listByOwner(username);
+  dashboard.get("/", async (c) => {
+    const user = c.get("user") as { username: string };
+    const username = user.username;
 
-  // Get user's agents
-  const agents = await agentRepository.findByOwner(username);
+    // Get user's projects
+    const userProjects = await projects.listByOwner(username);
 
-  // Get all sessions across all projects
-  const allSessions: any[] = [];
-  for (const project of projects) {
-    const sessions = await sessionRepository.listByProject(project.id);
-    allSessions.push(...sessions);
-  }
+    // Get user's agents
+    const userAgents = await agents.findByOwner(username);
 
-  // Sort sessions by creation date descending
-  allSessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    // Get all sessions across all projects
+    const allSessions: any[] = [];
+    for (const project of userProjects) {
+      const projectSessions = await sessions.listByProject(project.id);
+      allSessions.push(...projectSessions);
+    }
 
-  return c.html(
-    <DashboardPage
-      username={username}
-      projects={projects}
-      agents={agents}
-      sessions={allSessions.slice(0, 10)}
-    />
-  );
-});
+    // Sort sessions by creation date descending
+    allSessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-export default dashboard;
+    return c.html(
+      <DashboardPage
+        username={username}
+        projects={userProjects}
+        agents={userAgents}
+        sessions={allSessions.slice(0, 10)}
+      />
+    );
+  });
+
+  return dashboard;
+}

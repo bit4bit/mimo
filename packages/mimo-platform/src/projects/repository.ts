@@ -272,8 +272,3 @@ export class ProjectRepository {
     };
   }
 }
-
-// Legacy singleton export - will be removed once all consumers use mimoContext
-export const projectRepository = new ProjectRepository({
-  projectsPath: join(homedir(), ".mimo", "projects"),
-});

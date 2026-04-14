@@ -1,4 +1,4 @@
-import { Agent, AgentRepository, AgentStatus, AgentProvider, agentRepository } from "./repository.js";
+import { Agent, AgentRepository, AgentStatus, AgentProvider } from "./repository.js";
 import { SignJWT, jwtVerify } from "jose";
 import { logger } from "../logger.js";
 
@@ -27,7 +27,7 @@ export class AgentService {
   private agentSecret: Uint8Array;
 
   constructor(
-    private repository: AgentRepository = agentRepository,
+    private repository: AgentRepository,
     jwtSecret: string = DEFAULT_JWT_SECRET
   ) {
     this.agentSecret = new TextEncoder().encode(jwtSecret);

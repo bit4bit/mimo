@@ -1,18 +1,22 @@
 import { Hono } from "hono";
-import { credentialRepository, Credential } from "../credentials/repository";
+import type { Credential } from "../credentials/repository";
 import { authMiddleware } from "../auth/middleware";
 import { CredentialsListPage } from "../components/CredentialsListPage";
 import { CredentialCreatePage } from "../components/CredentialCreatePage";
 import { CredentialEditPage } from "../components/CredentialEditPage";
+import type { MimoContext } from "../context/mimo-context.js";
 
-const credentials = new Hono();
+export function createCredentialsRoutes(mimoContext: MimoContext): Hono {
+  const repo = mimoContext.repos.credentials;
 
-// List all credentials (GET /credentials)
-credentials.get("/", authMiddleware, async (c) => {
-  const user = c.get("user") as { username: string };
-  const credentialsList = await credentialRepository.findByOwner(user.username);
-  return c.html(<CredentialsListPage credentials={credentialsList} />);
-});
+  const credentials = new Hono();
+
+  // List all credentials (GET /credentials)
+  credentials.get("/", authMiddleware, async (c) => {
+    const user = c.get("user") as { username: string };
+    const credentialsList = await repo.findByOwner(user.username);
+    return c.html(<CredentialsListPage credentials={credentialsList} />);
+  });
 
 // Show create form (GET /credentials/new)
 credentials.get("/new", authMiddleware, (c) => {
@@ -43,7 +47,7 @@ credentials.post("/", authMiddleware, async (c) => {
         return c.html(<CredentialCreatePage error="Username and password are required for HTTPS credentials" />, 400);
       }
 
-      await credentialRepository.create({
+      await repo.create({
         name,
         type: "https",
         username,
@@ -58,7 +62,7 @@ credentials.post("/", authMiddleware, async (c) => {
         return c.html(<CredentialCreatePage error="Private key is required for SSH credentials" />, 400);
       }
 
-      await credentialRepository.create({
+      await repo.create({
         name,
         type: "ssh",
         privateKey,
@@ -78,7 +82,7 @@ credentials.get("/:id/edit", authMiddleware, async (c) => {
   const id = c.req.param("id");
   const user = c.get("user") as { username: string };
   
-  const credential = await credentialRepository.findById(id, user.username);
+  const credential = await repo.findById(id, user.username);
   if (!credential) {
     return c.notFound();
   }
@@ -91,7 +95,7 @@ credentials.post("/:id/edit", authMiddleware, async (c) => {
   const id = c.req.param("id");
   const user = c.get("user") as { username: string };
   
-  const credential = await credentialRepository.findById(id, user.username);
+  const credential = await repo.findById(id, user.username);
   if (!credential) {
     return c.notFound();
   }
@@ -122,7 +126,7 @@ credentials.post("/:id/edit", authMiddleware, async (c) => {
       if (privateKey) updates.privateKey = privateKey;
     }
 
-    await credentialRepository.update(id, user.username, updates);
+    await repo.update(id, user.username, updates);
     return c.redirect("/credentials", 302);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Failed to update credential";
@@ -135,13 +139,14 @@ credentials.post("/:id/delete", authMiddleware, async (c) => {
   const id = c.req.param("id");
   const user = c.get("user") as { username: string };
   
-  const credential = await credentialRepository.findById(id, user.username);
+  const credential = await repo.findById(id, user.username);
   if (!credential) {
     return c.notFound();
   }
 
-  await credentialRepository.delete(id, user.username);
+  await repo.delete(id, user.username);
   return c.redirect("/credentials", 302);
-});
+  });
 
-export default credentials;
+  return credentials;
+}

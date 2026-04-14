@@ -1,11 +1,10 @@
 import { join, relative, dirname, resolve } from "path";
 import { existsSync, copyFileSync, mkdirSync, statSync, readFileSync, readdirSync, unlinkSync } from "fs";
-import { sessionRepository } from "../sessions/repository.js";
 import crypto from "crypto";
 import { sccService } from "../impact/scc-service.js";
 import { logger } from "../logger.js";
 
-export type FileStatus = 
+export type FileStatus =
   | "clean"      // File hasn't changed
   | "modified"   // File modified by agent [M]
   | "new"        // New file created by agent [?]
@@ -37,7 +36,12 @@ export interface FileSyncState {
   lastSyncAt?: Date;
 }
 
+export interface FileSyncServiceDeps {
+  sessionRepository: typeof sessionRepository;
+}
+
 export class FileSyncService {
+  constructor(private deps: FileSyncServiceDeps) {}
   private syncStates: Map<string, FileSyncState> = new Map();
   private pendingChanges: Map<string, FileChange[]> = new Map(); // Buffered changes for reconnects
   private impactStaleHandler?: (sessionId: string) => void;
@@ -53,11 +57,11 @@ export class FileSyncService {
   ): Promise<void> {
     // Get paths from session if not provided
     if (!upstreamPath || !agentWorkspacePath) {
-      const session = await sessionRepository.findById(sessionId);
+      const session = await this.deps.sessionRepository.findById(sessionId);
       if (!session) {
         throw new Error(`Session ${sessionId} not found`);
       }
-      
+
       upstreamPath = upstreamPath || session.upstreamPath;
       agentWorkspacePath = agentWorkspacePath || session.agentWorkspacePath;
     }
@@ -497,5 +501,3 @@ export class FileSyncService {
     this.pendingChanges.delete(sessionId);
   }
 }
-
-export const fileSyncService = new FileSyncService();

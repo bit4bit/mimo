@@ -3,16 +3,8 @@ import { jsx } from "hono/jsx";
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import crypto from "crypto";
-import { sessionRepository as defaultSessionRepository } from "./repository.js";
-import { projectRepository as defaultProjectRepository } from "../projects/repository.js";
-import { agentRepository } from "../agents/repository.js";
-import { agentService } from "../agents/service.js";
 import { chatService } from "./chat.js";
 import { vcs } from "../vcs/index.js";
-import { jwtService as defaultJwtService } from "../auth/jwt.js";
-import { fileSyncService } from "../sync/service.js";
-import { impactCalculator } from "../impact/calculator.js";
-
 import { SessionDetailPage } from "../components/SessionDetailPage.js";
 import { SessionCreatePage } from "../components/SessionCreatePage.js";
 import { SessionListPage } from "../components/SessionListPage.js";
@@ -21,28 +13,20 @@ import { sharedFossilServer } from "../vcs/shared-fossil-server.js";
 import { configService } from "../config/service.js";
 import { mcpServerService } from "../mcp-servers/service.js";
 import type { Context } from "hono";
-import { normalizeFrameState, updateFrameState, loadNotes, saveNotes } from "./frame-state.js";
+import { normalizeFrameState, updateFrameState } from "./frame-state.js";
 import { logger } from "../logger.js";
+import type { MimoContext } from "../context/mimo-context.js";
 
-type SessionsRoutesContext = {
-  env?: {
-    PLATFORM_URL: string;
-  };
-  services: {
-    auth: typeof defaultJwtService;
-  };
-  repos?: {
-    projects: typeof defaultProjectRepository;
-    sessions: typeof defaultSessionRepository;
-  };
-};
+type SessionsRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
 
-export function createSessionsRoutes(mimoContext?: SessionsRoutesContext) {
+export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 const router = new Hono();
-const authService = mimoContext?.services.auth ?? defaultJwtService;
-const projectRepository = mimoContext?.repos?.projects ?? defaultProjectRepository;
-const sessionRepository = mimoContext?.repos?.sessions ?? defaultSessionRepository;
-const platformUrl = mimoContext?.env?.PLATFORM_URL ?? "http://localhost:3000";
+const authService = mimoContext.services.auth;
+const projectRepository = mimoContext.repos.projects;
+const sessionRepository = mimoContext.repos.sessions;
+const agentRepository = mimoContext.repos.agents;
+const frameStateService = mimoContext.services.frameState;
+const platformUrl = mimoContext.env?.PLATFORM_URL ?? "http://localhost:3000";
 
 // Helper to get authenticated username from cookie
 async function getAuthUsername(c: Context): Promise<string | null> {
@@ -362,7 +346,7 @@ router.get("/:id", async (c: Context) => {
       project={project}
       chatHistory={chatHistory}
       frameState={normalizeFrameState(session.frameState)}
-      notesContent={loadNotes(session.id)}
+      notesContent={frameStateService.loadNotes(session.id)}
       agent={agent}
       modelState={modelState}
       modeState={modeState}
@@ -430,7 +414,7 @@ router.get("/:id/notes", async (c: Context) => {
     return c.json({ error: "Session not found" }, 404);
   }
 
-  return c.json({ content: loadNotes(sessionId) });
+  return c.json({ content: frameStateService.loadNotes(sessionId) });
 });
 
 // POST /sessions/:id/notes - Save notes content
@@ -448,7 +432,7 @@ router.post("/:id/notes", async (c: Context) => {
 
   const body = await c.req.json();
   const content = typeof body.content === "string" ? body.content : "";
-  saveNotes(sessionId, content);
+  frameStateService.saveNotes(sessionId, content);
 
   return c.json({ success: true });
 });
@@ -904,5 +888,3 @@ router.post("/:id/settings/timeout", async (c: Context) => {
 
 return router;
 }
-
-export default createSessionsRoutes();

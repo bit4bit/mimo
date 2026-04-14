@@ -455,12 +455,3 @@ export class SessionRepository {
     return this.update(sessionId, updates);
   }
 }
-
-// Legacy singleton export - will be removed once all consumers use mimoContext
-const _defaultMimoHome = join(homedir(), ".mimo");
-export const sessionRepository = new SessionRepository({
-  paths: {
-    projects: join(_defaultMimoHome, "projects"),
-    data: _defaultMimoHome,
-  },
-});

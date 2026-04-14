@@ -115,8 +115,3 @@ export class ImpactRepository {
     }
   }
 }
-
-// Legacy singleton export - will be removed once all consumers use mimoContext
-export const impactRepository = new ImpactRepository({
-  projectsPath: join(homedir(), ".mimo", "projects"),
-});

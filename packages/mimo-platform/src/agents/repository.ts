@@ -297,8 +297,3 @@ export class AgentRepository {
     return existsSync(this.getAgentFilePath(agentId));
   }
 }
-
-// Legacy singleton export - will be removed once all consumers use mimoContext
-export const agentRepository = new AgentRepository({
-  agentsPath: join(homedir(), ".mimo", "agents"),
-});

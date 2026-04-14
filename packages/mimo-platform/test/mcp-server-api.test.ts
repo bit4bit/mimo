@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { existsSync, mkdtempSync, readdirSync, rmSync, unlinkSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import mcpServers from "../src/mcp-servers/routes.js";
+import { createMcpServerRoutes } from "../src/mcp-servers/routes.js";
 import { MimoServer } from "../src/server/mimo-server.js";
 import type { McpServer } from "../src/mcp-servers/types.js";
 
@@ -43,7 +43,7 @@ describe("MCP Server API Integration Tests", () => {
     mimoContext = createMimoContext({ env: { MIMO_HOME: testHome } });
 
     const app = new Hono();
-    app.route("/mcp-servers", mcpServers);
+    app.route("/mcp-servers", createMcpServerRoutes(mimoContext));
 
     const mimoServer = new MimoServer({
       serve: (config) => Bun.serve(config as any) as any,

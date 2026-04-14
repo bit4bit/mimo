@@ -1,6 +1,4 @@
-import { commitService, type CommitAndPushResult } from "../commits/service.js";
-import { impactCalculator } from "../impact/calculator.js";
-import { sessionRepository } from "../sessions/repository.js";
+import type { CommitAndPushResult } from "../commits/service.js";
 
 export type SyncState = "idle" | "syncing" | "error";
 
@@ -38,11 +36,7 @@ interface AutoCommitDependencies {
 
 export class AutoCommitService {
   constructor(
-    private readonly deps: AutoCommitDependencies = {
-      commitService,
-      sessionRepository,
-      impactCalculator,
-    }
+    private readonly deps: AutoCommitDependencies
   ) {}
 
   async handleThoughtEnd(sessionId: string): Promise<AutoCommitResult> {
@@ -152,5 +146,3 @@ export class AutoCommitService {
     await this.deps.sessionRepository.update(sessionId, status);
   }
 }
-
-export const autoCommitService = new AutoCommitService();

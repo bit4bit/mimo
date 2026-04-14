@@ -1,8 +1,4 @@
 import { vcs } from "../vcs/index.js";
-import { sessionRepository } from "../sessions/repository.js";
-import { projectRepository } from "../projects/repository.js";
-import { impactRepository } from "../impact/repository.js";
-import { impactCalculator } from "../impact/calculator.js";
 import { logger } from "../logger.js";
 import {
   parsePatchPreview,
@@ -41,14 +37,23 @@ export interface SelectiveCommitResult extends CommitAndPushResult {
   invalidPaths?: string[];
 }
 
+export interface CommitServiceDeps {
+  sessionRepository: typeof sessionRepository;
+  projectRepository: typeof projectRepository;
+  impactRepository: typeof impactRepository;
+  impactCalculator: typeof impactCalculator;
+  vcs: typeof vcs;
+}
+
 export class CommitService {
+  constructor(private deps: CommitServiceDeps) {}
   /**
    * Get commit preview for a session.
    * Generates a patch between agent-workspace and upstream, then parses it into preview format.
    */
   async getPreview(sessionId: string): Promise<CommitPreviewResult> {
     // Get session and project
-    const session = await sessionRepository.findById(sessionId);
+    const session = await this.deps.sessionRepository.findById(sessionId);
     if (!session) {
       return {
         success: false,
@@ -56,7 +61,7 @@ export class CommitService {
       };
     }
 
-    const project = await projectRepository.findById(session.projectId);
+    const project = await this.deps.projectRepository.findById(session.projectId);
     if (!project) {
       return {
         success: false,
@@ -65,13 +70,13 @@ export class CommitService {
     }
 
     // Ensure agent-workspace has fossil checkout
-    const fossilPath = sessionRepository.getFossilPath(sessionId);
+    const fossilPath = this.deps.sessionRepository.getFossilPath(sessionId);
     const { existsSync } = await import("fs");
     const { join } = await import("path");
     const fslckoutPath = join(session.agentWorkspacePath, ".fslckout");
 
     if (!existsSync(fslckoutPath)) {
-      const openResult = await vcs.openFossil(fossilPath, session.agentWorkspacePath);
+      const openResult = await this.deps.vcs.openFossil(fossilPath, session.agentWorkspacePath);
       if (!openResult.success) {
         return {
           success: false,
@@ -81,18 +86,18 @@ export class CommitService {
     }
 
     // Sync agent-workspace with repo.fossil
-    const syncResult = await vcs.fossilUp(session.agentWorkspacePath);
+    const syncResult = await this.deps.vcs.fossilUp(session.agentWorkspacePath);
     if (!syncResult.success) {
       if (syncResult.error?.includes("not within an open check-out") ||
           syncResult.error?.includes("current directory is not within")) {
-        const openResult = await vcs.openFossil(fossilPath, session.agentWorkspacePath);
+        const openResult = await this.deps.vcs.openFossil(fossilPath, session.agentWorkspacePath);
         if (!openResult.success) {
           return {
             success: false,
             error: `Failed to open fossil checkout: ${openResult.error}`,
           };
         }
-        const retryResult = await vcs.fossilUp(session.agentWorkspacePath);
+        const retryResult = await this.deps.vcs.fossilUp(session.agentWorkspacePath);
         if (!retryResult.success) {
           return {
             success: false,
@@ -108,7 +113,7 @@ export class CommitService {
     }
 
     // Generate patch
-    const genResult = await vcs.generatePatch(
+    const genResult = await this.deps.vcs.generatePatch(
       session.agentWorkspacePath,
       session.upstreamPath
     );
@@ -152,7 +157,7 @@ export class CommitService {
     applyStatuses?: { added: boolean; modified: boolean; deleted: boolean }
   ): Promise<SelectiveCommitResult> {
     // Get session and project
-    const session = await sessionRepository.findById(sessionId);
+    const session = await this.deps.sessionRepository.findById(sessionId);
     if (!session) {
       return {
         success: false,
@@ -162,7 +167,7 @@ export class CommitService {
       };
     }
 
-    const project = await projectRepository.findById(session.projectId);
+    const project = await this.deps.projectRepository.findById(session.projectId);
     if (!project) {
       return {
         success: false,
@@ -185,13 +190,13 @@ export class CommitService {
     }
 
     // Ensure agent-workspace has fossil checkout
-    const fossilPath = sessionRepository.getFossilPath(sessionId);
+    const fossilPath = this.deps.sessionRepository.getFossilPath(sessionId);
     const { existsSync } = await import("fs");
     const { join, dirname } = await import("path");
     const fslckoutPath = join(session.agentWorkspacePath, ".fslckout");
 
     if (!existsSync(fslckoutPath)) {
-      const openResult = await vcs.openFossil(fossilPath, session.agentWorkspacePath);
+      const openResult = await this.deps.vcs.openFossil(fossilPath, session.agentWorkspacePath);
       if (!openResult.success) {
         return {
           success: false,
@@ -203,11 +208,11 @@ export class CommitService {
     }
 
     // Step 1: Sync agent-workspace with repo.fossil
-    const syncResult = await vcs.fossilUp(session.agentWorkspacePath);
+    const syncResult = await this.deps.vcs.fossilUp(session.agentWorkspacePath);
     if (!syncResult.success) {
       if (syncResult.error?.includes("not within an open check-out") ||
           syncResult.error?.includes("current directory is not within")) {
-        const openResult = await vcs.openFossil(fossilPath, session.agentWorkspacePath);
+        const openResult = await this.deps.vcs.openFossil(fossilPath, session.agentWorkspacePath);
         if (!openResult.success) {
           return {
             success: false,
@@ -216,7 +221,7 @@ export class CommitService {
             step: "sync",
           };
         }
-        const retryResult = await vcs.fossilUp(session.agentWorkspacePath);
+        const retryResult = await this.deps.vcs.fossilUp(session.agentWorkspacePath);
         if (!retryResult.success) {
           return {
             success: false,
@@ -236,7 +241,7 @@ export class CommitService {
     }
 
     // Step 2: Generate patch
-    const genResult = await vcs.generatePatch(
+    const genResult = await this.deps.vcs.generatePatch(
       session.agentWorkspacePath,
       session.upstreamPath
     );
@@ -319,9 +324,9 @@ export class CommitService {
     // Step 3: Store and apply filtered patch
     const sessionDir = dirname(session.agentWorkspacePath);
     const patchDir = join(sessionDir, "patches");
-    const patchPath = await vcs.storePatch(patchDir, filteredPatch);
+    const patchPath = await this.deps.vcs.storePatch(patchDir, filteredPatch);
 
-    const applyResult = await vcs.applyPatch(patchPath, session.upstreamPath, repoType);
+    const applyResult = await this.deps.vcs.applyPatch(patchPath, session.upstreamPath, repoType);
     if (!applyResult.success) {
       return {
         success: false,
@@ -332,7 +337,7 @@ export class CommitService {
     }
 
     // Step 4: Commit in upstream
-    const commitResult = await vcs.commitUpstream(session.upstreamPath, repoType, commitMessage);
+    const commitResult = await this.deps.vcs.commitUpstream(session.upstreamPath, repoType, commitMessage);
     if (!commitResult.success) {
       if (commitResult.output?.includes("nothing to commit") ||
           commitResult.output?.includes("No changes to commit")) {
@@ -361,7 +366,7 @@ export class CommitService {
 
     // Step 5: Push to remote
     const pushBranch = session.branch || project.newBranch || undefined;
-    const pushResult = await vcs.pushUpstream(session.upstreamPath, repoType, undefined, pushBranch);
+    const pushResult = await this.deps.vcs.pushUpstream(session.upstreamPath, repoType, undefined, pushBranch);
     if (!pushResult.success) {
       return {
         success: false,
@@ -375,7 +380,7 @@ export class CommitService {
     try {
       const sccService = await import("../impact/scc-service.js");
       if (sccService.sccService.isInstalled()) {
-        const { metrics } = await impactCalculator.calculateImpact(
+        const { metrics } = await this.deps.impactCalculator.calculateImpact(
           sessionId,
           session.upstreamPath,
           session.agentWorkspacePath
@@ -383,7 +388,7 @@ export class CommitService {
 
         const commitHash = commitResult.output?.match(/[a-f0-9]{40}|[a-f0-9]{64}/)?.[0] || "unknown";
 
-        impactRepository.save({
+        this.deps.impactRepository.save({
           id: `${sessionId}-${commitHash}`,
           sessionId: sessionId,
           sessionName: session.name,
@@ -429,5 +434,3 @@ export class CommitService {
     return this.commitAndPushSelective(sessionId, message, undefined, undefined);
   }
 }
-
-export const commitService = new CommitService();

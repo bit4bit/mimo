@@ -13,6 +13,13 @@ import { ImpactRepository } from "../impact/repository.js";
 import { ChatService } from "../sessions/chat.js";
 import { FrameStateService } from "../sessions/frame-state.js";
 import { SccService } from "../impact/scc-service.js";
+import { CommitService } from "../commits/service.js";
+import { FileSyncService } from "../sync/service.js";
+import { AutoCommitService } from "../auto-commit/service.js";
+import { McpServerService } from "../mcp-servers/service.js";
+import { ConfigService } from "../config/service.js";
+import { ImpactCalculator } from "../impact/calculator.js";
+import { vcs } from "../vcs/index.js";
 
 export interface MimoEnv {
   PORT: number;
@@ -51,6 +58,12 @@ export interface MimoContext {
     chat: ChatService;
     frameState: FrameStateService;
     scc: SccService;
+    commits: CommitService;
+    fileSync: FileSyncService;
+    autoCommit: AutoCommitService;
+    mcpServer: McpServerService;
+    config: ConfigService;
+    impactCalculator: ImpactCalculator;
   };
 }
 
@@ -133,6 +146,9 @@ export function createMimoContext(overrides: CreateMimoContextOverrides = {}): M
       new ImpactRepository({ projectsPath: paths.projects }),
   };
 
+  // Create shared impactCalculator instance to avoid duplicate SCC processes
+  const impactCalculator = overrides.services?.impactCalculator ?? new ImpactCalculator();
+
   const services: MimoContext["services"] = {
     auth: overrides.services?.auth ?? new JwtService(env.JWT_SECRET),
     agents:
@@ -147,6 +163,41 @@ export function createMimoContext(overrides: CreateMimoContextOverrides = {}): M
     scc:
       overrides.services?.scc ??
       new SccService(join(paths.root, "bin", "scc"), join(paths.root, "cache")),
+    commits:
+      overrides.services?.commits ??
+      new CommitService({
+        sessionRepository: repos.sessions,
+        projectRepository: repos.projects,
+        impactRepository: repos.impacts,
+        impactCalculator,
+        vcs,
+      }),
+    fileSync:
+      overrides.services?.fileSync ??
+      new FileSyncService({
+        sessionRepository: repos.sessions,
+      }),
+    autoCommit:
+      overrides.services?.autoCommit ??
+      new AutoCommitService({
+        commitService: overrides.services?.commits ??
+          new CommitService({
+            sessionRepository: repos.sessions,
+            projectRepository: repos.projects,
+            impactRepository: repos.impacts,
+            impactCalculator,
+            vcs,
+          }),
+        sessionRepository: repos.sessions,
+        impactCalculator,
+      }),
+    mcpServer:
+      overrides.services?.mcpServer ??
+      new McpServerService(repos.mcpServers),
+    config:
+      overrides.services?.config ??
+      new ConfigService(paths.config),
+    impactCalculator,
   };
 
   return {

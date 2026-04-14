@@ -1,13 +1,11 @@
 /** @jsx jsx */
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";
-import { mcpServerService } from "./service.js";
 import { verifyToken } from "../auth/jwt.js";
 import { McpServerListPage } from "../components/McpServerListPage.js";
 import { McpServerFormPage } from "../components/McpServerFormPage.js";
 import type { Context } from "hono";
-
-const router = new Hono();
+import type { MimoContext } from "../context/mimo-context.js";
 
 // Helper to get authenticated username
 async function getAuthUsername(c: Context): Promise<string | null> {
@@ -15,17 +13,22 @@ async function getAuthUsername(c: Context): Promise<string | null> {
   const usernameMatch = cookieHeader?.match(/username=([^;]+)/);
   const username = usernameMatch ? usernameMatch[1] : null;
   if (username) return username;
-  
+
   const tokenMatch = cookieHeader?.match(/token=([^;]+)/);
   const token = tokenMatch ? tokenMatch[1] : null;
-  
+
   if (token) {
     const payload = await verifyToken(token);
     if (payload) return payload.username;
   }
-  
+
   return null;
 }
+
+export function createMcpServerRoutes(mimoContext: MimoContext): Hono {
+  const service = mimoContext.services.mcpServer;
+
+  const router = new Hono();
 
 // GET /mcp-servers - List all MCP servers (HTML or JSON based on Accept header)
 router.get("/", async (c: Context) => {
@@ -34,7 +37,7 @@ router.get("/", async (c: Context) => {
     return c.redirect("/auth/login");
   }
 
-  const servers = await mcpServerService.findAll();
+  const servers = await service.findAll();
   
   // Check if client wants JSON
   const acceptHeader = c.req.header("Accept");
@@ -64,7 +67,7 @@ router.get("/:id/edit", async (c: Context) => {
   }
 
   const id = c.req.param("id");
-  const server = await mcpServerService.findById(id);
+  const server = await service.findById(id);
 
   if (!server) {
     return c.html(<McpServerFormPage error="MCP server not found" isEditing={true} />);
@@ -88,7 +91,7 @@ router.post("/", async (c: Context) => {
       const body = await c.req.json();
       const { name, description, transport, command, args, url, headers } = body;
 
-      const server = await mcpServerService.create({
+      const server = await service.create({
         name,
         description,
         transport: transport || "stdio",
@@ -111,7 +114,7 @@ router.post("/", async (c: Context) => {
         const argsText = body.args as string;
         const args = argsText ? argsText.split('\n').filter(line => line.trim()) : [];
 
-        const server = await mcpServerService.create({
+        const server = await service.create({
           name,
           description,
           transport,
@@ -131,7 +134,7 @@ router.post("/", async (c: Context) => {
           });
         }
 
-        const server = await mcpServerService.create({
+        const server = await service.create({
           name,
           description,
           transport: transport as "http" | "sse",
@@ -159,7 +162,7 @@ router.post("/:id/delete", async (c: Context) => {
   }
 
   const id = c.req.param("id");
-  await mcpServerService.delete(id);
+  await service.delete(id);
 
   return c.redirect("/mcp-servers");
 });
@@ -172,7 +175,7 @@ router.get("/:id", async (c: Context) => {
   }
 
   const id = c.req.param("id");
-  const server = await mcpServerService.findById(id);
+  const server = await service.findById(id);
 
   if (!server) {
     return c.json({ error: "MCP server not found" }, 404);
@@ -194,7 +197,7 @@ router.patch("/:id", async (c: Context) => {
     const body = await c.req.json();
     const { name, description, transport, command, args, url, headers } = body;
 
-    const server = await mcpServerService.update(id, {
+    const server = await service.update(id, {
       name,
       description,
       transport,
@@ -237,7 +240,7 @@ router.post("/:id", async (c: Context) => {
         const argsText = body.args as string;
         const args = argsText ? argsText.split('\n').filter(line => line.trim()) : [];
 
-        const server = await mcpServerService.update(id, {
+        const server = await service.update(id, {
           name,
           description,
           transport,
@@ -261,7 +264,7 @@ router.post("/:id", async (c: Context) => {
           });
         }
 
-        const server = await mcpServerService.update(id, {
+        const server = await service.update(id, {
           name,
           description,
           transport: transport as "http" | "sse",
@@ -276,7 +279,7 @@ router.post("/:id", async (c: Context) => {
 
       return c.redirect("/mcp-servers");
     } catch (error: any) {
-      const server = await mcpServerService.findById(id);
+      const server = await service.findById(id);
       return c.html(<McpServerFormPage server={server || undefined} error={error.message} isEditing={true} />);
     }
   }
@@ -293,13 +296,14 @@ router.delete("/:id", async (c: Context) => {
   }
 
   const id = c.req.param("id");
-  const result = await mcpServerService.delete(id);
+  const result = await service.delete(id);
 
   if (!result) {
     return c.json({ error: "MCP server not found" }, 404);
   }
 
   return c.json({ success: true });
-});
+  });
 
-export default router;
+  return router;
+}

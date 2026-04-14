@@ -1,17 +1,13 @@
 import { Hono } from "hono";
 import bcrypt from "bcrypt";
-import { userRepository as defaultUserRepository } from "./user";
-import { jwtService as defaultJwtService } from "./jwt";
-import { LoginPage } from "../components/LoginPage";
-import { RegisterPage } from "../components/RegisterPage";
 import type { MimoContext } from "../context/mimo-context.js";
 
 type AuthRoutesContext = Pick<MimoContext, "services" | "repos">;
 
-export function createAuthRoutes(mimoContext?: AuthRoutesContext) {
+export function createAuthRoutes(mimoContext: AuthRoutesContext) {
   const auth = new Hono();
-  const authService = mimoContext?.services.auth ?? defaultJwtService;
-  const userRepository = mimoContext?.repos.users ?? defaultUserRepository;
+  const authService = mimoContext.services.auth;
+  const userRepository = mimoContext.repos.users;
 
 
 // GET /auth/register - Show registration page
@@ -91,5 +87,3 @@ auth.get("/logout", (c) => {
 
   return auth;
 }
-
-export default createAuthRoutes();

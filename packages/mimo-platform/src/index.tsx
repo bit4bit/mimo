@@ -5,14 +5,15 @@ import protectedRoutes from "./protected/routes";
 import { createProjectsRoutes } from "./projects/routes";
 import { createAgentsRoutes } from "./agents/routes.js";
 import { createSessionsRoutes } from "./sessions/routes";
-import dashboard from "./dashboard/routes";
-import { fileSyncService } from "./sync/service.js";
-import { chatService } from "./sessions/chat.js";
-import { sessionRepository } from "./sessions/repository.js";
+import { createDashboardRoutes } from "./dashboard/routes";
+import { createSyncRoutes } from "./sync/routes";
+import { createCommitRoutes } from "./commits/routes";
+import { createConfigRoutes } from "./config/routes";
+import { createCredentialsRoutes } from "./credentials/routes";
+import { createMcpServerRoutes } from "./mcp-servers/routes";
+import { createAutoCommitRouter, resolveAgentSyncNowResult, syncSessionViaAssignedAgent } from "./auto-commit/routes";
 import { LandingPage } from "./components/LandingPage.js";
-import { projectRepository } from "./projects/repository.js";
 import { sharedFossilServer } from "./vcs/shared-fossil-server.js";
-import { impactCalculator } from "./impact/calculator.js";
 import { handleRefreshImpact } from "./impact/refresh-handler.js";
 import { sccService } from "./impact/scc-service.js";
 import { broadcastToSession, type SessionWsClient } from "./ws/session-broadcast.js";
@@ -41,6 +42,7 @@ sharedFossilServer.configure({
 });
 sccService.configure({ mimoHome: mimoContext.env.MIMO_HOME });
 const agentService = mimoContext.services.agents;
+const sessionRepository = mimoContext.repos.sessions;
 const PORT = mimoContext.env.PORT;
 const PLATFORM_URL = mimoContext.env.PLATFORM_URL;
 
@@ -91,7 +93,7 @@ async function broadcastImpactStale(sessionId: string): Promise<void> {
   }
 }
 
-fileSyncService.setImpactStaleHandler((sessionId: string) => {
+mimoContext.services.fileSync.setImpactStaleHandler((sessionId: string) => {
   void broadcastImpactStale(sessionId);
 });
 
@@ -99,11 +101,11 @@ fileSyncService.setImpactStaleHandler((sessionId: string) => {
 app.route("/auth", createAuthRoutes(mimoContext));
 
 // Dashboard (protected)
-app.route("/dashboard", dashboard);
+app.route("/dashboard", createDashboardRoutes(mimoContext));
 
 // Landing page (public)
 app.get("/", async (c) => {
-  const publicProjects = await projectRepository.listAllPublic();
+  const publicProjects = await mimoContext.repos.projects.listAllPublic();
   const user = c.get("user") as { username: string } | undefined;
   const isAuthenticated = !!user;
   const username = user?.username;
@@ -118,7 +120,7 @@ app.get("/", async (c) => {
 
 // Public projects API (no auth required)
 app.get("/api/projects/public", async (c) => {
-  const publicProjects = await projectRepository.listAllPublic();
+  const publicProjects = await mimoContext.repos.projects.listAllPublic();
   return c.json(publicProjects);
 });
 
@@ -135,31 +137,26 @@ app.route("/sessions", createSessionsRoutes(mimoContext));
 app.route("/agents", createAgentsRoutes(mimoContext));
 
 // File sync routes (protected)
-import syncRoutes from "./sync/routes";
-app.route("/sync", syncRoutes);
+app.route("/sync", createSyncRoutes(mimoContext));
 
 // Commit routes (protected)
-import commitRoutes from "./commits/routes";
-app.route("/commits", commitRoutes);
+app.route("/commits", createCommitRoutes(mimoContext));
 
 // Config routes (protected)
-import configRoutes from "./config/routes";
-app.route("/config", configRoutes);
+app.route("/config", createConfigRoutes(mimoContext));
 
 // Credentials routes (protected)
-import credentialsRoutes from "./credentials/routes";
-app.route("/credentials", credentialsRoutes);
+app.route("/credentials", createCredentialsRoutes(mimoContext));
 
 // MCP Server routes (protected)
-import mcpServers from "./mcp-servers/routes.js";
-app.route("/mcp-servers", mcpServers);
+app.route("/mcp-servers", createMcpServerRoutes(mimoContext));
 
 // Auto-commit routes (protected)
-import autoCommitRoutes, {
-  resolveAgentSyncNowResult,
-  syncSessionViaAssignedAgent,
-} from "./auto-commit/routes";
-app.route("/sessions", autoCommitRoutes);
+app.route("/sessions", createAutoCommitRouter(mimoContext.services.autoCommit, {
+  sessionRepository: mimoContext.repos.sessions,
+  agentService: mimoContext.services.agents,
+  sccService: mimoContext.services.scc,
+}));
 
 // Health check
 app.get("/health", (c) => {
@@ -276,7 +273,7 @@ mimoServer.setup({
         chatSessions.get(sessionId).add(ws);
         
         // Send chat history
-        const history = await chatService.loadHistory(sessionId);
+        const history = await mimoContext.services.chat.loadHistory(sessionId);
         ws.send(JSON.stringify({
           type: 'history',
           messages: history,
@@ -287,7 +284,7 @@ mimoServer.setup({
         const messageContent = streamingBuffers.get(sessionId);
         
         // Only send streaming state if agent is actually alive
-        if ((thoughtContent || messageContent) && chatService.isAgentAlive(sessionId)) {
+        if ((thoughtContent || messageContent) && mimoContext.services.chat.isAgentAlive(sessionId)) {
           ws.send(JSON.stringify({
             type: 'streaming_state',
             thoughtContent: thoughtContent || '',
@@ -373,7 +370,12 @@ async function triggerAutoSync(sessionId: string, reason: "thought_end" | "usage
   autoSyncInFlight.add(sessionId);
 
   try {
-    const result = await syncSessionViaAssignedAgent(sessionId);
+    const result = await syncSessionViaAssignedAgent(sessionId, {
+      autoCommitService: mimoContext.services.autoCommit,
+      sessionRepository: mimoContext.repos.sessions,
+      agentService: mimoContext.services.agents,
+      sccService: mimoContext.services.scc,
+    });
     const status = result.syncStatus;
     const syncSubscribers = chatSessions.get(sessionId);
     if (!syncSubscribers) {
@@ -489,7 +491,7 @@ async function handleAgentMessage(ws, data) {
         }
 
         // Track agent activity so isAgentAlive() stays true between chunk phases
-        chatService.updateAgentActivity(startSessionId);
+        mimoContext.services.chat.updateAgentActivity(startSessionId);
 
         // Start new thought buffer
         thoughtBuffers.set(startSessionId, "");
@@ -518,7 +520,7 @@ async function handleAgentMessage(ws, data) {
         }
         
         // Track agent activity for health monitoring
-        chatService.updateAgentActivity(chunkSessionId);
+        mimoContext.services.chat.updateAgentActivity(chunkSessionId);
         
         // Accumulate thought chunks
         const currentThoughtBuffer = thoughtBuffers.get(chunkSessionId) || "";
@@ -574,7 +576,7 @@ async function handleAgentMessage(ws, data) {
         }
         
         // Track agent activity for health monitoring
-        chatService.updateAgentActivity(msgSessionId);
+        mimoContext.services.chat.updateAgentActivity(msgSessionId);
         
         // Accumulate message chunks
         const currentBuffer = streamingBuffers.get(msgSessionId) || "";
@@ -620,7 +622,7 @@ async function handleAgentMessage(ws, data) {
             thoughtBuffers.delete(usageSessionId);
           }
           
-          await chatService.saveMessage(usageSessionId, {
+          await mimoContext.services.chat.saveMessage(usageSessionId, {
             role: "assistant",
             content: fullContent,
             timestamp: new Date().toISOString(),
@@ -673,7 +675,7 @@ async function handleAgentMessage(ws, data) {
       }
       
       // Save to history
-      await chatService.saveMessage(sessionId, {
+      await mimoContext.services.chat.saveMessage(sessionId, {
         role: 'assistant',
         content: data.content,
         timestamp: new Date().toISOString(),
@@ -694,8 +696,8 @@ async function handleAgentMessage(ws, data) {
         deleted: file.deleted,
       }));
       
-      await fileSyncService.initializeSession(fileSessionId, "", "");
-      await fileSyncService.handleFileChanges(fileSessionId, changes);
+      await mimoContext.services.fileSync.initializeSession(fileSessionId, "", "");
+      await mimoContext.services.fileSync.handleFileChanges(fileSessionId, changes);
       break;
     case "session_error":
       logger.debug("[agent] Session error:", data.sessionId, data.error);
@@ -715,7 +717,7 @@ async function handleAgentMessage(ws, data) {
             const timestamp = new Date().toISOString();
             const reasonText = resetReason ? ` (${resetReason})` : "";
             const systemMessage = `Session reset at ${timestamp}${reasonText}`;
-            await chatService.saveMessage(sessionId, {
+            await mimoContext.services.chat.saveMessage(sessionId, {
               role: "system",
               content: systemMessage,
               timestamp,
@@ -736,7 +738,7 @@ async function handleAgentMessage(ws, data) {
           
           // Add system message to chat history
           const timestamp = new Date().toISOString();
-          await chatService.saveMessage(sessionId, {
+          await mimoContext.services.chat.saveMessage(sessionId, {
             role: "system",
             content: "Session cleared - context reset",
             timestamp,
@@ -965,7 +967,7 @@ async function handleChatMessage(ws, data) {
   switch (data.type) {
     case "send_message":
       // Save user message
-      await chatService.saveMessage(sessionId, {
+      await mimoContext.services.chat.saveMessage(sessionId, {
         role: 'user',
         content: data.content,
         timestamp: new Date().toISOString(),
@@ -1180,7 +1182,7 @@ async function handleChatMessage(ws, data) {
       break;
       
     case "request_replay":
-      const history = await chatService.loadHistory(sessionId);
+      const history = await mimoContext.services.chat.loadHistory(sessionId);
       ws.send(JSON.stringify({
         type: 'history',
         messages: history,

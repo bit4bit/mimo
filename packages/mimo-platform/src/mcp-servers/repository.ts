@@ -175,8 +175,3 @@ export class McpServerRepository {
     return existsSync(this.getMcpServerConfigPath(id));
   }
 }
-
-// Legacy singleton export - will be removed once all consumers use mimoContext
-export const mcpServerRepository = new McpServerRepository({
-  mcpServersPath: join(homedir(), ".mimo", "mcp-servers"),
-});

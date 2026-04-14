@@ -1,9 +1,9 @@
-import { McpServerRepository, mcpServerRepository } from "./repository.js";
+import { McpServerRepository } from "./repository.js";
 import { McpServer, CreateMcpServerInput, UpdateMcpServerInput, McpServerConfig, slugify } from "./types.js";
 
 export class McpServerService {
   constructor(
-    private repository: McpServerRepository = mcpServerRepository
+    private repository: McpServerRepository
   ) {}
 
   async create(input: CreateMcpServerInput): Promise<McpServer> {
