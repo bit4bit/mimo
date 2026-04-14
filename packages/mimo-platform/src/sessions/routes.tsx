@@ -613,7 +613,7 @@ router.get("/:id/impact", async (c: Context) => {
   }
 
   try {
-    const { impactCalculator } = await import("../impact/calculator.js");
+    const impactCalculator = mimoContext.services.impactCalculator;
     const { vcs } = await import("../vcs/index.js");
 
     // Sync agent-workspace with repo.fossil before calculating impact
