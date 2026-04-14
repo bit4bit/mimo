@@ -1,6 +1,6 @@
 import * as acp from "@agentclientprotocol/sdk";
 import { IAcpProvider, NewSessionResponse } from "./types";
-import { ModelState, ModeState } from "../types";
+import { ModelState, ModeState, McpServerConfig } from "../types";
 
 export interface AcpClientCallbacks {
   onThoughtStart: (sessionId: string) => void;
@@ -62,7 +62,8 @@ export class AcpClient {
     cwd: string,
     input: WritableStream<Uint8Array>,
     output: ReadableStream<Uint8Array>,
-    existingSessionId?: string
+    existingSessionId?: string,
+    mcpServers?: McpServerConfig[]
   ): Promise<InitializeResult> {
     const stream = acp.ndJsonStream(input, output);
 
@@ -97,11 +98,12 @@ export class AcpClient {
     if (existingSessionId && this.capabilities.loadSession) {
       try {
         console.log(`[mimo-agent] Attempting to load existing session: ${existingSessionId}`);
-        sessionResponse = await connection.loadSession({
+        const loadResponse = await connection.loadSession({
           sessionId: existingSessionId,
           cwd,
-          mcpServers: [],
+          mcpServers: mcpServers as any || [],
         });
+        sessionResponse = loadResponse as acp.NewSessionResponse;
         console.log(`[mimo-agent] Session loaded successfully: ${sessionResponse.sessionId}`);
       } catch (error) {
         // ACP errors are plain objects { code, message, data }, not Error instances
@@ -113,7 +115,7 @@ export class AcpClient {
         resetReason = `loadSession failed: ${errorMsg}`;
         sessionResponse = await connection.newSession({
           cwd,
-          mcpServers: [],
+          mcpServers: mcpServers as any || [],
         });
       }
     } else {
@@ -123,7 +125,7 @@ export class AcpClient {
       }
       sessionResponse = await connection.newSession({
         cwd,
-        mcpServers: [],
+        mcpServers: mcpServers as any || [],
       });
     }
 

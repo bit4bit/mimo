@@ -13,6 +13,7 @@ export function getPaths() {
     users: join(MIMO_HOME, "users"),
     projects: join(MIMO_HOME, "projects"),
     agents: join(MIMO_HOME, "agents"),
+    mcpServers: join(MIMO_HOME, "mcp-servers"),
     config: join(MIMO_HOME, "config.yaml"),
   } as const;
 }

@@ -15,13 +15,20 @@ interface Agent {
   startedAt: Date;
 }
 
+interface McpServer {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 interface SessionCreateProps {
   project: Project;
   agents: Agent[];
+  mcpServers: McpServer[];
   error?: string;
 }
 
-export const SessionCreatePage: FC<SessionCreateProps> = ({ project, agents, error }) => {
+export const SessionCreatePage: FC<SessionCreateProps> = ({ project, agents, mcpServers, error }) => {
   return (
     <Layout title={`New Session - ${project.name}`}>
       <div class="container" style="max-width: 600px;">
@@ -96,6 +103,37 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({ project, agents, err
             <p style="color: #888; font-size: 12px; margin-top: 5px;">
               Create a custom branch for this session. Leave empty to use the project default
               {project.newBranch ? ` (${project.newBranch})` : " (none)"}.
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label>MCP Servers</label>
+            <div style="border: 1px solid #ddd; border-radius: 4px; padding: 10px; max-height: 150px; overflow-y: auto;">
+              {mcpServers.length === 0 ? (
+                <p style="color: #888; font-size: 12px; margin: 0;">
+                  No MCP servers configured. <a href="/mcp-servers">Configure MCP servers</a>
+                </p>
+              ) : (
+                mcpServers.map((server) => (
+                  <label key={server.id} style={{ display: 'block', margin: '5px 0', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      name="mcpServerIds"
+                      value={server.id}
+                      style={{ marginRight: '8px' }}
+                    />
+                    <strong>{server.name}</strong>
+                    {server.description && (
+                      <span style="color: #888; font-size: 12px; margin-left: 8px;">
+                        - {server.description}
+                      </span>
+                    )}
+                  </label>
+                ))
+              )}
+            </div>
+            <p style="color: #888; font-size: 12px; margin-top: 5px;">
+              Select MCP servers to attach to this session. These provide tools and resources to the AI agent.
             </p>
           </div>
 

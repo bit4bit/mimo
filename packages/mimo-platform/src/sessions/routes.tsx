@@ -19,6 +19,7 @@ import { SessionListPage } from "../components/SessionListPage.js";
 import { sessionStateService } from "./state.js";
 import { sharedFossilServer } from "../vcs/shared-fossil-server.js";
 import { configService } from "../config/service.js";
+import { mcpServerService } from "../mcp-servers/service.js";
 import type { Context } from "hono";
 import { normalizeFrameState, updateFrameState, loadNotes, saveNotes } from "./frame-state.js";
 
@@ -95,9 +96,10 @@ router.get("/new", async (c: Context) => {
   }
 
   const agents = await agentService.listAgentsByOwner(username);
+  const mcpServers = await mcpServerService.findAll();
 
   return c.html(
-    <SessionCreatePage project={project} agents={agents} />
+    <SessionCreatePage project={project} agents={agents} mcpServers={mcpServers} />
   );
 });
 
@@ -115,6 +117,16 @@ router.post("/", async (c: Context) => {
   const localDevMirrorPath = (body.localDevMirrorPath as string) || null;
   const agentSubpath = (body.agentSubpath as string) || null;
   const branchName = (body.branchName as string) || null;
+  
+  // Parse MCP server IDs from form (can be single string or array)
+  let mcpServerIds: string[] = [];
+  if (body.mcpServerIds) {
+    if (Array.isArray(body.mcpServerIds)) {
+      mcpServerIds = body.mcpServerIds as string[];
+    } else {
+      mcpServerIds = [body.mcpServerIds as string];
+    }
+  }
 
   if (!name || !projectId) {
     return c.text("Name and project ID required", 400);
@@ -125,6 +137,27 @@ router.post("/", async (c: Context) => {
     return c.text("Project not found", 404);
   }
 
+  // Validate MCP server IDs if provided
+  if (mcpServerIds.length > 0) {
+    try {
+      // Check all MCP servers exist
+      for (const id of mcpServerIds) {
+        const server = await mcpServerService.findById(id);
+        if (!server) {
+          return c.text(`MCP server '${id}' not found`, 400);
+        }
+      }
+      
+      // Check for duplicate MCP server names
+      const duplicateName = await mcpServerService.findDuplicateNames(mcpServerIds);
+      if (duplicateName) {
+        return c.text(`Duplicate MCP server name '${duplicateName}' in selection`, 400);
+      }
+    } catch (error: any) {
+      return c.text(`MCP server validation error: ${error.message}`, 500);
+    }
+  }
+
   // Create session with upstream and checkout directories
   const session = await sessionRepository.create({
     name: name as string,
@@ -133,6 +166,7 @@ router.post("/", async (c: Context) => {
     assignedAgentId: assignedAgentId || undefined,
     localDevMirrorPath: localDevMirrorPath || undefined,
     agentSubpath: agentSubpath || undefined,
+    mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
   });
 
   // Initialize repository: clone → import to fossil
@@ -212,7 +246,18 @@ router.post("/", async (c: Context) => {
       // Non-fatal: continue session creation
     }
 
-    // Step 6: Notify running agent if one is assigned and online
+    // Step 6: Resolve MCP servers if attached
+    let mcpServers: any[] = [];
+    if (mcpServerIds.length > 0) {
+      try {
+        mcpServers = await mcpServerService.resolveMcpServers(mcpServerIds);
+      } catch (error) {
+        console.error(`[session] Failed to resolve MCP servers for session ${session.id}:`, error);
+        // Continue without MCP servers - agent will work without them
+      }
+    }
+
+    // Step 7: Notify running agent if one is assigned and online
     if (assignedAgentId && agentService.isAgentOnline(assignedAgentId)) {
       const agentWs = agentService.getAgentConnection(assignedAgentId);
       if (agentWs && agentWs.readyState === 1) {
@@ -235,6 +280,7 @@ router.post("/", async (c: Context) => {
             acpSessionId: sessionWithCreds?.acpSessionId ?? null,
             localDevMirrorPath: sessionWithCreds?.localDevMirrorPath ?? null,
             agentSubpath: sessionWithCreds?.agentSubpath ?? null,
+            mcpServers: mcpServers.length > 0 ? mcpServers : undefined,
           }],
         }));
         console.log(`[session] Notified running agent ${assignedAgentId} of new session ${session.id}`);

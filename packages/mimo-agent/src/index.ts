@@ -349,6 +349,7 @@ class MimoAgent {
         modeState,
         localDevMirrorPath,
         agentSubpath,
+        mcpServers,
       } = session;
 
       try {
@@ -382,6 +383,12 @@ class MimoAgent {
         // Store localDevMirrorPath for file sync
         if (localDevMirrorPath) {
           this.sessionManager.setSessionLocalDevMirrorPath(sessionId, localDevMirrorPath);
+        }
+
+        // Store MCP servers for ACP initialization
+        if (mcpServers && Array.isArray(mcpServers) && mcpServers.length > 0) {
+          this.sessionManager.setSessionMcpServers(sessionId, mcpServers);
+          console.log(`[mimo-agent] Session ${sessionId} has ${mcpServers.length} MCP server(s)`);
         }
 
         // Spawn ACP process
@@ -678,13 +685,14 @@ class MimoAgent {
       }
     );
 
-    // Initialize ACP client
+    // Initialize ACP client with MCP servers
     acpClient
       .initialize(
         acpCwd,
         toWebWritable(spawnResult.stdin),
         toWebReadable(spawnResult.stdout),
-        sessionInfo.acpSessionId
+        sessionInfo.acpSessionId,
+        sessionInfo.mcpServers
       )
       .then(async (result) => {
         console.log(`[mimo-agent] ACP client ready for ${session.sessionId}`);
@@ -854,12 +862,13 @@ class MimoAgent {
     );
 
     try {
-      // Initialize with cached session ID if available
+      // Initialize with cached session ID and MCP servers if available
       const result = await acpClient.initialize(
         acpCwd,
         toWebWritable(spawnResult.stdin),
         toWebReadable(spawnResult.stdout),
-        cachedState?.acpSessionId
+        cachedState?.acpSessionId,
+        sessionInfo.mcpServers
       );
 
       console.log(`[mimo-agent] ACP respawned for ${sessionId}`);

@@ -315,13 +315,14 @@ export const Layout: FC<LayoutProps> = ({ title, children, showStatusLine = fals
             <div class="nav-brand">
               <a href="/dashboard">MIMO</a>
             </div>
-            <div class="nav-links">
-              <a href="/dashboard">Dashboard</a>
-              <a href="/projects">Projects</a>
-              <a href="/credentials">Credentials</a>
-              <a href="/agents">Agents</a>
-              <a href="/auth/logout">Logout</a>
-            </div>
+             <div class="nav-links">
+               <a href="/dashboard">Dashboard</a>
+               <a href="/projects">Projects</a>
+               <a href="/mcp-servers">MCP Servers</a>
+               <a href="/credentials">Credentials</a>
+               <a href="/agents">Agents</a>
+               <a href="/auth/logout">Logout</a>
+             </div>
           </nav>
           <main style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto;">
           {children}

@@ -20,10 +20,22 @@ export interface ModeState {
   optionId: string;
 }
 
+/**
+ * MCP server configuration passed to ACP newSession
+ */
+export interface McpServerConfig {
+  name: string;
+  command: string;
+  args: string[];
+  env?: Array<{ name: string; value: string }>;
+}
+
 export interface SessionInfo {
   sessionId: string;
   checkoutPath: string;
   fossilUrl: string;
+  fossilUser?: string;
+  fossilPassword?: string;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   acpProcess: ChildProcess | null;
@@ -33,6 +45,7 @@ export interface SessionInfo {
   modelState?: ModelState;
   modeState?: ModeState;
   localDevMirrorPath?: string;
+  mcpServers?: McpServerConfig[];
 }
 
 export interface FileChange {
