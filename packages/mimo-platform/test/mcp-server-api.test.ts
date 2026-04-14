@@ -7,10 +7,18 @@ import type { McpServer } from "../src/mcp-servers/types.js";
 const TEST_BASE_URL = process.env.TEST_BASE_URL || "http://localhost:3000";
 const AUTH_COOKIE = process.env.TEST_AUTH_COOKIE || "token=test-token; username=testuser";
 
+// This test requires a dedicated test server started with MIMO_HOME pointing to an
+// isolated temp directory. Running it against the real server will delete real MCP
+// server data. Set TEST_BASE_URL and MIMO_HOME accordingly before running.
+
 describe("MCP Server API Integration Tests", () => {
   const testMcpServersPath = join(getPaths().root, "mcp-servers");
 
   function cleanupTestDir() {
+    // Only clean up if MIMO_HOME is explicitly set, indicating a test environment.
+    // This prevents accidentally wiping real data when running against the default server.
+    if (!process.env.MIMO_HOME) return;
+
     if (existsSync(testMcpServersPath)) {
       const entries = readdirSync(testMcpServersPath, { withFileTypes: true });
       for (const entry of entries) {

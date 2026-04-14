@@ -1,41 +1,22 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { McpServerRepository } from "../src/mcp-servers/repository.js";
-import { existsSync, rmdirSync, unlinkSync, readdirSync } from "fs";
+import { rmSync } from "fs";
 import { join } from "path";
-import { getPaths } from "../src/config/paths.js";
+import { tmpdir } from "os";
 
 describe("McpServerRepository", () => {
   let repository: McpServerRepository;
-  const testMcpServersPath = join(getPaths().root, "mcp-servers");
+  const testHome = join(tmpdir(), `mimo-mcp-repo-test-${Date.now()}`);
 
   beforeEach(() => {
+    process.env.MIMO_HOME = testHome;
     repository = new McpServerRepository();
-    // Clean up test directory before each test
-    cleanupTestDir();
   });
 
   afterEach(() => {
-    cleanupTestDir();
+    rmSync(testHome, { recursive: true, force: true });
+    delete process.env.MIMO_HOME;
   });
-
-  function cleanupTestDir() {
-    if (existsSync(testMcpServersPath)) {
-      const entries = readdirSync(testMcpServersPath, { withFileTypes: true });
-      for (const entry of entries) {
-        const entryPath = join(testMcpServersPath, entry.name);
-        if (entry.isDirectory()) {
-          const files = readdirSync(entryPath);
-          for (const file of files) {
-            unlinkSync(join(entryPath, file));
-          }
-          rmdirSync(entryPath);
-        } else {
-          unlinkSync(entryPath);
-        }
-      }
-      rmdirSync(testMcpServersPath);
-    }
-  }
 
   describe("create", () => {
     it("should create an MCP server with slugified ID", async () => {
