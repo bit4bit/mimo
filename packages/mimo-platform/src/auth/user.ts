@@ -1,6 +1,5 @@
 import { join } from "path";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
-import { getPaths } from "../config/paths.js";
 import { dump, load } from "js-yaml";
 
 export interface UserCredentials {
@@ -15,14 +14,14 @@ export interface User {
 }
 
 interface UserRepositoryDeps {
-  usersPath?: string;
+  usersPath: string;
 }
 
 export class UserRepository {
-  constructor(private deps: UserRepositoryDeps = {}) {}
+  constructor(private deps: UserRepositoryDeps) {}
 
   private getUsersPath(): string {
-    return this.deps.usersPath ?? getPaths().users;
+    return this.deps.usersPath;
   }
 
   private getUserPath(username: string): string {
@@ -106,4 +105,7 @@ export class UserRepository {
   }
 }
 
-export const userRepository = new UserRepository();
+// Legacy singleton export - requires paths to be injected via constructor
+// This will fail at runtime if not initialized with proper paths
+// Use createMimoContext() instead for proper initialization
+export const userRepository = new UserRepository({ usersPath: "" });

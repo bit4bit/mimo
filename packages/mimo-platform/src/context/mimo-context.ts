@@ -10,6 +10,9 @@ import { ProjectRepository } from "../projects/repository.js";
 import { McpServerRepository } from "../mcp-servers/repository.js";
 import { CredentialRepository } from "../credentials/repository.js";
 import { ImpactRepository } from "../impact/repository.js";
+import { ChatService } from "../sessions/chat.js";
+import { FrameStateService } from "../sessions/frame-state.js";
+import { SccService } from "../impact/scc-service.js";
 
 export interface MimoEnv {
   PORT: number;
@@ -45,6 +48,9 @@ export interface MimoContext {
   services: {
     auth: JwtService;
     agents: AgentService;
+    chat: ChatService;
+    frameState: FrameStateService;
+    scc: SccService;
   };
 }
 
@@ -132,6 +138,15 @@ export function createMimoContext(overrides: CreateMimoContextOverrides = {}): M
     agents:
       overrides.services?.agents ??
       new AgentService(repos.agents, env.JWT_SECRET),
+    chat:
+      overrides.services?.chat ??
+      new ChatService(paths),
+    frameState:
+      overrides.services?.frameState ??
+      new FrameStateService(paths),
+    scc:
+      overrides.services?.scc ??
+      new SccService(join(paths.root, "bin", "scc"), join(paths.root, "cache")),
   };
 
   return {

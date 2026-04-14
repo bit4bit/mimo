@@ -1,6 +1,5 @@
 import { join } from "path";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, unlinkSync, rmdirSync, chmodSync } from "fs";
-import { getPaths } from "../config/paths.js";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
 
@@ -58,14 +57,14 @@ export interface CreateSshCredentialInput {
 export type CreateCredentialInput = CreateHttpsCredentialInput | CreateSshCredentialInput;
 
 interface CredentialRepositoryDeps {
-  usersPath?: string;
+  usersPath: string;
 }
 
 export class CredentialRepository {
-  constructor(private deps: CredentialRepositoryDeps = {}) {}
+  constructor(private deps: CredentialRepositoryDeps) {}
 
   private getCredentialsDirPath(username: string): string {
-    return join(this.deps.usersPath ?? getPaths().users, username, "credentials");
+    return join(this.deps.usersPath, username, "credentials");
   }
 
   private getCredentialFilePath(username: string, id: string): string {
@@ -233,4 +232,7 @@ export class CredentialRepository {
   }
 }
 
-export const credentialRepository = new CredentialRepository();
+// Legacy singleton export - requires paths to be injected via constructor
+// This will fail at runtime if not initialized with proper paths
+// Use createMimoContext() instead for proper initialization
+export const credentialRepository = new CredentialRepository({ usersPath: "" });

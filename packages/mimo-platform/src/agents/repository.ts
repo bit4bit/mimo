@@ -1,6 +1,5 @@
 import { join } from "path";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from "fs";
-import { getPaths } from "../config/paths.js";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
 
@@ -52,7 +51,10 @@ export class AgentRepository {
   constructor(private deps: AgentRepositoryDeps = {}) {}
 
   private getAgentsPath(): string {
-    return this.deps.agentsPath ?? getPaths().agents;
+    if (!this.deps.agentsPath) {
+      throw new Error("agentsPath is required - provide via AgentRepository constructor");
+    }
+    return this.deps.agentsPath;
   }
 
   private getAgentPath(agentId: string): string {

@@ -1,6 +1,5 @@
 import { join } from "path";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from "fs";
-import { getPaths } from "../config/paths.js";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
 
@@ -63,7 +62,10 @@ export class ProjectRepository {
   constructor(private deps: ProjectRepositoryDeps = {}) {}
 
   private getProjectsPath(): string {
-    return this.deps.projectsPath ?? getPaths().projects;
+    if (!this.deps.projectsPath) {
+      throw new Error("projectsPath is required - provide via ProjectRepository constructor");
+    }
+    return this.deps.projectsPath;
   }
 
   private getProjectPath(id: string): string {

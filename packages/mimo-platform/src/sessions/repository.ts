@@ -1,6 +1,5 @@
 import { join } from "path";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from "fs";
-import { getPaths } from "../config/paths.js";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
 import { normalizeSessionIdForFossil } from "../vcs/shared-fossil-server.js";
@@ -98,7 +97,7 @@ export interface UpdateSessionConfigInput {
 }
 
 interface SessionRepositoryDeps {
-  paths?: {
+  paths: {
     projects: string;
     data: string;
   };
@@ -106,14 +105,14 @@ interface SessionRepositoryDeps {
 }
 
 export class SessionRepository {
-  constructor(private deps: SessionRepositoryDeps = {}) {}
+  constructor(private deps: SessionRepositoryDeps) {}
 
   private getProjectsPath(): string {
-    return this.deps.paths?.projects ?? getPaths().projects;
+    return this.deps.paths.projects;
   }
 
   private getDataPath(): string {
-    return this.deps.paths?.data ?? getPaths().data;
+    return this.deps.paths.data;
   }
 
   private getSessionPath(projectId: string, sessionId: string): string {

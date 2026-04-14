@@ -774,11 +774,10 @@ export class VCS {
 
   async setupSessionWorktree(
     projectId: string,
+    projectPath: string,
     sessionId: string,
     worktreePath: string
   ): Promise<VCSResult> {
-    const { getProjectPath } = await import("../config/paths.js");
-    const projectPath = getProjectPath(projectId);
     const fossilPath = `${projectPath}/repo.fossil`;
 
     // Ensure worktree directory exists

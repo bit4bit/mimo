@@ -2,7 +2,6 @@ import { spawn, ChildProcess } from "child_process";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { createConnection } from "net";
-import { getPaths } from "../config/paths.js";
 
 // Default port value
 const DEFAULT_FOSSIL_PORT = 8000;
@@ -34,9 +33,18 @@ const getFossilServerPort = (): number => {
   return DEFAULT_FOSSIL_PORT;
 };
 
-// Directory where all fossil repos are stored — fallback when not configured via configure()
+// Default fossil repos directory - will be overridden by configure()
+let defaultFossilReposDir: string | null = null;
+
 const getFossilReposDir = (): string => {
-  return join(getPaths().data, "session-fossils");
+  if (defaultFossilReposDir) {
+    return defaultFossilReposDir;
+  }
+  // Fallback to environment variable or hardcoded default
+  if (process.env.MIMO_HOME) {
+    return join(process.env.MIMO_HOME, "session-fossils");
+  }
+  return join(require("os").homedir(), ".mimo", "session-fossils");
 };
 
 /**
@@ -82,6 +90,8 @@ export class SharedFossilServer {
     if (config.port !== undefined) this._port = config.port;
     if (config.reposDir !== undefined) {
       this._reposDir = config.reposDir;
+      // Update the module-level default for consistency
+      defaultFossilReposDir = config.reposDir;
       this.ensureReposDir();
     }
   }

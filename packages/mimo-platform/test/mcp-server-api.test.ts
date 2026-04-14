@@ -4,7 +4,6 @@ import { existsSync, mkdtempSync, readdirSync, rmSync, unlinkSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import mcpServers from "../src/mcp-servers/routes.js";
-import { getPaths } from "../src/config/paths.js";
 import { MimoServer } from "../src/server/mimo-server.js";
 import type { McpServer } from "../src/mcp-servers/types.js";
 
@@ -14,9 +13,10 @@ describe("MCP Server API Integration Tests", () => {
   let server: any;
   let testBaseUrl = "";
   let testHome = "";
+  let mimoContext: any;
 
   function cleanupTestDir() {
-    const testMcpServersPath = join(getPaths().root, "mcp-servers");
+    const testMcpServersPath = join(mimoContext?.paths?.root || "/tmp", "mcp-servers");
     if (!existsSync(testMcpServersPath)) {
       return;
     }
@@ -32,11 +32,15 @@ describe("MCP Server API Integration Tests", () => {
     }
   }
 
-  beforeAll(() => {
+  beforeAll(async () => {
     testHome = mkdtempSync(join(tmpdir(), "mimo-mcp-api-test-"));
     
-    // Set environment variable for MIMO_HOME instead of using setMimoHome
+    // Set environment variable for MIMO_HOME
     process.env.MIMO_HOME = testHome;
+    
+    // Initialize mimoContext for path access
+    const { createMimoContext } = await import("../src/context/mimo-context");
+    mimoContext = createMimoContext({ env: { MIMO_HOME: testHome } });
 
     const app = new Hono();
     app.route("/mcp-servers", mcpServers);

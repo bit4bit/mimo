@@ -1,7 +1,6 @@
 import { join } from "path";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmdirSync, unlinkSync } from "fs";
 import { dump, load } from "js-yaml";
-import { getPaths } from "../config/paths.js";
 import type { McpServer, McpServerData, CreateMcpServerInput, UpdateMcpServerInput } from "./types.js";
 import { slugify } from "./types.js";
 
@@ -13,7 +12,10 @@ export class McpServerRepository {
   constructor(private deps: McpServerRepositoryDeps = {}) {}
 
   private getMcpServersPath(): string {
-    return this.deps.mcpServersPath ?? getPaths().mcpServers;
+    if (!this.deps.mcpServersPath) {
+      throw new Error("mcpServersPath is required - provide via McpServerRepository constructor");
+    }
+    return this.deps.mcpServersPath;
   }
 
   private getMcpServerPath(id: string): string {

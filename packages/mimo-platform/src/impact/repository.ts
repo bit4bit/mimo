@@ -1,7 +1,6 @@
 import { join } from "path";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
 import YAML from "yaml";
-import { getPaths } from "../config/paths.js";
 
 export interface ImpactRecord {
   id: string;
@@ -36,14 +35,14 @@ export interface ImpactRecord {
 }
 
 interface ImpactRepositoryDeps {
-  projectsPath?: string;
+  projectsPath: string;
 }
 
 export class ImpactRepository {
-  constructor(private deps: ImpactRepositoryDeps = {}) {}
+  constructor(private deps: ImpactRepositoryDeps) {}
 
   private getImpactDir(projectId: string): string {
-    return join(this.deps.projectsPath ?? getPaths().projects, projectId, "impacts");
+    return join(this.deps.projectsPath, projectId, "impacts");
   }
 
   private getImpactPath(projectId: string, sessionId: string, commitHash: string): string {

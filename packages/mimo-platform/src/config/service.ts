@@ -1,6 +1,5 @@
 import { readFileSync, existsSync, writeFileSync } from "fs";
 import { load, dump } from "js-yaml";
-import { getPaths } from "./paths.js";
 
 export interface Config {
   theme?: "dark" | "light";
@@ -22,15 +21,17 @@ export class ConfigService {
   private config: Config | null = null;
   private _configPath: string | null = null;
 
+  constructor(configPath?: string) {
+    this._configPath = configPath ?? null;
+  }
+
+  configure(configPath: string): void {
+    this._configPath = configPath;
+    // Clear cached config to reload from new path
+    this.config = null;
+  }
+
   private getConfigPath(): string | null {
-    if (!this._configPath) {
-      try {
-        this._configPath = getPaths().config;
-      } catch {
-        // getPaths() might fail if MIMO_HOME isn't set yet
-        return null;
-      }
-    }
     return this._configPath;
   }
 

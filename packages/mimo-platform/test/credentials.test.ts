@@ -1,16 +1,23 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { credentialRepository } from "../src/credentials/repository";
-import { projectRepository } from "../src/projects/repository";
 import { statSync } from "fs";
-import { getCredentialsPath, getProjectPath } from "../src/config/paths";
 import { rmdirSync, unlinkSync, existsSync } from "fs";
 import { join } from "path";
 
 describe("Credentials Management", () => {
-  const testUser = "testuser-credentials";
-  const credentialsDir = getCredentialsPath(testUser);
+  let ctx: any;
+  let credentialRepository: any;
+  let projectRepository: any;
+  let testUser = "testuser-credentials";
+  let credentialsDir: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    const { createMimoContext } = await import("../src/context/mimo-context");
+    ctx = createMimoContext({ env: { MIMO_HOME: "/tmp/test-mimo-credentials" } });
+    credentialRepository = ctx.repos.credentials;
+    projectRepository = ctx.repos.projects;
+    testUser = "testuser-credentials";
+    credentialsDir = join(ctx.paths.users, testUser, "credentials");
+
     // Clean up any existing test credentials
     if (existsSync(credentialsDir)) {
       const entries = require("fs").readdirSync(credentialsDir);

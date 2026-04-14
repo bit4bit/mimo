@@ -1,8 +1,6 @@
 import { join, dirname } from "path";
 import { existsSync, mkdirSync, writeFileSync, chmodSync, readFileSync, renameSync, unlinkSync } from "fs";
 import { execSync, spawn } from "child_process";
-import { homedir } from "os";
-import { getPaths } from "../config/paths.js";
 
 export interface SccPlatform {
   os: "Linux" | "Darwin" | "Windows";
@@ -101,22 +99,16 @@ export class SccService {
   private cacheFilePath: string;
   private customCacheDir?: string;
 
-  constructor(customPath?: string, customCacheDir?: string) {
-    if (customPath) {
-      this.sccPath = customPath;
-    } else {
-      const paths = getPaths();
-      this.sccPath = join(paths.root, "bin", "scc");
-    }
-    
+  constructor(customPath: string, customCacheDir?: string) {
+    this.sccPath = customPath;
     this.customCacheDir = customCacheDir;
     
     // Initialize cache file path
     if (customCacheDir) {
       this.cacheFilePath = join(customCacheDir, "scc-cache.json");
     } else {
-      const paths = getPaths();
-      this.cacheFilePath = join(paths.projects, "..", ".mimo", "cache", "scc-cache.json");
+      // Fallback - caller should always provide cacheDir via configure()
+      this.cacheFilePath = join(".mimo", "cache", "scc-cache.json");
     }
     
     // Load existing cache on initialization (optional)
@@ -127,9 +119,11 @@ export class SccService {
     }
   }
 
-  configure(config: { mimoHome: string }): void {
+  configure(config: { mimoHome: string; cacheDir?: string }): void {
     this.sccPath = join(config.mimoHome, "bin", "scc");
-    if (!this.customCacheDir) {
+    if (!this.customCacheDir && config.cacheDir) {
+      this.cacheFilePath = join(config.cacheDir, "scc-cache.json");
+    } else if (!this.customCacheDir) {
       this.cacheFilePath = join(config.mimoHome, ".mimo", "cache", "scc-cache.json");
     }
   }
@@ -181,9 +175,8 @@ export class SccService {
 
   async install(): Promise<{ success: boolean; error?: string }> {
     try {
-      // Recalculate sccPath using configured path or default
-      const binDir = join(getPaths().root, "bin");
-      this.sccPath = join(binDir, "scc");
+      // Get bin directory from configured sccPath
+      const binDir = dirname(this.sccPath);
 
       if (this.isInstalled()) {
         return { success: true };

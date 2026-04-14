@@ -17,9 +17,12 @@
 
 import { existsSync, mkdirSync, renameSync, readdirSync } from "fs";
 import { join, dirname } from "path";
+import { homedir } from "os";
 import { load } from "js-yaml";
 import { readFileSync } from "fs";
-import { getPaths } from "../src/config/paths.js";
+
+// Get MIMO_HOME from environment or use default
+const MIMO_HOME = process.env.MIMO_HOME || join(homedir(), ".mimo");
 
 // Denormalize session ID from fossil filename back to original
 function denormalizeSessionId(normalizedId: string): string {
@@ -28,7 +31,7 @@ function denormalizeSessionId(normalizedId: string): string {
 
 // Get the data directory
 function getDataDir(): string {
-  return getPaths().data;
+  return MIMO_HOME;
 }
 
 // Get the centralized fossil repos directory

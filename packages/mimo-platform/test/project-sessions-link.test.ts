@@ -14,15 +14,12 @@ describe("Project Sessions Link Integration Tests", () => {
   const testHome = join(tmpdir(), `mimo-project-sessions-test-${Date.now()}`);
 
   beforeEach(async () => {
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
-    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
-
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
 
-    const pathsModule = await import("../src/config/paths.ts");
-    pathsModule.ensureMimoHome();
+    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({ env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" } });
 
     userRepository = ctx.repos.users;
     projectRepository = ctx.repos.projects;

@@ -1,6 +1,6 @@
 import { join } from "path";
 import { existsSync, mkdirSync, appendFileSync, readFileSync } from "fs";
-import { getPaths } from "../config/paths.js";
+import type { MimoPaths } from "../context/mimo-context.js";
 
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
@@ -13,10 +13,14 @@ export class ChatService {
   // Track last activity per session for agent health monitoring
   private lastAgentActivity: Map<string, number> = new Map();
   private readonly AGENT_TIMEOUT_MS = 300000; // 5 minutes
+  private paths: MimoPaths;
+
+  constructor(paths: MimoPaths) {
+    this.paths = paths;
+  }
 
   private getChatPath(sessionId: string): string {
     // Store chat in the session directory
-    const Paths = getPaths();
     const sessionDir = this.findSessionDir(sessionId);
     if (!sessionDir) {
       throw new Error(`Session ${sessionId} not found`);
@@ -25,17 +29,16 @@ export class ChatService {
   }
 
   private findSessionDir(sessionId: string): string | null {
-    const Paths = getPaths();
-    if (!existsSync(Paths.projects)) {
+    if (!existsSync(this.paths.projects)) {
       return null;
     }
 
     const { readdirSync } = require("fs");
-    const projectEntries = readdirSync(Paths.projects, { withFileTypes: true });
+    const projectEntries = readdirSync(this.paths.projects, { withFileTypes: true });
     
     for (const projectEntry of projectEntries) {
       if (projectEntry.isDirectory()) {
-        const sessionsDir = join(Paths.projects, projectEntry.name, "sessions");
+        const sessionsDir = join(this.paths.projects, projectEntry.name, "sessions");
         if (existsSync(sessionsDir)) {
           const sessionDir = join(sessionsDir, sessionId);
           if (existsSync(sessionDir)) {
@@ -109,4 +112,18 @@ export class ChatService {
   }
 }
 
-export const chatService = new ChatService();
+// Factory function for creating ChatService with injected paths
+export function createChatService(paths: MimoPaths): ChatService {
+  return new ChatService(paths);
+}
+
+// Legacy singleton export - will be removed once all consumers use mimoContext
+export const chatService = new ChatService({
+  root: "",
+  data: "",
+  users: "",
+  projects: "",
+  agents: "",
+  mcpServers: "",
+  config: "",
+});
