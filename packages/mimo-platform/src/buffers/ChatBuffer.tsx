@@ -5,6 +5,7 @@ interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: string;
+  metadata?: Record<string, unknown>;
 }
 
 interface ChatBufferProps extends BufferProps {
@@ -29,7 +30,12 @@ export const ChatBuffer: FC<ChatBufferProps> = ({ chatHistory = [] }) => {
           chatHistory.map((msg, i) => (
             <div key={i} class={`message message-${msg.role}`}>
               <div class="message-header">
-                {msg.role === "user" ? "You" : "Agent"}
+                <span>{msg.role === "user" ? "You" : "Agent"}</span>
+                {msg.role === "assistant" && msg.metadata?.duration && (
+                  <span style="font-size: 0.75em; color: #888; margin-left: 8px;">
+                    {String(msg.metadata.duration)} · {new Date(msg.timestamp).toLocaleString()}
+                  </span>
+                )}
               </div>
               <div class="message-content">{msg.content}</div>
             </div>
