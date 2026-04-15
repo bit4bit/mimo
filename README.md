@@ -1,5 +1,7 @@
 # MIMO Platform
 
+My Opinionated Agent development environment, this is a tool for my daily activities and also my training dojo for tuning my usage of LLM.
+
 A web-based interface for AI-assisted development with session-based worktrees, structured change management, and multi-provider agent support.
 
 ## Table of Contents
@@ -18,7 +20,7 @@ A web-based interface for AI-assisted development with session-based worktrees, 
 
 ## Overview
 
-MIMO (Minimal IDE for Modern Operations) is a platform that enables AI-assisted development through a web-based interface. It provides session-based development with worktrees, file synchronization, integrated chat with AI agents, session parking for resource management, MCP server integration, and structured OpenSpec change management.
+MIMOis a platform that enables AI-assisted development through a web-based interface. It provides session-based development with worktrees-like, file synchronization, integrated chat with AI agents, session parking for resource management, MCP server integration, and structured OpenSpec change management.
 
 ## Features
 
