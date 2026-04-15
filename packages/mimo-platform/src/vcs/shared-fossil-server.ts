@@ -4,54 +4,6 @@ import { join } from "path";
 import { createConnection } from "net";
 import { logger } from "../logger.js";
 
-// Default port value
-const DEFAULT_FOSSIL_PORT = 8000;
-
-// Cached config value - populated lazily
-let cachedConfigPort: number | undefined | null = null;
-
-// Port configuration - read from config.yaml > default 8000
-const getFossilServerPort = (): number => {
-  // Check cached config value
-  if (cachedConfigPort !== null) {
-    return cachedConfigPort ?? DEFAULT_FOSSIL_PORT;
-  }
-
-  // Try to load from config file
-  try {
-    const { configService } = require("../config/service.js");
-    const configPort = configService.get("sharedFossilServerPort");
-    if (
-      typeof configPort === "number" &&
-      configPort >= 1024 &&
-      configPort <= 65535
-    ) {
-      cachedConfigPort = configPort;
-      return configPort;
-    }
-  } catch {
-    // Config not available, will use default
-  }
-
-  // Mark as checked and return default
-  cachedConfigPort = undefined;
-  return DEFAULT_FOSSIL_PORT;
-};
-
-// Default fossil repos directory - will be overridden by configure()
-let defaultFossilReposDir: string | null = null;
-
-const getFossilReposDir = (): string => {
-  if (defaultFossilReposDir) {
-    return defaultFossilReposDir;
-  }
-  // Fallback to environment variable or hardcoded default
-  if (process.env.MIMO_HOME) {
-    return join(process.env.MIMO_HOME, "session-fossils");
-  }
-  return join(require("os").homedir(), ".mimo", "session-fossils");
-};
-
 /**
  * Normalizes a session ID to be a valid filename for Fossil URLs.
  * Fossil has strict URL path restrictions:
@@ -62,6 +14,16 @@ const getFossilReposDir = (): string => {
  */
 export function normalizeSessionIdForFossil(sessionId: string): string {
   return sessionId.replace(/-/g, "_");
+}
+
+/**
+ * Configuration options for SharedFossilServer.
+ */
+export interface SharedFossilServerConfig {
+  /** Port number must be between 1024 and 65535. Required - no fallback. */
+  port: number;
+  /** Directory to store fossil repositories. Defaults to MIMO_HOME/session-fossils. */
+  reposDir?: string;
 }
 
 /**
@@ -76,38 +38,41 @@ export function normalizeSessionIdForFossil(sessionId: string): string {
  *   <normalized-session-id>.fossil
  *
  * And accessed via URLs:
- *   http://localhost:8000/<normalized-session-id>.fossil/
+ *   http://localhost:<port>/<normalized-session-id>.fossil/
  */
 export class SharedFossilServer {
   private process: ChildProcess | null = null;
-  private _port: number | null = null;
-  private _reposDir: string | null = null;
+  private readonly _port: number;
+  private _reposDir: string;
   private watchdogTimer: ReturnType<typeof setTimeout> | null = null;
   private restartDelayMs: number = 2000;
   private maxRestartAttempts: number = 5;
   private restartAttempts: number = 0;
 
   /**
-   * Configure the server with values from MimoContext.
-   * Must be called before the server is started.
+   * Creates a new SharedFossilServer instance.
+   * @param config - Configuration object (port is required)
+   * @throws Error if port is not provided
    */
-  configure(config: { reposDir?: string; port?: number }): void {
-    if (config.port !== undefined) this._port = config.port;
-    if (config.reposDir !== undefined) {
-      this._reposDir = config.reposDir;
-      // Update the module-level default for consistency
-      defaultFossilReposDir = config.reposDir;
-      this.ensureReposDir();
+  constructor(config: SharedFossilServerConfig) {
+    if (typeof config.port !== "number") {
+      throw new Error("SharedFossilServer: port is required");
     }
+    if (config.port < 1024 || config.port > 65535) {
+      throw new Error(
+        `SharedFossilServer: port must be between 1024 and 65535, got ${config.port}`,
+      );
+    }
+    this._port = config.port;
+    this._reposDir =
+      config.reposDir ?? join(process.env.MIMO_HOME || "", "session-fossils");
+    this.ensureReposDir();
   }
 
   /**
-   * Get the port (lazy initialization)
+   * Get the configured port.
    */
   private get port(): number {
-    if (this._port === null) {
-      this._port = getFossilServerPort();
-    }
     return this._port;
   }
 
@@ -117,7 +82,6 @@ export class SharedFossilServer {
    */
   private get reposDir(): string {
     if (this._reposDir === null) {
-      this._reposDir = getFossilReposDir();
       this.ensureReposDir();
     }
     return this._reposDir;
@@ -408,37 +372,3 @@ export class SharedFossilServer {
     }, delay);
   }
 }
-
-// Export singleton instance
-export const sharedFossilServer = new SharedFossilServer();
-
-// Cleanup on process termination signals
-// SIGINT: Ctrl+C
-// SIGTERM: Graceful termination request
-process.on("SIGINT", () => {
-  logger.debug("[SharedFossilServer] Received SIGINT, stopping server...");
-  sharedFossilServer
-    .stop()
-    .then(() => {
-      logger.debug("[SharedFossilServer] Server stopped, exiting...");
-      process.exit(0);
-    })
-    .catch((err) => {
-      logger.error("[SharedFossilServer] Error during stop:", err);
-      process.exit(1);
-    });
-});
-
-process.on("SIGTERM", () => {
-  logger.debug("[SharedFossilServer] Received SIGTERM, stopping server...");
-  sharedFossilServer
-    .stop()
-    .then(() => {
-      logger.debug("[SharedFossilServer] Server stopped, exiting...");
-      process.exit(0);
-    })
-    .catch((err) => {
-      logger.error("[SharedFossilServer] Error during stop:", err);
-      process.exit(1);
-    });
-});

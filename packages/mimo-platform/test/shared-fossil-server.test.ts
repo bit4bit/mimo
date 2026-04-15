@@ -13,6 +13,9 @@ describe("SharedFossilServer Integration Tests", () => {
   let testPort: number;
 
   beforeEach(async () => {
+    // Use a unique port for each test to avoid conflicts
+    testPort = 18000 + Math.floor(Math.random() * 1000);
+
     testHome = join(
       tmpdir(),
       `mimo-shared-fossil-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -21,11 +24,15 @@ describe("SharedFossilServer Integration Tests", () => {
     const { createMimoContext } =
       await import("../src/context/mimo-context.ts");
     createMimoContext({
-      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+      env: {
+        MIMO_HOME: testHome,
+        JWT_SECRET: "test-secret-key-for-testing",
+        MIMO_SHARED_FOSSIL_SERVER_PORT: testPort,
+      },
+      services: {
+        sharedFossil: null as any, // Skip creating - test creates its own
+      },
     });
-
-    // Use a unique port for each test to avoid conflicts
-    testPort = 18000 + Math.floor(Math.random() * 1000);
 
     // Clean up from previous run
     try {
@@ -34,9 +41,8 @@ describe("SharedFossilServer Integration Tests", () => {
 
     mkdirSync(testHome, { recursive: true });
 
-    // Create fresh instance configured with test-specific values
-    sharedServer = new SharedFossilServer();
-    sharedServer.configure({
+    // Create fresh instance with test-specific port via constructor injection
+    sharedServer = new SharedFossilServer({
       port: testPort,
       reposDir: join(testHome, "session-fossils"),
     });
@@ -153,9 +159,8 @@ describe("SharedFossilServer Integration Tests", () => {
       expect(sharedServer.getPort()).toBe(testPort);
     });
 
-    it("should use port set via configure()", () => {
-      const freshServer = new SharedFossilServer();
-      freshServer.configure({ port: 19000 });
+    it("should use port passed via constructor", () => {
+      const freshServer = new SharedFossilServer({ port: 19000 });
 
       expect(freshServer.getPort()).toBe(19000);
     });

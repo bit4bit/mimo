@@ -23,6 +23,7 @@ import { ImpactCalculator } from "../impact/calculator.js";
 import { vcs } from "../vcs/index.js";
 import { sessionStateService } from "../sessions/state.js";
 import { SharedFossilServer } from "../vcs/shared-fossil-server.js";
+import type { SharedFossilServerConfig } from "../vcs/shared-fossil-server.js";
 
 export interface MimoEnv {
   PORT: number;
@@ -70,7 +71,7 @@ export interface MimoContext {
     impactCalculator: ImpactCalculator;
     vcs: typeof vcs;
     sessionState: typeof sessionStateService;
-    sharedFossil: SharedFossilServer;
+    sharedFossil: SharedFossilServer | null;
   };
 }
 
@@ -98,6 +99,26 @@ function ensurePaths(paths: MimoPaths): void {
   mkdirSync(paths.projects, { recursive: true });
   mkdirSync(paths.agents, { recursive: true });
   mkdirSync(paths.mcpServers, { recursive: true });
+}
+
+/**
+ * Factory function to create a SharedFossilServer with configuration from MimoEnv.
+ * Port is required - throws error if not provided.
+ */
+export function createSharedFossilServer(env: MimoEnv): SharedFossilServer {
+  const port = env.MIMO_SHARED_FOSSIL_SERVER_PORT;
+  if (port === undefined) {
+    throw new Error(
+      "MIMO_SHARED_FOSSIL_SERVER_PORT is required in environment",
+    );
+  }
+
+  const config: SharedFossilServerConfig = {
+    port,
+    reposDir: env.FOSSIL_REPOS_DIR,
+  };
+
+  return new SharedFossilServer(config);
 }
 
 export function createMimoContext(
@@ -169,6 +190,15 @@ export function createMimoContext(
     overrides.services?.impactCalculator ??
     new ImpactCalculator(sccService, jscpdService);
 
+  // Create shared fossil server using factory function
+  // Only create if port is provided in env, or if explicitly overridden
+  const sharedFossilServer =
+    overrides.services && "sharedFossil" in overrides.services
+      ? overrides.services.sharedFossil!
+      : env.MIMO_SHARED_FOSSIL_SERVER_PORT !== undefined
+        ? createSharedFossilServer(env)
+        : (null as any); // Skip creation if port not provided (backward compatibility)
+
   const services: MimoContext["services"] = {
     auth: overrides.services?.auth ?? new JwtService(env.JWT_SECRET),
     agents:
@@ -214,7 +244,7 @@ export function createMimoContext(
     impactCalculator,
     vcs: vcs,
     sessionState: sessionStateService,
-    sharedFossil: new SharedFossilServer(),
+    sharedFossil: sharedFossilServer,
   };
 
   return {

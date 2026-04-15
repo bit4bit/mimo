@@ -20,6 +20,9 @@ describe("Agent Bootstrap Integration Tests", () => {
   let testPort: number;
 
   beforeEach(async () => {
+    // Use a unique port for each test to avoid conflicts
+    testPort = 38000 + Math.floor(Math.random() * 1000);
+
     testHome = join(
       tmpdir(),
       `mimo-bootstrap-integ-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -28,11 +31,12 @@ describe("Agent Bootstrap Integration Tests", () => {
     const { createMimoContext } =
       await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({
-      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+      env: {
+        MIMO_HOME: testHome,
+        JWT_SECRET: "test-secret-key-for-testing",
+        MIMO_SHARED_FOSSIL_SERVER_PORT: testPort,
+      },
     });
-
-    // Use a unique port for each test to avoid conflicts
-    testPort = 38000 + Math.floor(Math.random() * 1000);
 
     try {
       rmSync(testHome, { recursive: true, force: true });
@@ -54,9 +58,8 @@ describe("Agent Bootstrap Integration Tests", () => {
     AgentService = serviceModule.AgentService;
     agentService = serviceModule.agentService;
 
-    // Create fresh SharedFossilServer instance configured with test-specific values
-    sharedFossilServer = new SharedFossilServer();
-    sharedFossilServer.configure({ port: testPort });
+    // Create fresh SharedFossilServer instance with test-specific port via constructor
+    sharedFossilServer = new SharedFossilServer({ port: testPort });
   });
 
   afterEach(async () => {

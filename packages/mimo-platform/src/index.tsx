@@ -17,7 +17,6 @@ import {
   syncSessionViaAssignedAgent,
 } from "./auto-commit/routes";
 import { LandingPage } from "./components/LandingPage.js";
-import { sharedFossilServer } from "./vcs/shared-fossil-server.js";
 import { handleRefreshImpact } from "./impact/refresh-handler.js";
 
 import {
@@ -41,13 +40,10 @@ const mimoContext = createMimoContext({
     FOSSIL_REPOS_DIR: process.env.FOSSIL_REPOS_DIR,
     MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
       ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
-      : undefined,
+      : 8000, // Provide default port for production
   },
 });
-sharedFossilServer.configure({
-  reposDir: mimoContext.env.FOSSIL_REPOS_DIR,
-  port: mimoContext.env.MIMO_SHARED_FOSSIL_SERVER_PORT,
-});
+const sharedFossilServer = mimoContext.services.sharedFossil;
 mimoContext.services.scc.configure({ mimoHome: mimoContext.env.MIMO_HOME });
 const agentService = mimoContext.services.agents;
 const sessionRepository = mimoContext.repos.sessions;

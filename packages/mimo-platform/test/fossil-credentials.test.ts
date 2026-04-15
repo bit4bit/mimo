@@ -16,6 +16,9 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
   let testPort: number;
 
   beforeEach(async () => {
+    // Use a unique port for each test to avoid conflicts
+    testPort = 28000 + Math.floor(Math.random() * 1000);
+
     testHome = join(
       tmpdir(),
       `mimo-credential-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -24,11 +27,12 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
     const { createMimoContext } =
       await import("../src/context/mimo-context.ts");
     createMimoContext({
-      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+      env: {
+        MIMO_HOME: testHome,
+        JWT_SECRET: "test-secret-key-for-testing",
+        MIMO_SHARED_FOSSIL_SERVER_PORT: testPort,
+      },
     });
-
-    // Use a unique port for each test to avoid conflicts
-    testPort = 28000 + Math.floor(Math.random() * 1000);
 
     try {
       rmSync(testHome, { recursive: true, force: true });
@@ -40,9 +44,8 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
     VCS = vcsModule.VCS;
     vcs = new VCS();
 
-    // Create fresh SharedFossilServer instance configured with test-specific values
-    sharedFossilServer = new SharedFossilServer();
-    sharedFossilServer.configure({ port: testPort });
+    // Create fresh SharedFossilServer instance with test-specific port via constructor
+    sharedFossilServer = new SharedFossilServer({ port: testPort });
   });
 
   afterEach(async () => {
@@ -217,29 +220,27 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
       // Open checkout
       execSync(`fossil open --nosync repo.fossil`, { cwd: checkoutDir });
 
-      // Set local password (this works without server auth)
-      execSync(`fossil user password agent-test3 secretpass123`, {
-        cwd: checkoutDir,
-      });
+      // Set remote URL WITHOUT credentials
+      const publicUrl = `http://localhost:${port}/${normalizedSessionId}/`;
+      execSync(`fossil remote-url ${publicUrl}`, { cwd: checkoutDir });
 
-      // Set remote URL without credentials - this requires the server password which we don't have cached yet
-      let remoteUrlFailed = false;
+      // Try sync without credentials - should fail
+      let syncFailed = false;
       try {
-        execSync(
-          `fossil remote-url http://agent-test3@localhost:${port}/${normalizedSessionId}/`,
-          { cwd: checkoutDir },
-        );
+        execSync(`fossil sync`, {
+          cwd: checkoutDir,
+          timeout: 5000,
+        });
       } catch (error) {
-        remoteUrlFailed = true;
+        syncFailed = true;
       }
 
-      // Setting remote-url without credentials should fail
-      expect(remoteUrlFailed).toBe(true);
+      expect(syncFailed).toBe(true);
     }, 30000);
   });
 
-  describe("Named Remote with Credentials", () => {
-    it("should store credentials in named remote", async () => {
+  describe("createFossilUserInRepo", () => {
+    it("should create user directly in repository using remote-url", async () => {
       const sessionId =
         "test-session-" + Math.random().toString(36).slice(2, 8);
       const repoPath = sharedFossilServer.getFossilPath(sessionId);
@@ -248,8 +249,8 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
       mkdirSync(sharedFossilServer.getReposDir(), { recursive: true });
       await vcs.createFossilRepo(repoPath);
 
-      // Create agent user
-      await vcs.createFossilUser(repoPath, "agent-test4", "mypass456");
+      // Create setup user first
+      await vcs.createFossilUser(repoPath, "setup-user", "setuppass123");
 
       // Start shared fossil server
       await sharedFossilServer.start();
@@ -257,42 +258,62 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
       const normalizedSessionId = normalizeSessionIdForFossil(sessionId);
 
       // Wait for server to be fully ready
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Setup checkout
-      const checkoutDir = join(testHome, "checkout4");
+      // Use the remote command to create user
+      const result = await vcs.createFossilUserInRepo(
+        sessionId,
+        "agent-remote",
+        "remotepass123",
+        port,
+        "setup-user",
+        "setuppass123",
+      );
+
+      expect(result.success).toBe(true);
+
+      // Verify user was created by cloning with the new credentials
+      const checkoutDir = join(testHome, "checkout-remote");
       mkdirSync(checkoutDir, { recursive: true });
 
-      const cloneUrl = `http://agent-test4:mypass456@localhost:${port}/${normalizedSessionId}/`;
-      try {
-        execSync(
-          `fossil clone ${cloneUrl} ${join(checkoutDir, "repo.fossil")}`,
-          { cwd: checkoutDir, timeout: 10000 },
-        );
-      } catch (error) {
-        console.error("Clone failed:", error);
-        throw error;
-      }
-      execSync(`fossil open --nosync repo.fossil`, { cwd: checkoutDir });
-      execSync(`fossil remote-url ${cloneUrl}`, { cwd: checkoutDir });
-      execSync(`fossil user password agent-test4 mypass456`, {
+      const cloneUrl = `http://agent-remote:remotepass123@localhost:${port}/${normalizedSessionId}/`;
+      execSync(`fossil clone ${cloneUrl} ${join(checkoutDir, "repo.fossil")}`, {
         cwd: checkoutDir,
       });
 
-      // Add named remote
-      execSync(`fossil remote add myserver ${cloneUrl}`, { cwd: checkoutDir });
+      expect(existsSync(join(checkoutDir, "repo.fossil"))).toBe(true);
+    }, 30000);
 
-      // Verify named remote exists by listing all remotes
-      const remoteListOutput = execSync(`fossil remote list`, {
-        cwd: checkoutDir,
-      }).toString();
-      expect(remoteListOutput).toContain("myserver");
+    it("should fail when using wrong setup credentials", async () => {
+      const sessionId =
+        "test-session-" + Math.random().toString(36).slice(2, 8);
+      const repoPath = sharedFossilServer.getFossilPath(sessionId);
 
-      // Sync using named remote should work
-      const syncOutput = execSync(`fossil sync myserver`, {
-        cwd: checkoutDir,
-      }).toString();
-      expect(syncOutput).toContain("Sync done");
+      // Ensure repos directory exists and create repo
+      mkdirSync(sharedFossilServer.getReposDir(), { recursive: true });
+      await vcs.createFossilRepo(repoPath);
+
+      // Create setup user
+      await vcs.createFossilUser(repoPath, "setup-user2", "correctpass123");
+
+      // Start shared fossil server
+      await sharedFossilServer.start();
+      const port = sharedFossilServer.getPort();
+
+      // Wait for server to be fully ready
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Try to create user with wrong setup credentials
+      const result = await vcs.createFossilUserInRepo(
+        sessionId,
+        "new-agent",
+        "newpass123",
+        port,
+        "setup-user2",
+        "wrongpass",
+      );
+
+      expect(result.success).toBe(false);
     }, 30000);
   });
 });
