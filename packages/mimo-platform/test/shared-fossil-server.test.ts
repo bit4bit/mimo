@@ -10,7 +10,11 @@ import {
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, mkdirSync, writeFileSync } from "fs";
-import { DummySharedFossilServer, SharedFossilServer, normalizeSessionIdForFossil } from "../src/vcs/shared-fossil-server.js";
+import {
+  DummySharedFossilServer,
+  SharedFossilServer,
+  normalizeSessionIdForFossil,
+} from "../src/vcs/shared-fossil-server.js";
 
 describe("SharedFossilServer Integration Tests", () => {
   let sharedServers: any = [];
@@ -181,9 +185,39 @@ describe("SharedFossilServer Integration Tests", () => {
     });
 
     it("should use port passed via constructor", () => {
-      const freshServer = new SharedFossilServer({ port: 19000 });
+      const testReposDir = join(tmpdir(), `mimo-test-repos-${Date.now()}`);
+      const freshServer = new SharedFossilServer({
+        port: 19000,
+        reposDir: testReposDir,
+      });
 
       expect(freshServer.getPort()).toBe(19000);
+    });
+  });
+
+  describe("reposDir configuration", () => {
+    it("should use the provided reposDir without reading environment variables", () => {
+      const customReposDir = join(tmpdir(), `mimo-custom-repos-${Date.now()}`);
+
+      // The server should use the provided reposDir directly
+      // and NOT fall back to process.env.MIMO_HOME
+      const server = new SharedFossilServer({
+        port: 19001,
+        reposDir: customReposDir,
+      });
+
+      expect(server.getReposDir()).toBe(customReposDir);
+    });
+
+    it("should require reposDir to be provided (no env var fallback)", () => {
+      // reposDir is now required - no fallback to env vars
+      // This should throw because reposDir is undefined
+      expect(() => {
+        new SharedFossilServer({
+          port: 19002,
+          // reposDir not provided - should throw
+        } as any);
+      }).toThrow();
     });
   });
 });

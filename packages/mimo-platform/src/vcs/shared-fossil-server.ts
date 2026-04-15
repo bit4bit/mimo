@@ -24,10 +24,12 @@ export class DummySharedFossilServer {
   private readonly _port: number;
   private readonly _reposDir: string;
 
-  constructor(port: number = 8000, reposDir?: string) {
+  constructor(
+    port: number = 8000,
+    reposDir: string = "/tmp/dummy-fossil-repos",
+  ) {
     this._port = port;
-    this._reposDir =
-      reposDir ?? join(process.env.MIMO_HOME || "", "session-fossils");
+    this._reposDir = reposDir;
   }
 
   async start(): Promise<boolean> {
@@ -71,8 +73,8 @@ export class DummySharedFossilServer {
 export interface SharedFossilServerConfig {
   /** Port number must be between 1024 and 65535. Required - no fallback. */
   port: number;
-  /** Directory to store fossil repositories. Defaults to MIMO_HOME/session-fossils. */
-  reposDir?: string;
+  /** Directory to store fossil repositories. Required - must be provided via dependency injection. */
+  reposDir: string;
 }
 
 /**
@@ -112,9 +114,13 @@ export class SharedFossilServer {
         `SharedFossilServer: port must be between 1024 and 65535, got ${config.port}`,
       );
     }
+    if (typeof config.reposDir !== "string" || config.reposDir.length === 0) {
+      throw new Error(
+        "SharedFossilServer: reposDir is required and must be a non-empty string",
+      );
+    }
     this._port = config.port;
-    this._reposDir =
-      config.reposDir ?? join(process.env.MIMO_HOME || "", "session-fossils");
+    this._reposDir = config.reposDir;
     this.ensureReposDir();
   }
 

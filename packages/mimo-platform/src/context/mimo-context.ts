@@ -191,10 +191,10 @@ export function createMimoContext(
     new ImpactCalculator(sccService, jscpdService);
 
   // sharedFossil must be explicitly injected - no auto-instantiation
-const sharedFossilServer =
-  overrides.services && "sharedFossil" in overrides.services
-    ? overrides.services.sharedFossil!
-    : null;
+  const sharedFossilServer =
+    overrides.services && "sharedFossil" in overrides.services
+      ? overrides.services.sharedFossil!
+      : null;
 
   const services: MimoContext["services"] = {
     auth: overrides.services?.auth ?? new JwtService(env.JWT_SECRET),
