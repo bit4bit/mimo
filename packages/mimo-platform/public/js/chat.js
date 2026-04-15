@@ -42,7 +42,11 @@ const ChatState = {
     timeout: null,
     lastActivity: null,
     reconstructed: false,
+    startTime: null,
   },
+
+  // Duration tracking
+  totalDurationMs: 0,
 
   // Input
   editableBubble: null,
@@ -114,6 +118,15 @@ function renderMessage(message) {
   copyBtn.textContent = "📋";
 
   header.appendChild(label);
+
+  if (message.role === "assistant" && message.metadata?.duration) {
+    const meta = document.createElement("span");
+    meta.className = "message-meta";
+    meta.style.cssText = "font-size: 0.75em; color: #888; margin-left: 8px;";
+    meta.textContent = `${message.metadata.duration} · ${new Date(message.timestamp).toLocaleString()}`;
+    header.appendChild(meta);
+  }
+
   header.appendChild(copyBtn);
 
   const content = document.createElement("div");
@@ -448,6 +461,13 @@ function calculateCombinedStatus(agentStatus, acpStatus) {
   return { canSend: true, placeholder: "Type your message..." };
 }
 
+// Service: Format milliseconds as Nm Ns
+function formatDuration(ms) {
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  return `${minutes}m${seconds}s`;
+}
+
 // Service: Format usage for display
 function formatUsage(usage) {
   const parts = [];
@@ -631,7 +651,7 @@ function handleWebSocketMessage(data) {
       handleMessageChunk(data.content);
       break;
     case "usage_update":
-      handleUsageUpdate(data.usage);
+      handleUsageUpdate(data.usage, data.duration, data.durationMs);
       break;
     case "message":
       handleMessage(data);
@@ -689,6 +709,7 @@ function handlePromptReceived() {
   removeEditableBubble();
   insertStreamingMessage();
   startStreamingTimeout();
+  ChatState.streaming.startTime = Date.now();
 }
 
 // Controller: Handle thought start
@@ -697,6 +718,9 @@ function handleThoughtStart() {
   if (!ChatState.streaming.messageElement) {
     removeEditableBubble();
     insertStreamingMessage();
+  }
+  if (ChatState.streaming.startTime === null) {
+    ChatState.streaming.startTime = Date.now();
   }
   insertThoughtSection();
 }
@@ -728,10 +752,13 @@ function handleMessageChunk(content) {
 }
 
 // Controller: Handle usage update (stream end)
-function handleUsageUpdate(usage) {
+function handleUsageUpdate(usage, duration, durationMs) {
   clearStreamingTimeout();
+  if (typeof durationMs === "number" && durationMs > 0) {
+    ChatState.totalDurationMs += durationMs;
+  }
   updateUsageDisplay(usage);
-  finalizeMessageStream();
+  finalizeMessageStream(duration);
   insertEditableBubble();
 }
 
@@ -1165,11 +1192,12 @@ function removeStreamingMessage() {
     ChatState.streaming.content = "";
     ChatState.streaming.thoughtContent = "";
     ChatState.streaming.active = false;
+    ChatState.streaming.startTime = null;
   }
 }
 
 // DOM: Finalize message stream (remove indicators)
-function finalizeMessageStream() {
+function finalizeMessageStream(duration) {
   if (!ChatState.streaming.messageElement) return;
 
   const indicator = ChatState.streaming.messageElement.querySelector(
@@ -1191,6 +1219,22 @@ function finalizeMessageStream() {
   );
   if (cancelBtn) cancelBtn.remove();
 
+  if (duration) {
+    const header = ChatState.streaming.messageElement.querySelector(".message-header");
+    if (header) {
+      const agentLabel = header.querySelector("span");
+      const meta = document.createElement("span");
+      meta.className = "message-meta";
+      meta.style.cssText = "font-size: 0.75em; color: #888; margin-left: 8px;";
+      meta.textContent = `${duration} · ${new Date().toLocaleString()}`;
+      if (agentLabel) {
+        agentLabel.after(meta);
+      } else {
+        header.appendChild(meta);
+      }
+    }
+  }
+
   ChatState.streaming.messageElement.classList.remove("streaming");
   ChatState.streaming.messageElement = null;
   ChatState.streaming.thoughtElement = null;
@@ -1198,6 +1242,7 @@ function finalizeMessageStream() {
   ChatState.streaming.thoughtContent = "";
   ChatState.streaming.reconstructed = false;
   ChatState.streaming.active = false;
+  ChatState.streaming.startTime = null;
 }
 
 // DOM: Insert thought section
@@ -1276,13 +1321,20 @@ function updateUsageDisplay(usage) {
   const container = document.querySelector("#chat-usage");
   if (!container) return;
 
-  if (!usage) {
+  if (!usage && ChatState.totalDurationMs === 0) {
     container.textContent = "";
     container.style.display = "none";
     return;
   }
 
-  container.textContent = formatUsage(usage);
+  const parts = [];
+  if (ChatState.totalDurationMs > 0) {
+    parts.push(`Duration: ${formatDuration(ChatState.totalDurationMs)}`);
+  }
+  if (usage) {
+    parts.push(formatUsage(usage));
+  }
+  container.textContent = parts.join(" | ");
   container.style.display = "block";
 }
 
@@ -1572,6 +1624,7 @@ function loadChatHistory(messages) {
   let inThought = false;
   let inMessage = false;
   let lastRole = null;
+  let lastUsageCost = null;
 
   messages.forEach((msg) => {
     if (msg.content?.includes("available_commands_update")) return;
@@ -1605,6 +1658,7 @@ function loadChatHistory(messages) {
     }
 
     if (parsed.type === "usage") {
+      lastUsageCost = parsed.cost;
       updateUsageDisplay(parsed.cost);
       return;
     }
@@ -1612,6 +1666,17 @@ function loadChatHistory(messages) {
     lastRole = msg.role;
     insertMessage(msg);
   });
+
+  // Seed cumulative duration total from history
+  ChatState.totalDurationMs = messages.reduce((sum, msg) => {
+    if (msg.role === "assistant" && typeof msg.metadata?.durationMs === "number") {
+      return sum + msg.metadata.durationMs;
+    }
+    return sum;
+  }, 0);
+  if (ChatState.totalDurationMs > 0) {
+    updateUsageDisplay(lastUsageCost);
+  }
 
   // Flush any pending
   if (inThought && currentThought) {

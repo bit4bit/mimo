@@ -100,6 +100,7 @@ const calculatingSessions = new Set<string>();
 // Track streaming message and thought buffers per session
 const streamingBuffers = new Map<string, string>();
 const thoughtBuffers = new Map<string, string>();
+const messageStartTimes = new Map<string, number>();
 const autoSyncInFlight = new Set<string>();
 
 // Track pending permission requests: requestId → { agentWs, sessionId }
@@ -602,6 +603,9 @@ async function handleAgentMessage(ws, data) {
         // Track agent activity so isAgentAlive() stays true between chunk phases
         mimoContext.services.chat.updateAgentActivity(startSessionId);
 
+        // Record message start time for duration tracking
+        messageStartTimes.set(startSessionId, Date.now());
+
         // Start new thought buffer
         thoughtBuffers.set(startSessionId, "");
 
@@ -696,6 +700,11 @@ async function handleAgentMessage(ws, data) {
         // Track agent activity for health monitoring
         mimoContext.services.chat.updateAgentActivity(msgSessionId);
 
+        // Fallback: record start time if thought_start never fired
+        if (!messageStartTimes.has(msgSessionId)) {
+          messageStartTimes.set(msgSessionId, Date.now());
+        }
+
         // Accumulate message chunks
         const currentBuffer = streamingBuffers.get(msgSessionId) || "";
         streamingBuffers.set(
@@ -729,6 +738,18 @@ async function handleAgentMessage(ws, data) {
           return;
         }
 
+        // Compute duration from tracked start time
+        const startMs = messageStartTimes.get(usageSessionId);
+        let duration: string | undefined;
+        let durationMs: number | undefined;
+        if (startMs !== undefined) {
+          durationMs = Date.now() - startMs;
+          const mins = Math.floor(durationMs / 60000);
+          const secs = Math.floor((durationMs % 60000) / 1000);
+          duration = `${mins}m${secs}s`;
+          messageStartTimes.delete(usageSessionId);
+        }
+
         // Get accumulated message and thoughts
         const messageContent = streamingBuffers.get(usageSessionId);
         const thoughtContent = thoughtBuffers.get(usageSessionId);
@@ -751,6 +772,7 @@ async function handleAgentMessage(ws, data) {
             role: "assistant",
             content: fullContent,
             timestamp: new Date().toISOString(),
+            ...(duration !== undefined ? { metadata: { duration, durationMs } } : {}),
           });
 
           // Clear buffer
@@ -767,6 +789,7 @@ async function handleAgentMessage(ws, data) {
                   type: data.type,
                   usage: data.usage,
                   timestamp: new Date().toISOString(),
+                  ...(duration !== undefined ? { duration, durationMs } : {}),
                 }),
               );
             }
