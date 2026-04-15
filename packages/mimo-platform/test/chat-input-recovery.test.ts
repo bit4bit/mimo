@@ -43,7 +43,7 @@ describe("Chat Input Recovery", () => {
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
 
-      chatService = ctx.services.chat;
+    chatService = ctx.services.chat;
   });
 
   afterAll(async () => {

@@ -1196,7 +1196,7 @@ class MimoAgent {
       }
 
       const commitMessage = `agent-sync(${sessionId}): sync fossil changes ${new Date().toISOString()}`;
-      const commitResult = runFossil(["commit", "-m", commitMessage]);
+      let commitResult = runFossil(["commit", "-m", commitMessage]);
       if (!commitResult.success) {
         const combined = `${commitResult.output}\n${commitResult.error}`;
         if (combined.includes("nothing has changed")) {
@@ -1212,17 +1212,53 @@ class MimoAgent {
           return;
         }
 
-        this.send({
-          type: "sync_now_result",
-          sessionId,
-          requestId,
-          success: false,
-          message: "Failed to commit fossil changes",
-          error:
-            commitResult.error || commitResult.output || "fossil commit failed",
-          timestamp: new Date().toISOString(),
-        });
-        return;
+        // Fossil refuses to commit binary files added as text. Forget the
+        // offending files and retry once so text-only changes still sync.
+        if (combined.includes("Abandoning commit due to binary data in")) {
+          const binaryFiles: string[] = [];
+          for (const line of combined.split("\n")) {
+            const match = line.match(
+              /Abandoning commit due to binary data in (.+)/,
+            );
+            if (match) binaryFiles.push(match[1].trim());
+          }
+          for (const file of binaryFiles) {
+            runFossil(["forget", file]);
+          }
+          commitResult = runFossil(["commit", "-m", commitMessage]);
+          const retryCombined = `${commitResult.output}\n${commitResult.error}`;
+          if (
+            !commitResult.success &&
+            retryCombined.includes("nothing has changed")
+          ) {
+            this.send({
+              type: "sync_now_result",
+              sessionId,
+              requestId,
+              success: true,
+              noChanges: true,
+              message: "No changes to sync from mimo-agent fossil checkout",
+              timestamp: new Date().toISOString(),
+            });
+            return;
+          }
+        }
+
+        if (!commitResult.success) {
+          this.send({
+            type: "sync_now_result",
+            sessionId,
+            requestId,
+            success: false,
+            message: "Failed to commit fossil changes",
+            error:
+              commitResult.error ||
+              commitResult.output ||
+              "fossil commit failed",
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
       }
 
       const pushResult = runFossil(["push"]);

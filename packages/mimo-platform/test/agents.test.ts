@@ -282,7 +282,8 @@ describe("Agent Lifecycle Integration Tests", () => {
       await agentRepository.update(agent.id, { token });
 
       // Use mimoContext's JwtService instead of the singleton
-      const { createMimoContext } = await import("../src/context/mimo-context.ts");
+      const { createMimoContext } =
+        await import("../src/context/mimo-context.ts");
       const ctx = createMimoContext({
         env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       });

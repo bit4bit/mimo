@@ -420,46 +420,41 @@ export class CommitService {
 
     // Step 6: Capture and save impact metrics (best effort - don't fail commit if this fails)
     try {
-      const sccService = await import("../impact/scc-service.js");
-      if (sccService.sccService.isInstalled()) {
-        const { metrics } = await this.deps.impactCalculator.calculateImpact(
-          sessionId,
-          session.upstreamPath,
-          session.agentWorkspacePath,
-        );
+      const { metrics } = await this.deps.impactCalculator.calculateImpact(
+        sessionId,
+        session.upstreamPath,
+        session.agentWorkspacePath,
+      );
 
-        const commitHash =
-          commitResult.output?.match(/[a-f0-9]{40}|[a-f0-9]{64}/)?.[0] ||
-          "unknown";
+      const commitHash =
+        commitResult.output?.match(/[a-f0-9]{40}|[a-f0-9]{64}/)?.[0] ||
+        "unknown";
 
-        this.deps.impactRepository.save({
-          id: `${sessionId}-${commitHash}`,
-          sessionId: sessionId,
-          sessionName: session.name,
-          projectId: session.projectId,
-          commitHash: commitHash,
-          commitDate: new Date(),
-          files: {
-            new: metrics.files.new,
-            changed: metrics.files.changed,
-            deleted: metrics.files.deleted,
-          },
-          linesOfCode: {
-            added: metrics.linesOfCode.added,
-            removed: metrics.linesOfCode.removed,
-            net: metrics.linesOfCode.net,
-          },
-          complexity: {
-            cyclomatic: metrics.complexity.cyclomatic,
-            cognitive: metrics.complexity.cognitive,
-            estimatedMinutes: metrics.complexity.estimatedMinutes,
-          },
-          complexityByLanguage: metrics.byLanguage,
-          fossilUrl: ``,
-        });
-      } else {
-        logger.debug(`[commit] Skipping impact metrics - scc not installed`);
-      }
+      this.deps.impactRepository.save({
+        id: `${sessionId}-${commitHash}`,
+        sessionId: sessionId,
+        sessionName: session.name,
+        projectId: session.projectId,
+        commitHash: commitHash,
+        commitDate: new Date(),
+        files: {
+          new: metrics.files.new,
+          changed: metrics.files.changed,
+          deleted: metrics.files.deleted,
+        },
+        linesOfCode: {
+          added: metrics.linesOfCode.added,
+          removed: metrics.linesOfCode.removed,
+          net: metrics.linesOfCode.net,
+        },
+        complexity: {
+          cyclomatic: metrics.complexity.cyclomatic,
+          cognitive: metrics.complexity.cognitive,
+          estimatedMinutes: metrics.complexity.estimatedMinutes,
+        },
+        complexityByLanguage: metrics.byLanguage,
+        fossilUrl: ``,
+      });
     } catch (error) {
       logger.error(`[commit] Failed to capture impact metrics:`, error);
       // Don't fail the commit if impact capture fails

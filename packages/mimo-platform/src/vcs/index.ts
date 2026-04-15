@@ -976,10 +976,32 @@ export class VCS {
         };
       }
 
-      const commitResult = await this.execCommand(
+      let commitResult = await this.execCommand(
         ["fossil", "commit", "-m", commitMessage],
         upstreamPath,
       );
+
+      // Fossil refuses to commit binary files added as text. Forget the
+      // offending files and retry once so text-only changes still go through.
+      if (!commitResult.success) {
+        const combined = `${commitResult.output || ""}\n${commitResult.error || ""}`;
+        if (combined.includes("Abandoning commit due to binary data in")) {
+          const binaryFiles: string[] = [];
+          for (const line of combined.split("\n")) {
+            const match = line.match(
+              /Abandoning commit due to binary data in (.+)/,
+            );
+            if (match) binaryFiles.push(match[1].trim());
+          }
+          for (const file of binaryFiles) {
+            await this.execCommand(["fossil", "forget", file], upstreamPath);
+          }
+          commitResult = await this.execCommand(
+            ["fossil", "commit", "-m", commitMessage],
+            upstreamPath,
+          );
+        }
+      }
 
       return {
         success: commitResult.success,

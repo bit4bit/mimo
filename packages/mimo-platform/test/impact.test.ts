@@ -21,7 +21,8 @@ describe("Impact Buffer Tests", () => {
     mkdirSync(join(testHome, "projects"), { recursive: true });
     mkdirSync(join(testHome, "bin"), { recursive: true });
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
@@ -239,7 +240,8 @@ echo '[]'`;
 
   describe("ImpactCalculator", () => {
     it("should calculate file changes correctly", async () => {
-      const { createMimoContext } = await import("../src/context/mimo-context.ts");
+      const { createMimoContext } =
+        await import("../src/context/mimo-context.ts");
       const ctx = createMimoContext({
         env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       });
@@ -278,7 +280,8 @@ echo '[]'`;
     });
 
     it("should detect deleted files", async () => {
-      const { createMimoContext } = await import("../src/context/mimo-context.ts");
+      const { createMimoContext } =
+        await import("../src/context/mimo-context.ts");
       const ctx = createMimoContext({
         env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       });
@@ -305,7 +308,8 @@ echo '[]'`;
     });
 
     it("should calculate trends between scans", async () => {
-      const { createMimoContext } = await import("../src/context/mimo-context.ts");
+      const { createMimoContext } =
+        await import("../src/context/mimo-context.ts");
       const ctx = createMimoContext({
         env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       });
@@ -342,7 +346,8 @@ echo '[]'`;
     });
 
     it("should track unchanged files", async () => {
-      const { createMimoContext } = await import("../src/context/mimo-context.ts");
+      const { createMimoContext } =
+        await import("../src/context/mimo-context.ts");
       const ctx = createMimoContext({
         env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       });
@@ -510,7 +515,8 @@ echo '[]'`;
 
   describe("Impact Trend Calculation", () => {
     it("should show upward trend when new files increase", async () => {
-      const { createMimoContext } = await import("../src/context/mimo-context.ts");
+      const { createMimoContext } =
+        await import("../src/context/mimo-context.ts");
       const ctx = createMimoContext({
         env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       });
@@ -547,7 +553,8 @@ echo '[]'`;
     });
 
     it("should show stable trend when metrics unchanged", async () => {
-      const { createMimoContext } = await import("../src/context/mimo-context.ts");
+      const { createMimoContext } =
+        await import("../src/context/mimo-context.ts");
       const ctx = createMimoContext({
         env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       });

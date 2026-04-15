@@ -162,12 +162,12 @@ export function createMimoContext(
   const sccService =
     overrides.services?.scc ??
     new SccService(join(paths.root, "bin", "scc"), join(paths.root, "cache"));
-  const jscpdService =
-    overrides.services?.jscpd ?? new JscpdService();
+  const jscpdService = overrides.services?.jscpd ?? new JscpdService();
 
   // Create shared impactCalculator instance with injected services
   const impactCalculator =
-    overrides.services?.impactCalculator ?? new ImpactCalculator(sccService, jscpdService);
+    overrides.services?.impactCalculator ??
+    new ImpactCalculator(sccService, jscpdService);
 
   const services: MimoContext["services"] = {
     auth: overrides.services?.auth ?? new JwtService(env.JWT_SECRET),

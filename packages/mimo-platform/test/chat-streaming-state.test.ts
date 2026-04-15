@@ -27,7 +27,7 @@ describe("Chat Streaming State on Reconnect", () => {
 
     const chatModule = await import("../src/sessions/chat.ts");
 
-      chatService = ctx.services.chat;
+    chatService = ctx.services.chat;
     sessionRepository = ctx.repos.sessions;
     projectRepository = ctx.repos.projects;
 

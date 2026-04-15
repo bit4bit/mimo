@@ -52,9 +52,7 @@ interface RollbackStats {
   errorsDetails: string[];
 }
 
-async function findSessionForFossil(
-  normalizedId: string,
-): Promise<{
+async function findSessionForFossil(normalizedId: string): Promise<{
   projectId: string;
   sessionId: string;
   sessionFile: string;

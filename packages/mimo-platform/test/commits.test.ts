@@ -271,7 +271,10 @@ describe("Commit Service Tests", () => {
       );
 
       const userMessage = "feat(session): keep my commit title";
-      const result = await ctx.services.commits.commitAndPush(session.id, userMessage);
+      const result = await ctx.services.commits.commitAndPush(
+        session.id,
+        userMessage,
+      );
 
       expect(result.success).toBe(true);
 
