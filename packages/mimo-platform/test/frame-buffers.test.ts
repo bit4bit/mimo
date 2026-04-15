@@ -9,7 +9,7 @@ let sessionRoutes: any;
 let sessionRepository: any;
 let userRepository: any;
 let projectRepository: any;
-let generateToken: any;
+let authService: any;
 
 describe("Frame buffers integration", () => {
   const testHome = join(tmpdir(), `mimo-frame-buffers-${Date.now()}`);
@@ -28,9 +28,7 @@ describe("Frame buffers integration", () => {
     userRepository = ctx.repos.users;
     projectRepository = ctx.repos.projects;
     sessionRepository = ctx.repos.sessions;
-
-    const jwtModule = await import("../src/auth/jwt.ts");
-    generateToken = jwtModule.generateToken;
+    authService = ctx.services.auth;
 
     const vcsModule = await import("../src/vcs/index.ts");
     vcsModule.vcs.cloneRepository = async () => ({ success: true });
@@ -56,7 +54,7 @@ describe("Frame buffers integration", () => {
       owner: "testuser",
     });
 
-    const token = await generateToken("testuser");
+    const token = await authService.generateToken("testuser");
 
     const createRes = await app.request(`/projects/${project.id}/sessions`, {
       method: "POST",

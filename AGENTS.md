@@ -53,6 +53,47 @@ When in doubt, delete code, not add it. Prefer the simpler solution.
 - **Explicit over implicit** — data flows visibly through function arguments and return values
 - **Side effects at the boundary** — isolate I/O, DB, and network calls to the edges of the system; keep the core pure
 
+### Dependency Injection
+
+- **Never use singletons** — singletons create hidden global state, make testing impossible, and hide dependencies
+- **Always inject dependencies** — every dependency required by a function or class must be passed explicitly as a parameter
+- **Construct at the edge, pass inward** — create services, repositories, and external connections at the system boundary, then inject them through the call chain
+- **Pure functions can't reach for globals** — if a function needs something, it must be provided as an argument
+- **Tests control their dependencies** — injected dependencies allow tests to provide mocks, stubs, and fakes without monkey-patching
+
+**Example:**
+```typescript
+// ❌ WRONG: Singleton pattern - class with static instance
+class Database {
+  private static instance: Database;
+  static getInstance() { /* ... */ }
+}
+
+function saveUser(user: User) {
+  Database.getInstance().insert(user); // Hidden dependency
+}
+
+// ❌ WRONG: Singleton pattern - module-level object export
+// database.ts
+export const db = new Database(config); // Single instance at module level
+
+// user.ts
+import { db } from './database';
+
+function saveUser(user: User) {
+  db.insert(user); // Hidden dependency via module import
+}
+
+// ✅ RIGHT: Dependency injection
+function saveUser(db: Database, user: User) {
+  db.insert(user); // Explicit dependency
+}
+
+// At the edge (main/index), construct and inject
+const db = new Database(config);
+const result = saveUser(db, user);
+```
+
 ---
 
 ## Commits

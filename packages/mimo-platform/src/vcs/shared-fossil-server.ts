@@ -17,6 +17,54 @@ export function normalizeSessionIdForFossil(sessionId: string): string {
 }
 
 /**
+ * Dummy SharedFossilServer for testing environments where no real fossil server is needed.
+ * This provides the same interface as SharedFossilServer but with no-op implementations.
+ */
+export class DummySharedFossilServer {
+  private readonly _port: number;
+  private readonly _reposDir: string;
+
+  constructor(port: number = 8000, reposDir?: string) {
+    this._port = port;
+    this._reposDir = reposDir ?? join(process.env.MIMO_HOME || "", "session-fossils");
+  }
+
+  async start(): Promise<boolean> {
+    return true;
+  }
+
+  async stop(): Promise<void> {
+    // No-op
+  }
+
+  async isRunning(): Promise<boolean> {
+    return true;
+  }
+
+  getUrl(sessionId: string): string {
+    const normalizedId = normalizeSessionIdForFossil(sessionId);
+    return `http://localhost:${this._port}/${normalizedId}/`;
+  }
+
+  getFossilPath(sessionId: string): string {
+    const normalizedId = normalizeSessionIdForFossil(sessionId);
+    return join(this._reposDir, `${normalizedId}.fossil`);
+  }
+
+  getReposDir(): string {
+    return this._reposDir;
+  }
+
+  getPort(): number {
+    return this._port;
+  }
+
+  async ensureRunning(): Promise<boolean> {
+    return true;
+  }
+}
+
+/**
  * Configuration options for SharedFossilServer.
  */
 export interface SharedFossilServerConfig {

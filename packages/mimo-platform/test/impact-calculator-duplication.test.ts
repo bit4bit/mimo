@@ -44,14 +44,17 @@ describe("ImpactCalculator duplication integration", () => {
   it("detects duplication when two new files share the same code block", async () => {
     const { ImpactCalculator } = await import("../src/impact/calculator.ts");
     const { JscpdService } = await import("../src/impact/jscpd-service.ts");
+    const { SccService } = await import("../src/impact/scc-service.ts");
 
+    const sccBin = join(process.cwd(), "bin/scc");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
+    const sccService = new SccService(sccBin, join(tmpdir(), "scc-cache"));
     const jscpdService = new JscpdService(jscpdBin);
 
     writeFileSync(join(workspaceDir, "module-a.ts"), BLOCK_A + "\n");
     writeFileSync(join(workspaceDir, "module-b.ts"), BLOCK_B + "\n");
 
-    const calc = new ImpactCalculator(undefined, jscpdService);
+    const calc = new ImpactCalculator(sccService, jscpdService);
     const { metrics } = await calc.calculateImpact(
       "session-1",
       upstreamDir,
@@ -66,8 +69,11 @@ describe("ImpactCalculator duplication integration", () => {
   it("returns zero duplication for unique code changes", async () => {
     const { ImpactCalculator } = await import("../src/impact/calculator.ts");
     const { JscpdService } = await import("../src/impact/jscpd-service.ts");
+    const { SccService } = await import("../src/impact/scc-service.ts");
 
+    const sccBin = join(process.cwd(), "bin/scc");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
+    const sccService = new SccService(sccBin, join(tmpdir(), "scc-cache"));
     const jscpdService = new JscpdService(jscpdBin);
 
     writeFileSync(
@@ -75,7 +81,7 @@ describe("ImpactCalculator duplication integration", () => {
       `export const x = 1;\nexport const y = 2;\n`,
     );
 
-    const calc = new ImpactCalculator(undefined, jscpdService);
+    const calc = new ImpactCalculator(sccService, jscpdService);
     const { metrics } = await calc.calculateImpact(
       "session-2",
       upstreamDir,
@@ -90,14 +96,17 @@ describe("ImpactCalculator duplication integration", () => {
   it("calculates duplication percentage relative to total changed lines", async () => {
     const { ImpactCalculator } = await import("../src/impact/calculator.ts");
     const { JscpdService } = await import("../src/impact/jscpd-service.ts");
+    const { SccService } = await import("../src/impact/scc-service.ts");
 
+    const sccBin = join(process.cwd(), "bin/scc");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
+    const sccService = new SccService(sccBin, join(tmpdir(), "scc-cache"));
     const jscpdService = new JscpdService(jscpdBin);
 
     writeFileSync(join(workspaceDir, "file-a.ts"), BLOCK_A + "\n");
     writeFileSync(join(workspaceDir, "file-b.ts"), BLOCK_B + "\n");
 
-    const calc = new ImpactCalculator(undefined, jscpdService);
+    const calc = new ImpactCalculator(sccService, jscpdService);
     const { metrics } = await calc.calculateImpact(
       "session-3",
       upstreamDir,
@@ -111,14 +120,17 @@ describe("ImpactCalculator duplication integration", () => {
   it("groups clones by file in byFile map", async () => {
     const { ImpactCalculator } = await import("../src/impact/calculator.ts");
     const { JscpdService } = await import("../src/impact/jscpd-service.ts");
+    const { SccService } = await import("../src/impact/scc-service.ts");
 
+    const sccBin = join(process.cwd(), "bin/scc");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
+    const sccService = new SccService(sccBin, join(tmpdir(), "scc-cache"));
     const jscpdService = new JscpdService(jscpdBin);
 
     writeFileSync(join(workspaceDir, "comp-a.ts"), BLOCK_A + "\n");
     writeFileSync(join(workspaceDir, "comp-b.ts"), BLOCK_B + "\n");
 
-    const calc = new ImpactCalculator(undefined, jscpdService);
+    const calc = new ImpactCalculator(sccService, jscpdService);
     const { metrics } = await calc.calculateImpact(
       "session-4",
       upstreamDir,
@@ -133,11 +145,14 @@ describe("ImpactCalculator duplication integration", () => {
   it("includes duplication data in returned ImpactMetrics", async () => {
     const { ImpactCalculator } = await import("../src/impact/calculator.ts");
     const { JscpdService } = await import("../src/impact/jscpd-service.ts");
+    const { SccService } = await import("../src/impact/scc-service.ts");
 
+    const sccBin = join(process.cwd(), "bin/scc");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
+    const sccService = new SccService(sccBin, join(tmpdir(), "scc-cache"));
     const jscpdService = new JscpdService(jscpdBin);
 
-    const calc = new ImpactCalculator(undefined, jscpdService);
+    const calc = new ImpactCalculator(sccService, jscpdService);
     const { metrics } = await calc.calculateImpact(
       "session-5",
       upstreamDir,

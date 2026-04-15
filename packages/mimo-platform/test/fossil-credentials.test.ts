@@ -44,8 +44,9 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
     VCS = vcsModule.VCS;
     vcs = new VCS();
 
-    // Create fresh SharedFossilServer instance with test-specific port via constructor
-    sharedFossilServer = new SharedFossilServer({ port: testPort });
+    // Create fresh SharedFossilServer instance with test-specific port and reposDir via constructor
+    const reposDir = join(testHome, "session-fossils");
+    sharedFossilServer = new SharedFossilServer({ port: testPort, reposDir });
   });
 
   afterEach(async () => {

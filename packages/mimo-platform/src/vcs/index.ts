@@ -267,6 +267,77 @@ export class VCS {
     };
   }
 
+  /**
+   * Create a user in a fossil repository via the HTTP remote interface.
+   * This requires the fossil server to be running.
+   *
+   * @param sessionId - The session ID (used to construct the URL)
+   * @param username - The new username to create
+   * @param password - The new user's password
+   * @param port - The port the fossil server is running on
+   * @param setupUser - The setup/admin username for authentication
+   * @param setupPassword - The setup/admin password for authentication
+   */
+  async createFossilUserInRepo(
+    sessionId: string,
+    username: string,
+    password: string,
+    port: number,
+    setupUser: string,
+    setupPassword: string,
+  ): Promise<VCSResult> {
+    const normalizedId = sessionId.replace(/-/g, "_");
+    const url = `http://${encodeURIComponent(setupUser)}:${encodeURIComponent(setupPassword)}@localhost:${port}/${normalizedId}`;
+
+    // Use fossil remote-url command to create a user
+    const result = await this.execCommand([
+      "fossil",
+      "remote-url",
+      url,
+      "-R",
+      ":memory:", // Use in-memory repo for the operation
+      "--user",
+      username,
+      "--password",
+      password,
+    ]);
+
+    // The fossil remote-url command doesn't have a direct user creation option
+    // Instead, we need to use the HTTP JSON API
+    try {
+      const response = await fetch(
+        `http://localhost:${port}/${normalizedId}/json/user/new`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Basic ${btoa(`${setupUser}:${setupPassword}`)}`,
+          },
+          body: JSON.stringify({
+            user: username,
+            password: password,
+            capabilities: "dio", // develop, check-in, check-out
+          }),
+        },
+      );
+
+      if (response.ok) {
+        return { success: true };
+      } else {
+        const errorText = await response.text();
+        return {
+          success: false,
+          error: `HTTP ${response.status}: ${errorText}`,
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
   async openFossil(repoPath: string, workDir: string): Promise<VCSResult> {
     const result = await this.execCommand(
       ["fossil", "open", repoPath],
