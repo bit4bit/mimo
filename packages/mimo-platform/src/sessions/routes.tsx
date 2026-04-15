@@ -892,6 +892,24 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       return c.text("Project not found", 404);
     }
 
+    // Resolve assigned agent name
+    let assignedAgentName: string | null = null;
+    if (session.assignedAgentId) {
+      const agent = await agentRepository.findById(session.assignedAgentId);
+      assignedAgentName = agent?.name ?? null;
+    }
+
+    // Resolve MCP server names
+    const mcpServerNames: string[] = [];
+    if (session.mcpServerIds && session.mcpServerIds.length > 0) {
+      for (const mcpId of session.mcpServerIds) {
+        const mcpServer = await mcpServerService.findById(mcpId);
+        if (mcpServer) {
+          mcpServerNames.push(mcpServer.name);
+        }
+      }
+    }
+
     // Import the settings page component
     const { SessionSettingsPage } =
       await import("../components/SessionSettingsPage.js");
@@ -909,6 +927,15 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         project={{
           id: project.id,
           name: project.name,
+        }}
+        creationSettings={{
+          sessionName: session.name,
+          assignedAgentName: assignedAgentName,
+          agentSubpath: session.agentSubpath,
+          localDevMirrorPath: session.localDevMirrorPath,
+          branch: session.branch,
+          mcpServerNames: mcpServerNames,
+          sessionType: "standard",
         }}
         streamingTimeoutMs={streamingTimeoutMs}
       />,

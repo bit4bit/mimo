@@ -12,12 +12,22 @@ interface SessionSettingsPageProps {
     id: string;
     name: string;
   };
+  creationSettings?: {
+    sessionName: string;
+    assignedAgentName: string | null;
+    agentSubpath: string | null;
+    localDevMirrorPath: string | null;
+    branch: string | null;
+    mcpServerNames: string[];
+    sessionType: string;
+  };
   streamingTimeoutMs?: number;
 }
 
 export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
   session,
   project,
+  creationSettings,
   streamingTimeoutMs,
 }) => {
   // Format timeout for display
@@ -43,6 +53,64 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
         <p style="color: #888; margin-bottom: 20px;">
           {session.name} · {project.name}
         </p>
+
+        {creationSettings && (
+          <div style={{background: "#0f1419", padding: "15px", borderRadius: "4px", marginBottom: "30px", borderLeft: "3px solid #4caf50"}}>
+            <h2 style={{marginTop: "0", marginBottom: "15px", color: "#d4d4d4", fontSize: "16px"}}>
+              Creation Settings
+            </h2>
+            <div style={{color: "#ccc", fontSize: "14px"}}>
+              <div style={{marginBottom: "12px"}}>
+                <span style={{color: "#888", fontSize: "12px"}}>Session Name</span>
+                <div style={{color: "#d4d4d4", marginTop: "4px"}}>
+                  {creationSettings.sessionName}
+                </div>
+              </div>
+              <div style={{marginBottom: "12px"}}>
+                <span style={{color: "#888", fontSize: "12px"}}>Assigned Agent</span>
+                <div style={{color: "#d4d4d4", marginTop: "4px"}}>
+                  {creationSettings.assignedAgentName || "None"}
+                </div>
+              </div>
+              <div style={{marginBottom: "12px"}}>
+                <span style={{color: "#888", fontSize: "12px"}}>Agent working directory</span>
+                <div style={{color: "#d4d4d4", marginTop: "4px"}}>
+                  {creationSettings.agentSubpath || "Repository root"}
+                </div>
+              </div>
+              <div style={{marginBottom: "12px"}}>
+                <span style={{color: "#888", fontSize: "12px"}}>Local Development Mirror</span>
+                <div style={{color: "#d4d4d4", marginTop: "4px"}}>
+                  {creationSettings.localDevMirrorPath || "Disabled"}
+                </div>
+              </div>
+              <div style={{marginBottom: "12px"}}>
+                <span style={{color: "#888", fontSize: "12px"}}>Branch</span>
+                <div style={{color: "#d4d4d4", marginTop: "4px"}}>
+                  {creationSettings.branch || "Not set"}
+                </div>
+              </div>
+              <div style={{marginBottom: "12px"}}>
+                <span style={{color: "#888", fontSize: "12px"}}>MCP Servers</span>
+                <div style={{color: "#d4d4d4", marginTop: "4px"}}>
+                  {creationSettings.mcpServerNames.length > 0
+                    ? creationSettings.mcpServerNames.join(", ")
+                    : "None attached"}
+                </div>
+              </div>
+              <div>
+                <span style={{color: "#888", fontSize: "12px"}}>Session Type</span>
+                <div style={{color: "#d4d4d4", marginTop: "4px"}}>
+                  {creationSettings.sessionType}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <h2 style={{color: "#d4d4d4", fontSize: "16px", marginTop: "30px", marginBottom: "15px"}}>
+          Runtime Settings
+        </h2>
 
         <form
           method="POST"

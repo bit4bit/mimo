@@ -569,4 +569,190 @@ describe("Session Management Integration Tests", () => {
       expect(sessions.length).toBe(0);
     });
   });
+
+  describe("Session Settings - Creation Metadata Display", () => {
+    it("should show all creation fields with persisted values on settings page", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      // Create agent to be assigned
+      const agentRes = await import("../src/agents/agent-registry.ts");
+      const agentRegistry = agentRes.agentRegistry;
+      const agent = await agentRegistry.register(
+        "myagent",
+        { type: "test", apiEndpoint: "http://localhost:9000" },
+      );
+
+      const token = await authService.generateToken("testuser");
+
+      // Create session with all creation fields
+      const createRes = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "Feature Branch Session",
+          assignedAgentId: agent.id,
+          agentSubpath: "src/backend",
+          localDevMirrorPath: "/dev/mirror",
+          branchName: "feature/test",
+        }).toString(),
+      });
+
+      expect(createRes.status).toBe(302);
+      const location = createRes.headers.get("location") || "";
+      const sessionId = location.split("/").pop();
+
+      // View settings page
+      const settingsRes = await app.request(
+        `/projects/${project.id}/sessions/${sessionId}/settings`,
+        {
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+
+      expect(settingsRes.status).toBe(200);
+      const html = await settingsRes.text();
+
+      // Verify creation fields are displayed
+      expect(html).toContain("Creation Settings");
+      expect(html).toContain("Session Name");
+      expect(html).toContain("Feature Branch Session");
+      expect(html).toContain("Assigned Agent");
+      expect(html).toContain("myagent"); // agent name
+      expect(html).toContain("Agent working directory");
+      expect(html).toContain("src/backend");
+      expect(html).toContain("Local Development Mirror");
+      expect(html).toContain("/dev/mirror");
+      expect(html).toContain("Branch");
+      expect(html).toContain("feature/test");
+    });
+
+    it("should show fallback labels when optional creation fields are empty", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      // Create session with minimal fields
+      const createRes = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "Simple Session",
+        }).toString(),
+      });
+
+      expect(createRes.status).toBe(302);
+      const location = createRes.headers.get("location") || "";
+      const sessionId = location.split("/").pop();
+
+      // View settings page
+      const settingsRes = await app.request(
+        `/projects/${project.id}/sessions/${sessionId}/settings`,
+        {
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+
+      expect(settingsRes.status).toBe(200);
+      const html = await settingsRes.text();
+
+      // Verify fallback labels are displayed
+      expect(html).toContain("Creation Settings");
+      expect(html).toContain("Session Name");
+      expect(html).toContain("Simple Session");
+      expect(html).toContain("Assigned Agent");
+      expect(html).toContain("None"); // fallback for no agent
+      expect(html).toContain("Agent working directory");
+      expect(html).toContain("Repository root"); // fallback
+      expect(html).toContain("Local Development Mirror");
+      expect(html).toContain("Disabled"); // fallback
+      expect(html).toContain("Branch");
+      expect(html).toContain("Not set"); // fallback
+      expect(html).toContain("MCP Servers");
+      expect(html).toContain("None attached"); // fallback
+    });
+
+    it("should keep runtime settings (idle timeout) editable", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      // Create session
+      const createRes = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "Test Session",
+        }).toString(),
+      });
+
+      expect(createRes.status).toBe(302);
+      const location = createRes.headers.get("location") || "";
+      const sessionId = location.split("/").pop();
+
+      // View settings page
+      const settingsRes = await app.request(
+        `/projects/${project.id}/sessions/${sessionId}/settings`,
+        {
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+
+      expect(settingsRes.status).toBe(200);
+      const html = await settingsRes.text();
+
+      // Verify creation section is read-only (no input for creation fields)
+      expect(html).toContain("Creation Settings");
+      expect(html).not.toContain("Idle Timeout"); // This is in runtime section, not creation
+
+      // Verify runtime section with editable timeout exists
+      expect(html).toContain("Idle Timeout");
+      expect(html).toContain("select");
+      expect(html).toContain("Update Settings");
+    });
+  });
 });
