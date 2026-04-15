@@ -12,6 +12,7 @@ import { join } from "path";
 import { rmSync, existsSync, mkdirSync, writeFileSync } from "fs";
 import {
   SharedFossilServer,
+  DummySharedFossilServer,
   normalizeSessionIdForFossil,
 } from "../src/vcs/shared-fossil-server.js";
 
@@ -35,9 +36,10 @@ describe("SharedFossilServer Integration Tests", () => {
         JWT_SECRET: "test-secret-key-for-testing",
         MIMO_SHARED_FOSSIL_SERVER_PORT: testPort,
       },
-      services: {
-        sharedFossil: null as any, // Skip creating - test creates its own
-      },
+  services: {
+    sharedFossil: new DummySharedFossilServer(),
+  },
+
     });
 
     // Clean up from previous run

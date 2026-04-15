@@ -1,3 +1,4 @@
+import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 import { beforeEach, describe, expect, it } from "bun:test";
 import { Hono } from "hono";
 import { join } from "path";
@@ -24,6 +25,9 @@ describe("Sessions routes with mimoContext", () => {
       env: {
         MIMO_HOME: testHome,
         JWT_SECRET: "sessions-context-secret-a",
+      },
+      services: {
+        sharedFossil: new DummySharedFossilServer(),
       },
     });
 

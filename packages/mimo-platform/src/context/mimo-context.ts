@@ -22,7 +22,7 @@ import { ConfigService } from "../config/service.js";
 import { ImpactCalculator } from "../impact/calculator.js";
 import { vcs } from "../vcs/index.js";
 import { sessionStateService } from "../sessions/state.js";
-import { SharedFossilServer, DummySharedFossilServer } from "../vcs/shared-fossil-server.js";
+import { SharedFossilServer } from "../vcs/shared-fossil-server.js";
 import type { SharedFossilServerConfig } from "../vcs/shared-fossil-server.js";
 
 export interface MimoEnv {
@@ -71,7 +71,7 @@ export interface MimoContext {
     impactCalculator: ImpactCalculator;
     vcs: typeof vcs;
     sessionState: typeof sessionStateService;
-    sharedFossil: SharedFossilServer | DummySharedFossilServer | null;
+    sharedFossil: SharedFossilServer | null;
   };
 }
 
@@ -192,13 +192,13 @@ export function createMimoContext(
 
   // Create shared fossil server using factory function
   // Only create if port is provided in env, or if explicitly overridden
-  // Use DummySharedFossilServer when port not provided (for tests)
+  // Use null when port not provided; dependencies must be injected explicitly
   const sharedFossilServer =
     overrides.services && "sharedFossil" in overrides.services
       ? overrides.services.sharedFossil!
       : env.MIMO_SHARED_FOSSIL_SERVER_PORT !== undefined
         ? createSharedFossilServer(env)
-        : new DummySharedFossilServer();
+        : null;
 
   const services: MimoContext["services"] = {
     auth: overrides.services?.auth ?? new JwtService(env.JWT_SECRET),

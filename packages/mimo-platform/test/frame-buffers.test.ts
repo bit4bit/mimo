@@ -4,6 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync } from "fs";
 import bcrypt from "bcrypt";
+import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
 let sessionRoutes: any;
 let sessionRepository: any;
@@ -23,6 +24,9 @@ describe("Frame buffers integration", () => {
       await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+      services: {
+        sharedFossil: new DummySharedFossilServer(),
+      },
     });
 
     userRepository = ctx.repos.users;
