@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
+import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 import { Hono } from "hono";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -20,12 +21,15 @@ describe("Sessions routes with mimoContext", () => {
       await import("../src/context/mimo-context.ts");
     const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
 
-    const mimoContext = createMimoContext({
-      env: {
-        MIMO_HOME: testHome,
-        JWT_SECRET: "sessions-context-secret-a",
-      },
-    });
+     const mimoContext = createMimoContext({
+       env: {
+         MIMO_HOME: testHome,
+         JWT_SECRET: "sessions-context-secret-a",
+       },
+       services: {
+         sharedFossil: new DummySharedFossilServer(),
+       },
+     });
 
     const token = await mimoContext.services.auth.generateToken("tester");
 

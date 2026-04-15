@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test";
+import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -25,9 +26,12 @@ describe("Session Management Integration Tests", () => {
     // Set up fresh environment with createMimoContext
     const { createMimoContext } =
       await import("../src/context/mimo-context.ts");
-    const ctx = createMimoContext({
-      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
-    });
+     const ctx = createMimoContext({
+       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+       services: {
+         sharedFossil: new DummySharedFossilServer(),
+       },
+     });
 
     userRepository = ctx.repos.users;
     projectRepository = ctx.repos.projects;
