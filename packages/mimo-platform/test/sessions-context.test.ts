@@ -5,7 +5,9 @@ import { tmpdir } from "os";
 import { rmSync } from "fs";
 
 describe("Sessions routes with mimoContext", () => {
-  let testHome: string;
+  import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
+
+let testHome: string;
 
   beforeEach(() => {
     testHome = join(
@@ -25,6 +27,7 @@ describe("Sessions routes with mimoContext", () => {
         MIMO_HOME: testHome,
         JWT_SECRET: "sessions-context-secret-a",
       },
+      services: { sharedFossil: new DummySharedFossilServer() },
     });
 
     const token = await mimoContext.services.auth.generateToken("tester");
