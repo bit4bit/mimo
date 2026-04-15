@@ -1,3 +1,6 @@
 **/node_modules
 **/dist
 .claude
+**/session-fossils
+**/bin
+**/.mimo

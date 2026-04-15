@@ -26,7 +26,8 @@ export class DummySharedFossilServer {
 
   constructor(port: number = 8000, reposDir?: string) {
     this._port = port;
-    this._reposDir = reposDir ?? join(process.env.MIMO_HOME || "", "session-fossils");
+    this._reposDir =
+      reposDir ?? join(process.env.MIMO_HOME || "", "session-fossils");
   }
 
   async start(): Promise<boolean> {

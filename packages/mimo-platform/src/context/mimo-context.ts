@@ -22,7 +22,10 @@ import { ConfigService } from "../config/service.js";
 import { ImpactCalculator } from "../impact/calculator.js";
 import { vcs } from "../vcs/index.js";
 import { sessionStateService } from "../sessions/state.js";
-import { SharedFossilServer, DummySharedFossilServer } from "../vcs/shared-fossil-server.js";
+import {
+  SharedFossilServer,
+  DummySharedFossilServer,
+} from "../vcs/shared-fossil-server.js";
 import type { SharedFossilServerConfig } from "../vcs/shared-fossil-server.js";
 
 export interface MimoEnv {
