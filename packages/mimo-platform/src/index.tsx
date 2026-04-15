@@ -1261,7 +1261,7 @@ async function handleChatMessage(ws, data) {
         findSessionById: (targetSessionId) =>
           sessionRepository.findById(targetSessionId),
         calculateImpact: (sid, upstreamPath, workspacePath, forceRefresh) =>
-          impactCalculator.calculateImpact(
+          mimoContext.services.impactCalculator.calculateImpact(
             sid,
             upstreamPath,
             workspacePath,
