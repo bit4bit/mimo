@@ -3,7 +3,7 @@ import { join, resolve } from "path";
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { tmpdir } from "os";
 
-const AGENT_CWD = import.meta.dir.replace("/test", "");
+const AGENT_CWD = import.meta.dir.replace("/integration-test", "");
 
 describe("mimo-agent", () => {
   let tempDir: string;

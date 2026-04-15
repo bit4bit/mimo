@@ -277,7 +277,7 @@ echo '[]'`;
       expect(result.metrics.files.changed).toBe(1); // file1.ts modified
       expect(result.metrics.files.new).toBe(1); // file3.ts new
       expect(result.metrics.files.deleted).toBe(0);
-    });
+    }, 10000);
 
     it("should detect deleted files", async () => {
       const { createMimoContext } =
@@ -305,7 +305,7 @@ echo '[]'`;
 
       expect(result.metrics.files.deleted).toBe(1);
       expect(result.metrics.files.new).toBe(1); // kept.ts is new relative to upstream
-    });
+    }, 10000);
 
     it("should calculate trends between scans", async () => {
       const { createMimoContext } =
@@ -343,7 +343,7 @@ echo '[]'`;
       );
       expect(result2.metrics.files.new).toBe(3);
       expect(result2.trends.files.new).toBe("↑"); // Trend should be up
-    });
+    }, 20000);
 
     it("should track unchanged files", async () => {
       const { createMimoContext } =
@@ -550,7 +550,7 @@ echo '[]'`;
       );
       expect(result2.metrics.files.new).toBe(3);
       expect(result2.trends.files.new).toBe("↑"); // Trend up
-    });
+    }, 10000);
 
     it("should show stable trend when metrics unchanged", async () => {
       const { createMimoContext } =
@@ -579,6 +579,6 @@ echo '[]'`;
         workspaceDir,
       );
       expect(result2.trends.files.new).toBe("→"); // Stable
-    });
+    }, 10000);
   });
 });

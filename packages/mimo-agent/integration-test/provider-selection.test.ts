@@ -22,7 +22,7 @@ async function createTestToken(provider?: string): Promise<string> {
     .sign(TEST_SECRET);
 }
 
-const AGENT_CWD = import.meta.dir.replace("/test", "");
+const AGENT_CWD = import.meta.dir.replace("/integration-test", "");
 
 describe("provider selection", () => {
   describe("--provider flag: unknown value exits with code 1", () => {

@@ -402,6 +402,65 @@ Every new page MUST follow these standards:
 
 ---
 
+## Test Organization
+
+### Test Types
+
+Tests are organized into two categories based on their dependencies and execution speed:
+
+#### Unit Tests (`test/` folder)
+
+**Location:** `packages/*/test/`
+
+**Characteristics:**
+- Fast execution (milliseconds)
+- No external process spawning
+- Mocked external dependencies
+- Test business logic in isolation
+- Can use: filesystem, Hono HTTP framework, in-memory mocks
+
+**Examples:**
+- ✅ Repository/database tests with temp directories
+- ✅ Hono route handler tests
+- ✅ Pure function logic tests
+- ✅ Type validation tests
+- ✅ VCS module tests (using git/fossil commands to test VCS functionality)
+
+#### Integration Tests (`integration-test/` folder)
+
+**Location:** `packages/*/integration-test/`
+
+**Characteristics:**
+- Slower execution (seconds or more)
+- Spawn external processes via `Bun.spawn` to test system-level integration
+- Call external providers (ACP providers like opencode, claude-agent-acp)
+- Test interaction between multiple systems/components
+- May have external network dependencies
+
+**What belongs here:**
+- ✅ Agent process spawning and CLI argument parsing (spawns agent as external process)
+- ✅ Provider selection and authentication flows (tests ACP provider integration)
+- ✅ Cross-system workflows that spawn external tools
+
+**What does NOT belong here:**
+- ❌ VCS module tests using git/fossil commands — these are unit tests for the VCS module
+- ❌ Tests using external commands to test a specific module's functionality
+- ❌ Tests that happen to use execSync for module-internal operations
+
+### Running Tests
+
+```bash
+# Run only fast unit tests (default)
+cd packages/mimo-platform && bun test
+cd packages/mimo-agent && bun test
+
+# Run all tests including slow integration tests
+cd packages/mimo-platform && bun run test.full
+cd packages/mimo-agent && bun run test.full
+```
+
+---
+
 ## Test Suite Health
 
 ### Before Any Change

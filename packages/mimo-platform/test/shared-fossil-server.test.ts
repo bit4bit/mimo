@@ -1,4 +1,12 @@
-import { describe, it, expect, beforeEach, beforeAll, afterEach, afterAll } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  beforeAll,
+  afterEach,
+  afterAll,
+} from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, mkdirSync, writeFileSync } from "fs";
@@ -8,13 +16,13 @@ import {
 } from "../src/vcs/shared-fossil-server.js";
 
 describe("SharedFossilServer Integration Tests", () => {
-    let sharedServers: any = [];
+  let sharedServers: any = [];
 
-    async function aSharedFossilServer() {
-   // Use a unique port for each test to avoid conflicts
-        const testPort = 18000 + (Math.floor(Math.random() * 7001));
+  async function aSharedFossilServer() {
+    // Use a unique port for each test to avoid conflicts
+    const testPort = 18000 + Math.floor(Math.random() * 7001);
 
-        const testHome = join(
+    const testHome = join(
       tmpdir(),
       `mimo-shared-fossil-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     );
@@ -40,34 +48,33 @@ describe("SharedFossilServer Integration Tests", () => {
     mkdirSync(testHome, { recursive: true });
 
     // Create fresh instance with test-specific port via constructor injection
-        const sharedServer = new SharedFossilServer({
+    const sharedServer = new SharedFossilServer({
       port: testPort,
       reposDir: join(testHome, "session-fossils"),
-        });
-        const testServer = {sharedServer, testHome, testPort};
-        sharedServers.push(testServer);
-        return testServer;
+    });
+    const testServer = { sharedServer, testHome, testPort };
+    sharedServers.push(testServer);
+    return testServer;
+  }
+
+  beforeEach(async () => {
+    for (let testServer of sharedServers) {
+      // Clean up from previous run
+      try {
+        rmSync(testServer.testHome, { recursive: true, force: true });
+      } catch {}
+
+      mkdirSync(testServer.testHome, { recursive: true });
     }
-
-    beforeEach(async () => {
-        for(let testServer of sharedServers) {
-            // Clean up from previous run
-            try {
-                rmSync(testServer.testHome, { recursive: true, force: true });
-            } catch {}
-            
-            mkdirSync(testServer.testHome, { recursive: true });
-
-        }
   });
 
-    afterAll(async () => {
-for(const testServer of sharedServers) {
-            const {sharedServer, testHome} = testServer;
-            await sharedServer.stop();
-            rmSync(testHome, { recursive: true, force: true });
-        }
-    });
+  afterAll(async () => {
+    for (const testServer of sharedServers) {
+      const { sharedServer, testHome } = testServer;
+      await sharedServer.stop();
+      rmSync(testHome, { recursive: true, force: true });
+    }
+  });
 
   describe("Session ID Normalization", () => {
     it("should replace hyphens with underscores", () => {
@@ -88,8 +95,8 @@ for(const testServer of sharedServers) {
   });
 
   describe("Server Lifecycle", () => {
-      it("should start the shared fossil server", async () => {
-          const {sharedServer} = await aSharedFossilServer();
+    it("should start the shared fossil server", async () => {
+      const { sharedServer } = await aSharedFossilServer();
       // Create a test fossil file
       const sessionId = "test-session-123";
       const fossilPath = sharedServer.getFossilPath(sessionId);
@@ -104,9 +111,8 @@ for(const testServer of sharedServers) {
       expect(await sharedServer.isRunning()).toBe(true);
     }, 10000);
 
-
-      it("should stop the shared fossil server", async () => {
-          const {sharedServer} = await aSharedFossilServer();
+    it("should stop the shared fossil server", async () => {
+      const { sharedServer } = await aSharedFossilServer();
       const sessionId = "test-session-456";
       const fossilPath = sharedServer.getFossilPath(sessionId);
       mkdirSync(sharedServer.getReposDir(), { recursive: true });
@@ -120,7 +126,7 @@ for(const testServer of sharedServers) {
     }, 10000);
 
     it("should return true when starting already running server", async () => {
-          const {sharedServer} = await aSharedFossilServer();
+      const { sharedServer } = await aSharedFossilServer();
       const sessionId = "test-session-789";
       const fossilPath = sharedServer.getFossilPath(sessionId);
       mkdirSync(sharedServer.getReposDir(), { recursive: true });
@@ -135,7 +141,7 @@ for(const testServer of sharedServers) {
 
   describe("URL Generation", () => {
     it("should generate correct fossil URL for session without .fossil extension", async () => {
-        const {sharedServer,testPort} = await aSharedFossilServer();
+      const { sharedServer, testPort } = await aSharedFossilServer();
       const sessionId = "abc123-def456";
       const url = sharedServer.getUrl(sessionId);
 
@@ -145,7 +151,7 @@ for(const testServer of sharedServers) {
     });
 
     it("should generate correct fossil path for session", async () => {
-          const {sharedServer} = await aSharedFossilServer();
+      const { sharedServer } = await aSharedFossilServer();
       const sessionId = "test-session-001";
       const path = sharedServer.getFossilPath(sessionId);
       const reposDir = sharedServer.getReposDir();
@@ -154,16 +160,16 @@ for(const testServer of sharedServers) {
     });
   });
 
-  describe("Repository Directory Management",  () => {
+  describe("Repository Directory Management", () => {
     it("should create repos directory on first access", async () => {
-          const {sharedServer} = await aSharedFossilServer();
+      const { sharedServer } = await aSharedFossilServer();
       const reposDir = sharedServer.getReposDir();
 
       expect(existsSync(reposDir)).toBe(true);
     });
 
     it("should return consistent repos directory", async () => {
-          const {sharedServer} = await aSharedFossilServer();
+      const { sharedServer } = await aSharedFossilServer();
       const dir1 = sharedServer.getReposDir();
       const dir2 = sharedServer.getReposDir();
 
@@ -173,7 +179,7 @@ for(const testServer of sharedServers) {
 
   describe("Server Port", () => {
     it("should use configured test port", async () => {
-        const {sharedServer,testPort} = await aSharedFossilServer();
+      const { sharedServer, testPort } = await aSharedFossilServer();
       expect(sharedServer.getPort()).toBe(testPort);
     });
 

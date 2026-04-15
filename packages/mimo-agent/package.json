@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "bun run src/index.ts",
     "build": "bun build --compile src/index.ts --outfile dist/mimo-agent",
-    "test": "bun test"
+    "test": "bun test",
+    "test.full": "bun test --config /dev/null test/ integration-test/"
   },
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "0.25.3",
