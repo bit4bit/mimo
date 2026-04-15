@@ -24,6 +24,7 @@ export interface AcpClientSession {
   modeState?: ModeState;
   currentThoughtBuffer?: string;
   checkoutPath?: string;
+  mcpServers?: McpServerConfig[];
 }
 
 export interface InitializeResult {
@@ -157,6 +158,7 @@ export class AcpClient {
       stdin: input,
       modelState: state.modelState,
       modeState: state.modeState,
+      mcpServers,
     };
 
     return {
@@ -339,7 +341,7 @@ export class AcpClient {
     // Create new session (closing old session is not supported by most providers)
     const sessionResponse = await connection.newSession({
       cwd: this.session.checkoutPath || process.cwd(),
-      mcpServers: [],
+      mcpServers: (currentSession.mcpServers as any) || [],
     });
 
     // Extract state from new session
@@ -357,6 +359,7 @@ export class AcpClient {
       modeState: state.modeState,
       currentThoughtBuffer: undefined,
       checkoutPath: currentSession.checkoutPath,
+      mcpServers: currentSession.mcpServers,
     };
 
     logger.debug(

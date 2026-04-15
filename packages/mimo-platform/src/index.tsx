@@ -512,6 +512,25 @@ async function handleAgentMessage(ws, data) {
             const sessionWithCreds =
               await sessionRepository.findById(sessionId);
 
+            // Resolve MCP servers attached to this session
+            let mcpServers: any[] = [];
+            if (
+              sessionWithCreds?.mcpServerIds &&
+              sessionWithCreds.mcpServerIds.length > 0
+            ) {
+              try {
+                mcpServers =
+                  await mimoContext.services.mcpServer.resolveMcpServers(
+                    sessionWithCreds.mcpServerIds,
+                  );
+              } catch (err) {
+                logger.error(
+                  `[agent] Failed to resolve MCP servers for session ${sessionId}:`,
+                  err,
+                );
+              }
+            }
+
             sessionsReady.push({
               sessionId,
               name: session.name,
@@ -525,6 +544,7 @@ async function handleAgentMessage(ws, data) {
               modeState: sessionWithCreds?.modeState ?? null,
               localDevMirrorPath: sessionWithCreds?.localDevMirrorPath ?? null,
               agentSubpath: sessionWithCreds?.agentSubpath ?? null,
+              mcpServers: mcpServers.length > 0 ? mcpServers : undefined,
             });
           }
         }

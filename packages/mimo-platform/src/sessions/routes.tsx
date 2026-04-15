@@ -116,7 +116,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       return c.redirect("/auth/login");
     }
 
-    const body = await c.req.parseBody();
+    const body = await c.req.parseBody({ all: true });
     const name = body.name as string;
     const projectId = (body.projectId as string) || getProjectId(c);
     const assignedAgentId = (body.assignedAgentId as string) || null;
