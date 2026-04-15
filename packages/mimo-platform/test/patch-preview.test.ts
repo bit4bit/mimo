@@ -372,6 +372,32 @@ index 1234567..abcdefg 100644
 
       expect(filtered).toBe("");
     });
+
+    it("should preserve trailing newline when selected file is not last in original patch", () => {
+      // Regression: filterPatchByPaths dropped the trailing \n when the last
+      // selected file was not the last file in the original patch, causing
+      // git apply to report "corrupt patch at line N".
+      const patch = `diff --git a/first.md b/first.md
+new file mode 100644
+--- /dev/null
++++ b/first.md
+@@ -0,0 +1,1 @@
++content
+diff --git a/second.md b/second.md
+new file mode 100644
+--- /dev/null
++++ b/second.md
+@@ -0,0 +1,1 @@
++content
+`;
+
+      // Select only first.md (not last in original patch)
+      const filtered = filterPatchByPaths(patch, ["first.md"]);
+
+      expect(filtered).toContain("first.md");
+      expect(filtered).not.toContain("second.md");
+      expect(filtered.endsWith("\n")).toBe(true);
+    });
   });
 
   describe("Path Validation", () => {

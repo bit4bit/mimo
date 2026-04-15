@@ -435,7 +435,12 @@ export function filterPatchByPaths(
     i++;
   }
 
-  return result.join("\n");
+  const joined = result.join("\n");
+  // Ensure the patch ends with a newline. When the last selected file is not
+  // the last file in the original patch, the slice does not include the empty
+  // trailing element that produces the final \n, so we add it back here.
+  // git apply requires every line (including the last) to be newline-terminated.
+  return joined.length > 0 && !joined.endsWith("\n") ? joined + "\n" : joined;
 }
 
 /**
