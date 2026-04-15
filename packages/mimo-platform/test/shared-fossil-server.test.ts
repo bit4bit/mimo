@@ -12,6 +12,7 @@ import { join } from "path";
 import { rmSync, existsSync, mkdirSync, writeFileSync } from "fs";
 import {
   SharedFossilServer,
+  DummySharedFossilServer,
   normalizeSessionIdForFossil,
 } from "../src/vcs/shared-fossil-server.js";
 
@@ -36,7 +37,7 @@ describe("SharedFossilServer Integration Tests", () => {
         MIMO_SHARED_FOSSIL_SERVER_PORT: testPort,
       },
       services: {
-        sharedFossil: null as any, // Skip creating - test creates its own
+        sharedFossil: new DummySharedFossilServer(),
       },
     });
 

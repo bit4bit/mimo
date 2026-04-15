@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { join } from "path";
 import { tmpdir } from "os";
 import { rmSync } from "fs";
+import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
 describe("Sessions routes with mimoContext", () => {
   let testHome: string;
@@ -24,6 +25,9 @@ describe("Sessions routes with mimoContext", () => {
       env: {
         MIMO_HOME: testHome,
         JWT_SECRET: "sessions-context-secret-a",
+      },
+      services: {
+        sharedFossil: new DummySharedFossilServer(),
       },
     });
 
