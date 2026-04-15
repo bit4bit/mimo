@@ -1,49 +1,35 @@
-import { Hono } from "hono";
-import { serveStatic } from "hono/bun";
-import { createAuthRoutes } from "./auth/routes";
-import protectedRoutes from "./protected/routes";
-import { createProjectsRoutes } from "./projects/routes";
-import { createAgentsRoutes } from "./agents/routes.js";
-import { createSessionsRoutes } from "./sessions/routes";
-import { createDashboardRoutes } from "./dashboard/routes";
-import { createSyncRoutes } from "./sync/routes";
-import { createCommitRoutes } from "./commits/routes";
-import { createConfigRoutes } from "./config/routes";
-import { createCredentialsRoutes } from "./credentials/routes";
-import { createMcpServerRoutes } from "./mcp-servers/routes";
-import {
-  createAutoCommitRouter,
-  resolveAgentSyncNowResult,
-  syncSessionViaAssignedAgent,
-} from "./auto-commit/routes";
-import { LandingPage } from "./components/LandingPage.js";
-import { handleRefreshImpact } from "./impact/refresh-handler.js";
-
-import {
-  broadcastToSession,
-  type SessionWsClient,
-} from "./ws/session-broadcast.js";
-import { relative } from "path";
-import { MimoServer } from "./server/mimo-server.js";
-import { createMimoContext } from "./context/mimo-context.js";
-import { logger } from "./logger.js";
-
+import { createMimoContext, createSharedFossilServer } from "./context/mimo-context.js";
 const app = new Hono();
 const _port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+// Create shared fossil server explicitly before context (dependency injection)
+const sharedFossilServer = createSharedFossilServer({
+  PORT: _port,
+  PLATFORM_URL: process.env.PLATFORM_URL ?? `http://localhost:${_port}`,
+  JWT_SECRET:
+    process.env.JWT_SECRET ?? "your-secret-key-change-in-production",
+  MIMO_HOME: process.env.MIMO_HOME ?? "",
+  FOSSIL_REPOS_DIR: process.env.FOSSIL_REPOS_DIR ?? "",
+  MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
+    ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
+    : 8000, // Default port for production,
+});
+
 const mimoContext = createMimoContext({
   env: {
     PORT: _port,
     PLATFORM_URL: process.env.PLATFORM_URL ?? `http://localhost:${_port}`,
     JWT_SECRET:
       process.env.JWT_SECRET ?? "your-secret-key-change-in-production",
-    MIMO_HOME: process.env.MIMO_HOME,
-    FOSSIL_REPOS_DIR: process.env.FOSSIL_REPOS_DIR,
+    MIMO_HOME: process.env.MIMO_HOME ?? "",
+    FOSSIL_REPOS_DIR: process.env.FOSSIL_REPOS_DIR ?? "",
     MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
       ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
-      : 8000, // Provide default port for production
+      : 8000,
+  },
+  services: {
+    sharedFossil: sharedFossilServer,
   },
 });
-const sharedFossilServer = mimoContext.services.sharedFossil;
 mimoContext.services.scc.configure({ mimoHome: mimoContext.env.MIMO_HOME });
 const agentService = mimoContext.services.agents;
 const sessionRepository = mimoContext.repos.sessions;
