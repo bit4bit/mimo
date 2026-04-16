@@ -14,56 +14,32 @@ const NotesState = {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Load Notes on Page Load
-// ═════════════════════════════════════════════════════════════════════════════
-
-async function loadProjectNotes() {
-  const projectNotesInput = document.querySelector("#project-notes-input");
-  if (!projectNotesInput || !NotesState.projectId) return;
-
-  try {
-    const response = await fetch(`/projects/${NotesState.projectId}/notes`);
-    const data = await response.json();
-    projectNotesInput.value = data.content || "";
-  } catch (error) {
-    console.error("[notes] Failed to load project notes:", error);
-  }
-}
-
-async function loadSessionNotes() {
-  const notesInput = document.querySelector("#notes-input");
-  if (!notesInput || !NotesState.sessionId) return;
-
-  try {
-    const response = await fetch(`/sessions/${NotesState.sessionId}/notes`);
-    const data = await response.json();
-    notesInput.value = data.content || "";
-  } catch (error) {
-    console.error("[notes] Failed to load session notes:", error);
-  }
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
 // Save Notes
 // ═════════════════════════════════════════════════════════════════════════════
 
 async function saveProjectNotes() {
   const projectNotesInput = document.querySelector("#project-notes-input");
   const status = document.querySelector("#project-notes-save-status");
-  if (!projectNotesInput || !NotesState.projectId) return;
+  if (!projectNotesInput || !NotesState.projectId) {
+    console.warn("[notes] Cannot save project notes: missing input or projectId");
+    return;
+  }
 
   try {
-    status.textContent = "Saving...";
-    await fetch(`/projects/${NotesState.projectId}/notes`, {
+    if (status) status.textContent = "Saving...";
+    const response = await fetch(`/projects/${NotesState.projectId}/notes`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ content: projectNotesInput.value }),
     });
-    status.textContent = "Saved";
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    if (status) status.textContent = "Saved";
   } catch (error) {
-    status.textContent = "Error";
+    if (status) status.textContent = "Error";
     console.error("[notes] Failed to save project notes:", error);
   }
 }
@@ -71,20 +47,26 @@ async function saveProjectNotes() {
 async function saveSessionNotes() {
   const notesInput = document.querySelector("#notes-input");
   const status = document.querySelector("#notes-save-status");
-  if (!notesInput || !NotesState.sessionId) return;
+  if (!notesInput || !NotesState.sessionId) {
+    console.warn("[notes] Cannot save session notes: missing input or sessionId");
+    return;
+  }
 
   try {
-    status.textContent = "Saving...";
-    await fetch(`/sessions/${NotesState.sessionId}/notes`, {
+    if (status) status.textContent = "Saving...";
+    const response = await fetch(`/sessions/${NotesState.sessionId}/notes`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ content: notesInput.value }),
     });
-    status.textContent = "Saved";
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    if (status) status.textContent = "Saved";
   } catch (error) {
-    status.textContent = "Error";
+    if (status) status.textContent = "Error";
     console.error("[notes] Failed to save session notes:", error);
   }
 }
@@ -139,16 +121,17 @@ function initSessionNotesAutoSave() {
 
 function initNotes() {
   const buffer = document.querySelector(".notes-buffer");
-  if (!buffer) return;
+  if (!buffer) {
+    console.warn("[notes] Notes buffer not found");
+    return;
+  }
 
   NotesState.sessionId = buffer.getAttribute("data-session-id");
   NotesState.projectId = buffer.getAttribute("data-project-id");
 
-  // Load initial content
-  loadProjectNotes();
-  loadSessionNotes();
+  console.log("[notes] Initialized with sessionId:", NotesState.sessionId, "projectId:", NotesState.projectId);
 
-  // Setup auto-save listeners
+  // Setup auto-save listeners (content is already in textareas from server-side render)
   initProjectNotesAutoSave();
   initSessionNotesAutoSave();
 }

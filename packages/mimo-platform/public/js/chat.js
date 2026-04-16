@@ -69,8 +69,6 @@ const ChatState = {
     right: "impact",
   },
 
-  notesSaveTimeout: null,
-
   // Constants
   STREAMING_TIMEOUT_MS:
     (typeof window !== "undefined" && window.MIMO_STREAMING_TIMEOUT_MS) ||
@@ -536,48 +534,7 @@ async function switchFrameBuffer(frameId, bufferId) {
   }
 }
 
-async function loadNotesContent() {
-  const notesInput = document.querySelector("#notes-input");
-  if (!notesInput || !ChatState.sessionId) return;
-
-  try {
-    const response = await fetch(`/sessions/${ChatState.sessionId}/notes`);
-    if (!response.ok) return;
-    const data = await response.json();
-    notesInput.value = data.content || "";
-  } catch (error) {
-    console.error("[notes] Failed to load notes:", error);
-  }
-}
-
-async function saveNotesContent() {
-  const notesInput = document.querySelector("#notes-input");
-  const status = document.querySelector("#notes-save-status");
-  if (!notesInput || !ChatState.sessionId) return;
-
-  if (status) {
-    status.textContent = "Saving...";
-  }
-
-  try {
-    await fetch(`/sessions/${ChatState.sessionId}/notes`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ content: notesInput.value }),
-    });
-
-    if (status) {
-      status.textContent = "Saved";
-    }
-  } catch (error) {
-    console.error("[notes] Failed to save notes:", error);
-    if (status) {
-      status.textContent = "Save failed";
-    }
-  }
-}
+// Notes handling moved to notes.js (handles both project and session notes)
 
 // ═════════════════════════════════════════════════════════════════════════════
 // SECTION 4: CONTROLLER (Side Effects & Events)
@@ -591,7 +548,6 @@ function initChat(sessionId) {
   connectWebSocket(sessionId);
   insertEditableBubble();
   updateImpactUiState();
-  loadNotesContent();
 }
 
 // Controller: Connect WebSocket
@@ -2253,23 +2209,7 @@ function setupEventListeners() {
     });
   });
 
-  const notesInput = document.querySelector("#notes-input");
-  if (notesInput) {
-    notesInput.addEventListener("input", () => {
-      const status = document.querySelector("#notes-save-status");
-      if (status) {
-        status.textContent = "Unsaved";
-      }
-
-      if (ChatState.notesSaveTimeout) {
-        clearTimeout(ChatState.notesSaveTimeout);
-      }
-
-      ChatState.notesSaveTimeout = setTimeout(() => {
-        saveNotesContent();
-      }, 2000);
-    });
-  }
+  // Notes event listeners moved to notes.js
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
