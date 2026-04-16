@@ -8,14 +8,16 @@ import {
 import { logger } from "./logger.js";
 import { resolve, join, dirname } from "node:path";
 import {
-  watch,
   existsSync,
   mkdirSync,
   unlinkSync,
   statSync,
   readFileSync,
   writeFileSync,
+  readdirSync,
+  Stats,
 } from "node:fs";
+import { watch as chokidarWatch, FSWatcher } from "chokidar";
 export interface SessionCallbacks {
   onFileChange: (sessionId: string, changes: FileChange[]) => void;
   onSessionError: (sessionId: string, error: string) => void;
@@ -110,6 +112,24 @@ export class SessionManager {
     const session = this.sessions.get(sessionId);
     if (session) {
       session.localDevMirrorPath = localDevMirrorPath;
+
+      // Flush any pending changes that were detected by the file watcher
+      // before the mirror path was set. This ensures files that changed
+      // during setupCheckout are synced on-demand without scanning the entire repo.
+      const pendingChanges = this.pendingChanges.get(sessionId);
+      if (pendingChanges && pendingChanges.length > 0) {
+        logger.debug(
+          `[mimo-agent] Flushing ${pendingChanges.length} pending changes to mirror for session ${sessionId}`,
+        );
+        // Clear the timeout to prevent double-flush
+        const timeout = this.changeTimeouts.get(sessionId);
+        if (timeout) {
+          clearTimeout(timeout);
+          this.changeTimeouts.delete(sessionId);
+        }
+        // Flush immediately - flushPendingChanges will clear changes after sync
+        this.flushPendingChanges(sessionId);
+      }
     }
   }
 
@@ -123,55 +143,67 @@ export class SessionManager {
   private startFileWatcher(sessionId: string, checkoutPath: string): void {
     logger.debug(`[mimo-agent] Starting file watcher for session ${sessionId}`);
 
-    const watcher = watch(
-      checkoutPath,
-      { recursive: true },
-      (eventType: string, filename: string | null) => {
-        if (!filename) return;
+    // Use chokidar for reliable cross-platform file watching
+    // It handles file modifications on Linux properly (unlike fs.watch)
+    // Use native file watching by default for lower CPU usage
+    // Can be enabled with MIMO_AGENT_POLLING=1 for systems with inotify issues
+    const usePolling = !!process.env.MIMO_AGENT_POLLING;
+    const watcher = chokidarWatch(checkoutPath, {
+      usePolling,
+      interval: 500,
+    });
 
-        // Skip hidden files and common ignore patterns
-        if (
-          filename.startsWith(".") ||
-          filename.includes("/.") ||
-          filename.includes("node_modules") ||
-          filename.includes("__pycache__") ||
-          filename.endsWith(".tmp") ||
-          filename.endsWith("~")
-        ) {
-          return;
-        }
+    const handleChange = (path: string, stats: Stats | undefined, eventType: 'add' | 'change' | 'unlink') => {
+      const relPath = path.substring(checkoutPath.length + 1);
+      if (!relPath) return;
 
-        // Detect file creation vs deletion for rename events
-        // Node.js fs.watch reports both as 'rename' event type
-        const srcPath = join(checkoutPath, filename);
-        const isRenameEvent = eventType === "rename";
-        const fileExists = existsSync(srcPath);
+      // Skip hidden files and common ignore patterns
+      if (
+        relPath.startsWith(".") ||
+        relPath.includes("/.") ||
+        relPath.includes("node_modules") ||
+        relPath.includes("__pycache__") ||
+        relPath.endsWith(".tmp") ||
+        relPath.endsWith("~")
+      ) {
+        return;
+      }
 
-        const change: FileChange = {
-          path: filename,
-          isNew: isRenameEvent && fileExists, // New file: rename event + file exists
-          deleted: isRenameEvent && !fileExists, // Deleted: rename event + file missing
-        };
+      const isNew = eventType === 'add';
+      const deleted = eventType === 'unlink';
 
-        const changes = this.pendingChanges.get(sessionId) || [];
-        changes.push(change);
-        this.pendingChanges.set(sessionId, changes);
+      const change: FileChange = {
+        path: relPath,
+        isNew,
+        deleted,
+      };
 
-        const existingTimeout = this.changeTimeouts.get(sessionId);
-        if (existingTimeout) {
-          clearTimeout(existingTimeout);
-        }
+      const changes = this.pendingChanges.get(sessionId) || [];
+      changes.push(change);
+      this.pendingChanges.set(sessionId, changes);
 
-        const timeout = setTimeout(() => {
-          this.flushPendingChanges(sessionId);
-        }, 500);
-        this.changeTimeouts.set(sessionId, timeout);
-      },
-    );
+      const existingTimeout = this.changeTimeouts.get(sessionId);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+      }
+
+      const timeout = setTimeout(() => {
+        this.flushPendingChanges(sessionId);
+      }, 100);
+      this.changeTimeouts.set(sessionId, timeout);
+    };
+
+    watcher
+      .on('add', (path, stats) => handleChange(path, stats, 'add'))
+      .on('change', (path, stats) => handleChange(path, stats, 'change'))
+      .on('unlink', (path) => handleChange(path, undefined, 'unlink'))
+      .on('error', (error) => {
+        logger.warn(`[mimo-agent] Chokidar error for session ${sessionId}:`, error);
+      });
 
     const session = this.sessions.get(sessionId);
     if (session) {
-      session.fileWatcher = watcher;
+      session.fileWatcher = watcher as unknown as FSWatcher;
     }
   }
 
@@ -179,7 +211,7 @@ export class SessionManager {
     const changes = this.pendingChanges.get(sessionId);
     if (!changes || changes.length === 0) return;
 
-    this.pendingChanges.set(sessionId, []);
+    // Clear the timeout
     this.changeTimeouts.delete(sessionId);
 
     // Deduplicate changes
@@ -199,7 +231,11 @@ export class SessionManager {
         session.localDevMirrorPath,
         Array.from(uniqueChanges.values()),
       );
+      // Only clear changes after they've been synced to mirror
+      this.pendingChanges.set(sessionId, []);
     }
+    // If localDevMirrorPath is not set, keep changes in pendingChanges
+    // They will be flushed when setSessionLocalDevMirrorPath is called
   }
 
   private syncToMirror(

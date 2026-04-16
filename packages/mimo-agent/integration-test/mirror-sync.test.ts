@@ -144,7 +144,7 @@ describe("Local Dev Mirror Sync", () => {
       rmSync(filePath);
 
       // Wait for deletion sync
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       // Verify file was deleted from mirror
       expect(existsSync(mirrorFilePath)).toBe(false);

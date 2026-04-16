@@ -1,5 +1,5 @@
 import { ChildProcess } from "child_process";
-import { watch } from "fs";
+import type { FSWatcher } from "chokidar";
 
 export interface AgentConfig {
   token: string;
@@ -56,7 +56,7 @@ export interface SessionInfo {
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   acpProcess: ChildProcess | null;
-  fileWatcher: ReturnType<typeof watch> | null;
+  fileWatcher: FSWatcher | null;
   acpSessionId?: string;
   currentThoughtBuffer?: string;
   modelState?: ModelState;
