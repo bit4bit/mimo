@@ -354,6 +354,33 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           margin-bottom: 5px;
           text-transform: uppercase;
         }
+        .editable-bubble-header {
+          justify-content: flex-start;
+          gap: 6px;
+        }
+        .editable-bubble-status {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          line-height: 1;
+          font-size: 11px;
+        }
+        .editable-send-btn {
+          margin-left: auto;
+          background: none;
+          border: 1px solid #777;
+          color: #aaa;
+          font-family: monospace;
+          font-size: 11px;
+          line-height: 1.2;
+          padding: 1px 8px;
+          border-radius: 3px;
+          cursor: pointer;
+        }
+        .editable-send-btn:hover {
+          color: #d4d4d4;
+          border-color: #888;
+        }
         .copy-btn {
           background: none;
           border: 1px solid #555;

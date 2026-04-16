@@ -104,6 +104,28 @@ describe("Frame buffers integration", () => {
     expect(notesIndex).toBeGreaterThan(rightFrameStart);
   });
 
+  it("renders chat input styles that keep Send compact and status aligned", async () => {
+    const { app, project, token, sessionId } = await createSessionAppAndAuth();
+
+    const res = await app.request(
+      `/projects/${project.id}/sessions/${sessionId}`,
+      {
+        method: "GET",
+        headers: {
+          Cookie: `token=${token}`,
+        },
+      },
+    );
+
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain(".editable-send-btn {");
+    expect(html).toContain(".editable-bubble-header {");
+    expect(html).toContain(".editable-bubble-status {");
+    expect(html).toContain("padding: 1px 8px");
+    expect(html).toContain("justify-content: flex-start");
+  });
+
   it("persists frame-state updates per session", async () => {
     const { app, token, sessionId } = await createSessionAppAndAuth();
 
