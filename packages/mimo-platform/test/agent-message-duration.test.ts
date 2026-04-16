@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync } from "fs";
@@ -12,7 +19,8 @@ describe("Agent Message Duration", () => {
   const testHome = join(tmpdir(), `mimo-duration-test-${Date.now()}`);
 
   beforeAll(async () => {
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
@@ -104,7 +112,9 @@ describe("Agent Message Duration", () => {
       });
 
       const messages = await chatService.loadHistory(testSession.id);
-      const assistantMessages = messages.filter((m: any) => m.role === "assistant");
+      const assistantMessages = messages.filter(
+        (m: any) => m.role === "assistant",
+      );
       expect(assistantMessages[0].metadata?.durationMs).toBe(30000);
       expect(assistantMessages[1].metadata?.durationMs).toBe(60000);
 

@@ -205,7 +205,7 @@ export class SessionRepository {
       chatThreads,
       activeChatThreadId: hasActiveThread
         ? (data.activeChatThreadId as string)
-        : chatThreads[0]?.id ?? null,
+        : (chatThreads[0]?.id ?? null),
     };
   }
 
@@ -504,7 +504,9 @@ export class SessionRepository {
   async updateChatThread(
     sessionId: string,
     threadId: string,
-    updates: Partial<Pick<ChatThread, "name" | "model" | "mode" | "acpSessionId" | "state">>,
+    updates: Partial<
+      Pick<ChatThread, "name" | "model" | "mode" | "acpSessionId" | "state">
+    >,
   ): Promise<ChatThread | null> {
     const session = await this.findById(sessionId);
     if (!session) return null;
@@ -519,10 +521,7 @@ export class SessionRepository {
     return updatedThread;
   }
 
-  async removeChatThread(
-    sessionId: string,
-    threadId: string,
-  ): Promise<void> {
+  async removeChatThread(sessionId: string, threadId: string): Promise<void> {
     const session = await this.findById(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
@@ -545,7 +544,8 @@ export class SessionRepository {
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
     const exists = session.chatThreads.some((t) => t.id === threadId);
-    if (!exists) throw new Error(`Thread ${threadId} not found in session ${sessionId}`);
+    if (!exists)
+      throw new Error(`Thread ${threadId} not found in session ${sessionId}`);
 
     await this.update(sessionId, { activeChatThreadId: threadId });
   }

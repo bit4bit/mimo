@@ -37,12 +37,19 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
   availableModels = [],
   availableModes = [],
 }) => {
-  const activeThread = threads.find((t) => t.id === activeThreadId) ?? threads[0];
+  const activeThread =
+    threads.find((t) => t.id === activeThreadId) ?? threads[0];
 
   return (
-    <div class="chat-threads-container" style="display: flex; flex-direction: column; height: 100%;">
+    <div
+      class="chat-threads-container"
+      style="display: flex; flex-direction: column; height: 100%;"
+    >
       {/* Thread Tabs */}
-      <div class="chat-threads-tabs" style="display: flex; background: #2d2d2d; border-bottom: 1px solid #444; overflow-x: auto;">
+      <div
+        class="chat-threads-tabs"
+        style="display: flex; background: #2d2d2d; border-bottom: 1px solid #444; overflow-x: auto;"
+      >
         {threads.map((thread) => (
           <button
             type="button"
@@ -77,7 +84,7 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
             {thread.name}
           </button>
         ))}
-        
+
         {/* Create thread button */}
         <button
           type="button"
@@ -100,16 +107,24 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
       </div>
 
       {/* Thread Context Bar with Model/Mode Selectors */}
-      <div class="chat-thread-context" style="padding: 8px 12px; background: #252525; border-bottom: 1px solid #444; display: flex; gap: 15px; align-items: center;">
+      <div
+        class="chat-thread-context"
+        style="padding: 8px 12px; background: #252525; border-bottom: 1px solid #444; display: flex; gap: 15px; align-items: center;"
+      >
         {activeThread && (
           <>
             <div style="font-size: 12px; color: #888; white-space: nowrap;">
               Thread: <span style="color: #d4d4d4;">{activeThread.name}</span>
             </div>
-            
+
             {/* Model Selector for active thread - always show */}
-            <div class="thread-model-selector" style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
-              <label style="font-size: 11px; color: #888; text-transform: uppercase;">Model:</label>
+            <div
+              class="thread-model-selector"
+              style="display: flex; align-items: center; gap: 6px; white-space: nowrap;"
+            >
+              <label style="font-size: 11px; color: #888; text-transform: uppercase;">
+                Model:
+              </label>
               <select
                 id="thread-model-select"
                 data-thread-id={activeThread.id}
@@ -127,7 +142,10 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
               >
                 {availableModels.length > 0 ? (
                   availableModels.map((model) => (
-                    <option value={model.value} selected={model.value === activeThread.model}>
+                    <option
+                      value={model.value}
+                      selected={model.value === activeThread.model}
+                    >
                       {model.name}
                     </option>
                   ))
@@ -136,10 +154,15 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
                 )}
               </select>
             </div>
-            
+
             {/* Mode Selector for active thread - always show */}
-            <div class="thread-mode-selector" style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
-              <label style="font-size: 11px; color: #888; text-transform: uppercase;">Mode:</label>
+            <div
+              class="thread-mode-selector"
+              style="display: flex; align-items: center; gap: 6px; white-space: nowrap;"
+            >
+              <label style="font-size: 11px; color: #888; text-transform: uppercase;">
+                Mode:
+              </label>
               <select
                 id="thread-mode-select"
                 data-thread-id={activeThread.id}
@@ -157,7 +180,10 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
               >
                 {availableModes.length > 0 ? (
                   availableModes.map((mode) => (
-                    <option value={mode.value} selected={mode.value === activeThread.mode}>
+                    <option
+                      value={mode.value}
+                      selected={mode.value === activeThread.mode}
+                    >
                       {mode.name}
                     </option>
                   ))
@@ -199,9 +225,20 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
       </div>
 
       {/* Chat Messages Area */}
-      <div class="chat-messages-wrapper" style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
-        <div class="buffer-content" id="chat-messages" data-session-id={sessionId} data-active-thread-id={activeThread?.id}>
-          <div class="no-messages" style="padding: 20px; color: #888; text-align: center;">
+      <div
+        class="chat-messages-wrapper"
+        style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden;"
+      >
+        <div
+          class="buffer-content"
+          id="chat-messages"
+          data-session-id={sessionId}
+          data-active-thread-id={activeThread?.id}
+        >
+          <div
+            class="no-messages"
+            style="padding: 20px; color: #888; text-align: center;"
+          >
             <p>No messages yet.</p>
             <p style="font-size: 12px; margin-top: 10px;">
               Start chatting with the agent in this thread

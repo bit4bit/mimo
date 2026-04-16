@@ -11,7 +11,9 @@ import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { SessionLifecycleManager } from "../src/lifecycle.js";
 import type { SessionLifecycleCallbacks } from "../src/lifecycle.js";
 
-function makeCallbacks(overrides: Partial<SessionLifecycleCallbacks> = {}): SessionLifecycleCallbacks {
+function makeCallbacks(
+  overrides: Partial<SessionLifecycleCallbacks> = {},
+): SessionLifecycleCallbacks {
   return {
     onStatusChange: overrides.onStatusChange ?? (() => {}),
     onCacheState: overrides.onCacheState ?? (() => {}),

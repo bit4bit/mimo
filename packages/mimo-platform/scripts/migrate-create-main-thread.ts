@@ -179,7 +179,9 @@ async function main() {
             `✓ ${dryRun ? "Would migrate" : "Migrated"}: ${sessionPath} (${result.reason})`,
           );
         } else {
-          console.log(`✓ ${dryRun ? "Would migrate" : "Migrated"}: ${sessionPath}`);
+          console.log(
+            `✓ ${dryRun ? "Would migrate" : "Migrated"}: ${sessionPath}`,
+          );
         }
         migratedCount++;
       } else {

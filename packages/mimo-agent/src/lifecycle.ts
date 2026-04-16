@@ -37,10 +37,7 @@ export interface SessionLifecycleCallbacks {
     cachedState?: CachedAcpState,
   ) => Promise<AcpClient | null>;
   /** Terminate the ACP process for a specific thread. */
-  onTerminateThread: (
-    sessionId: string,
-    chatThreadId: string,
-  ) => Promise<void>;
+  onTerminateThread: (sessionId: string, chatThreadId: string) => Promise<void>;
 }
 
 // Composite key helpers
@@ -104,7 +101,9 @@ export class SessionLifecycleManager {
 
   /** Get the current state of a specific thread. */
   getThreadState(sessionId: string, chatThreadId: string): AcpSessionState {
-    return this.threadStates.get(threadKey(sessionId, chatThreadId)) ?? "active";
+    return (
+      this.threadStates.get(threadKey(sessionId, chatThreadId)) ?? "active"
+    );
   }
 
   /**
@@ -112,8 +111,7 @@ export class SessionLifecycleManager {
    * Resets the shared session-level idle timer.
    */
   recordActivity(sessionId: string, chatThreadId?: string): void {
-    const idleTimeoutMs =
-      this.sessionIdleTimeouts.get(sessionId) ?? 600000;
+    const idleTimeoutMs = this.sessionIdleTimeouts.get(sessionId) ?? 600000;
     if (idleTimeoutMs > 0) {
       this.startSessionIdleTimer(sessionId, idleTimeoutMs);
     }
@@ -263,7 +261,10 @@ export class SessionLifecycleManager {
     const queuePromise = this.addToQueue(sessionId, chatThreadId, content);
 
     try {
-      const cachedState = this.callbacks.onGetCachedState(sessionId, chatThreadId);
+      const cachedState = this.callbacks.onGetCachedState(
+        sessionId,
+        chatThreadId,
+      );
       const acpClient = await this.callbacks.onSpawnAcp(
         sessionId,
         chatThreadId,

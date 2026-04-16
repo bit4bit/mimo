@@ -151,7 +151,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             buffers={leftBuffers}
             activeBufferId={frameState.leftFrame.activeBufferId}
             bufferProps={{
-              chat: { 
+              chat: {
                 chatHistory,
                 chatThreads,
                 activeChatThreadId,

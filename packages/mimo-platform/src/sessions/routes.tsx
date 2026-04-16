@@ -648,11 +648,15 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       return c.text("Create a thread before sending messages", 400);
     }
 
-    await chatService.saveMessage(sessionId, {
-      role: "user",
-      content: message,
-      timestamp: new Date().toISOString(),
-    }, session.activeChatThreadId);
+    await chatService.saveMessage(
+      sessionId,
+      {
+        role: "user",
+        content: message,
+        timestamp: new Date().toISOString(),
+      },
+      session.activeChatThreadId,
+    );
 
     return c.json({ success: true });
   });
@@ -1063,8 +1067,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       return c.json({ error: "Session not found" }, 404);
 
     const body = await c.req.json().catch(() => null);
-    if (!body || !body.name)
-      return c.json({ error: "name is required" }, 400);
+    if (!body || !body.name) return c.json({ error: "name is required" }, 400);
 
     if (typeof body.model !== "string" || !body.model.trim()) {
       return c.json({ error: "model is required" }, 400);
@@ -1099,11 +1102,15 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const body = await c.req.json().catch(() => null);
     if (!body) return c.json({ error: "Body required" }, 400);
 
-    const updated = await sessionRepository.updateChatThread(sessionId, threadId, {
-      ...(body.name !== undefined && { name: body.name }),
-      ...(body.model !== undefined && { model: body.model }),
-      ...(body.mode !== undefined && { mode: body.mode }),
-    });
+    const updated = await sessionRepository.updateChatThread(
+      sessionId,
+      threadId,
+      {
+        ...(body.name !== undefined && { name: body.name }),
+        ...(body.model !== undefined && { model: body.model }),
+        ...(body.mode !== undefined && { mode: body.mode }),
+      },
+    );
 
     if (!updated) return c.json({ error: "Thread not found" }, 404);
     return c.json(updated);

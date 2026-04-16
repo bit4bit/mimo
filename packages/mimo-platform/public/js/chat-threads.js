@@ -21,15 +21,17 @@ const ChatThreadsState = {
 
 async function fetchThreads() {
   if (!ChatThreadsState.sessionId) return;
-  
+
   try {
-    const response = await fetch(`/sessions/${ChatThreadsState.sessionId}/chat-threads`);
+    const response = await fetch(
+      `/sessions/${ChatThreadsState.sessionId}/chat-threads`,
+    );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
+
     const data = await response.json();
     ChatThreadsState.threads = data.threads || [];
     ChatThreadsState.activeThreadId = data.activeChatThreadId;
-    
+
     return data;
   } catch (error) {
     console.error("[chat-threads] Failed to fetch threads:", error);
@@ -39,19 +41,22 @@ async function fetchThreads() {
 
 async function createThread(name, model, mode) {
   if (!ChatThreadsState.sessionId) return null;
-  
+
   try {
-    const response = await fetch(`/sessions/${ChatThreadsState.sessionId}/chat-threads`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, model, mode }),
-    });
-    
+    const response = await fetch(
+      `/sessions/${ChatThreadsState.sessionId}/chat-threads`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, model, mode }),
+      },
+    );
+
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
+
     const newThread = await response.json();
     ChatThreadsState.threads.push(newThread);
-    
+
     return newThread;
   } catch (error) {
     console.error("[chat-threads] Failed to create thread:", error);
@@ -62,7 +67,7 @@ async function createThread(name, model, mode) {
 
 async function updateThread(threadId, updates) {
   if (!ChatThreadsState.sessionId) return null;
-  
+
   try {
     const response = await fetch(
       `/sessions/${ChatThreadsState.sessionId}/chat-threads/${threadId}`,
@@ -70,19 +75,22 @@ async function updateThread(threadId, updates) {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
-      }
+      },
     );
-    
+
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
+
     const updated = await response.json();
-    
+
     // Update local state
     const idx = ChatThreadsState.threads.findIndex((t) => t.id === threadId);
     if (idx !== -1) {
-      ChatThreadsState.threads[idx] = { ...ChatThreadsState.threads[idx], ...updated };
+      ChatThreadsState.threads[idx] = {
+        ...ChatThreadsState.threads[idx],
+        ...updated,
+      };
     }
-    
+
     return updated;
   } catch (error) {
     console.error("[chat-threads] Failed to update thread:", error);
@@ -92,17 +100,19 @@ async function updateThread(threadId, updates) {
 
 async function deleteThread(threadId) {
   if (!ChatThreadsState.sessionId) return false;
-  
+
   try {
     const response = await fetch(
       `/sessions/${ChatThreadsState.sessionId}/chat-threads/${threadId}`,
-      { method: "DELETE" }
+      { method: "DELETE" },
     );
-    
+
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
-    ChatThreadsState.threads = ChatThreadsState.threads.filter((t) => t.id !== threadId);
-    
+
+    ChatThreadsState.threads = ChatThreadsState.threads.filter(
+      (t) => t.id !== threadId,
+    );
+
     return true;
   } catch (error) {
     console.error("[chat-threads] Failed to delete thread:", error);
@@ -113,18 +123,18 @@ async function deleteThread(threadId) {
 
 async function activateThread(threadId) {
   if (!ChatThreadsState.sessionId) return null;
-  
+
   try {
     const response = await fetch(
       `/sessions/${ChatThreadsState.sessionId}/chat-threads/${threadId}/activate`,
-      { method: "POST" }
+      { method: "POST" },
     );
-    
+
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
+
     const data = await response.json();
     ChatThreadsState.activeThreadId = data.activeChatThreadId;
-    
+
     return data.activeChatThreadId;
   } catch (error) {
     console.error("[chat-threads] Failed to activate thread:", error);
@@ -137,7 +147,9 @@ async function activateThread(threadId) {
 // ═════════════════════════════════════════════════════════════════════════════
 
 function getActiveThread() {
-  return ChatThreadsState.threads.find((t) => t.id === ChatThreadsState.activeThreadId);
+  return ChatThreadsState.threads.find(
+    (t) => t.id === ChatThreadsState.activeThreadId,
+  );
 }
 
 function switchToThread(threadId) {
@@ -145,7 +157,7 @@ function switchToThread(threadId) {
   ChatThreadsState.activeThreadId = threadId;
   updateThreadTabsUI();
   updateThreadContextUI();
-  
+
   // Persist to server
   activateThread(threadId).then((newActiveId) => {
     if (newActiveId) {
@@ -161,24 +173,28 @@ function switchToThread(threadId) {
       if (container) {
         container.setAttribute("data-active-thread-id", threadId);
         // Clear existing messages (but don't show "No messages yet" until we get the response)
-        container.innerHTML = '';
+        container.innerHTML = "";
       }
-      
+
       // Request thread-specific history/state via WebSocket
       if (window.MIMO_CHAT_SOCKET?.readyState === WebSocket.OPEN) {
-        window.MIMO_CHAT_SOCKET.send(JSON.stringify({
-          type: "request_replay",
-          sessionId: ChatThreadsState.sessionId,
-          chatThreadId: threadId,
-        }));
+        window.MIMO_CHAT_SOCKET.send(
+          JSON.stringify({
+            type: "request_replay",
+            sessionId: ChatThreadsState.sessionId,
+            chatThreadId: threadId,
+          }),
+        );
 
-        window.MIMO_CHAT_SOCKET.send(JSON.stringify({
-          type: "request_state",
-          sessionId: ChatThreadsState.sessionId,
-          chatThreadId: threadId,
-        }));
+        window.MIMO_CHAT_SOCKET.send(
+          JSON.stringify({
+            type: "request_state",
+            sessionId: ChatThreadsState.sessionId,
+            chatThreadId: threadId,
+          }),
+        );
       }
-      
+
       // Re-initialize editable bubble
       if (typeof removeEditableBubble === "function") {
         removeEditableBubble();
@@ -190,13 +206,15 @@ function switchToThread(threadId) {
 function updateThreadTabsUI() {
   const tabsContainer = document.querySelector(".chat-threads-tabs");
   if (!tabsContainer) return;
-  
+
   // Remove existing thread tabs (keep the create button)
-  tabsContainer.querySelectorAll(".chat-thread-tab").forEach((tab) => tab.remove());
-  
+  tabsContainer
+    .querySelectorAll(".chat-thread-tab")
+    .forEach((tab) => tab.remove());
+
   // Insert thread tabs before the create button
   const createBtn = tabsContainer.querySelector("#create-thread-btn");
-  
+
   ChatThreadsState.threads.forEach((thread) => {
     const tab = document.createElement("button");
     tab.type = "button";
@@ -216,10 +234,14 @@ function updateThreadTabsUI() {
       align-items: center;
       gap: 6px;
     `;
-    
-    const statusColor = thread.state === "active" ? "#51cf66" : 
-                       thread.state === "waking" ? "#ffd43b" : "#888";
-    
+
+    const statusColor =
+      thread.state === "active"
+        ? "#51cf66"
+        : thread.state === "waking"
+          ? "#ffd43b"
+          : "#888";
+
     tab.innerHTML = `
       <span class="thread-status-indicator" style="
         width: 6px;
@@ -229,9 +251,9 @@ function updateThreadTabsUI() {
       "></span>
       ${escapeHtml(thread.name)}
     `;
-    
+
     tab.addEventListener("click", () => switchToThread(thread.id));
-    
+
     if (createBtn) {
       tabsContainer.insertBefore(tab, createBtn);
     } else {
@@ -243,23 +265,24 @@ function updateThreadTabsUI() {
 function updateThreadContextUI() {
   const container = document.querySelector(".chat-thread-context");
   if (!container) return;
-  
+
   const activeThread = getActiveThread();
   if (!activeThread) {
-    container.innerHTML = "<div style=\"color: #888; font-size: 12px;\">No active thread. Use + New Thread to get started.</div>";
+    container.innerHTML =
+      '<div style="color: #888; font-size: 12px;">No active thread. Use + New Thread to get started.</div>';
     return;
   }
-  
+
   // Re-render the context bar
   const models = window.MIMO_CHAT_MODELS || [];
   const modes = window.MIMO_CHAT_MODES || [];
-  
+
   let html = `
     <div style="font-size: 12px; color: #888; white-space: nowrap;">
       Thread: <span style="color: #d4d4d4;">${escapeHtml(activeThread.name)}</span>
     </div>
   `;
-  
+
   // Model Selector - always show
   html += `
     <div class="thread-model-selector" style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
@@ -275,15 +298,23 @@ function updateThreadContextUI() {
         cursor: pointer;
         min-width: 120px;
       ">
-        ${models.length > 0 ? models.map(m => `
+        ${
+          models.length > 0
+            ? models
+                .map(
+                  (m) => `
           <option value="${escapeHtml(m.value)}" ${m.value === activeThread.model ? "selected" : ""}>
             ${escapeHtml(m.name)}
           </option>
-        `).join("") : '<option value="">Loading...</option>'}
+        `,
+                )
+                .join("")
+            : '<option value="">Loading...</option>'
+        }
       </select>
     </div>
   `;
-  
+
   // Mode Selector - always show
   html += `
     <div class="thread-mode-selector" style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
@@ -299,15 +330,23 @@ function updateThreadContextUI() {
         cursor: pointer;
         min-width: 100px;
       ">
-        ${modes.length > 0 ? modes.map(m => `
+        ${
+          modes.length > 0
+            ? modes
+                .map(
+                  (m) => `
           <option value="${escapeHtml(m.value)}" ${m.value === activeThread.mode ? "selected" : ""}>
             ${escapeHtml(m.name)}
           </option>
-        `).join("") : '<option value="">Loading...</option>'}
+        `,
+                )
+                .join("")
+            : '<option value="">Loading...</option>'
+        }
       </select>
     </div>
   `;
-  
+
   // Spacer to push delete button to the right
   html += `<div style="flex: 1;"></div>`;
 
@@ -324,7 +363,7 @@ function updateThreadContextUI() {
       white-space: nowrap;
     " title="Clear context for this thread only">Clear</button>
   `;
-  
+
   html += `
     <button type="button" id="delete-thread-btn" data-thread-id="${activeThread.id}" style="
       padding: 4px 8px;
@@ -338,9 +377,9 @@ function updateThreadContextUI() {
       white-space: nowrap;
     ">Delete</button>
   `;
-  
+
   container.innerHTML = html;
-  
+
   // Re-attach event listeners
   attachThreadContextListeners();
 }
@@ -353,18 +392,20 @@ function attachThreadContextListeners() {
       const threadId = e.target.dataset.threadId;
       const modelId = e.target.value;
       await updateThread(threadId, { model: modelId });
-      
+
       // Notify via WebSocket if connected
       if (window.MIMO_CHAT_SOCKET?.readyState === WebSocket.OPEN) {
-        window.MIMO_CHAT_SOCKET.send(JSON.stringify({
-          type: "set_model",
-          chatThreadId: threadId,
-          modelId: modelId,
-        }));
+        window.MIMO_CHAT_SOCKET.send(
+          JSON.stringify({
+            type: "set_model",
+            chatThreadId: threadId,
+            modelId: modelId,
+          }),
+        );
       }
     });
   }
-  
+
   // Mode selector
   const modeSelect = document.querySelector("#thread-mode-select");
   if (modeSelect) {
@@ -372,23 +413,28 @@ function attachThreadContextListeners() {
       const threadId = e.target.dataset.threadId;
       const modeId = e.target.value;
       await updateThread(threadId, { mode: modeId });
-      
+
       // Notify via WebSocket if connected
       if (window.MIMO_CHAT_SOCKET?.readyState === WebSocket.OPEN) {
-        window.MIMO_CHAT_SOCKET.send(JSON.stringify({
-          type: "set_mode",
-          chatThreadId: threadId,
-          modeId: modeId,
-        }));
+        window.MIMO_CHAT_SOCKET.send(
+          JSON.stringify({
+            type: "set_mode",
+            chatThreadId: threadId,
+            modeId: modeId,
+          }),
+        );
       }
     });
   }
-  
+
   // Delete button
   const clearBtn = document.querySelector("#clear-thread-btn");
   if (clearBtn) {
     clearBtn.addEventListener("click", () => {
-      if (window.MIMO_CHAT && typeof window.MIMO_CHAT.clearSession === "function") {
+      if (
+        window.MIMO_CHAT &&
+        typeof window.MIMO_CHAT.clearSession === "function"
+      ) {
         window.MIMO_CHAT.clearSession();
       }
     });
@@ -400,7 +446,7 @@ function attachThreadContextListeners() {
     deleteBtn.addEventListener("click", async () => {
       const threadId = deleteBtn.dataset.threadId;
       if (!confirm("Delete this thread? This cannot be undone.")) return;
-      
+
       const success = await deleteThread(threadId);
       if (success) {
         if (ChatThreadsState.threads.length > 0) {
@@ -422,7 +468,7 @@ function attachThreadContextListeners() {
 function showCreateThreadDialog() {
   const models = window.MIMO_CHAT_MODELS || [];
   const modes = window.MIMO_CHAT_MODES || [];
-  
+
   const dialog = document.createElement("div");
   dialog.id = "create-thread-dialog";
   dialog.className = "modal";
@@ -438,7 +484,7 @@ function showCreateThreadDialog() {
     align-items: center;
     justify-content: center;
   `;
-  
+
   dialog.innerHTML = `
     <div class="modal-content" style="
       background: #2d2d2d;
@@ -479,7 +525,7 @@ function showCreateThreadDialog() {
           box-sizing: border-box;
         ">
           <option value="" disabled selected>Select a model</option>
-          ${models.map(m => `<option value="${escapeHtml(m.value)}">${escapeHtml(m.name)}</option>`).join("")}
+          ${models.map((m) => `<option value="${escapeHtml(m.value)}">${escapeHtml(m.name)}</option>`).join("")}
         </select>
       </div>
       
@@ -497,7 +543,7 @@ function showCreateThreadDialog() {
           box-sizing: border-box;
         ">
           <option value="" disabled selected>Select a mode</option>
-          ${modes.map(m => `<option value="${escapeHtml(m.value)}">${escapeHtml(m.name)}</option>`).join("")}
+          ${modes.map((m) => `<option value="${escapeHtml(m.value)}">${escapeHtml(m.name)}</option>`).join("")}
         </select>
       </div>
       
@@ -527,68 +573,74 @@ function showCreateThreadDialog() {
       </div>
     </div>
   `;
-  
+
   document.body.appendChild(dialog);
-  
+
   // Focus the name input
   setTimeout(() => document.querySelector("#new-thread-name")?.focus(), 0);
-  
+
   // Event handlers
   dialog.addEventListener("click", (e) => {
     if (e.target === dialog) {
       dialog.remove();
     }
   });
-  
-  document.querySelector("#cancel-create-thread")?.addEventListener("click", () => {
-    dialog.remove();
-  });
-  
-  document.querySelector("#confirm-create-thread")?.addEventListener("click", async () => {
-    const nameInput = document.querySelector("#new-thread-name");
-    const modelSelect = document.querySelector("#new-thread-model");
-    const modeSelect = document.querySelector("#new-thread-mode");
-    
-    const name = nameInput?.value.trim();
-    if (!name) {
-      alert("Please enter a thread name");
-      return;
-    }
-    
-    if (models.length === 0 || modes.length === 0) {
-      alert("Model and mode must be loaded before creating a thread");
-      return;
-    }
 
-    const model = modelSelect?.value || "";
-    const mode = modeSelect?.value || "";
-
-    if (!model) {
-      alert("Please select a model");
-      return;
-    }
-
-    if (!mode) {
-      alert("Please select a mode");
-      return;
-    }
-    
-    const newThread = await createThread(name, model, mode);
-    if (newThread) {
+  document
+    .querySelector("#cancel-create-thread")
+    ?.addEventListener("click", () => {
       dialog.remove();
-      
-      // Add the new thread tab and switch to it
-      updateThreadTabsUI();
-      switchToThread(newThread.id);
-    }
-  });
-  
+    });
+
+  document
+    .querySelector("#confirm-create-thread")
+    ?.addEventListener("click", async () => {
+      const nameInput = document.querySelector("#new-thread-name");
+      const modelSelect = document.querySelector("#new-thread-model");
+      const modeSelect = document.querySelector("#new-thread-mode");
+
+      const name = nameInput?.value.trim();
+      if (!name) {
+        alert("Please enter a thread name");
+        return;
+      }
+
+      if (models.length === 0 || modes.length === 0) {
+        alert("Model and mode must be loaded before creating a thread");
+        return;
+      }
+
+      const model = modelSelect?.value || "";
+      const mode = modeSelect?.value || "";
+
+      if (!model) {
+        alert("Please select a model");
+        return;
+      }
+
+      if (!mode) {
+        alert("Please select a mode");
+        return;
+      }
+
+      const newThread = await createThread(name, model, mode);
+      if (newThread) {
+        dialog.remove();
+
+        // Add the new thread tab and switch to it
+        updateThreadTabsUI();
+        switchToThread(newThread.id);
+      }
+    });
+
   // Enter key to submit
-  document.querySelector("#new-thread-name")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      document.querySelector("#confirm-create-thread")?.click();
-    }
-  });
+  document
+    .querySelector("#new-thread-name")
+    ?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        document.querySelector("#confirm-create-thread")?.click();
+      }
+    });
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -608,16 +660,16 @@ function escapeHtml(text) {
 
 async function initChatThreads(sessionId) {
   ChatThreadsState.sessionId = sessionId;
-  
+
   // Fetch threads data
   await fetchThreads();
-  
+
   // Setup event listeners
   const createBtn = document.querySelector("#create-thread-btn");
   if (createBtn) {
     createBtn.addEventListener("click", showCreateThreadDialog);
   }
-  
+
   // Initial UI render
   updateThreadTabsUI();
   updateThreadContextUI();

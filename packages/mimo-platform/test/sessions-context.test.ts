@@ -6,7 +6,7 @@ import { rmSync } from "fs";
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
 describe("Sessions routes with mimoContext", () => {
-let testHome: string;
+  let testHome: string;
 
   beforeEach(() => {
     testHome = join(

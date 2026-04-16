@@ -33,7 +33,8 @@ export const ChatBuffer: FC<ChatBufferProps> = ({ chatHistory = [] }) => {
                 <span>{msg.role === "user" ? "You" : "Agent"}</span>
                 {msg.role === "assistant" && msg.metadata?.duration && (
                   <span style="font-size: 0.75em; color: #888; margin-left: 8px;">
-                    {String(msg.metadata.duration)} · {new Date(msg.timestamp).toLocaleString()}
+                    {String(msg.metadata.duration)} ·{" "}
+                    {new Date(msg.timestamp).toLocaleString()}
                   </span>
                 )}
               </div>

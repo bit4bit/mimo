@@ -125,7 +125,8 @@ function renderMessage(message) {
   if (isCancelled) {
     const cancelledIndicator = document.createElement("span");
     cancelledIndicator.className = "cancelled-indicator";
-    cancelledIndicator.style.cssText = "font-size: 0.75em; color: #ff6b6b; margin-left: 8px; font-style: italic;";
+    cancelledIndicator.style.cssText =
+      "font-size: 0.75em; color: #ff6b6b; margin-left: 8px; font-style: italic;";
     cancelledIndicator.textContent = "(cancelled)";
     header.appendChild(cancelledIndicator);
   }
@@ -662,43 +663,71 @@ function handleWebSocketMessage(data) {
 
   switch (data.type) {
     case "prompt_received":
-      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
         return;
       }
       handlePromptReceived();
       break;
     case "thought_start":
-      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
         return;
       }
       handleThoughtStart();
       break;
     case "thought_chunk":
-      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
         return;
       }
       handleThoughtChunk(data.content);
       break;
     case "thought_end":
-      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
         return;
       }
       handleThoughtEnd();
       break;
     case "message_chunk":
-      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
         return;
       }
       handleMessageChunk(data.content);
       break;
     case "usage_update":
-      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
         return;
       }
       handleUsageUpdate(data.usage, data.duration, data.durationMs);
       break;
     case "message":
-      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
         return;
       }
       handleMessage(data);
@@ -707,31 +736,44 @@ function handleWebSocketMessage(data) {
       handleErrorMessage(data.message);
       break;
     case "history":
-      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
         return;
       }
       loadChatHistory(data.messages);
       break;
     case "session_initialized":
-      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
         return;
       }
       handleSessionInitialized(data);
       break;
     case "model_state":
-      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
         return;
       }
       updateModelSelector(data.modelState);
-      if (
-        typeof window !== "undefined" &&
-        data.modelState?.availableModels
-      ) {
+      if (typeof window !== "undefined" && data.modelState?.availableModels) {
         window.MIMO_CHAT_MODELS = data.modelState.availableModels;
       }
       break;
     case "mode_state":
-      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
         return;
       }
       updateModeSelector(data.modeState);
@@ -740,7 +782,11 @@ function handleWebSocketMessage(data) {
       }
       break;
     case "streaming_state":
-      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
         return;
       }
       handleStreamingState(data);
@@ -752,13 +798,21 @@ function handleWebSocketMessage(data) {
       removePermissionCard(data.requestId);
       break;
     case "session_cleared":
-      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
         return;
       }
       handleSessionCleared(data);
       break;
     case "clear_session_error":
-      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
         return;
       }
       handleClearSessionError(data);
@@ -893,7 +947,10 @@ function handleSessionInitialized(data) {
     }
   }
 
-  if (window.MIMO_CHAT_THREADS && typeof window.MIMO_CHAT_THREADS.refresh === "function") {
+  if (
+    window.MIMO_CHAT_THREADS &&
+    typeof window.MIMO_CHAT_THREADS.refresh === "function"
+  ) {
     window.MIMO_CHAT_THREADS.refresh();
   }
 }
@@ -1029,9 +1086,7 @@ function clearSession() {
     if (activeThreadId) {
       payload.chatThreadId = activeThreadId;
     }
-    ChatState.socket.send(
-      JSON.stringify(payload),
-    );
+    ChatState.socket.send(JSON.stringify(payload));
   }
 
   insertPendingClearMessage();
@@ -1387,7 +1442,8 @@ function finalizeStreamingAsCancelled() {
   if (header) {
     const cancelledIndicator = document.createElement("span");
     cancelledIndicator.className = "cancelled-indicator";
-    cancelledIndicator.style.cssText = "font-size: 0.75em; color: #ff6b6b; margin-left: 8px; font-style: italic;";
+    cancelledIndicator.style.cssText =
+      "font-size: 0.75em; color: #ff6b6b; margin-left: 8px; font-style: italic;";
     cancelledIndicator.textContent = "(cancelled)";
     header.appendChild(cancelledIndicator);
   }
@@ -1429,7 +1485,8 @@ function finalizeMessageStream(duration) {
   if (cancelBtn) cancelBtn.remove();
 
   if (duration) {
-    const header = ChatState.streaming.messageElement.querySelector(".message-header");
+    const header =
+      ChatState.streaming.messageElement.querySelector(".message-header");
     if (header) {
       const agentLabel = header.querySelector("span");
       const meta = document.createElement("span");
@@ -1902,7 +1959,10 @@ function loadChatHistory(messages) {
 
   // Seed cumulative duration total from history
   ChatState.totalDurationMs = messages.reduce((sum, msg) => {
-    if (msg.role === "assistant" && typeof msg.metadata?.durationMs === "number") {
+    if (
+      msg.role === "assistant" &&
+      typeof msg.metadata?.durationMs === "number"
+    ) {
       return sum + msg.metadata.durationMs;
     }
     return sum;

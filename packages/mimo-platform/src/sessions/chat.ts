@@ -66,9 +66,9 @@ export class ChatService {
   }
 
   async saveMessage(
-    sessionId: string, 
-    message: ChatMessage, 
-    chatThreadId?: string
+    sessionId: string,
+    message: ChatMessage,
+    chatThreadId?: string,
   ): Promise<void> {
     const chatPath = this.getChatPath(sessionId, chatThreadId);
     const line = JSON.stringify(message) + "\n";
@@ -76,8 +76,8 @@ export class ChatService {
   }
 
   async loadHistory(
-    sessionId: string, 
-    chatThreadId?: string
+    sessionId: string,
+    chatThreadId?: string,
   ): Promise<ChatMessage[]> {
     try {
       const threadPath = this.getChatPath(sessionId, chatThreadId);
