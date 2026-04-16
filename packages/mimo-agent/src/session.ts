@@ -141,10 +141,16 @@ export class SessionManager {
           return;
         }
 
+        // Detect file creation vs deletion for rename events
+        // Node.js fs.watch reports both as 'rename' event type
+        const srcPath = join(checkoutPath, filename);
+        const isRenameEvent = eventType === "rename";
+        const fileExists = existsSync(srcPath);
+
         const change: FileChange = {
           path: filename,
-          isNew: eventType === "rename",
-          deleted: false,
+          isNew: isRenameEvent && fileExists, // New file: rename event + file exists
+          deleted: isRenameEvent && !fileExists, // Deleted: rename event + file missing
         };
 
         const changes = this.pendingChanges.get(sessionId) || [];
