@@ -113,22 +113,22 @@ export class SessionManager {
     if (session) {
       session.localDevMirrorPath = localDevMirrorPath;
 
-      // Flush any pending changes that were detected by the file watcher
-      // before the mirror path was set. This ensures files that changed
-      // during setupCheckout are synced on-demand without scanning the entire repo.
+      // Clear any pending changes that were detected during setupCheckout.
+      // We only want to sync NEW changes made after the mirror is configured,
+      // not the entire existing repository state.
       const pendingChanges = this.pendingChanges.get(sessionId);
       if (pendingChanges && pendingChanges.length > 0) {
         logger.debug(
-          `[mimo-agent] Flushing ${pendingChanges.length} pending changes to mirror for session ${sessionId}`,
+          `[mimo-agent] Clearing ${pendingChanges.length} pending changes from initial checkout for session ${sessionId}`,
         );
-        // Clear the timeout to prevent double-flush
+        // Clear the timeout to prevent flush
         const timeout = this.changeTimeouts.get(sessionId);
         if (timeout) {
           clearTimeout(timeout);
           this.changeTimeouts.delete(sessionId);
         }
-        // Flush immediately - flushPendingChanges will clear changes after sync
-        this.flushPendingChanges(sessionId);
+        // Clear pending changes without syncing - they are from the initial checkout
+        this.pendingChanges.set(sessionId, []);
       }
     }
   }
@@ -153,7 +153,11 @@ export class SessionManager {
       interval: 500,
     });
 
-    const handleChange = (path: string, stats: Stats | undefined, eventType: 'add' | 'change' | 'unlink') => {
+    const handleChange = (
+      path: string,
+      stats: Stats | undefined,
+      eventType: "add" | "change" | "unlink",
+    ) => {
       const relPath = path.substring(checkoutPath.length + 1);
       if (!relPath) return;
 
@@ -169,8 +173,8 @@ export class SessionManager {
         return;
       }
 
-      const isNew = eventType === 'add';
-      const deleted = eventType === 'unlink';
+      const isNew = eventType === "add";
+      const deleted = eventType === "unlink";
 
       const change: FileChange = {
         path: relPath,
@@ -194,11 +198,14 @@ export class SessionManager {
     };
 
     watcher
-      .on('add', (path, stats) => handleChange(path, stats, 'add'))
-      .on('change', (path, stats) => handleChange(path, stats, 'change'))
-      .on('unlink', (path) => handleChange(path, undefined, 'unlink'))
-      .on('error', (error) => {
-        logger.warn(`[mimo-agent] Chokidar error for session ${sessionId}:`, error);
+      .on("add", (path, stats) => handleChange(path, stats, "add"))
+      .on("change", (path, stats) => handleChange(path, stats, "change"))
+      .on("unlink", (path) => handleChange(path, undefined, "unlink"))
+      .on("error", (error) => {
+        logger.warn(
+          `[mimo-agent] Chokidar error for session ${sessionId}:`,
+          error,
+        );
       });
 
     const session = this.sessions.get(sessionId);
