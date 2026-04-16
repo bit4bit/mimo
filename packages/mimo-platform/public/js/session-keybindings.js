@@ -3,6 +3,7 @@
 (function () {
   const HELP_SEEN_KEY = "mimo.session.shortcuts-help.seen.v1";
   let hintTimeout = null;
+  let autoHelpWasShown = false;
 
   function isModShift(event) {
     return (event.metaKey || event.ctrlKey) && event.shiftKey;
@@ -12,7 +13,15 @@
     if (!target || typeof target.closest !== "function") {
       return false;
     }
-    return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+    return Boolean(target.closest("input, textarea, select, [contenteditable]"));
+  }
+
+  function markHelpSeen() {
+    try {
+      window.localStorage.setItem(HELP_SEEN_KEY, "1");
+    } catch {
+      // Ignore storage failures
+    }
   }
 
   function keyMatches(event, key, code) {
@@ -93,6 +102,11 @@
     }
     modal.style.display = visible ? "flex" : "none";
     modal.setAttribute("aria-hidden", visible ? "false" : "true");
+
+    if (!visible && autoHelpWasShown) {
+      markHelpSeen();
+      autoHelpWasShown = false;
+    }
   }
 
   function toggleHelp() {
@@ -222,7 +236,7 @@
         return;
       }
       if (showHelp()) {
-        window.localStorage.setItem(HELP_SEEN_KEY, "1");
+        autoHelpWasShown = true;
       }
     } catch {
       showHelp();
