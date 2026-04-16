@@ -209,6 +209,51 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         </div>
       </div>
 
+      {/* Commit dialog */}
+      <div id="commit-dialog" class="modal" style="display: none;">
+        <div class="modal-content commit-modal">
+          <h3 style="margin: 0 0 15px 0; font-size: 16px;">Commit Changes</h3>
+          <div class="commit-preview-container">
+            <div class="commit-status-filters">
+              <label class="status-filter">
+                <input type="checkbox" id="filter-added" checked />
+                <span class="status-badge status-added">Added</span>
+                <span class="status-count">(<span id="count-added">0</span>)</span>
+              </label>
+              <label class="status-filter">
+                <input type="checkbox" id="filter-modified" checked />
+                <span class="status-badge status-modified">Modified</span>
+                <span class="status-count">(<span id="count-modified">0</span>)</span>
+              </label>
+              <label class="status-filter">
+                <input type="checkbox" id="filter-deleted" />
+                <span class="status-badge status-deleted">Deleted</span>
+                <span class="status-count">(<span id="count-deleted">0</span>)</span>
+              </label>
+              <span style="margin-left: auto; font-size: 12px; color: #888;">
+                <span id="selected-count">0</span> / <span id="total-count">0</span> selected
+              </span>
+            </div>
+            <div id="commit-tree" class="commit-tree">
+              <div class="commit-empty-state">Loading changes...</div>
+            </div>
+          </div>
+          <div class="commit-message-section">
+            <textarea
+              id="commit-message"
+              rows={3}
+              placeholder="Enter commit message..."
+              minlength="1"
+            ></textarea>
+            <div id="commit-error" class="commit-error"></div>
+          </div>
+          <div class="commit-actions">
+            <button type="button" id="commit-cancel" class="btn-secondary">Cancel</button>
+            <button type="button" id="commit-confirm" class="btn-primary" disabled>Commit &amp; Push</button>
+          </div>
+        </div>
+      </div>
+
       {/* Inject thread data for JS */}
       {chatThreads.length > 0 && (
         <script
@@ -520,10 +565,13 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         
         /* Commit Modal Styles */
         .commit-modal {
-          max-width: 700px !important;
-          max-height: 85vh;
+          width: 100%;
+          height: 100%;
+          max-width: none !important;
+          max-height: none;
           display: flex;
           flex-direction: column;
+          border-radius: 0;
         }
         .commit-preview-container {
           flex: 1;
@@ -579,8 +627,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           overflow-y: auto;
           padding: 10px;
           background: #1a1a1a;
-          min-height: 150px;
-          max-height: 350px;
+          min-height: 0;
         }
         .commit-empty-state {
           color: #888;
@@ -590,15 +637,20 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         }
         .tree-node {
           display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 4px 0;
+          flex-direction: column;
+          padding: 2px 0;
           font-size: 13px;
         }
-        .tree-node--directory {
+        .tree-node-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 2px 0;
+        }
+        .tree-node--directory > .tree-node-row {
           cursor: pointer;
         }
-        .tree-node--file {
+        .tree-node--file > .tree-node-row {
           padding-left: 20px;
         }
         .tree-toggle {
@@ -615,13 +667,13 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         .tree-checkbox {
           cursor: pointer;
         }
-        .tree-node--directory > .tree-checkbox {
+        .tree-node--directory > .tree-node-row > .tree-checkbox {
           opacity: 0.7;
         }
-        .tree-node--directory > .tree-checkbox:checked {
+        .tree-node--directory > .tree-node-row > .tree-checkbox:checked {
           opacity: 1;
         }
-        .tree-node--directory > .tree-checkbox:indeterminate {
+        .tree-node--directory > .tree-node-row > .tree-checkbox:indeterminate {
           opacity: 1;
         }
         .tree-label {
@@ -668,7 +720,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           color: #da77f2;
         }
         .file-diff {
-          margin: 8px 0 8px 36px;
+          margin: 8px 0;
           padding: 10px;
           background: #2d2d2d;
           border: 1px solid #444;

@@ -87,8 +87,8 @@
       const result = await response.json();
       if (result.success && result.preview) {
         previewData = result.preview;
-        // Select all files by default
-        selectedPaths = new Set(previewData.files.map((f) => f.path));
+        // Start with nothing selected - user picks what to commit
+        selectedPaths = new Set();
         updateUI();
       } else {
         showError(result.error || "Failed to load preview");
@@ -211,6 +211,10 @@
       const nodeEl = document.createElement("div");
       nodeEl.className = `tree-node tree-node--${node.type}`;
 
+      // Row holds checkbox + toggle + label horizontally
+      const nodeRow = document.createElement("div");
+      nodeRow.className = "tree-node-row";
+
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.className = "tree-checkbox";
@@ -300,15 +304,16 @@
         label.appendChild(statusBadge);
       }
 
-      nodeEl.appendChild(checkbox);
+      nodeRow.appendChild(checkbox);
       if (node.type === "directory") {
-        nodeEl.appendChild(toggle);
+        nodeRow.appendChild(toggle);
       } else {
-        nodeEl.appendChild(document.createElement("span")); // Spacer
+        nodeRow.appendChild(document.createElement("span")); // Spacer
       }
-      nodeEl.appendChild(label);
+      nodeRow.appendChild(label);
+      nodeEl.appendChild(nodeRow);
 
-      // Add diff preview for expanded modified files
+      // Add diff preview for expanded modified files — below the row, not inside it
       if (
         node.type === "file" &&
         node.file.status === "modified" &&
@@ -455,11 +460,11 @@
     expandedFiles.clear();
     expandedDirs.clear();
 
-    // Reset filters to all enabled
+    // Reset filters: added and modified enabled, deleted disabled
     filterAdded.checked = true;
     filterModified.checked = true;
-    filterDeleted.checked = true;
-    statusFilters = { added: true, modified: true, deleted: true };
+    filterDeleted.checked = false;
+    statusFilters = { added: true, modified: true, deleted: false };
 
     commitTree.innerHTML =
       '<div class="commit-empty-state">Loading changes...</div>';
