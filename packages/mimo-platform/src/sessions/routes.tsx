@@ -397,6 +397,8 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         chatHistory={chatHistory}
         frameState={normalizeFrameState(session.frameState)}
         notesContent={frameStateService.loadNotes(session.id)}
+        projectId={session.projectId}
+        projectNotesContent={frameStateService.loadProjectNotes(session.projectId)}
         agent={agent}
         modelState={modelState}
         modeState={modeState}

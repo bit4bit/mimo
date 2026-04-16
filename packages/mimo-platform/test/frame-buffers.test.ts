@@ -214,4 +214,119 @@ describe("Frame buffers integration", () => {
     );
     expect(existsSync(notesPath)).toBe(false);
   });
+
+  it("GET /projects/:id/notes returns project notes content", async () => {
+    const { app, project, token } = await createSessionAppAndAuth();
+
+    const res = await app.request(`/projects/${project.id}/notes`, {
+      method: "GET",
+      headers: {
+        Cookie: `token=${token}`,
+      },
+    });
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.content).toBe("");
+  });
+
+  it("POST /projects/:id/notes persists project notes independently of session notes", async () => {
+    const { app, project, token, sessionId } = await createSessionAppAndAuth();
+
+    const saveProjectRes = await app.request(`/projects/${project.id}/notes`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: `token=${token}`,
+      },
+      body: JSON.stringify({ content: "project note" }),
+    });
+    expect(saveProjectRes.status).toBe(200);
+
+    const saveSessionRes = await app.request(`/sessions/${sessionId}/notes`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: `token=${token}`,
+      },
+      body: JSON.stringify({ content: "session note" }),
+    });
+    expect(saveSessionRes.status).toBe(200);
+
+    const readProjectRes = await app.request(`/projects/${project.id}/notes`, {
+      method: "GET",
+      headers: {
+        Cookie: `token=${token}`,
+      },
+    });
+    const projectJson = await readProjectRes.json();
+    expect(projectJson.content).toBe("project note");
+
+    const readSessionRes = await app.request(`/sessions/${sessionId}/notes`, {
+      method: "GET",
+      headers: {
+        Cookie: `token=${token}`,
+      },
+    });
+    const sessionJson = await readSessionRes.json();
+    expect(sessionJson.content).toBe("session note");
+  });
+
+  it("project notes survive session deletion", async () => {
+    const { app, project, token, sessionId } = await createSessionAppAndAuth();
+
+    const saveProjectRes = await app.request(`/projects/${project.id}/notes`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: `token=${token}`,
+      },
+      body: JSON.stringify({ content: "persistent project note" }),
+    });
+    expect(saveProjectRes.status).toBe(200);
+
+    await app.request(`/projects/${project.id}/sessions/${sessionId}/delete`, {
+      method: "POST",
+      headers: {
+        Cookie: `token=${token}`,
+      },
+    });
+
+    const session = await sessionRepository.findById(sessionId);
+    expect(session).toBeNull();
+
+    const readRes = await app.request(`/projects/${project.id}/notes`, {
+      method: "GET",
+      headers: {
+        Cookie: `token=${token}`,
+      },
+    });
+    expect(readRes.status).toBe(200);
+    const json = await readRes.json();
+    expect(json.content).toBe("persistent project note");
+
+    const notesPath = join(testHome, "projects", project.id, "notes.txt");
+    expect(existsSync(notesPath)).toBe(true);
+  });
+
+  it("NotesBuffer renders both project and session notes sections", async () => {
+    const { app, project, token, sessionId } = await createSessionAppAndAuth();
+
+    const res = await app.request(
+      `/projects/${project.id}/sessions/${sessionId}`,
+      {
+        method: "GET",
+        headers: {
+          Cookie: `token=${token}`,
+        },
+      },
+    );
+
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain("Project Notes");
+    expect(html).toContain("Session Notes");
+    expect(html).toContain('id="project-notes-input"');
+    expect(html).toContain('id="notes-input"');
+  });
 });

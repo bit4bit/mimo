@@ -65,6 +65,8 @@ interface SessionDetailProps {
   acpStatus?: "active" | "parked" | "waking";
   frameState: FrameState;
   notesContent?: string;
+  projectId?: string;
+  projectNotesContent?: string;
   mcpServers?: McpServer[];
   streamingTimeoutMs?: number;
   // Chat threads data
@@ -83,6 +85,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   acpStatus = "active",
   frameState,
   notesContent = "",
+  projectId = "",
+  projectNotesContent = "",
   mcpServers = [],
   streamingTimeoutMs,
   chatThreads = [],
@@ -158,7 +162,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 modelState,
                 modeState,
               },
-              notes: { initialContent: notesContent },
             }}
           />
 
@@ -168,6 +171,11 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             buffers={rightBuffers}
             activeBufferId={frameState.rightFrame.activeBufferId}
             bufferProps={{
+              notes: {
+                initialContent: notesContent,
+                projectId,
+                projectNotesContent,
+              },
               "mcp-servers": { servers: mcpServers },
             }}
           />

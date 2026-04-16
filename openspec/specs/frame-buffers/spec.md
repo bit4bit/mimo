@@ -70,11 +70,15 @@ The Impact buffer SHALL:
 
 ### R10: Notes Buffer
 The Notes buffer SHALL:
-- Provide multi-line text input
-- Auto-save content every 2 seconds of inactivity
-- Load persisted content on initialization
-- Store content per session
-- Clear content when session is deleted
+- Render two independent sections: Project Notes (top) and Session Notes (bottom)
+- Each section provides multi-line text input
+- Each section auto-saves content every 2 seconds of inactivity
+- Load persisted content on initialization for both sections
+- Store Project Notes content per project at `<projectDir>/notes.txt`
+- Store Session Notes content per session at `<sessionDir>/notes.txt`
+- Clear Session Notes content when session is deleted
+- Preserve Project Notes content when session is deleted
+- Display "Project Notes" and "Session Notes" labels with section divider
 
 ## API Specification
 

@@ -131,6 +131,30 @@ export class FrameStateService {
     const notesPath = join(sessionDir, "notes.txt");
     writeFileSync(notesPath, content, "utf-8");
   }
+
+  loadProjectNotes(projectId: string): string {
+    const projectPath = join(this.paths.projects, projectId);
+    if (!existsSync(projectPath)) {
+      return "";
+    }
+
+    const notesPath = join(projectPath, "notes.txt");
+    if (!existsSync(notesPath)) {
+      return "";
+    }
+
+    return readFileSync(notesPath, "utf-8");
+  }
+
+  saveProjectNotes(projectId: string, content: string): void {
+    const projectPath = join(this.paths.projects, projectId);
+    if (!existsSync(projectPath)) {
+      mkdirSync(projectPath, { recursive: true });
+    }
+
+    const notesPath = join(projectPath, "notes.txt");
+    writeFileSync(notesPath, content, "utf-8");
+  }
 }
 
 // Factory function for creating FrameStateService with injected paths
