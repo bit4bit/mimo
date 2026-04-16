@@ -429,6 +429,49 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
     );
   });
 
+  // GET /projects/:id/notes - Fetch project notes
+  projects.get("/:id/notes", authMiddleware, async (c) => {
+    const id = c.req.param("id");
+    const project = await projectRepository.findById(id);
+
+    if (!project) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    const user = c.get("user") as { username: string };
+    if (project.owner !== user.username) {
+      return c.json({ error: "Unauthorized" }, 403);
+    }
+
+    const frameStateService = mimoContext.services.frameState;
+    const content = frameStateService.loadProjectNotes(id);
+
+    return c.json({ content });
+  });
+
+  // POST /projects/:id/notes - Save project notes
+  projects.post("/:id/notes", authMiddleware, async (c) => {
+    const id = c.req.param("id");
+    const project = await projectRepository.findById(id);
+
+    if (!project) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    const user = c.get("user") as { username: string };
+    if (project.owner !== user.username) {
+      return c.json({ error: "Unauthorized" }, 403);
+    }
+
+    const body = await c.req.json();
+    const content = typeof body.content === "string" ? body.content : "";
+
+    const frameStateService = mimoContext.services.frameState;
+    frameStateService.saveProjectNotes(id, content);
+
+    return c.json({ success: true });
+  });
+
   // Nested session routes
   projects.route("/:projectId/sessions", sessions);
 
