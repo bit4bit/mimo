@@ -1040,6 +1040,24 @@ async function handleAgentMessage(ws, data) {
             `[agent] Session ${data.sessionId} model state:`,
             data.modelState.currentModelId,
           );
+          // Also update the active thread's model to match the initial value
+          const session = await sessionRepository.findById(data.sessionId);
+          if (session?.activeChatThreadId) {
+            const thread = session.chatThreads.find(
+              (t) => t.id === session.activeChatThreadId,
+            );
+            // Only update if thread has empty model (fresh session initialization)
+            if (thread && (!thread.model || thread.model === "")) {
+              await sessionRepository.updateChatThread(
+                data.sessionId,
+                session.activeChatThreadId,
+                { model: data.modelState.currentModelId },
+              );
+              logger.debug(
+                `[agent] Updated thread ${session.activeChatThreadId} model to ${data.modelState.currentModelId}`,
+              );
+            }
+          }
         }
         if (data.modeState) {
           sessionStateService.setModeState(data.sessionId, data.modeState);
@@ -1050,6 +1068,24 @@ async function handleAgentMessage(ws, data) {
             `[agent] Session ${data.sessionId} mode state:`,
             data.modeState.currentModeId,
           );
+          // Also update the active thread's mode to match the initial value
+          const session = await sessionRepository.findById(data.sessionId);
+          if (session?.activeChatThreadId) {
+            const thread = session.chatThreads.find(
+              (t) => t.id === session.activeChatThreadId,
+            );
+            // Only update if thread has empty mode (fresh session initialization)
+            if (thread && (!thread.mode || thread.mode === "")) {
+              await sessionRepository.updateChatThread(
+                data.sessionId,
+                session.activeChatThreadId,
+                { mode: data.modeState.currentModeId },
+              );
+              logger.debug(
+                `[agent] Updated thread ${session.activeChatThreadId} mode to ${data.modeState.currentModeId}`,
+              );
+            }
+          }
         }
 
         // Broadcast to chat clients
@@ -1462,6 +1498,36 @@ async function handleChatMessage(ws, data) {
         const cancelStreamKey = streamKey(cancelSessionId, cancelThreadId);
         streamingBuffers.delete(cancelStreamKey);
         thoughtBuffers.delete(cancelStreamKey);
+      }
+      break;
+
+    case "cancelled_message":
+      {
+        // Save cancelled/partial assistant message to history
+        const cancelledSessionId = data.sessionId;
+        if (!cancelledSessionId) {
+          logger.debug("No sessionId in cancelled_message");
+          return;
+        }
+
+        const cancelledSession = await sessionRepository.findById(cancelledSessionId);
+        const cancelledThreadId =
+          data.chatThreadId || cancelledSession?.activeChatThreadId;
+
+        // Save the cancelled message with metadata indicating it was cancelled
+        await mimoContext.services.chat.saveMessage(
+          cancelledSessionId,
+          {
+            role: "assistant",
+            content: data.content || "",
+            timestamp: data.timestamp || new Date().toISOString(),
+            metadata: { cancelled: true },
+          },
+          cancelledThreadId,
+        );
+        logger.debug(
+          `Saved cancelled message for session ${cancelledSessionId}/${cancelledThreadId || "main"}`,
+        );
       }
       break;
 

@@ -96,7 +96,9 @@ function renderConnectionStatus(status) {
 // View: Message bubble (user/agent/system)
 function renderMessage(message) {
   const div = document.createElement("div");
-  div.className = `message message-${message.role}`;
+  // Add 'cancelled' class if message was cancelled
+  const isCancelled = message.metadata?.cancelled === true;
+  div.className = `message message-${message.role}${isCancelled ? " cancelled" : ""}`;
   div.dataset.messageId = message.id || Date.now().toString();
 
   const header = document.createElement("div");
@@ -118,6 +120,15 @@ function renderMessage(message) {
   copyBtn.textContent = "📋";
 
   header.appendChild(label);
+
+  // Show cancelled indicator for cancelled messages
+  if (isCancelled) {
+    const cancelledIndicator = document.createElement("span");
+    cancelledIndicator.className = "cancelled-indicator";
+    cancelledIndicator.style.cssText = "font-size: 0.75em; color: #ff6b6b; margin-left: 8px; font-style: italic;";
+    cancelledIndicator.textContent = "(cancelled)";
+    header.appendChild(cancelledIndicator);
+  }
 
   if (message.role === "assistant" && message.metadata?.duration) {
     const meta = document.createElement("span");
@@ -402,6 +413,11 @@ function parseMessageContent(content) {
 function parseHistoryMessage(msg) {
   if (msg.role !== "assistant" || !msg.content) {
     return { type: "regular", data: msg };
+  }
+
+  // Cancelled messages should be treated as regular messages, not streaming chunks
+  if (msg.metadata?.cancelled === true) {
+    return { type: "cancelled", data: msg };
   }
 
   try {
@@ -929,24 +945,45 @@ function cancelStreaming() {
   console.log("[CHAT] User cancelled streaming");
   clearStreamingTimeout();
 
+  // Get the partial content before finalizing
+  const partialContent = ChatState.streaming.content || "";
+  const thoughtContent = ChatState.streaming.thoughtContent || "";
+  const activeThreadId =
+    typeof ChatThreadsState !== "undefined" && ChatThreadsState
+      ? ChatThreadsState.activeThreadId
+      : null;
+
   if (ChatState.socket?.readyState === WebSocket.OPEN) {
     const payload = {
       type: "cancel_request",
       sessionId: ChatState.sessionId,
     };
-    if (
-      typeof ChatThreadsState !== "undefined" &&
-      ChatThreadsState?.activeThreadId
-    ) {
-      payload.chatThreadId = ChatThreadsState.activeThreadId;
+    if (activeThreadId) {
+      payload.chatThreadId = activeThreadId;
     }
-    ChatState.socket.send(
-      JSON.stringify(payload),
-    );
+    ChatState.socket.send(JSON.stringify(payload));
+
+    // Build full content including thoughts (same format as normal save)
+    let fullContent = partialContent;
+    if (thoughtContent) {
+      fullContent = `<details><summary>Thought Process</summary>${thoughtContent}</details>\n\n${partialContent}`;
+    }
+
+    // Send the cancelled message to be saved to history
+    const cancelledPayload = {
+      type: "cancelled_message",
+      sessionId: ChatState.sessionId,
+      content: fullContent,
+      timestamp: new Date().toISOString(),
+    };
+    if (activeThreadId) {
+      cancelledPayload.chatThreadId = activeThreadId;
+    }
+    ChatState.socket.send(JSON.stringify(cancelledPayload));
   }
 
-  removeStreamingMessage();
-  insertCancelledMessage();
+  // Convert streaming message to a static message showing partial content
+  finalizeStreamingAsCancelled();
   insertEditableBubble();
 }
 
@@ -1303,6 +1340,52 @@ function removeStreamingMessage() {
     ChatState.streaming.active = false;
     ChatState.streaming.startTime = null;
   }
+}
+
+// DOM: Finalize streaming message as cancelled (keep partial content)
+function finalizeStreamingAsCancelled() {
+  if (!ChatState.streaming.messageElement) return;
+
+  const messageEl = ChatState.streaming.messageElement;
+
+  // Remove streaming indicator
+  const indicator = messageEl.querySelector(".streaming-indicator");
+  if (indicator) indicator.remove();
+
+  // Remove cancel button from header
+  const cancelBtn = messageEl.querySelector(".cancel-streaming-btn");
+  if (cancelBtn) cancelBtn.remove();
+
+  // Render the accumulated content
+  const responseContent = messageEl.querySelector(".message-response");
+  if (responseContent) {
+    const cursor = responseContent.querySelector(".typing-cursor");
+    if (cursor) cursor.remove();
+    const accumulated = responseContent.textContent;
+    renderTextAsLines(accumulated, responseContent);
+  }
+
+  // Add cancelled indicator to header
+  const header = messageEl.querySelector(".message-header");
+  if (header) {
+    const cancelledIndicator = document.createElement("span");
+    cancelledIndicator.className = "cancelled-indicator";
+    cancelledIndicator.style.cssText = "font-size: 0.75em; color: #ff6b6b; margin-left: 8px; font-style: italic;";
+    cancelledIndicator.textContent = "(cancelled)";
+    header.appendChild(cancelledIndicator);
+  }
+
+  // Remove streaming class
+  messageEl.classList.remove("streaming");
+  messageEl.classList.add("cancelled");
+
+  // Clear streaming state but keep the message element
+  ChatState.streaming.messageElement = null;
+  ChatState.streaming.thoughtElement = null;
+  ChatState.streaming.content = "";
+  ChatState.streaming.thoughtContent = "";
+  ChatState.streaming.active = false;
+  ChatState.streaming.startTime = null;
 }
 
 // DOM: Finalize message stream (remove indicators)
@@ -1763,6 +1846,30 @@ function loadChatHistory(messages) {
         currentMessage = "";
       }
       currentMessage += parsed.content;
+      return;
+    }
+
+    if (parsed.type === "cancelled") {
+      // Flush any pending streaming messages first
+      if (inThought) {
+        insertMessage({
+          role: "assistant",
+          content: `<details><summary>Thought Process</summary>${currentThought}</details>`,
+        });
+        inThought = false;
+        currentThought = "";
+      }
+      if (inMessage && currentMessage) {
+        insertMessage({
+          role: "assistant",
+          content: currentMessage,
+        });
+        inMessage = false;
+        currentMessage = "";
+      }
+      // Now insert the cancelled message with its metadata preserved
+      insertMessage(msg);
+      lastRole = msg.role;
       return;
     }
 
