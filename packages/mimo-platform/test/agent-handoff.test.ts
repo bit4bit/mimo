@@ -91,40 +91,56 @@ describe("Agent Handoff Tests", () => {
       expect(message.sessions[0].port).toBe(8080);
     });
 
-    it("should include acpSessionId when session has persisted ACP session", () => {
+    it("should include thread-level acpSessionId in chatThreads", () => {
       const message = {
         type: "session_ready" as const,
         platformUrl: "http://localhost:3000",
         sessions: [
-          { sessionId: "session-1", port: 8080, acpSessionId: "acp-abc123" },
+          {
+            sessionId: "session-1",
+            port: 8080,
+            chatThreads: [
+              {
+                chatThreadId: "thread-main",
+                name: "Main",
+                model: "claude-3",
+                mode: "code",
+                acpSessionId: "acp-main-123",
+                state: "active",
+              },
+            ],
+          },
         ],
       };
 
-      expect(message.sessions[0].acpSessionId).toBe("acp-abc123");
+      expect(message.sessions[0].chatThreads[0].acpSessionId).toBe(
+        "acp-main-123",
+      );
     });
 
-    it("should send null acpSessionId when session has no persisted ACP session", () => {
-      const message = {
-        type: "session_ready" as const,
-        platformUrl: "http://localhost:3000",
-        sessions: [{ sessionId: "session-1", port: 8080, acpSessionId: null }],
-      };
-
-      expect(message.sessions[0].acpSessionId).toBeNull();
-    });
-
-    it("should handle mixed sessions with and without acpSessionId", () => {
+    it("should send null thread acpSessionId when thread has no persisted ACP session", () => {
       const message = {
         type: "session_ready" as const,
         platformUrl: "http://localhost:3000",
         sessions: [
-          { sessionId: "session-1", port: 8080, acpSessionId: "acp-abc123" },
-          { sessionId: "session-2", port: 8081, acpSessionId: null },
+          {
+            sessionId: "session-1",
+            port: 8080,
+            chatThreads: [
+              {
+                chatThreadId: "thread-new",
+                name: "New Thread",
+                model: "",
+                mode: "",
+                acpSessionId: null,
+                state: "active",
+              },
+            ],
+          },
         ],
       };
 
-      expect(message.sessions[0].acpSessionId).toBe("acp-abc123");
-      expect(message.sessions[1].acpSessionId).toBeNull();
+      expect(message.sessions[0].chatThreads[0].acpSessionId).toBeNull();
     });
 
     it("should include persisted modelState and modeState when available", () => {
@@ -135,7 +151,6 @@ describe("Agent Handoff Tests", () => {
           {
             sessionId: "session-1",
             port: 8080,
-            acpSessionId: "acp-abc123",
             modelState: {
               currentModelId: "gpt-5",
               availableModels: [{ value: "gpt-5", name: "GPT-5" }],
@@ -146,6 +161,7 @@ describe("Agent Handoff Tests", () => {
               availableModes: [{ value: "build", name: "Build" }],
               optionId: "mode",
             },
+            chatThreads: [],
           },
         ],
       };
@@ -162,9 +178,9 @@ describe("Agent Handoff Tests", () => {
           {
             sessionId: "session-1",
             port: 8080,
-            acpSessionId: null,
             modelState: null,
             modeState: null,
+            chatThreads: [],
           },
         ],
       };
@@ -386,6 +402,105 @@ describe("Agent Handoff Tests", () => {
 
       expect(error.stderr).toContain("file already exists");
       expect(error.status).toBe(1);
+    });
+  });
+
+  describe("Thread-aware session_ready message", () => {
+    it("should include thread metadata in session_ready for restart recovery", () => {
+      const platformUrl = "http://localhost:3000";
+      const sessions = [
+        {
+          sessionId: "session-1",
+          port: 8080,
+          acpSessionId: "acp-main-123",
+          chatThreads: [
+            {
+              id: "thread-main",
+              name: "Main",
+              model: "claude-3",
+              mode: "code",
+              acpSessionId: "acp-main-123",
+              state: "active",
+            },
+            {
+              id: "thread-review",
+              name: "Reviewer",
+              model: "gpt-4",
+              mode: "review",
+              acpSessionId: "acp-review-456",
+              state: "active",
+            },
+          ],
+          activeChatThreadId: "thread-main",
+        },
+      ];
+
+      const message = {
+        type: "session_ready" as const,
+        platformUrl,
+        sessions,
+      };
+
+      expect(message.sessions).toHaveLength(1);
+      expect(message.sessions[0].chatThreads).toHaveLength(2);
+
+      // Verify thread metadata structure
+      const mainThread = message.sessions[0].chatThreads[0];
+      expect(mainThread.id).toBe("thread-main");
+      expect(mainThread.name).toBe("Main");
+      expect(mainThread.model).toBe("claude-3");
+      expect(mainThread.mode).toBe("code");
+      expect(mainThread.acpSessionId).toBe("acp-main-123");
+
+      const reviewThread = message.sessions[0].chatThreads[1];
+      expect(reviewThread.id).toBe("thread-review");
+      expect(reviewThread.model).toBe("gpt-4");
+      expect(reviewThread.acpSessionId).toBe("acp-review-456");
+    });
+
+    it("should include chatThreadId in acp_session_created for thread tracking", () => {
+      const message = {
+        type: "acp_session_created" as const,
+        sessionId: "session-1",
+        chatThreadId: "thread-review",
+        acpSessionId: "acp-review-789",
+        wasReset: false,
+        timestamp: new Date().toISOString(),
+      };
+
+      expect(message.type).toBe("acp_session_created");
+      expect(message.chatThreadId).toBe("thread-review");
+      expect(message.acpSessionId).toBe("acp-review-789");
+    });
+
+    it("should preserve thread acpSessionId after agent restart", () => {
+      // Simulating scenario: agent restarts, platform sends session_ready
+      // with persisted thread acpSessionIds
+      const persistedThreads = [
+        {
+          id: "thread-main",
+          name: "Main",
+          model: "claude-3",
+          mode: "code",
+          acpSessionId: "acp-main-abc", // persisted from before restart
+          state: "active",
+        },
+        {
+          id: "thread-feature",
+          name: "Feature Branch",
+          model: "gpt-4",
+          mode: "build",
+          acpSessionId: "acp-feature-xyz", // persisted from before restart
+          state: "parked",
+        },
+      ];
+
+      // After restart, agent should receive these thread acpSessionIds
+      // so it can attempt loadSession for each thread
+      const threadWithSession = persistedThreads.find(
+        (t) => t.id === "thread-feature",
+      );
+      expect(threadWithSession?.acpSessionId).toBe("acp-feature-xyz");
     });
   });
 });

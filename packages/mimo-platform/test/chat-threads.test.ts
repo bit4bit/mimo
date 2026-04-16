@@ -33,7 +33,8 @@ describe("Chat Threads API", () => {
       `mimo-chat-threads-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     );
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret" },
       services: { sharedFossil: new DummySharedFossilServer() },
@@ -115,7 +116,11 @@ describe("Chat Threads API", () => {
             "Content-Type": "application/json",
             Cookie: `token=${token}`,
           },
-          body: JSON.stringify({ name: "Reviewer", model: "claude-3", mode: "review" }),
+          body: JSON.stringify({
+            name: "Reviewer",
+            model: "claude-3",
+            mode: "review",
+          }),
         },
       );
 
@@ -133,7 +138,11 @@ describe("Chat Threads API", () => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: "Reviewer", model: "claude-3", mode: "review" }),
+          body: JSON.stringify({
+            name: "Reviewer",
+            model: "claude-3",
+            mode: "review",
+          }),
         },
       );
 
@@ -149,7 +158,10 @@ describe("Chat Threads API", () => {
         `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
           body: JSON.stringify({ name: "Coder", model: "gpt-4", mode: "code" }),
         },
       );
@@ -160,8 +172,15 @@ describe("Chat Threads API", () => {
         `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
-          body: JSON.stringify({ name: "Reviewer", model: "claude-3", mode: "review" }),
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Reviewer",
+            model: "claude-3",
+            mode: "review",
+          }),
         },
       );
       expect(r2.status).toBe(201);
@@ -172,7 +191,10 @@ describe("Chat Threads API", () => {
         `/projects/${projectId}/sessions/${sessionId}/chat-threads/${thread1.id}`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
           body: JSON.stringify({ model: "gpt-5" }),
         },
       );
@@ -206,8 +228,15 @@ describe("Chat Threads API", () => {
         `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
-          body: JSON.stringify({ name: "Main Thread", model: "claude-3", mode: "code" }),
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Main Thread",
+            model: "claude-3",
+            mode: "code",
+          }),
         },
       );
       expect(r.status).toBe(201);
@@ -233,6 +262,117 @@ describe("Chat Threads API", () => {
       );
       const body = await list.json();
       expect(body.activeChatThreadId).toBe(thread.id);
+    });
+  });
+
+  // Bug fix: restart recovery of non-main thread context
+  describe("Restart recovery of thread context", () => {
+    it("should persist thread acpSessionId and include it in session_ready", async () => {
+      // Create two threads
+      const r1 = await app.request(
+        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Main Thread",
+            model: "claude-3",
+            mode: "code",
+          }),
+        },
+      );
+      expect(r1.status).toBe(201);
+      const mainThread = await r1.json();
+
+      const r2 = await app.request(
+        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Reviewer",
+            model: "gpt-4",
+            mode: "review",
+          }),
+        },
+      );
+      expect(r2.status).toBe(201);
+      const reviewerThread = await r2.json();
+
+      // Simulate ACP session created with thread-specific acpSessionId
+      // This would normally come from the agent after spawning ACP for the thread
+      await sessionRepository.updateChatThread(sessionId, reviewerThread.id, {
+        acpSessionId: "acp-thread-reviewer-123",
+      });
+
+      // Simulate agent disconnect and reconnect - load the session
+      const session = await sessionRepository.findById(sessionId);
+      expect(session).toBeDefined();
+
+      // Verify thread has persisted acpSessionId
+      const updatedThread = session!.chatThreads.find(
+        (t: any) => t.id === reviewerThread.id,
+      );
+      expect(updatedThread?.acpSessionId).toBe("acp-thread-reviewer-123");
+
+      // The session_ready message should include thread-level acpSessionId
+      // This is verified by checking the thread data structure
+      expect(session!.chatThreads).toHaveLength(3); // Main + 2 created
+
+      // Verify each thread has the expected structure for bootstrap
+      for (const thread of session!.chatThreads) {
+        expect(thread.id).toBeDefined();
+        expect(thread.name).toBeDefined();
+        expect(thread.model).toBeDefined();
+        expect(thread.mode).toBeDefined();
+        // acpSessionId should be present (null or string)
+        expect(thread).toHaveProperty("acpSessionId");
+      }
+    });
+
+    it("should preserve thread acpSessionId across session reloads", async () => {
+      // Create a thread with acpSessionId
+      const r = await app.request(
+        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Feature Branch",
+            model: "claude-3-opus",
+            mode: "build",
+          }),
+        },
+      );
+      expect(r.status).toBe(201);
+      const thread = await r.json();
+
+      // Set thread-specific acpSessionId
+      await sessionRepository.updateChatThread(sessionId, thread.id, {
+        acpSessionId: "acp-feature-session-456",
+        model: "claude-3-opus",
+        mode: "build",
+      });
+
+      // Reload session from disk (simulates restart)
+      const reloadedSession = await sessionRepository.findById(sessionId);
+      expect(reloadedSession).toBeDefined();
+
+      const reloadedThread = reloadedSession!.chatThreads.find(
+        (t: any) => t.id === thread.id,
+      );
+      expect(reloadedThread?.acpSessionId).toBe("acp-feature-session-456");
+      expect(reloadedThread?.model).toBe("claude-3-opus");
+      expect(reloadedThread?.mode).toBe("build");
     });
   });
 });

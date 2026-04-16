@@ -568,6 +568,17 @@ async function handleAgentMessage(ws, data) {
               }
             }
 
+            // Build thread bootstrap metadata for restart recovery
+            const threadBootstrap =
+              sessionWithCreds?.chatThreads?.map((thread: any) => ({
+                chatThreadId: thread.id,
+                name: thread.name,
+                model: thread.model,
+                mode: thread.mode,
+                acpSessionId: thread.acpSessionId,
+                state: thread.state,
+              })) ?? [];
+
             sessionsReady.push({
               sessionId,
               name: session.name,
@@ -576,12 +587,13 @@ async function handleAgentMessage(ws, data) {
               fossilUrl,
               agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
               agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
-              acpSessionId: sessionWithCreds?.acpSessionId ?? null,
               modelState: sessionWithCreds?.modelState ?? null,
               modeState: sessionWithCreds?.modeState ?? null,
               localDevMirrorPath: sessionWithCreds?.localDevMirrorPath ?? null,
               agentSubpath: sessionWithCreds?.agentSubpath ?? null,
               mcpServers: mcpServers.length > 0 ? mcpServers : undefined,
+              chatThreads: threadBootstrap,
+              activeChatThreadId: sessionWithCreds?.activeChatThreadId ?? null,
             });
           }
         }
@@ -810,7 +822,9 @@ async function handleAgentMessage(ws, data) {
               role: "assistant",
               content: fullContent,
               timestamp: new Date().toISOString(),
-              ...(duration !== undefined ? { metadata: { duration, durationMs } } : {}),
+              ...(duration !== undefined
+                ? { metadata: { duration, durationMs } }
+                : {}),
             },
             historyThreadId,
           );
@@ -857,13 +871,13 @@ async function handleAgentMessage(ws, data) {
           if (client.readyState === 1) {
             // WebSocket.OPEN
             client.send(
-                JSON.stringify({
-                  type: "message",
-                  role: "assistant",
-                  chatThreadId: data.chatThreadId,
-                  content: data.content,
-                  timestamp: new Date().toISOString(),
-                }),
+              JSON.stringify({
+                type: "message",
+                role: "assistant",
+                chatThreadId: data.chatThreadId,
+                content: data.content,
+                timestamp: new Date().toISOString(),
+              }),
             );
           }
         });
@@ -871,7 +885,8 @@ async function handleAgentMessage(ws, data) {
 
       // Get active thread ID and save with thread context
       const acpSessionRecord = await sessionRepository.findById(acpSessionId);
-      const acpThreadId = data.chatThreadId || acpSessionRecord?.activeChatThreadId;
+      const acpThreadId =
+        data.chatThreadId || acpSessionRecord?.activeChatThreadId;
 
       await mimoContext.services.chat.saveMessage(
         acpSessionId,
@@ -917,15 +932,32 @@ async function handleAgentMessage(ws, data) {
     case "acp_session_created":
       {
         const { sessionId, acpSessionId, wasReset, resetReason } = data;
+        const createdThreadId = data.chatThreadId;
         logger.debug("[agent] ACP session created:", {
           sessionId,
+          chatThreadId: createdThreadId,
           acpSessionId,
           wasReset,
           resetReason,
         });
 
         if (sessionId && acpSessionId) {
+          // Update session-level acpSessionId (backward compatibility)
           await sessionRepository.update(sessionId, { acpSessionId });
+
+          // Update thread-level acpSessionId if chatThreadId is provided
+          if (createdThreadId) {
+            await sessionRepository.updateChatThread(
+              sessionId,
+              createdThreadId,
+              {
+                acpSessionId,
+              },
+            );
+            logger.debug(
+              `[agent] Updated thread ${createdThreadId} acpSessionId to ${acpSessionId}`,
+            );
+          }
 
           if (wasReset) {
             const timestamp = new Date().toISOString();
@@ -933,7 +965,8 @@ async function handleAgentMessage(ws, data) {
             const systemMessage = `Session reset at ${timestamp}${reasonText}`;
             // Get active thread and save system message to current thread
             const resetSession = await sessionRepository.findById(sessionId);
-            const resetThreadId = resetSession?.activeChatThreadId;
+            const resetThreadId =
+              createdThreadId || resetSession?.activeChatThreadId;
             await mimoContext.services.chat.saveMessage(
               sessionId,
               {
@@ -959,8 +992,22 @@ async function handleAgentMessage(ws, data) {
         });
 
         if (sessionId && acpSessionId) {
-          // Update session with new acpSessionId
+          // Update session-level acpSessionId (backward compatibility)
           await sessionRepository.update(sessionId, { acpSessionId });
+
+          // Update thread-level acpSessionId if chatThreadId is provided
+          if (clearedThreadId) {
+            await sessionRepository.updateChatThread(
+              sessionId,
+              clearedThreadId,
+              {
+                acpSessionId,
+              },
+            );
+            logger.debug(
+              `[agent] Updated thread ${clearedThreadId} acpSessionId to ${acpSessionId} after clear`,
+            );
+          }
 
           // Add system message to chat history
           const timestamp = new Date().toISOString();
@@ -1291,13 +1338,13 @@ async function handleChatMessage(ws, data) {
         subscribers.forEach((client) => {
           if (client.readyState === 1) {
             client.send(
-                JSON.stringify({
-                  type: "message",
-                  role: "user",
-                  chatThreadId: userThreadId,
-                  content: data.content,
-                  timestamp: new Date().toISOString(),
-                }),
+              JSON.stringify({
+                type: "message",
+                role: "user",
+                chatThreadId: userThreadId,
+                content: data.content,
+                timestamp: new Date().toISOString(),
+              }),
             );
           }
         });
@@ -1323,7 +1370,8 @@ async function handleChatMessage(ws, data) {
     case "set_model":
       // Forward model change to agent
       const modelSession = await sessionRepository.findById(sessionId);
-      const modelThreadId = data.chatThreadId || modelSession?.activeChatThreadId;
+      const modelThreadId =
+        data.chatThreadId || modelSession?.activeChatThreadId;
       if (modelSession?.assignedAgentId) {
         const agentWs = agentService.getAgentConnection(
           modelSession.assignedAgentId,
@@ -1365,17 +1413,28 @@ async function handleChatMessage(ws, data) {
     case "request_state":
       // Forward state request to agent with chatThreadId
       const stateSession = await sessionRepository.findById(sessionId);
-      const stateThreadId = data.chatThreadId || stateSession?.activeChatThreadId;
+      const stateThreadId =
+        data.chatThreadId || stateSession?.activeChatThreadId;
       if (stateSession?.assignedAgentId) {
         const stateAgentWs = agentService.getAgentConnection(
           stateSession.assignedAgentId,
         );
         if (stateAgentWs && stateAgentWs.readyState === 1) {
+          // Include thread model/mode so agent can apply them when spawning ACP
+          const stateThread = stateThreadId
+            ? stateSession.chatThreads.find((t) => t.id === stateThreadId)
+            : undefined;
+
           stateAgentWs.send(
             JSON.stringify({
               type: "request_state",
               sessionId: sessionId,
               chatThreadId: stateThreadId,
+              ...(stateThread?.model && { model: stateThread.model }),
+              ...(stateThread?.mode && { mode: stateThread.mode }),
+              ...(stateThread?.acpSessionId && {
+                acpSessionId: stateThread.acpSessionId,
+              }),
             }),
           );
         }
@@ -1510,7 +1569,8 @@ async function handleChatMessage(ws, data) {
           return;
         }
 
-        const cancelledSession = await sessionRepository.findById(cancelledSessionId);
+        const cancelledSession =
+          await sessionRepository.findById(cancelledSessionId);
         const cancelledThreadId =
           data.chatThreadId || cancelledSession?.activeChatThreadId;
 
@@ -1596,12 +1656,12 @@ async function handleChatMessage(ws, data) {
             subscribers.forEach((client: WebSocket) => {
               if (client.readyState === 1) {
                 client.send(
-                    JSON.stringify({
-                      type: "clear_session_error",
-                      chatThreadId: clearThreadId,
-                      error: "No agent assigned to session",
-                      timestamp: new Date().toISOString(),
-                    }),
+                  JSON.stringify({
+                    type: "clear_session_error",
+                    chatThreadId: clearThreadId,
+                    error: "No agent assigned to session",
+                    timestamp: new Date().toISOString(),
+                  }),
                 );
               }
             });

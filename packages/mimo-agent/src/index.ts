@@ -53,6 +53,8 @@ class MimoAgent {
   private lifecycleManager: SessionLifecycleManager;
   // keyed by acpKey(sessionId, chatThreadId)
   private cachedAcpStates: Map<string, CachedAcpState> = new Map();
+  // Store thread-specific model/mode from platform (keyed by acpKey)
+  private threadConfigs: Map<string, { model?: string; mode?: string }> = new Map();
 
   constructor() {
     this.config = this.parseArgs();
@@ -376,6 +378,7 @@ class MimoAgent {
         localDevMirrorPath,
         agentSubpath,
         mcpServers,
+        chatThreads,
       } = session;
 
       try {
@@ -404,11 +407,6 @@ class MimoAgent {
           agentWorkspacePassword,
         );
 
-        // Store acpSessionId for later use during ACP init
-        if (acpSessionId) {
-          this.sessionManager.setSessionAcpSessionId(sessionId, acpSessionId);
-        }
-
         // Store cached model/mode so it can be restored after ACP initialization
         this.sessionManager.setSessionState(
           sessionId,
@@ -430,6 +428,29 @@ class MimoAgent {
           logger.debug(
             `[mimo-agent] Session ${sessionId} has ${mcpServers.length} MCP server(s)`,
           );
+        }
+
+        // Store thread bootstrap data for lazy recovery (restart scenario)
+        // This allows threads to be restored with their persisted acpSessionId when activated
+        if (chatThreads && Array.isArray(chatThreads)) {
+          for (const thread of chatThreads) {
+            const threadKey = acpKey(sessionId, thread.chatThreadId);
+            // Thread must have acpSessionId to be recoverable
+            if (thread.acpSessionId) {
+              this.threadConfigs.set(threadKey, {
+                acpSessionId: thread.acpSessionId,
+                ...(thread.model && { model: thread.model }),
+                ...(thread.mode && { mode: thread.mode }),
+              });
+              logger.debug(
+                `[mimo-agent] Stored bootstrap config for thread ${thread.chatThreadId}: acpSessionId=${thread.acpSessionId}, model=${thread.model}, mode=${thread.mode}`
+              );
+            } else {
+              logger.warn(
+                `[mimo-agent] Thread ${thread.chatThreadId} in session ${sessionId} has no acpSessionId - will start fresh when activated`
+              );
+            }
+          }
         }
 
         // Register the default thread in the lifecycle manager (task 4.1)
@@ -984,34 +1005,71 @@ class MimoAgent {
       logger.debug(`[mimo-agent] ACP respawned for ${sessionId}/${chatThreadId}`);
       this.acpClients.set(key, acpClient);
 
-      // Restore per-thread model/mode from cache (task 4.3)
+      // Restore per-thread model/mode from cache (task 4.3) or use thread config from platform
+      const threadConfig = this.threadConfigs.get(key);
+      
+      // Restore model from cache OR thread config
       if (cachedState?.modelState && acpClient.modelState) {
         try {
           await acpClient.setModel(cachedState.modelState.currentModelId);
           logger.debug(
-            `[mimo-agent] Restored model for ${sessionId}/${chatThreadId}: ${cachedState.modelState.currentModelId}`,
+            `[mimo-agent] Restored model from cache for ${sessionId}/${chatThreadId}: ${cachedState.modelState.currentModelId}`,
           );
         } catch (err) {
           logger.warn(
-            `[mimo-agent] Failed to restore model for ${sessionId}/${chatThreadId}:`,
+            `[mimo-agent] Failed to restore model from cache for ${sessionId}/${chatThreadId}:`,
+            err,
+          );
+        }
+      } else if (threadConfig?.model && acpClient.modelState) {
+        // First spawn: use model from thread config
+        try {
+          await acpClient.setModel(threadConfig.model);
+          logger.debug(
+            `[mimo-agent] Set model from thread config for ${sessionId}/${chatThreadId}: ${threadConfig.model}`,
+          );
+          // Update client state to reflect the applied model
+          acpClient.modelState.currentModelId = threadConfig.model;
+        } catch (err) {
+          logger.warn(
+            `[mimo-agent] Failed to set model from thread config for ${sessionId}/${chatThreadId}:`,
             err,
           );
         }
       }
 
+      // Restore mode from cache OR thread config
       if (cachedState?.modeState && acpClient.modeState) {
         try {
           await acpClient.setMode(cachedState.modeState.currentModeId);
           logger.debug(
-            `[mimo-agent] Restored mode for ${sessionId}/${chatThreadId}: ${cachedState.modeState.currentModeId}`,
+            `[mimo-agent] Restored mode from cache for ${sessionId}/${chatThreadId}: ${cachedState.modeState.currentModeId}`,
           );
         } catch (err) {
           logger.warn(
-            `[mimo-agent] Failed to restore mode for ${sessionId}/${chatThreadId}:`,
+            `[mimo-agent] Failed to restore mode from cache for ${sessionId}/${chatThreadId}:`,
+            err,
+          );
+        }
+      } else if (threadConfig?.mode && acpClient.modeState) {
+        // First spawn: use mode from thread config
+        try {
+          await acpClient.setMode(threadConfig.mode);
+          logger.debug(
+            `[mimo-agent] Set mode from thread config for ${sessionId}/${chatThreadId}: ${threadConfig.mode}`,
+          );
+          // Update client state to reflect the applied mode
+          acpClient.modeState.currentModeId = threadConfig.mode;
+        } catch (err) {
+          logger.warn(
+            `[mimo-agent] Failed to set mode from thread config for ${sessionId}/${chatThreadId}:`,
             err,
           );
         }
       }
+
+      // Clear thread config after first use
+      this.threadConfigs.delete(key);
 
       this.sessionManager.setSessionState(
         sessionId,
@@ -1444,10 +1502,22 @@ class MimoAgent {
     this.lifecycleManager.initializeThread(sessionId, chatThreadId, 600000);
 
     try {
+      // Thread runtime recovery requires thread-level acpSessionId
+      // This is populated by session_ready bootstrap or request_state
+      const cachedState = this.cachedAcpStates.get(key);
+      const threadConfig = this.threadConfigs.get(key);
+
+      const acpSessionIdToUse = cachedState?.acpSessionId ?? threadConfig?.acpSessionId;
+      if (acpSessionIdToUse) {
+        logger.debug(
+          `[mimo-agent] Using thread acpSessionId for ${sessionId}/${chatThreadId}: ${acpSessionIdToUse}`
+        );
+      }
+
       return await this.respawnAcpProcess(
         sessionId,
         chatThreadId,
-        this.cachedAcpStates.get(key),
+        acpSessionIdToUse ? { acpSessionId: acpSessionIdToUse } : undefined,
       );
     } catch (err) {
       logger.error(
@@ -1565,8 +1635,22 @@ class MimoAgent {
   private async handleRequestState(message: any): Promise<void> {
     const { sessionId } = message;
     const chatThreadId: string = message.chatThreadId ?? DEFAULT_THREAD_ID;
+
+    // Store thread config from platform (model/mode/acpSessionId to apply on first spawn)
+    const key = acpKey(sessionId, chatThreadId);
+    if (message.model || message.mode || message.acpSessionId) {
+      this.threadConfigs.set(key, {
+        ...(message.model && { model: message.model }),
+        ...(message.mode && { mode: message.mode }),
+        ...(message.acpSessionId && { acpSessionId: message.acpSessionId }),
+      });
+      logger.debug(
+        `[mimo-agent] Stored thread config for ${sessionId}/${chatThreadId}: model=${message.model}, mode=${message.mode}, acpSessionId=${message.acpSessionId}`
+      );
+    }
+
     const acpClient =
-      this.acpClients.get(acpKey(sessionId, chatThreadId)) ??
+      this.acpClients.get(key) ??
       (await this.ensureThreadRuntime(sessionId, chatThreadId));
 
     if (!acpClient) {
