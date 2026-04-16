@@ -1,5 +1,5 @@
 import { registerBuffer } from "./registry.js";
-import { ChatBuffer } from "./ChatBuffer.js";
+import { ChatThreadsBuffer } from "./ChatThreadsBuffer.js";
 import { NotesBuffer } from "./NotesBuffer.js";
 import { ImpactBuffer } from "../components/ImpactBuffer.js";
 import { McpServersBuffer } from "./McpServersBuffer.js";
@@ -15,7 +15,7 @@ export function ensureDefaultBuffersRegistered(): void {
     id: "chat",
     name: "Chat",
     frame: "left",
-    component: ChatBuffer,
+    component: ChatThreadsBuffer,
   });
 
   registerBuffer({
@@ -44,5 +44,5 @@ export function ensureDefaultBuffersRegistered(): void {
 
 export * from "./types.js";
 export * from "./registry.js";
-export * from "./ChatBuffer.js";
+export * from "./ChatThreadsBuffer.js";
 export * from "./NotesBuffer.js";

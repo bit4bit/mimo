@@ -7,6 +7,7 @@ import {
 } from "../buffers/index.js";
 import type { FrameState } from "../sessions/frame-state.js";
 import type { McpServer } from "../mcp-servers/types.js";
+import type { ChatThread } from "../sessions/repository.js";
 
 interface Project {
   id: string;
@@ -61,11 +62,14 @@ interface SessionDetailProps {
   modelState?: ModelState;
   modeState?: ModeState;
   fossilUrl?: string;
-  acpStatus?: "active" | "parked";
+  acpStatus?: "active" | "parked" | "waking";
   frameState: FrameState;
   notesContent?: string;
   mcpServers?: McpServer[];
   streamingTimeoutMs?: number;
+  // Chat threads data
+  chatThreads?: ChatThread[];
+  activeChatThreadId?: string;
 }
 
 export const SessionDetailPage: FC<SessionDetailProps> = ({
@@ -81,6 +85,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   notesContent = "",
   mcpServers = [],
   streamingTimeoutMs,
+  chatThreads = [],
+  activeChatThreadId,
 }) => {
   ensureDefaultBuffersRegistered();
   const leftBuffers = getBuffersForFrame("left");
@@ -122,70 +128,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             </span>
           </div>
           <div style="display: flex; gap: 10px; align-items: center;">
-            {/* Model Selector - always visible with placeholder */}
-            <div
-              id="model-selector-container"
-              class="selector-container"
-              style={modelState ? "opacity: 1;" : "opacity: 0.5;"}
-              title={
-                modelState
-                  ? modelState.currentModelId
-                  : "Waiting for ACP server to provide model options..."
-              }
-            >
-              <label class="selector-label">Model:</label>
-              <select
-                id="model-selector"
-                class="selector-dropdown"
-                disabled={!modelState}
-              >
-                {modelState ? (
-                  modelState.availableModels.map((model) => (
-                    <option
-                      value={model.value}
-                      selected={model.value === modelState.currentModelId}
-                    >
-                      {model.name}
-                    </option>
-                  ))
-                ) : (
-                  <option>Not configured</option>
-                )}
-              </select>
-            </div>
-
-            {/* Mode Selector - always visible with placeholder */}
-            <div
-              id="mode-selector-container"
-              class="selector-container"
-              style={modeState ? "opacity: 1;" : "opacity: 0.5;"}
-              title={
-                modeState
-                  ? modeState.currentModeId
-                  : "Waiting for ACP server to provide mode options..."
-              }
-            >
-              <label class="selector-label">Mode:</label>
-              <select
-                id="mode-selector"
-                class="selector-dropdown"
-                disabled={!modeState}
-              >
-                {modeState ? (
-                  modeState.availableModes.map((mode) => (
-                    <option
-                      value={mode.value}
-                      selected={mode.value === modeState.currentModeId}
-                    >
-                      {mode.name}
-                    </option>
-                  ))
-                ) : (
-                  <option>Not configured</option>
-                )}
-              </select>
-            </div>
-
             {agent && (
               <a href={`/agents/${agent.id}`} class="btn-secondary">
                 Agent Details
@@ -209,7 +151,13 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             buffers={leftBuffers}
             activeBufferId={frameState.leftFrame.activeBufferId}
             bufferProps={{
-              chat: { chatHistory },
+              chat: { 
+                chatHistory,
+                chatThreads,
+                activeChatThreadId,
+                modelState,
+                modeState,
+              },
               notes: { initialContent: notesContent },
             }}
           />
@@ -232,14 +180,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             </button>
             <button type="button" id="sync-now-btn" class="btn-secondary">
               Sync Now
-            </button>
-            <button
-              type="button"
-              id="clear-session-btn"
-              class="btn-secondary"
-              title="Clear agent context while preserving history"
-            >
-              Clear
             </button>
             <a
               href={`/projects/${project.id}/sessions/${session.id}/settings`}
@@ -269,68 +209,21 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         </div>
       </div>
 
-      <div id="commit-dialog" class="modal" style="display: none;">
-        <div class="modal-content commit-modal">
-          <h3>Commit Changes</h3>
-
-          <div class="commit-preview-container">
-            <div class="commit-status-filters">
-              <label class="status-filter">
-                <input type="checkbox" id="filter-added" checked />
-                <span class="status-badge status-added">Added</span>
-                <span id="count-added" class="status-count">
-                  0
-                </span>
-              </label>
-              <label class="status-filter">
-                <input type="checkbox" id="filter-modified" checked />
-                <span class="status-badge status-modified">Modified</span>
-                <span id="count-modified" class="status-count">
-                  0
-                </span>
-              </label>
-              <label class="status-filter">
-                <input type="checkbox" id="filter-deleted" checked />
-                <span class="status-badge status-deleted">Deleted</span>
-                <span id="count-deleted" class="status-count">
-                  0
-                </span>
-              </label>
-            </div>
-
-            <div id="commit-tree" class="commit-tree">
-              <div class="commit-empty-state">Loading changes...</div>
-            </div>
-          </div>
-
-          <div class="commit-message-section">
-            <div class="commit-file-count">
-              <span id="selected-count">0</span> of{" "}
-              <span id="total-count">0</span> files selected
-            </div>
-            <textarea
-              id="commit-message"
-              placeholder="Enter commit message..."
-              rows="3"
-            ></textarea>
-            <div id="commit-error" class="commit-error"></div>
-          </div>
-
-          <div class="commit-actions">
-            <button type="button" id="commit-cancel" class="btn-secondary">
-              Cancel
-            </button>
-            <button
-              type="button"
-              id="commit-confirm"
-              class="btn-primary"
-              disabled
-            >
-              Commit & Push
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Inject thread data for JS */}
+      {chatThreads.length > 0 && (
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.MIMO_CHAT_THREADS_DATA = ${JSON.stringify({
+                threads: chatThreads,
+                activeChatThreadId,
+              })};
+              window.MIMO_CHAT_MODELS = ${JSON.stringify(modelState?.availableModels || [])};
+              window.MIMO_CHAT_MODES = ${JSON.stringify(modeState?.availableModes || [])};
+            `,
+          }}
+        />
+      )}
 
       <style>{`
         .session-container {
@@ -479,45 +372,54 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           white-space: pre-wrap;
           word-break: break-word;
         }
-        /* Editable YOU bubble styles */
-        .editable-bubble .message-content[contenteditable] {
-          cursor: text;
-          outline: none;
-          min-height: 1.4em;
-          white-space: pre-wrap;
-          word-break: break-word;
+        /* Chat threads styles */
+        .chat-threads-container {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
         }
-        .editable-bubble .message-content[contenteditable]:empty::before {
-          content: attr(data-placeholder);
-          color: #555;
-          pointer-events: none;
+        .chat-threads-tabs {
+          display: flex;
+          background: #2d2d2d;
+          border-bottom: 1px solid #444;
+          overflow-x: auto;
         }
-        .editable-bubble-header {
+        .chat-thread-tab {
+          padding: 8px 16px;
+          border: none;
+          border-right: 1px solid #444;
+          background: transparent;
+          color: #888;
+          cursor: pointer;
+          font-family: monospace;
+          font-size: 12px;
+          white-space: nowrap;
           display: flex;
           align-items: center;
           gap: 6px;
-          font-size: 11px;
-          color: #888;
-          margin-bottom: 5px;
-          text-transform: uppercase;
         }
-        .editable-bubble-status {
-          font-size: 10px;
-        }
-        .editable-send-btn {
-          background: none;
-          border: 1px solid #555;
-          color: #888;
-          font-family: monospace;
-          font-size: 11px;
-          padding: 1px 6px;
-          border-radius: 3px;
-          cursor: pointer;
-          transition: color 0.15s, border-color 0.15s;
-        }
-        .editable-send-btn:hover {
+        .chat-thread-tab:hover {
+          background: #353535;
           color: #d4d4d4;
-          border-color: #888;
+        }
+        .chat-thread-tab.active {
+          background: #1a1a1a;
+          color: #d4d4d4;
+        }
+        .chat-thread-context {
+          padding: 8px 12px;
+          background: #252525;
+          border-bottom: 1px solid #444;
+          display: flex;
+          gap: 15px;
+          align-items: center;
+        }
+        .chat-messages-wrapper {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          overflow: hidden;
         }
         .agent-status {
           margin-left: 10px;

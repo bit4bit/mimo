@@ -31,10 +31,19 @@ function toWebReadable(nodeReadable: Readable): ReadableStream<Uint8Array> {
   return Readable.toWeb(nodeReadable) as ReadableStream<Uint8Array>;
 }
 
+// Composite key helpers (task 4.1)
+function acpKey(sessionId: string, chatThreadId: string): string {
+  return `${sessionId}:${chatThreadId}`;
+}
+
+// Default thread name used for legacy/single-thread sessions
+const DEFAULT_THREAD_ID = "main";
+
 class MimoAgent {
   private ws: WebSocket | null = null;
   private config: AgentConfig;
   private sessionManager: SessionManager;
+  // keyed by acpKey(sessionId, chatThreadId) — task 4.1
   private acpClients: Map<string, AcpClient> = new Map();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
@@ -42,6 +51,7 @@ class MimoAgent {
   private provider: IAcpProvider;
   private pendingPermissions: Map<string, (r: any) => void> = new Map();
   private lifecycleManager: SessionLifecycleManager;
+  // keyed by acpKey(sessionId, chatThreadId)
   private cachedAcpStates: Map<string, CachedAcpState> = new Map();
 
   constructor() {
@@ -65,47 +75,50 @@ class MimoAgent {
       },
     });
 
-    // Initialize lifecycle manager with callbacks
+    // Initialize lifecycle manager with thread-aware callbacks (tasks 4.5–4.7)
     this.lifecycleManager = new SessionLifecycleManager({
-      onStatusChange: (sessionId, status) => {
+      onStatusChange: (sessionId, chatThreadId, status) => {
         this.send({
           type: "acp_status",
           sessionId,
+          chatThreadId,
           status,
           timestamp: new Date().toISOString(),
         });
       },
-      onCacheState: (sessionId, state) => {
-        this.cachedAcpStates.set(sessionId, state);
+      onCacheState: (sessionId, chatThreadId, state) => {
+        this.cachedAcpStates.set(acpKey(sessionId, chatThreadId), state);
       },
-      onGetCachedState: (sessionId) => {
-        return this.cachedAcpStates.get(sessionId);
+      onGetCachedState: (sessionId, chatThreadId) => {
+        return this.cachedAcpStates.get(acpKey(sessionId, chatThreadId));
       },
-      onSpawnAcp: async (sessionId, cachedState) => {
+      onSpawnAcp: async (sessionId, chatThreadId, cachedState) => {
         const session = this.sessionManager.getSession(sessionId);
         if (!session) {
           throw new Error(`Session ${sessionId} not found`);
         }
-        // Spawn ACP with cached state
-        return this.respawnAcpProcess(sessionId, cachedState);
+        return this.respawnAcpProcess(sessionId, chatThreadId, cachedState);
       },
-      onTerminateSession: async (sessionId) => {
+      onTerminateThread: async (sessionId, chatThreadId) => {
+        const key = acpKey(sessionId, chatThreadId);
         // Cache the ACP state BEFORE closing
-        const acpClient = this.acpClients.get(sessionId);
+        const acpClient = this.acpClients.get(key);
         if (acpClient) {
-          this.cachedAcpStates.set(sessionId, {
+          this.cachedAcpStates.set(key, {
             acpSessionId: acpClient.acpSessionId,
             modelState: acpClient.modelState,
             modeState: acpClient.modeState,
           });
         }
 
-        // Close the ACP client gracefully (EOF → wait for process exit)
-        await this.closeAcpClient(sessionId);
+        // Close the ACP client gracefully
+        await this.closeAcpClientByKey(key);
 
-        // Stop the session: cleans up file watcher and force-kills the process
-        // if it didn't exit within the close timeout above.
-        this.sessionManager.stopSession(sessionId);
+        // Only stop the session-manager session when all threads are done
+        // For now stop it when the default thread terminates
+        if (chatThreadId === DEFAULT_THREAD_ID) {
+          this.sessionManager.stopSession(sessionId);
+        }
       },
     });
 
@@ -312,7 +325,7 @@ class MimoAgent {
         break;
 
       case "request_state":
-        this.handleRequestState(message);
+        void this.handleRequestState(message);
         break;
 
       case "permission_response":
@@ -419,11 +432,21 @@ class MimoAgent {
           );
         }
 
-        // Spawn ACP process
-        await this.spawnAcpProcess({
-          ...sessionInfo,
-          agentSubpath: agentSubpath || undefined,
-        });
+        // Register the default thread in the lifecycle manager (task 4.1)
+        this.lifecycleManager.initializeThread(
+          sessionId,
+          DEFAULT_THREAD_ID,
+          600000, // platform will update via session_config_updated
+        );
+
+        // Spawn ACP process for the default thread (task 4.2)
+        await this.spawnAcpProcess(
+          {
+            ...sessionInfo,
+            agentSubpath: agentSubpath || undefined,
+          },
+          DEFAULT_THREAD_ID,
+        );
 
         sessionIds.push(sessionId);
         logger.debug(`[mimo-agent] Session ${sessionId} ready`);
@@ -628,32 +651,41 @@ class MimoAgent {
    * After this returns, the session's acpProcess will either have exited cleanly or
    * will be killed by the subsequent sessionManager.stopSession() safety-net call.
    */
-  private async closeAcpClient(sessionId: string): Promise<void> {
-    const acpClient = this.acpClients.get(sessionId);
+  private async closeAcpClientByKey(key: string): Promise<void> {
+    const acpClient = this.acpClients.get(key);
     if (!acpClient) return;
 
-    // Remove from map before closing so no new operations can be dispatched to it.
-    this.acpClients.delete(sessionId);
+    this.acpClients.delete(key);
 
     try {
       await acpClient.close(5000);
     } catch (err) {
       logger.warn(
-        `[mimo-agent] Error during ACP client close for ${sessionId}:`,
+        `[mimo-agent] Error during ACP client close for ${key}:`,
         err,
       );
     }
   }
 
-  private async spawnAcpProcess(session: any): Promise<void> {
+  /** Close the default-thread ACP client for a session (backward compat). */
+  private async closeAcpClient(sessionId: string): Promise<void> {
+    await this.closeAcpClientByKey(acpKey(sessionId, DEFAULT_THREAD_ID));
+  }
+
+  // task 4.2: spawn ACP per thread using shared checkout path
+  private async spawnAcpProcess(
+    session: any,
+    chatThreadId: string = DEFAULT_THREAD_ID,
+  ): Promise<void> {
     const sessionInfo = this.sessionManager.getSession(session.sessionId);
     if (!sessionInfo) return;
 
-    // Close the existing ACP client gracefully before spawning a new one.
-    // This sends EOF to the old process's stdin and waits for it to exit cleanly.
-    await this.closeAcpClient(session.sessionId);
+    const key = acpKey(session.sessionId, chatThreadId);
 
-    // Safety-net: if the process still hasn't exited after the close timeout, kill it.
+    // Close existing ACP client for this thread gracefully
+    await this.closeAcpClientByKey(key);
+
+    // Safety-net: kill stale process
     if (sessionInfo.acpProcess && !sessionInfo.acpProcess.killed) {
       logger.debug(
         `[mimo-agent] Force-killing old ACP process for ${session.sessionId}`,
@@ -670,12 +702,13 @@ class MimoAgent {
       ? join(sessionInfo.checkoutPath, session.agentSubpath)
       : sessionInfo.checkoutPath;
 
-    // Create ACP client
+    // Create ACP client — all events include chatThreadId (task 5.2)
     const acpClient = new AcpClient(this.provider, session.sessionId, {
       onThoughtStart: (sessionId) => {
         this.send({
           type: "thought_start",
           sessionId,
+          chatThreadId,
           timestamp: new Date().toISOString(),
         });
       },
@@ -683,6 +716,7 @@ class MimoAgent {
         this.send({
           type: "thought_chunk",
           sessionId,
+          chatThreadId,
           content,
           timestamp: new Date().toISOString(),
         });
@@ -691,6 +725,7 @@ class MimoAgent {
         this.send({
           type: "thought_end",
           sessionId,
+          chatThreadId,
           timestamp: new Date().toISOString(),
         });
       },
@@ -698,6 +733,7 @@ class MimoAgent {
         this.send({
           type: "message_chunk",
           sessionId,
+          chatThreadId,
           content,
           timestamp: new Date().toISOString(),
         });
@@ -706,6 +742,7 @@ class MimoAgent {
         this.send({
           type: "usage_update",
           sessionId,
+          chatThreadId,
           usage,
           timestamp: new Date().toISOString(),
         });
@@ -714,6 +751,7 @@ class MimoAgent {
         this.send({
           type: "acp_response",
           sessionId,
+          chatThreadId,
           content,
           timestamp: new Date().toISOString(),
         });
@@ -724,6 +762,7 @@ class MimoAgent {
           this.send({
             type: "permission_request",
             sessionId,
+            chatThreadId,
             requestId,
             toolCall: params.toolCall,
             options: params.options,
@@ -743,8 +782,8 @@ class MimoAgent {
         sessionInfo.mcpServers,
       )
       .then(async (result) => {
-        logger.debug(`[mimo-agent] ACP client ready for ${session.sessionId}`);
-        this.acpClients.set(session.sessionId, acpClient);
+        logger.debug(`[mimo-agent] ACP client ready for ${session.sessionId}/${chatThreadId}`);
+        this.acpClients.set(key, acpClient);
 
         // Restore model/mode from persisted session state if available
         if (sessionInfo.modelState && acpClient.modelState) {
@@ -786,6 +825,7 @@ class MimoAgent {
         this.send({
           type: "session_initialized",
           sessionId: session.sessionId,
+          chatThreadId,
           modelState: acpClient.modelState,
           modeState: acpClient.modeState,
           timestamp: new Date().toISOString(),
@@ -795,6 +835,7 @@ class MimoAgent {
         this.send({
           type: "acp_session_created",
           sessionId: session.sessionId,
+          chatThreadId,
           acpSessionId: result.acpSessionId,
           wasReset: result.wasReset,
           resetReason: result.resetReason,
@@ -803,7 +844,7 @@ class MimoAgent {
       })
       .catch((err) => {
         logger.error(
-          `[mimo-agent] ACP init error for ${session.sessionId}:`,
+          `[mimo-agent] ACP init error for ${session.sessionId}/${chatThreadId}:`,
           err,
         );
       });
@@ -811,22 +852,22 @@ class MimoAgent {
     // Handle process events
     process.stderr?.on("data", (data: Buffer) => {
       logger.error(
-        `[mimo-agent] ACP stderr (${session.sessionId}):`,
+        `[mimo-agent] ACP stderr (${session.sessionId}/${chatThreadId}):`,
         data.toString(),
       );
     });
 
     process.on("close", (code: number | null) => {
       logger.debug(
-        `[mimo-agent] ACP exited for ${session.sessionId} with code ${code}`,
+        `[mimo-agent] ACP exited for ${session.sessionId}/${chatThreadId} with code ${code}`,
       );
-      this.acpClients.delete(session.sessionId);
+      this.acpClients.delete(key);
       this.sessionManager.setSessionAcpProcess(session.sessionId, null);
     });
 
     process.on("error", (err: Error) => {
       logger.error(
-        `[mimo-agent] ACP process error for ${session.sessionId}:`,
+        `[mimo-agent] ACP process error for ${session.sessionId}/${chatThreadId}:`,
         err.message,
       );
       this.send({
@@ -838,8 +879,10 @@ class MimoAgent {
     });
   }
 
+  // task 4.3: restore per-thread model/mode on wake/reconnect
   private async respawnAcpProcess(
     sessionId: string,
+    chatThreadId: string,
     cachedState?: CachedAcpState,
   ): Promise<AcpClient | null> {
     const sessionInfo = this.sessionManager.getSession(sessionId);
@@ -847,30 +890,32 @@ class MimoAgent {
       throw new Error(`Session ${sessionId} not found`);
     }
 
-    logger.debug(`[mimo-agent] Respawning ACP for ${sessionId}`);
+    const key = acpKey(sessionId, chatThreadId);
+    logger.debug(`[mimo-agent] Respawning ACP for ${sessionId}/${chatThreadId}`);
 
-    // Spawn ACP process
     const spawnResult = this.provider.spawn(sessionInfo.checkoutPath);
     const process = spawnResult.process;
     this.sessionManager.setSessionAcpProcess(sessionId, process);
 
     const acpCwd = sessionInfo.checkoutPath;
 
-    // Create ACP client
+    // Create ACP client with chatThreadId in all events (task 5.2)
     const acpClient = new AcpClient(this.provider, sessionId, {
       onThoughtStart: (sid) => {
-        this.lifecycleManager.recordActivity(sid);
+        this.lifecycleManager.recordActivity(sid, chatThreadId);
         this.send({
           type: "thought_start",
           sessionId: sid,
+          chatThreadId,
           timestamp: new Date().toISOString(),
         });
       },
       onThoughtChunk: (sid, content) => {
-        this.lifecycleManager.recordActivity(sid);
+        this.lifecycleManager.recordActivity(sid, chatThreadId);
         this.send({
           type: "thought_chunk",
           sessionId: sid,
+          chatThreadId,
           content,
           timestamp: new Date().toISOString(),
         });
@@ -879,14 +924,16 @@ class MimoAgent {
         this.send({
           type: "thought_end",
           sessionId: sid,
+          chatThreadId,
           timestamp: new Date().toISOString(),
         });
       },
       onMessageChunk: (sid, content) => {
-        this.lifecycleManager.recordActivity(sid);
+        this.lifecycleManager.recordActivity(sid, chatThreadId);
         this.send({
           type: "message_chunk",
           sessionId: sid,
+          chatThreadId,
           content,
           timestamp: new Date().toISOString(),
         });
@@ -895,6 +942,7 @@ class MimoAgent {
         this.send({
           type: "usage_update",
           sessionId: sid,
+          chatThreadId,
           usage,
           timestamp: new Date().toISOString(),
         });
@@ -903,6 +951,7 @@ class MimoAgent {
         this.send({
           type: "acp_response",
           sessionId: sid,
+          chatThreadId,
           content,
           timestamp: new Date().toISOString(),
         });
@@ -913,6 +962,7 @@ class MimoAgent {
           this.send({
             type: "permission_request",
             sessionId: sid,
+            chatThreadId,
             requestId,
             toolCall: params.toolCall,
             options: params.options,
@@ -923,7 +973,6 @@ class MimoAgent {
     });
 
     try {
-      // Initialize with cached session ID and MCP servers if available
       const result = await acpClient.initialize(
         acpCwd,
         toWebWritable(spawnResult.stdin),
@@ -932,19 +981,19 @@ class MimoAgent {
         sessionInfo.mcpServers,
       );
 
-      logger.debug(`[mimo-agent] ACP respawned for ${sessionId}`);
-      this.acpClients.set(sessionId, acpClient);
+      logger.debug(`[mimo-agent] ACP respawned for ${sessionId}/${chatThreadId}`);
+      this.acpClients.set(key, acpClient);
 
-      // Restore model/mode from cache if available
+      // Restore per-thread model/mode from cache (task 4.3)
       if (cachedState?.modelState && acpClient.modelState) {
         try {
           await acpClient.setModel(cachedState.modelState.currentModelId);
           logger.debug(
-            `[mimo-agent] Restored model for ${sessionId}: ${cachedState.modelState.currentModelId}`,
+            `[mimo-agent] Restored model for ${sessionId}/${chatThreadId}: ${cachedState.modelState.currentModelId}`,
           );
         } catch (err) {
           logger.warn(
-            `[mimo-agent] Failed to restore model for ${sessionId}:`,
+            `[mimo-agent] Failed to restore model for ${sessionId}/${chatThreadId}:`,
             err,
           );
         }
@@ -954,37 +1003,36 @@ class MimoAgent {
         try {
           await acpClient.setMode(cachedState.modeState.currentModeId);
           logger.debug(
-            `[mimo-agent] Restored mode for ${sessionId}: ${cachedState.modeState.currentModeId}`,
+            `[mimo-agent] Restored mode for ${sessionId}/${chatThreadId}: ${cachedState.modeState.currentModeId}`,
           );
         } catch (err) {
           logger.warn(
-            `[mimo-agent] Failed to restore mode for ${sessionId}:`,
+            `[mimo-agent] Failed to restore mode for ${sessionId}/${chatThreadId}:`,
             err,
           );
         }
       }
 
-      // Update session state
       this.sessionManager.setSessionState(
         sessionId,
         acpClient.modelState,
         acpClient.modeState,
       );
 
-      // Send session initialized
       this.send({
         type: "session_initialized",
         sessionId,
+        chatThreadId,
         modelState: acpClient.modelState,
         modeState: acpClient.modeState,
         timestamp: new Date().toISOString(),
       });
 
-      // If session was reset, notify
       if (result.wasReset) {
         this.send({
           type: "acp_session_created",
           sessionId,
+          chatThreadId,
           acpSessionId: result.acpSessionId,
           wasReset: true,
           resetReason: result.resetReason || "session_resumed",
@@ -992,25 +1040,24 @@ class MimoAgent {
         });
       }
 
-      // Handle process events
       process.stderr?.on("data", (data: Buffer) => {
         logger.error(
-          `[mimo-agent] ACP stderr (${sessionId}):`,
+          `[mimo-agent] ACP stderr (${sessionId}/${chatThreadId}):`,
           data.toString(),
         );
       });
 
       process.on("close", (code: number | null) => {
         logger.debug(
-          `[mimo-agent] ACP exited for ${sessionId} with code ${code}`,
+          `[mimo-agent] ACP exited for ${sessionId}/${chatThreadId} with code ${code}`,
         );
-        this.acpClients.delete(sessionId);
+        this.acpClients.delete(key);
         this.sessionManager.setSessionAcpProcess(sessionId, null);
       });
 
       process.on("error", (err: Error) => {
         logger.error(
-          `[mimo-agent] ACP process error for ${sessionId}:`,
+          `[mimo-agent] ACP process error for ${sessionId}/${chatThreadId}:`,
           err.message,
         );
         this.send({
@@ -1023,7 +1070,7 @@ class MimoAgent {
 
       return acpClient;
     } catch (err) {
-      logger.error(`[mimo-agent] Failed to respawn ACP for ${sessionId}:`, err);
+      logger.error(`[mimo-agent] Failed to respawn ACP for ${sessionId}/${chatThreadId}:`, err);
       throw err;
     }
   }
@@ -1041,31 +1088,33 @@ class MimoAgent {
       return;
     }
 
-    logger.debug(`[mimo-agent] Restarting ACP for session ${sessionId}`);
-    this.spawnAcpProcess(session).catch((err) => {
-      logger.error(`[mimo-agent] Failed to restart ACP for ${sessionId}:`, err);
+    const chatThreadId: string = message.chatThreadId ?? DEFAULT_THREAD_ID;
+    logger.debug(`[mimo-agent] Restarting ACP for session ${sessionId}/${chatThreadId}`);
+    this.spawnAcpProcess(session, chatThreadId).catch((err) => {
+      logger.error(`[mimo-agent] Failed to restart ACP for ${sessionId}/${chatThreadId}:`, err);
     });
   }
 
   private async handleCancelRequest(message: any): Promise<void> {
     const sessionId = message.sessionId;
+    const chatThreadId: string = message.chatThreadId ?? DEFAULT_THREAD_ID;
     if (!sessionId) {
       logger.debug("[mimo-agent] No sessionId in cancel_request");
       return;
     }
 
-    const acpClient = this.acpClients.get(sessionId);
+    const acpClient = this.acpClients.get(acpKey(sessionId, chatThreadId));
     if (!acpClient) {
-      logger.debug(`[mimo-agent] No ACP client for session ${sessionId}`);
+      logger.debug(`[mimo-agent] No ACP client for session ${sessionId}/${chatThreadId}`);
       return;
     }
 
-    logger.debug(`[mimo-agent] Cancelling prompt for ${sessionId}`);
+    logger.debug(`[mimo-agent] Cancelling prompt for ${sessionId}/${chatThreadId}`);
     try {
       await acpClient.cancel();
     } catch (err: any) {
       logger.warn(
-        `[mimo-agent] Cancel notification error for ${sessionId}:`,
+        `[mimo-agent] Cancel notification error for ${sessionId}/${chatThreadId}:`,
         err.message,
       );
     }
@@ -1073,8 +1122,11 @@ class MimoAgent {
     this.send({
       type: "acp_cancelled",
       sessionId,
+      chatThreadId,
       timestamp: new Date().toISOString(),
     });
+
+    logger.debug(`[mimo-agent] Prompt cancelled for ${sessionId}/${chatThreadId}`);
   }
 
   private handleFileSyncRequest(message: any): void {
@@ -1299,55 +1351,52 @@ class MimoAgent {
   private async handleUserMessage(message: any): Promise<void> {
     const sessionId = message.sessionId;
     const content = message.content;
+    // task 5.1: route strictly by chatThreadId; fall back for legacy messages
+    const chatThreadId: string = message.chatThreadId ?? DEFAULT_THREAD_ID;
 
     if (!sessionId) {
       logger.debug("[mimo-agent] No sessionId in user_message");
       return;
     }
 
-    // Check session state via lifecycle manager
-    const sessionState = this.lifecycleManager.getSessionState(sessionId);
+    const key = acpKey(sessionId, chatThreadId);
 
-    if (sessionState === "parked") {
-      // Session is parked, need to wake it up
-      logger.debug(`[mimo-agent] Session ${sessionId} is parked, waking up...`);
+    // task 5.3: route by chatThreadId via thread-aware lifecycle
+    const threadState = this.lifecycleManager.getThreadState(sessionId, chatThreadId);
+
+    if (threadState === "parked") {
+      logger.debug(`[mimo-agent] Thread ${chatThreadId} in session ${sessionId} is parked, waking...`);
       try {
-        await this.lifecycleManager.queuePrompt(sessionId, content);
-        // After waking, get the ACP client (it should now exist)
-        const acpClient = this.acpClients.get(sessionId);
+        await this.lifecycleManager.queueThreadPrompt(sessionId, chatThreadId, content);
+        const acpClient = this.acpClients.get(key);
         if (!acpClient) {
           throw new Error("ACP client not available after wake-up");
         }
-        await this.sendPrompt(acpClient, sessionId, content);
+        await this.sendPrompt(acpClient, sessionId, chatThreadId, content);
       } catch (err) {
-        logger.error(`[mimo-agent] Failed to wake session ${sessionId}:`, err);
+        logger.error(`[mimo-agent] Failed to wake thread ${chatThreadId}:`, err);
         this.send({
           type: "error_response",
           sessionId,
-          error: `Failed to wake session: ${err instanceof Error ? err.message : String(err)}`,
+          error: `Failed to wake thread: ${err instanceof Error ? err.message : String(err)}`,
           timestamp: new Date().toISOString(),
         });
       }
       return;
     }
 
-    if (sessionState === "waking") {
-      // Session is waking, queue the prompt
-      logger.debug(
-        `[mimo-agent] Session ${sessionId} is waking, queueing prompt...`,
-      );
+    if (threadState === "waking") {
+      logger.debug(`[mimo-agent] Thread ${chatThreadId} is waking, queuing prompt...`);
       try {
-        await this.lifecycleManager.queuePrompt(sessionId, content);
+        await this.lifecycleManager.queueThreadPrompt(sessionId, chatThreadId, content);
         await this.sendPrompt(
-          this.acpClients.get(sessionId)!,
+          this.acpClients.get(key)!,
           sessionId,
+          chatThreadId,
           content,
         );
       } catch (err) {
-        logger.error(
-          `[mimo-agent] Failed to queue prompt for ${sessionId}:`,
-          err,
-        );
+        logger.error(`[mimo-agent] Failed to queue prompt for thread ${chatThreadId}:`, err);
         this.send({
           type: "error_response",
           sessionId,
@@ -1358,10 +1407,13 @@ class MimoAgent {
       return;
     }
 
-    // Normal active session flow
-    const acpClient = this.acpClients.get(sessionId);
+    // Normal active thread flow
+    let acpClient = this.acpClients.get(key);
     if (!acpClient) {
-      logger.debug(`[mimo-agent] No ACP client for session ${sessionId}`);
+      acpClient = await this.ensureThreadRuntime(sessionId, chatThreadId);
+    }
+    if (!acpClient) {
+      logger.debug(`[mimo-agent] No ACP client for ${sessionId}/${chatThreadId}`);
       this.send({
         type: "error_response",
         sessionId,
@@ -1371,26 +1423,62 @@ class MimoAgent {
       return;
     }
 
-    // Record activity for idle timeout tracking
-    this.lifecycleManager.recordActivity(sessionId);
-    await this.sendPrompt(acpClient, sessionId, content);
+    this.lifecycleManager.recordActivity(sessionId, chatThreadId);
+    await this.sendPrompt(acpClient, sessionId, chatThreadId, content);
+  }
+
+  private async ensureThreadRuntime(
+    sessionId: string,
+    chatThreadId: string,
+  ): Promise<AcpClient | null> {
+    const key = acpKey(sessionId, chatThreadId);
+    const existing = this.acpClients.get(key);
+    if (existing) return existing;
+
+    const session = this.sessionManager.getSession(sessionId);
+    if (!session) {
+      logger.debug(`[mimo-agent] Unknown session ${sessionId}`);
+      return null;
+    }
+
+    this.lifecycleManager.initializeThread(sessionId, chatThreadId, 600000);
+
+    try {
+      return await this.respawnAcpProcess(
+        sessionId,
+        chatThreadId,
+        this.cachedAcpStates.get(key),
+      );
+    } catch (err) {
+      logger.error(
+        `[mimo-agent] Failed to ensure ACP runtime for ${sessionId}/${chatThreadId}:`,
+        err,
+      );
+      return null;
+    }
   }
 
   private async sendPrompt(
     acpClient: AcpClient,
     sessionId: string,
+    chatThreadId: string,
     content: string,
   ): Promise<void> {
-    logger.debug(`[mimo-agent] Sending prompt for session ${sessionId}`);
+    logger.debug(
+      `[mimo-agent] Sending prompt for session ${sessionId}/${chatThreadId}`,
+    );
     this.send({
       type: "prompt_received",
       sessionId,
+      chatThreadId,
       timestamp: new Date().toISOString(),
     });
 
     try {
       await acpClient.prompt(content);
-      logger.debug(`[mimo-agent] Prompt completed for ${sessionId}`);
+      logger.debug(
+        `[mimo-agent] Prompt completed for ${sessionId}/${chatThreadId}`,
+      );
     } catch (err) {
       logger.error(`[mimo-agent] Prompt error:`, err);
       this.send({
@@ -1404,9 +1492,12 @@ class MimoAgent {
 
   private async handleSetModel(message: any): Promise<void> {
     const { sessionId, modelId } = message;
-    logger.debug(`[mimo-agent] Set model for ${sessionId}: ${modelId}`);
+    const chatThreadId: string = message.chatThreadId ?? DEFAULT_THREAD_ID;
+    logger.debug(`[mimo-agent] Set model for ${sessionId}/${chatThreadId}: ${modelId}`);
 
-    const acpClient = this.acpClients.get(sessionId);
+    const acpClient =
+      this.acpClients.get(acpKey(sessionId, chatThreadId)) ??
+      (await this.ensureThreadRuntime(sessionId, chatThreadId));
     if (!acpClient) {
       logger.debug(`[mimo-agent] No ACP client for session ${sessionId}`);
       return;
@@ -1418,6 +1509,7 @@ class MimoAgent {
       this.send({
         type: "model_state",
         sessionId,
+        chatThreadId,
         modelState: acpClient.modelState,
         timestamp: new Date().toISOString(),
       });
@@ -1436,9 +1528,12 @@ class MimoAgent {
 
   private async handleSetMode(message: any): Promise<void> {
     const { sessionId, modeId } = message;
-    logger.debug(`[mimo-agent] Set mode for ${sessionId}: ${modeId}`);
+    const chatThreadId: string = message.chatThreadId ?? DEFAULT_THREAD_ID;
+    logger.debug(`[mimo-agent] Set mode for ${sessionId}/${chatThreadId}: ${modeId}`);
 
-    const acpClient = this.acpClients.get(sessionId);
+    const acpClient =
+      this.acpClients.get(acpKey(sessionId, chatThreadId)) ??
+      (await this.ensureThreadRuntime(sessionId, chatThreadId));
     if (!acpClient) {
       logger.debug(`[mimo-agent] No ACP client for session ${sessionId}`);
       return;
@@ -1450,6 +1545,7 @@ class MimoAgent {
       this.send({
         type: "mode_state",
         sessionId,
+        chatThreadId,
         modeState: acpClient.modeState,
         timestamp: new Date().toISOString(),
       });
@@ -1466,20 +1562,22 @@ class MimoAgent {
     }
   }
 
-  private handleRequestState(message: any): void {
+  private async handleRequestState(message: any): Promise<void> {
     const { sessionId } = message;
-    const acpClient = this.acpClients.get(sessionId);
+    const chatThreadId: string = message.chatThreadId ?? DEFAULT_THREAD_ID;
+    const acpClient =
+      this.acpClients.get(acpKey(sessionId, chatThreadId)) ??
+      (await this.ensureThreadRuntime(sessionId, chatThreadId));
 
     if (!acpClient) {
-      logger.debug(
-        `[mimo-agent] Unknown session ${sessionId} in request_state`,
-      );
+      logger.debug(`[mimo-agent] Unknown session ${sessionId} in request_state`);
       return;
     }
 
     this.send({
       type: "session_initialized",
       sessionId,
+      chatThreadId,
       modelState: acpClient.modelState,
       modeState: acpClient.modeState,
       timestamp: new Date().toISOString(),
@@ -1505,20 +1603,23 @@ class MimoAgent {
       this.send({
         type: "clear_session_error",
         sessionId,
+        chatThreadId: DEFAULT_THREAD_ID,
         error: "No sessionId provided",
         timestamp: new Date().toISOString(),
       });
       return;
     }
 
-    logger.debug(`[mimo-agent] Clearing session ${sessionId}`);
+    const chatThreadId: string = (message as any).chatThreadId ?? DEFAULT_THREAD_ID;
+    logger.debug(`[mimo-agent] Clearing session ${sessionId}/${chatThreadId}`);
 
-    const acpClient = this.acpClients.get(sessionId);
+    const acpClient = this.acpClients.get(acpKey(sessionId, chatThreadId));
     if (!acpClient) {
-      logger.debug(`[mimo-agent] No ACP client for session ${sessionId}`);
+      logger.debug(`[mimo-agent] No ACP client for session ${sessionId}/${chatThreadId}`);
       this.send({
         type: "clear_session_error",
         sessionId,
+        chatThreadId,
         error: "No ACP client for session",
         timestamp: new Date().toISOString(),
       });
@@ -1529,24 +1630,26 @@ class MimoAgent {
       const result = await acpClient.clear();
 
       logger.debug(
-        `[mimo-agent] Session ${sessionId} cleared, new ACP session: ${result.acpSessionId}`,
+        `[mimo-agent] Session ${sessionId}/${chatThreadId} cleared, new ACP session: ${result.acpSessionId}`,
       );
 
       // Send success message to platform
       this.send({
         type: "acp_session_cleared",
         sessionId,
+        chatThreadId,
         acpSessionId: result.acpSessionId,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      logger.error(`[mimo-agent] Failed to clear session ${sessionId}:`, error);
+      logger.error(`[mimo-agent] Failed to clear session ${sessionId}/${chatThreadId}:`, error);
 
       // Send error message to platform
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.send({
         type: "clear_session_error",
         sessionId,
+        chatThreadId,
         error: errorMsg,
         timestamp: new Date().toISOString(),
       });
@@ -1562,8 +1665,12 @@ class MimoAgent {
 
     logger.debug(`[mimo-agent] Session ended: ${sessionId}`);
 
-    // Remove from acpClients - idempotent if doesn't exist
-    this.acpClients.delete(sessionId);
+    // Remove all thread ACP clients for this session
+    for (const key of Array.from(this.acpClients.keys())) {
+      if (key.startsWith(`${sessionId}:`)) {
+        this.acpClients.delete(key);
+      }
+    }
 
     // Terminate session - handles process, watcher, timers
     this.sessionManager.terminateSession(sessionId);

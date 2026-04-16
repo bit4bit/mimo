@@ -582,6 +582,11 @@ function connectWebSocket(sessionId) {
   const url = buildWebSocketUrl(sessionId);
   ChatState.socket = new WebSocket(url);
 
+  // Store socket globally for thread management
+  if (typeof window !== "undefined") {
+    window.MIMO_CHAT_SOCKET = ChatState.socket;
+  }
+
   ChatState.socket.onopen = () => {
     console.log("Chat WebSocket connected");
     ChatState.connectionStatus = "connected";
@@ -634,44 +639,94 @@ function connectWebSocket(sessionId) {
 function handleWebSocketMessage(data) {
   console.log("[CHAT] Received:", data.type, data);
 
+  const activeThreadId =
+    typeof ChatThreadsState !== "undefined" && ChatThreadsState
+      ? ChatThreadsState.activeThreadId
+      : null;
+
   switch (data.type) {
     case "prompt_received":
+      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+        return;
+      }
       handlePromptReceived();
       break;
     case "thought_start":
+      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+        return;
+      }
       handleThoughtStart();
       break;
     case "thought_chunk":
+      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+        return;
+      }
       handleThoughtChunk(data.content);
       break;
     case "thought_end":
+      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+        return;
+      }
       handleThoughtEnd();
       break;
     case "message_chunk":
+      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+        return;
+      }
       handleMessageChunk(data.content);
       break;
     case "usage_update":
+      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+        return;
+      }
       handleUsageUpdate(data.usage, data.duration, data.durationMs);
       break;
     case "message":
+      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+        return;
+      }
       handleMessage(data);
       break;
     case "error":
       handleErrorMessage(data.message);
       break;
     case "history":
+      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+        return;
+      }
       loadChatHistory(data.messages);
       break;
     case "session_initialized":
+      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+        return;
+      }
       handleSessionInitialized(data);
       break;
     case "model_state":
+      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+        return;
+      }
       updateModelSelector(data.modelState);
+      if (
+        typeof window !== "undefined" &&
+        data.modelState?.availableModels
+      ) {
+        window.MIMO_CHAT_MODELS = data.modelState.availableModels;
+      }
       break;
     case "mode_state":
+      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+        return;
+      }
       updateModeSelector(data.modeState);
+      if (typeof window !== "undefined" && data.modeState?.availableModes) {
+        window.MIMO_CHAT_MODES = data.modeState.availableModes;
+      }
       break;
     case "streaming_state":
+      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+        return;
+      }
       handleStreamingState(data);
       break;
     case "permission_request":
@@ -681,9 +736,15 @@ function handleWebSocketMessage(data) {
       removePermissionCard(data.requestId);
       break;
     case "session_cleared":
+      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+        return;
+      }
       handleSessionCleared(data);
       break;
     case "clear_session_error":
+      if (activeThreadId && data.chatThreadId && data.chatThreadId !== activeThreadId) {
+        return;
+      }
       handleClearSessionError(data);
       break;
     case "acp_status":
@@ -802,21 +863,45 @@ function handleSessionInitialized(data) {
   ChatState.agentStatus = "online";
   updateAgentStatusUI();
 
-  if (data.modelState) updateModelSelector(data.modelState);
-  if (data.modeState) updateModeSelector(data.modeState);
+  if (data.modelState) {
+    updateModelSelector(data.modelState);
+    if (typeof window !== "undefined" && data.modelState?.availableModels) {
+      window.MIMO_CHAT_MODELS = data.modelState.availableModels;
+    }
+  }
+
+  if (data.modeState) {
+    updateModeSelector(data.modeState);
+    if (typeof window !== "undefined" && data.modeState?.availableModes) {
+      window.MIMO_CHAT_MODES = data.modeState.availableModes;
+    }
+  }
+
+  if (window.MIMO_CHAT_THREADS && typeof window.MIMO_CHAT_THREADS.refresh === "function") {
+    window.MIMO_CHAT_THREADS.refresh();
+  }
 }
 
 // Controller: Send message
 function sendMessage(content) {
   ChatState.pendingMessages.add(content);
 
+  // Get active thread ID from the thread management system
+  const activeThreadId =
+    typeof ChatThreadsState !== "undefined" && ChatThreadsState
+      ? ChatThreadsState.activeThreadId
+      : null;
+
   if (ChatState.socket?.readyState === WebSocket.OPEN) {
-    ChatState.socket.send(
-      JSON.stringify({
-        type: "send_message",
-        content: content,
-      }),
-    );
+    const payload = {
+      type: "send_message",
+      content: content,
+    };
+    // Include chatThreadId if available
+    if (activeThreadId) {
+      payload.chatThreadId = activeThreadId;
+    }
+    ChatState.socket.send(JSON.stringify(payload));
   } else {
     sendMessageHttp(content);
   }
@@ -845,11 +930,18 @@ function cancelStreaming() {
   clearStreamingTimeout();
 
   if (ChatState.socket?.readyState === WebSocket.OPEN) {
+    const payload = {
+      type: "cancel_request",
+      sessionId: ChatState.sessionId,
+    };
+    if (
+      typeof ChatThreadsState !== "undefined" &&
+      ChatThreadsState?.activeThreadId
+    ) {
+      payload.chatThreadId = ChatThreadsState.activeThreadId;
+    }
     ChatState.socket.send(
-      JSON.stringify({
-        type: "cancel_request",
-        sessionId: ChatState.sessionId,
-      }),
+      JSON.stringify(payload),
     );
   }
 
@@ -858,16 +950,33 @@ function cancelStreaming() {
   insertEditableBubble();
 }
 
+function prepareThreadSwitch() {
+  clearStreamingTimeout();
+  removeStreamingMessage();
+  ChatState.streaming.reconstructed = false;
+  ChatState.streaming.lastActivity = null;
+}
+
 // Controller: Clear session
 function clearSession() {
-  console.log("[CHAT] User requested session clear");
+  const activeThreadId =
+    typeof ChatThreadsState !== "undefined" && ChatThreadsState
+      ? ChatThreadsState.activeThreadId
+      : null;
+  console.log(
+    `[CHAT] User requested thread clear for ${ChatState.sessionId}/${activeThreadId || "main"}`,
+  );
 
   if (ChatState.socket?.readyState === WebSocket.OPEN) {
+    const payload = {
+      type: "clear_session",
+      sessionId: ChatState.sessionId,
+    };
+    if (activeThreadId) {
+      payload.chatThreadId = activeThreadId;
+    }
     ChatState.socket.send(
-      JSON.stringify({
-        type: "clear_session",
-        sessionId: ChatState.sessionId,
-      }),
+      JSON.stringify(payload),
     );
   }
 
@@ -964,7 +1073,7 @@ function handleSessionCleared(data) {
 
   insertMessage({
     role: "system",
-    content: "Session cleared - context reset",
+    content: "Thread context cleared",
     timestamp: new Date().toISOString(),
   });
 }
@@ -1896,12 +2005,18 @@ function setupEventListeners() {
       if (modelId !== currentId) {
         e.target.dataset.current = modelId;
         if (ChatState.socket?.readyState === WebSocket.OPEN) {
-          ChatState.socket.send(
-            JSON.stringify({
-              type: "set_model",
-              modelId,
-            }),
-          );
+          const payload = {
+            type: "set_model",
+            modelId,
+          };
+          // Include chatThreadId if available
+          if (
+            typeof ChatThreadsState !== "undefined" &&
+            ChatThreadsState?.activeThreadId
+          ) {
+            payload.chatThreadId = ChatThreadsState.activeThreadId;
+          }
+          ChatState.socket.send(JSON.stringify(payload));
         }
       }
     });
@@ -1917,12 +2032,18 @@ function setupEventListeners() {
       if (modeId !== currentId) {
         e.target.dataset.current = modeId;
         if (ChatState.socket?.readyState === WebSocket.OPEN) {
-          ChatState.socket.send(
-            JSON.stringify({
-              type: "set_mode",
-              modeId,
-            }),
-          );
+          const payload = {
+            type: "set_mode",
+            modeId,
+          };
+          // Include chatThreadId if available
+          if (
+            typeof ChatThreadsState !== "undefined" &&
+            ChatThreadsState?.activeThreadId
+          ) {
+            payload.chatThreadId = ChatThreadsState.activeThreadId;
+          }
+          ChatState.socket.send(JSON.stringify(payload));
         }
       }
     });
@@ -1974,6 +2095,8 @@ function setupEventListeners() {
 
 window.MIMO_CHAT = {
   init: initChat,
+  prepareThreadSwitch,
+  clearSession,
   send: (msg) => {
     if (ChatState.socket?.readyState === WebSocket.OPEN) {
       ChatState.socket.send(

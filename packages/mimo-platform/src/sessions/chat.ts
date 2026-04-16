@@ -6,6 +6,7 @@ export interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: string;
+  chatThreadId?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -19,12 +20,23 @@ export class ChatService {
     this.paths = paths;
   }
 
-  private getChatPath(sessionId: string): string {
-    // Store chat in the session directory
+  private getChatPath(sessionId: string, chatThreadId?: string): string {
+    // Store chat in the session directory, optionally per thread
     const sessionDir = this.findSessionDir(sessionId);
     if (!sessionDir) {
       throw new Error(`Session ${sessionId} not found`);
     }
+    
+    // If thread-specific, store in threads subdirectory
+    if (chatThreadId) {
+      const threadsDir = join(sessionDir, "chat-threads");
+      if (!existsSync(threadsDir)) {
+        mkdirSync(threadsDir, { recursive: true });
+      }
+      return join(threadsDir, `${chatThreadId}.jsonl`);
+    }
+    
+    // Legacy global chat path (for backward compatibility)
     return join(sessionDir, "chat.jsonl");
   }
 
@@ -57,14 +69,36 @@ export class ChatService {
     return null;
   }
 
-  async saveMessage(sessionId: string, message: ChatMessage): Promise<void> {
-    const chatPath = this.getChatPath(sessionId);
+  async saveMessage(
+    sessionId: string, 
+    message: ChatMessage, 
+    chatThreadId?: string
+  ): Promise<void> {
+    const chatPath = this.getChatPath(sessionId, chatThreadId);
     const line = JSON.stringify(message) + "\n";
     appendFileSync(chatPath, line, "utf-8");
   }
 
-  async loadHistory(sessionId: string): Promise<ChatMessage[]> {
+  async loadHistory(
+    sessionId: string, 
+    chatThreadId?: string
+  ): Promise<ChatMessage[]> {
     try {
+      // Try thread-specific path first
+      if (chatThreadId) {
+        const threadPath = this.getChatPath(sessionId, chatThreadId);
+        if (existsSync(threadPath)) {
+          const content = readFileSync(threadPath, "utf-8");
+          const lines = content
+            .trim()
+            .split("\n")
+            .filter((line) => line);
+
+          return lines.map((line) => JSON.parse(line) as ChatMessage);
+        }
+      }
+      
+      // Fall back to legacy global chat path
       const chatPath = this.getChatPath(sessionId);
       if (!existsSync(chatPath)) {
         return [];
@@ -85,14 +119,15 @@ export class ChatService {
   async appendToHistory(
     sessionId: string,
     messages: ChatMessage[],
+    chatThreadId?: string,
   ): Promise<void> {
-    const chatPath = this.getChatPath(sessionId);
+    const chatPath = this.getChatPath(sessionId, chatThreadId);
     const lines = messages.map((msg) => JSON.stringify(msg)).join("\n") + "\n";
     appendFileSync(chatPath, lines, "utf-8");
   }
 
-  async clearHistory(sessionId: string): Promise<void> {
-    const chatPath = this.getChatPath(sessionId);
+  async clearHistory(sessionId: string, chatThreadId?: string): Promise<void> {
+    const chatPath = this.getChatPath(sessionId, chatThreadId);
     if (existsSync(chatPath)) {
       const { unlinkSync } = require("fs");
       unlinkSync(chatPath);

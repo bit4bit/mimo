@@ -14,6 +14,7 @@ let chatService: any;
 let userRepository: any;
 let projectRepository: any;
 let authService: any;
+let agentService: any;
 let testHome: string;
 
 describe("Session Management Integration Tests", () => {
@@ -40,6 +41,7 @@ describe("Session Management Integration Tests", () => {
     chatService = chatModule.chatService;
 
     authService = ctx.services.auth;
+    agentService = ctx.services.agents;
 
     // Mock VCS methods to avoid actual git/fossil operations in these tests
     const vcsModule = await import("../src/vcs/index.ts");
@@ -587,12 +589,11 @@ describe("Session Management Integration Tests", () => {
       });
 
       // Create agent to be assigned
-      const agentRes = await import("../src/agents/agent-registry.ts");
-      const agentRegistry = agentRes.agentRegistry;
-      const agent = await agentRegistry.register(
-        "myagent",
-        { type: "test", apiEndpoint: "http://localhost:9000" },
-      );
+      const agent = await agentService.createAgent({
+        name: "myagent",
+        owner: "testuser",
+        provider: "opencode",
+      });
 
       const token = await authService.generateToken("testuser");
 
@@ -747,7 +748,6 @@ describe("Session Management Integration Tests", () => {
 
       // Verify creation section is read-only (no input for creation fields)
       expect(html).toContain("Creation Settings");
-      expect(html).not.toContain("Idle Timeout"); // This is in runtime section, not creation
 
       // Verify runtime section with editable timeout exists
       expect(html).toContain("Idle Timeout");

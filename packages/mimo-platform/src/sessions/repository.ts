@@ -30,6 +30,16 @@ export interface ModeState {
   optionId: string;
 }
 
+export interface ChatThread {
+  id: string;
+  name: string;
+  model: string;
+  mode: string;
+  acpSessionId: string | null;
+  state: "active" | "parked" | "waking";
+  createdAt: string;
+}
+
 export interface Session {
   id: string;
   name: string;
@@ -58,6 +68,9 @@ export interface Session {
   modelState?: ModelState;
   modeState?: ModeState;
   frameState: FrameState;
+  // Chat threads
+  chatThreads: ChatThread[];
+  activeChatThreadId: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -90,6 +103,9 @@ export interface SessionData {
   modelState?: ModelState;
   modeState?: ModeState;
   frameState?: FrameState;
+  // Chat threads
+  chatThreads?: ChatThread[];
+  activeChatThreadId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -176,6 +192,39 @@ export class SessionRepository {
     return crypto.randomUUID();
   }
 
+  private createDefaultThread(): ChatThread {
+    return {
+      id: this.generateId(),
+      name: "Main",
+      model: "",
+      mode: "",
+      acpSessionId: null,
+      state: "active",
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Read-time migration: if a session has no chatThreads, create a synthetic
+   * default Main thread so legacy data is transparently compatible.
+   */
+  private normalizeChatThreads(data: SessionData): {
+    chatThreads: ChatThread[];
+    activeChatThreadId: string;
+  } {
+    if (data.chatThreads && data.chatThreads.length > 0) {
+      return {
+        chatThreads: data.chatThreads,
+        activeChatThreadId: data.activeChatThreadId ?? data.chatThreads[0].id,
+      };
+    }
+    const defaultThread = this.createDefaultThread();
+    return {
+      chatThreads: [defaultThread],
+      activeChatThreadId: defaultThread.id,
+    };
+  }
+
   async create(input: CreateSessionInput): Promise<Session> {
     const id = this.generateId();
     const sessionPath = this.getSessionPath(input.projectId, id);
@@ -204,6 +253,7 @@ export class SessionRepository {
     }
 
     const now = new Date().toISOString();
+    const defaultThread = this.createDefaultThread();
     const sessionData: SessionData = {
       id,
       name: input.name,
@@ -221,6 +271,9 @@ export class SessionRepository {
       acpStatus: "active",
       syncState: "idle",
       frameState: createDefaultFrameState(),
+      // Chat threads
+      chatThreads: [defaultThread],
+      activeChatThreadId: defaultThread.id,
       createdAt: now,
       updatedAt: now,
       ...(input.localDevMirrorPath && {
@@ -237,6 +290,8 @@ export class SessionRepository {
 
     return {
       ...sessionData,
+      chatThreads: sessionData.chatThreads!,
+      activeChatThreadId: sessionData.activeChatThreadId!,
       createdAt: new Date(sessionData.createdAt),
       updatedAt: new Date(sessionData.updatedAt),
     };
@@ -262,6 +317,8 @@ export class SessionRepository {
             // Handle migration from checkoutPath to agentWorkspacePath
             // Handle ACP Session Parking defaults (backward compatibility)
             // Handle MCP Server defaults (backward compatibility)
+            const { chatThreads, activeChatThreadId } =
+              this.normalizeChatThreads(data);
             const sessionData = {
               ...data,
               agentWorkspacePath:
@@ -271,6 +328,8 @@ export class SessionRepository {
               syncState: data.syncState ?? "idle",
               mcpServerIds: data.mcpServerIds ?? [],
               frameState: normalizeFrameState(data.frameState),
+              chatThreads,
+              activeChatThreadId,
             };
             return {
               ...sessionData,
@@ -298,6 +357,7 @@ export class SessionRepository {
     const data = load(content) as SessionData;
     // Handle migration from checkoutPath to agentWorkspacePath
     // Handle ACP Session Parking defaults (backward compatibility)
+    const { chatThreads, activeChatThreadId } = this.normalizeChatThreads(data);
     const sessionData = {
       ...data,
       agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
@@ -305,6 +365,8 @@ export class SessionRepository {
       acpStatus: data.acpStatus ?? "active",
       syncState: data.syncState ?? "idle",
       frameState: normalizeFrameState(data.frameState),
+      chatThreads,
+      activeChatThreadId,
     };
 
     return {
@@ -331,6 +393,8 @@ export class SessionRepository {
           const data = load(content) as SessionData;
           // Handle migration from checkoutPath to agentWorkspacePath
           // Handle ACP Session Parking defaults (backward compatibility)
+          const { chatThreads, activeChatThreadId } =
+            this.normalizeChatThreads(data);
           const sessionData = {
             ...data,
             agentWorkspacePath:
@@ -339,6 +403,8 @@ export class SessionRepository {
             acpStatus: data.acpStatus ?? "active",
             syncState: data.syncState ?? "idle",
             frameState: normalizeFrameState(data.frameState),
+            chatThreads,
+            activeChatThreadId,
           };
           sessions.push({
             ...sessionData,
@@ -376,6 +442,8 @@ export class SessionRepository {
                 const data = load(content) as SessionData;
                 // Handle migration from checkoutPath to agentWorkspacePath
                 // Handle ACP Session Parking defaults (backward compatibility)
+                const { chatThreads, activeChatThreadId } =
+                  this.normalizeChatThreads(data);
                 const sessionData = {
                   ...data,
                   agentWorkspacePath:
@@ -384,6 +452,8 @@ export class SessionRepository {
                   acpStatus: data.acpStatus ?? "active",
                   syncState: data.syncState ?? "idle",
                   frameState: normalizeFrameState(data.frameState),
+                  chatThreads,
+                  activeChatThreadId,
                 };
                 if (data.assignedAgentId === agentId) {
                   sessions.push({
@@ -425,6 +495,73 @@ export class SessionRepository {
       createdAt: new Date(updatedData.createdAt),
       updatedAt: new Date(updatedData.updatedAt),
     };
+  }
+
+  async addChatThread(
+    sessionId: string,
+    thread: Omit<ChatThread, "id" | "createdAt">,
+  ): Promise<ChatThread> {
+    const session = await this.findById(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    const newThread: ChatThread = {
+      id: this.generateId(),
+      createdAt: new Date().toISOString(),
+      ...thread,
+    };
+
+    const updatedThreads = [...session.chatThreads, newThread];
+    await this.update(sessionId, { chatThreads: updatedThreads });
+    return newThread;
+  }
+
+  async updateChatThread(
+    sessionId: string,
+    threadId: string,
+    updates: Partial<Pick<ChatThread, "name" | "model" | "mode" | "acpSessionId" | "state">>,
+  ): Promise<ChatThread | null> {
+    const session = await this.findById(sessionId);
+    if (!session) return null;
+
+    const idx = session.chatThreads.findIndex((t) => t.id === threadId);
+    if (idx === -1) return null;
+
+    const updatedThread = { ...session.chatThreads[idx], ...updates };
+    const updatedThreads = [...session.chatThreads];
+    updatedThreads[idx] = updatedThread;
+    await this.update(sessionId, { chatThreads: updatedThreads });
+    return updatedThread;
+  }
+
+  async removeChatThread(
+    sessionId: string,
+    threadId: string,
+  ): Promise<void> {
+    const session = await this.findById(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    const updatedThreads = session.chatThreads.filter((t) => t.id !== threadId);
+    const updates: Partial<SessionData> = { chatThreads: updatedThreads };
+
+    // If we deleted the active thread, fall back to the first remaining thread
+    if (session.activeChatThreadId === threadId && updatedThreads.length > 0) {
+      updates.activeChatThreadId = updatedThreads[0].id;
+    }
+
+    await this.update(sessionId, updates);
+  }
+
+  async setActiveChatThread(
+    sessionId: string,
+    threadId: string,
+  ): Promise<void> {
+    const session = await this.findById(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    const exists = session.chatThreads.some((t) => t.id === threadId);
+    if (!exists) throw new Error(`Thread ${threadId} not found in session ${sessionId}`);
+
+    await this.update(sessionId, { activeChatThreadId: threadId });
   }
 
   async delete(projectId: string, sessionId: string): Promise<void> {

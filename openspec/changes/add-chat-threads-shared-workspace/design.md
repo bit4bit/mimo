@@ -54,6 +54,11 @@ Thread CRUD is available via HTTP routes, not only UI clicks.
 
 **Rationale:** enables automation and external orchestration of multiple LLM workers.
 
+### Decision: Idle timeout is session-scoped, not thread-scoped
+The idle timer is shared across all threads in a session. Any activity on any thread resets the single session-level timer. All threads park together only when no thread has had activity for `idleTimeoutMs`.
+
+**Rationale:** a user working in one thread is actively using the session. Parking a sibling thread mid-session would silently discard its ACP context, which is unexpected and harmful. Parking should signal that the whole session is idle, not just one thread.
+
 ## Data Model
 
 Session-level fields:
@@ -97,9 +102,9 @@ Examples:
 1. Create thread
 2. Spawn ACP runtime in shared checkout path
 3. Initialize ACP session and apply thread `model`/`mode`
-4. Route prompts by `chatThreadId`
-5. On idle timeout, park runtime for that thread
-6. On resume, wake runtime and restore `model`/`mode`
+4. Route prompts by `chatThreadId`; any inbound prompt records activity on the session-level idle timer
+5. On session-level idle timeout (no activity on any thread for `idleTimeoutMs`), park **all** thread runtimes
+6. On resume (new prompt arrives for any thread), wake **only** that thread's runtime and restore its `model`/`mode`; other threads remain parked until they receive a prompt
 
 ## Risks / Trade-offs
 
@@ -107,7 +112,7 @@ Examples:
 - **Mitigation:** keep VCS truth in shared fossil history; surface conflicts at commit/sync boundaries
 
 **[Risk]** Process count increases with many threads
-- **Mitigation:** keep parking enabled; consider per-session thread limit in future
+- **Mitigation:** keep parking enabled with session-level idle timer; all threads park together when the session goes quiet
 
 **[Risk]** Message routing bugs can leak events across threads
 - **Mitigation:** require `chatThreadId` in all chat protocol types and integration tests

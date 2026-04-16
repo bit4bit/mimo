@@ -145,7 +145,10 @@ export class AgentService {
     await this.repository.updateStatus(agentId, "offline");
   }
 
-  async cancelCurrentRequest(sessionId: string): Promise<boolean> {
+  async cancelCurrentRequest(
+    sessionId: string,
+    chatThreadId?: string,
+  ): Promise<boolean> {
     const sessionRepo = await import("../sessions/repository.js");
     const session = await sessionRepo.sessionRepository.findById(sessionId);
     if (!session || !session.assignedAgentId) {
@@ -165,7 +168,13 @@ export class AgentService {
 
     const ws = this.activeConnections.get(session.assignedAgentId);
     if (ws) {
-      ws.send(JSON.stringify({ type: "cancel_request" }));
+      ws.send(
+        JSON.stringify({
+          type: "cancel_request",
+          sessionId,
+          chatThreadId: chatThreadId || session.activeChatThreadId || "main",
+        }),
+      );
     }
 
     return true;

@@ -3,10 +3,9 @@ import { Hono } from "hono";
 import { join } from "path";
 import { tmpdir } from "os";
 import { rmSync } from "fs";
+import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
 describe("Sessions routes with mimoContext", () => {
-  import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
-
 let testHome: string;
 
   beforeEach(() => {

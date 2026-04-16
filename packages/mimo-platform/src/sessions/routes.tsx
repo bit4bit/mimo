@@ -359,8 +359,11 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       return c.text("Project not found", 404);
     }
 
-    // Get chat history
-    const chatHistory = await chatService.loadHistory(sessionId);
+    // Get chat history for the active thread
+    const chatHistory = await chatService.loadHistory(
+      sessionId,
+      session.activeChatThreadId,
+    );
 
     // Get assigned agent if any
     let agent = undefined;
@@ -401,6 +404,8 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         acpStatus={session.acpStatus}
         mcpServers={mcpServers}
         streamingTimeoutMs={streamingTimeoutMs}
+        chatThreads={session.chatThreads}
+        activeChatThreadId={session.activeChatThreadId}
       />,
     );
   });
@@ -1021,6 +1026,121 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         </div>,
       );
     }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Chat Thread API  (tasks 3.1 – 3.5)
+  // ---------------------------------------------------------------------------
+
+  // GET /:id/chat-threads — list threads + activeChatThreadId
+  router.get("/:id/chat-threads", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+
+    const sessionId = c.req.param("id");
+    const session = await sessionRepository.findById(sessionId);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
+
+    return c.json({
+      threads: session.chatThreads,
+      activeChatThreadId: session.activeChatThreadId,
+    });
+  });
+
+  // POST /:id/chat-threads — create a new thread
+  router.post("/:id/chat-threads", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+
+    const sessionId = c.req.param("id");
+    const session = await sessionRepository.findById(sessionId);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
+
+    const body = await c.req.json().catch(() => null);
+    if (!body || !body.name)
+      return c.json({ error: "name is required" }, 400);
+
+    if (typeof body.model !== "string" || !body.model.trim()) {
+      return c.json({ error: "model is required" }, 400);
+    }
+
+    if (typeof body.mode !== "string" || !body.mode.trim()) {
+      return c.json({ error: "mode is required" }, 400);
+    }
+
+    const thread = await sessionRepository.addChatThread(sessionId, {
+      name: body.name,
+      model: body.model,
+      mode: body.mode,
+      acpSessionId: null,
+      state: "active",
+    });
+
+    return c.json(thread, 201);
+  });
+
+  // PATCH /:id/chat-threads/:threadId — update thread fields
+  router.patch("/:id/chat-threads/:threadId", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+
+    const sessionId = c.req.param("id");
+    const threadId = c.req.param("threadId");
+    const session = await sessionRepository.findById(sessionId);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
+
+    const body = await c.req.json().catch(() => null);
+    if (!body) return c.json({ error: "Body required" }, 400);
+
+    const updated = await sessionRepository.updateChatThread(sessionId, threadId, {
+      ...(body.name !== undefined && { name: body.name }),
+      ...(body.model !== undefined && { model: body.model }),
+      ...(body.mode !== undefined && { mode: body.mode }),
+    });
+
+    if (!updated) return c.json({ error: "Thread not found" }, 404);
+    return c.json(updated);
+  });
+
+  // DELETE /:id/chat-threads/:threadId — remove a thread
+  router.delete("/:id/chat-threads/:threadId", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+
+    const sessionId = c.req.param("id");
+    const threadId = c.req.param("threadId");
+    const session = await sessionRepository.findById(sessionId);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
+
+    if (session.chatThreads.length <= 1)
+      return c.json({ error: "Cannot delete the last thread" }, 400);
+
+    await sessionRepository.removeChatThread(sessionId, threadId);
+    return c.body(null, 204);
+  });
+
+  // POST /:id/chat-threads/:threadId/activate — set active thread
+  router.post("/:id/chat-threads/:threadId/activate", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+
+    const sessionId = c.req.param("id");
+    const threadId = c.req.param("threadId");
+    const session = await sessionRepository.findById(sessionId);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
+
+    try {
+      await sessionRepository.setActiveChatThread(sessionId, threadId);
+    } catch {
+      return c.json({ error: "Thread not found" }, 404);
+    }
+
+    return c.json({ activeChatThreadId: threadId });
   });
 
   return router;

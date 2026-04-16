@@ -103,6 +103,10 @@ const thoughtBuffers = new Map<string, string>();
 const messageStartTimes = new Map<string, number>();
 const autoSyncInFlight = new Set<string>();
 
+function streamKey(sessionId: string, chatThreadId?: string): string {
+  return `${sessionId}:${chatThreadId || "main"}`;
+}
+
 // Track pending permission requests: requestId → { agentWs, sessionId }
 const pendingPermissions = new Map<
   string,
@@ -318,18 +322,27 @@ mimoServer.setup({
         }
         chatSessions.get(sessionId).add(ws);
 
-        // Send chat history
-        const history = await mimoContext.services.chat.loadHistory(sessionId);
+        // Get active thread ID from session or from URL params
+        const sessionRecord = await sessionRepository.findById(sessionId);
+        const activeThreadId = sessionRecord?.activeChatThreadId;
+
+        // Send chat history for the active thread
+        const history = await mimoContext.services.chat.loadHistory(
+          sessionId,
+          activeThreadId,
+        );
         ws.send(
           JSON.stringify({
             type: "history",
             messages: history,
+            chatThreadId: activeThreadId,
           }),
         );
 
         // Send current streaming state if agent is actively responding and alive
-        const thoughtContent = thoughtBuffers.get(sessionId);
-        const messageContent = streamingBuffers.get(sessionId);
+        const activeStreamKey = streamKey(sessionId, activeThreadId);
+        const thoughtContent = thoughtBuffers.get(activeStreamKey);
+        const messageContent = streamingBuffers.get(activeStreamKey);
 
         // Only send streaming state if agent is actually alive
         if (
@@ -339,6 +352,7 @@ mimoServer.setup({
           ws.send(
             JSON.stringify({
               type: "streaming_state",
+              chatThreadId: activeThreadId,
               thoughtContent: thoughtContent || "",
               messageContent: messageContent || "",
               timestamp: new Date().toISOString(),
@@ -595,19 +609,22 @@ async function handleAgentMessage(ws, data) {
     case "thought_start":
       {
         const startSessionId = data.sessionId;
+        const startThreadId = data.chatThreadId || "main";
         if (!startSessionId) {
           logger.debug("No sessionId in thought_start");
           return;
         }
 
+        const startStreamKey = streamKey(startSessionId, startThreadId);
+
         // Track agent activity so isAgentAlive() stays true between chunk phases
         mimoContext.services.chat.updateAgentActivity(startSessionId);
 
         // Record message start time for duration tracking
-        messageStartTimes.set(startSessionId, Date.now());
+        messageStartTimes.set(startStreamKey, Date.now());
 
         // Start new thought buffer
-        thoughtBuffers.set(startSessionId, "");
+        thoughtBuffers.set(startStreamKey, "");
 
         // Forward to clients
         const subscribers = chatSessions.get(startSessionId);
@@ -617,6 +634,7 @@ async function handleAgentMessage(ws, data) {
               client.send(
                 JSON.stringify({
                   type: data.type,
+                  chatThreadId: startThreadId,
                   timestamp: new Date().toISOString(),
                 }),
               );
@@ -629,18 +647,21 @@ async function handleAgentMessage(ws, data) {
     case "thought_chunk":
       {
         const chunkSessionId = data.sessionId;
+        const chunkThreadId = data.chatThreadId || "main";
         if (!chunkSessionId) {
           logger.debug("No sessionId in thought_chunk");
           return;
         }
 
+        const chunkStreamKey = streamKey(chunkSessionId, chunkThreadId);
+
         // Track agent activity for health monitoring
         mimoContext.services.chat.updateAgentActivity(chunkSessionId);
 
         // Accumulate thought chunks
-        const currentThoughtBuffer = thoughtBuffers.get(chunkSessionId) || "";
+        const currentThoughtBuffer = thoughtBuffers.get(chunkStreamKey) || "";
         thoughtBuffers.set(
-          chunkSessionId,
+          chunkStreamKey,
           currentThoughtBuffer + (data.content || ""),
         );
 
@@ -652,6 +673,7 @@ async function handleAgentMessage(ws, data) {
               client.send(
                 JSON.stringify({
                   type: data.type,
+                  chatThreadId: chunkThreadId,
                   content: data.content,
                   timestamp: new Date().toISOString(),
                 }),
@@ -665,6 +687,7 @@ async function handleAgentMessage(ws, data) {
     case "thought_end":
       {
         const endSessionId = data.sessionId;
+        const endThreadId = data.chatThreadId || "main";
         if (!endSessionId) {
           logger.debug("No sessionId in thought_end");
           return;
@@ -678,6 +701,7 @@ async function handleAgentMessage(ws, data) {
               client.send(
                 JSON.stringify({
                   type: data.type,
+                  chatThreadId: endThreadId,
                   timestamp: new Date().toISOString(),
                 }),
               );
@@ -692,23 +716,26 @@ async function handleAgentMessage(ws, data) {
     case "message_chunk":
       {
         const msgSessionId = data.sessionId;
+        const msgThreadId = data.chatThreadId || "main";
         if (!msgSessionId) {
           logger.debug("No sessionId in message_chunk");
           return;
         }
 
+        const msgStreamKey = streamKey(msgSessionId, msgThreadId);
+
         // Track agent activity for health monitoring
         mimoContext.services.chat.updateAgentActivity(msgSessionId);
 
         // Fallback: record start time if thought_start never fired
-        if (!messageStartTimes.has(msgSessionId)) {
-          messageStartTimes.set(msgSessionId, Date.now());
+        if (!messageStartTimes.has(msgStreamKey)) {
+          messageStartTimes.set(msgStreamKey, Date.now());
         }
 
         // Accumulate message chunks
-        const currentBuffer = streamingBuffers.get(msgSessionId) || "";
+        const currentBuffer = streamingBuffers.get(msgStreamKey) || "";
         streamingBuffers.set(
-          msgSessionId,
+          msgStreamKey,
           currentBuffer + (data.content || ""),
         );
 
@@ -720,6 +747,7 @@ async function handleAgentMessage(ws, data) {
               client.send(
                 JSON.stringify({
                   type: data.type,
+                  chatThreadId: msgThreadId,
                   content: data.content,
                   timestamp: new Date().toISOString(),
                 }),
@@ -733,13 +761,16 @@ async function handleAgentMessage(ws, data) {
     case "usage_update":
       {
         const usageSessionId = data.sessionId;
+        const usageThreadId = data.chatThreadId || "main";
         if (!usageSessionId) {
           logger.debug("No sessionId in usage_update");
           return;
         }
 
+        const usageStreamKey = streamKey(usageSessionId, usageThreadId);
+
         // Compute duration from tracked start time
-        const startMs = messageStartTimes.get(usageSessionId);
+        const startMs = messageStartTimes.get(usageStreamKey);
         let duration: string | undefined;
         let durationMs: number | undefined;
         if (startMs !== undefined) {
@@ -747,36 +778,45 @@ async function handleAgentMessage(ws, data) {
           const mins = Math.floor(durationMs / 60000);
           const secs = Math.floor((durationMs % 60000) / 1000);
           duration = `${mins}m${secs}s`;
-          messageStartTimes.delete(usageSessionId);
+          messageStartTimes.delete(usageStreamKey);
         }
 
         // Get accumulated message and thoughts
-        const messageContent = streamingBuffers.get(usageSessionId);
-        const thoughtContent = thoughtBuffers.get(usageSessionId);
+        const messageContent = streamingBuffers.get(usageStreamKey);
+        const thoughtContent = thoughtBuffers.get(usageStreamKey);
 
         const hasBufferedAssistantOutput = Boolean(
           messageContent || thoughtContent,
         );
 
         if (hasBufferedAssistantOutput) {
+          // Get the active thread ID for this session
+          const usageSession = await sessionRepository.findById(usageSessionId);
+          const historyThreadId =
+            data.chatThreadId || usageSession?.activeChatThreadId;
+
           // Save assistant response with optional thoughts
           let fullContent = messageContent || "";
 
           // Prepend thoughts if present
           if (thoughtContent) {
             fullContent = `<details><summary>Thought Process</summary>${thoughtContent}</details>\n\n${fullContent}`;
-            thoughtBuffers.delete(usageSessionId);
+            thoughtBuffers.delete(usageStreamKey);
           }
 
-          await mimoContext.services.chat.saveMessage(usageSessionId, {
-            role: "assistant",
-            content: fullContent,
-            timestamp: new Date().toISOString(),
-            ...(duration !== undefined ? { metadata: { duration, durationMs } } : {}),
-          });
+          await mimoContext.services.chat.saveMessage(
+            usageSessionId,
+            {
+              role: "assistant",
+              content: fullContent,
+              timestamp: new Date().toISOString(),
+              ...(duration !== undefined ? { metadata: { duration, durationMs } } : {}),
+            },
+            historyThreadId,
+          );
 
           // Clear buffer
-          streamingBuffers.delete(usageSessionId);
+          streamingBuffers.delete(usageStreamKey);
         }
 
         // Forward usage update to clients
@@ -787,6 +827,7 @@ async function handleAgentMessage(ws, data) {
               client.send(
                 JSON.stringify({
                   type: data.type,
+                  chatThreadId: usageThreadId,
                   usage: data.usage,
                   timestamp: new Date().toISOString(),
                   ...(duration !== undefined ? { duration, durationMs } : {}),
@@ -803,36 +844,44 @@ async function handleAgentMessage(ws, data) {
     case "acp_response":
       // Legacy: Handle simple ACP response and broadcast to chat
       // Agent must specify which session this is for
-      const sessionId = data.sessionId;
-      if (!sessionId) {
+      const acpSessionId = data.sessionId;
+      if (!acpSessionId) {
         logger.debug("No sessionId in acp_response");
         return;
       }
 
       // Broadcast to all chat clients in session
-      const subscribers = chatSessions.get(sessionId);
-      if (subscribers) {
-        subscribers.forEach((client) => {
+      const acpSubscribers = chatSessions.get(acpSessionId);
+      if (acpSubscribers) {
+        acpSubscribers.forEach((client) => {
           if (client.readyState === 1) {
             // WebSocket.OPEN
             client.send(
-              JSON.stringify({
-                type: "message",
-                role: "assistant",
-                content: data.content,
-                timestamp: new Date().toISOString(),
-              }),
+                JSON.stringify({
+                  type: "message",
+                  role: "assistant",
+                  chatThreadId: data.chatThreadId,
+                  content: data.content,
+                  timestamp: new Date().toISOString(),
+                }),
             );
           }
         });
       }
 
-      // Save to history
-      await mimoContext.services.chat.saveMessage(sessionId, {
-        role: "assistant",
-        content: data.content,
-        timestamp: new Date().toISOString(),
-      });
+      // Get active thread ID and save with thread context
+      const acpSessionRecord = await sessionRepository.findById(acpSessionId);
+      const acpThreadId = data.chatThreadId || acpSessionRecord?.activeChatThreadId;
+
+      await mimoContext.services.chat.saveMessage(
+        acpSessionId,
+        {
+          role: "assistant",
+          content: data.content,
+          timestamp: new Date().toISOString(),
+        },
+        acpThreadId,
+      );
       break;
     case "file_changed":
       logger.debug("File changed:", data.files);
@@ -882,11 +931,18 @@ async function handleAgentMessage(ws, data) {
             const timestamp = new Date().toISOString();
             const reasonText = resetReason ? ` (${resetReason})` : "";
             const systemMessage = `Session reset at ${timestamp}${reasonText}`;
-            await mimoContext.services.chat.saveMessage(sessionId, {
-              role: "system",
-              content: systemMessage,
-              timestamp,
-            });
+            // Get active thread and save system message to current thread
+            const resetSession = await sessionRepository.findById(sessionId);
+            const resetThreadId = resetSession?.activeChatThreadId;
+            await mimoContext.services.chat.saveMessage(
+              sessionId,
+              {
+                role: "system",
+                content: systemMessage,
+                timestamp,
+              },
+              resetThreadId,
+            );
           }
         }
       }
@@ -895,8 +951,10 @@ async function handleAgentMessage(ws, data) {
     case "acp_session_cleared":
       {
         const { sessionId, acpSessionId } = data;
+        const clearedThreadId = data.chatThreadId;
         logger.debug("[agent] ACP session cleared:", {
           sessionId,
+          chatThreadId: clearedThreadId,
           acpSessionId,
         });
 
@@ -906,11 +964,18 @@ async function handleAgentMessage(ws, data) {
 
           // Add system message to chat history
           const timestamp = new Date().toISOString();
-          await mimoContext.services.chat.saveMessage(sessionId, {
-            role: "system",
-            content: "Session cleared - context reset",
-            timestamp,
-          });
+          const clearedSession = await sessionRepository.findById(sessionId);
+          const historyThreadId =
+            clearedThreadId || clearedSession?.activeChatThreadId;
+          await mimoContext.services.chat.saveMessage(
+            sessionId,
+            {
+              role: "system",
+              content: "Thread context cleared",
+              timestamp,
+            },
+            historyThreadId,
+          );
 
           // Broadcast to all UI clients
           const clearedSubscribers = chatSessions.get(sessionId);
@@ -921,6 +986,7 @@ async function handleAgentMessage(ws, data) {
                   JSON.stringify({
                     type: "session_cleared",
                     sessionId,
+                    chatThreadId: historyThreadId,
                     timestamp,
                   }),
                 );
@@ -934,7 +1000,12 @@ async function handleAgentMessage(ws, data) {
     case "clear_session_error":
       {
         const { sessionId, error } = data;
-        logger.debug("[agent] Clear session error:", { sessionId, error });
+        const errorThreadId = data.chatThreadId;
+        logger.debug("[agent] Clear session error:", {
+          sessionId,
+          chatThreadId: errorThreadId,
+          error,
+        });
 
         if (sessionId) {
           // Broadcast error to all UI clients
@@ -946,6 +1017,7 @@ async function handleAgentMessage(ws, data) {
                   JSON.stringify({
                     type: "clear_session_error",
                     sessionId,
+                    chatThreadId: errorThreadId,
                     error,
                     timestamp: new Date().toISOString(),
                   }),
@@ -986,6 +1058,7 @@ async function handleAgentMessage(ws, data) {
           const initMessage: any = {
             type: "session_initialized",
             sessionId: data.sessionId,
+            chatThreadId: data.chatThreadId,
             timestamp: new Date().toISOString(),
           };
           if (data.modelState) {
@@ -1019,6 +1092,7 @@ async function handleAgentMessage(ws, data) {
                 JSON.stringify({
                   type: "model_state",
                   sessionId: data.sessionId,
+                  chatThreadId: data.chatThreadId,
                   modelState: data.modelState,
                   timestamp: new Date().toISOString(),
                 }),
@@ -1044,6 +1118,7 @@ async function handleAgentMessage(ws, data) {
                 JSON.stringify({
                   type: "mode_state",
                   sessionId: data.sessionId,
+                  chatThreadId: data.chatThreadId,
                   modeState: data.modeState,
                   timestamp: new Date().toISOString(),
                 }),
@@ -1098,6 +1173,7 @@ async function handleAgentMessage(ws, data) {
                 JSON.stringify({
                   type: "prompt_received",
                   sessionId: data.sessionId,
+                  chatThreadId: data.chatThreadId,
                   timestamp: new Date().toISOString(),
                 }),
               );
@@ -1158,12 +1234,20 @@ async function handleChatMessage(ws, data) {
 
   switch (data.type) {
     case "send_message":
-      // Save user message
-      await mimoContext.services.chat.saveMessage(sessionId, {
-        role: "user",
-        content: data.content,
-        timestamp: new Date().toISOString(),
-      });
+      // Route by explicit thread ID when provided
+      const userSession = await sessionRepository.findById(sessionId);
+      const userThreadId = data.chatThreadId || userSession?.activeChatThreadId;
+
+      // Save user message with thread ID
+      await mimoContext.services.chat.saveMessage(
+        sessionId,
+        {
+          role: "user",
+          content: data.content,
+          timestamp: new Date().toISOString(),
+        },
+        userThreadId,
+      );
 
       // Broadcast to all clients in session
       const subscribers = chatSessions.get(sessionId);
@@ -1171,27 +1255,28 @@ async function handleChatMessage(ws, data) {
         subscribers.forEach((client) => {
           if (client.readyState === 1) {
             client.send(
-              JSON.stringify({
-                type: "message",
-                role: "user",
-                content: data.content,
-                timestamp: new Date().toISOString(),
-              }),
+                JSON.stringify({
+                  type: "message",
+                  role: "user",
+                  chatThreadId: userThreadId,
+                  content: data.content,
+                  timestamp: new Date().toISOString(),
+                }),
             );
           }
         });
       }
 
       // Get session to find assigned agent
-      const session = await sessionRepository.findById(sessionId);
-      if (session?.assignedAgentId) {
+      if (userSession?.assignedAgentId) {
         // Forward to agent if connected
-        const ws = agentService.getAgentConnection(session.assignedAgentId);
+        const ws = agentService.getAgentConnection(userSession.assignedAgentId);
         if (ws && ws.readyState === 1) {
           ws.send(
             JSON.stringify({
               type: "user_message",
               sessionId: sessionId,
+              chatThreadId: userThreadId,
               content: data.content,
             }),
           );
@@ -1202,6 +1287,7 @@ async function handleChatMessage(ws, data) {
     case "set_model":
       // Forward model change to agent
       const modelSession = await sessionRepository.findById(sessionId);
+      const modelThreadId = data.chatThreadId || modelSession?.activeChatThreadId;
       if (modelSession?.assignedAgentId) {
         const agentWs = agentService.getAgentConnection(
           modelSession.assignedAgentId,
@@ -1211,6 +1297,7 @@ async function handleChatMessage(ws, data) {
             JSON.stringify({
               type: "set_model",
               sessionId: sessionId,
+              chatThreadId: modelThreadId,
               modelId: data.modelId,
             }),
           );
@@ -1221,6 +1308,7 @@ async function handleChatMessage(ws, data) {
     case "set_mode":
       // Forward mode change to agent
       const modeSession = await sessionRepository.findById(sessionId);
+      const modeThreadId = data.chatThreadId || modeSession?.activeChatThreadId;
       if (modeSession?.assignedAgentId) {
         const modeAgentWs = agentService.getAgentConnection(
           modeSession.assignedAgentId,
@@ -1230,6 +1318,7 @@ async function handleChatMessage(ws, data) {
             JSON.stringify({
               type: "set_mode",
               sessionId: sessionId,
+              chatThreadId: modeThreadId,
               modeId: data.modeId,
             }),
           );
@@ -1238,8 +1327,9 @@ async function handleChatMessage(ws, data) {
       break;
 
     case "request_state":
-      // Forward state request to agent
+      // Forward state request to agent with chatThreadId
       const stateSession = await sessionRepository.findById(sessionId);
+      const stateThreadId = data.chatThreadId || stateSession?.activeChatThreadId;
       if (stateSession?.assignedAgentId) {
         const stateAgentWs = agentService.getAgentConnection(
           stateSession.assignedAgentId,
@@ -1249,9 +1339,30 @@ async function handleChatMessage(ws, data) {
             JSON.stringify({
               type: "request_state",
               sessionId: sessionId,
+              chatThreadId: stateThreadId,
             }),
           );
         }
+      }
+
+      // Also restore in-progress streaming output for the requested thread.
+      // This is needed when switching threads mid-generation.
+      const stateStreamKey = streamKey(sessionId, stateThreadId);
+      const stateThoughtContent = thoughtBuffers.get(stateStreamKey);
+      const stateMessageContent = streamingBuffers.get(stateStreamKey);
+      if (
+        (stateThoughtContent || stateMessageContent) &&
+        mimoContext.services.chat.isAgentAlive(sessionId)
+      ) {
+        ws.send(
+          JSON.stringify({
+            type: "streaming_state",
+            chatThreadId: stateThreadId,
+            thoughtContent: stateThoughtContent || "",
+            messageContent: stateMessageContent || "",
+            timestamp: new Date().toISOString(),
+          }),
+        );
       }
       break;
 
@@ -1325,6 +1436,8 @@ async function handleChatMessage(ws, data) {
 
         // Find assigned agent
         const cancelSession = await sessionRepository.findById(cancelSessionId);
+        const cancelThreadId =
+          data.chatThreadId || cancelSession?.activeChatThreadId;
         if (cancelSession?.assignedAgentId) {
           const cancelAgentWs = agentService.getAgentConnection(
             cancelSession.assignedAgentId,
@@ -1335,18 +1448,20 @@ async function handleChatMessage(ws, data) {
               JSON.stringify({
                 type: "cancel_request",
                 sessionId: cancelSessionId,
+                chatThreadId: cancelThreadId,
                 timestamp: new Date().toISOString(),
               }),
             );
             logger.debug(
-              `Cancel request forwarded to agent for session ${cancelSessionId}`,
+              `Cancel request forwarded to agent for session ${cancelSessionId}/${cancelThreadId || "main"}`,
             );
           }
         }
 
-        // Clear buffers for this session
-        streamingBuffers.delete(cancelSessionId);
-        thoughtBuffers.delete(cancelSessionId);
+        // Clear buffers for this thread
+        const cancelStreamKey = streamKey(cancelSessionId, cancelThreadId);
+        streamingBuffers.delete(cancelStreamKey);
+        thoughtBuffers.delete(cancelStreamKey);
       }
       break;
 
@@ -1358,10 +1473,15 @@ async function handleChatMessage(ws, data) {
           return;
         }
 
-        logger.debug(`[clear_session] Received for session ${clearSessionId}`);
+        const clearSession = await sessionRepository.findById(clearSessionId);
+        const clearThreadId =
+          data.chatThreadId || clearSession?.activeChatThreadId;
+
+        logger.debug(
+          `[clear_session] Received for session ${clearSessionId}/${clearThreadId || "main"}`,
+        );
 
         // Find assigned agent
-        const clearSession = await sessionRepository.findById(clearSessionId);
         if (clearSession?.assignedAgentId) {
           const clearAgentWs = agentService.getAgentConnection(
             clearSession.assignedAgentId,
@@ -1372,11 +1492,12 @@ async function handleChatMessage(ws, data) {
               JSON.stringify({
                 type: "clear_session",
                 sessionId: clearSessionId,
+                chatThreadId: clearThreadId,
                 timestamp: new Date().toISOString(),
               }),
             );
             logger.debug(
-              `Clear session request forwarded to agent for session ${clearSessionId}`,
+              `Clear session request forwarded to agent for session ${clearSessionId}/${clearThreadId || "main"}`,
             );
           } else {
             logger.debug(
@@ -1390,6 +1511,7 @@ async function handleChatMessage(ws, data) {
                   client.send(
                     JSON.stringify({
                       type: "clear_session_error",
+                      chatThreadId: clearThreadId,
                       error: "Agent not connected",
                       timestamp: new Date().toISOString(),
                     }),
@@ -1408,11 +1530,12 @@ async function handleChatMessage(ws, data) {
             subscribers.forEach((client: WebSocket) => {
               if (client.readyState === 1) {
                 client.send(
-                  JSON.stringify({
-                    type: "clear_session_error",
-                    error: "No agent assigned to session",
-                    timestamp: new Date().toISOString(),
-                  }),
+                    JSON.stringify({
+                      type: "clear_session_error",
+                      chatThreadId: clearThreadId,
+                      error: "No agent assigned to session",
+                      timestamp: new Date().toISOString(),
+                    }),
                 );
               }
             });
@@ -1422,11 +1545,18 @@ async function handleChatMessage(ws, data) {
       break;
 
     case "request_replay":
-      const history = await mimoContext.services.chat.loadHistory(sessionId);
+      const replaySession = await sessionRepository.findById(sessionId);
+      const replayThreadId =
+        data.chatThreadId || replaySession?.activeChatThreadId;
+      const history = await mimoContext.services.chat.loadHistory(
+        sessionId,
+        replayThreadId,
+      );
       ws.send(
         JSON.stringify({
           type: "history",
           messages: history,
+          chatThreadId: replayThreadId,
         }),
       );
       break;

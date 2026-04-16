@@ -1,5 +1,4 @@
-import { SessionManager } from "./session.js";
-import { AcpClient, IAcpProvider } from "./acp/index.js";
+import { AcpClient } from "./acp/index.js";
 import type { ModelState, ModeState } from "./types.js";
 
 export type AcpSessionState = "active" | "parked" | "waking";
@@ -17,266 +16,315 @@ export interface QueuedPrompt {
 }
 
 export interface SessionLifecycleCallbacks {
-  onStatusChange: (sessionId: string, status: AcpSessionState) => void;
-  onCacheState: (sessionId: string, state: CachedAcpState) => void;
-  onGetCachedState: (sessionId: string) => CachedAcpState | undefined;
+  /** Called when a thread's ACP state changes. */
+  onStatusChange: (
+    sessionId: string,
+    chatThreadId: string,
+    status: AcpSessionState,
+  ) => void;
+  onCacheState: (
+    sessionId: string,
+    chatThreadId: string,
+    state: CachedAcpState,
+  ) => void;
+  onGetCachedState: (
+    sessionId: string,
+    chatThreadId: string,
+  ) => CachedAcpState | undefined;
   onSpawnAcp: (
     sessionId: string,
+    chatThreadId: string,
     cachedState?: CachedAcpState,
   ) => Promise<AcpClient | null>;
-  onTerminateSession: (sessionId: string) => Promise<void>;
+  /** Terminate the ACP process for a specific thread. */
+  onTerminateThread: (
+    sessionId: string,
+    chatThreadId: string,
+  ) => Promise<void>;
 }
 
+// Composite key helpers
+function threadKey(sessionId: string, chatThreadId: string): string {
+  return `${sessionId}:${chatThreadId}`;
+}
+
+/**
+ * Thread-aware session lifecycle manager.
+ *
+ * - One idle timer per session (shared across all threads).
+ * - Activity on any thread resets the session-level timer.
+ * - When the session timer fires, ALL active threads are parked.
+ * - On an incoming prompt for a parked thread, only THAT thread wakes;
+ *   other parked threads remain parked.
+ */
 export class SessionLifecycleManager {
-  private sessionStates: Map<string, AcpSessionState> = new Map();
-  private lastActivity: Map<string, number> = new Map();
-  private idleTimers: Map<string, NodeJS.Timeout> = new Map();
+  // keyed by threadKey(sessionId, chatThreadId)
+  private threadStates: Map<string, AcpSessionState> = new Map();
   private promptQueues: Map<string, QueuedPrompt[]> = new Map();
-  private idleTimeouts: Map<string, number> = new Map();
+
+  // keyed by sessionId
+  private sessionThreads: Map<string, Set<string>> = new Map();
+  private sessionIdleTimers: Map<string, NodeJS.Timeout> = new Map();
+  private sessionIdleTimeouts: Map<string, number> = new Map();
+
   private callbacks: SessionLifecycleCallbacks;
 
   constructor(callbacks: SessionLifecycleCallbacks) {
     this.callbacks = callbacks;
   }
 
-  /**
-   * Initialize lifecycle management for a session
-   */
-  initializeSession(sessionId: string, idleTimeoutMs: number): void {
-    this.idleTimeouts.set(sessionId, idleTimeoutMs);
-    this.sessionStates.set(sessionId, "active");
-    this.lastActivity.set(sessionId, Date.now());
+  // ---------------------------------------------------------------------------
+  // Thread lifecycle
+  // ---------------------------------------------------------------------------
 
+  /**
+   * Register a thread and start (or reset) the session-level idle timer.
+   * Must be called before any other per-thread operation.
+   */
+  initializeThread(
+    sessionId: string,
+    chatThreadId: string,
+    idleTimeoutMs: number,
+  ): void {
+    const key = threadKey(sessionId, chatThreadId);
+    this.threadStates.set(key, "active");
+
+    // Track which threads belong to this session
+    if (!this.sessionThreads.has(sessionId)) {
+      this.sessionThreads.set(sessionId, new Set());
+    }
+    this.sessionThreads.get(sessionId)!.add(chatThreadId);
+
+    // Update/start session-level idle timer
+    this.sessionIdleTimeouts.set(sessionId, idleTimeoutMs);
     if (idleTimeoutMs > 0) {
-      this.startIdleTimer(sessionId, idleTimeoutMs);
+      this.startSessionIdleTimer(sessionId, idleTimeoutMs);
+    }
+  }
+
+  /** Get the current state of a specific thread. */
+  getThreadState(sessionId: string, chatThreadId: string): AcpSessionState {
+    return this.threadStates.get(threadKey(sessionId, chatThreadId)) ?? "active";
+  }
+
+  /**
+   * Record activity for a session (any thread).
+   * Resets the shared session-level idle timer.
+   */
+  recordActivity(sessionId: string, chatThreadId?: string): void {
+    const idleTimeoutMs =
+      this.sessionIdleTimeouts.get(sessionId) ?? 600000;
+    if (idleTimeoutMs > 0) {
+      this.startSessionIdleTimer(sessionId, idleTimeoutMs);
     }
   }
 
   /**
-   * Update idle timeout for a session
+   * Queue a prompt for a specific thread.
+   * - active  → record activity and resolve immediately
+   * - parked  → wake only this thread, queue the prompt
+   * - waking  → add to queue
    */
-  updateIdleTimeout(sessionId: string, idleTimeoutMs: number): void {
-    this.idleTimeouts.set(sessionId, idleTimeoutMs);
-
-    // Clear existing timer
-    const existingTimer = this.idleTimers.get(sessionId);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-      this.idleTimers.delete(sessionId);
-    }
-
-    // Start new timer if not zero and session is active
-    if (idleTimeoutMs > 0 && this.getSessionState(sessionId) === "active") {
-      this.startIdleTimer(sessionId, idleTimeoutMs);
-    }
-  }
-
-  /**
-   * Record activity for a session (resets idle timer)
-   */
-  recordActivity(sessionId: string): void {
-    const currentState = this.getSessionState(sessionId);
-    if (currentState === "active") {
-      this.lastActivity.set(sessionId, Date.now());
-
-      // Reset the timer
-      const idleTimeoutMs = this.idleTimeouts.get(sessionId) ?? 600000;
-      if (idleTimeoutMs > 0) {
-        this.startIdleTimer(sessionId, idleTimeoutMs);
-      }
-    }
-  }
-
-  /**
-   * Get current state for a session
-   */
-  getSessionState(sessionId: string): AcpSessionState {
-    return this.sessionStates.get(sessionId) ?? "active";
-  }
-
-  /**
-   * Check if session is ready to receive prompts
-   */
-  isSessionReady(sessionId: string): boolean {
-    const state = this.getSessionState(sessionId);
-    return state === "active";
-  }
-
-  /**
-   * Queue a prompt for processing
-   * Returns a promise that resolves when the prompt is actually sent
-   */
-  async queuePrompt(sessionId: string, content: string): Promise<void> {
-    const state = this.getSessionState(sessionId);
+  async queueThreadPrompt(
+    sessionId: string,
+    chatThreadId: string,
+    content: string,
+  ): Promise<void> {
+    const state = this.getThreadState(sessionId, chatThreadId);
 
     if (state === "active") {
-      // Session is ready, record activity and return immediately
-      this.recordActivity(sessionId);
+      this.recordActivity(sessionId, chatThreadId);
       return;
     }
 
     if (state === "parked") {
-      // Need to wake up the session first
-      return this.wakeAndQueuePrompt(sessionId, content);
+      return this.wakeThreadAndQueuePrompt(sessionId, chatThreadId, content);
     }
 
     if (state === "waking") {
-      // Already waking up, just queue the prompt
-      return this.addToQueue(sessionId, content);
+      return this.addToQueue(sessionId, chatThreadId, content);
     }
 
-    return Promise.reject(new Error(`Unknown session state: ${state}`));
+    return Promise.reject(new Error(`Unknown thread state: ${state}`));
   }
 
-  /**
-   * Mark session as ended and cleanup
-   */
+  /** Clean up a single thread. */
+  endThread(sessionId: string, chatThreadId: string): void {
+    const key = threadKey(sessionId, chatThreadId);
+
+    // Reject queued prompts
+    const queue = this.promptQueues.get(key);
+    if (queue) {
+      for (const p of queue) p.reject(new Error("Thread ended"));
+      this.promptQueues.delete(key);
+    }
+
+    this.threadStates.delete(key);
+
+    const threads = this.sessionThreads.get(sessionId);
+    if (threads) {
+      threads.delete(chatThreadId);
+      if (threads.size === 0) {
+        this.endSession(sessionId);
+      }
+    }
+  }
+
+  /** Clean up all threads for a session and cancel the idle timer. */
   endSession(sessionId: string): void {
-    // Clear timer
-    const timer = this.idleTimers.get(sessionId);
+    const timer = this.sessionIdleTimers.get(sessionId);
     if (timer) {
       clearTimeout(timer);
-      this.idleTimers.delete(sessionId);
+      this.sessionIdleTimers.delete(sessionId);
     }
 
-    // Clear any queued prompts
-    const queue = this.promptQueues.get(sessionId);
-    if (queue) {
-      for (const prompt of queue) {
-        prompt.reject(new Error("Session ended"));
+    const threads = this.sessionThreads.get(sessionId) ?? new Set();
+    for (const chatThreadId of threads) {
+      const key = threadKey(sessionId, chatThreadId);
+      const queue = this.promptQueues.get(key);
+      if (queue) {
+        for (const p of queue) p.reject(new Error("Session ended"));
+        this.promptQueues.delete(key);
       }
-      this.promptQueues.delete(sessionId);
+      this.threadStates.delete(key);
     }
 
-    // Remove session data
-    this.sessionStates.delete(sessionId);
-    this.lastActivity.delete(sessionId);
-    this.idleTimeouts.delete(sessionId);
+    this.sessionThreads.delete(sessionId);
+    this.sessionIdleTimeouts.delete(sessionId);
   }
 
-  private startIdleTimer(sessionId: string, idleTimeoutMs: number): void {
-    // Clear existing timer
-    const existingTimer = this.idleTimers.get(sessionId);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
+  /** Update idle timeout for a session and restart the timer. */
+  updateIdleTimeout(sessionId: string, idleTimeoutMs: number): void {
+    this.sessionIdleTimeouts.set(sessionId, idleTimeoutMs);
+
+    const existing = this.sessionIdleTimers.get(sessionId);
+    if (existing) {
+      clearTimeout(existing);
+      this.sessionIdleTimers.delete(sessionId);
     }
+
+    if (idleTimeoutMs > 0) {
+      this.startSessionIdleTimer(sessionId, idleTimeoutMs);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
+  private startSessionIdleTimer(
+    sessionId: string,
+    idleTimeoutMs: number,
+  ): void {
+    const existing = this.sessionIdleTimers.get(sessionId);
+    if (existing) clearTimeout(existing);
 
     const timer = setTimeout(() => {
-      this.parkSession(sessionId);
+      this.parkAllSessionThreads(sessionId);
     }, idleTimeoutMs);
 
-    this.idleTimers.set(sessionId, timer);
+    this.sessionIdleTimers.set(sessionId, timer);
   }
 
-  private async parkSession(sessionId: string): Promise<void> {
-    const currentState = this.getSessionState(sessionId);
-    if (currentState !== "active") {
-      return; // Already parked or waking
+  private async parkAllSessionThreads(sessionId: string): Promise<void> {
+    const threads = this.sessionThreads.get(sessionId);
+    if (!threads) return;
+
+    for (const chatThreadId of threads) {
+      const state = this.getThreadState(sessionId, chatThreadId);
+      if (state !== "active") continue;
+
+      this.setThreadState(sessionId, chatThreadId, "parked");
+
+      // Cache state then terminate ACP for this thread
+      await this.callbacks.onTerminateThread(sessionId, chatThreadId);
+
+      this.callbacks.onStatusChange(sessionId, chatThreadId, "parked");
     }
-
-    // Set state to parked
-    this.setSessionState(sessionId, "parked");
-
-    // Clear the timer since we're now parked
-    const timer = this.idleTimers.get(sessionId);
-    if (timer) {
-      clearTimeout(timer);
-      this.idleTimers.delete(sessionId);
-    }
-
-    // Gracefully close the ACP client, then clean up the process
-    await this.callbacks.onTerminateSession(sessionId);
-
-    // Notify of status change
-    this.callbacks.onStatusChange(sessionId, "parked");
   }
 
-  private setSessionState(sessionId: string, state: AcpSessionState): void {
-    this.sessionStates.set(sessionId, state);
-  }
-
-  private async wakeAndQueuePrompt(
+  private setThreadState(
     sessionId: string,
+    chatThreadId: string,
+    state: AcpSessionState,
+  ): void {
+    this.threadStates.set(threadKey(sessionId, chatThreadId), state);
+  }
+
+  private async wakeThreadAndQueuePrompt(
+    sessionId: string,
+    chatThreadId: string,
     content: string,
   ): Promise<void> {
-    // Set state to waking
-    this.setSessionState(sessionId, "waking");
-    this.callbacks.onStatusChange(sessionId, "waking");
+    this.setThreadState(sessionId, chatThreadId, "waking");
+    this.callbacks.onStatusChange(sessionId, chatThreadId, "waking");
 
-    // Add prompt to queue before waking (ensures it's processed)
-    const queuePromise = this.addToQueue(sessionId, content);
+    // Queue the prompt before waking so it's processed after ACP is ready
+    const queuePromise = this.addToQueue(sessionId, chatThreadId, content);
 
     try {
-      // Get cached state and respawn ACP
-      const cachedState = this.callbacks.onGetCachedState(sessionId);
-      const acpClient = await this.callbacks.onSpawnAcp(sessionId, cachedState);
+      const cachedState = this.callbacks.onGetCachedState(sessionId, chatThreadId);
+      const acpClient = await this.callbacks.onSpawnAcp(
+        sessionId,
+        chatThreadId,
+        cachedState,
+      );
 
-      if (!acpClient) {
-        throw new Error("Failed to spawn ACP process");
-      }
+      if (!acpClient) throw new Error("Failed to spawn ACP process");
 
-      // Session is now active
-      this.setSessionState(sessionId, "active");
-      this.lastActivity.set(sessionId, Date.now());
+      this.setThreadState(sessionId, chatThreadId, "active");
 
-      // Restart idle timer
-      const idleTimeoutMs = this.idleTimeouts.get(sessionId) ?? 600000;
+      // Restart the session-level idle timer now that a thread is active
+      const idleTimeoutMs = this.sessionIdleTimeouts.get(sessionId) ?? 600000;
       if (idleTimeoutMs > 0) {
-        this.startIdleTimer(sessionId, idleTimeoutMs);
+        this.startSessionIdleTimer(sessionId, idleTimeoutMs);
       }
 
-      // Notify of status change
-      this.callbacks.onStatusChange(sessionId, "active");
+      this.callbacks.onStatusChange(sessionId, chatThreadId, "active");
 
-      // Process any queued prompts
-      await this.processQueue(sessionId);
+      await this.processQueue(sessionId, chatThreadId);
     } catch (error) {
-      // If wake fails, go back to parked state
-      this.setSessionState(sessionId, "parked");
-      this.callbacks.onStatusChange(sessionId, "parked");
+      this.setThreadState(sessionId, chatThreadId, "parked");
+      this.callbacks.onStatusChange(sessionId, chatThreadId, "parked");
 
-      // Reject all queued prompts
-      const queue = this.promptQueues.get(sessionId) ?? [];
-      for (const prompt of queue) {
-        prompt.reject(
-          error instanceof Error ? error : new Error(String(error)),
-        );
+      const key = threadKey(sessionId, chatThreadId);
+      const queue = this.promptQueues.get(key) ?? [];
+      for (const p of queue) {
+        p.reject(error instanceof Error ? error : new Error(String(error)));
       }
-      this.promptQueues.delete(sessionId);
-
+      this.promptQueues.delete(key);
       throw error;
     }
 
     return queuePromise;
   }
 
-  private addToQueue(sessionId: string, content: string): Promise<void> {
+  private addToQueue(
+    sessionId: string,
+    chatThreadId: string,
+    content: string,
+  ): Promise<void> {
+    const key = threadKey(sessionId, chatThreadId);
     return new Promise((resolve, reject) => {
-      if (!this.promptQueues.has(sessionId)) {
-        this.promptQueues.set(sessionId, []);
+      if (!this.promptQueues.has(key)) {
+        this.promptQueues.set(key, []);
       }
-
-      this.promptQueues.get(sessionId)!.push({
-        content,
-        resolve,
-        reject,
-      });
+      this.promptQueues.get(key)!.push({ content, resolve, reject });
     });
   }
 
-  private async processQueue(sessionId: string): Promise<void> {
-    const queue = this.promptQueues.get(sessionId) ?? [];
-    this.promptQueues.delete(sessionId);
-
-    for (const prompt of queue) {
+  private async processQueue(
+    sessionId: string,
+    chatThreadId: string,
+  ): Promise<void> {
+    const key = threadKey(sessionId, chatThreadId);
+    const queue = this.promptQueues.get(key) ?? [];
+    this.promptQueues.delete(key);
+    for (const p of queue) {
       try {
-        // The actual sending happens elsewhere, we just resolve the promise
-        // to indicate the prompt can now be sent
-        prompt.resolve();
+        p.resolve();
       } catch (error) {
-        prompt.reject(
-          error instanceof Error ? error : new Error(String(error)),
-        );
+        p.reject(error instanceof Error ? error : new Error(String(error)));
       }
     }
   }
