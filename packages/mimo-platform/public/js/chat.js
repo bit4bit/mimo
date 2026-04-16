@@ -908,6 +908,12 @@ function sendMessage(content) {
       ? ChatThreadsState.activeThreadId
       : null;
 
+  if (!activeThreadId) {
+    showNotification("Create a chat thread first", "warning");
+    ChatState.pendingMessages.delete(content);
+    return;
+  }
+
   if (ChatState.socket?.readyState === WebSocket.OPEN) {
     const payload = {
       type: "send_message",
@@ -952,6 +958,11 @@ function cancelStreaming() {
     typeof ChatThreadsState !== "undefined" && ChatThreadsState
       ? ChatThreadsState.activeThreadId
       : null;
+
+  if (!activeThreadId) {
+    showNotification("Create a chat thread first", "warning");
+    return;
+  }
 
   if (ChatState.socket?.readyState === WebSocket.OPEN) {
     const payload = {
@@ -1000,8 +1011,14 @@ function clearSession() {
     typeof ChatThreadsState !== "undefined" && ChatThreadsState
       ? ChatThreadsState.activeThreadId
       : null;
+
+  if (!activeThreadId) {
+    showNotification("Create a chat thread first", "warning");
+    return;
+  }
+
   console.log(
-    `[CHAT] User requested thread clear for ${ChatState.sessionId}/${activeThreadId || "main"}`,
+    `[CHAT] User requested thread clear for ${ChatState.sessionId}/${activeThreadId}`,
   );
 
   if (ChatState.socket?.readyState === WebSocket.OPEN) {

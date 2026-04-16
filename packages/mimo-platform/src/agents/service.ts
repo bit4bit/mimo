@@ -166,13 +166,18 @@ export class AgentService {
       this.currentAcpRequest.delete(session.assignedAgentId);
     }
 
+    const threadId = chatThreadId || session.activeChatThreadId;
+    if (!threadId) {
+      return false;
+    }
+
     const ws = this.activeConnections.get(session.assignedAgentId);
     if (ws) {
       ws.send(
         JSON.stringify({
           type: "cancel_request",
           sessionId,
-          chatThreadId: chatThreadId || session.activeChatThreadId || "main",
+          chatThreadId: threadId,
         }),
       );
     }

@@ -70,7 +70,7 @@ export interface Session {
   frameState: FrameState;
   // Chat threads
   chatThreads: ChatThread[];
-  activeChatThreadId: string;
+  activeChatThreadId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -105,7 +105,7 @@ export interface SessionData {
   frameState?: FrameState;
   // Chat threads
   chatThreads?: ChatThread[];
-  activeChatThreadId?: string;
+  activeChatThreadId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -192,36 +192,20 @@ export class SessionRepository {
     return crypto.randomUUID();
   }
 
-  private createDefaultThread(): ChatThread {
-    return {
-      id: this.generateId(),
-      name: "Main",
-      model: "",
-      mode: "",
-      acpSessionId: null,
-      state: "active",
-      createdAt: new Date().toISOString(),
-    };
-  }
-
-  /**
-   * Read-time migration: if a session has no chatThreads, create a synthetic
-   * default Main thread so legacy data is transparently compatible.
-   */
   private normalizeChatThreads(data: SessionData): {
     chatThreads: ChatThread[];
-    activeChatThreadId: string;
+    activeChatThreadId: string | null;
   } {
-    if (data.chatThreads && data.chatThreads.length > 0) {
-      return {
-        chatThreads: data.chatThreads,
-        activeChatThreadId: data.activeChatThreadId ?? data.chatThreads[0].id,
-      };
-    }
-    const defaultThread = this.createDefaultThread();
+    const chatThreads = data.chatThreads ?? [];
+    const hasActiveThread =
+      typeof data.activeChatThreadId === "string" &&
+      chatThreads.some((thread) => thread.id === data.activeChatThreadId);
+
     return {
-      chatThreads: [defaultThread],
-      activeChatThreadId: defaultThread.id,
+      chatThreads,
+      activeChatThreadId: hasActiveThread
+        ? (data.activeChatThreadId as string)
+        : chatThreads[0]?.id ?? null,
     };
   }
 
@@ -253,7 +237,6 @@ export class SessionRepository {
     }
 
     const now = new Date().toISOString();
-    const defaultThread = this.createDefaultThread();
     const sessionData: SessionData = {
       id,
       name: input.name,
@@ -272,8 +255,8 @@ export class SessionRepository {
       syncState: "idle",
       frameState: createDefaultFrameState(),
       // Chat threads
-      chatThreads: [defaultThread],
-      activeChatThreadId: defaultThread.id,
+      chatThreads: [],
+      activeChatThreadId: null,
       createdAt: now,
       updatedAt: now,
       ...(input.localDevMirrorPath && {
@@ -291,7 +274,7 @@ export class SessionRepository {
     return {
       ...sessionData,
       chatThreads: sessionData.chatThreads!,
-      activeChatThreadId: sessionData.activeChatThreadId!,
+      activeChatThreadId: sessionData.activeChatThreadId ?? null,
       createdAt: new Date(sessionData.createdAt),
       updatedAt: new Date(sessionData.updatedAt),
     };
@@ -511,7 +494,10 @@ export class SessionRepository {
     };
 
     const updatedThreads = [...session.chatThreads, newThread];
-    await this.update(sessionId, { chatThreads: updatedThreads });
+    await this.update(sessionId, {
+      chatThreads: updatedThreads,
+      activeChatThreadId: session.activeChatThreadId ?? newThread.id,
+    });
     return newThread;
   }
 
@@ -544,8 +530,8 @@ export class SessionRepository {
     const updates: Partial<SessionData> = { chatThreads: updatedThreads };
 
     // If we deleted the active thread, fall back to the first remaining thread
-    if (session.activeChatThreadId === threadId && updatedThreads.length > 0) {
-      updates.activeChatThreadId = updatedThreads[0].id;
+    if (session.activeChatThreadId === threadId) {
+      updates.activeChatThreadId = updatedThreads[0]?.id ?? null;
     }
 
     await this.update(sessionId, updates);

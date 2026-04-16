@@ -104,7 +104,7 @@ const messageStartTimes = new Map<string, number>();
 const autoSyncInFlight = new Set<string>();
 
 function streamKey(sessionId: string, chatThreadId?: string): string {
-  return `${sessionId}:${chatThreadId || "main"}`;
+  return `${sessionId}:${chatThreadId || "__no-thread__"}`;
 }
 
 // Track pending permission requests: requestId → { agentWs, sessionId }
@@ -621,7 +621,7 @@ async function handleAgentMessage(ws, data) {
     case "thought_start":
       {
         const startSessionId = data.sessionId;
-        const startThreadId = data.chatThreadId || "main";
+        const startThreadId = data.chatThreadId;
         if (!startSessionId) {
           logger.debug("No sessionId in thought_start");
           return;
@@ -659,7 +659,7 @@ async function handleAgentMessage(ws, data) {
     case "thought_chunk":
       {
         const chunkSessionId = data.sessionId;
-        const chunkThreadId = data.chatThreadId || "main";
+        const chunkThreadId = data.chatThreadId;
         if (!chunkSessionId) {
           logger.debug("No sessionId in thought_chunk");
           return;
@@ -699,7 +699,7 @@ async function handleAgentMessage(ws, data) {
     case "thought_end":
       {
         const endSessionId = data.sessionId;
-        const endThreadId = data.chatThreadId || "main";
+        const endThreadId = data.chatThreadId;
         if (!endSessionId) {
           logger.debug("No sessionId in thought_end");
           return;
@@ -728,7 +728,7 @@ async function handleAgentMessage(ws, data) {
     case "message_chunk":
       {
         const msgSessionId = data.sessionId;
-        const msgThreadId = data.chatThreadId || "main";
+        const msgThreadId = data.chatThreadId;
         if (!msgSessionId) {
           logger.debug("No sessionId in message_chunk");
           return;
@@ -773,7 +773,7 @@ async function handleAgentMessage(ws, data) {
     case "usage_update":
       {
         const usageSessionId = data.sessionId;
-        const usageThreadId = data.chatThreadId || "main";
+        const usageThreadId = data.chatThreadId;
         if (!usageSessionId) {
           logger.debug("No sessionId in usage_update");
           return;
@@ -816,18 +816,20 @@ async function handleAgentMessage(ws, data) {
             thoughtBuffers.delete(usageStreamKey);
           }
 
-          await mimoContext.services.chat.saveMessage(
-            usageSessionId,
-            {
-              role: "assistant",
-              content: fullContent,
-              timestamp: new Date().toISOString(),
-              ...(duration !== undefined
-                ? { metadata: { duration, durationMs } }
-                : {}),
-            },
-            historyThreadId,
-          );
+          if (historyThreadId) {
+            await mimoContext.services.chat.saveMessage(
+              usageSessionId,
+              {
+                role: "assistant",
+                content: fullContent,
+                timestamp: new Date().toISOString(),
+                ...(duration !== undefined
+                  ? { metadata: { duration, durationMs } }
+                  : {}),
+              },
+              historyThreadId,
+            );
+          }
 
           // Clear buffer
           streamingBuffers.delete(usageStreamKey);
@@ -888,15 +890,17 @@ async function handleAgentMessage(ws, data) {
       const acpThreadId =
         data.chatThreadId || acpSessionRecord?.activeChatThreadId;
 
-      await mimoContext.services.chat.saveMessage(
-        acpSessionId,
-        {
-          role: "assistant",
-          content: data.content,
-          timestamp: new Date().toISOString(),
-        },
-        acpThreadId,
-      );
+      if (acpThreadId) {
+        await mimoContext.services.chat.saveMessage(
+          acpSessionId,
+          {
+            role: "assistant",
+            content: data.content,
+            timestamp: new Date().toISOString(),
+          },
+          acpThreadId,
+        );
+      }
       break;
     case "file_changed":
       logger.debug("File changed:", data.files);
@@ -967,15 +971,17 @@ async function handleAgentMessage(ws, data) {
             const resetSession = await sessionRepository.findById(sessionId);
             const resetThreadId =
               createdThreadId || resetSession?.activeChatThreadId;
-            await mimoContext.services.chat.saveMessage(
-              sessionId,
-              {
-                role: "system",
-                content: systemMessage,
-                timestamp,
-              },
-              resetThreadId,
-            );
+            if (resetThreadId) {
+              await mimoContext.services.chat.saveMessage(
+                sessionId,
+                {
+                  role: "system",
+                  content: systemMessage,
+                  timestamp,
+                },
+                resetThreadId,
+              );
+            }
           }
         }
       }
@@ -1014,15 +1020,17 @@ async function handleAgentMessage(ws, data) {
           const clearedSession = await sessionRepository.findById(sessionId);
           const historyThreadId =
             clearedThreadId || clearedSession?.activeChatThreadId;
-          await mimoContext.services.chat.saveMessage(
-            sessionId,
-            {
-              role: "system",
-              content: "Thread context cleared",
-              timestamp,
-            },
-            historyThreadId,
-          );
+          if (historyThreadId) {
+            await mimoContext.services.chat.saveMessage(
+              sessionId,
+              {
+                role: "system",
+                content: "Thread context cleared",
+                timestamp,
+              },
+              historyThreadId,
+            );
+          }
 
           // Broadcast to all UI clients
           const clearedSubscribers = chatSessions.get(sessionId);
@@ -1321,6 +1329,16 @@ async function handleChatMessage(ws, data) {
       const userSession = await sessionRepository.findById(sessionId);
       const userThreadId = data.chatThreadId || userSession?.activeChatThreadId;
 
+      if (!userThreadId) {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            error: "Create a chat thread before sending messages",
+          }),
+        );
+        break;
+      }
+
       // Save user message with thread ID
       await mimoContext.services.chat.saveMessage(
         sessionId,
@@ -1533,6 +1551,12 @@ async function handleChatMessage(ws, data) {
         const cancelSession = await sessionRepository.findById(cancelSessionId);
         const cancelThreadId =
           data.chatThreadId || cancelSession?.activeChatThreadId;
+        if (!cancelThreadId) {
+          logger.debug(
+            `Cancel request skipped for session ${cancelSessionId}: no active thread`,
+          );
+          break;
+        }
         if (cancelSession?.assignedAgentId) {
           const cancelAgentWs = agentService.getAgentConnection(
             cancelSession.assignedAgentId,
@@ -1548,7 +1572,7 @@ async function handleChatMessage(ws, data) {
               }),
             );
             logger.debug(
-              `Cancel request forwarded to agent for session ${cancelSessionId}/${cancelThreadId || "main"}`,
+              `Cancel request forwarded to agent for session ${cancelSessionId}/${cancelThreadId}`,
             );
           }
         }
@@ -1575,19 +1599,21 @@ async function handleChatMessage(ws, data) {
           data.chatThreadId || cancelledSession?.activeChatThreadId;
 
         // Save the cancelled message with metadata indicating it was cancelled
-        await mimoContext.services.chat.saveMessage(
-          cancelledSessionId,
-          {
-            role: "assistant",
-            content: data.content || "",
-            timestamp: data.timestamp || new Date().toISOString(),
-            metadata: { cancelled: true },
-          },
-          cancelledThreadId,
-        );
-        logger.debug(
-          `Saved cancelled message for session ${cancelledSessionId}/${cancelledThreadId || "main"}`,
-        );
+        if (cancelledThreadId) {
+          await mimoContext.services.chat.saveMessage(
+            cancelledSessionId,
+            {
+              role: "assistant",
+              content: data.content || "",
+              timestamp: data.timestamp || new Date().toISOString(),
+              metadata: { cancelled: true },
+            },
+            cancelledThreadId,
+          );
+          logger.debug(
+            `Saved cancelled message for session ${cancelledSessionId}/${cancelledThreadId}`,
+          );
+        }
       }
       break;
 
@@ -1603,8 +1629,15 @@ async function handleChatMessage(ws, data) {
         const clearThreadId =
           data.chatThreadId || clearSession?.activeChatThreadId;
 
+        if (!clearThreadId) {
+          logger.debug(
+            `[clear_session] Skipped for session ${clearSessionId}: no active thread`,
+          );
+          break;
+        }
+
         logger.debug(
-          `[clear_session] Received for session ${clearSessionId}/${clearThreadId || "main"}`,
+          `[clear_session] Received for session ${clearSessionId}/${clearThreadId}`,
         );
 
         // Find assigned agent
@@ -1623,7 +1656,7 @@ async function handleChatMessage(ws, data) {
               }),
             );
             logger.debug(
-              `Clear session request forwarded to agent for session ${clearSessionId}/${clearThreadId || "main"}`,
+              `Clear session request forwarded to agent for session ${clearSessionId}/${clearThreadId}`,
             );
           } else {
             logger.debug(

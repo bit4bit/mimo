@@ -102,7 +102,7 @@ describe("Agent Handoff Tests", () => {
             chatThreads: [
               {
                 chatThreadId: "thread-main",
-                name: "Main",
+                name: "Primary",
                 model: "claude-3",
                 mode: "code",
                 acpSessionId: "acp-main-123",
@@ -416,7 +416,7 @@ describe("Agent Handoff Tests", () => {
           chatThreads: [
             {
               id: "thread-main",
-              name: "Main",
+              name: "Primary",
               model: "claude-3",
               mode: "code",
               acpSessionId: "acp-main-123",
@@ -445,12 +445,12 @@ describe("Agent Handoff Tests", () => {
       expect(message.sessions[0].chatThreads).toHaveLength(2);
 
       // Verify thread metadata structure
-      const mainThread = message.sessions[0].chatThreads[0];
-      expect(mainThread.id).toBe("thread-main");
-      expect(mainThread.name).toBe("Main");
-      expect(mainThread.model).toBe("claude-3");
-      expect(mainThread.mode).toBe("code");
-      expect(mainThread.acpSessionId).toBe("acp-main-123");
+      const primaryThread = message.sessions[0].chatThreads[0];
+      expect(primaryThread.id).toBe("thread-main");
+      expect(primaryThread.name).toBe("Primary");
+      expect(primaryThread.model).toBe("claude-3");
+      expect(primaryThread.mode).toBe("code");
+      expect(primaryThread.acpSessionId).toBe("acp-main-123");
 
       const reviewThread = message.sessions[0].chatThreads[1];
       expect(reviewThread.id).toBe("thread-review");
@@ -479,7 +479,7 @@ describe("Agent Handoff Tests", () => {
       const persistedThreads = [
         {
           id: "thread-main",
-          name: "Main",
+          name: "Primary",
           model: "claude-3",
           mode: "code",
           acpSessionId: "acp-main-abc", // persisted from before restart

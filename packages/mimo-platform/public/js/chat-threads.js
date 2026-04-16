@@ -246,7 +246,7 @@ function updateThreadContextUI() {
   
   const activeThread = getActiveThread();
   if (!activeThread) {
-    container.innerHTML = "<div style=\"color: #888; font-size: 12px;\">No active thread</div>";
+    container.innerHTML = "<div style=\"color: #888; font-size: 12px;\">No active thread. Use + New Thread to get started.</div>";
     return;
   }
   
@@ -325,22 +325,19 @@ function updateThreadContextUI() {
     " title="Clear context for this thread only">Clear</button>
   `;
   
-  // Delete button
-  if (activeThread.name !== "Main") {
-    html += `
-      <button type="button" id="delete-thread-btn" data-thread-id="${activeThread.id}" style="
-        padding: 4px 8px;
-        background: transparent;
-        border: 1px solid #555;
-        color: #888;
-        font-family: monospace;
-        font-size: 10px;
-        cursor: pointer;
-        border-radius: 3px;
-        white-space: nowrap;
-      ">Delete</button>
-    `;
-  }
+  html += `
+    <button type="button" id="delete-thread-btn" data-thread-id="${activeThread.id}" style="
+      padding: 4px 8px;
+      background: transparent;
+      border: 1px solid #555;
+      color: #888;
+      font-family: monospace;
+      font-size: 10px;
+      cursor: pointer;
+      border-radius: 3px;
+      white-space: nowrap;
+    ">Delete</button>
+  `;
   
   container.innerHTML = html;
   
@@ -406,12 +403,12 @@ function attachThreadContextListeners() {
       
       const success = await deleteThread(threadId);
       if (success) {
-        // Switch to Main thread
-        const mainThread = ChatThreadsState.threads.find((t) => t.name === "Main");
-        if (mainThread) {
-          switchToThread(mainThread.id);
-        } else if (ChatThreadsState.threads.length > 0) {
+        if (ChatThreadsState.threads.length > 0) {
           switchToThread(ChatThreadsState.threads[0].id);
+        } else {
+          ChatThreadsState.activeThreadId = null;
+          updateThreadTabsUI();
+          updateThreadContextUI();
         }
       }
     });

@@ -644,11 +644,15 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       return c.text("Message required", 400);
     }
 
+    if (!session.activeChatThreadId) {
+      return c.text("Create a thread before sending messages", 400);
+    }
+
     await chatService.saveMessage(sessionId, {
       role: "user",
       content: message,
       timestamp: new Date().toISOString(),
-    });
+    }, session.activeChatThreadId);
 
     return c.json({ success: true });
   });

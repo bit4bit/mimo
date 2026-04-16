@@ -5,7 +5,7 @@
  *   1.3  per-thread model/mode are isolated across threads
  *   1.4  reconnect sends streaming state for active thread
  *   1.5  programmatic thread creation API works without UI
- *   session-management spec: session creation creates default Main thread
+ *   session-management spec: session creation starts without chat threads
  */
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { Hono } from "hono";
@@ -85,9 +85,9 @@ describe("Chat Threads API", () => {
     } catch {}
   });
 
-  // Task 1.5 + session-management spec: new session has default Main thread
-  describe("Session creation initializes a default Main thread", () => {
-    it("GET /sessions/:id/chat-threads returns a single Main thread for a new session", async () => {
+  // Task 1.5 + session-management spec: new session starts with no threads
+  describe("Session creation starts without chat threads", () => {
+    it("GET /sessions/:id/chat-threads returns an empty thread list for a new session", async () => {
       const res = await app.request(
         `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
         {
@@ -99,9 +99,8 @@ describe("Chat Threads API", () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.threads).toBeDefined();
-      expect(body.threads).toHaveLength(1);
-      expect(body.threads[0].name).toBe("Main");
-      expect(body.activeChatThreadId).toBe(body.threads[0].id);
+      expect(body.threads).toHaveLength(0);
+      expect(body.activeChatThreadId).toBeNull();
     });
   });
 
@@ -233,7 +232,7 @@ describe("Chat Threads API", () => {
             Cookie: `token=${token}`,
           },
           body: JSON.stringify({
-            name: "Main Thread",
+            name: "Primary Thread",
             model: "claude-3",
             mode: "code",
           }),
@@ -278,7 +277,7 @@ describe("Chat Threads API", () => {
             Cookie: `token=${token}`,
           },
           body: JSON.stringify({
-            name: "Main Thread",
+            name: "Primary Thread",
             model: "claude-3",
             mode: "code",
           }),
@@ -323,7 +322,7 @@ describe("Chat Threads API", () => {
 
       // The session_ready message should include thread-level acpSessionId
       // This is verified by checking the thread data structure
-      expect(session!.chatThreads).toHaveLength(3); // Main + 2 created
+      expect(session!.chatThreads).toHaveLength(2);
 
       // Verify each thread has the expected structure for bootstrap
       for (const thread of session!.chatThreads) {

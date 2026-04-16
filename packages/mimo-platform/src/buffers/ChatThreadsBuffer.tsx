@@ -25,7 +25,7 @@ export interface ModeOption {
 
 interface ChatThreadsBufferProps extends BufferProps {
   threads?: ChatThread[];
-  activeThreadId?: string;
+  activeThreadId?: string | null;
   availableModels?: ModelOption[];
   availableModes?: ModeOption[];
 }
@@ -170,29 +170,31 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
             {/* Spacer to push delete button to the right */}
             <div style="flex: 1;"></div>
 
-            {/* Delete thread button (not shown for Main thread) */}
-            {activeThread.name !== "Main" && (
-              <button
-                type="button"
-                id="delete-thread-btn"
-                data-thread-id={activeThread.id}
-                style="
-                  padding: 4px 8px;
-                  background: transparent;
-                  border: 1px solid #555;
-                  color: #888;
-                  font-family: monospace;
-                  font-size: 10px;
-                  cursor: pointer;
-                  border-radius: 3px;
-                  white-space: nowrap;
-                "
-                title="Delete this thread"
-              >
-                Delete
-              </button>
-            )}
+            <button
+              type="button"
+              id="delete-thread-btn"
+              data-thread-id={activeThread.id}
+              style="
+                padding: 4px 8px;
+                background: transparent;
+                border: 1px solid #555;
+                color: #888;
+                font-family: monospace;
+                font-size: 10px;
+                cursor: pointer;
+                border-radius: 3px;
+                white-space: nowrap;
+              "
+              title="Delete this thread"
+            >
+              Delete
+            </button>
           </>
+        )}
+        {!activeThread && (
+          <div style="font-size: 12px; color: #888;">
+            No active thread. Use + New Thread to get started.
+          </div>
         )}
       </div>
 

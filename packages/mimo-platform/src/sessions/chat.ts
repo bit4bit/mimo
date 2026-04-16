@@ -21,23 +21,19 @@ export class ChatService {
   }
 
   private getChatPath(sessionId: string, chatThreadId?: string): string {
-    // Store chat in the session directory, optionally per thread
+    // Store chat in the session directory, per thread
     const sessionDir = this.findSessionDir(sessionId);
     if (!sessionDir) {
       throw new Error(`Session ${sessionId} not found`);
     }
-    
-    // If thread-specific, store in threads subdirectory
-    if (chatThreadId) {
-      const threadsDir = join(sessionDir, "chat-threads");
-      if (!existsSync(threadsDir)) {
-        mkdirSync(threadsDir, { recursive: true });
-      }
-      return join(threadsDir, `${chatThreadId}.jsonl`);
+
+    const threadsDir = join(sessionDir, "chat-threads");
+    if (!existsSync(threadsDir)) {
+      mkdirSync(threadsDir, { recursive: true });
     }
-    
-    // Legacy global chat path (for backward compatibility)
-    return join(sessionDir, "chat.jsonl");
+
+    const effectiveThreadId = chatThreadId || "__session__";
+    return join(threadsDir, `${effectiveThreadId}.jsonl`);
   }
 
   private findSessionDir(sessionId: string): string | null {
@@ -84,27 +80,12 @@ export class ChatService {
     chatThreadId?: string
   ): Promise<ChatMessage[]> {
     try {
-      // Try thread-specific path first
-      if (chatThreadId) {
-        const threadPath = this.getChatPath(sessionId, chatThreadId);
-        if (existsSync(threadPath)) {
-          const content = readFileSync(threadPath, "utf-8");
-          const lines = content
-            .trim()
-            .split("\n")
-            .filter((line) => line);
-
-          return lines.map((line) => JSON.parse(line) as ChatMessage);
-        }
-      }
-      
-      // Fall back to legacy global chat path
-      const chatPath = this.getChatPath(sessionId);
-      if (!existsSync(chatPath)) {
+      const threadPath = this.getChatPath(sessionId, chatThreadId);
+      if (!existsSync(threadPath)) {
         return [];
       }
 
-      const content = readFileSync(chatPath, "utf-8");
+      const content = readFileSync(threadPath, "utf-8");
       const lines = content
         .trim()
         .split("\n")

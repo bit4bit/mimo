@@ -69,7 +69,7 @@ interface SessionDetailProps {
   streamingTimeoutMs?: number;
   // Chat threads data
   chatThreads?: ChatThread[];
-  activeChatThreadId?: string;
+  activeChatThreadId?: string | null;
 }
 
 export const SessionDetailPage: FC<SessionDetailProps> = ({
