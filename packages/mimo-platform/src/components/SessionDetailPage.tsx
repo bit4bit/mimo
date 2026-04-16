@@ -162,11 +162,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 modelState,
                 modeState,
               },
-              notes: {
-                initialContent: notesContent,
-                projectId,
-                projectNotesContent,
-              },
             }}
           />
 
@@ -176,6 +171,11 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             buffers={rightBuffers}
             activeBufferId={frameState.rightFrame.activeBufferId}
             bufferProps={{
+              notes: {
+                initialContent: notesContent,
+                projectId,
+                projectNotesContent,
+              },
               "mcp-servers": { servers: mcpServers },
             }}
           />
