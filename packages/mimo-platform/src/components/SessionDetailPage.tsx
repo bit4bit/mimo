@@ -189,6 +189,14 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             <button type="button" id="sync-now-btn" class="btn-secondary">
               Sync Now
             </button>
+            <button
+              type="button"
+              id="session-shortcuts-help-btn"
+              class="btn-secondary"
+              title="Keyboard shortcuts (Mod+Shift+/)"
+            >
+              Shortcuts
+            </button>
             <a
               href={`/projects/${project.id}/sessions/${session.id}/settings`}
               class="btn-secondary"
@@ -258,6 +266,26 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           <div class="commit-actions">
             <button type="button" id="commit-cancel" class="btn-secondary">Cancel</button>
             <button type="button" id="commit-confirm" class="btn-primary" disabled>Commit &amp; Push</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="session-shortcuts-hint" class="session-shortcuts-hint" style="display: none;"></div>
+
+      <div id="session-shortcuts-help" class="modal" style="display: none;" aria-hidden="true">
+        <div class="modal-content shortcuts-modal" role="dialog" aria-label="Keyboard shortcuts">
+          <h3 style="margin: 0 0 12px 0; font-size: 16px;">Session Keyboard Shortcuts</h3>
+          <div class="shortcuts-grid">
+            <div class="shortcut-row"><span class="shortcut-key">Mod+Shift+N</span><span class="shortcut-desc">Create new thread</span></div>
+            <div class="shortcut-row"><span class="shortcut-key">Mod+Shift+ArrowRight</span><span class="shortcut-desc">Next thread</span></div>
+            <div class="shortcut-row"><span class="shortcut-key">Mod+Shift+ArrowLeft</span><span class="shortcut-desc">Previous thread</span></div>
+            <div class="shortcut-row"><span class="shortcut-key">Mod+Shift+M</span><span class="shortcut-desc">Open commit dialog</span></div>
+            <div class="shortcut-row"><span class="shortcut-key">Mod+Shift+,</span><span class="shortcut-desc">Focus Project Notes</span></div>
+            <div class="shortcut-row"><span class="shortcut-key">Mod+Shift+.</span><span class="shortcut-desc">Focus Session Notes</span></div>
+            <div class="shortcut-row"><span class="shortcut-key">Mod+Shift+/</span><span class="shortcut-desc">Toggle shortcuts help</span></div>
+          </div>
+          <div class="commit-actions" style="margin-top: 16px;">
+            <button type="button" id="session-shortcuts-close" class="btn-secondary">Close</button>
           </div>
         </div>
       </div>
@@ -580,6 +608,57 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           display: flex;
           flex-direction: column;
           border-radius: 0;
+        }
+        .shortcuts-modal {
+          max-width: 620px;
+        }
+        .shortcuts-grid {
+          display: grid;
+          gap: 8px;
+        }
+        .shortcut-row {
+          display: grid;
+          grid-template-columns: 220px 1fr;
+          align-items: center;
+          gap: 10px;
+          border: 1px solid #3a3a3a;
+          border-radius: 4px;
+          background: #232323;
+          padding: 8px 10px;
+        }
+        .shortcut-key {
+          color: #74c0fc;
+          font-weight: bold;
+          font-size: 12px;
+          white-space: nowrap;
+        }
+        .shortcut-desc {
+          color: #d4d4d4;
+          font-size: 12px;
+        }
+        .session-shortcuts-hint {
+          position: fixed;
+          right: 18px;
+          bottom: 18px;
+          z-index: 1300;
+          background: #2b2b2b;
+          border: 1px solid #4a4a4a;
+          border-radius: 4px;
+          color: #d4d4d4;
+          font-size: 12px;
+          padding: 8px 10px;
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+          max-width: 320px;
+        }
+        @media (max-width: 768px) {
+          .shortcut-row {
+            grid-template-columns: 1fr;
+          }
+          .session-shortcuts-hint {
+            right: 10px;
+            left: 10px;
+            max-width: none;
+          }
         }
         .commit-preview-container {
           flex: 1;

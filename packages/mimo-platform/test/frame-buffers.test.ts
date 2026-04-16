@@ -126,6 +126,33 @@ describe("Frame buffers integration", () => {
     expect(html).toContain("justify-content: flex-start");
   });
 
+  it("renders session keybindings help UI and script", async () => {
+    const { app, project, token, sessionId } = await createSessionAppAndAuth();
+
+    const res = await app.request(
+      `/projects/${project.id}/sessions/${sessionId}`,
+      {
+        method: "GET",
+        headers: {
+          Cookie: `token=${token}`,
+        },
+      },
+    );
+
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain('src="/js/session-keybindings.js"');
+    expect(html).toContain('id="session-shortcuts-help"');
+    expect(html).toContain('id="session-shortcuts-hint"');
+    expect(html).toContain("Mod+Shift+N");
+    expect(html).toContain("Mod+Shift+ArrowRight");
+    expect(html).toContain("Mod+Shift+ArrowLeft");
+    expect(html).toContain("Mod+Shift+M");
+    expect(html).toContain("Mod+Shift+,");
+    expect(html).toContain("Mod+Shift+.");
+    expect(html).toContain("Mod+Shift+/");
+  });
+
   it("persists frame-state updates per session", async () => {
     const { app, token, sessionId } = await createSessionAppAndAuth();
 

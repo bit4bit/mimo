@@ -30,6 +30,7 @@ export const Layout: FC<LayoutProps> = ({
         {sessionId && <script src="/js/chat-threads.js" defer></script>}
         {sessionId && <script src="/js/commit.js" defer></script>}
         {sessionId && <script src="/js/notes.js" defer></script>}
+        {sessionId && <script src="/js/session-keybindings.js" defer></script>}
         <style>{`
            * { margin: 0; padding: 0; box-sizing: border-box; }
            html, body { 
