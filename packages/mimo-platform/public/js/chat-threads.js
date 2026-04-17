@@ -39,7 +39,7 @@ async function fetchThreads() {
   }
 }
 
-async function createThread(name, model, mode) {
+async function createThread(name, model, mode, assignedAgentId) {
   if (!ChatThreadsState.sessionId) return null;
 
   try {
@@ -48,7 +48,12 @@ async function createThread(name, model, mode) {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, model, mode }),
+        body: JSON.stringify({
+          name,
+          model,
+          mode,
+          ...(assignedAgentId ? { assignedAgentId } : {}),
+        }),
       },
     );
 
@@ -465,9 +470,39 @@ function attachThreadContextListeners() {
 // CREATE THREAD DIALOG
 // ═════════════════════════════════════════════════════════════════════════════
 
-function showCreateThreadDialog() {
-  const models = window.MIMO_CHAT_MODELS || [];
-  const modes = window.MIMO_CHAT_MODES || [];
+async function fetchAgentCapabilities(agentId) {
+  try {
+    const res = await fetch(`/agents/${agentId}/capabilities`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+async function fetchOnlineAgents() {
+  try {
+    const res = await fetch("/agents/list?status=online");
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+function buildSelectOptions(items, defaultId) {
+  return items
+    .map(
+      (m) =>
+        `<option value="${escapeHtml(m.value)}"${m.value === defaultId ? " selected" : ""}>${escapeHtml(m.name)}</option>`,
+    )
+    .join("");
+}
+
+async function showCreateThreadDialog() {
+  const fallbackModels = window.MIMO_CHAT_MODELS || [];
+  const fallbackModes = window.MIMO_CHAT_MODES || [];
+  const agents = await fetchOnlineAgents();
 
   const dialog = document.createElement("div");
   dialog.id = "create-thread-dialog";
@@ -485,6 +520,33 @@ function showCreateThreadDialog() {
     justify-content: center;
   `;
 
+  const selectStyle = `
+    width: 100%;
+    padding: 8px;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    color: #d4d4d4;
+    font-family: monospace;
+    font-size: 13px;
+    border-radius: 3px;
+    box-sizing: border-box;
+  `;
+
+  const agentOptions = agents
+    .map(
+      (a) =>
+        `<option value="${escapeHtml(a.id)}">${escapeHtml(a.name)}</option>`,
+    )
+    .join("");
+
+  const initialModelOptions = fallbackModels.length
+    ? buildSelectOptions(fallbackModels, fallbackModels[0]?.value)
+    : '<option value="" disabled selected>Select a model</option>';
+
+  const initialModeOptions = fallbackModes.length
+    ? buildSelectOptions(fallbackModes, fallbackModes[0]?.value)
+    : '<option value="" disabled selected>Select a mode</option>';
+
   dialog.innerHTML = `
     <div class="modal-content" style="
       background: #2d2d2d;
@@ -495,7 +557,7 @@ function showCreateThreadDialog() {
       border-radius: 4px;
     ">
       <h3 style="margin: 0 0 15px 0; font-size: 16px;">Create New Thread</h3>
-      
+
       <div style="margin-bottom: 15px;">
         <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Name</label>
         <input type="text" id="new-thread-name" placeholder="e.g., Reviewer, Code Analysis" style="
@@ -510,40 +572,26 @@ function showCreateThreadDialog() {
           box-sizing: border-box;
         ">
       </div>
-      
+
       <div style="margin-bottom: 15px;">
-        <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Model</label>
-        <select id="new-thread-model" style="
-          width: 100%;
-          padding: 8px;
-          background: #1a1a1a;
-          border: 1px solid #444;
-          color: #d4d4d4;
-          font-family: monospace;
-          font-size: 13px;
-          border-radius: 3px;
-          box-sizing: border-box;
-        ">
-          <option value="" disabled selected>Select a model</option>
-          ${models.map((m) => `<option value="${escapeHtml(m.value)}">${escapeHtml(m.name)}</option>`).join("")}
+        <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Agent (optional)</label>
+        <select id="new-thread-agent" style="${selectStyle}">
+          <option value="">None</option>
+          ${agentOptions}
         </select>
       </div>
-      
+
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Model</label>
+        <select id="new-thread-model" style="${selectStyle}">
+          ${initialModelOptions}
+        </select>
+      </div>
+
       <div style="margin-bottom: 20px;">
         <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Mode</label>
-        <select id="new-thread-mode" style="
-          width: 100%;
-          padding: 8px;
-          background: #1a1a1a;
-          border: 1px solid #444;
-          color: #d4d4d4;
-          font-family: monospace;
-          font-size: 13px;
-          border-radius: 3px;
-          box-sizing: border-box;
-        ">
-          <option value="" disabled selected>Select a mode</option>
-          ${modes.map((m) => `<option value="${escapeHtml(m.value)}">${escapeHtml(m.name)}</option>`).join("")}
+        <select id="new-thread-mode" style="${selectStyle}">
+          ${initialModeOptions}
         </select>
       </div>
       
@@ -579,6 +627,37 @@ function showCreateThreadDialog() {
   // Focus the name input
   setTimeout(() => document.querySelector("#new-thread-name")?.focus(), 0);
 
+  // Agent selection → fetch capabilities and populate model/mode
+  document
+    .querySelector("#new-thread-agent")
+    ?.addEventListener("change", async (e) => {
+      const agentId = e.target.value;
+      const modelSelect = document.querySelector("#new-thread-model");
+      const modeSelect = document.querySelector("#new-thread-mode");
+
+      if (!agentId) {
+        modelSelect.innerHTML = fallbackModels.length
+          ? buildSelectOptions(fallbackModels, fallbackModels[0]?.value)
+          : '<option value="" disabled selected>Select a model</option>';
+        modeSelect.innerHTML = fallbackModes.length
+          ? buildSelectOptions(fallbackModes, fallbackModes[0]?.value)
+          : '<option value="" disabled selected>Select a mode</option>';
+        return;
+      }
+
+      const caps = await fetchAgentCapabilities(agentId);
+      if (caps) {
+        modelSelect.innerHTML = buildSelectOptions(
+          caps.availableModels,
+          caps.defaultModelId,
+        );
+        modeSelect.innerHTML = buildSelectOptions(
+          caps.availableModes,
+          caps.defaultModeId,
+        );
+      }
+    });
+
   // Event handlers
   dialog.addEventListener("click", (e) => {
     if (e.target === dialog) {
@@ -598,15 +677,11 @@ function showCreateThreadDialog() {
       const nameInput = document.querySelector("#new-thread-name");
       const modelSelect = document.querySelector("#new-thread-model");
       const modeSelect = document.querySelector("#new-thread-mode");
+      const agentSelect = document.querySelector("#new-thread-agent");
 
       const name = nameInput?.value.trim();
       if (!name) {
         alert("Please enter a thread name");
-        return;
-      }
-
-      if (models.length === 0 || modes.length === 0) {
-        alert("Model and mode must be loaded before creating a thread");
         return;
       }
 
@@ -623,7 +698,8 @@ function showCreateThreadDialog() {
         return;
       }
 
-      const newThread = await createThread(name, model, mode);
+      const assignedAgentId = agentSelect?.value || null;
+      const newThread = await createThread(name, model, mode, assignedAgentId);
       if (newThread) {
         dialog.remove();
 

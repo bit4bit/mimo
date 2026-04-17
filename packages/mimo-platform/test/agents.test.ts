@@ -263,6 +263,66 @@ describe("Agent Lifecycle Integration Tests", () => {
     });
   });
 
+  describe("Agent Capabilities", () => {
+    it("should persist capabilities on agent", async () => {
+      const agent = await agentRepository.create({
+        name: "Capabilities Agent",
+        owner: "testuser",
+        provider: "opencode",
+      });
+
+      const capabilities = {
+        availableModels: [{ value: "gpt-4", name: "GPT-4" }],
+        defaultModelId: "gpt-4",
+        availableModes: [{ value: "code", name: "Code" }],
+        defaultModeId: "code",
+      };
+
+      await agentRepository.updateCapabilities(agent.id, capabilities);
+      const updated = await agentRepository.findById(agent.id);
+
+      expect(updated?.capabilities).toEqual(capabilities);
+    });
+
+    it("should overwrite existing capabilities", async () => {
+      const agent = await agentRepository.create({
+        name: "Overwrite Agent",
+        owner: "testuser",
+        provider: "opencode",
+      });
+
+      await agentRepository.updateCapabilities(agent.id, {
+        availableModels: [{ value: "model-a", name: "Model A" }],
+        defaultModelId: "model-a",
+        availableModes: [{ value: "mode-a", name: "Mode A" }],
+        defaultModeId: "mode-a",
+      });
+
+      const newCapabilities = {
+        availableModels: [{ value: "model-b", name: "Model B" }],
+        defaultModelId: "model-b",
+        availableModes: [{ value: "mode-b", name: "Mode B" }],
+        defaultModeId: "mode-b",
+      };
+
+      await agentRepository.updateCapabilities(agent.id, newCapabilities);
+      const updated = await agentRepository.findById(agent.id);
+
+      expect(updated?.capabilities?.defaultModelId).toBe("model-b");
+    });
+
+    it("should return null for agent without capabilities", async () => {
+      const agent = await agentRepository.create({
+        name: "No Caps Agent",
+        owner: "testuser",
+        provider: "opencode",
+      });
+
+      const found = await agentRepository.findById(agent.id);
+      expect(found?.capabilities).toBeUndefined();
+    });
+  });
+
   describe("Agent Listing Page", () => {
     it("should show agents list page", async () => {
       const app = new Hono();

@@ -72,6 +72,7 @@ const mimoContext = createMimoContext({
 
 mimoContext.services.scc.configure({ mimoHome });
 const agentService = mimoContext.services.agents;
+const agentRepository = mimoContext.repos.agents;
 const sessionRepository = mimoContext.repos.sessions;
 const PORT = mimoContext.env.PORT;
 const PLATFORM_URL = mimoContext.env.PLATFORM_URL;
@@ -489,6 +490,28 @@ async function handleAgentMessage(ws, data) {
     case "ping":
       ws.send(JSON.stringify({ type: "pong" }));
       break;
+    case "agent_capabilities":
+      {
+        const capAgentId = ws.data.agentId;
+        if (
+          capAgentId &&
+          data.availableModels &&
+          data.availableModes &&
+          data.defaultModelId &&
+          data.defaultModeId
+        ) {
+          await agentRepository.updateCapabilities(capAgentId, {
+            availableModels: data.availableModels,
+            defaultModelId: data.defaultModelId,
+            availableModes: data.availableModes,
+            defaultModeId: data.defaultModeId,
+          });
+          logger.debug(
+            `[agent] Stored capabilities for agent ${capAgentId}: ${data.defaultModelId} / ${data.defaultModeId}`,
+          );
+        }
+      }
+      break;
     case "agent_ready":
       logger.debug(
         "[agent] Agent ready:",
@@ -504,9 +527,19 @@ async function handleAgentMessage(ws, data) {
         agentService.handleAgentConnect(agentId, ws, data.workdir);
       }
 
-      // Start Fossil servers for sessions assigned to this agent
-      // Note: Sessions are assigned via assignedAgentId, not in agent.sessionIds
-      const sessions = await sessionRepository.findByAssignedAgentId(agentId);
+      // Find sessions via session-level assignment or thread-level assignment
+      const [sessionLevelSessions, threadLevelSessions] = await Promise.all([
+        sessionRepository.findByAssignedAgentId(agentId),
+        sessionRepository.findByThreadAgentId(agentId),
+      ]);
+      const seenIds = new Set<string>();
+      const sessions = [...sessionLevelSessions, ...threadLevelSessions].filter(
+        (s) => {
+          if (seenIds.has(s.id)) return false;
+          seenIds.add(s.id);
+          return true;
+        },
+      );
       logger.debug(
         "[agent] Found",
         sessions.length,
@@ -568,16 +601,19 @@ async function handleAgentMessage(ws, data) {
               }
             }
 
-            // Build thread bootstrap metadata for restart recovery
-            const threadBootstrap =
-              sessionWithCreds?.chatThreads?.map((thread: any) => ({
-                chatThreadId: thread.id,
-                name: thread.name,
-                model: thread.model,
-                mode: thread.mode,
-                acpSessionId: thread.acpSessionId,
-                state: thread.state,
-              })) ?? [];
+            // Build thread bootstrap metadata — only threads assigned to this agent
+            const allThreads = sessionWithCreds?.chatThreads ?? [];
+            const agentThreads = allThreads.filter(
+              (t: any) => t.assignedAgentId === agentId || !t.assignedAgentId,
+            );
+            const threadBootstrap = agentThreads.map((thread: any) => ({
+              chatThreadId: thread.id,
+              name: thread.name,
+              model: thread.model,
+              mode: thread.mode,
+              acpSessionId: thread.acpSessionId,
+              state: thread.state,
+            }));
 
             sessionsReady.push({
               sessionId,
@@ -1143,6 +1179,21 @@ async function handleAgentMessage(ws, data) {
           }
         }
 
+        // Re-cache capabilities from session_initialized payload
+        const initAgentId = ws.data.agentId;
+        if (
+          initAgentId &&
+          data.modelState?.availableModels &&
+          data.modeState?.availableModes
+        ) {
+          await agentRepository.updateCapabilities(initAgentId, {
+            availableModels: data.modelState.availableModels,
+            defaultModelId: data.modelState.currentModelId,
+            availableModes: data.modeState.availableModes,
+            defaultModeId: data.modeState.currentModeId,
+          });
+        }
+
         // Broadcast to chat clients
         const initSubscribers = chatSessions.get(data.sessionId);
         if (initSubscribers) {
@@ -1319,6 +1370,17 @@ async function handleAgentMessage(ws, data) {
   }
 }
 
+function resolveAgentId(
+  session: any,
+  threadId: string | null | undefined,
+): string | null {
+  if (threadId) {
+    const thread = session?.chatThreads?.find((t: any) => t.id === threadId);
+    if (thread?.assignedAgentId) return thread.assignedAgentId;
+  }
+  return session?.assignedAgentId ?? null;
+}
+
 // Handle chat messages
 async function handleChatMessage(ws, data) {
   const sessionId = ws.data.sessionId;
@@ -1368,12 +1430,12 @@ async function handleChatMessage(ws, data) {
         });
       }
 
-      // Get session to find assigned agent
-      if (userSession?.assignedAgentId) {
-        // Forward to agent if connected
-        const ws = agentService.getAgentConnection(userSession.assignedAgentId);
-        if (ws && ws.readyState === 1) {
-          ws.send(
+      // Get session to find assigned agent (thread-level first, session-level fallback)
+      const sendAgentId = resolveAgentId(userSession, userThreadId);
+      if (sendAgentId) {
+        const agentWs = agentService.getAgentConnection(sendAgentId);
+        if (agentWs && agentWs.readyState === 1) {
+          agentWs.send(
             JSON.stringify({
               type: "user_message",
               sessionId: sessionId,
@@ -1390,10 +1452,9 @@ async function handleChatMessage(ws, data) {
       const modelSession = await sessionRepository.findById(sessionId);
       const modelThreadId =
         data.chatThreadId || modelSession?.activeChatThreadId;
-      if (modelSession?.assignedAgentId) {
-        const agentWs = agentService.getAgentConnection(
-          modelSession.assignedAgentId,
-        );
+      const modelAgentId = resolveAgentId(modelSession, modelThreadId);
+      if (modelAgentId) {
+        const agentWs = agentService.getAgentConnection(modelAgentId);
         if (agentWs && agentWs.readyState === 1) {
           agentWs.send(
             JSON.stringify({
@@ -1411,10 +1472,9 @@ async function handleChatMessage(ws, data) {
       // Forward mode change to agent
       const modeSession = await sessionRepository.findById(sessionId);
       const modeThreadId = data.chatThreadId || modeSession?.activeChatThreadId;
-      if (modeSession?.assignedAgentId) {
-        const modeAgentWs = agentService.getAgentConnection(
-          modeSession.assignedAgentId,
-        );
+      const modeAgentId = resolveAgentId(modeSession, modeThreadId);
+      if (modeAgentId) {
+        const modeAgentWs = agentService.getAgentConnection(modeAgentId);
         if (modeAgentWs && modeAgentWs.readyState === 1) {
           modeAgentWs.send(
             JSON.stringify({
@@ -1433,10 +1493,9 @@ async function handleChatMessage(ws, data) {
       const stateSession = await sessionRepository.findById(sessionId);
       const stateThreadId =
         data.chatThreadId || stateSession?.activeChatThreadId;
-      if (stateSession?.assignedAgentId) {
-        const stateAgentWs = agentService.getAgentConnection(
-          stateSession.assignedAgentId,
-        );
+      const stateAgentId = resolveAgentId(stateSession, stateThreadId);
+      if (stateAgentId) {
+        const stateAgentWs = agentService.getAgentConnection(stateAgentId);
         if (stateAgentWs && stateAgentWs.readyState === 1) {
           // Include thread model/mode so agent can apply them when spawning ACP
           const stateThread = stateThreadId
@@ -1557,10 +1616,9 @@ async function handleChatMessage(ws, data) {
           );
           break;
         }
-        if (cancelSession?.assignedAgentId) {
-          const cancelAgentWs = agentService.getAgentConnection(
-            cancelSession.assignedAgentId,
-          );
+        const cancelAgentId = resolveAgentId(cancelSession, cancelThreadId);
+        if (cancelAgentId) {
+          const cancelAgentWs = agentService.getAgentConnection(cancelAgentId);
           if (cancelAgentWs && cancelAgentWs.readyState === 1) {
             // Forward cancel request to agent
             cancelAgentWs.send(
@@ -1640,11 +1698,10 @@ async function handleChatMessage(ws, data) {
           `[clear_session] Received for session ${clearSessionId}/${clearThreadId}`,
         );
 
-        // Find assigned agent
-        if (clearSession?.assignedAgentId) {
-          const clearAgentWs = agentService.getAgentConnection(
-            clearSession.assignedAgentId,
-          );
+        // Find assigned agent (thread-level first, session-level fallback)
+        const clearAgentId = resolveAgentId(clearSession, clearThreadId);
+        if (clearAgentId) {
+          const clearAgentWs = agentService.getAgentConnection(clearAgentId);
           if (clearAgentWs && clearAgentWs.readyState === 1) {
             // Forward clear session request to agent
             clearAgentWs.send(

@@ -97,15 +97,10 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       return c.text("Project not found", 404);
     }
 
-    const agents = await agentService.listAgentsByOwner(username);
     const mcpServers = await mcpServerService.findAll();
 
     return c.html(
-      <SessionCreatePage
-        project={project}
-        agents={agents}
-        mcpServers={mcpServers}
-      />,
+      <SessionCreatePage project={project} mcpServers={mcpServers} />,
     );
   });
 
@@ -119,7 +114,6 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const body = await c.req.parseBody({ all: true });
     const name = body.name as string;
     const projectId = (body.projectId as string) || getProjectId(c);
-    const assignedAgentId = (body.assignedAgentId as string) || null;
     const localDevMirrorPath = (body.localDevMirrorPath as string) || null;
     const agentSubpath = (body.agentSubpath as string) || null;
     const branchName = (body.branchName as string) || null;
@@ -173,7 +167,6 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       name: name as string,
       projectId: projectId as string,
       owner: username,
-      assignedAgentId: assignedAgentId || undefined,
       localDevMirrorPath: localDevMirrorPath || undefined,
       agentSubpath: agentSubpath || undefined,
       mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
@@ -210,9 +203,15 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       }
 
       // Set fossil project name to session name (non-fatal)
-      const nameResult = await vcs.setFossilProjectName(fossilPath, session.name);
+      const nameResult = await vcs.setFossilProjectName(
+        fossilPath,
+        session.name,
+      );
       if (!nameResult.success) {
-        logger.warn("[session] Failed to set fossil project name:", nameResult.error);
+        logger.warn(
+          "[session] Failed to set fossil project name:",
+          nameResult.error,
+        );
       }
 
       // Step 3: Create branch if specified — session override takes priority over project default
@@ -298,43 +297,6 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
             error,
           );
           // Continue without MCP servers - agent will work without them
-        }
-      }
-
-      // Step 7: Notify running agent if one is assigned and online
-      if (assignedAgentId && agentService.isAgentOnline(assignedAgentId)) {
-        const agentWs = agentService.getAgentConnection(assignedAgentId);
-        if (agentWs && agentWs.readyState === 1) {
-          // Use shared fossil server - no need to start per-session server
-          const fossilUrl = sharedFossilServer.getUrl(session.id);
-          await sessionRepository.update(session.id, { fossilPath });
-          const sessionWithCreds = await sessionRepository.findById(session.id);
-          agentWs.send(
-            JSON.stringify({
-              type: "session_ready",
-              platformUrl,
-              sessions: [
-                {
-                  sessionId: session.id,
-                  name: session.name,
-                  upstreamPath: session.upstreamPath,
-                  agentWorkspacePath: session.agentWorkspacePath,
-                  fossilUrl,
-                  agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
-                  agentWorkspacePassword:
-                    sessionWithCreds?.agentWorkspacePassword,
-                  acpSessionId: sessionWithCreds?.acpSessionId ?? null,
-                  localDevMirrorPath:
-                    sessionWithCreds?.localDevMirrorPath ?? null,
-                  agentSubpath: sessionWithCreds?.agentSubpath ?? null,
-                  mcpServers: mcpServers.length > 0 ? mcpServers : undefined,
-                },
-              ],
-            }),
-          );
-          logger.debug(
-            `[session] Notified running agent ${assignedAgentId} of new session ${session.id}`,
-          );
         }
       }
     } catch (error) {
@@ -1087,13 +1049,90 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       return c.json({ error: "mode is required" }, 400);
     }
 
+    const assignedAgentId =
+      typeof body.assignedAgentId === "string" && body.assignedAgentId.trim()
+        ? body.assignedAgentId.trim()
+        : null;
+
     const thread = await sessionRepository.addChatThread(sessionId, {
       name: body.name,
       model: body.model,
       mode: body.mode,
       acpSessionId: null,
+      assignedAgentId,
       state: "active",
     });
+
+    // Pre-populate session modelState/modeState from agent capabilities so the
+    // context bar dropdowns render immediately without waiting for session_initialized
+    if (assignedAgentId && !session.modelState) {
+      const agent = await agentRepository.findById(assignedAgentId);
+      if (agent?.capabilities) {
+        const {
+          availableModels,
+          defaultModelId,
+          availableModes,
+          defaultModeId,
+        } = agent.capabilities;
+        await sessionRepository.update(sessionId, {
+          modelState: {
+            currentModelId: defaultModelId,
+            availableModels,
+            optionId: defaultModelId,
+          },
+          modeState: {
+            currentModeId: defaultModeId,
+            availableModes,
+            optionId: defaultModeId,
+          },
+        });
+      }
+    }
+
+    // Notify the assigned agent if it is online
+    if (assignedAgentId && agentService.isAgentOnline(assignedAgentId)) {
+      const agentWs = agentService.getAgentConnection(assignedAgentId);
+      if (agentWs && agentWs.readyState === 1) {
+        const sessionWithCreds = await sessionRepository.findById(sessionId);
+        const fossilUrl = sharedFossilServer.getUrl(sessionId);
+        agentWs.send(
+          JSON.stringify({
+            type: "session_ready",
+            platformUrl,
+            sessions: [
+              {
+                sessionId,
+                name: session.name,
+                upstreamPath: session.upstreamPath,
+                agentWorkspacePath: session.agentWorkspacePath,
+                fossilUrl,
+                agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
+                agentWorkspacePassword:
+                  sessionWithCreds?.agentWorkspacePassword,
+                acpSessionId: sessionWithCreds?.acpSessionId ?? null,
+                localDevMirrorPath:
+                  sessionWithCreds?.localDevMirrorPath ?? null,
+                agentSubpath: sessionWithCreds?.agentSubpath ?? null,
+                chatThreads: [
+                  {
+                    chatThreadId: thread.id,
+                    name: thread.name,
+                    model: thread.model,
+                    mode: thread.mode,
+                    acpSessionId: thread.acpSessionId,
+                    state: thread.state,
+                  },
+                ],
+                activeChatThreadId: thread.id,
+              },
+            ],
+          }),
+        );
+        logger.debug(
+          `[session] Notified agent ${assignedAgentId} of new thread ${thread.id} in session ${sessionId}`,
+        );
+      }
+    }
 
     return c.json(thread, 201);
   });
@@ -1142,11 +1181,14 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 
     await sessionRepository.removeChatThread(sessionId, threadId);
 
+    const deletedThread = session.chatThreads.find((t) => t.id === threadId);
+    const deletedThreadAgentId =
+      deletedThread?.assignedAgentId || session.assignedAgentId;
     if (
-      session.assignedAgentId &&
-      agentService.isAgentOnline(session.assignedAgentId)
+      deletedThreadAgentId &&
+      agentService.isAgentOnline(deletedThreadAgentId)
     ) {
-      const agentWs = agentService.getAgentConnection(session.assignedAgentId);
+      const agentWs = agentService.getAgentConnection(deletedThreadAgentId);
       if (agentWs && agentWs.readyState === 1) {
         agentWs.send(
           JSON.stringify({

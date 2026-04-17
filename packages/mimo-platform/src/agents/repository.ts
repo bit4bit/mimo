@@ -16,6 +16,13 @@ export type AgentStatus = "online" | "offline";
 
 export type AgentProvider = "opencode" | "claude";
 
+export interface AgentCapabilities {
+  availableModels: Array<{ value: string; name: string; description?: string }>;
+  defaultModelId: string;
+  availableModes: Array<{ value: string; name: string; description?: string }>;
+  defaultModeId: string;
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -27,6 +34,7 @@ export interface Agent {
   startedAt: Date;
   updatedAt: Date;
   lastActivityAt?: Date;
+  capabilities?: AgentCapabilities;
 }
 
 export interface AgentData {
@@ -40,6 +48,7 @@ export interface AgentData {
   startedAt: string;
   updatedAt: string;
   lastActivityAt?: string;
+  capabilities?: AgentCapabilities;
 }
 
 export interface CreateAgentInput {
@@ -237,6 +246,13 @@ export class AgentRepository {
 
   async updateLastActivity(agentId: string): Promise<Agent | null> {
     return this.update(agentId, { lastActivityAt: new Date().toISOString() });
+  }
+
+  async updateCapabilities(
+    agentId: string,
+    capabilities: AgentCapabilities,
+  ): Promise<Agent | null> {
+    return this.update(agentId, { capabilities });
   }
 
   async assignSession(

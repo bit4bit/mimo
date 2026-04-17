@@ -8,13 +8,6 @@ interface Project {
   newBranch?: string;
 }
 
-interface Agent {
-  id: string;
-  name: string;
-  status: "online" | "offline";
-  startedAt: Date;
-}
-
 interface McpServer {
   id: string;
   name: string;
@@ -23,14 +16,12 @@ interface McpServer {
 
 interface SessionCreateProps {
   project: Project;
-  agents: Agent[];
   mcpServers: McpServer[];
   error?: string;
 }
 
 export const SessionCreatePage: FC<SessionCreateProps> = ({
   project,
-  agents,
   mcpServers,
   error,
 }) => {
@@ -49,23 +40,6 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
               required
               placeholder="Feature implementation"
             />
-          </div>
-
-          <div class="form-group">
-            <label>Agent (optional)</label>
-            <select name="assignedAgentId">
-              <option value="">None</option>
-              {agents.map((agent) => (
-                <option value={agent.id}>
-                  {agent.name} (
-                  {agent.status === "online" ? "🟢 online" : "🔴 offline"})
-                </option>
-              ))}
-            </select>
-            <p style="color: #888; font-size: 12px; margin-top: 5px;">
-              Select an agent to work on this session. You can assign one later
-              if needed.
-            </p>
           </div>
 
           <div class="form-group">

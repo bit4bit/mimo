@@ -588,7 +588,7 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      // Create agent to be assigned
+      // Create agent — assigned directly via repository to test backward compat display
       const agent = await agentService.createAgent({
         name: "myagent",
         owner: "testuser",
@@ -597,7 +597,7 @@ describe("Session Management Integration Tests", () => {
 
       const token = await authService.generateToken("testuser");
 
-      // Create session with all creation fields
+      // Create session without agent (agent selection moved to thread creation)
       const createRes = await app.request(`/projects/${project.id}/sessions`, {
         method: "POST",
         headers: {
@@ -606,7 +606,6 @@ describe("Session Management Integration Tests", () => {
         },
         body: new URLSearchParams({
           name: "Feature Branch Session",
-          assignedAgentId: agent.id,
           agentSubpath: "src/backend",
           localDevMirrorPath: "/dev/mirror",
           branchName: "feature/test",
@@ -616,6 +615,9 @@ describe("Session Management Integration Tests", () => {
       expect(createRes.status).toBe(302);
       const location = createRes.headers.get("location") || "";
       const sessionId = location.split("/").pop();
+
+      // Assign agent directly via repository (backward compat — legacy sessions may have this)
+      await sessionRepository.update(sessionId, { assignedAgentId: agent.id });
 
       // View settings page
       const settingsRes = await app.request(

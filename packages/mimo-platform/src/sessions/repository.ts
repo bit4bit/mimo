@@ -36,6 +36,7 @@ export interface ChatThread {
   model: string;
   mode: string;
   acpSessionId: string | null;
+  assignedAgentId: string | null;
   state: "active" | "parked" | "waking";
   createdAt: string;
 }
@@ -457,6 +458,55 @@ export class SessionRepository {
     );
   }
 
+  async findByThreadAgentId(agentId: string): Promise<Session[]> {
+    const projectsPath = this.getProjectsPath();
+    if (!existsSync(projectsPath)) return [];
+
+    const projectEntries = readdirSync(projectsPath, { withFileTypes: true });
+    const sessions: Session[] = [];
+
+    for (const projectEntry of projectEntries) {
+      if (!projectEntry.isDirectory()) continue;
+      const sessionsDir = join(projectsPath, projectEntry.name, "sessions");
+      if (!existsSync(sessionsDir)) continue;
+
+      const entries = readdirSync(sessionsDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const sessionFile = join(sessionsDir, entry.name, "session.yaml");
+        if (!existsSync(sessionFile)) continue;
+
+        const content = readFileSync(sessionFile, "utf-8");
+        const data = load(content) as SessionData;
+        const hasThread = (data.chatThreads ?? []).some(
+          (t) => t.assignedAgentId === agentId,
+        );
+        if (!hasThread) continue;
+
+        const { chatThreads, activeChatThreadId } =
+          this.normalizeChatThreads(data);
+        sessions.push({
+          ...data,
+          agentWorkspacePath:
+            data.agentWorkspacePath || (data as any).checkoutPath,
+          idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+          acpStatus: data.acpStatus ?? "active",
+          syncState: data.syncState ?? "idle",
+          mcpServerIds: data.mcpServerIds ?? [],
+          frameState: normalizeFrameState(data.frameState),
+          chatThreads,
+          activeChatThreadId,
+          createdAt: new Date(data.createdAt),
+          updatedAt: new Date(data.updatedAt),
+        });
+      }
+    }
+
+    return sessions.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    );
+  }
+
   async update(
     sessionId: string,
     updates: Partial<Omit<SessionData, "id" | "createdAt">>,
@@ -482,7 +532,9 @@ export class SessionRepository {
 
   async addChatThread(
     sessionId: string,
-    thread: Omit<ChatThread, "id" | "createdAt">,
+    thread: Omit<ChatThread, "id" | "createdAt"> & {
+      assignedAgentId?: string | null;
+    },
   ): Promise<ChatThread> {
     const session = await this.findById(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
@@ -490,6 +542,7 @@ export class SessionRepository {
     const newThread: ChatThread = {
       id: this.generateId(),
       createdAt: new Date().toISOString(),
+      assignedAgentId: null,
       ...thread,
     };
 

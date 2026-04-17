@@ -149,6 +149,53 @@ describe("Chat Threads API", () => {
     });
   });
 
+  describe("Thread agent assignment", () => {
+    it("POST /sessions/:id/chat-threads stores assignedAgentId on thread", async () => {
+      const res = await app.request(
+        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Agent Thread",
+            model: "claude-3",
+            mode: "code",
+            assignedAgentId: "agent-xyz",
+          }),
+        },
+      );
+
+      expect(res.status).toBe(201);
+      const thread = await res.json();
+      expect(thread.assignedAgentId).toBe("agent-xyz");
+    });
+
+    it("POST /sessions/:id/chat-threads defaults assignedAgentId to null when not provided", async () => {
+      const res = await app.request(
+        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "No Agent Thread",
+            model: "claude-3",
+            mode: "code",
+          }),
+        },
+      );
+
+      expect(res.status).toBe(201);
+      const thread = await res.json();
+      expect(thread.assignedAgentId).toBeNull();
+    });
+  });
+
   // Task 1.3: model/mode isolation
   describe("Per-thread model and mode isolation", () => {
     it("PATCH /sessions/:id/chat-threads/:threadId updates one thread without affecting siblings", async () => {

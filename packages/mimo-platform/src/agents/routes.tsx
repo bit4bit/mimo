@@ -50,6 +50,31 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     );
   });
 
+  router.get(
+    "/:agentId/capabilities",
+    authMiddlewareWithContext,
+    async (c: Context) => {
+      const agentId = c.req.param("agentId");
+      const agent = await agentRepository.findById(agentId);
+      if (!agent) return c.json({ error: "Agent not found" }, 404);
+      if (!agent.capabilities)
+        return c.json({ error: "No capabilities available" }, 404);
+      return c.json(agent.capabilities);
+    },
+  );
+
+  router.get("/list", authMiddlewareWithContext, async (c: Context) => {
+    const user = c.get("user") as { username: string };
+    const agents = await agentService.listAgentsByOwner(user.username);
+    const statusFilter = c.req.query("status");
+    const filtered = statusFilter
+      ? agents.filter((a) => a.status === statusFilter)
+      : agents;
+    return c.json(
+      filtered.map((a) => ({ id: a.id, name: a.name, status: a.status })),
+    );
+  });
+
   router.use("/*", mimoContext ? authMiddlewareWithContext : authMiddleware);
 
   router.get("/", async (c: Context) => {
