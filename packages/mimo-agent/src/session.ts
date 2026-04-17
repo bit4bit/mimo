@@ -120,6 +120,13 @@ export class SessionManager {
     }
   }
 
+  setSessionAgentSubpath(sessionId: string, agentSubpath: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.agentSubpath = agentSubpath;
+    }
+  }
+
   private startFileWatcher(sessionId: string, checkoutPath: string): void {
     logger.debug(`[mimo-agent] Starting file watcher for session ${sessionId}`);
 

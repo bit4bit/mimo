@@ -431,6 +431,11 @@ class MimoAgent {
           );
         }
 
+        // Store agentSubpath so all ACP spawn paths use the correct cwd
+        if (agentSubpath) {
+          this.sessionManager.setSessionAgentSubpath(sessionId, agentSubpath);
+        }
+
         // Store thread bootstrap data for lazy recovery (restart scenario)
         // This allows threads to be restored with their persisted acpSessionId when activated
         if (chatThreads && Array.isArray(chatThreads)) {
@@ -716,13 +721,13 @@ class MimoAgent {
       sessionInfo.acpProcess = null;
     }
 
-    const spawnResult = this.provider.spawn(sessionInfo.checkoutPath);
-    const process = spawnResult.process;
-    this.sessionManager.setSessionAcpProcess(session.sessionId, process);
-
     const acpCwd = session.agentSubpath
       ? join(sessionInfo.checkoutPath, session.agentSubpath)
       : sessionInfo.checkoutPath;
+
+    const spawnResult = this.provider.spawn(acpCwd);
+    const process = spawnResult.process;
+    this.sessionManager.setSessionAcpProcess(session.sessionId, process);
 
     // Create ACP client — all events include chatThreadId (task 5.2)
     const acpClient = new AcpClient(this.provider, session.sessionId, {
@@ -919,11 +924,13 @@ class MimoAgent {
       `[mimo-agent] Respawning ACP for ${sessionId}/${chatThreadId}`,
     );
 
-    const spawnResult = this.provider.spawn(sessionInfo.checkoutPath);
+    const acpCwd = sessionInfo.agentSubpath
+      ? join(sessionInfo.checkoutPath, sessionInfo.agentSubpath)
+      : sessionInfo.checkoutPath;
+
+    const spawnResult = this.provider.spawn(acpCwd);
     const process = spawnResult.process;
     this.sessionManager.setSessionAcpProcess(sessionId, process);
-
-    const acpCwd = sessionInfo.checkoutPath;
 
     // Create ACP client with chatThreadId in all events (task 5.2)
     const acpClient = new AcpClient(this.provider, sessionId, {

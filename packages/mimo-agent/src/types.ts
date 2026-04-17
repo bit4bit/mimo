@@ -63,6 +63,7 @@ export interface SessionInfo {
   modeState?: ModeState;
   localDevMirrorPath?: string;
   mcpServers?: McpServerConfig[];
+  agentSubpath?: string;
 }
 
 export interface FileChange {
