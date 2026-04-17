@@ -338,6 +338,25 @@ export class VCS {
     }
   }
 
+  async setFossilProjectName(
+    fossilPath: string,
+    name: string,
+  ): Promise<VCSResult> {
+    const result = await this.execCommand([
+      "fossil",
+      "settings",
+      "project-name",
+      name,
+      "-R",
+      fossilPath,
+    ]);
+    return {
+      success: result.success,
+      output: result.output,
+      error: result.error || undefined,
+    };
+  }
+
   async openFossil(repoPath: string, workDir: string): Promise<VCSResult> {
     const result = await this.execCommand(
       ["fossil", "open", repoPath],

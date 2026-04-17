@@ -14,7 +14,11 @@ export const NotesBuffer: FC<NotesBufferProps> = ({
   projectNotesContent = "",
 }) => {
   return (
-    <div class="notes-buffer" data-session-id={sessionId} data-project-id={projectId}>
+    <div
+      class="notes-buffer"
+      data-session-id={sessionId}
+      data-project-id={projectId}
+    >
       <div class="notes-section">
         <div class="notes-section-label">Project Notes</div>
         <textarea

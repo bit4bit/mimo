@@ -226,20 +226,27 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               <label class="status-filter">
                 <input type="checkbox" id="filter-added" checked />
                 <span class="status-badge status-added">Added</span>
-                <span class="status-count">(<span id="count-added">0</span>)</span>
+                <span class="status-count">
+                  (<span id="count-added">0</span>)
+                </span>
               </label>
               <label class="status-filter">
                 <input type="checkbox" id="filter-modified" checked />
                 <span class="status-badge status-modified">Modified</span>
-                <span class="status-count">(<span id="count-modified">0</span>)</span>
+                <span class="status-count">
+                  (<span id="count-modified">0</span>)
+                </span>
               </label>
               <label class="status-filter">
                 <input type="checkbox" id="filter-deleted" />
                 <span class="status-badge status-deleted">Deleted</span>
-                <span class="status-count">(<span id="count-deleted">0</span>)</span>
+                <span class="status-count">
+                  (<span id="count-deleted">0</span>)
+                </span>
               </label>
               <span style="margin-left: auto; font-size: 12px; color: #888;">
-                <span id="selected-count">0</span> / <span id="total-count">0</span> selected
+                <span id="selected-count">0</span> /{" "}
+                <span id="total-count">0</span> selected
               </span>
             </div>
             <div id="commit-tree" class="commit-tree">
@@ -256,8 +263,17 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             <div id="commit-error" class="commit-error"></div>
           </div>
           <div class="commit-actions">
-            <button type="button" id="commit-cancel" class="btn-secondary">Cancel</button>
-            <button type="button" id="commit-confirm" class="btn-primary" disabled>Commit &amp; Push</button>
+            <button type="button" id="commit-cancel" class="btn-secondary">
+              Cancel
+            </button>
+            <button
+              type="button"
+              id="commit-confirm"
+              class="btn-primary"
+              disabled
+            >
+              Commit &amp; Push
+            </button>
           </div>
         </div>
       </div>

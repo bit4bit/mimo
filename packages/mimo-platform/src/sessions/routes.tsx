@@ -209,6 +209,12 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         return c.text(`Failed to import to fossil: ${importResult.error}`, 500);
       }
 
+      // Set fossil project name to session name (non-fatal)
+      const nameResult = await vcs.setFossilProjectName(fossilPath, session.name);
+      if (!nameResult.success) {
+        logger.warn("[session] Failed to set fossil project name:", nameResult.error);
+      }
+
       // Step 3: Create branch if specified — session override takes priority over project default
       const effectiveBranch = branchName || project.newBranch || null;
       if (effectiveBranch) {
