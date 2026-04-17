@@ -1135,6 +1135,23 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       return c.json({ error: "Cannot delete the last thread" }, 400);
 
     await sessionRepository.removeChatThread(sessionId, threadId);
+
+    if (
+      session.assignedAgentId &&
+      agentService.isAgentOnline(session.assignedAgentId)
+    ) {
+      const agentWs = agentService.getAgentConnection(session.assignedAgentId);
+      if (agentWs && agentWs.readyState === 1) {
+        agentWs.send(
+          JSON.stringify({
+            type: "thread_deleted",
+            sessionId,
+            chatThreadId: threadId,
+          }),
+        );
+      }
+    }
+
     return c.body(null, 204);
   });
 

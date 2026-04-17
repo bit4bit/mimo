@@ -351,6 +351,10 @@ class MimoAgent {
         this.handleSyncNow(message);
         break;
 
+      case "thread_deleted":
+        void this.handleThreadDeleted(message);
+        break;
+
       default:
         logger.debug("[mimo-agent] Unknown message type:", message.type);
     }
@@ -1822,6 +1826,22 @@ class MimoAgent {
 
     // Terminate session - handles process, watcher, timers
     this.sessionManager.terminateSession(sessionId);
+  }
+
+  private async handleThreadDeleted(message: any): Promise<void> {
+    const { sessionId, chatThreadId } = message;
+    if (!sessionId || !chatThreadId) {
+      logger.debug("[mimo-agent] Missing sessionId or chatThreadId in thread_deleted");
+      return;
+    }
+
+    logger.debug(`[mimo-agent] Thread deleted: ${sessionId}/${chatThreadId}`);
+
+    const key = acpKey(sessionId, chatThreadId);
+    await this.closeAcpClientByKey(key);
+    this.cachedAcpStates.delete(key);
+    this.threadConfigs.delete(key);
+    this.lifecycleManager.endThread(sessionId, chatThreadId);
   }
 
   private handleSessionConfigUpdated(message: any): void {
