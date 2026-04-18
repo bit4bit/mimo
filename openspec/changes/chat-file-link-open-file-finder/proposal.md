@@ -8,6 +8,8 @@ Users often reference files directly in chat prompts (for example `src/routes.ts
 - Clicking a token opens the existing file finder dialog with the token prefilled and selected
 - Upgrade file-finder matching to prioritize path matches (absolute/relative) before filename-only matches
 - Keep existing file-finder open/select workflow unchanged after results render
+- Detect file-like tokens using a fixed extension list; tokens with unknown extensions are not linkified
+- Allow extending the extension list via `chatFileExtensions` in the mimo config YAML
 
 ## Capabilities
 

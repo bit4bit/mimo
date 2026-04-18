@@ -31,6 +31,16 @@ Search results are ranked in this order:
 
 This ordering is implemented in both server-side filtering (`findFiles`) and client-side filtering in edit-buffer for consistent behavior.
 
+### 4) File token detection
+
+Tokens are matched as file-like using two rules:
+1. **Path tokens** — token contains `/` or `\`; accepted regardless of extension
+2. **Filename tokens** — token matches `name.ext` where `ext` is in the known extension set
+
+The extension set is built from `defaultChatFileExtensions` in `config/service.ts`, merged with any extra extensions from `chatFileExtensions` in the user's mimo config YAML. It is injected into the page as `window.MIMO_CHAT_FILE_EXTENSIONS` and read by `chat.js` at startup.
+
+This replaces the previous open-ended regex that matched version strings like `1.2.3` as file tokens.
+
 ## Risks
 
 - Over-linking non-file tokens in chat text

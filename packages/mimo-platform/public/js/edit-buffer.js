@@ -205,7 +205,7 @@
   function loadFileList(pattern) {
     const sessionId = getSessionId();
     if (!sessionId) return;
-    const url = "/sessions/" + sessionId + "/files" + (pattern ? "?pattern=" + encodeURIComponent(pattern) : "");
+    const url = "/sessions/" + sessionId + "/files";
     fetch(url)
       .then(function (r) { return r.json(); })
       .then(function (files) {

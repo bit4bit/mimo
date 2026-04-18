@@ -18,3 +18,15 @@
 ## 4. UI polish
 
 - [x] 4.1 Add `.chat-file-ref` styling in `packages/mimo-platform/src/components/SessionDetailPage.tsx`
+
+## 5. Extension-based file token detection
+
+- [x] 5.1 Add `chatFileExtensions` field and `defaultChatFileExtensions` to `packages/mimo-platform/src/config/service.ts`
+- [x] 5.2 Merge user-supplied extensions on top of defaults in `sanitizeChatFileExtensions`
+- [x] 5.3 Inject `window.MIMO_CHAT_FILE_EXTENSIONS` via `packages/mimo-platform/src/components/Layout.tsx`
+- [x] 5.4 Thread `chatFileExtensions` through `SessionDetailPage` and `sessions/routes.tsx`
+- [x] 5.5 Replace open-ended regex in `isLikelyFileToken` with extension-set lookup in `packages/mimo-platform/public/js/chat.js`
+
+## 6. File finder regression coverage
+
+- [x] 6.1 Add `packages/mimo-platform/test/files-routes.test.ts` covering no-pattern returns all files, filtered results, path-priority, and 404

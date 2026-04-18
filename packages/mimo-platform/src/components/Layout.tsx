@@ -8,6 +8,7 @@ interface LayoutProps {
   sessionId?: string;
   streamingTimeoutMs?: number;
   sessionKeybindings?: SessionKeybindingsConfig;
+  chatFileExtensions?: string[];
 }
 
 export const Layout: FC<LayoutProps> = ({
@@ -17,6 +18,7 @@ export const Layout: FC<LayoutProps> = ({
   sessionId,
   streamingTimeoutMs,
   sessionKeybindings,
+  chatFileExtensions,
 }) => {
   return (
     <html lang="en">
@@ -26,11 +28,12 @@ export const Layout: FC<LayoutProps> = ({
         <title>{title} | MIMO</title>
         <script
           dangerouslySetInnerHTML={{
-            __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};\nwindow.MIMO_SESSION_KEYBINDINGS = ${JSON.stringify(sessionKeybindings || {})};`,
+            __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};\nwindow.MIMO_SESSION_KEYBINDINGS = ${JSON.stringify(sessionKeybindings || {})};\nwindow.MIMO_CHAT_FILE_EXTENSIONS = ${JSON.stringify(chatFileExtensions ?? [])};`,
           }}
         />
         {sessionId && <link rel="stylesheet" href="/vendor/highlight/atom-one-dark.min.css" />}
         {sessionId && <script src="/vendor/highlight/highlight.min.js" defer></script>}
+        {sessionId && <script src="/js/chat-token-utils.js" defer></script>}
         {sessionId && <script src="/js/chat.js" defer></script>}
         {sessionId && <script src="/js/chat-threads.js" defer></script>}
         {sessionId && <script src="/js/commit.js" defer></script>}

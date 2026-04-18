@@ -77,6 +77,7 @@ interface SessionDetailProps {
   activeChatThreadId?: string | null;
   sessionKeybindings?: SessionKeybindingsConfig;
   agentWorkspacePath?: string;
+  chatFileExtensions?: string[];
 }
 
 function toEmacsNotation(binding: string): string {
@@ -154,6 +155,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   activeChatThreadId,
   sessionKeybindings,
   agentWorkspacePath = "",
+  chatFileExtensions,
 }) => {
   ensureDefaultBuffersRegistered();
   const leftBuffers = getBuffersForFrame("left");
@@ -166,6 +168,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       sessionId={session.id}
       streamingTimeoutMs={streamingTimeoutMs}
       sessionKeybindings={sessionKeybindings}
+      chatFileExtensions={chatFileExtensions}
     >
       <div class="session-container">
         <div class="session-header-bar">

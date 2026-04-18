@@ -20,6 +20,24 @@ The system SHALL render file-like references in agent (assistant) chat messages 
 - **WHEN** the user copies that message
 - **THEN** the copied text matches the original plain message text
 
+### Requirement: Extension-based file token detection
+The system SHALL identify file-like tokens using a fixed list of known file extensions, with the ability to extend that list via `chatFileExtensions` in the mimo config YAML.
+
+#### Scenario: Token with known extension is linkable
+- **GIVEN** an agent message contains `service.ts`
+- **WHEN** the message is rendered
+- **THEN** `service.ts` is rendered as a clickable file reference
+
+#### Scenario: Token with unknown extension is not linkable
+- **GIVEN** an agent message contains `1.2.3` or `v2.0`
+- **WHEN** the message is rendered
+- **THEN** those tokens are rendered as plain text, not clickable
+
+#### Scenario: Custom extension added via config
+- **GIVEN** the mimo config YAML contains `chatFileExtensions: [".proto"]`
+- **WHEN** an agent message contains `schema.proto`
+- **THEN** `schema.proto` is rendered as a clickable file reference
+
 ### Requirement: File finder path-first search priority
 The system SHALL prioritize path-based matches before filename-only matches.
 

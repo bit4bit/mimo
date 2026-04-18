@@ -370,7 +370,7 @@ function renderAgentMessageContent(text, container) {
         const withoutLineRef = stripLineReference(core);
         const normalizedQuery = normalizeFileQuery(withoutLineRef);
 
-        if (!normalizedQuery || !isLikelyFileToken(withoutLineRef)) {
+        if (!normalizedQuery || !isLikelyFileToken(withoutLineRef, FILE_EXTENSIONS)) {
           div.appendChild(document.createTextNode(chunk));
           return;
         }
@@ -389,40 +389,12 @@ function renderAgentMessageContent(text, container) {
   }
 }
 
-function normalizeFileQuery(query) {
-  return String(query || "")
-    .replace(/\\\\/g, "/")
-    .replace(/^\.\//, "")
-    .replace(/^file:\/\//i, "")
-    .trim();
-}
-
-function stripLineReference(token) {
-  return token.replace(/:(\d+)(:\d+)?$/, "");
-}
-
-function splitTokenAffixes(token) {
-  const match = String(token).match(/^([`("'[{<]*)(.*?)([`)"'\]}>.,!?;:]*)$/);
-  if (!match) {
-    return { prefix: "", core: String(token), suffix: "" };
-  }
-  return {
-    prefix: match[1] || "",
-    core: match[2] || "",
-    suffix: match[3] || "",
-  };
-}
-
-function isLikelyFileToken(token) {
-  if (!token) return false;
-  if (/^https?:\/\//i.test(token)) return false;
-
-  return (
-    token.includes("/") ||
-    token.includes("\\") ||
-    /^[A-Za-z0-9._-]+\.[A-Za-z0-9_-]+$/.test(token)
-  );
-}
+const FILE_EXTENSIONS = new Set(
+  (window.MIMO_CHAT_FILE_EXTENSIONS && window.MIMO_CHAT_FILE_EXTENSIONS.length > 0
+    ? window.MIMO_CHAT_FILE_EXTENSIONS
+    : []
+  ).map((e) => String(e).toLowerCase().replace(/^\./, ""))
+);
 
 function renderUserMessageContent(text, container) {
   container.textContent = "";
@@ -440,7 +412,7 @@ function renderUserMessageContent(text, container) {
     const withoutLineRef = stripLineReference(core);
     const normalizedQuery = normalizeFileQuery(withoutLineRef);
 
-    if (!normalizedQuery || !isLikelyFileToken(withoutLineRef)) {
+    if (!normalizedQuery || !isLikelyFileToken(withoutLineRef, FILE_EXTENSIONS)) {
       container.appendChild(document.createTextNode(chunk));
       return;
     }
