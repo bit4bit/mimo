@@ -11,6 +11,18 @@
       return "mimo:edit-buffer:" + sessionId;
     }
 
+    // Compute MD5 checksum of content (simple hash for browser)
+    function computeChecksum(content) {
+      // Simple string hash for browser compatibility
+      let hash = 0;
+      for (let i = 0; i < content.length; i++) {
+        const char = content.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+      }
+      return Math.abs(hash).toString(16);
+    }
+
     function persist(sessionId) {
       if (!sessionId) return;
       try {
@@ -36,6 +48,9 @@
           persist(sessionId);
           return;
         }
+        // Add checksum and isOutdated fields
+        file.contentChecksum = computeChecksum(file.content);
+        file.isOutdated = false;
         openFiles.push(file);
         activeIndex = openFiles.length - 1;
         persist(sessionId);
@@ -66,6 +81,32 @@
       setScrollPosition: function (path, pos) {
         const f = openFiles.find(function (f) { return f.path === path; });
         if (f) f.scrollPosition = pos;
+      },
+      markOutdated: function (path) {
+        const f = openFiles.find(function (f) { return f.path === path; });
+        if (f) {
+          f.isOutdated = true;
+        }
+      },
+      clearOutdated: function (path) {
+        const f = openFiles.find(function (f) { return f.path === path; });
+        if (f) {
+          f.isOutdated = false;
+        }
+      },
+      reloadFile: function (path, sessionId, newContent) {
+        const f = openFiles.find(function (f) { return f.path === path; });
+        if (f) {
+          f.content = newContent;
+          f.contentChecksum = computeChecksum(newContent);
+          f.lineCount = newContent.split("\n").length;
+          f.isOutdated = false;
+          persist(sessionId);
+        }
+      },
+      getChecksum: function (path) {
+        const f = openFiles.find(function (f) { return f.path === path; });
+        return f ? f.contentChecksum : null;
       },
       loadStored: function (sessionId) {
         try {
@@ -216,6 +257,11 @@
           content: data.content,
           scrollPosition: 0,
         }, sessionId);
+        // Notify server to watch this file
+        notifyWatchFile(sessionId, {
+          path: data.path,
+          contentChecksum: EditBufferState.getChecksum(data.path)
+        });
         if (callback) callback();
       })
       .catch(function () { /* file gone — skip */ });
@@ -294,9 +340,20 @@
     const pathEl = document.getElementById("edit-buffer-filepath");
     const linesEl = document.getElementById("edit-buffer-linecount");
     const langEl = document.getElementById("edit-buffer-language");
+    const outdatedEl = document.getElementById("edit-buffer-outdated-indicator");
+    const reloadBtn = document.getElementById("reload-file-btn");
+    
     if (pathEl) pathEl.textContent = active.path;
     if (linesEl) linesEl.textContent = "Lines: " + active.lineCount;
     if (langEl) langEl.textContent = active.language;
+    
+    // Show/hide outdated indicator and reload button
+    if (outdatedEl) {
+      outdatedEl.style.display = active.isOutdated ? "inline" : "none";
+    }
+    if (reloadBtn) {
+      reloadBtn.style.display = active.isOutdated ? "inline-block" : "none";
+    }
   }
 
   function renderContent() {
@@ -340,6 +397,8 @@
     const active = EditBufferState.getActive();
     if (!active) return false;
     const sessionId = getSessionId();
+    // Unwatch the file before closing
+    notifyUnwatchFile(sessionId, active.path);
     EditBufferState.remove(active.path, sessionId);
     renderEditBuffer();
     return true;
@@ -384,12 +443,184 @@
     return true;
   }
 
+  // ── File Reload ───────────────────────────────────────────────────────────────
+
+  function reloadCurrentFile() {
+    const active = EditBufferState.getActive();
+    if (!active || !active.isOutdated) return false;
+
+    const sessionId = getSessionId();
+    if (!sessionId) return false;
+
+    // Save scroll position before reload
+    const contentEl = document.getElementById("edit-buffer-content");
+    if (contentEl) {
+      EditBufferState.setScrollPosition(active.path, contentEl.scrollTop);
+    }
+
+    // Fetch fresh content
+    fetch("/sessions/" + sessionId + "/files/content?path=" + encodeURIComponent(active.path))
+      .then(function (r) {
+        if (!r.ok) throw new Error("Failed to reload file");
+        return r.json();
+      })
+      .then(function (data) {
+        // Update file content and clear outdated flag
+        EditBufferState.reloadFile(active.path, sessionId, data.content);
+        renderEditBuffer();
+
+        // Notify server of new checksum
+        notifyWatchFile(sessionId, {
+          path: active.path,
+          contentChecksum: EditBufferState.getChecksum(active.path)
+        });
+      })
+      .catch(function (err) {
+        console.error("Failed to reload file:", err);
+      });
+
+    return true;
+  }
+
+  // ── WebSocket File Watching ───────────────────────────────────────────────────
+
+  let fileWatchSocket = null;
+  let fileWatchReconnectAttempts = 0;
+  const MAX_RECONNECT_ATTEMPTS = 5;
+
+  function initFileWatchWebSocket() {
+    const sessionId = getSessionId();
+    if (!sessionId) {
+      console.log("[FileWatcher] No session ID available, retrying in 1s...");
+      setTimeout(initFileWatchWebSocket, 1000);
+      return;
+    }
+
+    // Prevent multiple connections
+    if (fileWatchSocket && fileWatchSocket.readyState === WebSocket.OPEN) {
+      console.log("[FileWatcher] Already connected");
+      return;
+    }
+
+    // Determine WebSocket URL
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = protocol + "//" + window.location.host + "/ws/files/" + sessionId;
+
+    console.log("[FileWatcher] Connecting to:", wsUrl);
+
+    try {
+      fileWatchSocket = new WebSocket(wsUrl);
+    } catch (err) {
+      console.error("[FileWatcher] Failed to create WebSocket:", err);
+      return;
+    }
+
+    fileWatchSocket.onopen = function () {
+      console.log("[FileWatcher] Connected successfully");
+      fileWatchReconnectAttempts = 0;
+      
+      // Watch all currently open files
+      const files = EditBufferState.getAll();
+      console.log("[FileWatcher] Watching", files.length, "files");
+      files.forEach(function (file) {
+        notifyWatchFile(sessionId, file);
+      });
+    };
+
+    fileWatchSocket.onmessage = function (event) {
+      console.log("[FileWatcher] Received message:", event.data);
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "file_outdated") {
+          EditBufferState.markOutdated(data.path);
+          renderEditBuffer();
+        } else if (data.type === "file_deleted") {
+          EditBufferState.markOutdated(data.path);
+          renderEditBuffer();
+        } else if (data.type === "error") {
+          console.error("[FileWatcher] Server error:", data.error);
+        }
+      } catch (err) {
+        console.error("[FileWatcher] Failed to parse message:", err);
+      }
+    };
+
+    fileWatchSocket.onerror = function (error) {
+      console.error("[FileWatcher] WebSocket error:", error);
+    };
+
+    fileWatchSocket.onclose = function (event) {
+      console.log("[FileWatcher] Disconnected:", event.code, event.reason);
+      fileWatchSocket = null;
+      
+      // Attempt to reconnect with backoff
+      if (fileWatchReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        fileWatchReconnectAttempts++;
+        const delay = Math.min(3000 * fileWatchReconnectAttempts, 15000);
+        console.log(`[FileWatcher] Reconnecting in ${delay}ms (attempt ${fileWatchReconnectAttempts})`);
+        setTimeout(initFileWatchWebSocket, delay);
+      } else {
+        console.log("[FileWatcher] Max reconnect attempts reached, giving up");
+      }
+    };
+
+    // Store reference for external access (will be available after init)
+    if (typeof window.EditBuffer !== 'undefined') {
+      window.EditBuffer.ws = fileWatchSocket;
+    }
+  }
+
+  function notifyWatchFile(sessionId, file) {
+    if (!fileWatchSocket) {
+      console.log("[FileWatcher] Cannot notify - socket not initialized");
+      return;
+    }
+    if (fileWatchSocket.readyState !== WebSocket.OPEN) {
+      console.log("[FileWatcher] Cannot notify - socket not open (state:", fileWatchSocket.readyState + ")");
+      return;
+    }
+    
+    const checksum = file.contentChecksum || EditBufferState.getChecksum(file.path);
+    console.log("[FileWatcher] Sending watch_file for:", file.path, "checksum:", checksum);
+    
+    fileWatchSocket.send(JSON.stringify({
+      type: "watch_file",
+      path: file.path,
+      checksum: checksum
+    }));
+  }
+
+  function notifyUnwatchFile(sessionId, filePath) {
+    if (fileWatchSocket && fileWatchSocket.readyState === WebSocket.OPEN) {
+      fileWatchSocket.send(JSON.stringify({
+        type: "unwatch_file",
+        path: filePath
+      }));
+    }
+  }
+
   // ── Init ─────────────────────────────────────────────────────────────────────
 
   function init() {
+    // Expose for session-keybindings.js FIRST
+    window.EditBuffer = {
+      openFileFinder: openFileFinder,
+      closeFileFinder: closeFileFinder,
+      isFileFinderOpen: isFileFinderOpen,
+      closeCurrentFile: closeCurrentFile,
+      switchFile: switchFile,
+      scrollContent: scrollContent,
+      reloadCurrentFile: reloadCurrentFile,
+      ws: null,
+    };
+
     // Wire "Open File" button
     const openBtn = document.getElementById("open-file-finder-btn");
     if (openBtn) openBtn.addEventListener("click", openFileFinder);
+
+    // Wire "Reload File" button
+    const reloadBtn = document.getElementById("reload-file-btn");
+    if (reloadBtn) reloadBtn.addEventListener("click", reloadCurrentFile);
 
     // Wire "Close File" button
     const closeBtn = document.getElementById("close-file-btn");
@@ -426,6 +657,9 @@
       });
     }
 
+    // Initialize file watching WebSocket (after window.EditBuffer is defined)
+    initFileWatchWebSocket();
+
     // Restore previously open files from localStorage
     var sessionId = getSessionId();
     if (sessionId) {
@@ -448,16 +682,6 @@
         });
       }
     }
-
-    // Expose for session-keybindings.js
-    window.EditBuffer = {
-      openFileFinder: openFileFinder,
-      closeFileFinder: closeFileFinder,
-      isFileFinderOpen: isFileFinderOpen,
-      closeCurrentFile: closeCurrentFile,
-      switchFile: switchFile,
-      scrollContent: scrollContent,
-    };
   }
 
   if (document.readyState === "loading") {

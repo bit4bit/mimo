@@ -99,6 +99,9 @@ import { sessionStateService } from "./sessions/state.js";
 const chatSessions = new Map<string, Set<SessionWsClient>>();
 const calculatingSessions = new Set<string>();
 
+// Track file watching WebSocket connections per session
+const fileWatchSessions = new Map<string, Set<any>>();
+
 // Track streaming message and thought buffers per session
 const streamingBuffers = new Map<string, string>();
 const thoughtBuffers = new Map<string, string>();
@@ -223,9 +226,12 @@ mimoServer.setup({
   async fetch(req: Request, server: any) {
     const url = new URL(req.url);
 
-    // Handle WebSocket upgrade requests
-    if (req.headers.get("upgrade") === "websocket") {
-      const type = url.pathname.split("/")[2]; // /ws/agent or /ws/chat
+    // Handle WebSocket upgrade requests (case-insensitive header check)
+    const upgradeHeader = req.headers.get("upgrade") || req.headers.get("Upgrade");
+    if (upgradeHeader?.toLowerCase() === "websocket") {
+      const type = url.pathname.split("/")[2]; // /ws/agent, /ws/chat, or /ws/files
+      
+      logger.debug("[WS] Upgrade request for path:", url.pathname, "type:", type);
 
       if (type === "agent") {
         const token = url.searchParams.get("token");
@@ -281,6 +287,52 @@ mimoServer.setup({
         return undefined;
       }
 
+      if (type === "files") {
+        // File watching WebSocket - requires session authentication
+        const sessionId = url.pathname.split("/")[3];
+        if (!sessionId) {
+          logger.debug("[WS] Files WebSocket: Missing sessionId");
+          return new Response("Missing sessionId", { status: 400 });
+        }
+
+        // Verify session exists
+        const session = await sessionRepository.findById(sessionId);
+        if (!session) {
+          logger.debug("[WS] Files WebSocket: Session not found", sessionId);
+          return new Response("Session not found", { status: 404 });
+        }
+
+        // Check authentication from cookie (WebSocket inherits HTTP headers)
+        const cookieHeader = req.headers.get("Cookie") || "";
+        const usernameMatch = cookieHeader.match(/username=([^;]+)/);
+        const username = usernameMatch ? decodeURIComponent(usernameMatch[1]) : null;
+        
+        logger.debug("[WS] Files WebSocket: Auth check", { sessionId, username: username || "null", owner: session.owner });
+        
+        if (!username || session.owner !== username) {
+          logger.debug("[WS] Files WebSocket: Unauthorized", { username, owner: session.owner });
+          return new Response("Unauthorized", { status: 401 });
+        }
+
+        logger.debug("[WS] Files WebSocket: Upgrading connection for", sessionId);
+        
+        const upgraded = server.upgrade(req, {
+          data: {
+            connectionType: "files",
+            sessionId,
+            url: req.url,
+          },
+        });
+
+        if (!upgraded) {
+          logger.debug("[WS] Files WebSocket: Upgrade failed");
+          return new Response("WebSocket upgrade failed", { status: 500 });
+        }
+        
+        logger.debug("[WS] Files WebSocket: Upgrade successful for", sessionId);
+        return undefined;
+      }
+
       return new Response("Unknown WebSocket endpoint", { status: 404 });
     }
 
@@ -300,6 +352,9 @@ mimoServer.setup({
             break;
           case "chat":
             await handleChatMessage(ws, data);
+            break;
+          case "files":
+            await handleFilesMessage(ws, data);
             break;
           default:
             logger.debug("Unknown connection type");
@@ -363,6 +418,19 @@ mimoServer.setup({
         }
 
         logger.debug(`Chat client connected to session ${sessionId}`);
+      } else if (type === "files") {
+        // File watcher connection
+        const sessionId = url.pathname.split("/")[3];
+        ws.data.connectionType = "files";
+        ws.data.sessionId = sessionId;
+        
+        // Add to file watch sessions
+        if (!fileWatchSessions.has(sessionId)) {
+          fileWatchSessions.set(sessionId, new Set());
+        }
+        fileWatchSessions.get(sessionId).add(ws);
+        
+        logger.debug(`File watcher client connected to session ${sessionId}`);
       } else {
         // Agent connection
         const token = url.searchParams.get("token");
@@ -426,6 +494,10 @@ mimoServer.setup({
           // Note: With shared fossil server, no per-session servers to stop
           // The shared server continues running for all sessions
         }
+      } else if (connectionType === "files") {
+        // Clean up file watches for this connection
+        await cleanupFileWatchSession(ws);
+        logger.debug(`File watcher client disconnected from session ${ws.data.sessionId}`);
       }
     },
   },
@@ -1816,5 +1888,118 @@ async function handleChatMessage(ws, data) {
 
     default:
       logger.debug("Unknown chat message type:", data.type);
+  }
+}
+
+// File watching WebSocket message handler
+async function handleFilesMessage(ws: any, data: any) {
+  const sessionId = ws.data.sessionId;
+  const fileWatcher = mimoContext.services.fileWatcher;
+
+  switch (data.type) {
+    case "watch_file": {
+      const { path: filePath, checksum: currentChecksum } = data;
+      if (!filePath || !currentChecksum) {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            error: "Missing path or checksum",
+          }),
+        );
+        break;
+      }
+
+      try {
+        // Get the session to resolve the full file path
+        const session = await sessionRepository.findById(sessionId);
+        if (!session) {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              error: "Session not found",
+            }),
+          );
+          break;
+        }
+
+        // Resolve full path
+        const fullPath = join(session.agentWorkspacePath, filePath);
+
+        // Start watching the file
+        await fileWatcher.watchFile(
+          sessionId,
+          fullPath,
+          currentChecksum,
+          (event) => {
+            // Send event to client
+            if (ws.readyState === 1) {
+              ws.send(
+                JSON.stringify({
+                  type: event.type,
+                  path: filePath, // Send relative path to client
+                  checksum: event.checksum,
+                }),
+              );
+            }
+          },
+        );
+
+        logger.debug(`[FileWatcher] Started watching ${filePath} for session ${sessionId}`);
+      } catch (error) {
+        logger.error(`[FileWatcher] Error watching file: ${error}`);
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            error: "Failed to watch file",
+          }),
+        );
+      }
+      break;
+    }
+
+    case "unwatch_file": {
+      const { path: filePath } = data;
+      if (!filePath) {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            error: "Missing path",
+          }),
+        );
+        break;
+      }
+
+      try {
+        const session = await sessionRepository.findById(sessionId);
+        if (session) {
+          const fullPath = join(session.agentWorkspacePath, filePath);
+          fileWatcher.unwatchFile(sessionId, fullPath);
+          logger.debug(`[FileWatcher] Stopped watching ${filePath} for session ${sessionId}`);
+        }
+      } catch (error) {
+        logger.error(`[FileWatcher] Error unwatching file: ${error}`);
+      }
+      break;
+    }
+
+    default:
+      logger.debug("Unknown files message type:", data.type);
+  }
+}
+
+// Clean up file watching sessions when WebSocket closes
+async function cleanupFileWatchSession(ws: any) {
+  const sessionId = ws.data?.sessionId;
+  if (!sessionId) return;
+
+  const connections = fileWatchSessions.get(sessionId);
+  if (connections) {
+    connections.delete(ws);
+    if (connections.size === 0) {
+      // No more connections for this session, unwatch all files
+      mimoContext.services.fileWatcher.unwatchAll(sessionId);
+      fileWatchSessions.delete(sessionId);
+      logger.debug(`[FileWatcher] Cleaned up all watches for session ${sessionId}`);
+    }
   }
 }

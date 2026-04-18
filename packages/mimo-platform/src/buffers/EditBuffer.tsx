@@ -42,11 +42,38 @@ export const EditBuffer: FC<EditBufferProps> = ({ sessionId }) => {
       {/* File Context Bar */}
       <div
         id="edit-buffer-context"
-        style="display: none; padding: 8px 12px; background: #252525; border-bottom: 1px solid #444; display: flex; gap: 12px; align-items: center; flex-shrink: 0; font-size: 12px; color: #888;"
+        style="display: none; padding: 8px 12px; background: #252525; border-bottom: 1px solid #444; flex-direction: row; gap: 12px; align-items: center; flex-shrink: 0; font-size: 12px; color: #888;"
       >
         <span id="edit-buffer-filepath" style="color: #d4d4d4;"></span>
         <span id="edit-buffer-linecount"></span>
         <span id="edit-buffer-language"></span>
+        {/* Outdated indicator - hidden by default */}
+        <span
+          id="edit-buffer-outdated-indicator"
+          style="display: none; color: #ff9800; font-size: 11px; font-weight: 500;"
+        >
+          ● Outdated
+        </span>
+        {/* Reload button - hidden by default */}
+        <button
+          type="button"
+          id="reload-file-btn"
+          style="
+            display: none;
+            padding: 4px 10px;
+            background: #3d3d3d;
+            border: 1px solid #555;
+            color: #ccc;
+            font-family: monospace;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 3px;
+            margin-left: 8px;
+          "
+          title="Reload file (Alt+Shift+R)"
+        >
+          ↻ Reload
+        </button>
         <div style="flex: 1;"></div>
         <button
           type="button"

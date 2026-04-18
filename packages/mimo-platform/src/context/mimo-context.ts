@@ -24,6 +24,7 @@ import { vcs } from "../vcs/index.js";
 import { sessionStateService } from "../sessions/state.js";
 import { SharedFossilServer } from "../vcs/shared-fossil-server.js";
 import type { SharedFossilServerConfig } from "../vcs/shared-fossil-server.js";
+import { createFileWatcherService, type FileWatcherService } from "../files/file-watcher-service.js";
 
 export interface MimoEnv {
   PORT: number;
@@ -72,6 +73,7 @@ export interface MimoContext {
     vcs: typeof vcs;
     sessionState: typeof sessionStateService;
     sharedFossil: SharedFossilServer | DummySharedFossilServer | null;
+    fileWatcher: FileWatcherService;
   };
 }
 
@@ -242,6 +244,8 @@ export function createMimoContext(
     vcs: vcs,
     sessionState: sessionStateService,
     sharedFossil: sharedFossilServer,
+    fileWatcher:
+      overrides.services?.fileWatcher ?? createFileWatcherService(),
   };
 
   return {
