@@ -10,6 +10,8 @@ describe("Agent Capabilities", () => {
   let agentRepository: any;
   let agentService: any;
   let userRepository: any;
+  let projectRepository: any;
+  let sessionRepository: any;
   let agentRoutes: any;
   let authToken: string;
 
@@ -31,6 +33,8 @@ describe("Agent Capabilities", () => {
 
     userRepository = ctx.repos.users;
     agentRepository = ctx.repos.agents;
+    projectRepository = ctx.repos.projects;
+    sessionRepository = ctx.repos.sessions;
     agentService = ctx.services.agents;
 
     const { createAgentsRoutes } = await import("../src/agents/routes.tsx");
@@ -101,6 +105,61 @@ describe("Agent Capabilities", () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.defaultModelId).toBe("sonnet");
+      expect(body.defaultModeId).toBe("code");
+      expect(body.availableModels).toHaveLength(2);
+      expect(body.availableModes).toHaveLength(2);
+    });
+
+    it("derives capabilities from session state when cache is missing", async () => {
+      const app = new Hono();
+      app.route("/agents", agentRoutes);
+
+      const agent = await agentRepository.create({
+        name: "Derived Caps Agent",
+        owner: "testuser",
+        provider: "opencode",
+      });
+
+      const project = await projectRepository.create({
+        name: "Caps Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Caps Session",
+        projectId: project.id,
+        owner: "testuser",
+        assignedAgentId: agent.id,
+      });
+
+      await sessionRepository.update(session.id, {
+        modelState: {
+          currentModelId: "claude-sonnet",
+          availableModels: [
+            { value: "claude-sonnet", name: "Claude Sonnet" },
+            { value: "claude-opus", name: "Claude Opus" },
+          ],
+          optionId: "model",
+        },
+        modeState: {
+          currentModeId: "code",
+          availableModes: [
+            { value: "code", name: "Code" },
+            { value: "ask", name: "Ask" },
+          ],
+          optionId: "mode",
+        },
+      });
+
+      const res = await app.request(`/agents/${agent.id}/capabilities`, {
+        headers: { Cookie: `token=${authToken}` },
+      });
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.defaultModelId).toBe("claude-sonnet");
       expect(body.defaultModeId).toBe("code");
       expect(body.availableModels).toHaveLength(2);
       expect(body.availableModes).toHaveLength(2);

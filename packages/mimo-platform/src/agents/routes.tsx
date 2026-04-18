@@ -18,6 +18,89 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     mimoContext.services.auth,
   );
 
+  function hasOptions(options: unknown): boolean {
+    return Array.isArray(options) && options.length > 0;
+  }
+
+  function buildCapabilitiesFromSessionState(session: any) {
+    const modelState = session?.modelState;
+    const modeState = session?.modeState;
+
+    if (
+      !modelState ||
+      !modeState ||
+      !hasOptions(modelState.availableModels) ||
+      !hasOptions(modeState.availableModes)
+    ) {
+      return null;
+    }
+
+    return {
+      availableModels: modelState.availableModels,
+      defaultModelId:
+        modelState.currentModelId || modelState.availableModels[0]?.value || "",
+      availableModes: modeState.availableModes,
+      defaultModeId:
+        modeState.currentModeId || modeState.availableModes[0]?.value || "",
+    };
+  }
+
+  function buildCapabilitiesFromThread(agentId: string, session: any) {
+    const matchingThreads = Array.isArray(session?.chatThreads)
+      ? session.chatThreads.filter(
+          (thread: any) => thread?.assignedAgentId === agentId,
+        )
+      : [];
+
+    if (matchingThreads.length === 0) return null;
+
+    const activeThread = matchingThreads.find(
+      (thread: any) => thread.id === session?.activeChatThreadId,
+    );
+    const fallbackThread = activeThread || matchingThreads[0];
+
+    if (!fallbackThread?.model || !fallbackThread?.mode) return null;
+
+    return {
+      availableModels: [
+        { value: fallbackThread.model, name: fallbackThread.model },
+      ],
+      defaultModelId: fallbackThread.model,
+      availableModes: [
+        { value: fallbackThread.mode, name: fallbackThread.mode },
+      ],
+      defaultModeId: fallbackThread.mode,
+    };
+  }
+
+  async function deriveCapabilities(agentId: string) {
+    const [sessionAssigned, threadAssigned] = await Promise.all([
+      sessionRepository.findByAssignedAgentId(agentId),
+      sessionRepository.findByThreadAgentId(agentId),
+    ]);
+
+    const byId = new Map<string, any>();
+    for (const session of [...sessionAssigned, ...threadAssigned]) {
+      byId.set(session.id, session);
+    }
+
+    const sessions = [...byId.values()].sort(
+      (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
+    );
+
+    for (const session of sessions) {
+      const fromSession = buildCapabilitiesFromSessionState(session);
+      if (fromSession) return fromSession;
+    }
+
+    for (const session of sessions) {
+      const fromThread = buildCapabilitiesFromThread(agentId, session);
+      if (fromThread) return fromThread;
+    }
+
+    return null;
+  }
+
   // Agent API endpoint - uses agent JWT, not user auth
   router.get("/me/sessions", async (c: Context) => {
     const authHeader = c.req.header("Authorization");
@@ -57,9 +140,23 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
       const agentId = c.req.param("agentId");
       const agent = await agentRepository.findById(agentId);
       if (!agent) return c.json({ error: "Agent not found" }, 404);
-      if (!agent.capabilities)
+
+      const hasCachedCapabilities =
+        !!agent.capabilities &&
+        hasOptions(agent.capabilities.availableModels) &&
+        hasOptions(agent.capabilities.availableModes);
+
+      if (hasCachedCapabilities) {
+        return c.json(agent.capabilities);
+      }
+
+      const derivedCapabilities = await deriveCapabilities(agentId);
+      if (!derivedCapabilities) {
         return c.json({ error: "No capabilities available" }, 404);
-      return c.json(agent.capabilities);
+      }
+
+      await agentRepository.updateCapabilities(agentId, derivedCapabilities);
+      return c.json(derivedCapabilities);
     },
   );
 

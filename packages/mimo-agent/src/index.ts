@@ -21,6 +21,7 @@ import {
   ClaudeAgentProvider,
 } from "./acp/index.js";
 import type { IAcpProvider } from "./acp/index.js";
+import type { AcpClientCallbacks } from "./acp/index.js";
 import WebSocket from "ws";
 // Convert Node.js streams to Web Streams API
 function toWebWritable(nodeWritable: Writable): WritableStream<Uint8Array> {
@@ -56,6 +57,8 @@ class MimoAgent {
   // Store thread-specific model/mode from platform (keyed by acpKey)
   private threadConfigs: Map<string, { model?: string; mode?: string }> =
     new Map();
+
+  private static readonly CAPABILITY_PROBE_SESSION_ID = "capability-probe";
 
   constructor() {
     this.config = this.parseArgs();
@@ -262,6 +265,10 @@ class MimoAgent {
           workdir: this.config.workDir,
           timestamp: new Date().toISOString(),
         });
+
+        // Advertise capabilities as soon as we connect so platform can cache
+        // model/mode options before any session is initialized.
+        void this.advertiseCapabilities();
 
         resolve();
       });
@@ -1888,6 +1895,82 @@ class MimoAgent {
       this.ws.send(JSON.stringify(message));
     } else {
       logger.debug("[mimo-agent] WebSocket not connected");
+    }
+  }
+
+  private getNoopAcpCallbacks(): AcpClientCallbacks {
+    return {
+      onThoughtStart: () => {},
+      onThoughtChunk: () => {},
+      onThoughtEnd: () => {},
+      onMessageChunk: () => {},
+      onUsageUpdate: () => {},
+      onGenericUpdate: () => {},
+      onPermissionRequest: async () => ({ outcome: "allow" }),
+    };
+  }
+
+  private async advertiseCapabilities(): Promise<void> {
+    const spawnResult = this.provider.spawn(this.config.workDir);
+    const probeProcess = spawnResult.process;
+    const acpClient = new AcpClient(
+      this.provider,
+      MimoAgent.CAPABILITY_PROBE_SESSION_ID,
+      this.getNoopAcpCallbacks(),
+    );
+
+    try {
+      await acpClient.initialize(
+        this.config.workDir,
+        toWebWritable(spawnResult.stdin),
+        toWebReadable(spawnResult.stdout),
+      );
+
+      const modelState = acpClient.modelState;
+      const modeState = acpClient.modeState;
+      const availableModels = modelState?.availableModels ?? [];
+      const availableModes = modeState?.availableModes ?? [];
+      const defaultModelId =
+        modelState?.currentModelId || availableModels[0]?.value || "";
+      const defaultModeId =
+        modeState?.currentModeId || availableModes[0]?.value || "";
+
+      if (
+        availableModels.length === 0 ||
+        availableModes.length === 0 ||
+        !defaultModelId ||
+        !defaultModeId
+      ) {
+        logger.warn(
+          "[mimo-agent] Capability probe returned incomplete model/mode options",
+        );
+        return;
+      }
+
+      this.send({
+        type: "agent_capabilities",
+        availableModels,
+        defaultModelId,
+        availableModes,
+        defaultModeId,
+        timestamp: new Date().toISOString(),
+      });
+
+      logger.debug(
+        `[mimo-agent] Advertised capabilities: ${defaultModelId} / ${defaultModeId}`,
+      );
+    } catch (error) {
+      logger.warn("[mimo-agent] Failed to advertise capabilities:", error);
+    } finally {
+      try {
+        await acpClient.close(2000);
+      } catch {
+        // Ignore close errors during probe cleanup.
+      }
+
+      if (!probeProcess.killed) {
+        probeProcess.kill("SIGTERM");
+      }
     }
   }
 

@@ -499,10 +499,42 @@ function buildSelectOptions(items, defaultId) {
     .join("");
 }
 
+function normalizeCapabilitiesOptions(items) {
+  if (!Array.isArray(items)) return [];
+
+  return items
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+
+      const value = item.value || item.modelId || item.id || "";
+      const name = item.name || item.label || value;
+
+      if (!value || !name) return null;
+
+      return {
+        value: String(value),
+        name: String(name),
+      };
+    })
+    .filter(Boolean);
+}
+
+function updateThreadOptionSelects(selects, options) {
+  const { modelSelect, modeSelect } = selects;
+  const { models, modes, defaultModelId, defaultModeId } = options;
+
+  modelSelect.innerHTML = models.length
+    ? buildSelectOptions(models, defaultModelId || models[0].value)
+    : '<option value="" disabled selected>No models available</option>';
+
+  modeSelect.innerHTML = modes.length
+    ? buildSelectOptions(modes, defaultModeId || modes[0].value)
+    : '<option value="" disabled selected>No modes available</option>';
+}
+
 async function showCreateThreadDialog() {
-  const fallbackModels = window.MIMO_CHAT_MODELS || [];
-  const fallbackModes = window.MIMO_CHAT_MODES || [];
   const agents = await fetchOnlineAgents();
+  let latestCapabilitiesRequest = 0;
 
   const dialog = document.createElement("div");
   dialog.id = "create-thread-dialog";
@@ -543,13 +575,11 @@ async function showCreateThreadDialog() {
         .join("")
     : '<option value="" disabled selected>No online agents available</option>';
 
-  const initialModelOptions = fallbackModels.length
-    ? buildSelectOptions(fallbackModels, fallbackModels[0]?.value)
-    : '<option value="" disabled selected>Select a model</option>';
+  const initialModelOptions =
+    '<option value="" disabled selected>Select an agent first</option>';
 
-  const initialModeOptions = fallbackModes.length
-    ? buildSelectOptions(fallbackModes, fallbackModes[0]?.value)
-    : '<option value="" disabled selected>Select a mode</option>';
+  const initialModeOptions =
+    '<option value="" disabled selected>Select an agent first</option>';
 
   dialog.innerHTML = `
     <div class="modal-content" style="
@@ -637,26 +667,47 @@ async function showCreateThreadDialog() {
       const agentId = e.target.value;
       const modelSelect = document.querySelector("#new-thread-model");
       const modeSelect = document.querySelector("#new-thread-mode");
+      const selects = { modelSelect, modeSelect };
 
       if (!agentId) {
-        modelSelect.innerHTML =
-          '<option value="" disabled selected>Select an agent first</option>';
-        modeSelect.innerHTML =
-          '<option value="" disabled selected>Select an agent first</option>';
+        updateThreadOptionSelects(selects, {
+          models: [],
+          modes: [],
+          defaultModelId: "",
+          defaultModeId: "",
+        });
         return;
       }
 
+      modelSelect.innerHTML =
+        '<option value="" disabled selected>Loading models...</option>';
+      modeSelect.innerHTML =
+        '<option value="" disabled selected>Loading modes...</option>';
+
+      const requestId = ++latestCapabilitiesRequest;
+
       const caps = await fetchAgentCapabilities(agentId);
-      if (caps) {
-        modelSelect.innerHTML = buildSelectOptions(
-          caps.availableModels,
-          caps.defaultModelId,
-        );
-        modeSelect.innerHTML = buildSelectOptions(
-          caps.availableModes,
-          caps.defaultModeId,
-        );
+
+      if (requestId !== latestCapabilitiesRequest) {
+        return;
       }
+
+      if (!caps) {
+        updateThreadOptionSelects(selects, {
+          models: [],
+          modes: [],
+          defaultModelId: "",
+          defaultModeId: "",
+        });
+        return;
+      }
+
+      updateThreadOptionSelects(selects, {
+        models: normalizeCapabilitiesOptions(caps.availableModels),
+        modes: normalizeCapabilitiesOptions(caps.availableModes),
+        defaultModelId: caps.defaultModelId,
+        defaultModeId: caps.defaultModeId,
+      });
     });
 
   // Event handlers
