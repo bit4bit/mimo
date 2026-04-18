@@ -154,7 +154,11 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({
               Impact History
             </a>
             <form method="POST" action={`/projects/${project.id}/delete`}>
-              <button type="submit" class="btn-danger">
+              <button
+                type="submit"
+                class="btn-danger"
+                onclick="return confirm('Are you sure you want to delete this project? This action cannot be undone.');"
+              >
                 Delete Project
               </button>
             </form>
