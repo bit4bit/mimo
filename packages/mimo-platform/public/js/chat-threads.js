@@ -52,7 +52,7 @@ async function createThread(name, model, mode, assignedAgentId) {
           name,
           model,
           mode,
-          ...(assignedAgentId ? { assignedAgentId } : {}),
+          assignedAgentId,
         }),
       },
     );
@@ -532,12 +532,16 @@ async function showCreateThreadDialog() {
     box-sizing: border-box;
   `;
 
-  const agentOptions = agents
-    .map(
-      (a) =>
-        `<option value="${escapeHtml(a.id)}">${escapeHtml(a.name)}</option>`,
-    )
-    .join("");
+  const agentOptions = agents.length
+    ? ['<option value="" disabled selected>Select an agent</option>']
+        .concat(
+          agents.map(
+            (a) =>
+              `<option value="${escapeHtml(a.id)}">${escapeHtml(a.name)}</option>`,
+          ),
+        )
+        .join("")
+    : '<option value="" disabled selected>No online agents available</option>';
 
   const initialModelOptions = fallbackModels.length
     ? buildSelectOptions(fallbackModels, fallbackModels[0]?.value)
@@ -574,9 +578,8 @@ async function showCreateThreadDialog() {
       </div>
 
       <div style="margin-bottom: 15px;">
-        <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Agent (optional)</label>
+        <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Agent</label>
         <select id="new-thread-agent" style="${selectStyle}">
-          <option value="">None</option>
           ${agentOptions}
         </select>
       </div>
@@ -636,12 +639,10 @@ async function showCreateThreadDialog() {
       const modeSelect = document.querySelector("#new-thread-mode");
 
       if (!agentId) {
-        modelSelect.innerHTML = fallbackModels.length
-          ? buildSelectOptions(fallbackModels, fallbackModels[0]?.value)
-          : '<option value="" disabled selected>Select a model</option>';
-        modeSelect.innerHTML = fallbackModes.length
-          ? buildSelectOptions(fallbackModes, fallbackModes[0]?.value)
-          : '<option value="" disabled selected>Select a mode</option>';
+        modelSelect.innerHTML =
+          '<option value="" disabled selected>Select an agent first</option>';
+        modeSelect.innerHTML =
+          '<option value="" disabled selected>Select an agent first</option>';
         return;
       }
 
@@ -698,7 +699,12 @@ async function showCreateThreadDialog() {
         return;
       }
 
-      const assignedAgentId = agentSelect?.value || null;
+      const assignedAgentId = agentSelect?.value || "";
+      if (!assignedAgentId) {
+        alert("Please select an agent");
+        return;
+      }
+
       const newThread = await createThread(name, model, mode, assignedAgentId);
       if (newThread) {
         dialog.remove();

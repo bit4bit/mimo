@@ -1052,10 +1052,14 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       return c.json({ error: "mode is required" }, 400);
     }
 
-    const assignedAgentId =
-      typeof body.assignedAgentId === "string" && body.assignedAgentId.trim()
-        ? body.assignedAgentId.trim()
-        : null;
+    if (
+      typeof body.assignedAgentId !== "string" ||
+      !body.assignedAgentId.trim()
+    ) {
+      return c.json({ error: "assignedAgentId is required" }, 400);
+    }
+
+    const assignedAgentId = body.assignedAgentId.trim();
 
     const thread = await sessionRepository.addChatThread(sessionId, {
       name: body.name,

@@ -119,6 +119,7 @@ describe("Chat Threads API", () => {
             name: "Reviewer",
             model: "claude-3",
             mode: "review",
+            assignedAgentId: "agent-xyz",
           }),
         },
       );
@@ -173,7 +174,7 @@ describe("Chat Threads API", () => {
       expect(thread.assignedAgentId).toBe("agent-xyz");
     });
 
-    it("POST /sessions/:id/chat-threads defaults assignedAgentId to null when not provided", async () => {
+    it("POST /sessions/:id/chat-threads returns 400 when assignedAgentId is not provided", async () => {
       const res = await app.request(
         `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
         {
@@ -190,9 +191,9 @@ describe("Chat Threads API", () => {
         },
       );
 
-      expect(res.status).toBe(201);
-      const thread = await res.json();
-      expect(thread.assignedAgentId).toBeNull();
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toBe("assignedAgentId is required");
     });
   });
 
@@ -208,7 +209,12 @@ describe("Chat Threads API", () => {
             "Content-Type": "application/json",
             Cookie: `token=${token}`,
           },
-          body: JSON.stringify({ name: "Coder", model: "gpt-4", mode: "code" }),
+          body: JSON.stringify({
+            name: "Coder",
+            model: "gpt-4",
+            mode: "code",
+            assignedAgentId: "agent-xyz",
+          }),
         },
       );
       expect(r1.status).toBe(201);
@@ -226,6 +232,7 @@ describe("Chat Threads API", () => {
             name: "Reviewer",
             model: "claude-3",
             mode: "review",
+            assignedAgentId: "agent-xyz",
           }),
         },
       );
@@ -282,6 +289,7 @@ describe("Chat Threads API", () => {
             name: "Primary Thread",
             model: "claude-3",
             mode: "code",
+            assignedAgentId: "agent-xyz",
           }),
         },
       );
@@ -327,6 +335,7 @@ describe("Chat Threads API", () => {
             name: "Primary Thread",
             model: "claude-3",
             mode: "code",
+            assignedAgentId: "agent-xyz",
           }),
         },
       );
@@ -345,6 +354,7 @@ describe("Chat Threads API", () => {
             name: "Reviewer",
             model: "gpt-4",
             mode: "review",
+            assignedAgentId: "agent-xyz",
           }),
         },
       );
@@ -396,6 +406,7 @@ describe("Chat Threads API", () => {
             name: "Feature Branch",
             model: "claude-3-opus",
             mode: "build",
+            assignedAgentId: "agent-xyz",
           }),
         },
       );

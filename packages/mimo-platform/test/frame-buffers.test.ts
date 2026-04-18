@@ -8,6 +8,7 @@ import bcrypt from "bcrypt";
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
 let sessionRoutes: any;
+let projectsRoutes: any;
 let sessionRepository: any;
 let userRepository: any;
 let projectRepository: any;
@@ -24,7 +25,10 @@ describe("Frame buffers integration", () => {
     const { createMimoContext } =
       await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({
-      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+      env: {
+        MIMO_HOME: testHome,
+        JWT_SECRET: "your-secret-key-change-in-production",
+      },
       services: { sharedFossil: new DummySharedFossilServer() },
     });
 
@@ -42,11 +46,14 @@ describe("Frame buffers integration", () => {
 
     const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
     sessionRoutes = createSessionsRoutes(ctx);
+
+    const { createProjectsRoutes } = await import("../src/projects/routes.tsx");
+    projectsRoutes = createProjectsRoutes(ctx);
   });
 
   async function createSessionAppAndAuth() {
     const app = new Hono();
-    app.route("/projects/:projectId/sessions", sessionRoutes);
+    app.route("/projects", projectsRoutes);
     app.route("/sessions", sessionRoutes);
 
     await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
