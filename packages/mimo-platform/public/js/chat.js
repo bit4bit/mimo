@@ -143,7 +143,9 @@ function renderMessage(message) {
   const content = document.createElement("div");
   content.className = "message-content";
   if (message.role === "assistant") {
-    renderTextAsLines(message.content, content);
+    renderAgentMessageContent(message.content, content);
+  } else if (message.role === "user") {
+    renderUserMessageContent(message.content, content);
   } else {
     content.textContent = message.content;
   }
@@ -347,6 +349,92 @@ function renderTextAsLines(text, container) {
   }
 }
 
+function renderAgentMessageContent(text, container) {
+  container.textContent = "";
+  container.dataset.rawText = String(text || "");
+
+  const lines = String(text || "").split("\n");
+  for (const line of lines) {
+    const div = document.createElement("div");
+    if (line === "") {
+      div.appendChild(document.createElement("br"));
+    } else {
+      const chunks = line.split(/(\s+)/);
+      chunks.forEach((chunk) => {
+        if (!chunk) return;
+        if (/^\s+$/.test(chunk)) {
+          div.appendChild(document.createTextNode(chunk));
+          return;
+        }
+        const { prefix, core, suffix } = splitTokenAffixes(chunk);
+        const withoutLineRef = stripLineReference(core);
+        const normalizedQuery = normalizeFileQuery(withoutLineRef);
+
+        if (!normalizedQuery || !isLikelyFileToken(withoutLineRef, FILE_EXTENSIONS)) {
+          div.appendChild(document.createTextNode(chunk));
+          return;
+        }
+        if (prefix) div.appendChild(document.createTextNode(prefix));
+        const fileRefBtn = document.createElement("button");
+        fileRefBtn.type = "button";
+        fileRefBtn.className = "chat-file-ref";
+        fileRefBtn.textContent = core;
+        fileRefBtn.setAttribute("data-file-query", normalizedQuery);
+        fileRefBtn.title = `Open file finder for ${normalizedQuery}`;
+        div.appendChild(fileRefBtn);
+        if (suffix) div.appendChild(document.createTextNode(suffix));
+      });
+    }
+    container.appendChild(div);
+  }
+}
+
+const FILE_EXTENSIONS = new Set(
+  (window.MIMO_CHAT_FILE_EXTENSIONS && window.MIMO_CHAT_FILE_EXTENSIONS.length > 0
+    ? window.MIMO_CHAT_FILE_EXTENSIONS
+    : []
+  ).map((e) => String(e).toLowerCase().replace(/^\./, ""))
+);
+
+function renderUserMessageContent(text, container) {
+  container.textContent = "";
+  container.dataset.rawText = String(text || "");
+
+  const chunks = String(text || "").split(/(\s+)/);
+  chunks.forEach((chunk) => {
+    if (!chunk) return;
+    if (/^\s+$/.test(chunk)) {
+      container.appendChild(document.createTextNode(chunk));
+      return;
+    }
+
+    const { prefix, core, suffix } = splitTokenAffixes(chunk);
+    const withoutLineRef = stripLineReference(core);
+    const normalizedQuery = normalizeFileQuery(withoutLineRef);
+
+    if (!normalizedQuery || !isLikelyFileToken(withoutLineRef, FILE_EXTENSIONS)) {
+      container.appendChild(document.createTextNode(chunk));
+      return;
+    }
+
+    if (prefix) {
+      container.appendChild(document.createTextNode(prefix));
+    }
+
+    const fileRefBtn = document.createElement("button");
+    fileRefBtn.type = "button";
+    fileRefBtn.className = "chat-file-ref";
+    fileRefBtn.textContent = core;
+    fileRefBtn.setAttribute("data-file-query", normalizedQuery);
+    fileRefBtn.title = `Open file finder for ${normalizedQuery}`;
+    container.appendChild(fileRefBtn);
+
+    if (suffix) {
+      container.appendChild(document.createTextNode(suffix));
+    }
+  });
+}
+
 // View: Permission card
 function renderPermissionCard(requestId, toolCall, options) {
   const card = document.createElement("div");
@@ -454,6 +542,9 @@ function extractMessageText(el) {
   }
   const contentEl = el.querySelector(".message-content");
   if (!contentEl) return "";
+  if (contentEl.dataset.rawText !== undefined) {
+    return contentEl.dataset.rawText;
+  }
   return Array.from(contentEl.children)
     .filter((child) => !child.classList.contains("message-thought"))
     .map((div) => div.textContent)
@@ -1464,6 +1555,7 @@ function submitEditableBubble() {
   staticHeader.className = "message-header";
   staticHeader.textContent = "You";
   ChatState.editableBubble.insertBefore(staticHeader, content);
+  renderUserMessageContent(message, content);
 
   ChatState.editableBubble = null;
 
@@ -1527,7 +1619,7 @@ function finalizeStreamingAsCancelled() {
     const cursor = responseContent.querySelector(".typing-cursor");
     if (cursor) cursor.remove();
     const accumulated = responseContent.textContent;
-    renderTextAsLines(accumulated, responseContent);
+    renderAgentMessageContent(accumulated, responseContent);
   }
 
   // Add cancelled indicator to header
@@ -1569,7 +1661,7 @@ function finalizeMessageStream(duration) {
     const cursor = responseContent.querySelector(".typing-cursor");
     if (cursor) cursor.remove();
     const accumulated = responseContent.textContent;
-    renderTextAsLines(accumulated, responseContent);
+    renderAgentMessageContent(accumulated, responseContent);
   }
 
   const cancelBtn = ChatState.streaming.messageElement.querySelector(
@@ -2289,6 +2381,31 @@ function setupEventListeners() {
       e.preventDefault();
     }
   });
+
+  const messagesContainer = document.querySelector("#chat-messages");
+  if (messagesContainer) {
+    messagesContainer.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const fileRef = target.closest(".chat-file-ref");
+      if (!fileRef) return;
+
+      event.preventDefault();
+      const query =
+        fileRef.getAttribute("data-file-query") ||
+        fileRef.textContent ||
+        "";
+
+      if (
+        typeof window.EditBuffer !== "undefined" &&
+        window.EditBuffer &&
+        typeof window.EditBuffer.openFileFinder === "function"
+      ) {
+        window.EditBuffer.openFileFinder(query);
+      }
+    });
+  }
 
   const buffersContainer = document.querySelector(".buffers-container");
   if (buffersContainer) {

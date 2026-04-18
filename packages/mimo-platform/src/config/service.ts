@@ -27,6 +27,7 @@ export interface Config {
   sharedFossilServerPort?: number;
   streamingTimeoutMs?: number;
   sessionKeybindings?: SessionKeybindingsConfig;
+  chatFileExtensions?: string[];
 }
 
 export const defaultSessionKeybindings: SessionKeybindingsConfig = {
@@ -47,6 +48,41 @@ export const defaultSessionKeybindings: SessionKeybindingsConfig = {
   toggleRightFrame: "Alt+Shift+Control+F",
 };
 
+export const defaultChatFileExtensions: string[] = [
+  // Web
+  "html", "htm", "css", "scss", "sass", "less", "svg",
+  // JavaScript / TypeScript
+  "js", "jsx", "mjs", "cjs", "ts", "tsx", "d.ts",
+  // Python
+  "py", "pyi",
+  // Ruby
+  "rb", "rake",
+  // Rust
+  "rs",
+  // Go
+  "go",
+  // JVM
+  "java", "kt", "scala", "clj",
+  // C / C++
+  "c", "cc", "cpp", "h", "hpp",
+  // C# / .NET
+  "cs",
+  // PHP
+  "php",
+  // Swift / Obj-C
+  "swift", "m",
+  // Shell
+  "sh", "bash", "zsh", "fish",
+  // Config / data
+  "json", "yaml", "yml", "toml", "xml", "ini", "env",
+  // Docs
+  "md", "mdx", "txt", "rst",
+  // Database
+  "sql",
+  // Other
+  "lock", "csv", "r", "ex", "exs", "lua", "elm",
+];
+
 export const defaultConfig: Config = {
   theme: "dark",
   fontSize: 14,
@@ -54,6 +90,7 @@ export const defaultConfig: Config = {
   sharedFossilServerPort: 8000,
   streamingTimeoutMs: 600000, // 10 minutes
   sessionKeybindings: { ...defaultSessionKeybindings },
+  chatFileExtensions: [...defaultChatFileExtensions],
 };
 
 function sanitizeSessionKeybindings(
@@ -91,6 +128,21 @@ function sanitizeSessionKeybindings(
   }
 
   return result;
+}
+
+function sanitizeChatFileExtensions(
+  extensions: unknown,
+): string[] {
+  if (!Array.isArray(extensions)) {
+    return [...defaultChatFileExtensions];
+  }
+  const merged = new Set([...defaultChatFileExtensions]);
+  for (const ext of extensions) {
+    if (typeof ext === "string" && ext.trim().length > 0) {
+      merged.add(ext.trim().toLowerCase().replace(/^\./, ""));
+    }
+  }
+  return Array.from(merged);
 }
 
 export class ConfigService {
@@ -142,6 +194,9 @@ export class ConfigService {
           loaded.streamingTimeoutMs ?? defaultConfig.streamingTimeoutMs,
         sessionKeybindings: sanitizeSessionKeybindings(
           loaded.sessionKeybindings,
+        ),
+        chatFileExtensions: sanitizeChatFileExtensions(
+          loaded.chatFileExtensions,
         ),
       };
 

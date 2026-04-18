@@ -102,8 +102,51 @@ export function matchesPattern(filePath: string, pattern: string): boolean {
   return filePath.toLowerCase().includes(pattern.toLowerCase().trim());
 }
 
+function normalizeQuery(query: string): string {
+  return query.replace(/\\/g, "/").replace(/^\.\//, "").trim().toLowerCase();
+}
+
+function basename(path: string): string {
+  const normalized = path.replace(/\\/g, "/");
+  const parts = normalized.split("/");
+  return parts[parts.length - 1] || normalized;
+}
+
+function scoreFileMatch(path: string, name: string, pattern: string): number {
+  if (!pattern) return 0;
+
+  const pathLower = path.toLowerCase();
+  const nameLower = name.toLowerCase();
+  const normalizedPattern = normalizeQuery(pattern);
+  if (!normalizedPattern) return 0;
+
+  const namePattern = basename(normalizedPattern);
+
+  if (pathLower === normalizedPattern) return 0;
+  if (normalizedPattern.endsWith(`/${pathLower}`)) return 1;
+  if (pathLower.startsWith(normalizedPattern)) return 2;
+  if (pathLower.includes(normalizedPattern)) return 3;
+  if (nameLower === namePattern) return 4;
+  if (nameLower.startsWith(namePattern)) return 5;
+  if (nameLower.includes(namePattern)) return 6;
+
+  return Number.POSITIVE_INFINITY;
+}
+
 export function findFiles(pattern: string, files: FileInfo[]): FileInfo[] {
-  return files.filter((f) => matchesPattern(f.path, pattern));
+  if (!pattern.trim()) return files;
+
+  return files
+    .map((f) => ({
+      file: f,
+      score: scoreFileMatch(f.path, f.name, pattern),
+    }))
+    .filter((entry) => Number.isFinite(entry.score))
+    .sort((a, b) => {
+      if (a.score !== b.score) return a.score - b.score;
+      return a.file.path.localeCompare(b.file.path);
+    })
+    .map((entry) => entry.file);
 }
 
 async function fossilLs(workspacePath: string): Promise<string[]> {
