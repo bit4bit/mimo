@@ -480,6 +480,14 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           justify-content: flex-start;
           gap: 6px;
         }
+        .editable-bubble {
+          position: sticky;
+          bottom: -10px;
+          z-index: 2;
+          margin-bottom: 0;
+          border-top: 1px solid #3b3b3b;
+          box-shadow: 0 -8px 18px rgba(0, 0, 0, 0.45);
+        }
         .editable-bubble-status {
           display: inline-flex;
           align-items: center;
