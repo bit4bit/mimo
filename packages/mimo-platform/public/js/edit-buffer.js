@@ -137,20 +137,61 @@
     return dialog && dialog.style.display !== "none";
   }
 
-  function openFileFinder() {
+  function normalizeQuery(query) {
+    return String(query || "")
+      .replace(/\\\\/g, "/")
+      .replace(/^\.\//, "")
+      .trim()
+      .toLowerCase();
+  }
+
+  function queryBasename(query) {
+    const normalized = normalizeQuery(query);
+    if (!normalized) return "";
+    const parts = normalized.split("/");
+    return parts[parts.length - 1] || normalized;
+  }
+
+  function matchScore(file, pattern) {
+    const normalizedPattern = normalizeQuery(pattern);
+    if (!normalizedPattern) return 0;
+
+    const pathLower = String(file.path || "").toLowerCase();
+    const nameLower = String(file.name || "").toLowerCase();
+    const namePattern = queryBasename(normalizedPattern);
+
+    if (pathLower === normalizedPattern) return 0;
+    if (normalizedPattern.endsWith("/" + pathLower)) return 1;
+    if (pathLower.startsWith(normalizedPattern)) return 2;
+    if (pathLower.includes(normalizedPattern)) return 3;
+    if (nameLower === namePattern) return 4;
+    if (nameLower.startsWith(namePattern)) return 5;
+    if (nameLower.includes(namePattern)) return 6;
+
+    return Number.POSITIVE_INFINITY;
+  }
+
+  function openFileFinder(initialPattern) {
     const dialog = document.getElementById("file-finder-dialog");
     if (!dialog) return false;
+
+    const isEventObject = initialPattern && typeof initialPattern === "object" && typeof initialPattern.preventDefault === "function";
+    const pattern = isEventObject ? "" : String(initialPattern || "");
+
     dialog.style.display = "flex";
     const input = document.getElementById("file-finder-input");
     if (input) {
-      input.value = "";
+      input.value = pattern;
       input.focus();
+      if (pattern) input.select();
     }
+
     if (!fileFinderLoaded) {
-      loadFileList("");
+      loadFileList(pattern);
     } else {
-      renderResults(allFiles);
+      filterResults(pattern);
     }
+
     return true;
   }
 
@@ -179,10 +220,26 @@
   }
 
   function filterResults(pattern) {
-    const pat = (pattern || "").toLowerCase().trim();
-    filteredFiles = pat
-      ? allFiles.filter(function (f) { return f.path.toLowerCase().includes(pat); })
-      : allFiles.slice();
+    const pat = String(pattern || "").trim();
+    if (!pat) {
+      filteredFiles = allFiles.slice();
+    } else {
+      filteredFiles = allFiles
+        .map(function (f) {
+          return { file: f, score: matchScore(f, pat) };
+        })
+        .filter(function (entry) {
+          return Number.isFinite(entry.score);
+        })
+        .sort(function (a, b) {
+          if (a.score !== b.score) return a.score - b.score;
+          return String(a.file.path).localeCompare(String(b.file.path));
+        })
+        .map(function (entry) {
+          return entry.file;
+        });
+    }
+
     selectedResultIndex = 0;
     renderResults(filteredFiles);
   }

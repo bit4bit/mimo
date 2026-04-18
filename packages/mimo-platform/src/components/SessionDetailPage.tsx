@@ -711,6 +711,24 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           white-space: pre-wrap;
           word-break: break-word;
         }
+        .chat-file-ref {
+          background: transparent;
+          border: 1px solid #4f667f;
+          border-radius: 3px;
+          color: #9ecbff;
+          cursor: pointer;
+          font: inherit;
+          line-height: inherit;
+          margin: 0;
+          padding: 0 4px;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+        .chat-file-ref:hover {
+          background: #263242;
+          color: #cfe5ff;
+          border-color: #6d8cae;
+        }
         /* Chat threads styles */
         .chat-threads-container {
           display: flex;
