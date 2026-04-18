@@ -1495,10 +1495,11 @@ function insertThoughtSection() {
 // DOM: Update thought content
 function updateThoughtContent(text) {
   if (!ChatState.streaming.thoughtElement) return;
+  const shouldAutoFollow = isNearBottom(document.querySelector("#chat-messages"));
   const contentDiv =
     ChatState.streaming.thoughtElement.querySelector(".message-content");
   contentDiv.textContent += text;
-  scrollToBottom();
+  scrollToBottom({ force: false, wasNearBottom: shouldAutoFollow });
 }
 
 // DOM: Finalize thought section
@@ -1512,6 +1513,7 @@ function finalizeThoughtSection() {
 // DOM: Update message content
 function updateMessageContent(text) {
   if (!ChatState.streaming.messageElement) return;
+  const shouldAutoFollow = isNearBottom(document.querySelector("#chat-messages"));
 
   let responseEl =
     ChatState.streaming.messageElement.querySelector(".message-response");
@@ -1535,7 +1537,7 @@ function updateMessageContent(text) {
   newCursor.style.animation = "blink 1s infinite";
   responseEl.appendChild(newCursor);
 
-  scrollToBottom();
+  scrollToBottom({ force: false, wasNearBottom: shouldAutoFollow });
 }
 
 // DOM: Update usage display
@@ -2076,11 +2078,27 @@ function removePermissionCard(requestId) {
 }
 
 // DOM: Scroll to bottom
-function scrollToBottom() {
+function isNearBottom(container, thresholdPx = 64) {
+  if (!container) return false;
+  const distanceFromBottom =
+    container.scrollHeight - container.clientHeight - container.scrollTop;
+  return distanceFromBottom <= thresholdPx;
+}
+
+function scrollToBottom(options) {
   const container = document.querySelector("#chat-messages");
-  if (container) {
-    container.scrollTop = container.scrollHeight;
+  if (!container) return;
+
+  const { force = true, wasNearBottom } = options || {};
+  if (!force) {
+    const shouldAutoFollow =
+      typeof wasNearBottom === "boolean"
+        ? wasNearBottom
+        : isNearBottom(container);
+    if (!shouldAutoFollow) return;
   }
+
+  container.scrollTop = container.scrollHeight;
 }
 
 function focusEditableBubbleInput() {
