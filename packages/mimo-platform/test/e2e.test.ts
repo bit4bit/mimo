@@ -193,6 +193,7 @@ describe("Integration Tests", () => {
             "sessionKeybindings:",
             '  commit: "Mod+Shift+K"',
             '  closeModal: "Escape"',
+            '  toggleRightFrame: "Alt+Shift+Control+G"',
           ].join("\n"),
         );
 
@@ -204,6 +205,9 @@ describe("Integration Tests", () => {
 
         expect(loadedConfig.sessionKeybindings?.commit).toBe("Mod+Shift+K");
         expect(loadedConfig.sessionKeybindings?.closeModal).toBe("Escape");
+        expect(loadedConfig.sessionKeybindings?.toggleRightFrame).toBe(
+          "Alt+Shift+Control+G",
+        );
       } finally {
         process.env.HOME = originalHome;
         rmSync(tempDir, { recursive: true, force: true });

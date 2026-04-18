@@ -445,16 +445,27 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 
     const body = await c.req.json();
     const frame = body.frame as "left" | "right";
-    const activeBufferId = body.activeBufferId as string;
+    const activeBufferId =
+      typeof body.activeBufferId === "string" ? body.activeBufferId : undefined;
+    const isCollapsed =
+      typeof body.isCollapsed === "boolean" ? body.isCollapsed : undefined;
 
-    if ((frame !== "left" && frame !== "right") || !activeBufferId) {
+    if (frame !== "left" && frame !== "right") {
+      return c.json({ error: "Invalid frame-state payload" }, 400);
+    }
+
+    if (frame === "left" && !activeBufferId) {
+      return c.json({ error: "Invalid frame-state payload" }, 400);
+    }
+
+    if (frame === "right" && !activeBufferId && typeof isCollapsed !== "boolean") {
       return c.json({ error: "Invalid frame-state payload" }, 400);
     }
 
     const nextState = updateFrameState(
       session.frameState,
       frame,
-      activeBufferId,
+      { activeBufferId, isCollapsed },
     );
     await sessionRepository.update(sessionId, { frameState: nextState });
 

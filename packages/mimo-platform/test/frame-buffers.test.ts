@@ -158,6 +158,10 @@ describe("Frame buffers integration", () => {
     expect(html).toContain("Mod+Shift+,");
     expect(html).toContain("Mod+Shift+.");
     expect(html).toContain("Mod+Shift+/");
+    expect(html).toContain("Alt+Shift+Control+F");
+    expect(html).toContain('id="right-frame-toggle-btn"');
+    expect(html).toContain('id="right-frame-restore-btn"');
+    expect(html).toContain('id="mcp-right-frame-toggle-btn"');
   });
 
   it("renders configured session keybindings from yaml config", async () => {
@@ -169,6 +173,7 @@ describe("Frame buffers integration", () => {
         "sessionKeybindings:",
         '  nextThread: "Mod+Shift+L"',
         '  closeModal: "Escape"',
+        '  toggleRightFrame: "Alt+Shift+Control+G"',
       ].join("\n"),
       "utf-8",
     );
@@ -190,7 +195,9 @@ describe("Frame buffers integration", () => {
     expect(html).toContain("window.MIMO_SESSION_KEYBINDINGS");
     expect(html).toContain('"nextThread":"Mod+Shift+L"');
     expect(html).toContain('"closeModal":"Escape"');
+    expect(html).toContain('"toggleRightFrame":"Alt+Shift+Control+G"');
     expect(html).toContain("Mod+Shift+L");
+    expect(html).toContain("Alt+Shift+Control+G");
   });
 
   it("persists frame-state updates per session", async () => {
@@ -210,6 +217,7 @@ describe("Frame buffers integration", () => {
     const initialJson = await initialState.json();
     expect(initialJson.leftFrame.activeBufferId).toBe("chat");
     expect(initialJson.rightFrame.activeBufferId).toBe("impact");
+    expect(initialJson.rightFrame.isCollapsed).toBe(false);
 
     const updateState = await app.request(
       `/sessions/${sessionId}/frame-state`,
@@ -237,6 +245,41 @@ describe("Frame buffers integration", () => {
     const updatedJson = await updatedState.json();
     expect(updatedJson.leftFrame.activeBufferId).toBe("chat");
     expect(updatedJson.rightFrame.activeBufferId).toBe("notes");
+    expect(updatedJson.rightFrame.isCollapsed).toBe(false);
+
+    const collapseState = await app.request(
+      `/sessions/${sessionId}/frame-state`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `token=${token}`,
+        },
+        body: JSON.stringify({ frame: "right", isCollapsed: true }),
+      },
+    );
+
+    expect(collapseState.status).toBe(200);
+    const collapseJson = await collapseState.json();
+    expect(collapseJson.rightFrame.activeBufferId).toBe("notes");
+    expect(collapseJson.rightFrame.isCollapsed).toBe(true);
+
+    const restoredState = await app.request(
+      `/sessions/${sessionId}/frame-state`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `token=${token}`,
+        },
+        body: JSON.stringify({ frame: "right", isCollapsed: false }),
+      },
+    );
+
+    expect(restoredState.status).toBe(200);
+    const restoredJson = await restoredState.json();
+    expect(restoredJson.rightFrame.activeBufferId).toBe("notes");
+    expect(restoredJson.rightFrame.isCollapsed).toBe(false);
   });
 
   it("auto-save notes endpoint persists content", async () => {

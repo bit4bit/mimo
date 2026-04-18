@@ -19,6 +19,7 @@
     previousFile: "Mod+Alt+ArrowLeft",
     nextLeftBuffer: "Alt+Shift+PageDown",
     previousLeftBuffer: "Alt+Shift+PageUp",
+    toggleRightFrame: "Alt+Shift+Control+F",
   };
 
   function getConfiguredKeybindings() {
@@ -306,6 +307,10 @@
   }
 
   function focusNotesInput(selector) {
+    if (window.MIMO_CHAT && typeof window.MIMO_CHAT.toggleRightFrameCollapse === "function") {
+      window.MIMO_CHAT.toggleRightFrameCollapse(false);
+    }
+
     const notesTab = document.querySelector(
       '.frame-tab[data-frame-id="right"][data-buffer-id="notes"]',
     );
@@ -373,6 +378,10 @@
       handled = switchLeftBuffer(1);
     } else if (bindingMatches(event, keybindings.previousLeftBuffer)) {
       handled = switchLeftBuffer(-1);
+    } else if (bindingMatches(event, keybindings.toggleRightFrame)) {
+      if (window.MIMO_CHAT && typeof window.MIMO_CHAT.toggleRightFrameCollapse === "function") {
+        handled = window.MIMO_CHAT.toggleRightFrameCollapse();
+      }
     } else if (isHelpShortcut) {
       handled = highlightShortcutsBar();
     } else if (bindingMatches(event, keybindings.nextThread)) {

@@ -28,6 +28,7 @@ MIMO session pages support browser-safe `Mod+Shift` shortcuts (`Mod = Cmd on mac
 | `Mod+Shift+,` | Project Notes | Focus the Project Notes textarea |
 | `Mod+Shift+.` | Session Notes | Focus the Session Notes textarea |
 | `Mod+Shift+/` | Shortcuts Help | Toggle the shortcuts help overlay |
+| `Alt+Shift+Control+F` | Toggle Right Frame | Collapse or restore the right frame |
 
 ## YAML Configuration
 
@@ -43,6 +44,7 @@ sessionKeybindings:
   sessionNotes: "Mod+Shift+."
   shortcutsHelp: "Mod+Shift+/"
   closeModal: "Escape"
+  toggleRightFrame: "Alt+Shift+Control+F"
 ```
 
 ## Notes

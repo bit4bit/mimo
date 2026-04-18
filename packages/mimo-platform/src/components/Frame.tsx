@@ -8,6 +8,7 @@ interface FrameProps {
   activeBufferId: string;
   onBufferSwitch?: (bufferId: string) => void;
   bufferProps?: Record<string, Partial<BufferProps>>;
+  tabBarActions?: any;
 }
 
 export const Frame: FC<FrameProps> = ({
@@ -16,6 +17,7 @@ export const Frame: FC<FrameProps> = ({
   buffers,
   activeBufferId,
   bufferProps = {},
+  tabBarActions,
 }) => {
   const resolvedActiveBufferId = buffers.some(
     (buffer) => buffer.id === activeBufferId,
@@ -40,6 +42,7 @@ export const Frame: FC<FrameProps> = ({
             </button>
           );
         })}
+        {tabBarActions && <div class="frame-tab-bar-actions">{tabBarActions}</div>}
       </div>
 
       <div class="frame-content">

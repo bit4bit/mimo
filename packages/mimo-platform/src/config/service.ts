@@ -17,6 +17,7 @@ export interface SessionKeybindingsConfig {
   previousFile?: string;
   nextLeftBuffer?: string;
   previousLeftBuffer?: string;
+  toggleRightFrame?: string;
 }
 
 export interface Config {
@@ -43,6 +44,7 @@ export const defaultSessionKeybindings: SessionKeybindingsConfig = {
   previousFile: "Mod+Alt+ArrowLeft",
   nextLeftBuffer: "Alt+Shift+PageDown",
   previousLeftBuffer: "Alt+Shift+PageUp",
+  toggleRightFrame: "Alt+Shift+Control+F",
 };
 
 export const defaultConfig: Config = {
@@ -78,6 +80,7 @@ function sanitizeSessionKeybindings(
     "previousFile",
     "nextLeftBuffer",
     "previousLeftBuffer",
+    "toggleRightFrame",
   ];
 
   for (const key of supportedKeys) {

@@ -221,7 +221,9 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           )}
         </div>
 
-        <div class="buffers-container">
+        <div
+          class={`buffers-container ${frameState.rightFrame.isCollapsed ? "right-frame-collapsed" : ""}`}
+        >
           <Frame
             frameId="left"
             sessionId={session.id}
@@ -246,6 +248,19 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             sessionId={session.id}
             buffers={rightBuffers}
             activeBufferId={frameState.rightFrame.activeBufferId}
+            tabBarActions={
+              <button
+                type="button"
+                id="right-frame-toggle-btn"
+                class="frame-tab-action"
+                title="Collapse right frame"
+                aria-label="Collapse right frame"
+                aria-expanded={frameState.rightFrame.isCollapsed ? "false" : "true"}
+                data-collapsed={frameState.rightFrame.isCollapsed ? "true" : "false"}
+              >
+                »
+              </button>
+            }
             bufferProps={{
               notes: {
                 initialContent: notesContent,
@@ -255,6 +270,17 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               "mcp-servers": { servers: mcpServers },
             }}
           />
+
+          <button
+            type="button"
+            id="right-frame-restore-btn"
+            class="right-frame-restore-handle"
+            title="Restore right frame"
+            aria-label="Restore right frame"
+            aria-expanded={frameState.rightFrame.isCollapsed ? "false" : "true"}
+          >
+            «
+          </button>
         </div>
 
         <div style="padding: 15px; border-top: 1px solid #444; display: flex; justify-content: space-between; align-items: center;">
@@ -306,6 +332,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.closeFile || "Alt+Shift+W")}</span><span class="session-shortcut-desc">Close file</span></span>
           <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.nextLeftBuffer || "Alt+Shift+PageDown")}</span><span class="session-shortcut-desc">Next buf</span></span>
           <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.previousLeftBuffer || "Alt+Shift+PageUp")}</span><span class="session-shortcut-desc">Prev buf</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.toggleRightFrame || "Alt+Shift+Control+F")}</span><span class="session-shortcut-desc">Toggle right</span></span>
         </div>
       </div>
 
@@ -496,6 +523,13 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           flex: 1;
           flex-direction: column;
         }
+        .buffers-container.right-frame-collapsed .frame-left {
+          flex: 1;
+          border-right: none;
+        }
+        .buffers-container.right-frame-collapsed .frame-right {
+          display: none;
+        }
         .frame-tab-bar {
           display: flex;
           align-items: center;
@@ -520,6 +554,45 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           background: #1a1a1a;
           color: #d4d4d4;
           border-bottom: 2px solid #74c0fc;
+        }
+        .frame-tab-bar-actions {
+          margin-left: auto;
+          display: flex;
+          align-items: center;
+          padding-right: 6px;
+        }
+        .frame-tab-action {
+          border: 1px solid #454545;
+          background: #232323;
+          color: #bdbdbd;
+          border-radius: 3px;
+          cursor: pointer;
+          font-family: monospace;
+          font-size: 11px;
+          padding: 2px 7px;
+          line-height: 1;
+        }
+        .frame-tab-action:hover {
+          background: #303030;
+          color: #dcdcdc;
+        }
+        .right-frame-restore-handle {
+          display: none;
+          border: none;
+          border-left: 1px solid #444;
+          background: #252525;
+          color: #bdbdbd;
+          width: 24px;
+          cursor: pointer;
+          font-family: monospace;
+          font-size: 12px;
+        }
+        .right-frame-restore-handle:hover {
+          background: #2f2f2f;
+          color: #dcdcdc;
+        }
+        .buffers-container.right-frame-collapsed .right-frame-restore-handle {
+          display: block;
         }
         .frame-content {
           flex: 1;
@@ -552,6 +625,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           font-size: 12px;
           text-transform: uppercase;
           color: #888;
+          display: flex;
+          align-items: center;
         }
         .buffer-content {
           flex: 1;
