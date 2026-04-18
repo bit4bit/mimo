@@ -1,4 +1,9 @@
-import { Config, defaultConfig } from "../config/service.js";
+import {
+  Config,
+  defaultConfig,
+  defaultSessionKeybindings,
+  SessionKeybindingsConfig,
+} from "../config/service.js";
 
 export interface ValidationError {
   field: string;
@@ -30,6 +35,9 @@ export class ConfigValidator {
       fontFamily: this.validateFontFamily(configObj.fontFamily),
       sharedFossilServerPort: this.validateSharedFossilServerPort(
         configObj.sharedFossilServerPort,
+      ),
+      sessionKeybindings: this.validateSessionKeybindings(
+        configObj.sessionKeybindings,
       ),
     };
 
@@ -97,6 +105,52 @@ export class ConfigValidator {
       return defaultConfig.sharedFossilServerPort!;
     }
     return portNum;
+  }
+
+  private validateSessionKeybindings(
+    keybindings: unknown,
+  ): SessionKeybindingsConfig {
+    if (keybindings === undefined) {
+      return { ...defaultSessionKeybindings };
+    }
+
+    if (!keybindings || typeof keybindings !== "object") {
+      this.errors.push({
+        field: "sessionKeybindings",
+        message: "sessionKeybindings must be an object",
+      });
+      return { ...defaultSessionKeybindings };
+    }
+
+    const raw = keybindings as Record<string, unknown>;
+    const sanitized: SessionKeybindingsConfig = { ...defaultSessionKeybindings };
+    const supportedKeys: Array<keyof SessionKeybindingsConfig> = [
+      "newThread",
+      "nextThread",
+      "previousThread",
+      "commit",
+      "projectNotes",
+      "sessionNotes",
+      "shortcutsHelp",
+      "closeModal",
+    ];
+
+    for (const key of supportedKeys) {
+      const value = raw[key];
+      if (value === undefined) {
+        continue;
+      }
+      if (typeof value !== "string" || value.trim().length === 0) {
+        this.errors.push({
+          field: `sessionKeybindings.${key}`,
+          message: `${key} must be a non-empty string`,
+        });
+        continue;
+      }
+      sanitized[key] = value.trim();
+    }
+
+    return sanitized;
   }
 }
 

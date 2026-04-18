@@ -29,6 +29,23 @@ MIMO session pages support browser-safe `Mod+Shift` shortcuts (`Mod = Cmd on mac
 | `Mod+Shift+.` | Session Notes | Focus the Session Notes textarea |
 | `Mod+Shift+/` | Shortcuts Help | Toggle the shortcuts help overlay |
 
+## YAML Configuration
+
+You can customize session shortcuts in `~/.mimo/config.yaml`:
+
+```yaml
+sessionKeybindings:
+  newThread: "Mod+Shift+N"
+  nextThread: "Mod+Shift+ArrowRight"
+  previousThread: "Mod+Shift+ArrowLeft"
+  commit: "Mod+Shift+M"
+  projectNotes: "Mod+Shift+,"
+  sessionNotes: "Mod+Shift+."
+  shortcutsHelp: "Mod+Shift+/"
+  closeModal: "Escape"
+```
+
 ## Notes
 
-- While typing in notes inputs, session shortcuts are ignored except `Mod+Shift+/` for help.
+- Session shortcuts are active even while focus is inside text inputs and editable chat content.
+- When the commit dialog is open, `closeModal` (default: `Escape`) closes it.

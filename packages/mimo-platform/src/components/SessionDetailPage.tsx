@@ -8,6 +8,7 @@ import {
 import type { FrameState } from "../sessions/frame-state.js";
 import type { McpServer } from "../mcp-servers/types.js";
 import type { ChatThread } from "../sessions/repository.js";
+import type { SessionKeybindingsConfig } from "../config/service.js";
 
 interface Project {
   id: string;
@@ -72,6 +73,7 @@ interface SessionDetailProps {
   // Chat threads data
   chatThreads?: ChatThread[];
   activeChatThreadId?: string | null;
+  sessionKeybindings?: SessionKeybindingsConfig;
 }
 
 export const SessionDetailPage: FC<SessionDetailProps> = ({
@@ -91,6 +93,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   streamingTimeoutMs,
   chatThreads = [],
   activeChatThreadId,
+  sessionKeybindings,
 }) => {
   ensureDefaultBuffersRegistered();
   const leftBuffers = getBuffersForFrame("left");
@@ -102,6 +105,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       showStatusLine={true}
       sessionId={session.id}
       streamingTimeoutMs={streamingTimeoutMs}
+      sessionKeybindings={sessionKeybindings}
     >
       <div class="session-container">
         <div class="session-header-bar">
@@ -189,14 +193,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             <button type="button" id="sync-now-btn" class="btn-secondary">
               Sync Now
             </button>
-            <button
-              type="button"
-              id="session-shortcuts-help-btn"
-              class="btn-secondary"
-              title="Keyboard shortcuts (Mod+Shift+/)"
-            >
-              Shortcuts
-            </button>
             <a
               href={`/projects/${project.id}/sessions/${session.id}/settings`}
               class="btn-secondary"
@@ -222,6 +218,16 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               Delete Session
             </button>
           </form>
+        </div>
+
+        <div id="session-shortcuts-bar" class="session-shortcuts-bar" aria-label="Session keyboard shortcuts">
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.newThread || "Mod+Shift+N"}</span><span class="session-shortcut-desc">New thread</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.nextThread || "Mod+Shift+ArrowRight"}</span><span class="session-shortcut-desc">Next thread</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.previousThread || "Mod+Shift+ArrowLeft"}</span><span class="session-shortcut-desc">Previous thread</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.commit || "Mod+Shift+M"}</span><span class="session-shortcut-desc">Commit</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.projectNotes || "Mod+Shift+,"}</span><span class="session-shortcut-desc">Project notes</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.sessionNotes || "Mod+Shift+."}</span><span class="session-shortcut-desc">Session notes</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.shortcutsHelp || "Mod+Shift+/"}</span><span class="session-shortcut-desc">Highlight shortcuts bar</span></span>
         </div>
       </div>
 
@@ -266,26 +272,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           <div class="commit-actions">
             <button type="button" id="commit-cancel" class="btn-secondary">Cancel</button>
             <button type="button" id="commit-confirm" class="btn-primary" disabled>Commit &amp; Push</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="session-shortcuts-hint" class="session-shortcuts-hint" style="display: none;"></div>
-
-      <div id="session-shortcuts-help" class="modal" style="display: none;" aria-hidden="true">
-        <div class="modal-content shortcuts-modal" role="dialog" aria-label="Keyboard shortcuts">
-          <h3 style="margin: 0 0 12px 0; font-size: 16px;">Session Keyboard Shortcuts</h3>
-          <div class="shortcuts-grid">
-            <div class="shortcut-row"><span class="shortcut-key">Mod+Shift+N</span><span class="shortcut-desc">Create new thread</span></div>
-            <div class="shortcut-row"><span class="shortcut-key">Mod+Shift+ArrowRight</span><span class="shortcut-desc">Next thread</span></div>
-            <div class="shortcut-row"><span class="shortcut-key">Mod+Shift+ArrowLeft</span><span class="shortcut-desc">Previous thread</span></div>
-            <div class="shortcut-row"><span class="shortcut-key">Mod+Shift+M</span><span class="shortcut-desc">Open commit dialog</span></div>
-            <div class="shortcut-row"><span class="shortcut-key">Mod+Shift+,</span><span class="shortcut-desc">Focus Project Notes</span></div>
-            <div class="shortcut-row"><span class="shortcut-key">Mod+Shift+.</span><span class="shortcut-desc">Focus Session Notes</span></div>
-            <div class="shortcut-row"><span class="shortcut-key">Mod+Shift+/</span><span class="shortcut-desc">Toggle shortcuts help</span></div>
-          </div>
-          <div class="commit-actions" style="margin-top: 16px;">
-            <button type="button" id="session-shortcuts-close" class="btn-secondary">Close</button>
           </div>
         </div>
       </div>
@@ -609,55 +595,43 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           flex-direction: column;
           border-radius: 0;
         }
-        .shortcuts-modal {
-          max-width: 620px;
-        }
-        .shortcuts-grid {
-          display: grid;
-          gap: 8px;
-        }
-        .shortcut-row {
-          display: grid;
-          grid-template-columns: 220px 1fr;
+        .session-shortcuts-bar {
+          display: flex;
+          gap: 6px;
           align-items: center;
-          gap: 10px;
-          border: 1px solid #3a3a3a;
-          border-radius: 4px;
-          background: #232323;
-          padding: 8px 10px;
-        }
-        .shortcut-key {
-          color: #74c0fc;
-          font-weight: bold;
-          font-size: 12px;
+          padding: 7px 10px;
+          border-top: 1px solid #393939;
+          background: #202020;
+          overflow-x: auto;
           white-space: nowrap;
+          scrollbar-width: thin;
         }
-        .shortcut-desc {
-          color: #d4d4d4;
-          font-size: 12px;
+        .session-shortcuts-bar.is-pulsing {
+          border-top-color: #74c0fc;
+          box-shadow: inset 0 1px 0 #74c0fc;
         }
-        .session-shortcuts-hint {
-          position: fixed;
-          right: 18px;
-          bottom: 18px;
-          z-index: 1300;
-          background: #2b2b2b;
-          border: 1px solid #4a4a4a;
-          border-radius: 4px;
-          color: #d4d4d4;
-          font-size: 12px;
-          padding: 8px 10px;
-          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-          max-width: 320px;
+        .session-shortcut-item {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          border: 1px solid #3a3a3a;
+          border-radius: 999px;
+          background: #272727;
+          padding: 3px 8px;
+          flex: 0 0 auto;
+        }
+        .session-shortcut-key {
+          color: #74c0fc;
+          font-size: 10.5px;
+          font-weight: bold;
+        }
+        .session-shortcut-desc {
+          color: #bdbdbd;
+          font-size: 10.5px;
         }
         @media (max-width: 768px) {
-          .shortcut-row {
-            grid-template-columns: 1fr;
-          }
-          .session-shortcuts-hint {
-            right: 10px;
-            left: 10px;
-            max-width: none;
+          .session-shortcuts-bar {
+            padding: 7px;
           }
         }
         .commit-preview-container {
