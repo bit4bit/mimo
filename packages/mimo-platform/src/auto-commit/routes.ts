@@ -96,7 +96,16 @@ export async function syncSessionViaAssignedAgent(
     };
   }
 
-  if (!session.assignedAgentId) {
+  // Get assigned agent from session (backward compatibility) or active chat thread
+  let assignedAgentId: string | null | undefined = session.assignedAgentId;
+  if (!assignedAgentId && session.chatThreads?.length > 0) {
+    const activeThread = session.activeChatThreadId
+      ? session.chatThreads.find((t) => t.id === session.activeChatThreadId)
+      : session.chatThreads[0];
+    assignedAgentId = activeThread?.assignedAgentId;
+  }
+
+  if (!assignedAgentId) {
     return {
       success: false,
       message: "No agent assigned to this session",
@@ -106,9 +115,7 @@ export async function syncSessionViaAssignedAgent(
     };
   }
 
-  const agentWs = context.agentService.getAgentConnection(
-    session.assignedAgentId,
-  );
+  const agentWs = context.agentService.getAgentConnection(assignedAgentId);
   if (!agentWs || agentWs.readyState !== 1) {
     return {
       success: false,
