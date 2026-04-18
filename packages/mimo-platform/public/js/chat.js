@@ -1395,6 +1395,55 @@ function removeEditableBubble() {
   }
 }
 
+// DOM: Get editable bubble content
+function getEditableBubbleContent() {
+  if (!ChatState.editableBubble) return "";
+  const content = ChatState.editableBubble.querySelector(".message-content");
+  return content ? content.innerText : "";
+}
+
+// DOM: Insert editable bubble with pre-filled content
+function insertEditableBubbleWithContent(prefilledContent) {
+  const container = document.querySelector("#chat-messages");
+  if (!container || ChatState.editableBubble) return;
+
+  const bubble = renderEditableBubble();
+  const content = bubble.querySelector(".message-content");
+  const sendBtn = bubble.querySelector(".editable-send-btn");
+
+  // Event handlers
+  sendBtn.addEventListener("click", submitEditableBubble);
+  content.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.ctrlKey) {
+      e.preventDefault();
+      submitEditableBubble();
+    }
+  });
+  content.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData("text/plain");
+    document.execCommand("insertText", false, text);
+  });
+
+  // Set pre-filled content
+  if (prefilledContent) {
+    content.textContent = prefilledContent;
+  }
+
+  container.appendChild(bubble);
+  content.focus();
+  // Place cursor at end of content
+  if (window.getSelection && document.createRange) {
+    const range = document.createRange();
+    range.selectNodeContents(content);
+    range.collapse(false);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+  ChatState.editableBubble = bubble;
+}
+
 // DOM: Submit editable bubble
 function submitEditableBubble() {
   if (!ChatState.editableBubble) return;
@@ -2357,6 +2406,8 @@ window.MIMO_CHAT = {
   prepareThreadSwitch,
   clearSession,
   toggleRightFrameCollapse,
+  getEditableBubbleContent,
+  insertEditableBubbleWithContent,
   send: (msg) => {
     if (ChatState.socket?.readyState === WebSocket.OPEN) {
       ChatState.socket.send(

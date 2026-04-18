@@ -13,6 +13,8 @@ const ChatThreadsState = {
   threads: [],
   activeThreadId: null,
   isLoading: false,
+  threadInputs: {}, // Per-thread unsent input content
+  threadScroll: {}, // Per-thread scroll position
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -158,6 +160,13 @@ function getActiveThread() {
 }
 
 function switchToThread(threadId) {
+  const previousThreadId = ChatThreadsState.activeThreadId;
+
+  // Save current thread's state before switching
+  if (previousThreadId && previousThreadId !== threadId) {
+    saveCurrentThreadState(previousThreadId);
+  }
+
   // Update UI immediately for responsiveness
   ChatThreadsState.activeThreadId = threadId;
   updateThreadTabsUI();
@@ -200,12 +209,95 @@ function switchToThread(threadId) {
         );
       }
 
-      // Re-initialize editable bubble
+      // Clear editable bubble (will be restored after history loads if content exists)
       if (typeof removeEditableBubble === "function") {
         removeEditableBubble();
       }
+
+      // Restore thread state after history loads
+      // We use a MutationObserver to detect when history is loaded
+      restoreThreadStateAfterLoad(threadId);
     }
   });
+}
+
+// Save current thread's input and scroll state
+function saveCurrentThreadState(threadId) {
+  const container = document.querySelector("#chat-messages");
+  if (!container) return;
+
+  // Save scroll position
+  ChatThreadsState.threadScroll[threadId] = container.scrollTop;
+
+  // Save editable bubble content if exists
+  if (typeof window.MIMO_CHAT?.getEditableBubbleContent === "function") {
+    const content = window.MIMO_CHAT.getEditableBubbleContent();
+    if (content && content.trim()) {
+      ChatThreadsState.threadInputs[threadId] = content;
+    } else {
+      delete ChatThreadsState.threadInputs[threadId];
+    }
+  }
+}
+
+// Restore thread state after history is loaded
+function restoreThreadStateAfterLoad(threadId) {
+  const container = document.querySelector("#chat-messages");
+  if (!container) return;
+
+  // Use MutationObserver to wait for history to be loaded
+  const observer = new MutationObserver((mutations, obs) => {
+    // Check if content has been loaded (has children other than placeholder)
+    if (container.children.length > 0) {
+      obs.disconnect();
+
+      // Restore scroll position
+      if (ChatThreadsState.threadScroll.hasOwnProperty(threadId)) {
+        container.scrollTop = ChatThreadsState.threadScroll[threadId];
+        delete ChatThreadsState.threadScroll[threadId];
+      }
+
+      // Restore input content
+      if (
+        ChatThreadsState.threadInputs.hasOwnProperty(threadId) &&
+        typeof window.MIMO_CHAT?.insertEditableBubbleWithContent === "function"
+      ) {
+        const savedContent = ChatThreadsState.threadInputs[threadId];
+        if (savedContent && savedContent.trim()) {
+          // Remove any existing empty editable bubble first
+          if (typeof removeEditableBubble === "function") {
+            removeEditableBubble();
+          }
+          window.MIMO_CHAT.insertEditableBubbleWithContent(savedContent);
+        }
+        delete ChatThreadsState.threadInputs[threadId];
+      }
+    }
+  });
+
+  // Observe for changes
+  observer.observe(container, { childList: true });
+
+  // Fallback: if no content loads within 2 seconds, restore anyway
+  setTimeout(() => {
+    observer.disconnect();
+
+    // Check if we still need to restore input
+    if (
+      ChatThreadsState.threadInputs.hasOwnProperty(threadId) &&
+      typeof window.MIMO_CHAT?.insertEditableBubbleWithContent === "function"
+    ) {
+      const savedContent = ChatThreadsState.threadInputs[threadId];
+      if (savedContent && savedContent.trim()) {
+        // Remove any existing empty editable bubble first
+        if (typeof removeEditableBubble === "function") {
+          removeEditableBubble();
+        }
+        window.MIMO_CHAT.insertEditableBubbleWithContent(savedContent);
+      }
+      delete ChatThreadsState.threadInputs[threadId];
+    }
+  }, 2000);
 }
 
 function updateThreadTabsUI() {
