@@ -105,11 +105,66 @@ const fileWatchSessions = new Map<string, Set<any>>();
 // Track streaming message and thought buffers per session
 const streamingBuffers = new Map<string, string>();
 const thoughtBuffers = new Map<string, string>();
+const toolCallBuffers = new Map<string, Map<string, any>>();
 const messageStartTimes = new Map<string, number>();
 const autoSyncInFlight = new Set<string>();
 
 function streamKey(sessionId: string, chatThreadId?: string): string {
   return `${sessionId}:${chatThreadId || "__no-thread__"}`;
+}
+
+function generateToolCallsHtml(toolCallsMap: Map<string, any>): string {
+  const iconMap: Record<string, string> = {
+    read: "📁",
+    file: "📁",
+    edit: "📝",
+    write: "📝",
+    bash: "⚡",
+    shell: "⚡",
+    cmd: "⚡",
+    search: "🔍",
+    grep: "🔍",
+    glob: "🔎",
+    find: "🔎",
+  };
+
+  const statusIconMap: Record<string, string> = {
+    pending: "⏳",
+    in_progress: "🔄",
+    completed: "✓",
+    failed: "✗",
+  };
+
+  function getInputPreview(input: unknown): string {
+    if (!input) return "";
+    try {
+      const parsed = typeof input === "string" ? JSON.parse(input) : input;
+      if (parsed && typeof parsed === "object") {
+        if (parsed.path) return String(parsed.path);
+        if (parsed.command) return String(parsed.command);
+        if (parsed.query) return String(parsed.query);
+        if (parsed.filePath) return String(parsed.filePath);
+        if (parsed.pattern) return String(parsed.pattern);
+      }
+      if (typeof parsed === "string") return parsed.slice(0, 60);
+    } catch {
+      if (typeof input === "string") return input.slice(0, 60);
+    }
+    return "";
+  }
+
+  const toolRows: string[] = [];
+  for (const [, toolCall] of toolCallsMap) {
+    const icon = iconMap[toolCall.toolKind] || "🔧";
+    const statusIcon = statusIconMap[toolCall.toolStatus] || "⏳";
+    const inputPreview = getInputPreview(toolCall.toolInput);
+    const titleHtml = inputPreview
+      ? `${toolCall.toolTitle} ${inputPreview}`
+      : toolCall.toolTitle;
+    toolRows.push(`<tool>${icon} ${titleHtml} ${statusIcon}</tool>`);
+  }
+
+  return toolRows.join("\n");
 }
 
 // Track pending permission requests: requestId → { agentWs, sessionId }
@@ -920,7 +975,23 @@ async function handleAgentMessage(ws, data) {
 
           // Prepend thoughts if present
           if (thoughtContent) {
-            fullContent = `<details><summary>Thought Process</summary>${thoughtContent}</details>\n\n${fullContent}`;
+            // Append tool calls inside thought section as structured data
+            const toolCallsMap = toolCallBuffers.get(usageStreamKey);
+            let toolsData = "";
+            if (toolCallsMap && toolCallsMap.size > 0) {
+              const tools: any[] = [];
+              for (const [, toolCall] of toolCallsMap) {
+                tools.push({
+                  title: toolCall.toolTitle,
+                  kind: toolCall.toolKind,
+                  status: toolCall.toolStatus,
+                  input: toolCall.toolInput,
+                });
+              }
+              toolsData = "\n<tools>" + JSON.stringify(tools) + "</tools>";
+              toolCallBuffers.delete(usageStreamKey);
+            }
+            fullContent = `<details><summary>Thought Process</summary>${thoughtContent}${toolsData}</details>\n\n${fullContent}`;
             thoughtBuffers.delete(usageStreamKey);
           }
 
@@ -962,6 +1033,97 @@ async function handleAgentMessage(ws, data) {
         }
 
         void triggerAutoSync(usageSessionId, "usage_update");
+      }
+      break;
+
+    case "tool_call":
+      {
+        const toolSessionId = data.sessionId;
+        const toolThreadId = data.chatThreadId;
+        if (!toolSessionId) {
+          logger.debug("No sessionId in tool_call");
+          return;
+        }
+
+        mimoContext.services.chat.updateAgentActivity(toolSessionId);
+
+        // Track tool call in buffer
+        const toolStreamKey = streamKey(toolSessionId, toolThreadId);
+        if (!toolCallBuffers.has(toolStreamKey)) {
+          toolCallBuffers.set(toolStreamKey, new Map());
+        }
+        toolCallBuffers.get(toolStreamKey)!.set(data.toolCallId, {
+          toolCallId: data.toolCallId,
+          toolTitle: data.toolTitle,
+          toolKind: data.toolKind,
+          toolInput: data.toolInput,
+          toolStatus: data.toolStatus,
+          timestamp: data.timestamp,
+        });
+
+        // Forward to clients
+        const toolSubscribers = chatSessions.get(toolSessionId);
+        if (toolSubscribers) {
+          toolSubscribers.forEach((client) => {
+            if (client.readyState === 1) {
+              client.send(
+                JSON.stringify({
+                  type: data.type,
+                  chatThreadId: toolThreadId,
+                  toolCallId: data.toolCallId,
+                  toolTitle: data.toolTitle,
+                  toolKind: data.toolKind,
+                  toolInput: data.toolInput,
+                  toolStatus: data.toolStatus,
+                  timestamp: new Date().toISOString(),
+                }),
+              );
+            }
+          });
+        }
+      }
+      break;
+
+    case "tool_call_update":
+      {
+        const updateSessionId = data.sessionId;
+        const updateThreadId = data.chatThreadId;
+        if (!updateSessionId) {
+          logger.debug("No sessionId in tool_call_update");
+          return;
+        }
+
+        mimoContext.services.chat.updateAgentActivity(updateSessionId);
+
+        // Update tool call in buffer
+        const updateStreamKey = streamKey(updateSessionId, updateThreadId);
+        const toolCallsMap = toolCallBuffers.get(updateStreamKey);
+        if (toolCallsMap && toolCallsMap.has(data.toolCallId)) {
+          const toolCall = toolCallsMap.get(data.toolCallId)!;
+          toolCall.toolStatus = data.toolStatus;
+          if (data.toolOutput) {
+            toolCall.toolOutput = data.toolOutput;
+          }
+          toolCall.timestamp = data.timestamp;
+        }
+
+        const updateSubscribers = chatSessions.get(updateSessionId);
+        if (updateSubscribers) {
+          updateSubscribers.forEach((client) => {
+            if (client.readyState === 1) {
+              client.send(
+                JSON.stringify({
+                  type: data.type,
+                  chatThreadId: updateThreadId,
+                  toolCallId: data.toolCallId,
+                  toolStatus: data.toolStatus,
+                  toolOutput: data.toolOutput,
+                  timestamp: new Date().toISOString(),
+                }),
+              );
+            }
+          });
+        }
       }
       break;
 

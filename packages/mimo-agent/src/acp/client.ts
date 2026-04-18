@@ -8,6 +8,25 @@ export interface AcpClientCallbacks {
   onMessageChunk: (sessionId: string, content: string) => void;
   onUsageUpdate: (sessionId: string, usage: any) => void;
   onGenericUpdate: (sessionId: string, content: string) => void;
+  onToolCall: (
+    sessionId: string,
+    tool: {
+      toolCallId: string;
+      title: string;
+      kind?: string;
+      rawInput?: unknown;
+      status: string;
+    },
+  ) => void;
+  onToolCallUpdate: (
+    sessionId: string,
+    update: {
+      toolCallId: string;
+      status?: string;
+      rawOutput?: unknown;
+      content?: unknown[];
+    },
+  ) => void;
   onPermissionRequest: (
     sessionId: string,
     requestId: string,
@@ -249,6 +268,25 @@ export class AcpClient {
           cost: update.cost || {},
           size: update.size,
           used: update.used,
+        });
+        break;
+
+      case "tool_call":
+        this.callbacks.onToolCall(this.sessionId, {
+          toolCallId: update.toolCallId,
+          title: update.title,
+          kind: update.kind,
+          rawInput: update.rawInput,
+          status: update.status || "pending",
+        });
+        break;
+
+      case "tool_call_update":
+        this.callbacks.onToolCallUpdate(this.sessionId, {
+          toolCallId: update.toolCallId,
+          status: update.status,
+          rawOutput: update.rawOutput,
+          content: update.content,
         });
         break;
 
