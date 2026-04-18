@@ -267,7 +267,14 @@ function updateThreadTabsUI() {
   });
 }
 
-function updateThreadContextUI() {
+function ensureValueInOptions(options, value) {
+  if (!value) return options;
+  if (options.some((option) => option.value === value)) return options;
+
+  return options.concat([{ value, name: value }]);
+}
+
+async function updateThreadContextUI() {
   const container = document.querySelector(".chat-thread-context");
   if (!container) return;
 
@@ -278,9 +285,31 @@ function updateThreadContextUI() {
     return;
   }
 
-  // Re-render the context bar
-  const models = window.MIMO_CHAT_MODELS || [];
-  const modes = window.MIMO_CHAT_MODES || [];
+  const renderThreadId = activeThread.id;
+  let models = [];
+  let modes = [];
+
+  if (activeThread.assignedAgentId) {
+    const capabilities = await fetchAgentCapabilities(
+      activeThread.assignedAgentId,
+    );
+    if (getActiveThread()?.id !== renderThreadId) {
+      return;
+    }
+
+    models = normalizeCapabilitiesOptions(capabilities?.availableModels);
+    modes = normalizeCapabilitiesOptions(capabilities?.availableModes);
+  }
+
+  if (models.length === 0) {
+    models = normalizeCapabilitiesOptions(window.MIMO_CHAT_MODELS || []);
+  }
+  if (modes.length === 0) {
+    modes = normalizeCapabilitiesOptions(window.MIMO_CHAT_MODES || []);
+  }
+
+  models = ensureValueInOptions(models, activeThread.model);
+  modes = ensureValueInOptions(modes, activeThread.mode);
 
   let html = `
     <div style="font-size: 12px; color: #888; white-space: nowrap;">
