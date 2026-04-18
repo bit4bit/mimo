@@ -342,13 +342,14 @@ export class VCS {
     fossilPath: string,
     name: string,
   ): Promise<VCSResult> {
+    // project-name is not a regular setting, must use SQL to set it
+    const escapedName = name.replace(/'/g, "''");
     const result = await this.execCommand([
       "fossil",
-      "settings",
-      "project-name",
-      name,
+      "sql",
       "-R",
       fossilPath,
+      `INSERT OR REPLACE INTO config(name, value, mtime) VALUES('project-name', '${escapedName}', unixepoch())`,
     ]);
     return {
       success: result.success,
