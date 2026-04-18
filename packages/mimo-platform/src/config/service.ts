@@ -11,6 +11,12 @@ export interface SessionKeybindingsConfig {
   sessionNotes?: string;
   shortcutsHelp?: string;
   closeModal?: string;
+  openFileFinder?: string;
+  closeFile?: string;
+  nextFile?: string;
+  previousFile?: string;
+  nextLeftBuffer?: string;
+  previousLeftBuffer?: string;
 }
 
 export interface Config {
@@ -31,6 +37,12 @@ export const defaultSessionKeybindings: SessionKeybindingsConfig = {
   sessionNotes: "Mod+Shift+.",
   shortcutsHelp: "Mod+Shift+/",
   closeModal: "Escape",
+  openFileFinder: "Mod+Shift+F",
+  closeFile: "Alt+Shift+W",
+  nextFile: "Mod+Alt+ArrowRight",
+  previousFile: "Mod+Alt+ArrowLeft",
+  nextLeftBuffer: "Alt+Shift+PageDown",
+  previousLeftBuffer: "Alt+Shift+PageUp",
 };
 
 export const defaultConfig: Config = {
@@ -60,6 +72,12 @@ function sanitizeSessionKeybindings(
     "sessionNotes",
     "shortcutsHelp",
     "closeModal",
+    "openFileFinder",
+    "closeFile",
+    "nextFile",
+    "previousFile",
+    "nextLeftBuffer",
+    "previousLeftBuffer",
   ];
 
   for (const key of supportedKeys) {

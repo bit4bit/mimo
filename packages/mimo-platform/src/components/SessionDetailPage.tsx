@@ -9,6 +9,7 @@ import type { FrameState } from "../sessions/frame-state.js";
 import type { McpServer } from "../mcp-servers/types.js";
 import type { ChatThread } from "../sessions/repository.js";
 import type { SessionKeybindingsConfig } from "../config/service.js";
+import { FileFinderDialog } from "./FileFinderDialog.js";
 
 interface Project {
   id: string;
@@ -74,6 +75,62 @@ interface SessionDetailProps {
   chatThreads?: ChatThread[];
   activeChatThreadId?: string | null;
   sessionKeybindings?: SessionKeybindingsConfig;
+  agentWorkspacePath?: string;
+}
+
+function toEmacsNotation(binding: string): string {
+  const modMap: Record<string, string> = {
+    mod: "C",
+    ctrl: "C",
+    control: "C",
+    meta: "M",
+    cmd: "M",
+    command: "M",
+    alt: "M",
+    option: "M",
+    shift: "S",
+  };
+  const keyMap: Record<string, string> = {
+    arrowright: "<right>",
+    arrowleft: "<left>",
+    arrowup: "<up>",
+    arrowdown: "<down>",
+    pagedown: "<next>",
+    pageup: "<prior>",
+    escape: "ESC",
+    esc: "ESC",
+    enter: "RET",
+    return: "RET",
+    backspace: "DEL",
+    delete: "<del>",
+    tab: "TAB",
+    space: "SPC",
+  };
+
+  const parts = binding.split("+").map((p) => p.trim());
+  const modifiers: string[] = [];
+  let key = "";
+
+  for (const part of parts) {
+    const lower = part.toLowerCase();
+    if (modMap[lower] !== undefined) {
+      modifiers.push(modMap[lower]);
+    } else {
+      const mapped = keyMap[lower];
+      if (mapped) {
+        key = mapped;
+      } else if (part.length === 1) {
+        key = part.toLowerCase();
+      } else {
+        key = part;
+      }
+    }
+  }
+
+  const order = ["C", "M", "S"];
+  modifiers.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+
+  return [...modifiers, key].join("-");
 }
 
 export const SessionDetailPage: FC<SessionDetailProps> = ({
@@ -94,6 +151,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   chatThreads = [],
   activeChatThreadId,
   sessionKeybindings,
+  agentWorkspacePath = "",
 }) => {
   ensureDefaultBuffersRegistered();
   const leftBuffers = getBuffersForFrame("left");
@@ -166,6 +224,9 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 modelState,
                 modeState,
               },
+              edit: {
+                agentWorkspacePath,
+              },
             }}
           />
 
@@ -220,55 +281,25 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           </form>
         </div>
 
-        <div
-          id="session-shortcuts-bar"
-          class="session-shortcuts-bar"
-          aria-label="Session keyboard shortcuts"
-        >
-          <span class="session-shortcut-item">
-            <span class="session-shortcut-key">
-              {sessionKeybindings?.newThread || "Mod+Shift+N"}
-            </span>
-            <span class="session-shortcut-desc">New thread</span>
-          </span>
-          <span class="session-shortcut-item">
-            <span class="session-shortcut-key">
-              {sessionKeybindings?.nextThread || "Mod+Shift+ArrowRight"}
-            </span>
-            <span class="session-shortcut-desc">Next thread</span>
-          </span>
-          <span class="session-shortcut-item">
-            <span class="session-shortcut-key">
-              {sessionKeybindings?.previousThread || "Mod+Shift+ArrowLeft"}
-            </span>
-            <span class="session-shortcut-desc">Previous thread</span>
-          </span>
-          <span class="session-shortcut-item">
-            <span class="session-shortcut-key">
-              {sessionKeybindings?.commit || "Mod+Shift+M"}
-            </span>
-            <span class="session-shortcut-desc">Commit</span>
-          </span>
-          <span class="session-shortcut-item">
-            <span class="session-shortcut-key">
-              {sessionKeybindings?.projectNotes || "Mod+Shift+,"}
-            </span>
-            <span class="session-shortcut-desc">Project notes</span>
-          </span>
-          <span class="session-shortcut-item">
-            <span class="session-shortcut-key">
-              {sessionKeybindings?.sessionNotes || "Mod+Shift+."}
-            </span>
-            <span class="session-shortcut-desc">Session notes</span>
-          </span>
-          <span class="session-shortcut-item">
-            <span class="session-shortcut-key">
-              {sessionKeybindings?.shortcutsHelp || "Mod+Shift+/"}
-            </span>
-            <span class="session-shortcut-desc">Highlight shortcuts bar</span>
-          </span>
+        <div id="session-shortcuts-bar" class="session-shortcuts-bar" aria-label="Session keyboard shortcuts">
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.newThread || "Mod+Shift+N")}</span><span class="session-shortcut-desc">New thread</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.nextThread || "Mod+Shift+ArrowRight")}</span><span class="session-shortcut-desc">Next thread</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.previousThread || "Mod+Shift+ArrowLeft")}</span><span class="session-shortcut-desc">Prev thread</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.commit || "Mod+Shift+M")}</span><span class="session-shortcut-desc">Commit</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.projectNotes || "Mod+Shift+,")}</span><span class="session-shortcut-desc">Proj notes</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.sessionNotes || "Mod+Shift+.")}</span><span class="session-shortcut-desc">Sess notes</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.shortcutsHelp || "Mod+Shift+/")}</span><span class="session-shortcut-desc">Help</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.openFileFinder || "Mod+Shift+F")}</span><span class="session-shortcut-desc">Open file</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.nextFile || "Mod+Alt+ArrowRight")}</span><span class="session-shortcut-desc">Next file</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.previousFile || "Mod+Alt+ArrowLeft")}</span><span class="session-shortcut-desc">Prev file</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.closeFile || "Alt+Shift+W")}</span><span class="session-shortcut-desc">Close file</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.nextLeftBuffer || "Alt+Shift+PageDown")}</span><span class="session-shortcut-desc">Next buf</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.previousLeftBuffer || "Alt+Shift+PageUp")}</span><span class="session-shortcut-desc">Prev buf</span></span>
         </div>
       </div>
+
+      {/* File Finder Dialog */}
+      <FileFinderDialog sessionId={session.id} />
 
       {/* Commit dialog */}
       <div id="commit-dialog" class="modal" style="display: none;">
@@ -969,6 +1000,10 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         .btn-primary:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+        #edit-buffer-content .hljs {
+          background: transparent;
+          padding: 0;
         }
       `}</style>
     </Layout>
