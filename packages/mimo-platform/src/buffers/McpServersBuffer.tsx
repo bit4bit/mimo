@@ -11,7 +11,18 @@ export const McpServersBuffer: FC<McpServersBufferProps> = ({
 }) => {
   return (
     <div class="buffer" id="mcp-servers-buffer">
-      <div class="buffer-header">MCP Servers</div>
+      <div class="buffer-header">
+        <span>MCP Servers</span>
+        <button
+          type="button"
+          id="mcp-right-frame-toggle-btn"
+          class="mcp-frame-toggle"
+          title="Collapse right frame"
+          aria-label="Collapse right frame"
+        >
+          »
+        </button>
+      </div>
       <div class="buffer-content mcp-servers-content">
         {servers.length === 0 ? (
           <p class="mcp-empty">No MCP servers attached to this session.</p>
@@ -105,6 +116,22 @@ export const McpServersBuffer: FC<McpServersBufferProps> = ({
           font-size: 11px;
           color: #aaa;
           word-break: break-all;
+        }
+        .mcp-frame-toggle {
+          margin-left: auto;
+          border: 1px solid #454545;
+          background: #232323;
+          color: #bdbdbd;
+          border-radius: 3px;
+          cursor: pointer;
+          font-family: monospace;
+          font-size: 11px;
+          padding: 2px 7px;
+          line-height: 1;
+        }
+        .mcp-frame-toggle:hover {
+          background: #333;
+          border-color: #666;
         }
       `}</style>
     </div>

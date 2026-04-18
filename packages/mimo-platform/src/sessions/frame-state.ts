@@ -14,12 +14,13 @@ export interface FrameState {
   };
   rightFrame: {
     activeBufferId: string;
+    isCollapsed: boolean;
   };
 }
 
 export const DEFAULT_FRAME_STATE: FrameState = {
   leftFrame: { activeBufferId: "chat" },
-  rightFrame: { activeBufferId: "impact" },
+  rightFrame: { activeBufferId: "impact", isCollapsed: false },
 };
 
 export function createDefaultFrameState(): FrameState {
@@ -42,6 +43,10 @@ export function normalizeFrameState(
       activeBufferId:
         state?.rightFrame?.activeBufferId ||
         DEFAULT_FRAME_STATE.rightFrame.activeBufferId,
+      isCollapsed:
+        typeof state?.rightFrame?.isCollapsed === "boolean"
+          ? state.rightFrame.isCollapsed
+          : DEFAULT_FRAME_STATE.rightFrame.isCollapsed,
     },
   };
 }
@@ -49,19 +54,31 @@ export function normalizeFrameState(
 export function updateFrameState(
   current: Partial<FrameState> | null | undefined,
   frame: "left" | "right",
-  activeBufferId: string,
+  updates: { activeBufferId?: string; isCollapsed?: boolean },
 ): FrameState {
   const normalized = normalizeFrameState(current);
   if (frame === "left") {
+    if (typeof updates.activeBufferId !== "string" || !updates.activeBufferId) {
+      return normalized;
+    }
+
     return {
       ...normalized,
-      leftFrame: { activeBufferId },
+      leftFrame: { activeBufferId: updates.activeBufferId },
     };
+  }
+
+  const nextRightFrame = { ...normalized.rightFrame };
+  if (typeof updates.activeBufferId === "string" && updates.activeBufferId) {
+    nextRightFrame.activeBufferId = updates.activeBufferId;
+  }
+  if (typeof updates.isCollapsed === "boolean") {
+    nextRightFrame.isCollapsed = updates.isCollapsed;
   }
 
   return {
     ...normalized,
-    rightFrame: { activeBufferId },
+    rightFrame: nextRightFrame,
   };
 }
 

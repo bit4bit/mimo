@@ -67,6 +67,7 @@ const ChatState = {
   frames: {
     left: "chat",
     right: "impact",
+    rightCollapsed: false,
   },
 
   // Constants
@@ -532,6 +533,93 @@ async function switchFrameBuffer(frameId, bufferId) {
   } catch (error) {
     console.error("[frame] Failed to persist frame state:", error);
   }
+}
+
+function setRightFrameCollapsed(isCollapsed) {
+  const buffersContainer = document.querySelector(".buffers-container");
+  if (!buffersContainer) return false;
+
+  buffersContainer.classList.toggle("right-frame-collapsed", isCollapsed);
+
+  const toggleButton = document.querySelector("#right-frame-toggle-btn");
+  if (toggleButton) {
+    toggleButton.setAttribute("data-collapsed", isCollapsed ? "true" : "false");
+    toggleButton.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+    toggleButton.setAttribute(
+      "title",
+      isCollapsed ? "Restore right frame" : "Collapse right frame",
+    );
+    toggleButton.setAttribute(
+      "aria-label",
+      isCollapsed ? "Restore right frame" : "Collapse right frame",
+    );
+    toggleButton.textContent = isCollapsed ? "«" : "»";
+  }
+
+  const restoreButton = document.querySelector("#right-frame-restore-btn");
+  if (restoreButton) {
+    restoreButton.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+  }
+
+  ChatState.frames.rightCollapsed = isCollapsed;
+  return true;
+}
+
+function isFocusInsideRightFrame() {
+  const rightFrame = document.querySelector('.frame[data-frame-id="right"]');
+  const activeElement = document.activeElement;
+  if (!rightFrame || !activeElement) return false;
+  return rightFrame.contains(activeElement);
+}
+
+function focusSafeLeftFrameTarget() {
+  const chatInput = document.querySelector(".editable-bubble [contenteditable='true']");
+  if (chatInput && typeof chatInput.focus === "function") {
+    chatInput.focus();
+    return;
+  }
+
+  const leftActiveTab = document.querySelector(
+    '.frame-tab[data-frame-id="left"].active',
+  );
+  if (leftActiveTab && typeof leftActiveTab.focus === "function") {
+    leftActiveTab.focus();
+  }
+}
+
+async function toggleRightFrameCollapse(forcedState) {
+  const nextState =
+    typeof forcedState === "boolean"
+      ? forcedState
+      : !Boolean(ChatState.frames.rightCollapsed);
+
+  if (nextState === ChatState.frames.rightCollapsed) {
+    return true;
+  }
+
+  const shouldShiftFocus = nextState && isFocusInsideRightFrame();
+  setRightFrameCollapsed(nextState);
+
+  if (shouldShiftFocus) {
+    focusSafeLeftFrameTarget();
+  }
+
+  try {
+    await fetch(`/sessions/${ChatState.sessionId}/frame-state`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        frame: "right",
+        isCollapsed: nextState,
+      }),
+    });
+  } catch (error) {
+    console.error("[frame] Failed to persist right frame collapse state:", error);
+  }
+
+  return true;
 }
 
 // Notes handling moved to notes.js (handles both project and session notes)
@@ -2153,6 +2241,35 @@ function setupEventListeners() {
     }
   });
 
+  const buffersContainer = document.querySelector(".buffers-container");
+  if (buffersContainer) {
+    ChatState.frames.rightCollapsed = buffersContainer.classList.contains(
+      "right-frame-collapsed",
+    );
+    setRightFrameCollapsed(ChatState.frames.rightCollapsed);
+  }
+
+  const toggleRightFrameBtn = document.querySelector("#right-frame-toggle-btn");
+  if (toggleRightFrameBtn) {
+    toggleRightFrameBtn.addEventListener("click", () => {
+      toggleRightFrameCollapse();
+    });
+  }
+
+  const restoreRightFrameBtn = document.querySelector("#right-frame-restore-btn");
+  if (restoreRightFrameBtn) {
+    restoreRightFrameBtn.addEventListener("click", () => {
+      toggleRightFrameCollapse(false);
+    });
+  }
+
+  const mcpRightFrameToggleBtn = document.querySelector("#mcp-right-frame-toggle-btn");
+  if (mcpRightFrameToggleBtn) {
+    mcpRightFrameToggleBtn.addEventListener("click", () => {
+      toggleRightFrameCollapse();
+    });
+  }
+
   // Model selector
   const modelSelector = document.querySelector("#model-selector");
   if (modelSelector) {
@@ -2239,6 +2356,7 @@ window.MIMO_CHAT = {
   init: initChat,
   prepareThreadSwitch,
   clearSession,
+  toggleRightFrameCollapse,
   send: (msg) => {
     if (ChatState.socket?.readyState === WebSocket.OPEN) {
       ChatState.socket.send(

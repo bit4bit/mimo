@@ -141,6 +141,7 @@ export class ConfigValidator {
       "previousFile",
       "nextLeftBuffer",
       "previousLeftBuffer",
+      "toggleRightFrame",
     ];
 
     for (const key of supportedKeys) {
