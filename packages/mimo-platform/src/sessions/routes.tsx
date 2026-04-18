@@ -10,7 +10,6 @@ import type { Context } from "hono";
 import { normalizeFrameState, updateFrameState } from "./frame-state.js";
 import { logger } from "../logger.js";
 import type { MimoContext } from "../context/mimo-context.js";
-import { createFilesRoutes } from "../files/routes.js";
 import { createFileService } from "../files/service.js";
 
 type SessionsRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
@@ -1230,15 +1229,37 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     return c.json({ activeChatThreadId: threadId });
   });
 
-  // Files API - scoped per session, serves files from agent workspace
-  const filesRouter = createFilesRoutes({
-    fileService,
-    getWorkspacePath: async (sessionId: string) => {
-      const session = await sessionRepository.findById(sessionId);
-      return session?.agentWorkspacePath ?? null;
-    },
+  // Files API - list files in agent workspace
+  router.get("/:id/files", async (c: Context) => {
+    const sessionId = c.req.param("id");
+    const pattern = c.req.query("pattern") ?? "";
+    const session = await sessionRepository.findById(sessionId);
+    if (!session) return c.json({ error: "Session not found" }, 404);
+    const allFiles = await fileService.listFiles(session.agentWorkspacePath);
+    const { findFiles } = await import("../files/service.js");
+    return c.json(findFiles(pattern, allFiles));
   });
-  router.route("/:sessionId/files", filesRouter);
+
+  // Files API - read a single file from agent workspace
+  router.get("/:id/files/content", async (c: Context) => {
+    const sessionId = c.req.param("id");
+    const filePath = c.req.query("path");
+    if (!filePath) return c.json({ error: "path query param required" }, 400);
+    const session = await sessionRepository.findById(sessionId);
+    if (!session) return c.json({ error: "Session not found" }, 404);
+    let raw: string;
+    try {
+      raw = await fileService.readFile(session.agentWorkspacePath, filePath);
+    } catch (err: any) {
+      if (err?.message?.includes("Access denied")) return c.json({ error: "Access denied" }, 403);
+      return c.json({ error: "File not found" }, 404);
+    }
+    const { detectLanguage, escapeHtml } = await import("../files/syntax-highlighter.js");
+    const language = detectLanguage(filePath);
+    const name = filePath.split("/").pop() ?? filePath;
+    const lineCount = raw.split("\n").length;
+    return c.json({ path: filePath, name, language, lineCount, content: escapeHtml(raw) });
+  });
 
   return router;
 }
