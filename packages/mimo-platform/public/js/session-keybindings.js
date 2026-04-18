@@ -14,6 +14,7 @@
     closeModal: "Escape",
     openFileFinder: "Mod+Shift+F",
     closeFile: "Alt+Shift+W",
+    reloadFile: "Alt+Shift+R",
     nextFile: "Mod+Alt+ArrowRight",
     previousFile: "Mod+Alt+ArrowLeft",
     nextLeftBuffer: "Alt+Shift+PageDown",
@@ -35,7 +36,7 @@
     });
 
     // Edit buffer keybindings (also configurable)
-    ["openFileFinder", "closeFile", "nextFile", "previousFile"].forEach((key) => {
+    ["openFileFinder", "closeFile", "reloadFile", "nextFile", "previousFile"].forEach((key) => {
       const value = raw[key];
       if (typeof value === "string" && value.trim().length > 0) {
         configured[key] = value.trim();
@@ -366,6 +367,8 @@
       if (window.EditBuffer) handled = window.EditBuffer.switchFile("left");
     } else if (bindingMatches(event, keybindings.closeFile)) {
       if (window.EditBuffer) handled = window.EditBuffer.closeCurrentFile();
+    } else if (bindingMatches(event, keybindings.reloadFile)) {
+      if (window.EditBuffer) handled = window.EditBuffer.reloadCurrentFile();
     } else if (bindingMatches(event, keybindings.nextLeftBuffer)) {
       handled = switchLeftBuffer(1);
     } else if (bindingMatches(event, keybindings.previousLeftBuffer)) {

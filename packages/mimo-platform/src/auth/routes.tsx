@@ -72,10 +72,15 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
 
     const token = await authService.generateToken(username);
 
-    // Set cookie with token
+    // Set cookie with token and username
     c.header(
       "Set-Cookie",
       `token=${token}; HttpOnly; Path=/; Max-Age=604800; SameSite=Strict`,
+    );
+    c.header(
+      "Set-Cookie",
+      `username=${encodeURIComponent(username)}; Path=/; Max-Age=604800; SameSite=Strict`,
+      { append: true },
     );
 
     // Redirect to dashboard
@@ -87,6 +92,11 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
     c.header(
       "Set-Cookie",
       `token=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict`,
+    );
+    c.header(
+      "Set-Cookie",
+      `username=; Path=/; Max-Age=0; SameSite=Strict`,
+      { append: true },
     );
     return c.redirect("/auth/login");
   });

@@ -15,6 +15,7 @@
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
     "@types/bun": "latest",
+    "@types/chokidar": "^2.1.7",
     "@types/js-yaml": "^4.0.9",
     "prettier": "^3.8.2"
   },
@@ -23,6 +24,7 @@
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "chokidar": "^5.0.0",
     "hono": "^4.12.10",
     "jose": "^6.2.2",
     "js-yaml": "^4.1.1",

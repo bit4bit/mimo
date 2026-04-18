@@ -129,6 +129,7 @@ describe("Authentication Integration Tests", () => {
       const setCookie = res.headers.get("set-cookie");
       expect(setCookie).toContain("token=");
       expect(setCookie).toContain("HttpOnly");
+      expect(setCookie).toContain("username=logintest");
     });
 
     it("should reject invalid credentials", async () => {
@@ -202,6 +203,7 @@ describe("Authentication Integration Tests", () => {
       const setCookie = res.headers.get("set-cookie");
       expect(setCookie).toContain("token=");
       expect(setCookie).toContain("Max-Age=0");
+      expect(setCookie).toContain("username=");
     });
   });
 
