@@ -450,6 +450,22 @@
     commitError.textContent = "";
   }
 
+  function cancelCommitDialog() {
+    if (commitCancel) {
+      commitCancel.click();
+      return;
+    }
+    commitDialog.style.display = "none";
+  }
+
+  function isEscapeKey(e) {
+    return e.key === "Escape" || e.key === "Esc" || e.keyCode === 27;
+  }
+
+  function isCommitDialogOpen() {
+    return commitDialog?.style.display !== "none";
+  }
+
   // Open dialog - fetch preview
   commitBtn.addEventListener("click", async () => {
     commitDialog.style.display = "flex";
@@ -566,10 +582,36 @@
 
   // Handle Escape key
   commitDialog?.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      commitDialog.style.display = "none";
+    const isMetaShiftEnter =
+      e.metaKey &&
+      e.shiftKey &&
+      (e.key === "Enter" || e.code === "Enter" || e.code === "NumpadEnter");
+
+    if (isMetaShiftEnter) {
+      const isDialogOpen = commitDialog.style.display !== "none";
+      if (isDialogOpen && commitConfirm && !commitConfirm.disabled) {
+        e.preventDefault();
+        commitConfirm.click();
+      }
+      return;
+    }
+
+    if (isEscapeKey(e)) {
+      e.preventDefault();
+      cancelCommitDialog();
     }
   });
+
+  window.addEventListener("keydown", (e) => {
+    if (!isEscapeKey(e)) {
+      return;
+    }
+    if (!isCommitDialogOpen()) {
+      return;
+    }
+    e.preventDefault();
+    cancelCommitDialog();
+  }, true);
 
   // Close on backdrop click
   commitDialog?.addEventListener("click", (e) => {

@@ -2,13 +2,36 @@ import { readFileSync, existsSync, writeFileSync } from "fs";
 import { load, dump } from "js-yaml";
 import { logger } from "../logger.js";
 
+export interface SessionKeybindingsConfig {
+  newThread?: string;
+  nextThread?: string;
+  previousThread?: string;
+  commit?: string;
+  projectNotes?: string;
+  sessionNotes?: string;
+  shortcutsHelp?: string;
+  closeModal?: string;
+}
+
 export interface Config {
   theme?: "dark" | "light";
   fontSize?: number;
   fontFamily?: string;
   sharedFossilServerPort?: number;
   streamingTimeoutMs?: number;
+  sessionKeybindings?: SessionKeybindingsConfig;
 }
+
+export const defaultSessionKeybindings: SessionKeybindingsConfig = {
+  newThread: "Mod+Shift+N",
+  nextThread: "Mod+Shift+ArrowRight",
+  previousThread: "Mod+Shift+ArrowLeft",
+  commit: "Mod+Shift+M",
+  projectNotes: "Mod+Shift+,",
+  sessionNotes: "Mod+Shift+.",
+  shortcutsHelp: "Mod+Shift+/",
+  closeModal: "Escape",
+};
 
 export const defaultConfig: Config = {
   theme: "dark",
@@ -16,7 +39,38 @@ export const defaultConfig: Config = {
   fontFamily: "monospace",
   sharedFossilServerPort: 8000,
   streamingTimeoutMs: 600000, // 10 minutes
+  sessionKeybindings: { ...defaultSessionKeybindings },
 };
+
+function sanitizeSessionKeybindings(
+  keybindings: unknown,
+): SessionKeybindingsConfig {
+  if (!keybindings || typeof keybindings !== "object") {
+    return { ...defaultSessionKeybindings };
+  }
+
+  const raw = keybindings as Record<string, unknown>;
+  const result: SessionKeybindingsConfig = { ...defaultSessionKeybindings };
+  const supportedKeys: Array<keyof SessionKeybindingsConfig> = [
+    "newThread",
+    "nextThread",
+    "previousThread",
+    "commit",
+    "projectNotes",
+    "sessionNotes",
+    "shortcutsHelp",
+    "closeModal",
+  ];
+
+  for (const key of supportedKeys) {
+    const value = raw[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      result[key] = value.trim();
+    }
+  }
+
+  return result;
+}
 
 export class ConfigService {
   private config: Config | null = null;
@@ -65,6 +119,9 @@ export class ConfigService {
           loaded.sharedFossilServerPort ?? defaultConfig.sharedFossilServerPort,
         streamingTimeoutMs:
           loaded.streamingTimeoutMs ?? defaultConfig.streamingTimeoutMs,
+        sessionKeybindings: sanitizeSessionKeybindings(
+          loaded.sessionKeybindings,
+        ),
       };
 
       return this.config;

@@ -161,7 +161,9 @@ describe("Integration Tests", () => {
         );
 
         const { ConfigService } = await import("../src/config/service.js");
-        const isolatedConfigService = new ConfigService();
+        const isolatedConfigService = new ConfigService(
+          join(mimoDir, "config.yaml"),
+        );
         const loadedConfig = isolatedConfigService.load();
 
         expect(loadedConfig.theme).toBe("dark");
@@ -169,6 +171,39 @@ describe("Integration Tests", () => {
         expect(loadedConfig.fontSize).toBeDefined();
         expect(loadedConfig.fontSize).toBeGreaterThan(0);
         expect("keybindings" in loadedConfig).toBe(false);
+      } finally {
+        process.env.HOME = originalHome;
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it("should load session keybindings from config.yaml", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "mimo-config-test-"));
+      const originalHome = process.env.HOME;
+      process.env.HOME = tempDir;
+
+      try {
+        const mimoDir = join(tempDir, ".mimo");
+        mkdirSync(mimoDir, { recursive: true });
+        writeFileSync(
+          join(mimoDir, "config.yaml"),
+          [
+            "theme: dark",
+            "fontSize: 16",
+            "sessionKeybindings:",
+            '  commit: "Mod+Shift+K"',
+            '  closeModal: "Escape"',
+          ].join("\n"),
+        );
+
+        const { ConfigService } = await import("../src/config/service.js");
+        const isolatedConfigService = new ConfigService(
+          join(mimoDir, "config.yaml"),
+        );
+        const loadedConfig = isolatedConfigService.load();
+
+        expect(loadedConfig.sessionKeybindings?.commit).toBe("Mod+Shift+K");
+        expect(loadedConfig.sessionKeybindings?.closeModal).toBe("Escape");
       } finally {
         process.env.HOME = originalHome;
         rmSync(tempDir, { recursive: true, force: true });

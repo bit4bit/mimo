@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "bun:test";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
-import { rmSync, existsSync } from "fs";
+import { rmSync, existsSync, writeFileSync } from "fs";
 import bcrypt from "bcrypt";
 
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
@@ -124,6 +124,66 @@ describe("Frame buffers integration", () => {
     expect(html).toContain(".editable-bubble-status {");
     expect(html).toContain("padding: 1px 8px");
     expect(html).toContain("justify-content: flex-start");
+  });
+
+  it("renders session keybindings footer bar and script", async () => {
+    const { app, project, token, sessionId } = await createSessionAppAndAuth();
+
+    const res = await app.request(
+      `/projects/${project.id}/sessions/${sessionId}`,
+      {
+        method: "GET",
+        headers: {
+          Cookie: `token=${token}`,
+        },
+      },
+    );
+
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain('src="/js/session-keybindings.js"');
+    expect(html).toContain('id="session-shortcuts-bar"');
+    expect(html).not.toContain('id="session-shortcuts-help"');
+    expect(html).toContain("Mod+Shift+N");
+    expect(html).toContain("Mod+Shift+ArrowRight");
+    expect(html).toContain("Mod+Shift+ArrowLeft");
+    expect(html).toContain("Mod+Shift+M");
+    expect(html).toContain("Mod+Shift+,");
+    expect(html).toContain("Mod+Shift+.");
+    expect(html).toContain("Mod+Shift+/");
+  });
+
+  it("renders configured session keybindings from yaml config", async () => {
+    writeFileSync(
+      join(testHome, "config.yaml"),
+      [
+        "theme: dark",
+        "fontSize: 14",
+        "sessionKeybindings:",
+        '  nextThread: "Mod+Shift+L"',
+        '  closeModal: "Escape"',
+      ].join("\n"),
+      "utf-8",
+    );
+
+    const { app, project, token, sessionId } = await createSessionAppAndAuth();
+
+    const res = await app.request(
+      `/projects/${project.id}/sessions/${sessionId}`,
+      {
+        method: "GET",
+        headers: {
+          Cookie: `token=${token}`,
+        },
+      },
+    );
+
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain("window.MIMO_SESSION_KEYBINDINGS");
+    expect(html).toContain('"nextThread":"Mod+Shift+L"');
+    expect(html).toContain('"closeModal":"Escape"');
+    expect(html).toContain("Mod+Shift+L");
   });
 
   it("persists frame-state updates per session", async () => {

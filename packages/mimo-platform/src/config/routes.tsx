@@ -24,12 +24,14 @@ export function createConfigRoutes(mimoContext: MimoContext): Hono {
   // POST /config - Update config
   router.post("/", async (c: Context) => {
     const body = await c.req.parseBody();
+    const existingConfig = service.load();
 
     // Parse form data into config structure
     const newConfig = {
       theme: body.theme as "dark" | "light",
       fontSize: parseInt(body.fontSize as string, 10),
       fontFamily: body.fontFamily as string,
+      sessionKeybindings: existingConfig.sessionKeybindings,
     };
 
     // Validate the config

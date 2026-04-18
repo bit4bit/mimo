@@ -1,6 +1,6 @@
 # Keyboard Interactions
 
-MIMO uses standard browser and form keyboard behavior. Emacs-style chord keybindings are not available.
+MIMO session pages support browser-safe `Mod+Shift` shortcuts (`Mod = Cmd on macOS, Ctrl on Windows/Linux`) in addition to standard browser/form keyboard behavior.
 
 ## Navigation
 
@@ -17,7 +17,35 @@ MIMO uses standard browser and form keyboard behavior. Emacs-style chord keybind
 |-----|--------|-------------|
 | `Enter` | Send Message | Submit the chat message |
 
+## Session Shortcuts
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| `Mod+Shift+N` | New Thread | Open the create-thread dialog |
+| `Mod+Shift+ArrowRight` | Next Thread | Activate the next chat thread |
+| `Mod+Shift+ArrowLeft` | Previous Thread | Activate the previous chat thread |
+| `Mod+Shift+M` | Commit | Open the commit dialog |
+| `Mod+Shift+,` | Project Notes | Focus the Project Notes textarea |
+| `Mod+Shift+.` | Session Notes | Focus the Session Notes textarea |
+| `Mod+Shift+/` | Shortcuts Help | Toggle the shortcuts help overlay |
+
+## YAML Configuration
+
+You can customize session shortcuts in `~/.mimo/config.yaml`:
+
+```yaml
+sessionKeybindings:
+  newThread: "Mod+Shift+N"
+  nextThread: "Mod+Shift+ArrowRight"
+  previousThread: "Mod+Shift+ArrowLeft"
+  commit: "Mod+Shift+M"
+  projectNotes: "Mod+Shift+,"
+  sessionNotes: "Mod+Shift+."
+  shortcutsHelp: "Mod+Shift+/"
+  closeModal: "Escape"
+```
+
 ## Notes
 
-- Keyboard behavior follows native browser handling.
-- No custom chord system is loaded in the UI.
+- Session shortcuts are active even while focus is inside text inputs and editable chat content.
+- When the commit dialog is open, `closeModal` (default: `Escape`) closes it.

@@ -8,6 +8,7 @@ import {
 import type { FrameState } from "../sessions/frame-state.js";
 import type { McpServer } from "../mcp-servers/types.js";
 import type { ChatThread } from "../sessions/repository.js";
+import type { SessionKeybindingsConfig } from "../config/service.js";
 
 interface Project {
   id: string;
@@ -72,6 +73,7 @@ interface SessionDetailProps {
   // Chat threads data
   chatThreads?: ChatThread[];
   activeChatThreadId?: string | null;
+  sessionKeybindings?: SessionKeybindingsConfig;
 }
 
 export const SessionDetailPage: FC<SessionDetailProps> = ({
@@ -91,6 +93,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   streamingTimeoutMs,
   chatThreads = [],
   activeChatThreadId,
+  sessionKeybindings,
 }) => {
   ensureDefaultBuffersRegistered();
   const leftBuffers = getBuffersForFrame("left");
@@ -102,6 +105,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       showStatusLine={true}
       sessionId={session.id}
       streamingTimeoutMs={streamingTimeoutMs}
+      sessionKeybindings={sessionKeybindings}
     >
       <div class="session-container">
         <div class="session-header-bar">
@@ -214,6 +218,16 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               Delete Session
             </button>
           </form>
+        </div>
+
+        <div id="session-shortcuts-bar" class="session-shortcuts-bar" aria-label="Session keyboard shortcuts">
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.newThread || "Mod+Shift+N"}</span><span class="session-shortcut-desc">New thread</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.nextThread || "Mod+Shift+ArrowRight"}</span><span class="session-shortcut-desc">Next thread</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.previousThread || "Mod+Shift+ArrowLeft"}</span><span class="session-shortcut-desc">Previous thread</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.commit || "Mod+Shift+M"}</span><span class="session-shortcut-desc">Commit</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.projectNotes || "Mod+Shift+,"}</span><span class="session-shortcut-desc">Project notes</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.sessionNotes || "Mod+Shift+."}</span><span class="session-shortcut-desc">Session notes</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.shortcutsHelp || "Mod+Shift+/"}</span><span class="session-shortcut-desc">Highlight shortcuts bar</span></span>
         </div>
       </div>
 
@@ -596,6 +610,45 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           display: flex;
           flex-direction: column;
           border-radius: 0;
+        }
+        .session-shortcuts-bar {
+          display: flex;
+          gap: 6px;
+          align-items: center;
+          padding: 7px 10px;
+          border-top: 1px solid #393939;
+          background: #202020;
+          overflow-x: auto;
+          white-space: nowrap;
+          scrollbar-width: thin;
+        }
+        .session-shortcuts-bar.is-pulsing {
+          border-top-color: #74c0fc;
+          box-shadow: inset 0 1px 0 #74c0fc;
+        }
+        .session-shortcut-item {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          border: 1px solid #3a3a3a;
+          border-radius: 999px;
+          background: #272727;
+          padding: 3px 8px;
+          flex: 0 0 auto;
+        }
+        .session-shortcut-key {
+          color: #74c0fc;
+          font-size: 10.5px;
+          font-weight: bold;
+        }
+        .session-shortcut-desc {
+          color: #bdbdbd;
+          font-size: 10.5px;
+        }
+        @media (max-width: 768px) {
+          .session-shortcuts-bar {
+            padding: 7px;
+          }
         }
         .commit-preview-container {
           flex: 1;

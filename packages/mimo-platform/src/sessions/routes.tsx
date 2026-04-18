@@ -356,7 +356,9 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       results.filter((s): s is NonNullable<typeof s> => s !== null),
     );
 
-    const streamingTimeoutMs = configService.load().streamingTimeoutMs;
+    const loadedConfig = configService.load();
+    const streamingTimeoutMs = loadedConfig.streamingTimeoutMs;
+    const sessionKeybindings = loadedConfig.sessionKeybindings;
 
     return c.html(
       <SessionDetailPage
@@ -376,6 +378,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         acpStatus={session.acpStatus}
         mcpServers={mcpServers}
         streamingTimeoutMs={streamingTimeoutMs}
+        sessionKeybindings={sessionKeybindings}
         chatThreads={session.chatThreads}
         activeChatThreadId={session.activeChatThreadId}
       />,

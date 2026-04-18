@@ -1,4 +1,5 @@
 import type { FC } from "hono/jsx";
+import type { SessionKeybindingsConfig } from "../config/service.js";
 
 interface LayoutProps {
   title: string;
@@ -6,6 +7,7 @@ interface LayoutProps {
   showStatusLine?: boolean;
   sessionId?: string;
   streamingTimeoutMs?: number;
+  sessionKeybindings?: SessionKeybindingsConfig;
 }
 
 export const Layout: FC<LayoutProps> = ({
@@ -14,6 +16,7 @@ export const Layout: FC<LayoutProps> = ({
   showStatusLine = false,
   sessionId,
   streamingTimeoutMs,
+  sessionKeybindings,
 }) => {
   return (
     <html lang="en">
@@ -23,13 +26,14 @@ export const Layout: FC<LayoutProps> = ({
         <title>{title} | MIMO</title>
         <script
           dangerouslySetInnerHTML={{
-            __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};`,
+            __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};\nwindow.MIMO_SESSION_KEYBINDINGS = ${JSON.stringify(sessionKeybindings || {})};`,
           }}
         />
         {sessionId && <script src="/js/chat.js" defer></script>}
         {sessionId && <script src="/js/chat-threads.js" defer></script>}
         {sessionId && <script src="/js/commit.js" defer></script>}
         {sessionId && <script src="/js/notes.js" defer></script>}
+        {sessionId && <script src="/js/session-keybindings.js" defer></script>}
         <style>{`
            * { margin: 0; padding: 0; box-sizing: border-box; }
            html, body { 
