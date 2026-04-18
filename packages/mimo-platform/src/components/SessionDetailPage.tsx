@@ -109,7 +109,15 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
     >
       <div class="session-container">
         <div class="session-header-bar">
-          <div>
+          <a
+            href={`/projects/${project.id}/sessions`}
+            class="session-back-link-bar"
+            aria-label="Back to sessions"
+            title="Back to sessions"
+          >
+            &lt;
+          </a>
+          <div class="session-header-main">
             <h1>{session.name}</h1>
             <span style="color: #888; font-size: 12px;">
               Project: {project.name}
@@ -135,21 +143,13 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               </span>
             </span>
           </div>
-          <div style="display: flex; gap: 10px; align-items: center;">
-            {agent && (
+          {agent && (
+            <div style="display: flex; gap: 10px; align-items: center;">
               <a href={`/agents/${agent.id}`} class="btn-secondary">
                 Agent Details
               </a>
-            )}
-            {!agent && (
-              <a href="/agents/new" class="btn-primary">
-                Create Agent
-              </a>
-            )}
-            <a href={`/projects/${project.id}/sessions`} class="btn-secondary">
-              Back to Sessions
-            </a>
-          </div>
+            </div>
+          )}
         </div>
 
         <div class="buffers-container">
@@ -358,13 +358,42 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 15px 20px;
+          padding: 10px 16px;
           border-bottom: 1px solid #444;
           background: #252525;
+        }
+        .session-header-main {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          flex: 1;
+          min-width: 0;
+        }
+        .session-back-link-bar {
+          color: #9ecbff;
+          font-size: 16px;
+          text-decoration: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          align-self: stretch;
+          width: 28px;
+          border-right: 1px solid #3a3a3a;
+          margin-right: 10px;
+          line-height: 1;
+        }
+        .session-back-link-bar:hover {
+          background: #2e2e2e;
+          color: #cfe5ff;
         }
         .session-header-bar h1 {
           margin: 0;
           font-size: 18px;
+        }
+        .session-header-bar .btn-primary,
+        .session-header-bar .btn-secondary {
+          padding: 5px 10px;
+          font-size: 11px;
         }
         .buffers-container {
           display: flex;
