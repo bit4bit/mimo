@@ -1968,7 +1968,7 @@ class MimoAgent {
   private setupShutdownHandlers(): void {
     const shutdown = () => {
       logger.debug("[mimo-agent] Shutting down...");
-      this.sessionManager.terminateAll();
+      this.sessionManager.stopAllSessions();
       this.ws?.close();
       process.exit(0);
     };
