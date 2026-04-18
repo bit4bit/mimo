@@ -158,6 +158,7 @@ export class AcpClient {
       stdin: input,
       modelState: state.modelState,
       modeState: state.modeState,
+      checkoutPath: cwd,
       mcpServers,
     };
 
@@ -338,9 +339,13 @@ export class AcpClient {
     const connection = this.session.connection;
     const currentSession = this.session;
 
+    if (!currentSession.checkoutPath) {
+      throw new Error("Missing checkoutPath for clear()");
+    }
+
     // Create new session (closing old session is not supported by most providers)
     const sessionResponse = await connection.newSession({
-      cwd: this.session.checkoutPath || process.cwd(),
+      cwd: currentSession.checkoutPath,
       mcpServers: (currentSession.mcpServers as any) || [],
     });
 
