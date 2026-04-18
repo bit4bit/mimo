@@ -3,6 +3,7 @@ import { ChatThreadsBuffer } from "./ChatThreadsBuffer.js";
 import { NotesBuffer } from "./NotesBuffer.js";
 import { ImpactBuffer } from "../components/ImpactBuffer.js";
 import { McpServersBuffer } from "./McpServersBuffer.js";
+import { EditBuffer } from "./EditBuffer.js";
 
 let initialized = false;
 
@@ -39,6 +40,13 @@ export function ensureDefaultBuffersRegistered(): void {
     component: McpServersBuffer,
   });
 
+  registerBuffer({
+    id: "edit",
+    name: "Files",
+    frame: "left",
+    component: EditBuffer,
+  });
+
   initialized = true;
 }
 
@@ -46,3 +54,4 @@ export * from "./types.js";
 export * from "./registry.js";
 export * from "./ChatThreadsBuffer.js";
 export * from "./NotesBuffer.js";
+export * from "./EditBuffer.js";

@@ -29,10 +29,13 @@ export const Layout: FC<LayoutProps> = ({
             __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};\nwindow.MIMO_SESSION_KEYBINDINGS = ${JSON.stringify(sessionKeybindings || {})};`,
           }}
         />
+        {sessionId && <link rel="stylesheet" href="/vendor/highlight/atom-one-dark.min.css" />}
+        {sessionId && <script src="/vendor/highlight/highlight.min.js" defer></script>}
         {sessionId && <script src="/js/chat.js" defer></script>}
         {sessionId && <script src="/js/chat-threads.js" defer></script>}
         {sessionId && <script src="/js/commit.js" defer></script>}
         {sessionId && <script src="/js/notes.js" defer></script>}
+        {sessionId && <script src="/js/edit-buffer.js" defer></script>}
         {sessionId && <script src="/js/session-keybindings.js" defer></script>}
         <style>{`
            * { margin: 0; padding: 0; box-sizing: border-box; }

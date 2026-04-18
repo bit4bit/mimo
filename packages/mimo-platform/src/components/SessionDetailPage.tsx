@@ -9,6 +9,7 @@ import type { FrameState } from "../sessions/frame-state.js";
 import type { McpServer } from "../mcp-servers/types.js";
 import type { ChatThread } from "../sessions/repository.js";
 import type { SessionKeybindingsConfig } from "../config/service.js";
+import { FileFinderDialog } from "./FileFinderDialog.js";
 
 interface Project {
   id: string;
@@ -74,6 +75,7 @@ interface SessionDetailProps {
   chatThreads?: ChatThread[];
   activeChatThreadId?: string | null;
   sessionKeybindings?: SessionKeybindingsConfig;
+  agentWorkspacePath?: string;
 }
 
 export const SessionDetailPage: FC<SessionDetailProps> = ({
@@ -94,6 +96,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   chatThreads = [],
   activeChatThreadId,
   sessionKeybindings,
+  agentWorkspacePath = "",
 }) => {
   ensureDefaultBuffersRegistered();
   const leftBuffers = getBuffersForFrame("left");
@@ -166,6 +169,9 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 modelState,
                 modeState,
               },
+              edit: {
+                agentWorkspacePath,
+              },
             }}
           />
 
@@ -228,8 +234,15 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.projectNotes || "Mod+Shift+,"}</span><span class="session-shortcut-desc">Project notes</span></span>
           <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.sessionNotes || "Mod+Shift+."}</span><span class="session-shortcut-desc">Session notes</span></span>
           <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.shortcutsHelp || "Mod+Shift+/"}</span><span class="session-shortcut-desc">Highlight shortcuts bar</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.openFileFinder || "Mod+Shift+F"}</span><span class="session-shortcut-desc">Open file</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.nextFile || "Mod+Alt+ArrowRight"}</span><span class="session-shortcut-desc">Next file</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.previousFile || "Mod+Alt+ArrowLeft"}</span><span class="session-shortcut-desc">Previous file</span></span>
+          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.closeFile || "Mod+W"}</span><span class="session-shortcut-desc">Close file</span></span>
         </div>
       </div>
+
+      {/* File Finder Dialog */}
+      <FileFinderDialog sessionId={session.id} />
 
       {/* Commit dialog */}
       <div id="commit-dialog" class="modal" style="display: none;">

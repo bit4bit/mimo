@@ -12,6 +12,10 @@
     sessionNotes: "Mod+Shift+.",
     shortcutsHelp: "Mod+Shift+/",
     closeModal: "Escape",
+    openFileFinder: "Mod+Shift+F",
+    closeFile: "Mod+W",
+    nextFile: "Mod+Alt+ArrowRight",
+    previousFile: "Mod+Alt+ArrowLeft",
   };
 
   function getConfiguredKeybindings() {
@@ -22,6 +26,14 @@
     }
 
     Object.keys(DEFAULT_KEYBINDINGS).forEach((key) => {
+      const value = raw[key];
+      if (typeof value === "string" && value.trim().length > 0) {
+        configured[key] = value.trim();
+      }
+    });
+
+    // Edit buffer keybindings (also configurable)
+    ["openFileFinder", "closeFile", "nextFile", "previousFile"].forEach((key) => {
       const value = raw[key];
       if (typeof value === "string" && value.trim().length > 0) {
         configured[key] = value.trim();
@@ -177,6 +189,10 @@
     if (parsed.requiresAlt && !event.altKey) {
       return false;
     }
+    // Reject if Alt is pressed but not required (prevents misfires)
+    if (!parsed.requiresAlt && event.altKey) {
+      return false;
+    }
 
     const eventKey = normalizeEventKey(event);
     const eventCode = normalizeEventCode(event);
@@ -314,7 +330,22 @@
 
     let handled = false;
 
-    if (isHelpShortcut) {
+    // Edit buffer keybindings (checked before thread keybindings to keep them separate)
+    if (bindingMatches(event, keybindings.openFileFinder)) {
+      if (window.EditBuffer) {
+        handled = window.EditBuffer.isFileFinderOpen()
+          ? window.EditBuffer.closeFileFinder()
+          : window.EditBuffer.openFileFinder();
+      }
+    } else if (isEscapeKey(event) && window.EditBuffer && window.EditBuffer.isFileFinderOpen()) {
+      handled = window.EditBuffer.closeFileFinder();
+    } else if (bindingMatches(event, keybindings.nextFile)) {
+      if (window.EditBuffer) handled = window.EditBuffer.switchFile("right");
+    } else if (bindingMatches(event, keybindings.previousFile)) {
+      if (window.EditBuffer) handled = window.EditBuffer.switchFile("left");
+    } else if (bindingMatches(event, keybindings.closeFile)) {
+      if (window.EditBuffer) handled = window.EditBuffer.closeCurrentFile();
+    } else if (isHelpShortcut) {
       handled = highlightShortcutsBar();
     } else if (bindingMatches(event, keybindings.nextThread)) {
       handled = switchThread(1);

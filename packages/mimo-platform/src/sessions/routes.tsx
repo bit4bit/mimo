@@ -10,6 +10,8 @@ import type { Context } from "hono";
 import { normalizeFrameState, updateFrameState } from "./frame-state.js";
 import { logger } from "../logger.js";
 import type { MimoContext } from "../context/mimo-context.js";
+import { createFilesRoutes } from "../files/routes.js";
+import { createFileService } from "../files/service.js";
 
 type SessionsRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
 
@@ -28,6 +30,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
   const sharedFossilServer = mimoContext.services.sharedFossil;
   const vcs = mimoContext.services.vcs;
   const platformUrl = mimoContext.env?.PLATFORM_URL ?? "http://localhost:3000";
+  const fileService = createFileService();
 
   // Helper to get authenticated username from cookie
   async function getAuthUsername(c: Context): Promise<string | null> {
@@ -381,6 +384,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         sessionKeybindings={sessionKeybindings}
         chatThreads={session.chatThreads}
         activeChatThreadId={session.activeChatThreadId}
+        agentWorkspacePath={session.agentWorkspacePath}
       />,
     );
   });
@@ -1225,6 +1229,16 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 
     return c.json({ activeChatThreadId: threadId });
   });
+
+  // Files API - scoped per session, serves files from agent workspace
+  const filesRouter = createFilesRoutes({
+    fileService,
+    getWorkspacePath: async (sessionId: string) => {
+      const session = await sessionRepository.findById(sessionId);
+      return session?.agentWorkspacePath ?? null;
+    },
+  });
+  router.route("/:sessionId/files", filesRouter);
 
   return router;
 }

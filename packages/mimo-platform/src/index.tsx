@@ -91,6 +91,7 @@ const mimoServer = createMimoServer();
 
 // Serve static files from public/
 app.use("/js/*", serveStatic({ root: "./public" }));
+app.use("/vendor/*", serveStatic({ root: "./public" }));
 
 import { sessionStateService } from "./sessions/state.js";
 

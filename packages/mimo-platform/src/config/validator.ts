@@ -133,6 +133,10 @@ export class ConfigValidator {
       "sessionNotes",
       "shortcutsHelp",
       "closeModal",
+      "openFileFinder",
+      "closeFile",
+      "nextFile",
+      "previousFile",
     ];
 
     for (const key of supportedKeys) {
