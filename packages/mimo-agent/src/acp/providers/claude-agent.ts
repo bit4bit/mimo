@@ -108,6 +108,8 @@ export class ClaudeAgentProvider implements IAcpProvider {
       agent_thought_chunk: "thought_chunk",
       agent_message_chunk: "message_chunk",
       usage_update: "usage_update",
+      tool_call: "tool_call",
+      tool_call_update: "tool_call_update",
     };
 
     return mapping[updateType] ?? null;
