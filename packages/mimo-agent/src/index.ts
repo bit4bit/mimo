@@ -387,7 +387,6 @@ class MimoAgent {
         acpSessionId,
         modelState,
         modeState,
-        localDevMirrorPath,
         agentSubpath,
         mcpServers,
         chatThreads,
@@ -425,14 +424,6 @@ class MimoAgent {
           modelState ?? undefined,
           modeState ?? undefined,
         );
-
-        // Store localDevMirrorPath for file sync
-        if (localDevMirrorPath) {
-          this.sessionManager.setSessionLocalDevMirrorPath(
-            sessionId,
-            localDevMirrorPath,
-          );
-        }
 
         // Store MCP servers for ACP initialization
         if (mcpServers && Array.isArray(mcpServers) && mcpServers.length > 0) {

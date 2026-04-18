@@ -57,6 +57,33 @@ describe("Session Management Integration Tests", () => {
   });
 
   describe("Session Creation with ACP Session Parking", () => {
+    it("should render session creation form without local mirror field", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions/new`, {
+        headers: { Cookie: `token=${token}` },
+      });
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).not.toContain("Local Development Mirror");
+      expect(html).not.toContain('name="localDevMirrorPath"');
+    });
+
     it("should create a new session for a project", async () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
@@ -699,7 +726,6 @@ describe("Session Management Integration Tests", () => {
         body: new URLSearchParams({
           name: "Feature Branch Session",
           agentSubpath: "src/backend",
-          localDevMirrorPath: "/dev/mirror",
           branchName: "feature/test",
         }).toString(),
       });
@@ -730,8 +756,8 @@ describe("Session Management Integration Tests", () => {
       expect(html).toContain("myagent"); // agent name
       expect(html).toContain("Agent working directory");
       expect(html).toContain("src/backend");
-      expect(html).toContain("Local Development Mirror");
-      expect(html).toContain("/dev/mirror");
+      expect(html).not.toContain("Local Development Mirror");
+      expect(html).not.toContain("/dev/mirror");
       expect(html).toContain("Branch");
       expect(html).toContain("feature/test");
     });
@@ -788,8 +814,8 @@ describe("Session Management Integration Tests", () => {
       expect(html).toContain("None"); // fallback for no agent
       expect(html).toContain("Agent working directory");
       expect(html).toContain("Repository root"); // fallback
-      expect(html).toContain("Local Development Mirror");
-      expect(html).toContain("Disabled"); // fallback
+      expect(html).not.toContain("Local Development Mirror");
+      expect(html).not.toContain("Disabled");
       expect(html).toContain("Branch");
       expect(html).toContain("Not set"); // fallback
       expect(html).toContain("MCP Servers");

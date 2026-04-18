@@ -61,7 +61,6 @@ export interface SessionInfo {
   currentThoughtBuffer?: string;
   modelState?: ModelState;
   modeState?: ModeState;
-  localDevMirrorPath?: string;
   mcpServers?: McpServerConfig[];
   agentSubpath?: string;
 }

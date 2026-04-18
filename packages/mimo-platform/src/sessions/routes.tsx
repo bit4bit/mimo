@@ -137,7 +137,6 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const body = await c.req.parseBody({ all: true });
     const name = body.name as string;
     const projectId = (body.projectId as string) || getProjectId(c);
-    const localDevMirrorPath = (body.localDevMirrorPath as string) || null;
     const agentSubpath = (body.agentSubpath as string) || null;
     const branchName = (body.branchName as string) || null;
 
@@ -190,7 +189,6 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       name: name as string,
       projectId: projectId as string,
       owner: username,
-      localDevMirrorPath: localDevMirrorPath || undefined,
       agentSubpath: agentSubpath || undefined,
       mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
     });
@@ -894,7 +892,6 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
           sessionName: session.name,
           assignedAgentName: assignedAgentName,
           agentSubpath: session.agentSubpath,
-          localDevMirrorPath: session.localDevMirrorPath,
           branch: session.branch,
           mcpServerNames: mcpServerNames,
           sessionType: "standard",
@@ -1091,8 +1088,6 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
                 agentWorkspacePassword:
                   sessionWithCreds?.agentWorkspacePassword,
                 acpSessionId: sessionWithCreds?.acpSessionId ?? null,
-                localDevMirrorPath:
-                  sessionWithCreds?.localDevMirrorPath ?? null,
                 agentSubpath: sessionWithCreds?.agentSubpath ?? null,
                 chatThreads: [
                   {

@@ -55,7 +55,6 @@ export interface Session {
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   acpSessionId?: string;
-  localDevMirrorPath?: string;
   agentSubpath?: string;
   branch?: string;
   // MCP Server attachments
@@ -90,7 +89,6 @@ export interface SessionData {
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   acpSessionId?: string;
-  localDevMirrorPath?: string;
   agentSubpath?: string;
   branch?: string;
   // MCP Server attachments
@@ -116,7 +114,6 @@ export interface CreateSessionInput {
   projectId: string;
   owner: string;
   assignedAgentId?: string;
-  localDevMirrorPath?: string;
   agentSubpath?: string;
   branchName?: string;
   mcpServerIds?: string[];
@@ -260,9 +257,6 @@ export class SessionRepository {
       activeChatThreadId: null,
       createdAt: now,
       updatedAt: now,
-      ...(input.localDevMirrorPath && {
-        localDevMirrorPath: input.localDevMirrorPath,
-      }),
       ...(input.agentSubpath && { agentSubpath: input.agentSubpath }),
     };
 

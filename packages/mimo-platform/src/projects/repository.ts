@@ -23,7 +23,6 @@ export interface Project {
   credentialId?: string;
   sourceBranch?: string;
   newBranch?: string;
-  defaultLocalDevMirrorPath?: string;
 }
 
 export interface PublicProject {
@@ -48,7 +47,6 @@ export interface ProjectData {
   credentialId?: string;
   sourceBranch?: string;
   newBranch?: string;
-  defaultLocalDevMirrorPath?: string;
 }
 
 export interface CreateProjectInput {
@@ -60,7 +58,6 @@ export interface CreateProjectInput {
   credentialId?: string;
   sourceBranch?: string;
   newBranch?: string;
-  defaultLocalDevMirrorPath?: string;
 }
 
 interface ProjectRepositoryDeps {
@@ -114,9 +111,6 @@ export class ProjectRepository {
       ...(input.credentialId && { credentialId: input.credentialId }),
       ...(input.sourceBranch && { sourceBranch: input.sourceBranch }),
       ...(input.newBranch && { newBranch: input.newBranch }),
-      ...(input.defaultLocalDevMirrorPath && {
-        defaultLocalDevMirrorPath: input.defaultLocalDevMirrorPath,
-      }),
     };
 
     writeFileSync(this.getProjectFilePath(id), dump(projectData), "utf-8");
@@ -244,7 +238,6 @@ export class ProjectRepository {
       repoType?: "git" | "fossil";
       description?: string;
       credentialId?: string;
-      defaultLocalDevMirrorPath?: string | null;
     },
   ): Promise<Project> {
     const project = await this.findById(id);
@@ -266,10 +259,6 @@ export class ProjectRepository {
       description: updates.description,
       sourceBranch: project.sourceBranch,
       newBranch: project.newBranch,
-      defaultLocalDevMirrorPath:
-        updates.defaultLocalDevMirrorPath !== undefined
-          ? updates.defaultLocalDevMirrorPath
-          : project.defaultLocalDevMirrorPath,
     };
 
     // Handle credentialId specially - if undefined, keep existing; if null, remove; if string, set

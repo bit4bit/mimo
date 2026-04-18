@@ -151,8 +151,10 @@ cd packages/mimo-agent
 
 1. Select a project and click "New Session"
 2. Enter session name
-3. Optionally configure: assigned agent, branch, local dev mirror, agent subpath, MCP servers
+3. Optionally configure: assigned agent, branch, agent subpath, MCP servers
 4. The system sets up a Fossil worktree and checkout
+
+Note: The local development mirror feature is deprecated and has been removed.
 
 ### Working with Agents
 

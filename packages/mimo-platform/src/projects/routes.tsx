@@ -54,9 +54,6 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
     const credentialId = body.credentialId as string | undefined;
     const sourceBranch = body.sourceBranch as string | undefined;
     const newBranch = body.newBranch as string | undefined;
-    const defaultLocalDevMirrorPath = body.defaultLocalDevMirrorPath as
-      | string
-      | undefined;
     const user = c.get("user") as { username: string };
 
     if (!name || !repoUrl) {
@@ -158,7 +155,6 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
         credentialId: credentialId || undefined,
         sourceBranch: sourceBranch || undefined,
         newBranch: newBranch || undefined,
-        defaultLocalDevMirrorPath: defaultLocalDevMirrorPath || undefined,
       });
 
       return c.redirect(`/projects/${project.id}`, 302);
@@ -248,9 +244,6 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
     const repoType = (body.repoType as string) || "git";
     const description = body.description as string | undefined;
     const credentialId = body.credentialId as string | undefined;
-    const defaultLocalDevMirrorPath = body.defaultLocalDevMirrorPath as
-      | string
-      | undefined;
 
     if (!name || !repoUrl) {
       const credentials = await credentialRepository.findByOwner(user.username);
@@ -353,7 +346,6 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
         repoType: repoType as "git" | "fossil",
         description: description || undefined,
         credentialId: credentialId || undefined,
-        defaultLocalDevMirrorPath: defaultLocalDevMirrorPath || undefined,
       });
 
       return c.redirect(`/projects/${id}`, 302);

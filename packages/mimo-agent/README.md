@@ -250,47 +250,6 @@ No path coordination needed between platform and agent.
 - Exponential backoff (max 5 attempts)
 - Opens existing checkouts on reconnect (no re-clone)
 
-### Local Development Mirror
-
-The agent can sync file changes to a local development directory in real-time, allowing you to test changes immediately in your IDE without committing.
-
-**How it works:**
-
-1. Set `defaultLocalDevMirrorPath` on a Project (optional - serves as default for all sessions)
-2. Set `localDevMirrorPath` on a Session (inherited from project, can be customized per session)
-3. When files change in the checkout, the agent syncs them to the mirror path
-
-**Sync behavior:**
-
-- **Agent wins**: When files change, the agent immediately overwrites the mirror copy
-- **Skips VCS directories**: `.git/` and `.fossil/` are never synced (preserves your own VCS state)
-- **Graceful errors**: Missing paths or permission errors log a warning but don't block operation
-
-**Configuration:**
-
-```json
-// session_ready message includes the mirror path:
-{
-  "type": "session_ready",
-  "sessions": [
-    {
-      "sessionId": "uuid",
-      "localDevMirrorPath": "/home/user/myproject-dev"
-    }
-  ]
-}
-```
-
-**Example scenario:**
-
-```bash
-# User wants agent changes synced to their local working directory
-# 1. Create project with default mirror path: /home/user/dev/myproject
-# 2. Create session - mirror path pre-filled from project default
-# 3. Agent makes changes → files appear instantly in /home/user/dev/myproject
-# 4. User can run tests, use IDE, etc. without commit cycle
-```
-
 ## Troubleshooting
 
 ### Clone Failures

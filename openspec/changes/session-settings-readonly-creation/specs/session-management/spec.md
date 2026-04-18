@@ -4,12 +4,11 @@
 The system SHALL display creation-time session configuration values on the session settings page in a read-only section.
 
 #### Scenario: Session with populated creation settings
-- **WHEN** user opens settings for a session created with assigned agent, agent subpath, local development mirror, branch, and MCP server attachments
+- **WHEN** user opens settings for a session created with assigned agent, agent subpath, branch, and MCP server attachments
 - **THEN** the page shows these fields in the Creation Settings section:
   - Session Name
   - Assigned Agent
   - Agent working directory
-  - Local Development Mirror
   - Branch
   - MCP Servers
   - Session Type
@@ -21,7 +20,6 @@ The system SHALL display creation-time session configuration values on the sessi
 - **THEN** the page shows these fallback labels:
   - Assigned Agent: `None`
   - Agent working directory: `Repository root`
-  - Local Development Mirror: `Disabled`
   - Branch: `Not set`
   - MCP Servers: `None attached`
 - **AND** no creation field is rendered as blank

@@ -698,7 +698,6 @@ async function handleAgentMessage(ws, data) {
               agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
               modelState: sessionWithCreds?.modelState ?? null,
               modeState: sessionWithCreds?.modeState ?? null,
-              localDevMirrorPath: sessionWithCreds?.localDevMirrorPath ?? null,
               agentSubpath: sessionWithCreds?.agentSubpath ?? null,
               mcpServers: mcpServers.length > 0 ? mcpServers : undefined,
               chatThreads: threadBootstrap,

@@ -16,7 +16,6 @@ interface SessionSettingsPageProps {
     sessionName: string;
     assignedAgentName: string | null;
     agentSubpath: string | null;
-    localDevMirrorPath: string | null;
     branch: string | null;
     mcpServerNames: string[];
     sessionType: string;
@@ -97,14 +96,6 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
                 </span>
                 <div style={{ color: "#d4d4d4", marginTop: "4px" }}>
                   {creationSettings.agentSubpath || "Repository root"}
-                </div>
-              </div>
-              <div style={{ marginBottom: "12px" }}>
-                <span style={{ color: "#888", fontSize: "12px" }}>
-                  Local Development Mirror
-                </span>
-                <div style={{ color: "#d4d4d4", marginTop: "4px" }}>
-                  {creationSettings.localDevMirrorPath || "Disabled"}
                 </div>
               </div>
               <div style={{ marginBottom: "12px" }}>

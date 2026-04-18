@@ -6,15 +6,11 @@ import {
   McpServerConfig,
 } from "./types";
 import { logger } from "./logger.js";
-import { resolve, join, dirname } from "node:path";
+import { resolve, join } from "node:path";
 import {
   watch,
   existsSync,
   mkdirSync,
-  unlinkSync,
-  statSync,
-  readFileSync,
-  writeFileSync,
 } from "node:fs";
 export interface SessionCallbacks {
   onFileChange: (sessionId: string, changes: FileChange[]) => void;
@@ -103,16 +99,6 @@ export class SessionManager {
     }
   }
 
-  setSessionLocalDevMirrorPath(
-    sessionId: string,
-    localDevMirrorPath: string,
-  ): void {
-    const session = this.sessions.get(sessionId);
-    if (session) {
-      session.localDevMirrorPath = localDevMirrorPath;
-    }
-  }
-
   setSessionMcpServers(sessionId: string, mcpServers: McpServerConfig[]): void {
     const session = this.sessions.get(sessionId);
     if (session) {
@@ -196,79 +182,6 @@ export class SessionManager {
     }
 
     this.callbacks.onFileChange(sessionId, Array.from(uniqueChanges.values()));
-
-    // Sync to local dev mirror
-    const session = this.sessions.get(sessionId);
-    if (session?.localDevMirrorPath) {
-      this.syncToMirror(
-        sessionId,
-        session.checkoutPath,
-        session.localDevMirrorPath,
-        Array.from(uniqueChanges.values()),
-      );
-    }
-  }
-
-  private syncToMirror(
-    sessionId: string,
-    checkoutPath: string,
-    mirrorPath: string,
-    changes: FileChange[],
-  ): void {
-    if (!mirrorPath) return;
-
-    for (const change of changes) {
-      try {
-        // Skip VCS metadata (directories and files)
-        if (
-          change.path.includes(".git/") ||
-          change.path.includes(".fossil/") ||
-          change.path.startsWith(".git") ||
-          change.path.startsWith(".fossil") ||
-          change.path === ".fslckout" ||
-          change.path === "_FOSSIL_" ||
-          change.path.endsWith("/.fslckout") ||
-          change.path.endsWith("/_FOSSIL_") ||
-          change.path === ".fslckout-journal"
-        ) {
-          continue;
-        }
-
-        const srcPath = join(checkoutPath, change.path);
-        const destPath = join(mirrorPath, change.path);
-
-        if (change.deleted) {
-          // Remove from mirror
-          if (existsSync(destPath)) {
-            try {
-              unlinkSync(destPath);
-            } catch (err) {
-              logger.warn(`[mimo-agent] Failed to delete ${destPath}:`, err);
-            }
-          }
-        } else if (existsSync(srcPath)) {
-          // Skip directories - only sync files
-          if (statSync(srcPath).isDirectory()) {
-            continue;
-          }
-
-          // Ensure parent directory exists
-          const destDir = dirname(destPath);
-          if (!existsSync(destDir)) {
-            mkdirSync(destDir, { recursive: true });
-          }
-
-          // Copy file content
-          const content = readFileSync(srcPath);
-          writeFileSync(destPath, content);
-        }
-      } catch (err) {
-        logger.warn(
-          `[mimo-agent] Failed to sync ${change.path} to mirror:`,
-          err,
-        );
-      }
-    }
   }
 
   terminateSession(sessionId: string): void {

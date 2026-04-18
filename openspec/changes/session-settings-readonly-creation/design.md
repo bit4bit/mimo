@@ -1,6 +1,6 @@
 ## Context
 
-Session creation captures several optional inputs (`assignedAgentId`, `agentSubpath`, `localDevMirrorPath`, `branchName`, `mcpServerIds`) and stores normalized values on the session entity. The settings page currently renders idle timeout controls and ACP status, but does not expose creation-time configuration in a user-facing way.
+Session creation captures several optional inputs (`assignedAgentId`, `agentSubpath`, `branchName`, `mcpServerIds`) and stores normalized values on the session entity. The settings page currently renders idle timeout controls and ACP status, but does not expose creation-time configuration in a user-facing way.
 
 ## Goals / Non-Goals
 
@@ -33,7 +33,6 @@ Session creation captures several optional inputs (`assignedAgentId`, `agentSubp
 **Decision**: Use deterministic fallback labels:
 - Assigned Agent: `None`
 - Agent working directory: `Repository root`
-- Local Development Mirror: `Disabled`
 - Branch: `Not set`
 - MCP Servers: `None attached`
 

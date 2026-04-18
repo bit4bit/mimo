@@ -4,7 +4,6 @@ import { Layout } from "./Layout.js";
 interface Project {
   id: string;
   name: string;
-  defaultLocalDevMirrorPath?: string;
   newBranch?: string;
 }
 
@@ -60,20 +59,6 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
             <p style="color: #888; font-size: 12px; margin-top: 5px;">
               Relative path within the repository where the agent will start.
               Useful for monorepos.
-            </p>
-          </div>
-
-          <div class="form-group">
-            <label>Local Development Mirror (optional)</label>
-            <input
-              type="text"
-              name="localDevMirrorPath"
-              value={project.defaultLocalDevMirrorPath || ""}
-              placeholder="/home/user/myproject-dev"
-            />
-            <p style="color: #888; font-size: 12px; margin-top: 5px;">
-              Path to sync agent changes in real-time. Leave empty to disable
-              sync.
             </p>
           </div>
 
