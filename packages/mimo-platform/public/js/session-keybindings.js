@@ -193,7 +193,9 @@
       return false;
     }
 
-    const activeIndex = tabs.findIndex((tab) => tab.classList.contains("active"));
+    const activeIndex = tabs.findIndex((tab) =>
+      tab.classList.contains("active"),
+    );
     const currentIndex = activeIndex >= 0 ? activeIndex : 0;
     const nextIndex = (currentIndex + direction + tabs.length) % tabs.length;
     const nextTab = tabs[nextIndex];
@@ -224,7 +226,9 @@
   }
 
   function isEscapeKey(event) {
-    return bindingMatches(event, keybindings.closeModal) || event.keyCode === 27;
+    return (
+      bindingMatches(event, keybindings.closeModal) || event.keyCode === 27
+    );
   }
 
   function isCommitDialogOpen() {
@@ -269,7 +273,9 @@
   }
 
   function focusNotesInput(selector) {
-    const notesTab = document.querySelector('.frame-tab[data-frame-id="right"][data-buffer-id="notes"]');
+    const notesTab = document.querySelector(
+      '.frame-tab[data-frame-id="right"][data-buffer-id="notes"]',
+    );
     if (notesTab) {
       notesTab.click();
     }
@@ -309,8 +315,7 @@
       return;
     }
 
-    const isHelpShortcut =
-      bindingMatches(event, keybindings.shortcutsHelp);
+    const isHelpShortcut = bindingMatches(event, keybindings.shortcutsHelp);
 
     let handled = false;
 
@@ -323,9 +328,7 @@
     } else if (bindingMatches(event, keybindings.newThread)) {
       handled = openCreateThreadDialog();
     } else if (bindingMatches(event, keybindings.commit)) {
-      handled = isCommitDialogOpen()
-        ? closeCommitDialog()
-        : openCommitDialog();
+      handled = isCommitDialogOpen() ? closeCommitDialog() : openCommitDialog();
     } else if (bindingMatches(event, keybindings.projectNotes)) {
       handled = focusNotesInput("#project-notes-input");
     } else if (bindingMatches(event, keybindings.sessionNotes)) {

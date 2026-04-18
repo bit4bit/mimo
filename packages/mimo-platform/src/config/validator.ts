@@ -123,7 +123,9 @@ export class ConfigValidator {
     }
 
     const raw = keybindings as Record<string, unknown>;
-    const sanitized: SessionKeybindingsConfig = { ...defaultSessionKeybindings };
+    const sanitized: SessionKeybindingsConfig = {
+      ...defaultSessionKeybindings,
+    };
     const supportedKeys: Array<keyof SessionKeybindingsConfig> = [
       "newThread",
       "nextThread",

@@ -220,14 +220,53 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           </form>
         </div>
 
-        <div id="session-shortcuts-bar" class="session-shortcuts-bar" aria-label="Session keyboard shortcuts">
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.newThread || "Mod+Shift+N"}</span><span class="session-shortcut-desc">New thread</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.nextThread || "Mod+Shift+ArrowRight"}</span><span class="session-shortcut-desc">Next thread</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.previousThread || "Mod+Shift+ArrowLeft"}</span><span class="session-shortcut-desc">Previous thread</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.commit || "Mod+Shift+M"}</span><span class="session-shortcut-desc">Commit</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.projectNotes || "Mod+Shift+,"}</span><span class="session-shortcut-desc">Project notes</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.sessionNotes || "Mod+Shift+."}</span><span class="session-shortcut-desc">Session notes</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{sessionKeybindings?.shortcutsHelp || "Mod+Shift+/"}</span><span class="session-shortcut-desc">Highlight shortcuts bar</span></span>
+        <div
+          id="session-shortcuts-bar"
+          class="session-shortcuts-bar"
+          aria-label="Session keyboard shortcuts"
+        >
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {sessionKeybindings?.newThread || "Mod+Shift+N"}
+            </span>
+            <span class="session-shortcut-desc">New thread</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {sessionKeybindings?.nextThread || "Mod+Shift+ArrowRight"}
+            </span>
+            <span class="session-shortcut-desc">Next thread</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {sessionKeybindings?.previousThread || "Mod+Shift+ArrowLeft"}
+            </span>
+            <span class="session-shortcut-desc">Previous thread</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {sessionKeybindings?.commit || "Mod+Shift+M"}
+            </span>
+            <span class="session-shortcut-desc">Commit</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {sessionKeybindings?.projectNotes || "Mod+Shift+,"}
+            </span>
+            <span class="session-shortcut-desc">Project notes</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {sessionKeybindings?.sessionNotes || "Mod+Shift+."}
+            </span>
+            <span class="session-shortcut-desc">Session notes</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {sessionKeybindings?.shortcutsHelp || "Mod+Shift+/"}
+            </span>
+            <span class="session-shortcut-desc">Highlight shortcuts bar</span>
+          </span>
         </div>
       </div>
 

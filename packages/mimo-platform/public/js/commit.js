@@ -602,16 +602,20 @@
     }
   });
 
-  window.addEventListener("keydown", (e) => {
-    if (!isEscapeKey(e)) {
-      return;
-    }
-    if (!isCommitDialogOpen()) {
-      return;
-    }
-    e.preventDefault();
-    cancelCommitDialog();
-  }, true);
+  window.addEventListener(
+    "keydown",
+    (e) => {
+      if (!isEscapeKey(e)) {
+        return;
+      }
+      if (!isCommitDialogOpen()) {
+        return;
+      }
+      e.preventDefault();
+      cancelCommitDialog();
+    },
+    true,
+  );
 
   // Close on backdrop click
   commitDialog?.addEventListener("click", (e) => {

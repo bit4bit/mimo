@@ -52,7 +52,10 @@ describe("syncSessionViaAssignedAgent", () => {
       },
     };
 
-    const result = await syncSessionViaAssignedAgent("test-session", context as any);
+    const result = await syncSessionViaAssignedAgent(
+      "test-session",
+      context as any,
+    );
 
     // Verify that it looked for agent-123 from the active thread
     expect(capturedAgentId).toBe("agent-123");
@@ -94,7 +97,10 @@ describe("syncSessionViaAssignedAgent", () => {
       },
     };
 
-    const result = await syncSessionViaAssignedAgent("test-session", context as any);
+    const result = await syncSessionViaAssignedAgent(
+      "test-session",
+      context as any,
+    );
 
     // Verify that it looked for session-agent-456 from the session
     expect(capturedAgentId).toBe("session-agent-456");
@@ -143,7 +149,10 @@ describe("syncSessionViaAssignedAgent", () => {
       },
     };
 
-    const result = await syncSessionViaAssignedAgent("test-session", context as any);
+    const result = await syncSessionViaAssignedAgent(
+      "test-session",
+      context as any,
+    );
 
     expect(result.success).toBe(false);
     expect(result.message).toBe("No agent assigned to this session");
