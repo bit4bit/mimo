@@ -61,6 +61,26 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     return c.req.query("projectId");
   }
 
+  function buildAuthenticatedUrl(
+    baseUrl: string,
+    username: string,
+    password: string,
+  ): string {
+    const url = new URL(baseUrl);
+    url.username = username;
+    url.password = password;
+    return url.toString();
+  }
+
+  function sanitizeSessionNameForWorkdir(name: string): string {
+    return name.replace(/[\\/]/g, "-");
+  }
+
+  function shellDoubleQuote(value: string): string {
+    const escaped = value.replace(/[\\"$`]/g, "\\$&");
+    return `"${escaped}"`;
+  }
+
   // GET /sessions or /projects/:projectId/sessions - List sessions for a project
   router.get("/", async (c: Context) => {
     const username = await getAuthUsername(c);
@@ -237,7 +257,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       }
 
       // Step 4: Create fossil user for agent access
-      const agentWorkspaceUser = `agent-${session.id.slice(0, 8)}`;
+      const agentWorkspaceUser = "dev";
       const agentWorkspacePassword = crypto
         .randomUUID()
         .replace(/-/g, "")
@@ -246,6 +266,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         fossilPath,
         agentWorkspaceUser,
         agentWorkspacePassword,
+        "s",
       );
 
       if (!userResult.success) {
@@ -253,7 +274,8 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
           "[session] Failed to create fossil user:",
           userResult.error,
         );
-        // Non-fatal - session can still work, just log the error
+        await sessionRepository.delete(projectId, session.id);
+        return c.text("Failed to create session workspace user", 500);
       }
 
       // Save credentials to session
@@ -351,6 +373,10 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     // Always generate fossil URL - the shared server should be running
     // If it's not running yet, the URL will still be valid but the server won't respond
     const fossilUrl = sharedFossilServer.getUrl(sessionId);
+    const cloneWorkspaceCommand =
+      session.agentWorkspaceUser && session.agentWorkspacePassword
+        ? `fossil open ${shellDoubleQuote(buildAuthenticatedUrl(fossilUrl, session.agentWorkspaceUser, session.agentWorkspacePassword))} --workdir ${shellDoubleQuote(sanitizeSessionNameForWorkdir(session.name))} --repodir ${shellDoubleQuote(sanitizeSessionNameForWorkdir(session.name))}`
+        : null;
 
     // Resolve attached MCP servers for display
     const mcpServers = await Promise.all(
@@ -378,6 +404,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         modelState={modelState}
         modeState={modeState}
         fossilUrl={fossilUrl}
+        cloneWorkspaceCommand={cloneWorkspaceCommand ?? undefined}
         acpStatus={session.acpStatus}
         mcpServers={mcpServers}
         streamingTimeoutMs={streamingTimeoutMs}

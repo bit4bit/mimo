@@ -404,6 +404,29 @@ export class SessionRepository {
     );
   }
 
+  async listAll(): Promise<Session[]> {
+    const projectsPath = this.getProjectsPath();
+    if (!existsSync(projectsPath)) {
+      return [];
+    }
+
+    const projectEntries = readdirSync(projectsPath, { withFileTypes: true });
+    const sessions: Session[] = [];
+
+    for (const projectEntry of projectEntries) {
+      if (!projectEntry.isDirectory()) {
+        continue;
+      }
+
+      const projectSessions = await this.listByProject(projectEntry.name);
+      sessions.push(...projectSessions);
+    }
+
+    return sessions.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    );
+  }
+
   async findByAssignedAgentId(agentId: string): Promise<Session[]> {
     const Paths = { projects: this.getProjectsPath() };
     if (!existsSync(Paths.projects)) {

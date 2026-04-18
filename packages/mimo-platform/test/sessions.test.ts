@@ -50,6 +50,7 @@ describe("Session Management Integration Tests", () => {
     vcsModule.vcs.openFossilCheckout = async () => ({ success: true });
     vcsModule.vcs.openFossil = async () => ({ success: true });
     vcsModule.vcs.syncIgnoresToFossil = async () => ({ success: true });
+    vcsModule.vcs.createFossilUser = async () => ({ success: true });
 
     const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
     sessionRoutes = createSessionsRoutes(ctx);
@@ -132,6 +133,52 @@ describe("Session Management Integration Tests", () => {
       expect(session).not.toBeNull();
       expect(session?.idleTimeoutMs).toBe(600000); // 10 minutes default
       expect(session?.acpStatus).toBe("active");
+    });
+
+    it("should provision dev workspace credentials during session creation", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const vcsModule = await import("../src/vcs/index.ts");
+      let createFossilUserArgs: any[] | null = null;
+      vcsModule.vcs.createFossilUser = async (...args: any[]) => {
+        createFossilUserArgs = args;
+        return { success: true };
+      };
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "Dev Workspace Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      const sessionId = (res.headers.get("location") || "").split("/").pop();
+      const session = await sessionRepository.findById(sessionId!);
+
+      expect(session).not.toBeNull();
+      expect(session?.agentWorkspaceUser).toBe("dev");
+      expect(session?.agentWorkspacePassword).toBeTruthy();
+      expect(session?.agentWorkspacePassword?.length).toBeGreaterThanOrEqual(16);
+      expect(createFossilUserArgs).not.toBeNull();
+      expect(createFossilUserArgs?.[1]).toBe("dev");
+      expect(createFossilUserArgs?.[3]).toBe("s");
     });
 
     it("should update idleTimeoutMs via updateSessionConfig", async () => {
@@ -420,6 +467,51 @@ describe("Session Management Integration Tests", () => {
       );
 
       expect(res.status).toBe(404);
+    });
+
+    it("should render clone workspace action with authenticated one-command fossil open", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Fix/login\\flow",
+        projectId: project.id,
+        owner: "testuser",
+      });
+      await sessionRepository.update(session.id, {
+        agentWorkspaceUser: "dev",
+        agentWorkspacePassword: "p@ss word",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}`,
+        {
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("clone-workspace-btn");
+      expect(html).toContain("clone-workspace-dialog");
+      expect(html).toContain("fossil open");
+      expect(html).toContain("dev:p%40ss%20word@localhost:8000");
+      expect(html).toContain("Fix-login-flow");
+      expect(html).toContain("--workdir");
+      expect(html).toContain("--repodir");
     });
   });
 

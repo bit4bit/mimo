@@ -64,6 +64,7 @@ interface SessionDetailProps {
   modelState?: ModelState;
   modeState?: ModeState;
   fossilUrl?: string;
+  cloneWorkspaceCommand?: string;
   acpStatus?: "active" | "parked" | "waking";
   frameState: FrameState;
   notesContent?: string;
@@ -141,6 +142,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   modelState,
   modeState,
   fossilUrl,
+  cloneWorkspaceCommand,
   acpStatus = "active",
   frameState,
   notesContent = "",
@@ -199,6 +201,15 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 {acpStatus === "parked" && "💤 Agent sleeping"}
                 {acpStatus === "waking" && "⏳ Waking agent..."}
               </span>
+              {cloneWorkspaceCommand && (
+                <button
+                  type="button"
+                  id="clone-workspace-btn"
+                  class="btn-secondary clone-workspace-btn"
+                >
+                  Clone Workspace
+                </button>
+              )}
             </span>
           </div>
           {agent && (
@@ -362,6 +373,38 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         </div>
       </div>
 
+      {/* Clone workspace command dialog */}
+      {cloneWorkspaceCommand && (
+        <div id="clone-workspace-dialog" class="modal" style="display: none;">
+          <div class="modal-content clone-workspace-modal">
+            <h3 style="margin: 0 0 10px 0; font-size: 16px;">
+              Clone Workspace Command
+            </h3>
+            <p style="margin: 0 0 12px 0; color: #888; font-size: 12px;">
+              Click the command to copy it.
+            </p>
+            <pre
+              id="clone-workspace-command"
+              class="clone-workspace-command"
+              data-command={cloneWorkspaceCommand}
+              title="Click to copy"
+            >
+              {cloneWorkspaceCommand}
+            </pre>
+            <div class="clone-workspace-actions">
+              <span id="clone-workspace-copy-status" aria-live="polite"></span>
+              <button
+                type="button"
+                id="clone-workspace-close"
+                class="btn-secondary"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Inject thread data for JS */}
       {chatThreads.length > 0 && (
         <script
@@ -425,6 +468,10 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         .session-header-bar .btn-secondary {
           padding: 5px 10px;
           font-size: 11px;
+        }
+        .clone-workspace-btn {
+          margin-left: 8px;
+          padding: 3px 8px !important;
         }
         .buffers-container {
           display: flex;
@@ -1004,6 +1051,36 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         #edit-buffer-content .hljs {
           background: transparent;
           padding: 0;
+        }
+        .clone-workspace-modal {
+          max-width: 760px;
+          width: 92%;
+        }
+        .clone-workspace-command {
+          margin: 0;
+          padding: 12px;
+          background: #1b1b1b;
+          border: 1px solid #444;
+          border-radius: 4px;
+          color: #d4d4d4;
+          font-family: monospace;
+          font-size: 12px;
+          white-space: pre-wrap;
+          word-break: break-all;
+          cursor: pointer;
+        }
+        .clone-workspace-command:hover {
+          border-color: #666;
+        }
+        .clone-workspace-actions {
+          margin-top: 10px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        #clone-workspace-copy-status {
+          font-size: 12px;
+          color: #888;
         }
       `}</style>
     </Layout>

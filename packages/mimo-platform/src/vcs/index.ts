@@ -228,8 +228,9 @@ export class VCS {
     repoPath: string,
     username: string,
     password: string,
+    capabilities: string = "dio",
   ): Promise<VCSResult> {
-    // Create user with DEV capabilities (d - develop, i - check-in, o - check-out)
+    // Create user in repository (if it already exists we'll update it below)
     const result = await this.execCommand([
       "fossil",
       "user",
@@ -241,29 +242,54 @@ export class VCS {
       repoPath,
     ]);
 
-    if (result.success) {
-      // Set capabilities to DEV (d=develop, i=check-in, o=check-out)
-      const capResult = await this.execCommand([
-        "fossil",
-        "user",
-        "capabilities",
-        username,
-        "dio",
-        "-R",
-        repoPath,
-      ]);
+    const userAlreadyExists = result.error
+      .toLowerCase()
+      .includes("already exists");
 
+    if (!result.success && !userAlreadyExists) {
       return {
-        success: capResult.success,
-        output: capResult.output,
-        error: capResult.error || undefined,
+        success: false,
+        output: result.output,
+        error: result.error || "Failed to create user",
       };
     }
 
+    // Always ensure password is updated to requested value
+    const passwordResult = await this.execCommand([
+      "fossil",
+      "user",
+      "password",
+      username,
+      password,
+      "-R",
+      repoPath,
+    ]);
+
+    if (!passwordResult.success) {
+      return {
+        success: false,
+        output: passwordResult.output,
+        error: passwordResult.error || "Failed to set user password",
+      };
+    }
+
+    // Ensure capabilities match expected role
+    const capResult = await this.execCommand([
+      "fossil",
+      "user",
+      "capabilities",
+      username,
+      capabilities,
+      "-R",
+      repoPath,
+    ]);
+
     return {
-      success: false,
-      output: result.output,
-      error: result.error || "Failed to create user",
+      success: capResult.success,
+      output: [result.output, passwordResult.output, capResult.output]
+        .filter(Boolean)
+        .join("\n"),
+      error: capResult.error || undefined,
     };
   }
 
