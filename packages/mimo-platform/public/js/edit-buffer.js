@@ -7,40 +7,74 @@
     let openFiles = [];
     let activeIndex = 0;
 
+    function storageKey(sessionId) {
+      return "mimo:edit-buffer:" + sessionId;
+    }
+
+    function persist(sessionId) {
+      if (!sessionId) return;
+      try {
+        var active = openFiles[activeIndex];
+        var data = {
+          openPaths: openFiles.map(function (f) { return f.path; }),
+          activePath: active ? active.path : null,
+        };
+        localStorage.setItem(storageKey(sessionId), JSON.stringify(data));
+      } catch (e) {
+        // localStorage unavailable — ignore
+      }
+    }
+
     return {
       getAll: function () { return openFiles; },
       getActive: function () { return openFiles[activeIndex] ?? null; },
       getActiveIndex: function () { return activeIndex; },
-      add: function (file) {
+      add: function (file, sessionId) {
         const existing = openFiles.findIndex(function (f) { return f.path === file.path; });
         if (existing !== -1) {
           activeIndex = existing;
+          persist(sessionId);
           return;
         }
         openFiles.push(file);
         activeIndex = openFiles.length - 1;
+        persist(sessionId);
       },
-      remove: function (path) {
+      remove: function (path, sessionId) {
         const i = openFiles.findIndex(function (f) { return f.path === path; });
         if (i === -1) return;
         openFiles.splice(i, 1);
         activeIndex = Math.min(activeIndex, Math.max(0, openFiles.length - 1));
+        persist(sessionId);
       },
-      switchFile: function (dir) {
+      switchFile: function (dir, sessionId) {
         if (!openFiles.length) return;
         if (dir === "right") {
           activeIndex = (activeIndex + 1) % openFiles.length;
         } else {
           activeIndex = (activeIndex - 1 + openFiles.length) % openFiles.length;
         }
+        persist(sessionId);
       },
-      setActive: function (path) {
+      setActive: function (path, sessionId) {
         const i = openFiles.findIndex(function (f) { return f.path === path; });
-        if (i !== -1) activeIndex = i;
+        if (i !== -1) {
+          activeIndex = i;
+          persist(sessionId);
+        }
       },
       setScrollPosition: function (path, pos) {
         const f = openFiles.find(function (f) { return f.path === path; });
         if (f) f.scrollPosition = pos;
+      },
+      loadStored: function (sessionId) {
+        try {
+          var raw = localStorage.getItem(storageKey(sessionId));
+          if (!raw) return null;
+          return JSON.parse(raw);
+        } catch (e) {
+          return null;
+        }
       },
     };
   })();
@@ -106,7 +140,7 @@
   function filterResults(pattern) {
     const pat = (pattern || "").toLowerCase().trim();
     filteredFiles = pat
-      ? allFiles.filter(function (f) { return f.name.toLowerCase().includes(pat); })
+      ? allFiles.filter(function (f) { return f.path.toLowerCase().includes(pat); })
       : allFiles.slice();
     selectedResultIndex = 0;
     renderResults(filteredFiles);
@@ -167,12 +201,12 @@
     if (file) selectFile(file);
   }
 
-  function selectFile(fileInfo) {
-    closeFileFinder();
-    const sessionId = getSessionId();
-    if (!sessionId) return;
-    fetch("/sessions/" + sessionId + "/files/content?path=" + encodeURIComponent(fileInfo.path))
-      .then(function (r) { return r.json(); })
+  function fetchAndAddFile(sessionId, path, callback) {
+    fetch("/sessions/" + sessionId + "/files/content?path=" + encodeURIComponent(path))
+      .then(function (r) {
+        if (!r.ok) throw new Error("not found");
+        return r.json();
+      })
       .then(function (data) {
         EditBufferState.add({
           path: data.path,
@@ -181,9 +215,22 @@
           lineCount: data.lineCount,
           content: data.content,
           scrollPosition: 0,
-        });
-        renderEditBuffer();
-      });
+        }, sessionId);
+        if (callback) callback();
+      })
+      .catch(function () { /* file gone — skip */ });
+  }
+
+  function selectFile(fileInfo) {
+    closeFileFinder();
+    const sessionId = getSessionId();
+    if (!sessionId) return;
+    fetchAndAddFile(sessionId, fileInfo.path, function () {
+      renderEditBuffer();
+      // Switch to the Files buffer so the opened file is visible
+      var filesTab = document.querySelector('.frame-tab[data-frame-id="left"][data-buffer-id="edit"]');
+      if (filesTab) filesTab.click();
+    });
   }
 
   // ── Edit Buffer Rendering ────────────────────────────────────────────────────
@@ -215,7 +262,7 @@
       tab.title = file.path;
       tab.textContent = getFileIcon(file.language) + " " + file.name;
       tab.addEventListener("click", function () {
-        EditBufferState.setActive(file.path);
+        EditBufferState.setActive(file.path, getSessionId());
         renderEditBuffer();
       });
       tabsEl.appendChild(tab);
@@ -292,20 +339,22 @@
   function closeCurrentFile() {
     const active = EditBufferState.getActive();
     if (!active) return false;
-    EditBufferState.remove(active.path);
+    const sessionId = getSessionId();
+    EditBufferState.remove(active.path, sessionId);
     renderEditBuffer();
     return true;
   }
 
   function switchFile(dir) {
     if (EditBufferState.getAll().length <= 1) return false;
+    const sessionId = getSessionId();
     // Save scroll position of current file before switching
     const current = EditBufferState.getActive();
     if (current) {
       const contentEl = document.getElementById("edit-buffer-content");
       if (contentEl) EditBufferState.setScrollPosition(current.path, contentEl.scrollTop);
     }
-    EditBufferState.switchFile(dir);
+    EditBufferState.switchFile(dir, sessionId);
     renderEditBuffer();
     return true;
   }
@@ -375,6 +424,29 @@
         const active = EditBufferState.getActive();
         if (active) EditBufferState.setScrollPosition(active.path, contentEl.scrollTop);
       });
+    }
+
+    // Restore previously open files from localStorage
+    var sessionId = getSessionId();
+    if (sessionId) {
+      var stored = EditBufferState.loadStored(sessionId);
+      if (stored && Array.isArray(stored.openPaths) && stored.openPaths.length > 0) {
+        var paths = stored.openPaths.slice();
+        var activePath = stored.activePath;
+        var loaded = 0;
+        paths.forEach(function (path) {
+          fetchAndAddFile(sessionId, path, function () {
+            loaded++;
+            if (loaded === paths.length) {
+              // All files restored — set active and render
+              if (activePath) {
+                EditBufferState.setActive(activePath, sessionId);
+              }
+              renderEditBuffer();
+            }
+          });
+        });
+      }
     }
 
     // Expose for session-keybindings.js

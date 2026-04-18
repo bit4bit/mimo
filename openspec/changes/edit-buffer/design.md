@@ -197,22 +197,38 @@ const escapeHtml = (text: string): string => {
 
 ### D4: Buffer State Management
 
-**Decision**: EditBuffer manages its own list of open files internally via data attributes and JavaScript state, not via backend persistence.
+**Decision**: EditBuffer manages its own list of open files in JavaScript state and persists the open file paths (not content) to `localStorage`, keyed by session ID. On page load the stored paths are restored by re-fetching each file's content from the existing `/sessions/:id/files/content` API.
 
 ```typescript
-// State shape stored in data attributes and JS
+// State shape in JS memory
 interface EditBufferState {
   openFiles: Array<{
     path: string;
+    name: string;
     content: string;
-    language: Language;
+    language: string;
+    lineCount: number;
     scrollPosition: number;
   }>;
-  activeFileIndex: number;
+  activeIndex: number;
+}
+
+// localStorage key: `mimo:edit-buffer:<sessionId>`
+// Stored value (JSON):
+interface PersistedEditBufferState {
+  openPaths: string[];   // ordered list of open file paths
+  activePath: string | null;
 }
 ```
 
-**Rationale**: File viewing is ephemeral - no need to persist across sessions. Simpler architecture.
+Persistence rules:
+- Persist **paths only** — content is always re-fetched to stay fresh.
+- Storage key: `mimo:edit-buffer:<sessionId>` (session-scoped, no cross-session leakage).
+- Write to `localStorage` on every add/remove/switch operation.
+- On `DOMContentLoaded`, read the stored state, fetch each path sequentially, then restore active file.
+- If a stored path no longer exists on the server (fetch returns 404/error), skip silently and remove from storage.
+
+**Rationale**: Users expect their open files to survive a page refresh. Paths are cheap to store; re-fetching content avoids stale cached content and keeps the storage footprint minimal.
 
 ### D5: Keyboard Navigation in Dialog
 
@@ -226,11 +242,39 @@ interface EditBufferState {
 
 **Rationale**: Simplicity over optimization. File contents are typically not large enough to require virtualization.
 
+### D7: Ignore File Filtering
+
+**Decision**: After obtaining the file list from `fossil ls`, filter out paths that match patterns in `.gitignore` and/or `.mimoignore` found at the workspace root. Both files use the same gitignore pattern syntax. Filtering happens server-side in `files/service.ts`.
+
+```typescript
+// Pure function — takes file list and raw ignore content, returns filtered list
+export function applyIgnorePatterns(
+  files: FileInfo[],
+  ignorePatterns: string[],  // combined lines from .gitignore + .mimoignore
+): FileInfo[]
+
+// Reads .gitignore and .mimoignore from workspacePath, returns combined pattern lines
+export function loadIgnorePatterns(workspacePath: string): string[]
+```
+
+Pattern matching rules (subset of gitignore spec sufficient for practical use):
+- Lines starting with `#` are comments — skip.
+- Blank lines are skipped.
+- A leading `!` negates a pattern — matched files are re-included.
+- A pattern containing `/` is matched against the full path; otherwise matched against the filename only.
+- `*` matches any sequence of characters except `/`.
+- `**` matches any sequence of characters including `/`.
+- Trailing `/` means directory-only match — skip (files only in this context).
+
+**Rationale**: Users frequently have generated files, `node_modules`, build artifacts, and secrets in their workspace that should not appear in the file finder. `.gitignore` is the standard mechanism; `.mimoignore` provides mimo-specific overrides without modifying the project's `.gitignore`. Server-side filtering keeps the client simple and prevents leaking ignored paths over the API.
+
 ## Risks / Trade-offs
 
 - **Large file handling**: Loading large files into memory could be slow. → Accept for MVP, consider lazy loading later.
 - **Syntax highlighting performance**: Simple regex-based highlighting may not handle all edge cases. → Acceptable for read-only viewing.
-- **No persistence**: Open files are lost on page refresh. → Ephemeral by design.
+- **Stale content on restore**: File content is re-fetched on restore, so it always reflects the current workspace state.
+- **localStorage quota**: Paths are tiny strings; quota exhaustion is not a realistic risk.
+- **Deleted files**: If a persisted path no longer exists, the restore silently skips it.
 
 ## Data Flow
 

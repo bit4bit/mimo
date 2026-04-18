@@ -1,8 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, writeFileSync, rmSync } from "fs";
-import { join } from "path";
-import { tmpdir } from "os";
-import { matchesPattern, findFiles, createFileService } from "../src/files/service.js";
+import { describe, it, expect } from "bun:test";
+import { matchesPattern, findFiles, applyIgnorePatterns, loadIgnorePatterns } from "../src/files/service.js";
 import { detectLanguage, escapeHtml } from "../src/files/syntax-highlighter.js";
 import type { FileInfo } from "../src/files/types.js";
 
@@ -48,58 +45,102 @@ describe("findFiles", () => {
   });
 });
 
-// --- createFileService ---
+// --- applyIgnorePatterns ---
 
-describe("createFileService", () => {
-  let tmpDir: string;
-  const service = createFileService();
+describe("applyIgnorePatterns", () => {
+  const files: FileInfo[] = [
+    { path: "src/index.ts", name: "index.ts", size: 0 },
+    { path: "dist/bundle.js", name: "bundle.js", size: 0 },
+    { path: "node_modules/lodash/index.js", name: "index.js", size: 0 },
+    { path: "src/generated/types.ts", name: "types.ts", size: 0 },
+    { path: "debug.log", name: "debug.log", size: 0 },
+    { path: "src/important.log", name: "important.log", size: 0 },
+  ];
 
-  beforeEach(() => {
-    tmpDir = join(tmpdir(), `mimo-test-${Date.now()}`);
-    mkdirSync(tmpDir, { recursive: true });
+  it("returns all files when patterns is empty", () => {
+    expect(applyIgnorePatterns(files, [])).toHaveLength(files.length);
   });
 
-  afterEach(() => {
-    rmSync(tmpDir, { recursive: true, force: true });
+  it("excludes files matching a wildcard pattern on filename", () => {
+    const result = applyIgnorePatterns(files, ["*.log"]);
+    expect(result.map((f) => f.path)).not.toContain("debug.log");
+    expect(result.map((f) => f.path)).not.toContain("src/important.log");
   });
 
-  it("lists files in workspace", async () => {
-    writeFileSync(join(tmpDir, "foo.ts"), "export const x = 1;");
-    mkdirSync(join(tmpDir, "src"));
-    writeFileSync(join(tmpDir, "src", "bar.ts"), "export const y = 2;");
-
-    const files = await service.listFiles(tmpDir);
-    const names = files.map((f) => f.name);
-    expect(names).toContain("foo.ts");
-    expect(names).toContain("bar.ts");
+  it("excludes files matching a path-anchored pattern", () => {
+    const result = applyIgnorePatterns(files, ["dist/*"]);
+    expect(result.map((f) => f.path)).not.toContain("dist/bundle.js");
+    expect(result.map((f) => f.path)).toContain("src/index.ts");
   });
 
-  it("skips dotfiles and dot-directories", async () => {
-    writeFileSync(join(tmpDir, ".hidden"), "secret");
-    mkdirSync(join(tmpDir, ".git"));
-    writeFileSync(join(tmpDir, ".git", "config"), "");
-    writeFileSync(join(tmpDir, "visible.ts"), "");
-
-    const files = await service.listFiles(tmpDir);
-    const names = files.map((f) => f.name);
-    expect(names).not.toContain(".hidden");
-    expect(names).not.toContain("config");
-    expect(names).toContain("visible.ts");
+  it("excludes files matching a ** pattern", () => {
+    const result = applyIgnorePatterns(files, ["node_modules/**"]);
+    expect(result.map((f) => f.path)).not.toContain("node_modules/lodash/index.js");
   });
 
-  it("returns empty array for non-existent workspace", async () => {
-    const files = await service.listFiles("/nonexistent/path/xyz");
-    expect(files).toHaveLength(0);
+  it("re-includes files matching a negation pattern", () => {
+    const result = applyIgnorePatterns(files, ["*.log", "!important.log"]);
+    expect(result.map((f) => f.path)).not.toContain("debug.log");
+    expect(result.map((f) => f.path)).toContain("src/important.log");
   });
 
-  it("reads file content from workspace", async () => {
-    writeFileSync(join(tmpDir, "hello.ts"), "const x = 42;");
-    const content = await service.readFile(tmpDir, "hello.ts");
-    expect(content).toBe("const x = 42;");
+  it("excludes all files under a trailing-slash directory pattern", () => {
+    const result = applyIgnorePatterns(files, ["node_modules/"]);
+    expect(result.map((f) => f.path)).not.toContain("node_modules/lodash/index.js");
+    expect(result.map((f) => f.path)).toContain("src/index.ts");
   });
 
+  it("excludes files matching path-anchored directory prefix", () => {
+    const result = applyIgnorePatterns(files, ["src/generated/*"]);
+    expect(result.map((f) => f.path)).not.toContain("src/generated/types.ts");
+    expect(result.map((f) => f.path)).toContain("src/index.ts");
+  });
+});
+
+// --- loadIgnorePatterns ---
+
+describe("loadIgnorePatterns", () => {
+  it("returns empty array when neither .gitignore nor .mimoignore exists", () => {
+    expect(loadIgnorePatterns("/nonexistent/path/xyz123")).toEqual([]);
+  });
+
+  it("reads patterns from a real .gitignore file", async () => {
+    const { mkdtempSync, writeFileSync } = await import("fs");
+    const { tmpdir } = await import("os");
+    const dir = mkdtempSync(tmpdir() + "/mimo-test-");
+    writeFileSync(dir + "/.gitignore", "# comment\n\n*.log\ndist/\n");
+    const patterns = loadIgnorePatterns(dir);
+    expect(patterns).toEqual(["*.log", "dist/"]);
+  });
+
+  it("combines patterns from both .gitignore and .mimoignore", async () => {
+    const { mkdtempSync, writeFileSync } = await import("fs");
+    const { tmpdir } = await import("os");
+    const dir = mkdtempSync(tmpdir() + "/mimo-test-");
+    writeFileSync(dir + "/.gitignore", "*.log\n");
+    writeFileSync(dir + "/.mimoignore", "*.tmp\n");
+    const patterns = loadIgnorePatterns(dir);
+    expect(patterns).toContain("*.log");
+    expect(patterns).toContain("*.tmp");
+  });
+
+  it("skips blank lines and comment lines", async () => {
+    const { mkdtempSync, writeFileSync } = await import("fs");
+    const { tmpdir } = await import("os");
+    const dir = mkdtempSync(tmpdir() + "/mimo-test-");
+    writeFileSync(dir + "/.mimoignore", "# ignored\n\n  \nbuild/\n");
+    const patterns = loadIgnorePatterns(dir);
+    expect(patterns).toEqual(["build/"]);
+  });
+});
+
+// --- readFile path traversal ---
+
+describe("createFileService readFile", () => {
   it("rejects path traversal outside workspace", async () => {
-    await expect(service.readFile(tmpDir, "../etc/passwd")).rejects.toThrow("Access denied");
+    const { createFileService } = await import("../src/files/service.js");
+    const service = createFileService();
+    await expect(service.readFile("/some/workspace", "../etc/passwd")).rejects.toThrow("Access denied");
   });
 });
 

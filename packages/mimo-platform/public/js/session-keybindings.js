@@ -13,9 +13,11 @@
     shortcutsHelp: "Mod+Shift+/",
     closeModal: "Escape",
     openFileFinder: "Mod+Shift+F",
-    closeFile: "Mod+W",
+    closeFile: "Alt+Shift+W",
     nextFile: "Mod+Alt+ArrowRight",
     previousFile: "Mod+Alt+ArrowLeft",
+    nextLeftBuffer: "Alt+Shift+PageDown",
+    previousLeftBuffer: "Alt+Shift+PageUp",
   };
 
   function getConfiguredKeybindings() {
@@ -66,6 +68,8 @@
     if (upper === "ALT" || upper === "OPTION") return "ALT";
     if (upper === "ARROWRIGHT") return "ARROWRIGHT";
     if (upper === "ARROWLEFT") return "ARROWLEFT";
+    if (upper === "PAGEUP" || upper === "PGUP") return "PAGEUP";
+    if (upper === "PAGEDOWN" || upper === "PGDOWN" || upper === "PGDN") return "PAGEDOWN";
     if (upper === "ESC" || upper === "ESCAPE") return "ESCAPE";
     if (upper === "COMMA") return ",";
     if (upper === "PERIOD" || upper === "DOT") return ".";
@@ -137,6 +141,8 @@
     if (raw === "Escape" || raw === "Esc") return "ESCAPE";
     if (raw === "ArrowRight") return "ARROWRIGHT";
     if (raw === "ArrowLeft") return "ARROWLEFT";
+    if (raw === "PageUp") return "PAGEUP";
+    if (raw === "PageDown") return "PAGEDOWN";
     if (raw === "<" || raw === ",") return ",";
     if (raw === ">" || raw === ".") return ".";
     if (raw === "?" || raw === "/") return "/";
@@ -197,6 +203,16 @@
     const eventKey = normalizeEventKey(event);
     const eventCode = normalizeEventCode(event);
     return parsed.key === eventKey || parsed.key === eventCode;
+  }
+
+  function switchLeftBuffer(direction) {
+    const tabs = Array.from(document.querySelectorAll('.frame-tab[data-frame-id="left"]'));
+    if (tabs.length <= 1) return false;
+    const activeIndex = tabs.findIndex((t) => t.classList.contains("active"));
+    const current = activeIndex >= 0 ? activeIndex : 0;
+    const next = (current + direction + tabs.length) % tabs.length;
+    tabs[next].click();
+    return true;
   }
 
   function getThreadTabs() {
@@ -345,6 +361,10 @@
       if (window.EditBuffer) handled = window.EditBuffer.switchFile("left");
     } else if (bindingMatches(event, keybindings.closeFile)) {
       if (window.EditBuffer) handled = window.EditBuffer.closeCurrentFile();
+    } else if (bindingMatches(event, keybindings.nextLeftBuffer)) {
+      handled = switchLeftBuffer(1);
+    } else if (bindingMatches(event, keybindings.previousLeftBuffer)) {
+      handled = switchLeftBuffer(-1);
     } else if (isHelpShortcut) {
       handled = highlightShortcutsBar();
     } else if (bindingMatches(event, keybindings.nextThread)) {

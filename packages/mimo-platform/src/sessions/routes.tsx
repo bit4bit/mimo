@@ -10,7 +10,8 @@ import type { Context } from "hono";
 import { normalizeFrameState, updateFrameState } from "./frame-state.js";
 import { logger } from "../logger.js";
 import type { MimoContext } from "../context/mimo-context.js";
-import { createFileService } from "../files/service.js";
+import { createFileService, findFiles } from "../files/service.js";
+import { detectLanguage, escapeHtml } from "../files/syntax-highlighter.js";
 
 type SessionsRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
 
@@ -530,75 +531,18 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
   // GET /sessions/:id/files - Get file tree for a session
   router.get("/:id/files", async (c: Context) => {
     const username = await getAuthUsername(c);
-    if (!username) {
-      return c.redirect("/auth/login");
-    }
-
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
     const sessionId = c.req.param("id");
+    const pattern = c.req.query("pattern") ?? "";
     const session = await sessionRepository.findById(sessionId);
-
-    if (!session || session.owner !== username) {
-      return c.text("Session not found", 404);
-    }
-
-    // Scan filesystem directly for files
-    const { readdirSync, statSync } = await import("fs");
-    const { join, relative } = await import("path");
-
-    const fileTree: { [key: string]: string[] } = {};
-
-    function scanDir(dirPath: string, basePath: string) {
-      if (!statSync(dirPath, { throwIfNoEntry: false })) {
-        return;
-      }
-
-      const entries = readdirSync(dirPath, { withFileTypes: true });
-
-      for (const entry of entries) {
-        const fullPath = join(dirPath, entry.name);
-        const relPath = relative(basePath, fullPath);
-
-        if (entry.isDirectory()) {
-          scanDir(fullPath, basePath);
-        } else {
-          const parts = relPath.split("/");
-          const fileName = parts.pop() || "";
-          const dir = parts.length > 0 ? parts.join("/") : "(root)";
-
-          if (!fileTree[dir]) {
-            fileTree[dir] = [];
-          }
-          fileTree[dir].push(fileName);
-        }
-      }
-    }
-
+    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
     try {
-      scanDir(session.agentWorkspacePath, session.agentWorkspacePath);
-    } catch (error) {
-      logger.error("Error scanning checkout:", error);
+      const allFiles = await fileService.listFiles(session.agentWorkspacePath);
+      return c.json(findFiles(pattern, allFiles));
+    } catch (err) {
+      logger.error("[files] listFiles error:", err);
+      return c.json({ error: "Failed to list files" }, 500);
     }
-
-    // Return HTML file tree
-    let html = `<!DOCTYPE html>
-<html>
-<head><title>File Tree</title></head>
-<body>
-<div class="file-tree">
-`;
-
-    for (const [dir, files] of Object.entries(fileTree)) {
-      html += `  <div class="dir">${dir}/</div>\n`;
-      for (const file of files) {
-        html += `    <div class="file">${file}</div>\n`;
-      }
-    }
-
-    html += `</div>
-</body>
-</html>`;
-
-    return c.html(html);
   });
 
   // POST /sessions/:id/chat - Save a chat message
@@ -1229,24 +1173,16 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     return c.json({ activeChatThreadId: threadId });
   });
 
-  // Files API - list files in agent workspace
-  router.get("/:id/files", async (c: Context) => {
-    const sessionId = c.req.param("id");
-    const pattern = c.req.query("pattern") ?? "";
-    const session = await sessionRepository.findById(sessionId);
-    if (!session) return c.json({ error: "Session not found" }, 404);
-    const allFiles = await fileService.listFiles(session.agentWorkspacePath);
-    const { findFiles } = await import("../files/service.js");
-    return c.json(findFiles(pattern, allFiles));
-  });
+  // Files API - read file content from agent workspace (companion to the list route above)
 
-  // Files API - read a single file from agent workspace
   router.get("/:id/files/content", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
     const sessionId = c.req.param("id");
     const filePath = c.req.query("path");
     if (!filePath) return c.json({ error: "path query param required" }, 400);
     const session = await sessionRepository.findById(sessionId);
-    if (!session) return c.json({ error: "Session not found" }, 404);
+    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
     let raw: string;
     try {
       raw = await fileService.readFile(session.agentWorkspacePath, filePath);
@@ -1254,7 +1190,6 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       if (err?.message?.includes("Access denied")) return c.json({ error: "Access denied" }, 403);
       return c.json({ error: "File not found" }, 404);
     }
-    const { detectLanguage, escapeHtml } = await import("../files/syntax-highlighter.js");
     const language = detectLanguage(filePath);
     const name = filePath.split("/").pop() ?? filePath;
     const lineCount = raw.split("\n").length;

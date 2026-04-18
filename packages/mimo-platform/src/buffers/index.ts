@@ -42,7 +42,7 @@ export function ensureDefaultBuffersRegistered(): void {
 
   registerBuffer({
     id: "edit",
-    name: "Files",
+    name: "Edit",
     frame: "left",
     component: EditBuffer,
   });

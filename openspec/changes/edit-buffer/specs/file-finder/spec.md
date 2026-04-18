@@ -11,7 +11,7 @@ The system SHALL display a file finder dialog when user presses `Mod+Shift+F` ke
 - **GIVEN** the file finder dialog is open
 - **WHEN** user types a pattern in the search input
 - **THEN** the file list updates to show files matching the pattern
-- **AND** matching is done on file name (not full path)
+- **AND** matching is done on the full path (including directory components)
 - **AND** matching is case-insensitive
 
 #### Scenario: Navigate results with keyboard
@@ -78,13 +78,13 @@ The system SHALL allow keyboard navigation between open files.
 
 #### Scenario: Navigate to next file
 - **GIVEN** multiple files are open in EditBuffer
-- **WHEN** user presses `Mod+Shift+ArrowRight`
+- **WHEN** user presses `Mod+Alt+ArrowRight`
 - **THEN** the next file in the tab order becomes active
 - **AND** if currently on the last file, it wraps to the first file
 
 #### Scenario: Navigate to previous file
 - **GIVEN** multiple files are open in EditBuffer
-- **WHEN** user presses `Mod+Shift+ArrowLeft`
+- **WHEN** user presses `Mod+Alt+ArrowLeft`
 - **THEN** the previous file in the tab order becomes active
 - **AND** if currently on the first file, it wraps to the last file
 
@@ -120,13 +120,6 @@ The system SHALL display file contents with syntax highlighting.
 - **WHEN** user presses `PageDown`
 - **THEN** the view scrolls down by one page
 
-#### Scenario: Scroll with arrow keys
-- **GIVEN** a file with content larger than the viewport is open
-- **WHEN** user presses `ArrowUp`
-- **THEN** the view scrolls up by one line
-- **WHEN** user presses `ArrowDown`
-- **THEN** the view scrolls down by one line
-
 ---
 
 ### Requirement: Supported Languages
@@ -159,6 +152,38 @@ The system SHALL support syntax highlighting for the following languages:
 
 ---
 
+### Requirement: Ignore Files
+The system SHALL exclude files matching patterns defined in `.gitignore` and `.mimoignore` from the file finder results.
+
+#### Scenario: Respect .gitignore
+- **GIVEN** a `.gitignore` file exists in the workspace root
+- **WHEN** the file finder lists files
+- **THEN** files matching any pattern in `.gitignore` are excluded from results
+
+#### Scenario: Respect .mimoignore
+- **GIVEN** a `.mimoignore` file exists in the workspace root
+- **WHEN** the file finder lists files
+- **THEN** files matching any pattern in `.mimoignore` are excluded from results
+- **AND** `.mimoignore` follows the same pattern syntax as `.gitignore`
+
+#### Scenario: Both ignore files present
+- **GIVEN** both `.gitignore` and `.mimoignore` exist in the workspace root
+- **WHEN** the file finder lists files
+- **THEN** files matching patterns in either file are excluded
+- **AND** patterns from both files are combined (union)
+
+#### Scenario: No ignore files present
+- **GIVEN** neither `.gitignore` nor `.mimoignore` exists in the workspace root
+- **WHEN** the file finder lists files
+- **THEN** all tracked files are returned without filtering
+
+#### Scenario: Malformed ignore pattern
+- **GIVEN** an ignore file contains an invalid or unparseable pattern
+- **THEN** that pattern is silently skipped
+- **AND** remaining valid patterns are still applied
+
+---
+
 ### Requirement: Keybindings Configuration
 The system SHALL support configurable keybindings for edit buffer operations.
 
@@ -166,9 +191,11 @@ The system SHALL support configurable keybindings for edit buffer operations.
 - **GIVEN** no custom keybindings are configured
 - **THEN** the following defaults apply:
   - `Mod+Shift+F`: Open file finder
-  - `Mod+Shift+ArrowRight`: Next file
-  - `Mod+Shift+ArrowLeft`: Previous file
-  - `Mod+W`: Close current file
+  - `Mod+Alt+ArrowRight`: Next file
+  - `Mod+Alt+ArrowLeft`: Previous file
+  - `Alt+Shift+W`: Close current file (`Mod+W` avoided — collides with browser close-tab)
+  - `Alt+Shift+PageDown`: Next left-frame buffer
+  - `Alt+Shift+PageUp`: Previous left-frame buffer
   - `Escape`: Close file finder (when open)
 
 #### Scenario: Custom keybindings from config

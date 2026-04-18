@@ -119,11 +119,32 @@
   - Open selected file in EditBuffer
 
 ##### 4.3 Edit Buffer State Management
-- [ ] Create inline in session-keybindings.js
-  - Store open files in data attributes
+- [x] Create inline in edit-buffer.js
+  - Store open files in JS closure state (`EditBufferState`)
   - Track active file index
   - Handle tab switching
   - Handle file closing
+
+##### 4.4 Ignore File Filtering
+- [ ] Update `packages/mimo-platform/src/files/service.ts`
+  - Add `loadIgnorePatterns(workspacePath: string): string[]` — reads `.gitignore` and `.mimoignore` from workspace root, returns combined pattern lines (skip blanks and `#` comments)
+  - Add `applyIgnorePatterns(files: FileInfo[], patterns: string[]): FileInfo[]` — pure function, filters out files matching any pattern
+  - Call both in `listFiles()` after `fossilLs()` output is mapped to `FileInfo[]`
+- [ ] Update `packages/mimo-platform/test/files-service.test.ts`
+  - Test `applyIgnorePatterns` with glob patterns (`*.log`, `dist/**`, `node_modules/`)
+  - Test `applyIgnorePatterns` with negation patterns (`!important.log`)
+  - Test `applyIgnorePatterns` with path-anchored patterns (`src/generated/`)
+  - Test `loadIgnorePatterns` skips blank lines and comments
+  - Test `loadIgnorePatterns` combines both files when both exist
+  - Test `loadIgnorePatterns` returns empty array when neither file exists
+
+##### 4.5 Open-File Persistence (localStorage)
+- [ ] Update `packages/mimo-platform/public/js/edit-buffer.js`
+  - Add `persistState()` — writes `{ openPaths, activePath }` to `localStorage` key `mimo:edit-buffer:<sessionId>`
+  - Call `persistState()` on every add, remove, and setActive operation
+  - Add `restoreState()` — on `DOMContentLoaded`, reads stored state, fetches each path via `/sessions/:id/files/content`, restores tabs and active file in order
+  - Skip paths that return a non-OK HTTP status (deleted/renamed files)
+  - After restore, if the active frame is not already "edit", do not auto-switch (preserve user's last active buffer)
 
 #### 5. Integration
 

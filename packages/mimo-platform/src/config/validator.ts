@@ -137,6 +137,8 @@ export class ConfigValidator {
       "closeFile",
       "nextFile",
       "previousFile",
+      "nextLeftBuffer",
+      "previousLeftBuffer",
     ];
 
     for (const key of supportedKeys) {

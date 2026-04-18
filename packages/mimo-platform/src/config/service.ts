@@ -15,6 +15,8 @@ export interface SessionKeybindingsConfig {
   closeFile?: string;
   nextFile?: string;
   previousFile?: string;
+  nextLeftBuffer?: string;
+  previousLeftBuffer?: string;
 }
 
 export interface Config {
@@ -36,9 +38,11 @@ export const defaultSessionKeybindings: SessionKeybindingsConfig = {
   shortcutsHelp: "Mod+Shift+/",
   closeModal: "Escape",
   openFileFinder: "Mod+Shift+F",
-  closeFile: "Mod+W",
+  closeFile: "Alt+Shift+W",
   nextFile: "Mod+Alt+ArrowRight",
   previousFile: "Mod+Alt+ArrowLeft",
+  nextLeftBuffer: "Alt+Shift+PageDown",
+  previousLeftBuffer: "Alt+Shift+PageUp",
 };
 
 export const defaultConfig: Config = {
@@ -72,6 +76,8 @@ function sanitizeSessionKeybindings(
     "closeFile",
     "nextFile",
     "previousFile",
+    "nextLeftBuffer",
+    "previousLeftBuffer",
   ];
 
   for (const key of supportedKeys) {

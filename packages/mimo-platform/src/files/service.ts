@@ -1,66 +1,140 @@
-import { readdirSync, statSync, readFileSync, existsSync } from "fs";
-import { join, relative, basename } from "path";
+import { readFileSync, existsSync } from "fs";
+import { join, basename } from "path";
 import type { FileInfo, FileService } from "./types.js";
+
+export function loadIgnorePatterns(workspacePath: string): string[] {
+  const files = [".gitignore", ".mimoignore"];
+  const patterns: string[] = [];
+  for (const name of files) {
+    const fullPath = join(workspacePath, name);
+    if (!existsSync(fullPath)) continue;
+    try {
+      const lines = readFileSync(fullPath, "utf-8").split("\n");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.length === 0 || trimmed.startsWith("#")) continue;
+        patterns.push(trimmed);
+      }
+    } catch {
+      // unreadable — skip
+    }
+  }
+  return patterns;
+}
+
+export function applyIgnorePatterns(
+  files: FileInfo[],
+  patterns: string[],
+): FileInfo[] {
+  if (patterns.length === 0) return files;
+
+  // Split into normal and negation patterns, preserving order
+  const entries = patterns.map((p) => ({
+    negate: p.startsWith("!"),
+    pattern: p.startsWith("!") ? p.slice(1) : p,
+  }));
+
+  return files.filter((file) => {
+    let ignored = false;
+    for (const { negate, pattern } of entries) {
+      if (patternMatchesFile(pattern, file.path)) {
+        ignored = !negate;
+      }
+    }
+    return !ignored;
+  });
+}
+
+function matchesPart(pattern: string, part: string): boolean {
+  try {
+    return minimatch(pattern, part);
+  } catch {
+    return false;
+  }
+}
+
+function patternMatchesFile(pattern: string, filePath: string): boolean {
+  // Trailing slash = directory match
+  if (pattern.endsWith("/")) {
+    const dirPattern = pattern.slice(0, -1);
+    if (dirPattern.includes("/")) {
+      // Anchored like `src/generated/` — only match at this exact location
+      return filePath === dirPattern || filePath.startsWith(dirPattern + "/");
+    }
+    // Unanchored like `node_modules/` — match that directory component at any depth
+    const parts = filePath.split("/");
+    return parts.slice(0, -1).some((part) => matchesPart(dirPattern, part));
+  }
+
+  // Strip leading **/ — match at any depth
+  const globalPrefix = pattern.startsWith("**/");
+  const corePattern = globalPrefix ? pattern.slice(3) : pattern;
+  const isPathAnchored = !globalPrefix && corePattern.includes("/");
+
+  if (isPathAnchored) {
+    // Pattern like `src/generated/*` — match against full path only
+    try {
+      return minimatch(pattern, filePath);
+    } catch {
+      return false;
+    }
+  }
+
+  // No `/` in core (or was `**/pattern`): match against any path component
+  // (a matching directory component excludes all files inside it)
+  const parts = filePath.split("/");
+  return parts.some((part) => matchesPart(corePattern, part));
+}
+
+/** Minimal glob matcher supporting `*`, `**`, and `?`. */
+function minimatch(pattern: string, subject: string): boolean {
+  const reStr = pattern
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&") // escape regex specials except * and ?
+    .replace(/\*\*/g, "\x00") // placeholder for **
+    .replace(/\*/g, "[^/]*") // * → any chars except /
+    .replace(/\x00/g, ".*") // ** → any chars including /
+    .replace(/\?/g, "[^/]"); // ? → single char except /
+  return new RegExp("^" + reStr + "$").test(subject);
+}
 
 export function matchesPattern(filePath: string, pattern: string): boolean {
   if (!pattern.trim()) return true;
-  const lower = filePath.toLowerCase();
-  const pat = pattern.toLowerCase().trim();
-  return lower.includes(pat);
+  return filePath.toLowerCase().includes(pattern.toLowerCase().trim());
 }
 
-export function findFiles(
-  pattern: string,
-  files: FileInfo[],
-): FileInfo[] {
-  return files.filter((f) => matchesPattern(f.name, pattern));
+export function findFiles(pattern: string, files: FileInfo[]): FileInfo[] {
+  return files.filter((f) => matchesPattern(f.path, pattern));
 }
 
-function collectFiles(
-  dir: string,
-  workspacePath: string,
-  results: FileInfo[],
-  depth: number,
-): void {
-  if (depth > 10) return;
-  let entries: string[];
-  try {
-    entries = readdirSync(dir);
-  } catch {
-    return;
-  }
-  for (const entry of entries) {
-    if (entry.startsWith(".")) continue;
-    const full = join(dir, entry);
-    let stat;
-    try {
-      stat = statSync(full);
-    } catch {
-      continue;
-    }
-    if (stat.isDirectory()) {
-      collectFiles(full, workspacePath, results, depth + 1);
-    } else if (stat.isFile()) {
-      results.push({
-        path: relative(workspacePath, full),
-        name: basename(full),
-        size: stat.size,
-      });
-    }
-  }
+async function fossilLs(workspacePath: string): Promise<string[]> {
+  const proc = Bun.spawn(["fossil", "ls"], {
+    cwd: workspacePath,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  await proc.exited;
+  const output = await new Response(proc.stdout).text();
+  return output
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
 }
 
 export function createFileService(): FileService {
   return {
     listFiles: async (workspacePath: string): Promise<FileInfo[]> => {
       if (!existsSync(workspacePath)) return [];
-      const results: FileInfo[] = [];
-      collectFiles(workspacePath, workspacePath, results, 0);
-      return results;
+      const paths = await fossilLs(workspacePath);
+      const all = paths.map((p) => ({
+        path: p,
+        name: basename(p),
+        size: 0,
+      }));
+      const patterns = loadIgnorePatterns(workspacePath);
+      return applyIgnorePatterns(all, patterns);
     },
     readFile: async (workspacePath: string, filePath: string): Promise<string> => {
       const full = join(workspacePath, filePath);
-      // Prevent path traversal: resolved path must be inside workspacePath
       const resolved = full.replace(/\\/g, "/");
       const base = workspacePath.replace(/\\/g, "/");
       if (!resolved.startsWith(base + "/") && resolved !== base) {
