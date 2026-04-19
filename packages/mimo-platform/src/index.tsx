@@ -2162,20 +2162,20 @@ async function handleFilesMessage(ws: any, data: any) {
         const fullPath = join(session.agentWorkspacePath, filePath);
 
         // Start watching the file
-        console.log(`[WS Files] Calling watchFile for ${fullPath} with checksum ${currentChecksum}`);
+        logger.debug(`[WS Files] Calling watchFile for ${fullPath} with checksum ${currentChecksum}`);
         await fileWatcher.watchFile(
           sessionId,
           fullPath,
           currentChecksum,
           (event) => {
-            console.log(`[WS Files] File watcher callback triggered:`, event);
+            logger.debug(`[WS Files] File watcher callback triggered:`, event);
             // Send event to ALL active file watcher connections for this session
             const connections = fileWatchSessions.get(sessionId);
             if (connections) {
               let sentCount = 0;
               connections.forEach((conn) => {
                 if (conn.readyState === 1) {
-                  console.log(`[WS Files] Sending ${event.type} to client for ${filePath}`);
+                  logger.debug(`[WS Files] Sending ${event.type} to client for ${filePath}`);
                   conn.send(
                     JSON.stringify({
                       type: event.type,
@@ -2186,14 +2186,14 @@ async function handleFilesMessage(ws: any, data: any) {
                   sentCount++;
                 }
               });
-              console.log(`[WS Files] Sent event to ${sentCount} connection(s), ${connections.size - sentCount} unavailable`);
+              logger.debug(`[WS Files] Sent event to ${sentCount} connection(s), ${connections.size - sentCount} unavailable`);
             } else {
-              console.log(`[WS Files] No file watcher connections found for session ${sessionId}`);
+              logger.debug(`[WS Files] No file watcher connections found for session ${sessionId}`);
             }
           },
         );
 
-        console.log(`[WS Files] Successfully started watching ${filePath} for session ${sessionId}`);
+        logger.debug(`[WS Files] Successfully started watching ${filePath} for session ${sessionId}`);
         logger.debug(`[FileWatcher] Started watching ${filePath} for session ${sessionId}`);
       } catch (error) {
         logger.error(`[FileWatcher] Error watching file: ${error}`);

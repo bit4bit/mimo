@@ -505,7 +505,6 @@ function parseMessageContent(content) {
       try {
         toolCalls = JSON.parse(toolsMatch[1]);
       } catch (e) {
-        console.warn("[CHAT] Failed to parse tools JSON:", e);
       }
       // Remove the <tools> tag from thought text
       thoughtText = thoughtText.replace(/<tools>[\s\S]*?<\/tools>/, "").trim();
@@ -766,7 +765,6 @@ function connectWebSocket(sessionId) {
   }
 
   ChatState.socket.onopen = () => {
-    console.log("Chat WebSocket connected");
     ChatState.connectionStatus = "connected";
     updateConnectionStatusUI();
 
@@ -793,7 +791,6 @@ function connectWebSocket(sessionId) {
   };
 
   ChatState.socket.onclose = () => {
-    console.log("Chat WebSocket disconnected");
     ChatState.connectionStatus = "disconnected";
     ChatState.agentStatus = "offline";
     updateConnectionStatusUI();
@@ -815,8 +812,6 @@ function connectWebSocket(sessionId) {
 
 // Controller: Handle incoming WebSocket messages
 function handleWebSocketMessage(data) {
-  console.log("[CHAT] Received:", data.type, data);
-
   const activeThreadId =
     typeof ChatThreadsState !== "undefined" && ChatThreadsState
       ? ChatThreadsState.activeThreadId
@@ -884,7 +879,6 @@ function handleWebSocketMessage(data) {
       handleUsageUpdate(data.usage, data.duration, data.durationMs);
       break;
     case "expert_diff_ready":
-      console.log("[CHAT] expert_diff_ready forwarding to EditBuffer", data);
       if (window.EditBuffer && typeof window.EditBuffer.handleDiffReady === "function") {
         window.EditBuffer.handleDiffReady(data);
       }
@@ -1234,7 +1228,6 @@ function handleErrorMessage(message) {
 // Controller: Handle ACP status
 function handleAcpStatus(data) {
   const { status, wasReset, message } = data;
-  console.log("[CHAT] ACP status update:", { status, wasReset });
 
   ChatState.acpStatus = status;
   updateAgentStatusUI();
@@ -1246,7 +1239,6 @@ function handleAcpStatus(data) {
 
 // Controller: Handle session initialized
 function handleSessionInitialized(data) {
-  console.log("[INIT] session_initialized received:", data);
   ChatState.agentStatus = "online";
   updateAgentStatusUI();
 
@@ -1322,7 +1314,6 @@ async function sendMessageHttp(content) {
 
 // Controller: Cancel streaming
 function cancelStreaming() {
-  console.log("[CHAT] User cancelled streaming");
   clearStreamingTimeout();
 
   // Get the partial content before finalizing
@@ -1391,10 +1382,6 @@ function clearSession() {
     return;
   }
 
-  console.log(
-    `[CHAT] User requested thread clear for ${ChatState.sessionId}/${activeThreadId}`,
-  );
-
   if (ChatState.socket?.readyState === WebSocket.OPEN) {
     const payload = {
       type: "clear_session",
@@ -1429,10 +1416,6 @@ function clearStreamingTimeout() {
 
 // Controller: Handle streaming timeout
 function handleStreamingTimeout() {
-  console.log(
-    `[CHAT] Streaming timeout - agent did not respond within ${ChatState.STREAMING_TIMEOUT_MS / 1000} seconds`,
-  );
-
   if (ChatState.streaming.messageElement) {
     ChatState.streaming.messageElement.remove();
     ChatState.streaming.messageElement = null;
@@ -1480,9 +1463,6 @@ function handleStreamingState(data) {
     ) {
       const timeSinceActivity = Date.now() - ChatState.streaming.lastActivity;
       if (timeSinceActivity >= 10000) {
-        console.log(
-          "[CHAT] Fallback: restoring input after stale reconstructed streaming",
-        );
         ChatState.streaming.reconstructed = false;
         insertEditableBubble();
       }
@@ -1492,8 +1472,6 @@ function handleStreamingState(data) {
 
 // Controller: Handle session cleared
 function handleSessionCleared(data) {
-  console.log("[CHAT] Session cleared:", data);
-
   const pending = document.querySelector("#clear-session-pending");
   if (pending) pending.remove();
 
@@ -2397,9 +2375,6 @@ function loadChatHistory(messages) {
       !ChatState.streaming.messageElement &&
       !ChatState.streaming.reconstructed
     ) {
-      console.log(
-        "[CHAT] Fallback: creating editable bubble after history load",
-      );
       insertEditableBubble();
     }
   }, 2000);
@@ -2413,11 +2388,10 @@ function extractToolCallsFromContent(content) {
   const toolsJsonRegex = /<tools>(\[[^\]]+\])<\/tools>/;
   const jsonMatch = content.match(toolsJsonRegex);
   if (jsonMatch) {
-    try {
-      return JSON.parse(jsonMatch[1]);
-    } catch (e) {
-      console.warn("[CHAT] Failed to parse tools JSON:", e);
-    }
+try {
+        stateStorage.setItem("left-frame", JSON.stringify(state.left));
+      } catch (error) {
+      }
   }
   // Fallback: legacy <tool> format
   const toolRegex = /<tool>([^<]+)<\/tool>/g;
@@ -2477,25 +2451,17 @@ function buildThoughtWithTools(thoughtContent, toolCalls) {
 
 // DOM: Update model selector
 function updateModelSelector(modelState) {
-  console.log("[MODEL] Updating with state:", modelState);
   const selector = document.querySelector("#model-selector");
   const container = document.querySelector("#model-selector-container");
 
   if (!selector || !container) {
-    console.log("[MODEL] Elements not found");
     return;
   }
 
   if (!modelState?.availableModels?.length) {
-    console.log("[MODEL] No data available");
     return;
   }
 
-  console.log(
-    "[MODEL] Populating with",
-    modelState.availableModels.length,
-    "options",
-  );
   container.style.opacity = "1";
   selector.disabled = false;
   selector.innerHTML = "";
@@ -2517,25 +2483,17 @@ function updateModelSelector(modelState) {
 
 // DOM: Update mode selector
 function updateModeSelector(modeState) {
-  console.log("[MODE] Updating with state:", modeState);
   const selector = document.querySelector("#mode-selector");
   const container = document.querySelector("#mode-selector-container");
 
   if (!selector || !container) {
-    console.log("[MODE] Elements not found");
     return;
   }
 
   if (!modeState?.availableModes?.length) {
-    console.log("[MODE] No data available");
     return;
   }
 
-  console.log(
-    "[MODE] Populating with",
-    modeState.availableModes.length,
-    "options",
-  );
   container.style.opacity = "1";
   selector.disabled = false;
   selector.innerHTML = "";
