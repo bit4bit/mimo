@@ -31,6 +31,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
   const vcs = mimoContext.services.vcs;
   const platformUrl = mimoContext.env?.PLATFORM_URL ?? "http://localhost:3000";
   const fileService = createFileService();
+  const expertService = mimoContext.services.expert;
 
   // Helper to get authenticated username from cookie
   async function getAuthUsername(c: Context): Promise<string | null> {
@@ -1210,6 +1211,29 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     return c.json({ activeChatThreadId: threadId });
   });
 
+  // GET /:id/chat-threads/:threadId/messages — get thread messages
+  router.get("/:id/chat-threads/:threadId/messages", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+
+    const sessionId = c.req.param("id");
+    const threadId = c.req.param("threadId");
+    const session = await sessionRepository.findById(sessionId);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
+
+    // Check thread exists
+    const threadExists = session.chatThreads.some((t) => t.id === threadId);
+    if (!threadExists) return c.json({ error: "Thread not found" }, 404);
+
+    try {
+      const messages = await chatService.loadHistory(sessionId, threadId);
+      return c.json(messages);
+    } catch (err) {
+      return c.json({ error: "Failed to load messages" }, 500);
+    }
+  });
+
   // Files API - read file content from agent workspace (companion to the list route above)
 
   router.get("/:id/files/content", async (c: Context) => {
@@ -1231,6 +1255,209 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const name = filePath.split("/").pop() ?? filePath;
     const lineCount = raw.split("\n").length;
     return c.json({ path: filePath, name, language, lineCount, content: escapeHtml(raw) });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Expert Mode API
+  // ---------------------------------------------------------------------------
+
+  // POST /sessions/:id/files/copy - Copy file to temp for expert mode
+  router.post("/:id/files/copy", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+    const sessionId = c.req.param("id");
+    const filePath = c.req.query("path");
+    if (!filePath) return c.json({ error: "path query param required" }, 400);
+    const session = await sessionRepository.findById(sessionId);
+    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
+
+    try {
+      const result = await expertService.readFileContent(
+        session.agentWorkspacePath,
+        filePath,
+      );
+      return c.json(result);
+    } catch (err: any) {
+      logger.error("[expert] readFileContent error:", err);
+      return c.json({ error: err.message }, 500);
+    }
+  });
+
+  // POST /sessions/:id/files/write - Write content to file
+  router.post("/:id/files/write", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+    const sessionId = c.req.param("id");
+    const body = await c.req.json().catch(() => null);
+    const path = body?.path;
+    const content = body?.content;
+    if (!path || content === undefined) return c.json({ error: "path and content required" }, 400);
+    const session = await sessionRepository.findById(sessionId);
+    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
+
+    try {
+      const result = await expertService.writeFileContent(
+        session.agentWorkspacePath,
+        path,
+        content,
+      );
+      return c.json(result);
+    } catch (err: any) {
+      if (err.message.includes("Invalid path") || err.message.includes("not found")) {
+        return c.json({ error: err.message }, 400);
+      }
+      logger.error("[expert] writeFileContent error:", err);
+      return c.json({ error: err.message }, 500);
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Patch API
+  // ---------------------------------------------------------------------------
+
+  // GET /sessions/:id/patches - List pending patches
+  router.get("/:id/patches", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+    const sessionId = c.req.param("id");
+    const session = await sessionRepository.findById(sessionId);
+    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
+
+    try {
+      const patches = await expertService.listPatchFiles(session.agentWorkspacePath);
+      return c.json({ patches });
+    } catch (err: any) {
+      logger.error("[patches] listPatchFiles error:", err);
+      return c.json({ error: err.message }, 500);
+    }
+  });
+
+  // POST /sessions/:id/patches - Write a patch file
+  router.post("/:id/patches", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+    const sessionId = c.req.param("id");
+    const session = await sessionRepository.findById(sessionId);
+    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
+
+    const body = await c.req.json().catch(() => null);
+    const originalPath = body?.originalPath;
+    const content = body?.content;
+    if (!originalPath || content === undefined) {
+      return c.json({ error: "originalPath and content required" }, 400);
+    }
+
+    try {
+      const result = await expertService.writePatchFile(
+        session.agentWorkspacePath,
+        originalPath,
+        content,
+      );
+      return c.json(result);
+    } catch (err: any) {
+      logger.error("[patches] writePatchFile error:", err);
+      return c.json({ error: err.message }, 400);
+    }
+  });
+
+  // POST /sessions/:id/patches/approve - Approve a patch and send to agent
+  router.post("/:id/patches/approve", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+    const sessionId = c.req.param("id");
+    const session = await sessionRepository.findById(sessionId);
+    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
+
+    const body = await c.req.json().catch(() => null);
+    const originalPath = body?.originalPath;
+    if (!originalPath) return c.json({ error: "originalPath required" }, 400);
+
+    try {
+      // Read the patch file content
+      const { readFileSync, existsSync, unlinkSync } = await import("fs");
+      const { join } = await import("path");
+      const patchPath = join(".mimo-patches", originalPath).replace(/\\/g, "/");
+      const fullPatchPath = join(session.agentWorkspacePath, patchPath).replace(/\\/g, "/");
+
+      if (!existsSync(fullPatchPath)) {
+        return c.json({ error: `Patch file not found: ${patchPath}` }, 404);
+      }
+
+      const content = readFileSync(fullPatchPath, "utf-8");
+
+      // Find the agent to use: active chat thread agent first, then session-level
+      let targetAgentId: string | null = null;
+      
+      // Check active chat thread's assigned agent first
+      if (session.activeChatThreadId && session.chatThreads) {
+        const activeThread = session.chatThreads.find(
+          (t) => t.id === session.activeChatThreadId
+        );
+        if (activeThread?.assignedAgentId) {
+          targetAgentId = activeThread.assignedAgentId;
+        }
+      }
+      
+      // Fall back to session-level assigned agent
+      if (!targetAgentId) {
+        targetAgentId = session.assignedAgentId || null;
+      }
+
+      if (!targetAgentId) {
+        return c.json({ error: "No agent assigned to session" }, 400);
+      }
+
+      if (!agentService.isAgentOnline(targetAgentId)) {
+        return c.json({ error: "Agent is not online" }, 503);
+      }
+
+      // Send file content to agent's checkout path
+      const sent = await agentService.sendFileToAgent(
+        targetAgentId,
+        sessionId,
+        originalPath,
+        content
+      );
+
+      if (!sent) {
+        return c.json({ error: "Failed to send file to agent" }, 500);
+      }
+
+      // Delete local patch file after successful send
+      unlinkSync(fullPatchPath);
+
+      return c.json({ success: true, sent: true });
+    } catch (err: any) {
+      logger.error("[patches] approvePatch error:", err);
+      return c.json({ error: err.message }, 500);
+    }
+  });
+
+  // DELETE /sessions/:id/patches - Decline (delete) a patch
+  router.delete("/:id/patches", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+    const sessionId = c.req.param("id");
+    const session = await sessionRepository.findById(sessionId);
+    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
+
+    const body = await c.req.json().catch(() => null);
+    const patchPath = body?.patchPath;
+    if (!patchPath) return c.json({ error: "patchPath required" }, 400);
+
+    try {
+      const result = await expertService.declinePatch(
+        session.agentWorkspacePath,
+        patchPath,
+      );
+      return c.json(result);
+    } catch (err: any) {
+      if (err.message.includes("must start with")) {
+        return c.json({ error: err.message }, 400);
+      }
+      logger.error("[patches] declinePatch error:", err);
+      return c.json({ error: err.message }, 500);
+    }
   });
 
   return router;

@@ -108,6 +108,12 @@ const thoughtBuffers = new Map<string, string>();
 const messageStartTimes = new Map<string, number>();
 const autoSyncInFlight = new Set<string>();
 
+// Track pending expert mode instructions
+const expertPending = new Map<
+  string,
+  { chatThreadId: string; originalPath: string }
+>();
+
 function streamKey(sessionId: string, chatThreadId?: string): string {
   return `${sessionId}:${chatThreadId || "__no-thread__"}`;
 }
@@ -508,7 +514,7 @@ const server = mimoServer.start();
 // Handle agent messages
 async function triggerAutoSync(
   sessionId: string,
-  reason: "thought_end" | "usage_update",
+  reason: "thought_end" | "usage_update" | "expert_diff_ready",
 ): Promise<void> {
   if (autoSyncInFlight.has(sessionId)) {
     logger.debug(
@@ -961,7 +967,29 @@ async function handleAgentMessage(ws, data) {
           });
         }
 
-        void triggerAutoSync(usageSessionId, "usage_update");
+        // Check if there's a pending expert instruction for this thread
+        const expertKey = streamKey(usageSessionId, usageThreadId);
+        const pendingExpert = expertPending.get(expertKey);
+        if (pendingExpert) {
+          // Notify client that expert response is ready
+          const diffSubscribers = chatSessions.get(usageSessionId);
+          if (diffSubscribers) {
+            diffSubscribers.forEach((client) => {
+              if (client.readyState === 1) {
+                client.send(
+                  JSON.stringify({
+                    type: "expert_diff_ready",
+                    chatThreadId: usageThreadId,
+                    originalPath: pendingExpert.originalPath,
+                  }),
+                );
+              }
+            });
+          }
+          expertPending.delete(expertKey);
+        } else {
+          void triggerAutoSync(usageSessionId, "usage_update");
+        }
       }
       break;
 
@@ -1019,6 +1047,21 @@ async function handleAgentMessage(ws, data) {
         return;
       }
 
+      const fileSession = await sessionRepository.findById(fileSessionId);
+      if (!fileSession) {
+        logger.debug(`[file_changed] Session not found: ${fileSessionId}`);
+        return;
+      }
+
+      const fossilUpResult = await mimoContext.services.vcs.fossilUp(
+        fileSession.agentWorkspacePath,
+      );
+      if (!fossilUpResult.success) {
+        logger.error(
+          `[file_changed] fossil up failed for session ${fileSessionId}: ${fossilUpResult.error || "unknown error"}`,
+        );
+      }
+
       const changes = data.files.map((file) => ({
         path: file.path,
         isNew: file.isNew,
@@ -1034,6 +1077,7 @@ async function handleAgentMessage(ws, data) {
         fileSessionId,
         changes,
       );
+
       break;
     case "session_error":
       logger.debug("[agent] Session error:", data.sessionId, data.error);
@@ -1437,6 +1481,7 @@ async function handleAgentMessage(ws, data) {
         }
       }
       break;
+
     default:
       logger.debug("[agent] Unknown message type:", data.type);
   }
@@ -1516,6 +1561,29 @@ async function handleChatMessage(ws, data) {
             }),
           );
         }
+      }
+      break;
+
+    case "expert_instruction":
+      {
+        const originalPath = data.originalPath;
+        const expertThreadId = data.chatThreadId;
+
+        if (!originalPath || !expertThreadId) {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              error: "originalPath and chatThreadId are required",
+            }),
+          );
+          break;
+        }
+
+        // Track pending expert instruction for this thread
+        expertPending.set(`${sessionId}:${expertThreadId}`, {
+          chatThreadId: expertThreadId,
+          originalPath,
+        });
       }
       break;
 
@@ -1711,6 +1779,9 @@ async function handleChatMessage(ws, data) {
         const cancelStreamKey = streamKey(cancelSessionId, cancelThreadId);
         streamingBuffers.delete(cancelStreamKey);
         thoughtBuffers.delete(cancelStreamKey);
+
+        // Clear any pending expert instruction for this thread
+        expertPending.delete(cancelStreamKey);
       }
       break;
 
@@ -1892,12 +1963,16 @@ async function handleChatMessage(ws, data) {
 
 // File watching WebSocket message handler
 async function handleFilesMessage(ws: any, data: any) {
+  console.log(`[WS Files] handleFilesMessage called with:`, JSON.stringify(data));
   const sessionId = ws.data.sessionId;
+  console.log(`[WS Files] Session ID from ws.data:`, sessionId);
   const fileWatcher = mimoContext.services.fileWatcher;
 
   switch (data.type) {
     case "watch_file": {
+      console.log(`[WS Files] Processing watch_file request`);
       const { path: filePath, checksum: currentChecksum } = data;
+      console.log(`[WS Files] File path: ${filePath}, checksum: ${currentChecksum}`);
       if (!filePath || !currentChecksum) {
         ws.send(
           JSON.stringify({
@@ -1925,24 +2000,38 @@ async function handleFilesMessage(ws: any, data: any) {
         const fullPath = join(session.agentWorkspacePath, filePath);
 
         // Start watching the file
+        console.log(`[WS Files] Calling watchFile for ${fullPath} with checksum ${currentChecksum}`);
         await fileWatcher.watchFile(
           sessionId,
           fullPath,
           currentChecksum,
           (event) => {
-            // Send event to client
-            if (ws.readyState === 1) {
-              ws.send(
-                JSON.stringify({
-                  type: event.type,
-                  path: filePath, // Send relative path to client
-                  checksum: event.checksum,
-                }),
-              );
+            console.log(`[WS Files] File watcher callback triggered:`, event);
+            // Send event to ALL active file watcher connections for this session
+            const connections = fileWatchSessions.get(sessionId);
+            if (connections) {
+              let sentCount = 0;
+              connections.forEach((conn) => {
+                if (conn.readyState === 1) {
+                  console.log(`[WS Files] Sending ${event.type} to client for ${filePath}`);
+                  conn.send(
+                    JSON.stringify({
+                      type: event.type,
+                      path: filePath, // Send relative path to client
+                      checksum: event.checksum,
+                    }),
+                  );
+                  sentCount++;
+                }
+              });
+              console.log(`[WS Files] Sent event to ${sentCount} connection(s), ${connections.size - sentCount} unavailable`);
+            } else {
+              console.log(`[WS Files] No file watcher connections found for session ${sessionId}`);
             }
           },
         );
 
+        console.log(`[WS Files] Successfully started watching ${filePath} for session ${sessionId}`);
         logger.debug(`[FileWatcher] Started watching ${filePath} for session ${sessionId}`);
       } catch (error) {
         logger.error(`[FileWatcher] Error watching file: ${error}`);
@@ -1995,10 +2084,10 @@ async function cleanupFileWatchSession(ws: any) {
   if (connections) {
     connections.delete(ws);
     if (connections.size === 0) {
-      // No more connections for this session, unwatch all files
-      mimoContext.services.fileWatcher.unwatchAll(sessionId);
+      // No more connections for this session, but KEEP file watches
+      // The client may reconnect and we want to continue watching
       fileWatchSessions.delete(sessionId);
-      logger.debug(`[FileWatcher] Cleaned up all watches for session ${sessionId}`);
+      logger.debug(`[FileWatcher] All connections closed for session ${sessionId}, keeping file watches`);
     }
   }
 }

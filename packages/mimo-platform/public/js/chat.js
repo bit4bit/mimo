@@ -766,6 +766,17 @@ function handleWebSocketMessage(data) {
       }
       handleUsageUpdate(data.usage, data.duration, data.durationMs);
       break;
+    case "expert_diff_ready":
+      console.log("[CHAT] expert_diff_ready forwarding to EditBuffer", data);
+      if (window.EditBuffer && typeof window.EditBuffer.handleDiffReady === "function") {
+        window.EditBuffer.handleDiffReady(data);
+      }
+      try {
+        window.dispatchEvent(new CustomEvent("mimo_expert_diff_ready", { detail: data }));
+      } catch (e) {
+        console.warn("[CHAT] Failed to dispatch mimo_expert_diff_ready", e);
+      }
+      break;
     case "message":
       if (
         activeThreadId &&
@@ -1552,6 +1563,16 @@ function finalizeStreamingAsCancelled() {
   ChatState.streaming.thoughtContent = "";
   ChatState.streaming.active = false;
   ChatState.streaming.startTime = null;
+
+  // If expert mode was processing, abort it (clears badge without sending duplicate cancel_request)
+  if (window.EditBuffer && typeof window.EditBuffer.abortProcessing === "function") {
+    const expertState = window.EditBuffer.getExpertModeState
+      ? window.EditBuffer.getExpertModeState()
+      : null;
+    if (expertState && expertState.state === "processing") {
+      window.EditBuffer.abortProcessing();
+    }
+  }
 }
 
 // DOM: Finalize message stream (remove indicators)
@@ -2460,3 +2481,15 @@ document.addEventListener("DOMContentLoaded", () => {
     initChat(window.MIMO_SESSION_ID);
   }
 });
+
+// Global accessor for expert mode to get streaming content
+window.MIMO_GET_STREAMING_CONTENT = function() {
+  if (ChatState && ChatState.streaming) {
+    return {
+      content: ChatState.streaming.content,
+      thoughtContent: ChatState.streaming.thoughtContent,
+      active: ChatState.streaming.active
+    };
+  }
+  return { content: "", thoughtContent: "", active: false };
+};

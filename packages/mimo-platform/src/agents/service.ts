@@ -227,6 +227,31 @@ export class AgentService {
     return controller;
   }
 
+  async sendFileToAgent(
+    agentId: string,
+    sessionId: string,
+    filePath: string,
+    content: string,
+  ): Promise<boolean> {
+    const ws = this.activeConnections.get(agentId);
+    if (!ws || ws.readyState !== 1) return false;
+
+    try {
+      ws.send(
+        JSON.stringify({
+          type: "write_file",
+          sessionId,
+          filePath,
+          content,
+        }),
+      );
+      return true;
+    } catch (error) {
+      logger.error(`[sendFileToAgent] Failed to send file to agent ${agentId}:`, error);
+      return false;
+    }
+  }
+
   endAcpRequest(agentId: string): void {
     this.currentAcpRequest.delete(agentId);
   }

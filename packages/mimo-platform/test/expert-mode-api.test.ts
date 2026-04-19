@@ -1,0 +1,180 @@
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { Hono } from "hono";
+import { tmpdir } from "os";
+import { join } from "path";
+import { mkdirSync, writeFileSync, readFileSync, rmSync } from "fs";
+import bcrypt from "bcrypt";
+import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
+
+let sessionRoutes: any;
+let sessionRepository: any;
+let userRepository: any;
+let authService: any;
+let projectRepository: any;
+let testHome: string;
+
+async function setup() {
+  testHome = join(
+    tmpdir(),
+    `expert-api-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  );
+
+  const { createMimoContext } = await import("../src/context/mimo-context.ts");
+  const ctx = createMimoContext({
+    env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key" },
+    services: { sharedFossil: new DummySharedFossilServer() },
+  });
+
+  sessionRepository = ctx.repos.sessions;
+  projectRepository = ctx.repos.projects;
+  userRepository = ctx.repos.users;
+  authService = ctx.services.auth;
+
+  const vcsModule = await import("../src/vcs/index.ts");
+  vcsModule.vcs.cloneRepository = async () => ({ success: true });
+  vcsModule.vcs.importToFossil = async () => ({ success: true });
+  vcsModule.vcs.openFossilCheckout = async () => ({ success: true });
+  vcsModule.vcs.openFossil = async () => ({ success: true });
+  vcsModule.vcs.syncIgnoresToFossil = async () => ({ success: true });
+  vcsModule.vcs.createFossilUser = async () => ({ success: true });
+
+  const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
+  sessionRoutes = createSessionsRoutes(ctx);
+}
+
+async function createUserAndSession(username: string) {
+  await userRepository.create(username, await bcrypt.hash("pass", 10));
+
+  const project = await projectRepository.create({
+    name: "Test Project",
+    repoUrl: "https://github.com/user/repo.git",
+    repoType: "git",
+    owner: username,
+  });
+
+  const session = await sessionRepository.create({
+    name: "Test Session",
+    projectId: project.id,
+    owner: username,
+    model: "claude-sonnet-4-6",
+    mode: "auto",
+  });
+
+  const token = await authService.generateToken(username);
+
+  return { session, token };
+}
+
+describe("GET /sessions/:id/files/content", () => {
+  beforeEach(setup);
+
+  afterEach(() => {
+    rmSync(testHome, { recursive: true, force: true });
+  });
+
+  it("returns HTML-escaped file content", async () => {
+    const app = new Hono();
+    app.route("/sessions", sessionRoutes);
+
+    const { session, token } = await createUserAndSession("user1");
+    writeFileSync(join(session.agentWorkspacePath, "hello.ts"), "const x = 1 < 2;", "utf-8");
+
+    const res = await app.request(
+      `/sessions/${session.id}/files/content?path=hello.ts`,
+      { headers: { Cookie: `token=${token}` } },
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.content).toContain("&lt;");
+    expect(body.path).toBe("hello.ts");
+  });
+
+  it("returns 404 when file does not exist", async () => {
+    const app = new Hono();
+    app.route("/sessions", sessionRoutes);
+
+    const { session, token } = await createUserAndSession("user2");
+
+    const res = await app.request(
+      `/sessions/${session.id}/files/content?path=missing.ts`,
+      { headers: { Cookie: `token=${token}` } },
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    const app = new Hono();
+    app.route("/sessions", sessionRoutes);
+
+    const { session } = await createUserAndSession("user3");
+
+    const res = await app.request(`/sessions/${session.id}/files/content?path=foo.ts`);
+
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("POST /sessions/:id/files/write", () => {
+  beforeEach(setup);
+
+  afterEach(() => {
+    rmSync(testHome, { recursive: true, force: true });
+  });
+
+  it("writes content to an existing file", async () => {
+    const app = new Hono();
+    app.route("/sessions", sessionRoutes);
+
+    const { session, token } = await createUserAndSession("user4");
+    writeFileSync(join(session.agentWorkspacePath, "edit.ts"), "old", "utf-8");
+
+    const res = await app.request(`/sessions/${session.id}/files/write`, {
+      method: "POST",
+      headers: {
+        Cookie: `token=${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ path: "edit.ts", content: "new content" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(readFileSync(join(session.agentWorkspacePath, "edit.ts"), "utf-8")).toBe("new content");
+  });
+
+  it("returns 400 when path contains ..", async () => {
+    const app = new Hono();
+    app.route("/sessions", sessionRoutes);
+
+    const { session, token } = await createUserAndSession("user5");
+
+    const res = await app.request(`/sessions/${session.id}/files/write`, {
+      method: "POST",
+      headers: {
+        Cookie: `token=${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ path: "../outside.ts", content: "bad" }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    const app = new Hono();
+    app.route("/sessions", sessionRoutes);
+
+    const { session } = await createUserAndSession("user6");
+
+    const res = await app.request(`/sessions/${session.id}/files/write`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: "file.ts", content: "x" }),
+    });
+
+    expect(res.status).toBe(401);
+  });
+});

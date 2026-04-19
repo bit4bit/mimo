@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from "fs";
 import { join, basename } from "path";
 import type { FileInfo, FileService } from "./types.js";
 
-const DEFAULT_IGNORE_PATTERNS = [".mimo-expert.tmp"];
+const DEFAULT_IGNORE_PATTERNS: string[] = [".mimo-patches/"];
 
 export function loadIgnorePatterns(workspacePath: string): string[] {
   const files = [".gitignore", ".mimoignore"];
@@ -145,11 +145,7 @@ export function createFileService(additionalPatterns: string[] = []): FileServic
       if (!full.startsWith(base + "/") && full !== base) {
         throw new Error("Access denied: path outside workspace");
       }
-      return readFileSync(full, "utf-8");
-    },
-  };
-}
-      return readFileSync(full, "utf-8");
+return readFileSync(full, "utf-8");
     },
   };
 }

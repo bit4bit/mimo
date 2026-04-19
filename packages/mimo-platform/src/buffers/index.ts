@@ -4,6 +4,7 @@ import { NotesBuffer } from "./NotesBuffer.js";
 import { ImpactBuffer } from "../components/ImpactBuffer.js";
 import { McpServersBuffer } from "./McpServersBuffer.js";
 import { EditBuffer } from "./EditBuffer.js";
+import { PatchBuffer } from "./PatchBuffer.js";
 
 let initialized = false;
 
@@ -47,6 +48,13 @@ export function ensureDefaultBuffersRegistered(): void {
     component: EditBuffer,
   });
 
+  registerBuffer({
+    id: "patches",
+    name: "Patches",
+    frame: "left",
+    component: PatchBuffer,
+  });
+
   initialized = true;
 }
 
@@ -55,3 +63,4 @@ export * from "./registry.js";
 export * from "./ChatThreadsBuffer.js";
 export * from "./NotesBuffer.js";
 export * from "./EditBuffer.js";
+export * from "./PatchBuffer.js";

@@ -23,6 +23,22 @@
       return Math.abs(hash).toString(16);
     }
 
+    function normalizePath(path) {
+      if (!path) return "";
+      return String(path)
+        .replace(/\\/g, "/")
+        .replace(/^\.\//, "")
+        .replace(/\/+/g, "/");
+    }
+
+    function pathsMatch(a, b) {
+      const ap = normalizePath(a);
+      const bp = normalizePath(b);
+      if (!ap || !bp) return false;
+      if (ap === bp) return true;
+      return ap.endsWith("/" + bp) || bp.endsWith("/" + ap);
+    }
+
     function persist(sessionId) {
       if (!sessionId) return;
       try {
@@ -83,9 +99,14 @@
         if (f) f.scrollPosition = pos;
       },
       markOutdated: function (path) {
-        const f = openFiles.find(function (f) { return f.path === path; });
+        console.log("[EditBuffer] markOutdated called for:", path);
+        console.log("[EditBuffer] Open files:", openFiles.map(f => f.path));
+        const f = openFiles.find(function (f) { return pathsMatch(f.path, path); });
         if (f) {
+          console.log("[EditBuffer] Marking file as outdated:", path);
           f.isOutdated = true;
+        } else {
+          console.log("[EditBuffer] File not found in open files:", path);
         }
       },
       clearOutdated: function (path) {
@@ -105,8 +126,11 @@
         }
       },
       getChecksum: function (path) {
-        const f = openFiles.find(function (f) { return f.path === path; });
+        const f = openFiles.find(function (f) { return pathsMatch(f.path, path); });
         return f ? f.contentChecksum : null;
+      },
+      matchesPath: function (a, b) {
+        return pathsMatch(a, b);
       },
       loadStored: function (sessionId) {
         try {
@@ -117,6 +141,737 @@
           return null;
         }
       },
+    };
+  })();
+
+  // ── Expert Mode ───────────────────────────────────────────────────────────────
+
+  const ExpertMode = (function () {
+    const EXPERT_STORAGE_KEY = "mimo:edit-buffer-expert:";
+
+    function storageKey(sessionId) {
+      return EXPERT_STORAGE_KEY + sessionId;
+    }
+
+    function getInitialState() {
+      return {
+        enabled: false,
+        state: "off", // "off" | "idle" | "processing"
+        inputVisible: false,
+        originalPath: null,
+        originalContent: null, // cleared after patch is dispatched
+        instruction: "",
+        focusRange: "1-1",
+        focusGuideSize: 7, // default 7, min 3
+        chatThreadId: null,
+      };
+    }
+
+    let state = getInitialState();
+
+    function persist(sessionId) {
+      if (!sessionId) return;
+      try {
+        localStorage.setItem(storageKey(sessionId), JSON.stringify({ enabled: state.enabled }));
+      } catch (e) {}
+    }
+
+    function loadPersisted(sessionId) {
+      try {
+        var raw = localStorage.getItem(storageKey(sessionId));
+        if (raw) {
+          var data = JSON.parse(raw);
+          if (data.enabled) {
+            state.enabled = true;
+            state.state = "idle";
+          }
+        }
+      } catch (e) {}
+    }
+
+    function getActiveFilePath() {
+      const active = EditBufferState.getActive();
+      return active ? active.path : null;
+    }
+
+    function getActiveThreadId() {
+      if (state.chatThreadId) return state.chatThreadId;
+      if (window.MIMO_CHAT_THREADS && typeof window.MIMO_CHAT_THREADS.getActiveThreadId === "function") {
+        return window.MIMO_CHAT_THREADS.getActiveThreadId();
+      }
+      return null;
+    }
+
+    function updateUI() {
+      const toggleBtn = document.getElementById("expert-mode-toggle");
+      const threadSelect = document.getElementById("expert-thread-select");
+      const focusGuide = document.getElementById("expert-focus-guide");
+      const inputContainer = document.getElementById("expert-instruction-input");
+      const threadName = document.getElementById("expert-thread-name");
+
+      const hasActiveFile = !!getActiveFilePath();
+      const showExpert = state.enabled && hasActiveFile;
+
+      if (toggleBtn) toggleBtn.style.display = showExpert ? "inline-flex" : "none";
+      if (focusGuide) focusGuide.style.display = state.enabled && state.state !== "off" ? "block" : "none";
+      if (inputContainer) inputContainer.style.display = (state.enabled && state.state === "idle" && state.inputVisible) ? "block" : "none";
+
+      // Show thread selector in context bar when expert mode is enabled
+      if (threadSelect) {
+        if (showExpert) {
+          threadSelect.style.display = "inline-block";
+          populateThreadSelector(threadSelect);
+        } else {
+          threadSelect.style.display = "none";
+        }
+      }
+
+      if (state.enabled && state.state !== "off") {
+        const tid = state.chatThreadId || getActiveThreadId();
+        if (threadName) {
+          if (tid) {
+            const threads = (window.MIMO_CHAT_THREADS && window.MIMO_CHAT_THREADS.threads) ? window.MIMO_CHAT_THREADS.threads : [];
+            const t = threads.find(function (th) { return th.id === tid; });
+            threadName.textContent = t ? t.name : tid.slice(0, 8);
+          } else {
+            threadName.textContent = "No thread selected";
+          }
+          threadName.style.display = "inline-block";
+        }
+      } else if (threadName) {
+        threadName.style.display = "none";
+      }
+
+      if (state.enabled && state.state === "processing") {
+        showExpertStatus("Processing...");
+        const cancelBtn = document.getElementById("expert-cancel-btn");
+        if (cancelBtn) cancelBtn.style.display = "inline-flex";
+      } else {
+        clearExpertStatus();
+        const cancelBtn = document.getElementById("expert-cancel-btn");
+        if (cancelBtn) cancelBtn.style.display = "none";
+      }
+    }
+
+    function populateThreadSelector(selectEl) {
+      if (!selectEl) return;
+      const currentId = state.chatThreadId || (window.MIMO_CHAT_THREADS && typeof window.MIMO_CHAT_THREADS.getActiveThreadId === "function" ? window.MIMO_CHAT_THREADS.getActiveThreadId() : null);
+      const threads = (window.MIMO_CHAT_THREADS && window.MIMO_CHAT_THREADS.threads) ? window.MIMO_CHAT_THREADS.threads : [];
+
+      selectEl.innerHTML = '<option value="">Select thread...</option>';
+      threads.forEach(function (t) {
+        const details = [t.model || '', t.mode || ''].filter(Boolean).join(' / ');
+        const label = t.name + (details ? ' (' + details + ')' : '');
+        const opt = document.createElement("option");
+        opt.value = t.id;
+        opt.textContent = label;
+        if (t.id === currentId) {
+          opt.selected = true;
+          if (!state.chatThreadId) state.chatThreadId = t.id;
+        }
+        selectEl.appendChild(opt);
+      });
+    }
+
+    function showExpertStatus(msg) {
+      const badge = document.getElementById("expert-status-badge");
+      if (badge) {
+        badge.textContent = msg;
+        badge.style.display = "inline";
+      }
+    }
+
+    function clearExpertStatus() {
+      const badge = document.getElementById("expert-status-badge");
+      if (badge) badge.style.display = "none";
+    }
+
+    function showExternalModifyWarning() {
+      if (state.state !== "processing" || !state.originalPath) return;
+
+      let el = document.getElementById("expert-external-warning");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "expert-external-warning";
+        el.style.cssText = "position:absolute;top:10px;left:50%;transform:translateX(-50%);background:#ff9800;color:#000;padding:8px 16px;border-radius:4px;font-size:13px;z-index:1000;font-weight:500;";
+        document.getElementById("edit-buffer-container").appendChild(el);
+      }
+      el.textContent = "The original file has been modified externally. The patch may be stale.";
+      el.style.display = "block";
+    }
+
+    function clearExternalModifyWarning() {
+      const el = document.getElementById("expert-external-warning");
+      if (el) el.style.display = "none";
+    }
+
+    function computeFocusGuide(firstVisibleLine, lastVisibleLine, lineCount) {
+      const center = Math.floor((firstVisibleLine + lastVisibleLine) / 2);
+      const half = Math.floor(state.focusGuideSize / 2);
+      const start = Math.max(1, center - half);
+      const unclampedEnd = start + state.focusGuideSize - 1;
+      const end = Math.min(unclampedEnd, Math.max(1, lineCount || unclampedEnd));
+      return { start, end, lines: state.focusGuideSize };
+    }
+
+    function getVisibleLineRange(contentEl) {
+      const rows = document.querySelectorAll("#edit-buffer-lines-body tr[data-line-number]");
+      if (!rows || rows.length === 0) return null;
+
+      const viewport = contentEl.getBoundingClientRect();
+      let first = null;
+      let last = null;
+
+      rows.forEach(function (row) {
+        const rect = row.getBoundingClientRect();
+        const isVisible = rect.bottom >= viewport.top && rect.top <= viewport.bottom;
+        if (!isVisible) return;
+
+        const lineNumber = parseInt(row.getAttribute("data-line-number"), 10);
+        if (Number.isNaN(lineNumber)) return;
+
+        if (first === null || lineNumber < first) first = lineNumber;
+        if (last === null || lineNumber > last) last = lineNumber;
+      });
+
+      if (first === null || last === null) return null;
+      return { first, last };
+    }
+
+    function renderFocusGuide() {
+      const container = document.getElementById("expert-focus-guide");
+      if (!container) return;
+      const content = document.getElementById("edit-buffer-content");
+      if (!content) return;
+
+      const activeFile = EditBufferState.getActive();
+      const lineCount = activeFile ? activeFile.lineCount : 1;
+      const visible = getVisibleLineRange(content);
+
+      let firstVisibleLine;
+      let lastVisibleLine;
+      let lineHeight = 20;
+
+      if (visible) {
+        firstVisibleLine = visible.first;
+        lastVisibleLine = visible.last;
+      } else {
+        const scrollTop = content.scrollTop;
+        firstVisibleLine = Math.floor(scrollTop / lineHeight) + 1;
+        const visibleLines = Math.ceil(content.clientHeight / lineHeight);
+        lastVisibleLine = firstVisibleLine + visibleLines - 1;
+      }
+
+      const guide = computeFocusGuide(firstVisibleLine, lastVisibleLine, lineCount);
+
+      // Store current focus range for expert instruction
+      state.focusRange = guide.start + "-" + guide.end;
+
+      container.innerHTML = "";
+      const rows = document.querySelectorAll("#edit-buffer-lines-body tr[data-line-number]");
+      const rowsByLine = new Map();
+      rows.forEach(function (row) {
+        const line = parseInt(row.getAttribute("data-line-number"), 10);
+        if (!Number.isNaN(line)) {
+          rowsByLine.set(line, row);
+        }
+      });
+
+      for (let i = guide.start; i <= guide.end && i <= lineCount; i++) {
+        const lineEl = document.createElement("div");
+        lineEl.className = "focus-guide-line";
+        // Very subtle highlight - transparent background with only border visible
+        lineEl.style.cssText = "position:absolute;left:0;right:0;height:20px;background:transparent;border-left:3px solid #4caf50;pointer-events:none;opacity:0.7;";
+        const row = rowsByLine.get(i);
+        if (row) {
+          lineHeight = row.offsetHeight || lineHeight;
+          lineEl.style.height = lineHeight + "px";
+          lineEl.style.top = row.offsetTop + "px";
+        } else {
+          lineEl.style.top = ((i - 1) * lineHeight) + "px";
+        }
+        container.appendChild(lineEl);
+      }
+    }
+
+    function increaseFocusGuideSize() {
+      state.focusGuideSize += 2;
+      renderFocusGuide();
+    }
+
+    function decreaseFocusGuideSize() {
+      state.focusGuideSize = Math.max(3, state.focusGuideSize - 2);
+      renderFocusGuide();
+    }
+
+    function renderInput() {
+      const container = document.getElementById("expert-instruction-input");
+      if (!container) return;
+
+      const activeThreadId = getActiveThreadId();
+      
+      if (!activeThreadId) {
+        container.innerHTML = '<div style="padding: 12px; color: #888; font-size: 13px; text-align: center;">Create a chat thread first</div>';
+        return;
+      }
+
+      // Clear container and set background
+      container.innerHTML = '';
+      container.style.background = '#1a1a1a';
+      container.style.borderTop = '1px solid #3b3b3b';
+
+      // Create input container with padding like chat
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText = 'padding: 10px;';
+
+      // Create the editable bubble with exact chat styling
+      const bubble = document.createElement("div");
+      bubble.className = "message message-user";
+      bubble.style.cssText = 'background: #2d2d2d; padding: 10px; border-radius: 4px; border-left: 3px solid #74c0fc;';
+
+      // Header with label, status, spacer, and send button
+      const header = document.createElement("div");
+      header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #888; margin-bottom: 5px; text-transform: uppercase;';
+
+      const leftSection = document.createElement("div");
+      leftSection.style.cssText = 'display: flex; align-items: center; gap: 6px;';
+
+      // Label
+      const label = document.createElement("span");
+      label.textContent = "Expert Edit";
+      
+      // Status indicator
+      const status = document.createElement("span");
+      status.textContent = "●";
+      status.style.cssText = 'color: #4a90e2; font-size: 10px;';
+
+      leftSection.appendChild(label);
+      leftSection.appendChild(status);
+
+      // Send button
+      const sendBtn = document.createElement("button");
+      sendBtn.type = "button";
+      sendBtn.textContent = "⌃↵ Send";
+      sendBtn.style.cssText = 'background: none; border: 1px solid #777; color: #aaa; font-family: monospace; font-size: 11px; line-height: 1.2; padding: 2px 8px; border-radius: 3px; cursor: pointer;';
+      
+      sendBtn.addEventListener("mouseenter", function() {
+        sendBtn.style.color = "#d4d4d4";
+        sendBtn.style.borderColor = "#888";
+      });
+      sendBtn.addEventListener("mouseleave", function() {
+        sendBtn.style.color = "#aaa";
+        sendBtn.style.borderColor = "#777";
+      });
+
+      // Assemble header
+      header.appendChild(leftSection);
+      header.appendChild(sendBtn);
+
+      // Content area
+      const content = document.createElement("div");
+      content.contentEditable = "true";
+      content.setAttribute("data-placeholder", "Describe the edit you want...");
+      content.style.cssText = 'white-space: pre-wrap; word-break: break-word; color: #d4d4d4; min-height: 40px; outline: none; cursor: text;';
+
+      // Assemble bubble
+      bubble.appendChild(header);
+      bubble.appendChild(content);
+      wrapper.appendChild(bubble);
+      container.appendChild(wrapper);
+
+      // Event handlers
+      sendBtn.addEventListener("click", function () {
+        const message = content.innerText.trim();
+        if (!message) return;
+        
+        // Convert to static message
+        header.remove();
+        content.contentEditable = "false";
+        content.style.cursor = "default";
+        const staticHeader = document.createElement("div");
+        staticHeader.style.cssText = 'font-size: 11px; color: #888; margin-bottom: 5px; text-transform: uppercase;';
+        staticHeader.textContent = "Expert Edit";
+        bubble.insertBefore(staticHeader, content);
+        
+        state.instruction = message;
+        sendExpertInstruction();
+      });
+
+      content.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && e.ctrlKey) {
+          e.preventDefault();
+          sendBtn.click();
+        }
+      });
+
+      content.addEventListener("paste", function (e) {
+        e.preventDefault();
+        var text = e.clipboardData.getData("text/plain");
+        document.execCommand("insertText", false, text);
+      });
+
+      // Focus the content area
+      setTimeout(function() {
+        content.focus();
+      }, 0);
+    }
+
+    async function sendExpertInstruction() {
+      if (!state.instruction) return;
+
+      const sessionId = getSessionId();
+      const filePath = getActiveFilePath();
+      const threadId = getActiveThreadId();
+      if (!sessionId || !filePath) return;
+      if (!threadId) {
+        showExpertStatus("Select a chat thread first");
+        setTimeout(clearExpertStatus, 3000);
+        return;
+      }
+
+      try {
+        const contentRes = await fetch("/sessions/" + sessionId + "/files/content?path=" + encodeURIComponent(filePath));
+        if (!contentRes.ok) throw new Error("Failed to read file");
+        const contentData = await contentRes.json();
+        const rawContent = unescapeHtml(contentData.content || "");
+
+        state.originalPath = filePath;
+        state.originalContent = rawContent;
+
+        var focusRange = state.focusRange || "1-1";
+        var focusParts = focusRange.includes("-") ? focusRange.split("-") : [focusRange, focusRange];
+        var focusStart = focusParts[0];
+        var focusEnd = focusParts[1];
+
+        var fullPrompt = "You are a constrained single-file editing assistant.\n\n" +
+          "You will receive:\n\n" +
+          "* a target file path\n" +
+          "* the full file content\n" +
+          "* a focus line range (anchor region)\n" +
+          "* a user request\n\n" +
+          "Your job is to return the smallest safe contiguous code fragment that must be replaced to implement the request correctly.\n\n" +
+          "Important behavior rules:\n\n" +
+          "Scope rules:\n\n" +
+          "* Edit only the target file.\n" +
+          "* The focus line range is a starting anchor for analysis, NOT a restriction.\n" +
+          "* You may read and modify code outside the focus range if required for correctness.\n" +
+          "* Expand the replacement region as needed to include the full logical unit being modified (function, block, statement group, etc.).\n" +
+          "* Prefer minimal edits, but prioritize correctness over locality.\n\n" +
+          "Correctness rules:\n\n" +
+          "* Always return syntactically valid code in context.\n" +
+          "* Ensure the replacement integrates correctly with surrounding code.\n" +
+          "* Avoid partial edits that would break structure or compilation.\n" +
+          "* If the request implies related required updates elsewhere in the file, include them in the replacement range.\n\n" +
+          "Change rules:\n\n" +
+          "* Do not rewrite the entire file unless absolutely necessary.\n" +
+          "* Do not perform unrelated refactors.\n" +
+          "* Do not apply formatting-only edits.\n" +
+          "* Replace complete logical units rather than fragments whenever possible.\n\n" +
+          "Output rules:\n" +
+          "Return valid JSON only:\n\n" +
+          "{\n" +
+          '"file": "<FILE_PATH>",\n' +
+          '"replace_start_line": <number>,\n' +
+          '"replace_end_line": <number>,\n' +
+          '"replacement": "<string>"\n' +
+          "}\n\n" +
+          "If the task cannot be completed within this file alone, return:\n\n" +
+          "{\n" +
+          '"file": "<FILE_PATH>",\n' +
+          '"error": "OUT_OF_SCOPE_CHANGE_REQUIRED"\n' +
+          "}\n\n" +
+          "Input:\n\n" +
+          "Target file: " + filePath + "\n\n" +
+          "Focus lines: " + focusStart + "-" + focusEnd + "\n\n" +
+          "Request: " + state.instruction + "\n\n" +
+          "File content:\n" + rawContent;
+
+        var chatWs = window.MIMO_CHAT_SOCKET;
+        if (chatWs && chatWs.readyState === WebSocket.OPEN) {
+          chatWs.send(JSON.stringify({
+            type: "expert_instruction",
+            sessionId: sessionId,
+            chatThreadId: threadId,
+            originalPath: filePath,
+            instruction: state.instruction,
+            focusRange: focusRange,
+          }));
+
+          chatWs.send(JSON.stringify({
+            type: "send_message",
+            sessionId: sessionId,
+            chatThreadId: threadId,
+            content: fullPrompt,
+            metadata: { expertMode: true },
+          }));
+
+          state.state = "processing";
+          state.inputVisible = false;
+          updateUI();
+        } else {
+          throw new Error("Chat connection not available");
+        }
+      } catch (err) {
+        alert("Error: " + err.message);
+        state.state = "idle";
+        updateUI();
+      }
+    }
+
+    async function handleExpertDiffReady(data) {
+      console.log("[EXPERT] handleExpertDiffReady called with data:", data);
+      console.log("[EXPERT] Current state:", state);
+
+      if (!state.originalContent) {
+        console.error("[EXPERT] No originalContent in state");
+        showExpertStatus("Error: No original content available");
+        setTimeout(clearExpertStatus, 3000);
+        state.state = "idle";
+        updateUI();
+        return;
+      }
+
+      const sessionId = getSessionId();
+      const threadId = getActiveThreadId();
+      
+      console.log("[EXPERT] sessionId:", sessionId, "threadId:", threadId);
+      
+      if (!sessionId || !threadId) {
+        console.error("[EXPERT] Missing sessionId or threadId");
+        showExpertStatus("Error: Session or thread not available");
+        setTimeout(clearExpertStatus, 3000);
+        state.state = "idle";
+        updateUI();
+        return;
+      }
+
+      try {
+        // Get LLM response content
+        let llmResponse = "";
+        
+        // Access streaming content via global function from chat.js
+        if (typeof window.MIMO_GET_STREAMING_CONTENT === "function") {
+          const streamingData = window.MIMO_GET_STREAMING_CONTENT();
+          if (streamingData) {
+            if (streamingData.content && streamingData.content.length > 0) {
+              llmResponse = streamingData.content;
+            } else if (streamingData.thoughtContent && streamingData.thoughtContent.length > 0) {
+              llmResponse = streamingData.thoughtContent;
+            }
+          }
+        }
+        
+        // If no streaming content, try fetching from server
+        if (!llmResponse) {
+          const url = "/sessions/" + sessionId + "/chat-threads/" + threadId + "/messages";
+          const messagesRes = await fetch(url);
+          if (!messagesRes.ok) throw new Error("Failed to fetch messages: " + messagesRes.status);
+          
+          const messages = await messagesRes.json();
+          if (!messages || messages.length === 0) {
+            throw new Error("No messages found");
+          }
+
+          // Get the last assistant message
+          const lastAssistantMessage = messages
+            .filter(function(m) { return m.role === "assistant"; })
+            .pop();
+          
+          if (!lastAssistantMessage) {
+            throw new Error("No assistant response found");
+          }
+
+          llmResponse = lastAssistantMessage.content;
+        }
+        
+        console.log("[EXPERT] MIMO_EXPERT_UTILS available:", !!window.MIMO_EXPERT_UTILS);
+        const replacement = window.MIMO_EXPERT_UTILS 
+          ? window.MIMO_EXPERT_UTILS.extractReplacement(llmResponse)
+          : null;
+        console.log("[EXPERT] Extracted replacement:", replacement);
+
+        if (!replacement) {
+          throw new Error("LLM did not return a valid edit");
+        }
+
+        if (replacement.error) {
+          if (replacement.error === "OUT_OF_SCOPE_CHANGE_REQUIRED") {
+            throw new Error("Error received: OUT_OF_SCOPE_CHANGE_REQUIRED (the request needs changes outside this file)");
+          }
+          throw new Error("Error received: " + replacement.error);
+        }
+
+        // Apply the replacement to get patched content
+        const patchedContent = window.MIMO_EXPERT_UTILS
+          ? window.MIMO_EXPERT_UTILS.applyReplacement(state.originalContent, replacement)
+          : state.originalContent;
+
+        // Write patch file to server
+        const patchRes = await fetch("/sessions/" + sessionId + "/patches", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ originalPath: state.originalPath, content: patchedContent }),
+        });
+        
+        if (!patchRes.ok) throw new Error("Failed to write patch file");
+        
+        const patchData = await patchRes.json();
+        const patchPath = patchData.patchPath;
+        
+        // Dispatch to PatchBuffer
+        if (window.MIMO_PATCH_BUFFER && typeof window.MIMO_PATCH_BUFFER.addPatch === "function") {
+          window.MIMO_PATCH_BUFFER.addPatch({
+            sessionId: sessionId,
+            originalPath: state.originalPath,
+            patchPath: patchPath,
+          });
+        }
+        
+        // Clear originalContent and transition to idle
+        state.originalContent = null;
+        state.state = "idle";
+        updateUI();
+        
+        // Show toast
+        showExpertStatus("Patch sent to PatchBuffer");
+        setTimeout(clearExpertStatus, 2000);
+      } catch (err) {
+        console.error("[EXPERT] Error in handleExpertDiffReady:", err);
+        showExpertStatus(err.message || "Error processing diff");
+        setTimeout(clearExpertStatus, 3000);
+        state.originalContent = null;
+        state.state = "idle";
+        updateUI();
+      }
+    }
+
+    function unescapeHtml(str) {
+      return str
+        .replace(/&quot;/g, '"')
+        .replace(/&#039;/g, "'")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&");
+    }
+
+    function abortProcessing() {
+      if (state.state !== "processing") return;
+      state.originalContent = null;
+      state.state = "idle";
+      clearExternalModifyWarning();
+      clearExpertStatus();
+      updateUI();
+    }
+
+    async function cancelExpertProcessing() {
+      if (state.state !== "processing") return;
+
+      const sessionId = getSessionId();
+      const threadId = getActiveThreadId();
+
+      const chatWs = window.MIMO_CHAT_SOCKET;
+      if (chatWs && chatWs.readyState === WebSocket.OPEN) {
+        chatWs.send(JSON.stringify({
+          type: "cancel_request",
+          sessionId: sessionId,
+          chatThreadId: threadId,
+        }));
+      }
+
+      // Clear state - no patch file was written, nothing to clean up
+      state.originalContent = null;
+      state.state = "idle";
+      clearExternalModifyWarning();
+      updateUI();
+
+      showExpertStatus("Cancelled");
+      setTimeout(clearExpertStatus, 2000);
+    }
+
+    function resetState() {
+      clearExternalModifyWarning();
+      state = getInitialState();
+      const sessionId = getSessionId();
+      if (sessionId) {
+        loadPersisted(sessionId);
+      }
+      updateUI();
+    }
+
+    async function recoverPendingPatches(sessionId) {
+      // Recover any pending patches from a previous session
+      try {
+        const res = await fetch("/sessions/" + sessionId + "/patches");
+        if (!res.ok) return;
+        
+        const data = await res.json();
+        if (!data.patches || data.patches.length === 0) return;
+        
+        // Add each patch to PatchBuffer
+        data.patches.forEach(function(patch) {
+          if (window.MIMO_PATCH_BUFFER && typeof window.MIMO_PATCH_BUFFER.addPatch === "function") {
+            window.MIMO_PATCH_BUFFER.addPatch({
+              sessionId: sessionId,
+              originalPath: patch.originalPath,
+              patchPath: patch.patchPath,
+            });
+          }
+        });
+      } catch (e) {
+        console.log("[EXPERT] Failed to recover patches:", e);
+      }
+    }
+
+    return {
+      init: function (sessionId) {
+        loadPersisted(sessionId);
+        if (state.enabled) {
+          state.state = "idle";
+          state.inputVisible = false;
+          updateUI();
+          renderFocusGuide();
+        }
+        // Recover pending patches on init
+        recoverPendingPatches(sessionId);
+      },
+      toggle: function (sessionId) {
+        if (state.state === "processing") {
+          return;
+        }
+        state.enabled = !state.enabled;
+        state.state = state.enabled ? "idle" : "off";
+        state.inputVisible = false;
+        // Reset focus guide size when toggling
+        state.focusGuideSize = 7;
+        persist(sessionId);
+        updateUI();
+        if (state.enabled) {
+          renderFocusGuide();
+        }
+      },
+      toggleInput: function () {
+        if (!state.enabled || state.state !== "idle") return;
+        state.inputVisible = !state.inputVisible;
+        if (state.inputVisible) {
+          renderInput();
+        }
+        updateUI();
+        if (state.inputVisible) {
+          setTimeout(function () {
+            var textEl = document.getElementById("expert-instruction-text");
+            if (textEl) textEl.focus();
+          }, 50);
+        }
+      },
+      updateFocusGuide: renderFocusGuide,
+      increaseFocusGuideSize: increaseFocusGuideSize,
+      decreaseFocusGuideSize: decreaseFocusGuideSize,
+      handleDiffReady: handleExpertDiffReady,
+      showExternalModifyWarning: showExternalModifyWarning,
+      cancelProcessing: cancelExpertProcessing,
+      abortProcessing: abortProcessing,
+      updateUI: updateUI,
+      getState: function () { return state; },
     };
   })();
 
@@ -374,7 +1129,7 @@
 
     const lines = active.content.split("\n");
     linesBody.innerHTML = lines.map(function (line, i) {
-      return '<tr><td style="padding:0 12px 0 8px;color:#555;text-align:right;user-select:none;font-size:12px;min-width:40px;">' + (i + 1) + '</td><td style="padding:0 8px;white-space:pre;"><code class="language-' + escapeAttr(active.language) + '">' + line + '</code></td></tr>';
+      return '<tr data-line-number="' + (i + 1) + '"><td style="padding:0 12px 0 8px;color:#555;text-align:right;user-select:none;font-size:12px;min-width:40px;">' + (i + 1) + '</td><td style="padding:0 8px;white-space:pre;"><code class="language-' + escapeAttr(active.language) + '">' + line + '</code></td></tr>';
     }).join("");
 
     // Run highlight.js if available (client-side)
@@ -533,9 +1288,17 @@
         const data = JSON.parse(event.data);
         if (data.type === "file_outdated") {
           EditBufferState.markOutdated(data.path);
+          const expertState = ExpertMode.getState();
+          if (expertState.originalPath && EditBufferState.matchesPath(data.path, expertState.originalPath)) {
+            ExpertMode.showExternalModifyWarning();
+          }
           renderEditBuffer();
         } else if (data.type === "file_deleted") {
           EditBufferState.markOutdated(data.path);
+          const expertState = ExpertMode.getState();
+          if (expertState.originalPath && EditBufferState.matchesPath(data.path, expertState.originalPath)) {
+            ExpertMode.showExternalModifyWarning();
+          }
           renderEditBuffer();
         } else if (data.type === "error") {
           console.error("[FileWatcher] Server error:", data.error);
@@ -602,7 +1365,7 @@
   // ── Init ─────────────────────────────────────────────────────────────────────
 
   function init() {
-    // Expose for session-keybindings.js FIRST
+      // Expose for session-keybindings.js FIRST
     window.EditBuffer = {
       openFileFinder: openFileFinder,
       closeFileFinder: closeFileFinder,
@@ -612,6 +1375,22 @@
       scrollContent: scrollContent,
       reloadCurrentFile: reloadCurrentFile,
       ws: null,
+      toggleExpertMode: function () {
+        var sid = getSessionId();
+        if (sid) ExpertMode.toggle(sid);
+      },
+      toggleExpertInput: function () {
+        ExpertMode.toggleInput();
+      },
+      increaseFocusGuideSize: function () {
+        ExpertMode.increaseFocusGuideSize();
+      },
+      decreaseFocusGuideSize: function () {
+        ExpertMode.decreaseFocusGuideSize();
+      },
+      getExpertModeState: function () {
+        return ExpertMode.getState();
+      },
     };
 
     // Wire "Open File" button
@@ -681,7 +1460,67 @@
           });
         });
       }
+
+      // Initialize expert mode
+      ExpertMode.init(sessionId);
+
+      // Wire Expert Mode Cancel button
+      const expertCancelBtn = document.getElementById("expert-cancel-btn");
+      if (expertCancelBtn) {
+        expertCancelBtn.addEventListener("click", function () { ExpertMode.cancelProcessing(); });
+      }
+
+      // Wire Expert Mode toggle button
+      const expertToggleBtn = document.getElementById("expert-mode-toggle");
+      if (expertToggleBtn) {
+        expertToggleBtn.addEventListener("click", function () {
+          ExpertMode.toggle(sessionId);
+        });
+      }
+
+      // Fallback hook in case chat.js cannot call window.EditBuffer directly
+      window.addEventListener("mimo_expert_diff_ready", function (event) {
+        var detail = event && event.detail ? event.detail : null;
+        if (!detail) return;
+        console.log("[EXPERT] Received mimo_expert_diff_ready event", detail);
+        ExpertMode.handleDiffReady(detail);
+      });
+
+      // Wire Expert Mode thread selector
+      const expertThreadSelect = document.getElementById("expert-thread-select");
+      if (expertThreadSelect) {
+        expertThreadSelect.addEventListener("change", function () {
+          var expertState = ExpertMode.getState();
+          if (this.value) {
+            expertState.chatThreadId = this.value;
+            if (window.MIMO_CHAT_THREADS && window.MIMO_CHAT_THREADS.setActiveThread) {
+              window.MIMO_CHAT_THREADS.setActiveThread(this.value);
+            }
+            setTimeout(function () { ExpertMode.updateUI(); }, 100);
+          }
+        });
+      }
     }
+
+    // Expert mode focus guide scroll handler
+    const contentEl2 = document.getElementById("edit-buffer-content");
+    if (contentEl2) {
+      contentEl2.addEventListener("scroll", function () {
+        var state = ExpertMode.getState();
+        if (state.enabled && state.state !== "off" && state.state !== "processing") {
+          ExpertMode.updateFocusGuide();
+        }
+      });
+    }
+
+    // Cleanup on page unload if in processing state
+    window.addEventListener("beforeunload", function () {
+      var expState = ExpertMode.getState();
+      if (expState.enabled && expState.state === "processing") {
+        // Just log - no cleanup needed since we don't write temp files anymore
+        console.log("[EXPERT] Page unload while processing - no cleanup needed");
+      }
+    });
   }
 
   if (document.readyState === "loading") {

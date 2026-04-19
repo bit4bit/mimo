@@ -3,7 +3,7 @@ import { logger } from "./logger.js";
 import { decodeJwt } from "jose";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, copyFileSync, unlinkSync, readFileSync, writeFileSync } from "node:fs";
 import { execSync, spawnSync } from "node:child_process";
 import { Writable, Readable } from "node:stream";
 import { SessionManager } from "./session.js";
@@ -360,6 +360,26 @@ class MimoAgent {
 
       case "thread_deleted":
         void this.handleThreadDeleted(message);
+        break;
+
+      case "expert_copy_file":
+        void this.handleExpertCopyFile(message);
+        break;
+
+      case "expert_apply_file":
+        void this.handleExpertApplyFile(message);
+        break;
+
+      case "expert_delete_file":
+        void this.handleExpertDeleteFile(message);
+        break;
+
+      case "expert_fetch_temp":
+        void this.handleExpertFetchTemp(message);
+        break;
+
+      case "write_file":
+        void this.handleWriteFile(message);
         break;
 
       default:
@@ -1384,6 +1404,42 @@ class MimoAgent {
           }
         }
 
+        // Handle merge conflicts - try to update and resolve
+        if (combined.includes("unresolved merge conflicts") || 
+            combined.includes("abort due to unresolved")) {
+          logger.debug(`[mimo-agent] Merge conflicts detected for ${sessionId}, attempting to resolve...`);
+          
+          // Try to update and merge
+          const updateResult = runFossil(["update", "--nosync"]);
+          if (!updateResult.success) {
+            this.send({
+              type: "sync_now_result",
+              sessionId,
+              requestId,
+              success: false,
+              message: "Failed to update fossil checkout - manual intervention required",
+              error: `Update failed: ${updateResult.error || updateResult.output}`,
+              timestamp: new Date().toISOString(),
+            });
+            return;
+          }
+          
+          // Try commit again after update
+          commitResult = runFossil(["commit", "-m", commitMessage, "--allow-conflict"]);
+          if (!commitResult.success) {
+            this.send({
+              type: "sync_now_result",
+              sessionId,
+              requestId,
+              success: false,
+              message: "Failed to commit after resolving conflicts",
+              error: commitResult.error || commitResult.output || "fossil commit failed",
+              timestamp: new Date().toISOString(),
+            });
+            return;
+          }
+        }
+
         if (!commitResult.success) {
           this.send({
             type: "sync_now_result",
@@ -1840,6 +1896,181 @@ class MimoAgent {
     this.cachedAcpStates.delete(key);
     this.threadConfigs.delete(key);
     this.lifecycleManager.endThread(sessionId, chatThreadId);
+  }
+
+  private async handleExpertCopyFile(message: any): Promise<void> {
+    const { sessionId, originalPath, tempPath } = message;
+    if (!sessionId || !originalPath || !tempPath) {
+      logger.debug("[mimo-agent] Missing fields in expert_copy_file");
+      return;
+    }
+
+    const session = this.sessionManager.getSession(sessionId);
+    if (!session) {
+      logger.debug(`[mimo-agent] No session for expert_copy_file: ${sessionId}`);
+      return;
+    }
+
+    const checkoutPath = session.checkoutPath;
+    const srcFullPath = join(checkoutPath, originalPath);
+    const tmpFullPath = join(checkoutPath, tempPath);
+
+    if (!existsSync(srcFullPath)) {
+      logger.debug(`[mimo-agent] expert_copy_file: source not found: ${srcFullPath}`);
+      this.send({
+        type: "error_response",
+        sessionId,
+        error: `Expert copy: source file not found: ${originalPath}`,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    try {
+      copyFileSync(srcFullPath, tmpFullPath);
+      logger.debug(`[mimo-agent] expert_copy_file: ${srcFullPath} -> ${tmpFullPath}`);
+    } catch (err) {
+      logger.error(`[mimo-agent] expert_copy_file failed:`, err);
+      this.send({
+        type: "error_response",
+        sessionId,
+        error: `Expert copy failed: ${err instanceof Error ? err.message : String(err)}`,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  private async handleExpertApplyFile(message: any): Promise<void> {
+    const { sessionId, originalPath, tempPath } = message;
+    if (!sessionId || !originalPath || !tempPath) return;
+
+    const session = this.sessionManager.getSession(sessionId);
+    if (!session) return;
+
+    const checkoutPath = session.checkoutPath;
+    const srcFullPath = join(checkoutPath, tempPath);
+    const dstFullPath = join(checkoutPath, originalPath);
+
+    try {
+      if (existsSync(srcFullPath)) {
+        copyFileSync(srcFullPath, dstFullPath);
+        unlinkSync(srcFullPath);
+        logger.debug(`[mimo-agent] expert_apply_file: ${tempPath} -> ${originalPath}, temp deleted`);
+      }
+    } catch (err) {
+      logger.error(`[mimo-agent] expert_apply_file failed:`, err);
+    }
+  }
+
+  private async handleExpertDeleteFile(message: any): Promise<void> {
+    const { sessionId, tempPath } = message;
+    if (!sessionId || !tempPath) return;
+
+    const session = this.sessionManager.getSession(sessionId);
+    if (!session) return;
+
+    const tmpFullPath = join(session.checkoutPath, tempPath);
+
+    try {
+      if (existsSync(tmpFullPath)) {
+        unlinkSync(tmpFullPath);
+        logger.debug(`[mimo-agent] expert_delete_file: ${tempPath} deleted`);
+      }
+    } catch (err) {
+      logger.error(`[mimo-agent] expert_delete_file failed:`, err);
+    }
+  }
+
+  private async handleExpertFetchTemp(message: any): Promise<void> {
+    const { sessionId, tempPath } = message;
+    if (!sessionId || !tempPath) return;
+
+    const session = this.sessionManager.getSession(sessionId);
+    if (!session) return;
+
+    const tmpFullPath = join(session.checkoutPath, tempPath);
+
+    try {
+      if (!existsSync(tmpFullPath)) {
+        this.send({
+          type: "expert_temp_content",
+          sessionId,
+          tempPath,
+          content: "",
+          error: `Temp file not found: ${tempPath}`,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const content = readFileSync(tmpFullPath, "utf-8");
+      this.send({
+        type: "expert_temp_content",
+        sessionId,
+        tempPath,
+        content,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      logger.error(`[mimo-agent] expert_fetch_temp failed:`, err);
+      this.send({
+        type: "expert_temp_content",
+        sessionId,
+        tempPath,
+        content: "",
+        error: `Failed to read temp file: ${err instanceof Error ? err.message : String(err)}`,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  private async handleWriteFile(message: any): Promise<void> {
+    const { sessionId, filePath, content } = message;
+    if (!sessionId || !filePath || content === undefined) {
+      logger.debug("[mimo-agent] Missing fields in write_file message");
+      return;
+    }
+
+    const session = this.sessionManager.getSession(sessionId);
+    if (!session) {
+      logger.debug(`[mimo-agent] No session for write_file: ${sessionId}`);
+      return;
+    }
+
+    const fullPath = join(session.checkoutPath, filePath);
+    const dir = join(fullPath, "..").replace(/\\/g, "/");
+
+    try {
+      // Ensure parent directory exists
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+
+      // Write file content
+      writeFileSync(fullPath, content, "utf-8");
+      logger.debug(`[mimo-agent] write_file: ${fullPath} written`);
+
+      this.send({
+        type: "file_written",
+        sessionId,
+        filePath,
+        timestamp: new Date().toISOString(),
+      });
+      this.send({
+        type: "file_changed",
+        sessionId,
+        files: [{ path: filePath, isNew: false, deleted: false }],
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      logger.error(`[mimo-agent] write_file failed:`, err);
+      this.send({
+        type: "error_response",
+        sessionId,
+        error: `Write file failed: ${err instanceof Error ? err.message : String(err)}`,
+        timestamp: new Date().toISOString(),
+      });
+    }
   }
 
   private handleSessionConfigUpdated(message: any): void {

@@ -101,7 +101,7 @@ describe("applyIgnorePatterns", () => {
 
 describe("loadIgnorePatterns", () => {
   it("returns empty array when neither .gitignore nor .mimoignore exists", () => {
-    expect(loadIgnorePatterns("/nonexistent/path/xyz123")).toEqual([]);
+    expect(loadIgnorePatterns("/nonexistent/path/xyz123")).toEqual([".mimo-patches/"]);
   });
 
   it("reads patterns from a real .gitignore file", async () => {
@@ -110,7 +110,9 @@ describe("loadIgnorePatterns", () => {
     const dir = mkdtempSync(tmpdir() + "/mimo-test-");
     writeFileSync(dir + "/.gitignore", "# comment\n\n*.log\ndist/\n");
     const patterns = loadIgnorePatterns(dir);
-    expect(patterns).toEqual(["*.log", "dist/"]);
+    expect(patterns).toContain(".mimo-patches/");
+    expect(patterns).toContain("*.log");
+    expect(patterns).toContain("dist/");
   });
 
   it("combines patterns from both .gitignore and .mimoignore", async () => {
@@ -130,7 +132,8 @@ describe("loadIgnorePatterns", () => {
     const dir = mkdtempSync(tmpdir() + "/mimo-test-");
     writeFileSync(dir + "/.mimoignore", "# ignored\n\n  \nbuild/\n");
     const patterns = loadIgnorePatterns(dir);
-    expect(patterns).toEqual(["build/"]);
+    expect(patterns).toContain(".mimo-patches/");
+    expect(patterns).toContain("build/");
   });
 });
 

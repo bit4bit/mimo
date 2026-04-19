@@ -3,145 +3,137 @@
 ## Requirements
 
 ### R1: Expert Mode Toggle
-The EditBuffer SHALL provide a toggle mechanism (button in context bar + Alt+Shift+E keybinding) that enables or disables expert mode. When enabled, the EditBuffer shows a focus guide, instruction input, and thread selector overlay. The enabled state persists in localStorage per session.
+The EditBuffer SHALL provide a toggle mechanism (button in context bar + Alt+Shift+E keybinding) that enables or disables expert mode. When enabled, the EditBuffer shows a focus guide, instruction input, and thread selector. The enabled state persists in localStorage per session.
 
 ### R2: Focus Guide
-When expert mode is enabled, the EditBuffer SHALL display a 7-line focus guide overlay centered on the middle visible line of the file content viewport. The focus guide highlights the lines the user is currently viewing and recalculates on scroll.
+When expert mode is enabled, the EditBuffer SHALL display a focus guide overlay centered on the middle visible line of the file content viewport. The focus guide highlights the lines the user is currently viewing and recalculates on scroll.
+
+The focus range size is adjustable:
+- Default: 7 lines
+- Minimum: 3 lines
+- No maximum (bounded by file length)
+- `Alt+Control+ArrowUp` increases the size by 2 lines
+- `Alt+Control+ArrowDown` decreases the size by 2 lines (clamped at minimum)
+- The adjusted size resets to default when expert mode is toggled off
 
 ### R3: Instruction Input
-When expert mode is enabled and idle, the EditBuffer SHALL display an instruction input box at the bottom of the buffer content area. The input is styled similarly to the chat editable bubble (contenteditable div with "⌃↵ Send" button). The input accepts edit/refactor instructions.
+When expert mode is enabled and idle, the EditBuffer SHALL display an instruction input box at the bottom of the buffer content area. The input is styled similarly to the chat editable bubble (contenteditable div with "⌃↵ Send" button). Shown when user presses `Enter`; hidden after sending.
 
 ### R4: Thread Binding
-The instruction input SHALL use the currently active chat thread (from `window.MIMO_CHAT_THREADS.getActiveThreadId()`). The thread name SHALL be displayed in the context bar. If no thread exists, the input SHALL be disabled with a message: "Create a chat thread first."
+The instruction input SHALL use the currently active chat thread (from `window.MIMO_CHAT_THREADS.getActiveThreadId()`). The thread name SHALL be displayed in the context bar. If no thread exists, the input SHALL show "Create a chat thread first" and be disabled.
 
-### R5: Copy-on-Write Before Edit
+### R5: Read File Content
 When the user submits an instruction, the system SHALL:
-1. Call `POST /api/sessions/:sessionId/files/copy` with the active file path
-2. The server creates a copy at `<path>.mimo-expert.tmp` in the same directory
-3. The server returns `{ tempPath, originalChecksum }`
-4. The client stores `tempPath` and `originalChecksum` in `ExpertMode` state
+1. Call `GET /sessions/:sessionId/files/content?path=<filePath>` to get the current file content
+2. Unescape the HTML-escaped `content` field → store as `expertMode.originalContent`
+3. No files are written at this stage
 
-### R6: Context Injection
-The system SHALL construct a context message prepended to the user's instruction containing:
-- File path (original and temp)
+### R6: Constrained Editing Prompt
+The system SHALL send a constrained editing prompt to the LLM through the active chat thread containing:
+- File path (original)
 - Focus line range (start-end from focus guide)
-- Instruction to edit the temporary file only
-The combined message is sent as a `user_message` through the active chat thread with `metadata.expertMode = true`.
+- Full **unescaped** file content
+- The user's edit instruction
+
+Prompt template per design D2. The client sends this as a `user_message` via WebSocket with `metadata.expertMode = true`.
 
 ### R7: Processing State
-After submitting an instruction, the EditBuffer SHALL transition to a `"processing"` state where:
-- The instruction input becomes read-only with "Processing..." indicator
+After submitting an instruction, the EditBuffer SHALL transition to `"processing"` state:
+- Instruction input becomes read-only with "Processing..." indicator
 - A cancel button appears
-- The focus guide remains visible
-- The user cannot submit another instruction until the current one completes
+- Focus guide remains visible
+- No new instruction can be submitted until the current one completes or is cancelled
 
-### R8: Diff Preview
-When the LLM response completes (usage_update for a thread with a pending expert instruction), the system SHALL:
-1. Fetch the temp file content from the server
-2. Compute a stacked diff between the original content (in memory) and the temp file content
-3. Display the diff in two vertically stacked panes replacing the file content area:
-   - **Top pane**: "ORIGINAL (current)" header, shows the current file with removed lines highlighted in red
-   - **Bottom pane**: "MODIFIED (proposed)" header, shows the proposed changes with added lines highlighted in green
-4. Both panes display full file content with line numbers and syntax highlighting
-5. Each pane scrolls independently
-6. Show "✓ Apply" and "✕ Reject" buttons in the context bar
-7. Transition to `"diff_preview"` state
+### R8: Write Patch File
+When the LLM response completes (`expert_diff_ready` received), the system SHALL:
+1. Extract the JSON replacement fragment from the LLM response using `MIMO_EXPERT_UTILS.extractReplacement()`
+2. Apply the replacement to `expertMode.originalContent` using `MIMO_EXPERT_UTILS.applyReplacement()` → `patchedContent`
+3. Call `POST /sessions/:sessionId/patches` with `{ originalPath, content: patchedContent }`
+4. Server writes `patchedContent` to `.mimo-patches/<originalPath>` in the workspace, returns `{ patchPath }`
+5. Call `window.MIMO_PATCH_BUFFER.addPatch({ sessionId, originalPath, patchPath })`
+6. Clear `expertMode.originalContent` from state
+7. Transition to `"idle"` with brief "Patch sent to PatchBuffer" toast
 
-### R9: Apply Changes
-When the user clicks "✓ Apply" (or presses Ctrl+Enter):
-1. Call `POST /api/sessions/:sessionId/files/apply` with `{ originalPath, tempPath }`
-2. The server reads the temp file, overwrites the original, and deletes the temp file
-3. The EditBuffer refreshes the file content
-4. Transition to `"idle"` state with brief "Changes applied" confirmation
+### R9: Error on Non-JSON Response
+If `extractReplacement()` returns null (LLM produced non-JSON or `OUT_OF_SCOPE_CHANGE_REQUIRED`):
+1. Show error in EditBuffer: "LLM did not return a valid edit" (or the specific error if `OUT_OF_SCOPE_CHANGE_REQUIRED`)
+2. Clear `expertMode.originalContent`
+3. Transition to `"idle"`
 
-### R10: Reject Changes
-When the user clicks "✕ Reject" (or presses Alt+Shift+G):
-1. Call `DELETE /api/sessions/:sessionId/files/temp` with `{ tempPath }`
-2. The server deletes the temp file
-3. The original file remains unchanged
-4. Transition to `"idle"` state with brief "Changes rejected" confirmation
+### R10: Cancellation During Processing
+When the user clicks cancel during `"processing"` state:
+1. Send `cancel_request` through the existing chat cancel mechanism
+2. Clear `expertMode.originalContent` from state
+3. Transition to `"idle"` — no patch file was written, nothing to clean up
 
-### R11: Cancellation During Processing
-When the user clicks cancel during the processing state:
-1. Send a `cancel_request` through the existing chat cancel mechanism
-2. If the temp file was partially modified, attempt to fetch its content and show diff preview
-3. If the temp file was not modified (empty or identical to original), delete it and return to idle
+### R11: Race Condition Warning
+If the original file is modified externally while expert mode is in `"processing"` state, the EditBuffer SHALL display a warning banner: "The original file has been modified externally. The patch may be stale."
 
-### R12: Temp File Filtering
-Files matching the pattern `*.mimo-expert.tmp` SHALL be filtered from:
+### R12: Concurrent Instruction Prevention
+The EditBuffer SHALL prevent submitting a new instruction while in `"processing"` state. If the user attempts to submit, display: "Wait for the current instruction to complete."
+
+### R13: Chat Thread Display
+Expert-mode messages SHALL be sent to the chat thread with `metadata.expertMode = true`. The chat UI MAY render a collapsed `[Expert Edit: <filename>]` badge using this flag.
+
+### R14: Expert Mode State Persistence
+The `enabled` boolean SHALL persist in localStorage at key `mimo:edit-buffer-expert:<sessionId>`. On page load, the EditBuffer transitions to `"idle"` if `enabled` is true. `originalContent` is never persisted.
+
+### R15: Patch Recovery on Page Load
+On EditBuffer initialization, the system SHALL call `GET /sessions/:sessionId/patches` to list any pending patch files from a previous session, and call `window.MIMO_PATCH_BUFFER.addPatch()` for each, so PatchBuffer restores the pending review tabs.
+
+### R16: Patch Folder Filtering
+Files under `.mimo-patches/` SHALL be filtered from:
 - File finder search results
 - Impact buffer change listings
 - File watcher `file_outdated` and `file_deleted` events
 
-### R13: Race Condition Warning
-If the original file is modified externally while expert mode is in `"processing"` or `"diff_preview"` state, the EditBuffer SHALL display a warning banner: "The original file has been modified externally. Applying changes may overwrite recent edits."
-
-### R14: Concurrent Instruction Prevention
-The EditBuffer SHALL prevent submitting a new instruction while in `"processing"` or `"diff_preview"` state. If the user attempts to submit, display: "Confirm or reject the current changes first."
-
-### R15: Chat Thread Display
-Expert-mode messages SHALL appear in the chat thread with a collapsed `[Expert Edit: <filename>]` badge. The badge uses the `metadata.expertMode` flag stored in the chat message JSONL.
-
-### R16: Expert Mode State Persistence
-The `enabled` boolean of expert mode SHALL persist in localStorage at key `mimo:edit-buffer-expert:<sessionId>`. On page load, if enabled, the EditBuffer initializes in `"idle"` state (not `"processing"` or `"diff_preview"` — those are transient).
-
-### R17: Cleanup on Page Unload
-If the EditBuffer is in `"processing"` or `"diff_preview"` state when the page unloads, any temp files SHALL remain on disk (they are cleaned up by the file watcher ignore patterns and will not interfere with normal operation). The state resets to `"idle"` on next load.
-
 ## API Specification
 
-### POST /api/sessions/:sessionId/files/copy
-**Request:**
-```json
-{
-  "path": "src/utils/helpers.ts"
-}
-```
+### GET /sessions/:sessionId/files/content
+**Query params:** `path=<filePath>`
 
 **Response:** 200 OK
 ```json
 {
-  "tempPath": "src/utils/helpers.ts.mimo-expert.tmp",
-  "originalChecksum": "abc123def456"
+  "path": "src/utils/helpers.ts",
+  "name": "helpers.ts",
+  "language": "typescript",
+  "lineCount": 42,
+  "content": "<html-escaped file content>"
 }
 ```
 
-**Error:** 404 if file not found, 400 if path invalid or contains `..`
+Note: `content` is HTML-escaped. Client MUST unescape before use.
 
-### POST /api/sessions/:sessionId/files/apply
+**Error:** 404 if not found, 403 if access denied
+
+### POST /sessions/:sessionId/patches
 **Request:**
 ```json
 {
   "originalPath": "src/utils/helpers.ts",
-  "tempPath": "src/utils/helpers.ts.mimo-expert.tmp"
+  "content": "// full patched file content\n..."
 }
 ```
 
 **Response:** 200 OK
 ```json
 {
-  "success": true
+  "patchPath": ".mimo-patches/src/utils/helpers.ts"
 }
 ```
 
-**Error:** 404 if temp file not found, 400 if tempPath does not end with `.mimo-expert.tmp`
+**Error:** 400 if `originalPath` contains `..` or is missing
 
-### DELETE /api/sessions/:sessionId/files/temp
-**Request:**
-```json
-{
-  "tempPath": "src/utils/helpers.ts.mimo-expert.tmp"
-}
-```
-
+### GET /sessions/:sessionId/patches
 **Response:** 200 OK
 ```json
 {
-  "success": true
+  "patches": [
+    { "originalPath": "src/utils/helpers.ts", "patchPath": ".mimo-patches/src/utils/helpers.ts" }
+  ]
 }
 ```
-
-**Error:** 404 if temp file not found, 400 if tempPath does not end with `.mimo-expert.tmp`
 
 ## WebSocket Message Specification
 
@@ -149,12 +141,11 @@ If the EditBuffer is in `"processing"` or `"diff_preview"` state when the page u
 ```json
 {
   "type": "expert_instruction",
+  "sessionId": "session-uuid",
   "chatThreadId": "thread-uuid",
   "originalPath": "src/utils/helpers.ts",
-  "tempPath": "src/utils/helpers.ts.mimo-expert.tmp",
-  "focusStart": 34,
-  "focusEnd": 40,
-  "instruction": "Refactor the helper function to be async"
+  "instruction": "Refactor the helper function to be async",
+  "focusRange": "34-40"
 }
 ```
 
@@ -163,56 +154,33 @@ If the EditBuffer is in `"processing"` or `"diff_preview"` state when the page u
 {
   "type": "expert_diff_ready",
   "chatThreadId": "thread-uuid",
-  "originalPath": "src/utils/helpers.ts",
-  "tempPath": "src/utils/helpers.ts.mimo-expert.tmp"
+  "originalPath": "src/utils/helpers.ts"
 }
 ```
 
 ## UI Specification
 
 ### Expert Mode Toggle Button
-- Position: right side of File Context Bar, after language indicator
-- Label: "Expert" (off state), "Expert ✓" (on state)
-- Style: matches existing context bar buttons (like "Reload" and "✕ Close")
-- Color: default gray (off), blue/green accent (on)
+- Position: right side of File Context Bar
+- Label: "Expert Mode" (off), "Expert Mode ✓" (on)
+- Color: gray (off), blue/green accent (on)
 
 ### Focus Guide
-- 7 lines highlighted with a subtle background color (#1a2a1a for dark theme)
-- Left border: 2px solid accent color (e.g., #4caf50)
-- Centered on the middle visible line of the viewport
-- Recalculates on scroll
+- Default 7 lines, adjustable via Alt+Control+Arrow
+- Subtle background: #1a2a1a (dark theme)
+- Left border: 2px solid #4caf50
+- Centered on middle visible line, recalculates on scroll
 
 ### Instruction Input Box
-- Position: bottom of EditBuffer, below file content view
-- Style: contenteditable div with monospace font, dark background (#1a1a1a)
-- Border: 1px solid #444 rounded
-- Send button: "⌃↵ Send" (same as chat bubble)
+- Position: bottom of EditBuffer, below file content
+- Style: contenteditable div, monospace, dark background
+- Send button: "⌃↵ Send"
 - Placeholder: "Enter edit instruction..."
-- Disabled when no active chat thread
-
-### Diff Preview
-- Position: replaces file content area with two vertically stacked panes
-- **Top pane**: "ORIGINAL (current)" header with the current file content
-  - Full file content with line numbers and syntax highlighting
-  - Removed lines (lines present in original but not in modified): red background (#3a1a1a), red left border (2px solid #f44336)
-  - Unchanged lines: normal styling
-  - Independent vertical scrolling
-- **Bottom pane**: "MODIFIED (proposed)" header with the proposed changes
-  - Full file content with line numbers and syntax highlighting
-  - Added lines (lines present in modified but not in original): green background (#1a3a1a), green left border (2px solid #4caf50)
-  - Unchanged lines: normal styling
-  - Independent vertical scrolling
-- Pane divider: 1px solid #444 between the two panes
-- Both panes take equal height (50/50 split of the content area)
-- Line numbers displayed for both panes
-
-### Apply/Reject Buttons
-- Position: right side of File Context Bar (replace "✕ Close" when in diff_preview)
-- Apply: "✓ Apply" (green accent)
-- Reject: "✕ Reject" (red accent)
+- Shown on `Enter` key press; hidden after send
 
 ### Keyboard Shortcuts
 - `Alt+Shift+E`: Toggle expert mode on/off
-- `Ctrl+Enter`: Apply changes (when in diff_preview state)
-- `Alt+Shift+G`: Reject changes (when in diff_preview state)
-- Shortcuts shown in bottom shortcuts bar when in expert mode
+- `Enter`: Show instruction input (when expert mode idle, not in editable field)
+- `Alt+Control+ArrowUp`: Increase focus guide size by 2 lines
+- `Alt+Control+ArrowDown`: Decrease focus guide size by 2 lines (minimum 3)
+- `Ctrl+Enter`: Send instruction (when input is focused)

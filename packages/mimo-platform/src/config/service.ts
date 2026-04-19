@@ -18,6 +18,12 @@ export interface SessionKeybindingsConfig {
   nextLeftBuffer?: string;
   previousLeftBuffer?: string;
   toggleRightFrame?: string;
+  toggleExpertMode?: string;
+  expertInput?: string;
+  increaseFocus?: string;
+  decreaseFocus?: string;
+  approvePatch?: string;
+  declinePatch?: string;
 }
 
 export interface Config {
@@ -45,6 +51,12 @@ export const defaultSessionKeybindings: SessionKeybindingsConfig = {
   nextLeftBuffer: "Alt+Shift+PageDown",
   previousLeftBuffer: "Alt+Shift+PageUp",
   toggleRightFrame: "Alt+Shift+Control+F",
+  toggleExpertMode: "Alt+Shift+E",
+  expertInput: "Enter",
+  increaseFocus: "Alt+Shift+Equal",
+  decreaseFocus: "Alt+Shift+Minus",
+  approvePatch: "Control+Enter",
+  declinePatch: "Alt+Shift+G",
 };
 
 export const defaultConfig: Config = {
@@ -81,6 +93,12 @@ function sanitizeSessionKeybindings(
     "nextLeftBuffer",
     "previousLeftBuffer",
     "toggleRightFrame",
+    "toggleExpertMode",
+    "expertInput",
+    "increaseFocus",
+    "decreaseFocus",
+    "approvePatch",
+    "declinePatch",
   ];
 
   for (const key of supportedKeys) {
