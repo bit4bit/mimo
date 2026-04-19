@@ -15,7 +15,7 @@ const wrappedCode = expertUtilsCode
 // eslint-disable-next-line @typescript-eslint/no-implied-eval
 eval(wrappedCode);
 
-const { extractReplacement, applyReplacement } = sandbox.MIMO_EXPERT_UTILS;
+const { extractReplacement, applyReplacement, applyReplacements, rangesOverlap } = sandbox.MIMO_EXPERT_UTILS;
 
 describe("Expert Utils - extractReplacement", () => {
   it("extracts JSON from code block with json tag", () => {
@@ -28,7 +28,10 @@ describe("Expert Utils - extractReplacement", () => {
 
     const result = extractReplacement(response);
     
-    expect(result).toEqual({
+    // Returns array with single element (backward compatibility)
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
       file: "calc.py",
       replace_start_line: 42,
       replace_end_line: 44,
@@ -46,7 +49,9 @@ describe("Expert Utils - extractReplacement", () => {
 
     const result = extractReplacement(response);
     
-    expect(result).toEqual({
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
       file: "test.ts",
       replace_start_line: 10,
       replace_end_line: 12,
@@ -59,7 +64,9 @@ describe("Expert Utils - extractReplacement", () => {
     
     const result = extractReplacement(response);
     
-    expect(result).toEqual({
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
       file: "main.py",
       replace_start_line: 1,
       replace_end_line: 2,
@@ -93,10 +100,11 @@ describe("Expert Utils - extractReplacement", () => {
 
     const result = extractReplacement(response);
     
-    expect(result).not.toBeNull();
-    expect(result.file).toBe("calc.py");
-    expect(result.replace_start_line).toBe(42);
-    expect(result.replace_end_line).toBe(44);
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(1);
+    expect(result[0].file).toBe("calc.py");
+    expect(result[0].replace_start_line).toBe(42);
+    expect(result[0].replace_end_line).toBe(44);
   });
 
   it("handles empty response", () => {
@@ -195,12 +203,14 @@ describe("Expert Utils - end-to-end", () => {
       replacement: "    def abs(self, x):\\n        pass",
     });
 
-    const replacement = extractReplacement(llmResponse);
-    expect(replacement).not.toBeNull();
-    expect(replacement.file).toBe("calc.py");
-    expect(replacement.replace_start_line).toBe(42);
-    expect(replacement.replace_end_line).toBe(44);
-    expect(replacement.replacement).toBe("    def abs(self, x):\\n        pass");
+    const replacements = extractReplacement(llmResponse);
+    expect(replacements).not.toBeNull();
+    expect(Array.isArray(replacements)).toBe(true);
+    expect(replacements).toHaveLength(1);
+    expect(replacements[0].file).toBe("calc.py");
+    expect(replacements[0].replace_start_line).toBe(42);
+    expect(replacements[0].replace_end_line).toBe(44);
+    expect(replacements[0].replacement).toBe("    def abs(self, x):\\n        pass");
   });
 
   it("correctly applies the replacement from the example", () => {
@@ -233,22 +243,228 @@ describe("Expert Utils - end-to-end", () => {
     expect(result).not.toContain("return abs(x)");
     expect(result).toContain("def pow");  // Should be preserved
   });
+});
 
-  it("handles replacement with complex lambda expression", () => {
-    const llmResponse = JSON.stringify({
-      file: "calc.py",
-      replace_start_line: 36,
-      replace_end_line: 40,
-      replacement: "    def mod(self, a: float, b: float) -> float:\n        return divmod(a, b)[1] if b != 0 else (_ for _ in ()).throw(ZeroDivisionError(\"Cannot use zero as modulus\"))",
+describe("Expert Utils - Multiple Replacements", () => {
+  describe("extractReplacement with array format", () => {
+    it("parses replacements array format", () => {
+      const response = JSON.stringify({
+        replacements: [
+          { file: "test.ts", replace_start_line: 5, replace_end_line: 7, replacement: "// first" },
+          { file: "test.ts", replace_start_line: 20, replace_end_line: 22, replacement: "// second" }
+        ]
+      });
+
+      const result = extractReplacement(response);
+
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(2);
+      expect(result[0].replace_start_line).toBe(5);
+      expect(result[1].replace_start_line).toBe(20);
     });
 
-    const replacement = extractReplacement(llmResponse);
-    expect(replacement).not.toBeNull();
-    expect(replacement.file).toBe("calc.py");
-    expect(replacement.replace_start_line).toBe(36);
-    expect(replacement.replace_end_line).toBe(40);
-    expect(replacement.replacement).toContain("def mod");
-    expect(replacement.replacement).toContain("ZeroDivisionError");
-    expect(replacement.replacement).toContain("(_ for _ in ()).throw");
+    it("parses single-element replacements array", () => {
+      const response = JSON.stringify({
+        replacements: [
+          { file: "test.ts", replace_start_line: 10, replace_end_line: 12, replacement: "// single" }
+        ]
+      });
+
+      const result = extractReplacement(response);
+
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(1);
+      expect(result[0].replace_start_line).toBe(10);
+    });
+
+    it("handles error response in object form", () => {
+      const response = JSON.stringify({
+        file: "test.ts",
+        error: "OUT_OF_SCOPE_CHANGE_REQUIRED"
+      });
+
+      const result = extractReplacement(response);
+
+      expect(result.error).toBe("OUT_OF_SCOPE_CHANGE_REQUIRED");
+    });
+  });
+
+  describe("applyReplacements", () => {
+    it("applies single replacement via array", () => {
+      const content = "line1\nline2\nline3";
+      const replacements = [
+        { file: "test.ts", replace_start_line: 2, replace_end_line: 2, replacement: "newLine2" }
+      ];
+
+      const result = applyReplacements(content, replacements);
+
+      expect(result).toBe("line1\nnewLine2\nline3");
+    });
+
+    it("applies multiple non-overlapping replacements", () => {
+      const content = "line1\nline2\nline3\nline4\nline5";
+      const replacements = [
+        { file: "test.ts", replace_start_line: 2, replace_end_line: 2, replacement: "newLine2" },
+        { file: "test.ts", replace_start_line: 4, replace_end_line: 4, replacement: "newLine4" }
+      ];
+
+      const result = applyReplacements(content, replacements);
+
+      expect(result).toBe("line1\nnewLine2\nline3\nnewLine4\nline5");
+    });
+
+    it("applies replacements in correct order (bottom-to-top)", () => {
+      // Higher line numbers should be applied first to avoid shifting issues
+      const content = "line1\nline2\nline3\nline4\nline5";
+      const replacements = [
+        { file: "test.ts", replace_start_line: 2, replace_end_line: 2, replacement: "A" },
+        { file: "test.ts", replace_start_line: 4, replace_end_line: 4, replacement: "B" }
+      ];
+
+      const result = applyReplacements(content, replacements);
+
+      expect(result).toBe("line1\nA\nline3\nB\nline5");
+    });
+
+    it("rejects overlapping replacement ranges", () => {
+      const content = "line1\nline2\nline3\nline4\nline5";
+      const replacements = [
+        { file: "test.ts", replace_start_line: 2, replace_end_line: 3, replacement: "A" },
+        { file: "test.ts", replace_start_line: 3, replace_end_line: 4, replacement: "B" }
+      ];
+
+      expect(() => applyReplacements(content, replacements))
+        .toThrow("Replacements have overlapping line ranges");
+    });
+
+    it("allows adjacent replacement ranges", () => {
+      const content = "line1\nline2\nline3\nline4\nline5";
+      const replacements = [
+        { file: "test.ts", replace_start_line: 2, replace_end_line: 2, replacement: "A" },
+        { file: "test.ts", replace_start_line: 3, replace_end_line: 3, replacement: "B" }
+      ];
+
+      const result = applyReplacements(content, replacements);
+
+      expect(result).toBe("line1\nA\nB\nline4\nline5");
+    });
+
+    it("handles empty replacements array", () => {
+      const content = "line1\nline2";
+      const replacements: any[] = [];
+
+      expect(() => applyReplacements(content, replacements))
+        .toThrow("No replacements provided");
+    });
+
+    it("rejects missing required fields", () => {
+      const content = "line1\nline2";
+      const replacements = [
+        { file: "test.ts", replace_end_line: 2, replacement: "new" } // missing replace_start_line
+      ];
+
+      expect(() => applyReplacements(content, replacements))
+        .toThrow("missing replace_start_line");
+    });
+
+    it("rejects invalid line number (less than 1)", () => {
+      const content = "line1\nline2";
+      const replacements = [
+        { file: "test.ts", replace_start_line: 0, replace_end_line: 1, replacement: "new" }
+      ];
+
+      expect(() => applyReplacements(content, replacements))
+        .toThrow("replace_start_line must be >= 1");
+    });
+
+    it("rejects end line less than start line", () => {
+      const content = "line1\nline2";
+      const replacements = [
+        { file: "test.ts", replace_start_line: 5, replace_end_line: 3, replacement: "new" }
+      ];
+
+      expect(() => applyReplacements(content, replacements))
+        .toThrow("replace_end_line must be >= replace_start_line");
+    });
+
+    it("rejects non-array replacements", () => {
+      const content = "line1\nline2";
+
+      expect(() => applyReplacements(content, "not an array" as any))
+        .toThrow("Replacements must be an array");
+    });
+  });
+
+  describe("rangesOverlap", () => {
+    it("detects overlapping ranges", () => {
+      const a = { replace_start_line: 5, replace_end_line: 10 };
+      const b = { replace_start_line: 8, replace_end_line: 15 };
+
+      expect(rangesOverlap(a, b)).toBe(true);
+      expect(rangesOverlap(b, a)).toBe(true);
+    });
+
+    it("allows adjacent ranges", () => {
+      const a = { replace_start_line: 5, replace_end_line: 10 };
+      const b = { replace_start_line: 11, replace_end_line: 15 };
+
+      expect(rangesOverlap(a, b)).toBe(false);
+      expect(rangesOverlap(b, a)).toBe(false);
+    });
+
+    it("detects identical ranges", () => {
+      const a = { replace_start_line: 5, replace_end_line: 10 };
+      const b = { replace_start_line: 5, replace_end_line: 10 };
+
+      expect(rangesOverlap(a, b)).toBe(true);
+    });
+
+    it("detects nested ranges", () => {
+      const a = { replace_start_line: 5, replace_end_line: 15 };
+      const b = { replace_start_line: 8, replace_end_line: 12 };
+
+      expect(rangesOverlap(a, b)).toBe(true);
+      expect(rangesOverlap(b, a)).toBe(true);
+    });
   });
 });
+
+describe("Expert Utils - end-to-end with multiple replacements", () => {
+  it("end-to-end: multiple replacements", () => {
+    const llmResponse = JSON.stringify({
+      replacements: [
+        { file: "utils.ts", replace_start_line: 2, replace_end_line: 2, replacement: "const x = 1;" },
+        { file: "utils.ts", replace_start_line: 5, replace_end_line: 5, replacement: "const y = 2;" }
+      ]
+    });
+
+    const replacements = extractReplacement(llmResponse);
+    expect(Array.isArray(replacements)).toBe(true);
+    expect(replacements).toHaveLength(2);
+
+    const originalContent = "line1\nold2\nline3\nline4\nold5";
+    const result = applyReplacements(originalContent, replacements);
+
+    expect(result).toBe("line1\nconst x = 1;\nline3\nline4\nconst y = 2;");
+  });
+
+  it("end-to-end: backward compatibility with single object", () => {
+    const llmResponse = JSON.stringify({
+      file: "utils.ts",
+      replace_start_line: 3,
+      replace_end_line: 3,
+      replacement: "// updated"
+    });
+
+    const replacements = extractReplacement(llmResponse);
+    expect(Array.isArray(replacements)).toBe(true);
+    expect(replacements).toHaveLength(1);
+    expect(replacements[0].replace_start_line).toBe(3);
+
+    const originalContent = "line1\nline2\nold\nline4";
+    const result = applyReplacements(originalContent, replacements);
+
+    expect(result).toBe("line1\nline2\n// updated\nline4");
+  });
+});
+
