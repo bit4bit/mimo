@@ -21,9 +21,6 @@ async function saveProjectNotes() {
   const projectNotesInput = document.querySelector("#project-notes-input");
   const status = document.querySelector("#project-notes-save-status");
   if (!projectNotesInput || !NotesState.projectId) {
-    console.warn(
-      "[notes] Cannot save project notes: missing input or projectId",
-    );
     return;
   }
 
@@ -50,9 +47,6 @@ async function saveSessionNotes() {
   const notesInput = document.querySelector("#notes-input");
   const status = document.querySelector("#notes-save-status");
   if (!notesInput || !NotesState.sessionId) {
-    console.warn(
-      "[notes] Cannot save session notes: missing input or sessionId",
-    );
     return;
   }
 
@@ -126,21 +120,12 @@ function initSessionNotesAutoSave() {
 function initNotes() {
   const buffer = document.querySelector(".notes-buffer");
   if (!buffer) {
-    console.warn("[notes] Notes buffer not found");
     return;
   }
 
   NotesState.sessionId = buffer.getAttribute("data-session-id");
   NotesState.projectId = buffer.getAttribute("data-project-id");
 
-  console.log(
-    "[notes] Initialized with sessionId:",
-    NotesState.sessionId,
-    "projectId:",
-    NotesState.projectId,
-  );
-
-  // Setup auto-save listeners (content is already in textareas from server-side render)
   initProjectNotesAutoSave();
   initSessionNotesAutoSave();
 }

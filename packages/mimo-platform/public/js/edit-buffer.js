@@ -99,14 +99,9 @@
         if (f) f.scrollPosition = pos;
       },
       markOutdated: function (path) {
-        console.log("[EditBuffer] markOutdated called for:", path);
-        console.log("[EditBuffer] Open files:", openFiles.map(f => f.path));
         const f = openFiles.find(function (f) { return pathsMatch(f.path, path); });
         if (f) {
-          console.log("[EditBuffer] Marking file as outdated:", path);
           f.isOutdated = true;
-        } else {
-          console.log("[EditBuffer] File not found in open files:", path);
         }
       },
       clearOutdated: function (path) {
@@ -619,9 +614,6 @@
     }
 
     async function handleExpertDiffReady(data) {
-      console.log("[EXPERT] handleExpertDiffReady called with data:", data);
-      console.log("[EXPERT] Current state:", state);
-
       if (!state.originalContent) {
         console.error("[EXPERT] No originalContent in state");
         showExpertStatus("Error: No original content available");
@@ -633,9 +625,7 @@
 
       const sessionId = getSessionId();
       const threadId = getActiveThreadId();
-      
-      console.log("[EXPERT] sessionId:", sessionId, "threadId:", threadId);
-      
+
       if (!sessionId || !threadId) {
         console.error("[EXPERT] Missing sessionId or threadId");
         showExpertStatus("Error: Session or thread not available");
@@ -646,10 +636,8 @@
       }
 
       try {
-        // Get LLM response content
         let llmResponse = "";
-        
-        // Access streaming content via global function from chat.js
+
         if (typeof window.MIMO_GET_STREAMING_CONTENT === "function") {
           const streamingData = window.MIMO_GET_STREAMING_CONTENT();
           if (streamingData) {
@@ -660,35 +648,31 @@
             }
           }
         }
-        
-        // If no streaming content, try fetching from server
+
         if (!llmResponse) {
           const url = "/sessions/" + sessionId + "/chat-threads/" + threadId + "/messages";
           const messagesRes = await fetch(url);
           if (!messagesRes.ok) throw new Error("Failed to fetch messages: " + messagesRes.status);
-          
+
           const messages = await messagesRes.json();
           if (!messages || messages.length === 0) {
             throw new Error("No messages found");
           }
 
-          // Get the last assistant message
           const lastAssistantMessage = messages
             .filter(function(m) { return m.role === "assistant"; })
             .pop();
-          
+
           if (!lastAssistantMessage) {
             throw new Error("No assistant response found");
           }
 
           llmResponse = lastAssistantMessage.content;
         }
-        
-        console.log("[EXPERT] MIMO_EXPERT_UTILS available:", !!window.MIMO_EXPERT_UTILS);
-        const replacement = window.MIMO_EXPERT_UTILS 
+
+        const replacement = window.MIMO_EXPERT_UTILS
           ? window.MIMO_EXPERT_UTILS.extractReplacement(llmResponse)
           : null;
-        console.log("[EXPERT] Extracted replacement:", replacement);
 
         if (!replacement) {
           throw new Error("LLM did not return a valid edit");
@@ -803,15 +787,12 @@
     }
 
     async function recoverPendingPatches(sessionId) {
-      // Recover any pending patches from a previous session
       try {
         const res = await fetch("/sessions/" + sessionId + "/patches");
         if (!res.ok) return;
-        
+
         const data = await res.json();
         if (!data.patches || data.patches.length === 0) return;
-        
-        // Add each patch to PatchBuffer
         data.patches.forEach(function(patch) {
           if (window.MIMO_PATCH_BUFFER && typeof window.MIMO_PATCH_BUFFER.addPatch === "function") {
             window.MIMO_PATCH_BUFFER.addPatch({
@@ -823,7 +804,6 @@
           }
         });
       } catch (e) {
-        console.log("[EXPERT] Failed to recover patches:", e);
       }
     }
 
@@ -1308,22 +1288,16 @@
   function initFileWatchWebSocket() {
     const sessionId = getSessionId();
     if (!sessionId) {
-      console.log("[FileWatcher] No session ID available, retrying in 1s...");
       setTimeout(initFileWatchWebSocket, 1000);
       return;
     }
 
-    // Prevent multiple connections
     if (fileWatchSocket && fileWatchSocket.readyState === WebSocket.OPEN) {
-      console.log("[FileWatcher] Already connected");
       return;
     }
 
-    // Determine WebSocket URL
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = protocol + "//" + window.location.host + "/ws/files/" + sessionId;
-
-    console.log("[FileWatcher] Connecting to:", wsUrl);
 
     try {
       fileWatchSocket = new WebSocket(wsUrl);
@@ -1333,19 +1307,15 @@
     }
 
     fileWatchSocket.onopen = function () {
-      console.log("[FileWatcher] Connected successfully");
       fileWatchReconnectAttempts = 0;
-      
-      // Watch all currently open files
+
       const files = EditBufferState.getAll();
-      console.log("[FileWatcher] Watching", files.length, "files");
       files.forEach(function (file) {
         notifyWatchFile(sessionId, file);
       });
     };
 
     fileWatchSocket.onmessage = function (event) {
-      console.log("[FileWatcher] Received message:", event.data);
       try {
         const data = JSON.parse(event.data);
         if (data.type === "file_outdated") {
@@ -1375,21 +1345,15 @@
     };
 
     fileWatchSocket.onclose = function (event) {
-      console.log("[FileWatcher] Disconnected:", event.code, event.reason);
       fileWatchSocket = null;
-      
-      // Attempt to reconnect with backoff
+
       if (fileWatchReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         fileWatchReconnectAttempts++;
         const delay = Math.min(3000 * fileWatchReconnectAttempts, 15000);
-        console.log(`[FileWatcher] Reconnecting in ${delay}ms (attempt ${fileWatchReconnectAttempts})`);
         setTimeout(initFileWatchWebSocket, delay);
-      } else {
-        console.log("[FileWatcher] Max reconnect attempts reached, giving up");
       }
     };
 
-    // Store reference for external access (will be available after init)
     if (typeof window.EditBuffer !== 'undefined') {
       window.EditBuffer.ws = fileWatchSocket;
     }
@@ -1397,17 +1361,14 @@
 
   function notifyWatchFile(sessionId, file) {
     if (!fileWatchSocket) {
-      console.log("[FileWatcher] Cannot notify - socket not initialized");
       return;
     }
     if (fileWatchSocket.readyState !== WebSocket.OPEN) {
-      console.log("[FileWatcher] Cannot notify - socket not open (state:", fileWatchSocket.readyState + ")");
       return;
     }
-    
+
     const checksum = file.contentChecksum || EditBufferState.getChecksum(file.path);
-    console.log("[FileWatcher] Sending watch_file for:", file.path, "checksum:", checksum);
-    
+
     fileWatchSocket.send(JSON.stringify({
       type: "watch_file",
       path: file.path,
@@ -1544,7 +1505,6 @@
       window.addEventListener("mimo_expert_diff_ready", function (event) {
         var detail = event && event.detail ? event.detail : null;
         if (!detail) return;
-        console.log("[EXPERT] Received mimo_expert_diff_ready event", detail);
         ExpertMode.handleDiffReady(detail);
       });
 
@@ -1579,8 +1539,6 @@
     window.addEventListener("beforeunload", function () {
       var expState = ExpertMode.getState();
       if (expState.enabled && expState.state === "processing") {
-        // Just log - no cleanup needed since we don't write temp files anymore
-        console.log("[EXPERT] Page unload while processing - no cleanup needed");
       }
     });
   }
