@@ -169,61 +169,24 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       streamingTimeoutMs={streamingTimeoutMs}
       sessionKeybindings={sessionKeybindings}
       chatFileExtensions={chatFileExtensions}
+      projectId={project.id}
+      projectName={project.name}
+      sessionName={session.name}
+      fossilUrl={fossilUrl}
+      agentId={agent?.id}
+      agentName={agent?.name}
+      cloneWorkspaceHtml={cloneWorkspaceCommand ? (
+          <button
+            type="button"
+            id="clone-workspace-btn"
+            class="btn-secondary clone-workspace-btn"
+          >
+            Clone Workspace
+          </button>
+        ) : undefined}
+      backUrl={`/projects/${project.id}/sessions`}
     >
       <div class="session-container">
-        <div class="session-header-bar">
-          <a
-            href={`/projects/${project.id}/sessions`}
-            class="session-back-link-bar"
-            aria-label="Back to sessions"
-            title="Back to sessions"
-          >
-            &lt;
-          </a>
-          <div class="session-header-main">
-            <h1>{session.name}</h1>
-            <span style="color: #888; font-size: 12px;">
-              Project: {project.name}
-              {fossilUrl && (
-                <a
-                  href={`${fossilUrl}timeline`}
-                  target="_blank"
-                  class="fossil-icon-link"
-                  title="View Fossil Repository"
-                >
-                  🌿
-                </a>
-              )}{" "}
-              | Status: {session.status}
-              {agent && ` | Agent: ${agent.name}`} |
-              <span
-                id="subtitle-acp-status"
-                class={`acp-status acp-status--${acpStatus}`}
-              >
-                {acpStatus === "active" && "🟢 Agent ready"}
-                {acpStatus === "parked" && "💤 Agent sleeping"}
-                {acpStatus === "waking" && "⏳ Waking agent..."}
-              </span>
-              {cloneWorkspaceCommand && (
-                <button
-                  type="button"
-                  id="clone-workspace-btn"
-                  class="btn-secondary clone-workspace-btn"
-                >
-                  Clone Workspace
-                </button>
-              )}
-            </span>
-          </div>
-          {agent && (
-            <div style="display: flex; gap: 10px; align-items: center;">
-              <a href={`/agents/${agent.id}`} class="btn-secondary">
-                Agent Details
-              </a>
-            </div>
-          )}
-        </div>
-
         <div
           class={`buffers-container ${frameState.rightFrame.isCollapsed ? "right-frame-collapsed" : ""}`}
         >
@@ -243,7 +206,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               edit: {
                 agentWorkspacePath,
               },
-            }}
+}}
           />
 
           <Frame
@@ -261,7 +224,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 aria-expanded={frameState.rightFrame.isCollapsed ? "false" : "true"}
                 data-collapsed={frameState.rightFrame.isCollapsed ? "true" : "false"}
               >
-                »
+                &lt;&lt;
               </button>
             }
             bufferProps={{
@@ -282,7 +245,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             aria-label="Restore right frame"
             aria-expanded={frameState.rightFrame.isCollapsed ? "false" : "true"}
           >
-            «
+            &lt;&lt;
           </button>
         </div>
 

@@ -13,15 +13,6 @@ export const McpServersBuffer: FC<McpServersBufferProps> = ({
     <div class="buffer" id="mcp-servers-buffer">
       <div class="buffer-header">
         <span>MCP Servers</span>
-        <button
-          type="button"
-          id="mcp-right-frame-toggle-btn"
-          class="mcp-frame-toggle"
-          title="Collapse right frame"
-          aria-label="Collapse right frame"
-        >
-          »
-        </button>
       </div>
       <div class="buffer-content mcp-servers-content">
         {servers.length === 0 ? (
