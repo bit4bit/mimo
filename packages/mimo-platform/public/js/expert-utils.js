@@ -1,65 +1,42 @@
 (function () {
   "use strict";
 
-  /**
-   * Extract JSON replacements from LLM response
-   * Handles various formats:
-   * - ```json { "replacements": [...] } ```
-   * - ``` { "file": ..., "replace_start_line": ... } ``` (legacy single-object)
-   * - Raw JSON { ... }
-   * @param {string} response - The LLM response text
-   * @returns {Array|null} Array of replacement objects, or null if invalid
-   */
-  /**
-   * Fix malformed JSON where LLM outputs literal newlines in string values
-   * instead of escaped \n sequences.
-   * @param {string} text - The potentially malformed JSON string
-   * @returns {string} Fixed JSON string
-   */
-  function fixMalformedJson(text) {
-    if (!text) return text;
+  function stripDetailsTags(response) {
+    return response.replace(/<details[\s\S]*?<\/details>/g, "").trim();
+  }
 
-    var result = "";
-    var inString = false;
-    var escaped = false;
-
-    for (var i = 0; i < text.length; i++) {
-      var char = text[i];
-
-      if (escaped) {
-        result += char;
-        escaped = false;
-        continue;
-      }
-
-      if (char === "\\") {
-        escaped = true;
-        result += char;
-        continue;
-      }
-
-      if (char === '"' && !escaped) {
-        inString = !inString;
-        result += char;
-        continue;
-      }
-
-      // If we're inside a string and hit a literal newline, escape it
-      if (inString && char === "\n") {
-        result += "\\n";
-        continue;
-      }
-
-      // If we're inside a string and hit a literal carriage return, escape it
-      if (inString && char === "\r") {
-        result += "\\r";
-        continue;
-      }
-
-      result += char;
+  function extractSearchReplaceBlocks(response) {
+    if (!response || typeof response !== "string") {
+      return [];
     }
 
-    return result;
+    var cleaned = stripDetailsTags(response);
+    var blockRegex =
+      /<{7}\s*SEARCH\r?\n([\s\S]*?)\r?\n={7}\r?\n([\s\S]*?)\r?\n>{7}\s*REPLACE/g;
+    var blocks = [];
+    var match;
+
+    while ((match = blockRegex.exec(cleaned)) !== null) {
+      blocks.push({
+        search: match[1],
+        replace: match[2],
+      });
+    }
+
+    return blocks;
+  }
+
+  function extractOutOfScopeError(response) {
+    if (!response || typeof response !== "string") {
+      return null;
+    }
+
+    var cleaned = stripDetailsTags(response);
+    if (!cleaned.includes("OUT_OF_SCOPE_CHANGE_REQUIRED")) {
+      return null;
+    }
+
+    return { error: "OUT_OF_SCOPE_CHANGE_REQUIRED" };
   }
 
   function extractReplacement(response) {
@@ -67,231 +44,231 @@
       return null;
     }
 
-    // Strip <details>...</details> blocks — chat wraps thought process in these,
-    // leaving the actual JSON response after the closing tag.
-    var cleaned = response.replace(/<details[\s\S]*?<\/details>/g, "").trim();
-
-    var parsed = null;
-
-    // Try the cleaned text directly as JSON (with fix for malformed newlines)
-    if (cleaned.startsWith("{") && cleaned.endsWith("}")) {
-      try {
-        parsed = JSON.parse(fixMalformedJson(cleaned));
-      } catch (e) {
-        // fall through
-      }
+    var blocks = extractSearchReplaceBlocks(response);
+    if (blocks.length > 0) {
+      return {
+        format: "search_replace",
+        blocks: blocks,
+      };
     }
 
-    // Try to find JSON in code blocks (with fix for malformed newlines)
-    if (!parsed) {
-      var codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (codeBlockMatch) {
-        try {
-          parsed = JSON.parse(fixMalformedJson(codeBlockMatch[1].trim()));
-        } catch (e) {
-          // fall through
-        }
-      }
-    }
-
-    // Last resort: find the last { ... } pair that parses as valid JSON (with fix for malformed newlines)
-    if (!parsed) {
-      var lastClose = cleaned.lastIndexOf("}");
-      if (lastClose !== -1) {
-        var sub = cleaned.substring(0, lastClose + 1);
-        var firstOpen = sub.lastIndexOf("{");
-        if (firstOpen !== -1) {
-          try {
-            parsed = JSON.parse(fixMalformedJson(sub.substring(firstOpen)));
-          } catch (e) {
-            // fall through
-          }
-        }
-      }
-    }
-
-    if (!parsed) {
-      return null;
-    }
-
-    // Check for error response
-    if (parsed.error) {
-      return parsed;
-    }
-
-    // New format: { "replacements": [...] }
-    if (parsed.replacements && Array.isArray(parsed.replacements)) {
-      return parsed.replacements;
-    }
-
-    // Legacy format: single replacement object
-    // { "file": ..., "replace_start_line": ..., "replace_end_line": ..., "replacement": ... }
-    if (parsed.file && parsed.replace_start_line !== undefined) {
-      return [parsed];
-    }
-
-    return null;
+    return extractOutOfScopeError(response);
   }
 
-  /**
-   * Apply a single replacement to file content
-   * @param {string} content - Original file content
-   * @param {object} replacement - Replacement object with replace_start_line, replace_end_line, replacement
-   * @returns {string} Modified content
-   */
-  function applyReplacement(content, replacement) {
+  function countOccurrences(haystack, needle) {
+    var count = 0;
+    var pos = 0;
+    while (needle && (pos = haystack.indexOf(needle, pos)) !== -1) {
+      count += 1;
+      pos += needle.length || 1;
+    }
+    return count;
+  }
+
+  function lineIndent(line) {
+    var match = line.match(/^\s*/);
+    return match ? match[0] : "";
+  }
+
+  function adaptIndentation(replaceText, searchText, matchedLines) {
+    var replaceLines = replaceText.split("\n");
+    var searchLines = searchText.split("\n");
+
+    var pivotIndex = -1;
+    for (var i = 0; i < searchLines.length; i++) {
+      if (searchLines[i].trim()) {
+        pivotIndex = i;
+        break;
+      }
+    }
+
+    if (pivotIndex === -1 || !matchedLines[pivotIndex]) {
+      return replaceText;
+    }
+
+    var searchIndent = lineIndent(searchLines[pivotIndex]);
+    var matchedIndent = lineIndent(matchedLines[pivotIndex]);
+    if (searchIndent === matchedIndent) {
+      return replaceText;
+    }
+
+    var adapted = replaceLines.map(function (line) {
+      if (!line.trim()) {
+        return line;
+      }
+      if (searchIndent && line.startsWith(searchIndent)) {
+        return matchedIndent + line.slice(searchIndent.length);
+      }
+      return line;
+    });
+
+    return adapted.join("\n");
+  }
+
+  function findWhitespaceNormalizedMatch(content, search) {
+    var contentLines = content.split("\n");
+    var searchLines = search.split("\n");
+    var matches = [];
+
+    if (!searchLines.length || searchLines.length > contentLines.length) {
+      return {
+        matches: matches,
+        contentLines: contentLines,
+        searchLines: searchLines,
+      };
+    }
+
+    for (var start = 0; start <= contentLines.length - searchLines.length; start++) {
+      var isMatch = true;
+      for (var offset = 0; offset < searchLines.length; offset++) {
+        if (contentLines[start + offset].trim() !== searchLines[offset].trim()) {
+          isMatch = false;
+          break;
+        }
+      }
+      if (isMatch) {
+        matches.push(start);
+      }
+    }
+
+    return {
+      matches: matches,
+      contentLines: contentLines,
+      searchLines: searchLines,
+    };
+  }
+
+  function applyLineRangeReplacement(contentLines, startLineIndex, lineCount, replacementText) {
+    var before = contentLines.slice(0, startLineIndex);
+    var after = contentLines.slice(startLineIndex + lineCount);
+    var replacementLines = replacementText === "" ? [] : replacementText.split("\n");
+    return before.concat(replacementLines, after).join("\n");
+  }
+
+  function applySearchReplaceBlock(content, block, focusLine) {
     if (!content || typeof content !== "string") {
       return content;
     }
 
-    if (!replacement || typeof replacement !== "object") {
-      return content;
+    if (!block || typeof block !== "object") {
+      throw new Error("Invalid search/replace block");
     }
 
-    const startLine = parseInt(replacement.replace_start_line, 10);
-    const endLine = parseInt(replacement.replace_end_line, 10);
-    const newContent = replacement.replacement;
-
-    if (isNaN(startLine) || isNaN(endLine) || typeof newContent !== "string") {
-      return content;
-    }
-
-    const lines = content.split("\n");
-
-    // Validate line numbers
-    if (startLine < 1 || endLine < startLine || startLine > lines.length) {
-      return content;
-    }
-
-    // Convert to 0-based indices
-    const startIdx = startLine - 1;
-    const endIdx = Math.min(endLine, lines.length);
-
-    // Build new content
-    const before = lines.slice(0, startIdx);
-    const after = lines.slice(endIdx);
-    const replacementLines = newContent.split("\n");
-
-    return [...before, ...replacementLines, ...after].join("\n");
-  }
-
-  /**
-   * Check if two replacement ranges overlap
-   * @param {object} a - First replacement
-   * @param {object} b - Second replacement
-   * @returns {boolean} True if ranges overlap
-   */
-  function rangesOverlap(a, b) {
-    const aStart = parseInt(a.replace_start_line, 10);
-    const aEnd = parseInt(a.replace_end_line, 10);
-    const bStart = parseInt(b.replace_start_line, 10);
-    const bEnd = parseInt(b.replace_end_line, 10);
-
-    return aStart <= bEnd && bStart <= aEnd;
-  }
-
-  /**
-   * Validate a replacement object
-   * @param {object} replacement - Replacement to validate
-   * @param {number} index - Index for error messages
-   * @throws {Error} If replacement is invalid
-   */
-  function validateReplacement(replacement, index) {
-    const prefix = `Invalid replacement at index ${index}`;
-
-    if (!replacement || typeof replacement !== "object") {
-      throw new Error(`${prefix}: not an object`);
-    }
-
-    const requiredFields = [
-      "replace_start_line",
-      "replace_end_line",
-      "replacement",
-    ];
-    for (const field of requiredFields) {
-      if (replacement[field] === undefined) {
-        throw new Error(`${prefix}: missing ${field}`);
-      }
-    }
-
-    const startLine = parseInt(replacement.replace_start_line, 10);
-    const endLine = parseInt(replacement.replace_end_line, 10);
-
-    if (isNaN(startLine) || startLine < 1) {
-      throw new Error(`${prefix}: replace_start_line must be >= 1`);
-    }
-
-    if (isNaN(endLine) || endLine < startLine) {
+    if (!block.search || !block.search.trim()) {
       throw new Error(
-        `${prefix}: replace_end_line must be >= replace_start_line`,
+        "Empty search block. Use insertion pattern with anchor line instead.",
       );
     }
 
-    if (typeof replacement.replacement !== "string") {
-      throw new Error(`${prefix}: replacement must be a string`);
-    }
-  }
+    var searchText = block.search;
+    var replaceText = typeof block.replace === "string" ? block.replace : "";
 
-  /**
-   * Apply multiple replacements to file content
-   * Replacements are applied from bottom to top (highest line number first)
-   * to preserve line number validity
-   * @param {string} content - Original file content
-   * @param {Array} replacements - Array of replacement objects
-   * @returns {string} Modified content
-   * @throws {Error} If replacements overlap or are invalid
-   */
-  function applyReplacements(content, replacements) {
-    if (!content || typeof content !== "string") {
-      return content;
+    var exactCount = countOccurrences(content, searchText);
+    if (exactCount > 1) {
+      throw new Error("Multiple matches found. Make the search text more specific.");
+    }
+    if (exactCount === 1) {
+      var exactIndex = content.indexOf(searchText);
+      return (
+        content.slice(0, exactIndex) +
+        replaceText +
+        content.slice(exactIndex + searchText.length)
+      );
     }
 
-    if (!Array.isArray(replacements)) {
-      throw new Error("Replacements must be an array");
+    var fuzzy = findWhitespaceNormalizedMatch(content, searchText);
+    if (fuzzy.matches.length > 1) {
+      throw new Error("Multiple matches found. Make the search text more specific.");
+    }
+    if (fuzzy.matches.length === 1) {
+      var fuzzyStart = fuzzy.matches[0];
+      var fuzzyMatchedLines = fuzzy.contentLines.slice(
+        fuzzyStart,
+        fuzzyStart + fuzzy.searchLines.length,
+      );
+      var normalizedReplace = adaptIndentation(
+        replaceText,
+        searchText,
+        fuzzyMatchedLines,
+      );
+      return applyLineRangeReplacement(
+        fuzzy.contentLines,
+        fuzzyStart,
+        fuzzy.searchLines.length,
+        normalizedReplace,
+      );
     }
 
-    if (replacements.length === 0) {
-      throw new Error("No replacements provided");
-    }
+    if (typeof focusLine === "number" && focusLine > 0) {
+      var contentLines = content.split("\n");
+      var searchLines = searchText.split("\n");
+      var radius = 5;
+      var start = Math.max(0, focusLine - 1 - radius);
+      var end = Math.min(
+        contentLines.length - searchLines.length,
+        focusLine - 1 + radius,
+      );
 
-    // Validate all replacements first
-    replacements.forEach((replacement, index) => {
-      validateReplacement(replacement, index);
-    });
+      for (var i = start; i <= end; i++) {
+        var nearMatch = true;
+        for (var j = 0; j < searchLines.length; j++) {
+          if (contentLines[i + j] !== searchLines[j]) {
+            nearMatch = false;
+            break;
+          }
+        }
 
-    // Check for overlapping ranges
-    for (let i = 0; i < replacements.length; i++) {
-      for (let j = i + 1; j < replacements.length; j++) {
-        if (rangesOverlap(replacements[i], replacements[j])) {
-          throw new Error("Replacements have overlapping line ranges");
+        if (nearMatch) {
+          return applyLineRangeReplacement(contentLines, i, searchLines.length, replaceText);
         }
       }
     }
 
-    // Sort by replace_start_line descending (apply from bottom to top)
-    // This ensures that replacing lines doesn't shift line numbers
-    // of replacements that haven't been applied yet
-    const sortedReplacements = [...replacements].sort((a, b) => {
-      const aStart = parseInt(a.replace_start_line, 10);
-      const bStart = parseInt(b.replace_start_line, 10);
-      return bStart - aStart; // Descending order
-    });
+    throw new Error("Could not find the code to replace. The file may have changed.");
+  }
 
-    // Apply replacements sequentially
-    let result = content;
-    for (const replacement of sortedReplacements) {
-      result = applyReplacement(result, replacement);
+  function applySearchReplaceBlocks(content, blocks) {
+    if (!Array.isArray(blocks)) {
+      throw new Error("Search/replace blocks must be an array");
+    }
+
+    var result = content;
+    for (var i = 0; i < blocks.length; i++) {
+      try {
+        var block = blocks[i];
+        var focusLine =
+          block && typeof block.focusLine === "number" ? block.focusLine : undefined;
+        result = applySearchReplaceBlock(result, block, focusLine);
+      } catch (err) {
+        throw new Error("Block " + (i + 1) + ": " + err.message);
+      }
     }
 
     return result;
   }
 
-  const MIMO_EXPERT_UTILS = {
-    extractReplacement,
-    applyReplacement,
-    applyReplacements,
-    rangesOverlap,
-    fixMalformedJson,
+  function applyReplacements(content, parsed) {
+    if (!content || typeof content !== "string") {
+      return content;
+    }
+
+    if (!parsed || typeof parsed !== "object") {
+      throw new Error("Replacement payload is required");
+    }
+
+    if (parsed.format !== "search_replace") {
+      throw new Error("Unsupported replacement format");
+    }
+
+    return applySearchReplaceBlocks(content, parsed.blocks || []);
+  }
+
+  var MIMO_EXPERT_UTILS = {
+    extractReplacement: extractReplacement,
+    extractSearchReplaceBlocks: extractSearchReplaceBlocks,
+    applySearchReplaceBlock: applySearchReplaceBlock,
+    applySearchReplaceBlocks: applySearchReplaceBlocks,
+    applyReplacements: applyReplacements,
   };
 
   if (typeof window !== "undefined") {
