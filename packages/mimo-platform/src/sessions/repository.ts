@@ -37,7 +37,7 @@ export interface ChatThread {
   mode: string;
   acpSessionId: string | null;
   assignedAgentId: string | null;
-  state: "active" | "parked" | "waking";
+  state: "active" | "parked" | "waking" | "disconnected";
   createdAt: string;
 }
 

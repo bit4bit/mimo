@@ -7,7 +7,7 @@ export interface ChatThread {
   model: string;
   mode: string;
   acpSessionId: string | null;
-  state: "active" | "parked" | "waking";
+  state: "active" | "parked" | "waking" | "disconnected";
   createdAt: string;
 }
 
@@ -50,40 +50,56 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
         class="chat-threads-tabs"
         style="display: flex; background: #2d2d2d; border-bottom: 1px solid #444; overflow-x: auto;"
       >
-        {threads.map((thread) => (
-          <button
-            type="button"
-            class={`chat-thread-tab ${thread.id === activeThreadId ? "active" : ""}`}
-            data-thread-id={thread.id}
-            style={`
-              padding: 8px 16px;
-              border: none;
-              border-right: 1px solid #444;
-              background: ${thread.id === activeThreadId ? "#1a1a1a" : "transparent"};
-              color: ${thread.id === activeThreadId ? "#d4d4d4" : "#888"};
-              cursor: pointer;
-              font-family: monospace;
-              font-size: 12px;
-              white-space: nowrap;
-              display: flex;
-              align-items: center;
-              gap: 6px;
-            `}
-          >
-            {/* Thread status indicator */}
-            <span
-              class="thread-status-indicator"
-              data-thread-state={thread.state}
+        {threads.map((thread) => {
+          const icon =
+            thread.state === "disconnected"
+              ? "🔴"
+              : thread.state === "active"
+                ? "🟢"
+                : thread.state === "waking"
+                  ? "⏳"
+                  : "💤";
+          const title =
+            thread.state === "disconnected"
+              ? "Agent is disconnected"
+              : thread.state === "active"
+                ? "Agent is active and ready"
+                : thread.state === "waking"
+                  ? "ACP is starting up"
+                  : "Agent sleeping. Will wake on next message.";
+
+          return (
+            <button
+              type="button"
+              class={`chat-thread-tab ${thread.id === activeThreadId ? "active" : ""}`}
+              data-thread-id={thread.id}
               style={`
-                width: 6px;
-                height: 6px;
-                border-radius: 50%;
-                background: ${thread.state === "active" ? "#51cf66" : thread.state === "waking" ? "#ffd43b" : "#888"};
+                padding: 8px 16px;
+                border: none;
+                border-right: 1px solid #444;
+                background: ${thread.id === activeThreadId ? "#1a1a1a" : "transparent"};
+                color: ${thread.id === activeThreadId ? "#d4d4d4" : "#888"};
+                cursor: pointer;
+                font-family: monospace;
+                font-size: 12px;
+                white-space: nowrap;
+                display: flex;
+                align-items: center;
+                gap: 6px;
               `}
-            />
-            {thread.name}
-          </button>
-        ))}
+            >
+              <span
+                class="thread-status-indicator"
+                data-thread-state={thread.state}
+                title={title}
+                style="cursor: help;"
+              >
+                {icon}
+              </span>
+              {thread.name}
+            </button>
+          );
+        })}
 
         {/* Create thread button */}
         <button

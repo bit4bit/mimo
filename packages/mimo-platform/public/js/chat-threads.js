@@ -332,20 +332,26 @@ function updateThreadTabsUI() {
       gap: 6px;
     `;
 
-    const statusColor =
-      thread.state === "active"
-        ? "#51cf66"
-        : thread.state === "waking"
-          ? "#ffd43b"
-          : "#888";
+    const statusIcon =
+      thread.state === "disconnected"
+        ? "🔴"
+        : thread.state === "active"
+          ? "🟢"
+          : thread.state === "waking"
+            ? "⏳"
+            : "💤";
+
+    const statusTitle =
+      thread.state === "disconnected"
+        ? "Agent is disconnected"
+        : thread.state === "active"
+          ? "Agent is active and ready"
+          : thread.state === "waking"
+            ? "ACP is starting up"
+            : "Agent sleeping. Will wake on next message.";
 
     tab.innerHTML = `
-      <span class="thread-status-indicator" style="
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: ${statusColor};
-      "></span>
+      <span class="thread-status-indicator" data-thread-state="${thread.state}" title="${statusTitle}" style="cursor: help;">${statusIcon}</span>
       ${escapeHtml(thread.name)}
     `;
 

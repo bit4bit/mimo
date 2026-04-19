@@ -9,6 +9,14 @@ interface LayoutProps {
   streamingTimeoutMs?: number;
   sessionKeybindings?: SessionKeybindingsConfig;
   chatFileExtensions?: string[];
+  sessionName?: string;
+  projectId?: string;
+  projectName?: string;
+  fossilUrl?: string;
+  agentId?: string;
+  agentName?: string;
+  cloneWorkspaceHtml?: any;
+  backUrl?: string;
 }
 
 export const Layout: FC<LayoutProps> = ({
@@ -19,6 +27,14 @@ export const Layout: FC<LayoutProps> = ({
   streamingTimeoutMs,
   sessionKeybindings,
   chatFileExtensions,
+  sessionName,
+  projectId,
+  projectName,
+  fossilUrl,
+  agentId,
+  agentName,
+  cloneWorkspaceHtml,
+  backUrl,
 }) => {
   return (
     <html lang="en">
@@ -336,7 +352,49 @@ export const Layout: FC<LayoutProps> = ({
       <body>
         <nav class="top-nav">
           <div class="nav-brand">
+            {backUrl && (
+              <a href={backUrl} style="margin-right: 8px;" title="Back">
+                &lt;
+              </a>
+            )}
             <a href="/dashboard">MIMO</a>
+            {sessionName && (
+              <span style="margin-left: 10px; color: #888;">
+                | {sessionName}
+                {projectName && (
+                  <span>
+                    {" "}| <a href={`/projects/${projectId}`} style="color: #888;">{projectName}</a>
+                    {fossilUrl && (
+                      <a href={`${fossilUrl}timeline`} target="_blank" title="View Fossil Repository" style="margin-left: 4px;">
+                        🌿
+                      </a>
+                    )}
+{agentId && agentName && (
+                      <span style="margin-left: 4px;">
+                        | <a href={`/agents/${agentId}`} style="color: #888;">{agentName}</a>
+                      </span>
+                    )}
+                {cloneWorkspaceHtml}
+                  </span>
+                )}
+              </span>
+            )}
+            {!sessionName && projectName && (
+              <span style="margin-left: 10px; color: #888;">
+                | <a href={`/projects/${projectId}`} style="color: #888;">{projectName}</a>
+                {fossilUrl && (
+                  <a href={`${fossilUrl}timeline`} target="_blank" title="View Fossil Repository" style="margin-left: 4px;">
+                    🌿
+                  </a>
+                )}
+                {agentId && agentName && (
+                      <span style="margin-left: 4px;">
+                        | <a href={`/agents/${agentId}`} style="color: #888;">{agentName}</a>
+                      </span>
+                    )}
+                {cloneWorkspaceHtml}
+              </span>
+            )}
           </div>
           <div class="nav-links">
             <a href="/dashboard">Dashboard</a>

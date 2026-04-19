@@ -46,6 +46,7 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
       showStatusLine={true}
       sessionId={session.id}
       streamingTimeoutMs={streamingTimeoutMs}
+      sessionName={session.name}
     >
       <div class="container" style="max-width: 600px;">
         <h1>Session Settings</h1>
@@ -229,20 +230,6 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
             <label>ACP Session Information</label>
 
             <div style="background: '#1e1e1e', padding: '15px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px'">
-              <div style="margin-bottom: '8px'">
-                <span style="color: '#888'">Status: </span>
-                <span
-                  style={
-                    session.acpStatus === "active"
-                      ? "color: #4caf50"
-                      : session.acpStatus === "parked"
-                        ? "color: #ffc107"
-                        : "color: #888"
-                  }
-                >
-                  {session.acpStatus}
-                </span>
-              </div>
               <div style="margin-bottom: '8px'">
                 <span style="color: '#888'">Session ID: </span>
                 <span style="color: '#d4d4d4'">{session.id}</span>

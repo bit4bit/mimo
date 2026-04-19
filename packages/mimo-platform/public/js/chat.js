@@ -1993,25 +1993,25 @@ function updateAgentStatusUI() {
   const chatInput = document.querySelector("#chat-input");
   const sendButton = document.querySelector("#send-button");
 
-  // Update subtitle ACP status text
-  const subtitleStatus = document.querySelector("#subtitle-acp-status");
-  if (subtitleStatus) {
-    let statusText = "";
-    let statusClass = "";
+  const offline = !ChatState.agentStatus || ChatState.agentStatus === "offline";
+  const effectiveAcpStatus = offline ? "disconnected" : ChatState.acpStatus;
 
-    if (ChatState.acpStatus === "active") {
-      statusText = "🟢 Agent ready";
-      statusClass = "acp-status--active";
-    } else if (ChatState.acpStatus === "parked") {
-      statusText = "💤 Agent sleeping";
-      statusClass = "acp-status--parked";
-    } else if (ChatState.acpStatus === "waking") {
-      statusText = "⏳ Waking agent...";
-      statusClass = "acp-status--waking";
-    }
+  if (
+    typeof ChatThreadsState !== "undefined" &&
+    ChatThreadsState &&
+    ChatThreadsState.threads.length > 0
+  ) {
+    ChatThreadsState.threads.forEach((thread) => {
+      thread.state = effectiveAcpStatus;
+    });
+  }
 
-    subtitleStatus.textContent = statusText;
-    subtitleStatus.className = `acp-status ${statusClass}`;
+  if (
+    typeof updateThreadTabsUI === "function" &&
+    typeof ChatThreadsState !== "undefined" &&
+    ChatThreadsState
+  ) {
+    updateThreadTabsUI();
   }
 
   const { canSend, placeholder } = calculateCombinedStatus(
