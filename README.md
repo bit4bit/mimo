@@ -45,6 +45,29 @@ MIMOis a platform that enables AI-assisted development through a web-based inter
 - **Conflict Detection**: Smart conflict detection with baseline checksums
 - **Structured Change Management**: OpenSpec workflow for feature development
 
+### Expert Mode
+
+While autocomplete and "next edit" features suggest code changes automatically, Expert Mode empowers you to take precise control over code modifications. Instead of relying on the LLM to guess what needs changing, you provide explicit instructions on exactly how to modify the code.
+
+**Why Expert Mode?**
+
+Modern LLMs generate large amounts of code, but the results often need fine-tuning. Expert Mode bridges this gap by letting you:
+
+- **Give precise instructions**: "Extract this logic into a helper function on lines 45-52"
+- **Use smaller models**: Works effectively with smaller, faster models since you're guiding the specific changes
+- **Edit with confidence**: See exactly what will change before applying it via the PatchBuffer diff review
+- **Target single files**: Current implementation focuses on one file at a time for clarity and control
+
+**How it works:**
+
+1. Open any file in the EditBuffer
+2. Toggle Expert Mode (`Alt+Shift+E`) to see the focus guide highlighting your area of interest
+3. Press `Enter` and describe exactly what you want changed
+4. The LLM returns structured replacement(s) targeting specific line ranges
+5. Review the diff in PatchBuffer before approving the changes
+
+Expert Mode complements the chat-based workflow by giving you surgical precision when you know exactly what needs to change—especially useful for refactoring, renaming, or extracting code into new functions.
+
 ## Architecture
 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for full architecture documentation.

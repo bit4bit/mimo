@@ -544,32 +544,39 @@
           "* the full file content\n" +
           "* a focus line range (anchor region)\n" +
           "* a user request\n\n" +
-          "Your job is to return the smallest safe contiguous code fragment that must be replaced to implement the request correctly.\n\n" +
+          "Your job is to return one or more code replacements to implement the request correctly.\n\n" +
           "Important behavior rules:\n\n" +
           "Scope rules:\n\n" +
           "* Edit only the target file.\n" +
           "* The focus line range is a starting anchor for analysis, NOT a restriction.\n" +
           "* You may read and modify code outside the focus range if required for correctness.\n" +
-          "* Expand the replacement region as needed to include the full logical unit being modified (function, block, statement group, etc.).\n" +
+          "* Expand each replacement region as needed to include the full logical unit being modified.\n" +
           "* Prefer minimal edits, but prioritize correctness over locality.\n\n" +
           "Correctness rules:\n\n" +
           "* Always return syntactically valid code in context.\n" +
-          "* Ensure the replacement integrates correctly with surrounding code.\n" +
+          "* Ensure each replacement integrates correctly with surrounding code.\n" +
           "* Avoid partial edits that would break structure or compilation.\n" +
-          "* If the request implies related required updates elsewhere in the file, include them in the replacement range.\n\n" +
+          "* If the request implies related required updates elsewhere in the file, use multiple replacements.\n\n" +
           "Change rules:\n\n" +
           "* Do not rewrite the entire file unless absolutely necessary.\n" +
           "* Do not perform unrelated refactors.\n" +
           "* Do not apply formatting-only edits.\n" +
-          "* Replace complete logical units rather than fragments whenever possible.\n\n" +
+          "* Replace complete logical units rather than fragments whenever possible.\n" +
+          "* Multiple non-overlapping replacements are allowed for independent changes.\n\n" +
           "Output rules:\n" +
-          "Return valid JSON only:\n\n" +
+          "Return valid JSON only. The response must contain a \"replacements\" array with one or more replacement objects:\n\n" +
           "{\n" +
-          '"file": "<FILE_PATH>",\n' +
-          '"replace_start_line": <number>,\n' +
-          '"replace_end_line": <number>,\n' +
-          '"replacement": "<string>"\n' +
+          '  "replacements": [\n' +
+          "    {\n" +
+          '      "file": "<FILE_PATH>",\n' +
+          '      "replace_start_line": <number>,\n' +
+          '      "replace_end_line": <number>,\n' +
+          '      "replacement": "<string>"\n' +
+          "    }\n" +
+          "  ]\n" +
           "}\n\n" +
+          "Each replacement in the array should target a distinct, non-overlapping line range.\n" +
+          "Use multiple replacements when the request requires changes in multiple, non-contiguous locations.\n\n" +
           "If the task cannot be completed within this file alone, return:\n\n" +
           "{\n" +
           '"file": "<FILE_PATH>",\n' +
@@ -670,25 +677,34 @@
           llmResponse = lastAssistantMessage.content;
         }
 
-        const replacement = window.MIMO_EXPERT_UTILS
+        const replacements = window.MIMO_EXPERT_UTILS
           ? window.MIMO_EXPERT_UTILS.extractReplacement(llmResponse)
           : null;
 
-        if (!replacement) {
+        if (!replacements) {
           throw new Error("LLM did not return a valid edit");
         }
 
-        if (replacement.error) {
-          if (replacement.error === "OUT_OF_SCOPE_CHANGE_REQUIRED") {
+        // Check if it's an error response (not an array)
+        if (!Array.isArray(replacements) && replacements.error) {
+          if (replacements.error === "OUT_OF_SCOPE_CHANGE_REQUIRED") {
             throw new Error("Error received: OUT_OF_SCOPE_CHANGE_REQUIRED (the request needs changes outside this file)");
           }
-          throw new Error("Error received: " + replacement.error);
+          throw new Error("Error received: " + replacements.error);
         }
 
-        // Apply the replacement to get patched content
-        const patchedContent = window.MIMO_EXPERT_UTILS
-          ? window.MIMO_EXPERT_UTILS.applyReplacement(state.originalContent, replacement)
-          : state.originalContent;
+        // Normalize to array (extractReplacement should always return array for valid responses)
+        const replacementArray = Array.isArray(replacements) ? replacements : [replacements];
+
+        // Apply the replacements to get patched content
+        let patchedContent;
+        try {
+          patchedContent = window.MIMO_EXPERT_UTILS
+            ? window.MIMO_EXPERT_UTILS.applyReplacements(state.originalContent, replacementArray)
+            : state.originalContent;
+        } catch (applyErr) {
+          throw new Error("Failed to apply replacements: " + applyErr.message);
+        }
 
         // Write patch file to server
         const patchRes = await fetch("/sessions/" + sessionId + "/patches", {
