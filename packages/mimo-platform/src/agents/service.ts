@@ -289,6 +289,27 @@ export class AgentService {
     // Cleanup any in-flight ACP requests for this agent
     this.currentAcpRequest.delete(agentId);
   }
+
+  async requestCapabilitiesRefresh(agentId: string): Promise<boolean> {
+    const ws = this.activeConnections.get(agentId);
+    if (!ws || ws.readyState !== 1) {
+      return false;
+    }
+
+    try {
+      ws.send(
+        JSON.stringify({
+          type: "refresh_capabilities",
+          timestamp: new Date().toISOString(),
+        }),
+      );
+      logger.debug(`[AgentService] Requested capabilities refresh for agent ${agentId}`);
+      return true;
+    } catch (error) {
+      logger.error(`[AgentService] Failed to request capabilities refresh for agent ${agentId}:`, error);
+      return false;
+    }
+  }
 }
 
 export const agentService = new AgentService();

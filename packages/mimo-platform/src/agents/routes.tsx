@@ -160,6 +160,28 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     },
   );
 
+  router.post(
+    "/:agentId/capabilities/refresh",
+    authMiddlewareWithContext,
+    async (c: Context) => {
+      const agentId = c.req.param("agentId");
+      const agent = await agentRepository.findById(agentId);
+      if (!agent) return c.json({ error: "Agent not found" }, 404);
+
+      // Clear cached capabilities first
+      await agentRepository.clearCapabilities(agentId);
+
+      // If agent is online, request fresh capabilities
+      const requested = await agentService.requestCapabilitiesRefresh(agentId);
+
+      // Redirect with appropriate message
+      const redirectUrl = requested
+        ? `/agents/${agentId}?refreshed=1`
+        : `/agents/${agentId}?refreshed=1&offline=1`;
+      return c.redirect(redirectUrl);
+    },
+  );
+
   router.get("/list", authMiddlewareWithContext, async (c: Context) => {
     const user = c.get("user") as { username: string };
     const agents = await agentService.listAgentsByOwner(user.username);
@@ -566,7 +588,9 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     const user = c.get("user") as { username: string };
     const username = user.username;
     const agentId = c.req.param("id");
-    const showToken = c.req.query("created") === "1";
+          const showToken = c.req.query("created") === "1";
+          const showRefreshed = c.req.query("refreshed") === "1";
+          const agentOffline = c.req.query("offline") === "1";
 
     const agent = await agentRepository.findById(agentId);
     if (!agent || agent.owner !== username) {
@@ -589,6 +613,22 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
             <div class="token-notice">
               <strong>Agent created!</strong> Copy the token below. You won't be
               able to see it again without visiting this page.
+            </div>
+          )}
+
+          {showRefreshed && (
+            <div class="refresh-notice">
+              {agentOffline ? (
+                <>
+                  <strong>Capabilities cache cleared!</strong> Agent is currently offline.
+                  New capabilities will be cached when the agent reconnects.
+                </>
+              ) : (
+                <>
+                  <strong>Capabilities refreshed!</strong> Request sent to agent.
+                  New capabilities will appear shortly.
+                </>
+              )}
             </div>
           )}
 
@@ -635,6 +675,32 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
                 </button>
               </div>
             </div>
+
+            <div class="capabilities-section">
+              <label>Cached Capabilities:</label>
+              {agent.capabilities ? (
+                <div class="capabilities-box">
+                  <div class="cap-row">
+                    <span class="cap-label">Default Model:</span>
+                    <code>{agent.capabilities.defaultModelId}</code>
+                  </div>
+                  <div class="cap-row">
+                    <span class="cap-label">Available Models:</span>
+                    <span>{agent.capabilities.availableModels.map(m => m.name).join(', ')}</span>
+                  </div>
+                  <div class="cap-row">
+                    <span class="cap-label">Default Mode:</span>
+                    <code>{agent.capabilities.defaultModeId}</code>
+                  </div>
+                  <div class="cap-row">
+                    <span class="cap-label">Available Modes:</span>
+                    <span>{agent.capabilities.availableModes.map(m => m.name).join(', ')}</span>
+                  </div>
+                </div>
+              ) : (
+                <p style="color: #888; margin: 10px 0;">No capabilities cached. Agent will advertise capabilities on next connection.</p>
+              )}
+            </div>
           </div>
 
           <div class="sessions-section">
@@ -672,7 +738,15 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
           <div style="margin-top: 30px;">
             <a href="/agents" class="btn-secondary">
               Back to Agents
-            </a>
+            </a>            <form
+              method="POST"
+              action={`/agents/${agent.id}/capabilities/refresh`}
+              style="display: inline; margin-left: 10px;"
+            >
+              <button type="submit" class="btn-secondary">
+                Refresh Capabilities
+              </button>
+            </form>
             <form
               method="POST"
               action={`/agents/${agent.id}/delete`}
@@ -713,6 +787,14 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
           border-radius: 4px;
           margin-bottom: 20px;
         }
+        .refresh-notice {
+          background: #1a3d0b;
+          border: 1px solid #51cf66;
+          color: #51cf66;
+          padding: 10px 15px;
+          border-radius: 4px;
+          margin-bottom: 20px;
+        }
         .agent-info { background: #2d2d2d; padding: 20px; border-radius: 4px; margin-bottom: 20px; }
         .info-row { display: flex; gap: 10px; margin-bottom: 10px; }
         .info-row label { min-width: 120px; color: #888; }
@@ -732,10 +814,17 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
         .btn-primary { background: #74c0fc; color: #1a1a1a; border: none; cursor: pointer; }
         .btn-secondary { background: #3d3d3d; color: #d4d4d4; border: none; cursor: pointer; }
         .btn-danger { background: #ff6b6b; color: #1a1a1a; padding: 6px 12px; border: none; cursor: pointer; border-radius: 3px; }
-        .sessions-section { margin-top: 30px; }
-        .sessions-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        .sessions-table th, .sessions-table td { padding: 10px; text-align: left; border-bottom: 1px solid #444; }
-        .sessions-table th { background: #2d2d2d; color: #888; text-transform: uppercase; font-size: 11px; }
+.sessions-section { margin-top: 30px; }
+.sessions-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+.sessions-table th, .sessions-table td { padding: 10px; text-align: left; border-bottom: 1px solid #444; }
+.sessions-table th { background: #2d2d2d; color: #888; text-transform: uppercase; font-size: 11px; }
+.capabilities-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #444; }
+.capabilities-section label { color: #888; font-weight: bold; }
+.capabilities-box { margin-top: 10px; }
+.cap-row { display: flex; gap: 10px; margin-bottom: 8px; }
+.cap-label { min-width: 140px; color: #888; font-size: 12px; }
+.cap-row code { background: #1a1a1a; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+.cap-row span { color: #d4d4d4; }
       `}</style>
       </Layout>,
     );

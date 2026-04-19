@@ -389,6 +389,10 @@ class MimoAgent {
         void this.handleWriteFile(message);
         break;
 
+      case "refresh_capabilities":
+        void this.advertiseCapabilities();
+        break;
+
       default:
         logger.debug("[mimo-agent] Unknown message type:", message.type);
     }
