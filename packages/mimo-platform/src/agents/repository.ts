@@ -255,6 +255,10 @@ export class AgentRepository {
     return this.update(agentId, { capabilities });
   }
 
+  async clearCapabilities(agentId: string): Promise<Agent | null> {
+    return this.update(agentId, { capabilities: undefined });
+  }
+
   async assignSession(
     agentId: string,
     sessionId: string,

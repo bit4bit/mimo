@@ -10,6 +10,7 @@ let agentRepository: any;
 let agentService: any;
 let userRepository: any;
 let sessionRepository: any;
+let ctx: any;
 
 describe("Agent Lifecycle Integration Tests", () => {
   const testHome = join(tmpdir(), `mimo-agent-test-${Date.now()}`);
@@ -21,7 +22,7 @@ describe("Agent Lifecycle Integration Tests", () => {
 
     const { createMimoContext } =
       await import("../src/context/mimo-context.ts");
-    const ctx = createMimoContext({
+    ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
 
@@ -320,6 +321,74 @@ describe("Agent Lifecycle Integration Tests", () => {
 
       const found = await agentRepository.findById(agent.id);
       expect(found?.capabilities).toBeUndefined();
+    });
+
+    it("should clear capabilities on refresh", async () => {
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+
+      const agent = await agentRepository.create({
+        name: "Refresh Capabilities Agent",
+        owner: "testuser",
+        provider: "opencode",
+      });
+
+      // Set initial capabilities
+      await agentRepository.updateCapabilities(agent.id, {
+        availableModels: [{ value: "old-model", name: "Old Model" }],
+        defaultModelId: "old-model",
+        availableModes: [{ value: "code", name: "Code" }],
+        defaultModeId: "code",
+      });
+
+      // Verify capabilities are set
+      let found = await agentRepository.findById(agent.id);
+      expect(found?.capabilities).toBeDefined();
+      expect(found?.capabilities?.defaultModelId).toBe("old-model");
+
+      // Refresh (clear) capabilities via POST
+      const app = new Hono();
+      app.route("/agents", agentRoutes);
+      const token = await ctx.services.auth.generateToken("testuser");
+      const res = await app.request(
+        `/agents/${agent.id}/capabilities/refresh`,
+        {
+          method: "POST",
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe(`/agents/${agent.id}?refreshed=1`);
+
+      // Verify capabilities are cleared
+      found = await agentRepository.findById(agent.id);
+      expect(found?.capabilities).toBeUndefined();
+    });
+
+    it("should return 404 when refreshing capabilities for nonexistent agent", async () => {
+      const app = new Hono();
+      app.route("/agents", agentRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+
+      const token = await ctx.services.auth.generateToken("testuser");
+      const res = await app.request(
+        "/agents/nonexistent/capabilities/refresh",
+        {
+          method: "POST",
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+
+      expect(res.status).toBe(404);
+      const body = await res.json();
+      expect(body.error).toBe("Agent not found");
     });
   });
 
