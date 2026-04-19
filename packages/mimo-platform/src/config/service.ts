@@ -20,6 +20,9 @@ export interface SessionKeybindingsConfig {
   toggleRightFrame?: string;
   toggleExpertMode?: string;
   expertInput?: string;
+  moveFocusUp?: string;
+  moveFocusDown?: string;
+  centerFocus?: string;
   increaseFocus?: string;
   decreaseFocus?: string;
   approvePatch?: string;
@@ -54,45 +57,88 @@ export const defaultSessionKeybindings: SessionKeybindingsConfig = {
   toggleRightFrame: "Alt+Shift+Control+F",
   toggleExpertMode: "Alt+Shift+E",
   expertInput: "Enter",
-  increaseFocus: "Alt+Shift+Equal",
-  decreaseFocus: "Alt+Shift+Minus",
+  moveFocusUp: "Alt+ArrowUp",
+  moveFocusDown: "Alt+ArrowDown",
+  centerFocus: "Alt+Enter",
+  increaseFocus: "Alt+Shift+ArrowRight",
+  decreaseFocus: "Alt+Shift+ArrowLeft",
   approvePatch: "Control+Enter",
   declinePatch: "Alt+Shift+G",
 };
 
 export const defaultChatFileExtensions: string[] = [
   // Web
-  "html", "htm", "css", "scss", "sass", "less", "svg",
+  "html",
+  "htm",
+  "css",
+  "scss",
+  "sass",
+  "less",
+  "svg",
   // JavaScript / TypeScript
-  "js", "jsx", "mjs", "cjs", "ts", "tsx", "d.ts",
+  "js",
+  "jsx",
+  "mjs",
+  "cjs",
+  "ts",
+  "tsx",
+  "d.ts",
   // Python
-  "py", "pyi",
+  "py",
+  "pyi",
   // Ruby
-  "rb", "rake",
+  "rb",
+  "rake",
   // Rust
   "rs",
   // Go
   "go",
   // JVM
-  "java", "kt", "scala", "clj",
+  "java",
+  "kt",
+  "scala",
+  "clj",
   // C / C++
-  "c", "cc", "cpp", "h", "hpp",
+  "c",
+  "cc",
+  "cpp",
+  "h",
+  "hpp",
   // C# / .NET
   "cs",
   // PHP
   "php",
   // Swift / Obj-C
-  "swift", "m",
+  "swift",
+  "m",
   // Shell
-  "sh", "bash", "zsh", "fish",
+  "sh",
+  "bash",
+  "zsh",
+  "fish",
   // Config / data
-  "json", "yaml", "yml", "toml", "xml", "ini", "env",
+  "json",
+  "yaml",
+  "yml",
+  "toml",
+  "xml",
+  "ini",
+  "env",
   // Docs
-  "md", "mdx", "txt", "rst",
+  "md",
+  "mdx",
+  "txt",
+  "rst",
   // Database
   "sql",
   // Other
-  "lock", "csv", "r", "ex", "exs", "lua", "elm",
+  "lock",
+  "csv",
+  "r",
+  "ex",
+  "exs",
+  "lua",
+  "elm",
 ];
 
 export const defaultConfig: Config = {
@@ -148,9 +194,7 @@ function sanitizeSessionKeybindings(
   return result;
 }
 
-function sanitizeChatFileExtensions(
-  extensions: unknown,
-): string[] {
+function sanitizeChatFileExtensions(extensions: unknown): string[] {
   if (!Array.isArray(extensions)) {
     return [...defaultChatFileExtensions];
   }

@@ -247,7 +247,10 @@ export class AgentService {
       );
       return true;
     } catch (error) {
-      logger.error(`[sendFileToAgent] Failed to send file to agent ${agentId}:`, error);
+      logger.error(
+        `[sendFileToAgent] Failed to send file to agent ${agentId}:`,
+        error,
+      );
       return false;
     }
   }

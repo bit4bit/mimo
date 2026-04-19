@@ -587,7 +587,8 @@
 
   // Keyboard shortcut handler
   function handleCommitKeyboard(e) {
-    const isEnter = e.key === "Enter" || e.code === "Enter" || e.code === "NumpadEnter";
+    const isEnter =
+      e.key === "Enter" || e.code === "Enter" || e.code === "NumpadEnter";
     const isMetaShiftEnter = e.metaKey && e.shiftKey && isEnter;
     const isCtrlEnter = (e.ctrlKey || e.metaKey) && isEnter && !e.shiftKey;
 

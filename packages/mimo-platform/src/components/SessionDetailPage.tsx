@@ -175,7 +175,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       fossilUrl={fossilUrl}
       agentId={agent?.id}
       agentName={agent?.name}
-      cloneWorkspaceHtml={cloneWorkspaceCommand ? (
+      cloneWorkspaceHtml={
+        cloneWorkspaceCommand ? (
           <button
             type="button"
             id="clone-workspace-btn"
@@ -183,7 +184,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           >
             Clone Workspace
           </button>
-        ) : undefined}
+        ) : undefined
+      }
       backUrl={`/projects/${project.id}/sessions`}
     >
       <div class="session-container">
@@ -206,7 +208,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               edit: {
                 agentWorkspacePath,
               },
-}}
+            }}
           />
 
           <Frame
@@ -221,8 +223,12 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 class="frame-tab-action"
                 title="Collapse right frame"
                 aria-label="Collapse right frame"
-                aria-expanded={frameState.rightFrame.isCollapsed ? "false" : "true"}
-                data-collapsed={frameState.rightFrame.isCollapsed ? "true" : "false"}
+                aria-expanded={
+                  frameState.rightFrame.isCollapsed ? "false" : "true"
+                }
+                data-collapsed={
+                  frameState.rightFrame.isCollapsed ? "true" : "false"
+                }
               >
                 &lt;&lt;
               </button>
@@ -284,24 +290,169 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           </form>
         </div>
 
-        <div id="session-shortcuts-bar" class="session-shortcuts-bar" aria-label="Session keyboard shortcuts">
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.newThread || "Mod+Shift+N")}</span><span class="session-shortcut-desc">New thread</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.nextThread || "Mod+Shift+ArrowRight")}</span><span class="session-shortcut-desc">Next thread</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.previousThread || "Mod+Shift+ArrowLeft")}</span><span class="session-shortcut-desc">Prev thread</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.commit || "Mod+Shift+M")}</span><span class="session-shortcut-desc">Commit</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.projectNotes || "Mod+Shift+,")}</span><span class="session-shortcut-desc">Proj notes</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.sessionNotes || "Mod+Shift+.")}</span><span class="session-shortcut-desc">Sess notes</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.shortcutsHelp || "Mod+Shift+/")}</span><span class="session-shortcut-desc">Help</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.openFileFinder || "Mod+Shift+F")}</span><span class="session-shortcut-desc">Open file</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.nextFile || "Mod+Alt+ArrowRight")}</span><span class="session-shortcut-desc">Next file</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.previousFile || "Mod+Alt+ArrowLeft")}</span><span class="session-shortcut-desc">Prev file</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.closeFile || "Alt+Shift+W")}</span><span class="session-shortcut-desc">Close file</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.nextLeftBuffer || "Alt+Shift+PageDown")}</span><span class="session-shortcut-desc">Next buf</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.previousLeftBuffer || "Alt+Shift+PageUp")}</span><span class="session-shortcut-desc">Prev buf</span></span>
-          <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.toggleRightFrame || "Alt+Shift+Control+F")}</span><span class="session-shortcut-desc">Toggle right</span></span>
-          <span class="session-shortcut-item expert-mode-shortcut"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.toggleExpertMode || "Alt+Shift+E")}</span><span class="session-shortcut-desc">Expert mode</span></span>
-          <span class="session-shortcut-item expert-mode-shortcut"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.expertInput || "Enter")}</span><span class="session-shortcut-desc">Expert input</span></span>
-          <span class="session-shortcut-item expert-mode-shortcut"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.increaseFocus || "Alt+Shift+Equal")}</span><span class="session-shortcut-desc">Focus size</span></span>
+        <div
+          id="session-shortcuts-bar"
+          class="session-shortcuts-bar"
+          aria-label="Session keyboard shortcuts"
+        >
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(sessionKeybindings?.newThread || "Mod+Shift+N")}
+            </span>
+            <span class="session-shortcut-desc">New thread</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.nextThread || "Mod+Shift+ArrowRight",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Next thread</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.previousThread || "Mod+Shift+ArrowLeft",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Prev thread</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(sessionKeybindings?.commit || "Mod+Shift+M")}
+            </span>
+            <span class="session-shortcut-desc">Commit</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.projectNotes || "Mod+Shift+,",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Proj notes</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.sessionNotes || "Mod+Shift+.",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Sess notes</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.shortcutsHelp || "Mod+Shift+/",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Help</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.openFileFinder || "Mod+Shift+F",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Open file</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.nextFile || "Mod+Alt+ArrowRight",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Next file</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.previousFile || "Mod+Alt+ArrowLeft",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Prev file</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(sessionKeybindings?.closeFile || "Alt+Shift+W")}
+            </span>
+            <span class="session-shortcut-desc">Close file</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.nextLeftBuffer || "Alt+Shift+PageDown",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Next buf</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.previousLeftBuffer || "Alt+Shift+PageUp",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Prev buf</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.toggleRightFrame || "Alt+Shift+Control+F",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Toggle right</span>
+          </span>
+          <span class="session-shortcut-item expert-mode-shortcut">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.toggleExpertMode || "Alt+Shift+E",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Expert mode</span>
+          </span>
+          <span class="session-shortcut-item expert-mode-shortcut">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(sessionKeybindings?.expertInput || "Enter")}
+            </span>
+            <span class="session-shortcut-desc">Expert input</span>
+          </span>
+          <span class="session-shortcut-item expert-mode-shortcut">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.moveFocusUp || "Alt+ArrowUp",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Focus up</span>
+          </span>
+          <span class="session-shortcut-item expert-mode-shortcut">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.moveFocusDown || "Alt+ArrowDown",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Focus down</span>
+          </span>
+          <span class="session-shortcut-item expert-mode-shortcut">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(sessionKeybindings?.centerFocus || "Alt+Enter")}
+            </span>
+            <span class="session-shortcut-desc">Center focus</span>
+          </span>
+          <span class="session-shortcut-item expert-mode-shortcut">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.increaseFocus || "Alt+Shift+ArrowRight",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Focus+</span>
+          </span>
+          <span class="session-shortcut-item expert-mode-shortcut">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.decreaseFocus || "Alt+Shift+ArrowLeft",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Focus-</span>
+          </span>
         </div>
       </div>
 
