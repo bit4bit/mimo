@@ -340,7 +340,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 <span id="total-count">0</span> selected
               </span>
             </div>
-            <div id="commit-tree" class="commit-tree">
+            <div id="commit-tree" class="commit-tree" tabindex="-1">
               <div class="commit-empty-state">Loading changes...</div>
             </div>
           </div>
@@ -1113,6 +1113,9 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         #edit-buffer-content .hljs {
           background: transparent;
           padding: 0;
+        }
+        #edit-buffer-content:focus {
+          outline: none;
         }
         .clone-workspace-modal {
           max-width: 760px;

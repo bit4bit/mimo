@@ -220,6 +220,11 @@
       checkbox.className = "tree-checkbox";
       checkbox.dataset.path = node.path;
 
+      // Allow Ctrl+Enter to work from checkboxes
+      checkbox.addEventListener("keydown", (e) => {
+        handleCommitKeyboard(e);
+      });
+
       if (node.type === "file") {
         checkbox.checked = selectedPaths.has(node.path);
         checkbox.addEventListener("change", (e) => {
@@ -580,14 +585,13 @@
     }
   });
 
-  // Handle Escape key
-  commitDialog?.addEventListener("keydown", (e) => {
-    const isMetaShiftEnter =
-      e.metaKey &&
-      e.shiftKey &&
-      (e.key === "Enter" || e.code === "Enter" || e.code === "NumpadEnter");
+  // Keyboard shortcut handler
+  function handleCommitKeyboard(e) {
+    const isEnter = e.key === "Enter" || e.code === "Enter" || e.code === "NumpadEnter";
+    const isMetaShiftEnter = e.metaKey && e.shiftKey && isEnter;
+    const isCtrlEnter = (e.ctrlKey || e.metaKey) && isEnter && !e.shiftKey;
 
-    if (isMetaShiftEnter) {
+    if (isMetaShiftEnter || isCtrlEnter) {
       const isDialogOpen = commitDialog.style.display !== "none";
       if (isDialogOpen && commitConfirm && !commitConfirm.disabled) {
         e.preventDefault();
@@ -600,7 +604,11 @@
       e.preventDefault();
       cancelCommitDialog();
     }
-  });
+  }
+
+  // Handle keyboard shortcuts on dialog and tree view
+  commitDialog?.addEventListener("keydown", handleCommitKeyboard);
+  commitTree?.addEventListener("keydown", handleCommitKeyboard);
 
   window.addEventListener(
     "keydown",

@@ -124,6 +124,7 @@ export const EditBuffer: FC<EditBufferProps> = ({ sessionId }) => {
       {/* File Content View */}
       <div
         id="edit-buffer-content"
+        tabindex="0"
         style="flex: 1; overflow-y: auto; background: #1a1a1a; font-family: monospace; font-size: 13px; line-height: 1.5; position: relative;"
       >
         <div

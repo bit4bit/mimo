@@ -1073,6 +1073,9 @@
       // Switch to the Files buffer so the opened file is visible
       var filesTab = document.querySelector('.frame-tab[data-frame-id="left"][data-buffer-id="edit"]');
       if (filesTab) filesTab.click();
+      // Focus the edit buffer content area so scrolling works immediately
+      var contentEl = document.getElementById("edit-buffer-content");
+      if (contentEl) contentEl.focus();
     });
   }
 
