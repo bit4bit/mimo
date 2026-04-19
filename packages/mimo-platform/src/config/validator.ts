@@ -142,6 +142,12 @@ export class ConfigValidator {
       "nextLeftBuffer",
       "previousLeftBuffer",
       "toggleRightFrame",
+      "toggleExpertMode",
+      "expertInput",
+      "increaseFocus",
+      "decreaseFocus",
+      "approvePatch",
+      "declinePatch",
     ];
 
     for (const key of supportedKeys) {

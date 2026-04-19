@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
-import { readFileSync, existsSync, statSync } from "fs";
-import { join, resolve } from "path";
+import { readFileSync, existsSync } from "fs";
+import { resolve } from "path";
 import chokidar from "chokidar";
 
 export interface FileWatcherService {
@@ -68,50 +68,97 @@ export function createFileWatcherService(): FileWatcherService {
 
   function ensureWatcher(): ReturnType<typeof chokidar.watch> {
     if (!watcher) {
+      console.log("[FileWatcher] Creating chokidar watcher...");
       watcher = chokidar.watch([], {
         persistent: true,
         ignoreInitial: true,
+        usePolling: true,
+        interval: 200,
+        binaryInterval: 300,
+        ignorePermissionErrors: true,
         awaitWriteFinish: {
-          stabilityThreshold: 300,
+          stabilityThreshold: 500,
           pollInterval: 100,
         },
       });
 
+      watcher.on("add", (filePath) => {
+        console.log(`[FileWatcher] chokidar: add event for: ${filePath}`);
+      });
+
       watcher.on("change", (filePath) => {
+        console.log(`[FileWatcher] chokidar: change event for: ${filePath}`);
         handleFileChange(filePath);
       });
 
       watcher.on("unlink", (filePath) => {
+        console.log(`[FileWatcher] chokidar: unlink event for: ${filePath}`);
         handleFileDelete(filePath);
+      });
+
+      watcher.on("ready", () => {
+        console.log("[FileWatcher] chokidar is ready");
+      });
+
+      watcher.on("raw", (event, path) => {
+        console.log(`[FileWatcher] chokidar raw: ${event} ${path}`);
       });
 
       watcher.on("error", (error) => {
         console.error("[FileWatcher] Error:", error);
       });
+
+      console.log("[FileWatcher] chokidar watcher created");
     }
     return watcher;
   }
 
+  function isPatchFile(filePath: string): boolean {
+    return filePath.includes(".mimo-patches/") || filePath.startsWith(".mimo-patches");
+  }
+
   function handleFileChange(filePath: string) {
+    const resolvedPath = resolve(filePath);
+
+    // Filter out patch files
+    if (isPatchFile(resolvedPath)) return;
+
+    console.log(`[FileWatcher] handleFileChange called for: ${resolvedPath}`);
+    console.log(`[FileWatcher] Total sessions: ${watches.size}`);
+
     // Find all sessions watching this file and notify immediately
     for (const [sessionId, sessionWatches] of watches) {
-      const watchedFile = sessionWatches.get(filePath);
+      console.log(`[FileWatcher] Checking session ${sessionId}, watches: ${sessionWatches.size}`);
+      const watchedFile = sessionWatches.get(resolvedPath);
+      console.log(`[FileWatcher] Lookup result for ${resolvedPath}:`, watchedFile ? "found" : "not found");
+      
+      // Debug: log all watched paths in this session
+      if (!watchedFile) {
+        console.log(`[FileWatcher] Available paths in session ${sessionId}:`, [...sessionWatches.keys()]);
+      }
+      
       if (watchedFile) {
+        console.log(`[FileWatcher] File matched, checking checksum`);
         // Schedule checksum verification
         setImmediate(async () => {
           try {
-            const newChecksum = await computeChecksum(filePath);
+            const newChecksum = await computeChecksum(resolvedPath);
+            console.log(`[FileWatcher] Checksums - current: ${watchedFile.currentChecksum}, new: ${newChecksum}`);
             if (newChecksum !== watchedFile.currentChecksum) {
+              console.log(`[FileWatcher] Checksums differ, calling callback with path: ${resolvedPath}`);
               watchedFile.callback({
                 type: "file_outdated",
-                path: filePath,
+                path: resolvedPath,
               });
               watchedFile.currentChecksum = newChecksum;
+            } else {
+              console.log(`[FileWatcher] Checksums match, no outdated event`);
             }
           } catch (error) {
+            console.log(`[FileWatcher] Error computing checksum, sending file_deleted: ${error}`);
             watchedFile.callback({
               type: "file_deleted",
-              path: filePath,
+              path: resolvedPath,
             });
           }
         });
@@ -120,29 +167,33 @@ export function createFileWatcherService(): FileWatcherService {
   }
 
   async function handleFileDelete(filePath: string) {
+    const resolvedPath = resolve(filePath);
+
+    // Filter out patch files
+    if (isPatchFile(resolvedPath)) return;
     // Notify all sessions watching this file
     for (const [sessionId, sessionWatches] of watches) {
-      const watchedFile = sessionWatches.get(filePath);
+      const watchedFile = sessionWatches.get(resolvedPath);
       if (watchedFile) {
         // Clear any pending debounce timer since file is deleted
-        const existingTimer = debounceTimers.get(filePath);
+        const existingTimer = debounceTimers.get(resolvedPath);
         if (existingTimer) {
           clearTimeout(existingTimer);
-          debounceTimers.delete(filePath);
+          debounceTimers.delete(resolvedPath);
         }
         
         watchedFile.callback({
           type: "file_deleted",
-          path: filePath,
+          path: resolvedPath,
         });
         
         // Remove this file from the session watches since it's deleted
-        sessionWatches.delete(filePath);
+        sessionWatches.delete(resolvedPath);
       }
     }
     
     // Clean up from watchedPaths
-    watchedPaths.delete(filePath);
+    watchedPaths.delete(resolvedPath);
   }
 
   async function computeChecksum(filePath: string): Promise<string> {
@@ -162,12 +213,17 @@ export function createFileWatcherService(): FileWatcherService {
     callback: (event: WatchEvent) => void
   ): Promise<void> {
     const resolvedPath = resolve(filePath);
+    console.log(`[FileWatcher] watchFile called for session ${sessionId}`);
+    console.log(`[FileWatcher] filePath: ${filePath}`);
+    console.log(`[FileWatcher] resolvedPath: ${resolvedPath}`);
+    console.log(`[FileWatcher] currentChecksum: ${currentChecksum}`);
 
     // Get or create session watches
     let sessionWatches = watches.get(sessionId);
     if (!sessionWatches) {
       sessionWatches = new Map();
       watches.set(sessionId, sessionWatches);
+      console.log(`[FileWatcher] Created new session watches for ${sessionId}`);
     }
 
     // Store watch info
@@ -177,11 +233,17 @@ export function createFileWatcherService(): FileWatcherService {
       currentChecksum,
       callback,
     });
+    console.log(`[FileWatcher] Stored watch for ${resolvedPath}`);
+    console.log(`[FileWatcher] Session ${sessionId} now has ${sessionWatches.size} watches`);
 
     // Add to chokidar if not already watching
     if (!watchedPaths.has(resolvedPath)) {
       watchedPaths.add(resolvedPath);
+      console.log(`[FileWatcher] Adding ${resolvedPath} to chokidar`);
       ensureWatcher().add(resolvedPath);
+      console.log(`[FileWatcher] chokidar now watching ${watchedPaths.size} paths`);
+    } else {
+      console.log(`[FileWatcher] Path ${resolvedPath} already being watched by chokidar`);
     }
   }
 

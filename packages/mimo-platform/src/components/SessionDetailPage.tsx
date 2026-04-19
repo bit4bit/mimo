@@ -336,6 +336,9 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.nextLeftBuffer || "Alt+Shift+PageDown")}</span><span class="session-shortcut-desc">Next buf</span></span>
           <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.previousLeftBuffer || "Alt+Shift+PageUp")}</span><span class="session-shortcut-desc">Prev buf</span></span>
           <span class="session-shortcut-item"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.toggleRightFrame || "Alt+Shift+Control+F")}</span><span class="session-shortcut-desc">Toggle right</span></span>
+          <span class="session-shortcut-item expert-mode-shortcut"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.toggleExpertMode || "Alt+Shift+E")}</span><span class="session-shortcut-desc">Expert mode</span></span>
+          <span class="session-shortcut-item expert-mode-shortcut"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.expertInput || "Enter")}</span><span class="session-shortcut-desc">Expert input</span></span>
+          <span class="session-shortcut-item expert-mode-shortcut"><span class="session-shortcut-key">{toEmacsNotation(sessionKeybindings?.increaseFocus || "Alt+Shift+Equal")}</span><span class="session-shortcut-desc">Focus size</span></span>
         </div>
       </div>
 

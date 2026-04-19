@@ -2,9 +2,11 @@ import { readFileSync, existsSync } from "fs";
 import { join, basename } from "path";
 import type { FileInfo, FileService } from "./types.js";
 
+const DEFAULT_IGNORE_PATTERNS: string[] = [".mimo-patches/"];
+
 export function loadIgnorePatterns(workspacePath: string): string[] {
   const files = [".gitignore", ".mimoignore"];
-  const patterns: string[] = [];
+  const patterns: string[] = [...DEFAULT_IGNORE_PATTERNS];
   for (const name of files) {
     const fullPath = join(workspacePath, name);
     if (!existsSync(fullPath)) continue;
@@ -163,7 +165,7 @@ async function fossilLs(workspacePath: string): Promise<string[]> {
     .filter((l) => l.length > 0);
 }
 
-export function createFileService(): FileService {
+export function createFileService(additionalPatterns: string[] = []): FileService {
   return {
     listFiles: async (workspacePath: string): Promise<FileInfo[]> => {
       if (!existsSync(workspacePath)) return [];
@@ -173,17 +175,20 @@ export function createFileService(): FileService {
         name: basename(p),
         size: 0,
       }));
-      const patterns = loadIgnorePatterns(workspacePath);
+      const patterns = [
+        ...DEFAULT_IGNORE_PATTERNS,
+        ...additionalPatterns,
+        ...loadIgnorePatterns(workspacePath),
+      ];
       return applyIgnorePatterns(all, patterns);
     },
     readFile: async (workspacePath: string, filePath: string): Promise<string> => {
-      const full = join(workspacePath, filePath);
-      const resolved = full.replace(/\\/g, "/");
+      const full = join(workspacePath, filePath).replace(/\\/g, "/");
       const base = workspacePath.replace(/\\/g, "/");
-      if (!resolved.startsWith(base + "/") && resolved !== base) {
+      if (!full.startsWith(base + "/") && full !== base) {
         throw new Error("Access denied: path outside workspace");
       }
-      return readFileSync(full, "utf-8");
+return readFileSync(full, "utf-8");
     },
   };
 }

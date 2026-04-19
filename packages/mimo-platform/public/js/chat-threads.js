@@ -937,6 +937,8 @@ window.MIMO_CHAT_THREADS = {
   init: initChatThreads,
   getActiveThreadId: () => ChatThreadsState.activeThreadId,
   getActiveThread: getActiveThread,
+  setActiveThread: (threadId) => switchToThread(threadId),
+  get threads() { return ChatThreadsState.threads; },
   refresh: async () => {
     await fetchThreads();
     updateThreadTabsUI();
