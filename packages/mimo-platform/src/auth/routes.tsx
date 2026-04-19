@@ -93,11 +93,9 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
       "Set-Cookie",
       `token=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict`,
     );
-    c.header(
-      "Set-Cookie",
-      `username=; Path=/; Max-Age=0; SameSite=Strict`,
-      { append: true },
-    );
+    c.header("Set-Cookie", `username=; Path=/; Max-Age=0; SameSite=Strict`, {
+      append: true,
+    });
     return c.redirect("/auth/login");
   });
 

@@ -3,7 +3,7 @@
 (function () {
   let shortcutBarPulseTimeout = null;
 
-const DEFAULT_KEYBINDINGS = {
+  const DEFAULT_KEYBINDINGS = {
     newThread: "Mod+Shift+N",
     nextThread: "Mod+Shift+ArrowRight",
     previousThread: "Mod+Shift+ArrowLeft",
@@ -22,8 +22,11 @@ const DEFAULT_KEYBINDINGS = {
     toggleRightFrame: "Alt+Shift+Control+F",
     toggleExpertMode: "Alt+Shift+E",
     expertInput: "Enter",
-    increaseFocus: "Alt+Shift+Equal",
-    decreaseFocus: "Alt+Shift+Minus",
+    moveFocusUp: "Alt+ArrowUp",
+    moveFocusDown: "Alt+ArrowDown",
+    centerFocus: "Alt+Enter",
+    increaseFocus: "Alt+Shift+ArrowRight",
+    decreaseFocus: "Alt+Shift+ArrowLeft",
     approvePatch: "Control+Enter",
     declinePatch: "Alt+Shift+G",
   };
@@ -43,7 +46,13 @@ const DEFAULT_KEYBINDINGS = {
     });
 
     // Edit buffer keybindings (also configurable)
-    ["openFileFinder", "closeFile", "reloadFile", "nextFile", "previousFile"].forEach((key) => {
+    [
+      "openFileFinder",
+      "closeFile",
+      "reloadFile",
+      "nextFile",
+      "previousFile",
+    ].forEach((key) => {
       const value = raw[key];
       if (typeof value === "string" && value.trim().length > 0) {
         configured[key] = value.trim();
@@ -79,7 +88,8 @@ const DEFAULT_KEYBINDINGS = {
     if (upper === "ARROWRIGHT") return "ARROWRIGHT";
     if (upper === "ARROWLEFT") return "ARROWLEFT";
     if (upper === "PAGEUP" || upper === "PGUP") return "PAGEUP";
-    if (upper === "PAGEDOWN" || upper === "PGDOWN" || upper === "PGDN") return "PAGEDOWN";
+    if (upper === "PAGEDOWN" || upper === "PGDOWN" || upper === "PGDN")
+      return "PAGEDOWN";
     if (upper === "ESC" || upper === "ESCAPE") return "ESCAPE";
     if (upper === "COMMA") return ",";
     if (upper === "PERIOD" || upper === "DOT") return ".";
@@ -220,7 +230,9 @@ const DEFAULT_KEYBINDINGS = {
   }
 
   function switchLeftBuffer(direction) {
-    const tabs = Array.from(document.querySelectorAll('.frame-tab[data-frame-id="left"]'));
+    const tabs = Array.from(
+      document.querySelectorAll('.frame-tab[data-frame-id="left"]'),
+    );
     if (tabs.length <= 1) return false;
     const activeIndex = tabs.findIndex((t) => t.classList.contains("active"));
     const current = activeIndex >= 0 ? activeIndex : 0;
@@ -319,7 +331,10 @@ const DEFAULT_KEYBINDINGS = {
   }
 
   function focusNotesInput(selector) {
-    if (window.MIMO_CHAT && typeof window.MIMO_CHAT.toggleRightFrameCollapse === "function") {
+    if (
+      window.MIMO_CHAT &&
+      typeof window.MIMO_CHAT.toggleRightFrameCollapse === "function"
+    ) {
       window.MIMO_CHAT.toggleRightFrameCollapse(false);
     }
 
@@ -376,7 +391,11 @@ const DEFAULT_KEYBINDINGS = {
           ? window.EditBuffer.closeFileFinder()
           : window.EditBuffer.openFileFinder();
       }
-    } else if (isEscapeKey(event) && window.EditBuffer && window.EditBuffer.isFileFinderOpen()) {
+    } else if (
+      isEscapeKey(event) &&
+      window.EditBuffer &&
+      window.EditBuffer.isFileFinderOpen()
+    ) {
       handled = window.EditBuffer.closeFileFinder();
     } else if (bindingMatches(event, keybindings.nextFile)) {
       if (window.EditBuffer) handled = window.EditBuffer.switchFile("right");
@@ -391,7 +410,10 @@ const DEFAULT_KEYBINDINGS = {
     } else if (bindingMatches(event, keybindings.previousLeftBuffer)) {
       handled = switchLeftBuffer(-1);
     } else if (bindingMatches(event, keybindings.toggleRightFrame)) {
-      if (window.MIMO_CHAT && typeof window.MIMO_CHAT.toggleRightFrameCollapse === "function") {
+      if (
+        window.MIMO_CHAT &&
+        typeof window.MIMO_CHAT.toggleRightFrameCollapse === "function"
+      ) {
         handled = window.MIMO_CHAT.toggleRightFrameCollapse();
       }
     } else if (isHelpShortcut) {
@@ -409,50 +431,143 @@ const DEFAULT_KEYBINDINGS = {
     } else if (bindingMatches(event, keybindings.sessionNotes)) {
       handled = focusNotesInput("#notes-input");
     } else if (bindingMatches(event, keybindings.toggleExpertMode)) {
-      if (window.EditBuffer && typeof window.EditBuffer.toggleExpertMode === "function") {
+      if (
+        window.EditBuffer &&
+        typeof window.EditBuffer.toggleExpertMode === "function"
+      ) {
         window.EditBuffer.toggleExpertMode();
         handled = true;
       }
     } else if (bindingMatches(event, keybindings.expertInput)) {
       // Only trigger Enter when not in an input/textarea/contenteditable and expert mode is enabled
       var tag = event.target.tagName;
-      var isEditable = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || event.target.isContentEditable;
-      if (!isEditable && window.EditBuffer && typeof window.EditBuffer.toggleExpertInput === "function") {
+      var isEditable =
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        event.target.isContentEditable;
+      if (
+        !isEditable &&
+        window.EditBuffer &&
+        typeof window.EditBuffer.toggleExpertInput === "function"
+      ) {
         window.EditBuffer.toggleExpertInput();
         handled = true;
       }
+    } else if (bindingMatches(event, keybindings.moveFocusUp)) {
+      // Move focus up one line when expert mode is enabled and not processing
+      if (
+        window.EditBuffer &&
+        typeof window.EditBuffer.moveFocusUp === "function"
+      ) {
+        const expertState = window.EditBuffer.getExpertModeState
+          ? window.EditBuffer.getExpertModeState()
+          : null;
+        if (
+          expertState &&
+          expertState.enabled &&
+          expertState.state !== "processing"
+        ) {
+          window.EditBuffer.moveFocusUp();
+          handled = true;
+        }
+      }
+    } else if (bindingMatches(event, keybindings.moveFocusDown)) {
+      // Move focus down one line when expert mode is enabled and not processing
+      if (
+        window.EditBuffer &&
+        typeof window.EditBuffer.moveFocusDown === "function"
+      ) {
+        const expertState = window.EditBuffer.getExpertModeState
+          ? window.EditBuffer.getExpertModeState()
+          : null;
+        if (
+          expertState &&
+          expertState.enabled &&
+          expertState.state !== "processing"
+        ) {
+          window.EditBuffer.moveFocusDown();
+          handled = true;
+        }
+      }
+    } else if (bindingMatches(event, keybindings.centerFocus)) {
+      // Center focus on current viewport when expert mode is enabled and not processing
+      if (
+        window.EditBuffer &&
+        typeof window.EditBuffer.centerFocusOnViewport === "function"
+      ) {
+        const expertState = window.EditBuffer.getExpertModeState
+          ? window.EditBuffer.getExpertModeState()
+          : null;
+        if (
+          expertState &&
+          expertState.enabled &&
+          expertState.state !== "processing"
+        ) {
+          window.EditBuffer.centerFocusOnViewport();
+          handled = true;
+        }
+      }
     } else if (bindingMatches(event, keybindings.increaseFocus)) {
       // Increase focus guide size when expert mode is enabled and not processing
-      if (window.EditBuffer && typeof window.EditBuffer.increaseFocusGuideSize === "function") {
-        const expertState = window.EditBuffer.getExpertModeState ? window.EditBuffer.getExpertModeState() : null;
-        if (expertState && expertState.enabled && expertState.state !== "processing") {
+      if (
+        window.EditBuffer &&
+        typeof window.EditBuffer.increaseFocusGuideSize === "function"
+      ) {
+        const expertState = window.EditBuffer.getExpertModeState
+          ? window.EditBuffer.getExpertModeState()
+          : null;
+        if (
+          expertState &&
+          expertState.enabled &&
+          expertState.state !== "processing"
+        ) {
           window.EditBuffer.increaseFocusGuideSize();
           handled = true;
         }
       }
     } else if (bindingMatches(event, keybindings.decreaseFocus)) {
       // Decrease focus guide size when expert mode is enabled and not processing
-      if (window.EditBuffer && typeof window.EditBuffer.decreaseFocusGuideSize === "function") {
-        const expertState = window.EditBuffer.getExpertModeState ? window.EditBuffer.getExpertModeState() : null;
-        if (expertState && expertState.enabled && expertState.state !== "processing") {
+      if (
+        window.EditBuffer &&
+        typeof window.EditBuffer.decreaseFocusGuideSize === "function"
+      ) {
+        const expertState = window.EditBuffer.getExpertModeState
+          ? window.EditBuffer.getExpertModeState()
+          : null;
+        if (
+          expertState &&
+          expertState.enabled &&
+          expertState.state !== "processing"
+        ) {
           window.EditBuffer.decreaseFocusGuideSize();
           handled = true;
         }
       }
     } else if (bindingMatches(event, keybindings.approvePatch)) {
       // Approve patch when PatchBuffer is focused
-      const activeTab = document.querySelector('.frame-tab[data-frame-id="left"].active');
-      if (activeTab && activeTab.getAttribute('data-buffer-id') === 'patches') {
-        if (window.MIMO_PATCH_BUFFER && typeof window.MIMO_PATCH_BUFFER.approve === "function") {
+      const activeTab = document.querySelector(
+        '.frame-tab[data-frame-id="left"].active',
+      );
+      if (activeTab && activeTab.getAttribute("data-buffer-id") === "patches") {
+        if (
+          window.MIMO_PATCH_BUFFER &&
+          typeof window.MIMO_PATCH_BUFFER.approve === "function"
+        ) {
           window.MIMO_PATCH_BUFFER.approve();
           handled = true;
         }
       }
     } else if (bindingMatches(event, keybindings.declinePatch)) {
       // Decline patch when PatchBuffer is focused
-      const activeTab = document.querySelector('.frame-tab[data-frame-id="left"].active');
-      if (activeTab && activeTab.getAttribute('data-buffer-id') === 'patches') {
-        if (window.MIMO_PATCH_BUFFER && typeof window.MIMO_PATCH_BUFFER.decline === "function") {
+      const activeTab = document.querySelector(
+        '.frame-tab[data-frame-id="left"].active',
+      );
+      if (activeTab && activeTab.getAttribute("data-buffer-id") === "patches") {
+        if (
+          window.MIMO_PATCH_BUFFER &&
+          typeof window.MIMO_PATCH_BUFFER.decline === "function"
+        ) {
           window.MIMO_PATCH_BUFFER.decline();
           handled = true;
         }

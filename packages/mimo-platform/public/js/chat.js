@@ -380,7 +380,10 @@ function renderAgentMessageContent(text, container) {
         const withoutLineRef = stripLineReference(core);
         const normalizedQuery = normalizeFileQuery(withoutLineRef);
 
-        if (!normalizedQuery || !isLikelyFileToken(withoutLineRef, FILE_EXTENSIONS)) {
+        if (
+          !normalizedQuery ||
+          !isLikelyFileToken(withoutLineRef, FILE_EXTENSIONS)
+        ) {
           div.appendChild(document.createTextNode(chunk));
           return;
         }
@@ -400,10 +403,11 @@ function renderAgentMessageContent(text, container) {
 }
 
 const FILE_EXTENSIONS = new Set(
-  (window.MIMO_CHAT_FILE_EXTENSIONS && window.MIMO_CHAT_FILE_EXTENSIONS.length > 0
+  (window.MIMO_CHAT_FILE_EXTENSIONS &&
+  window.MIMO_CHAT_FILE_EXTENSIONS.length > 0
     ? window.MIMO_CHAT_FILE_EXTENSIONS
     : []
-  ).map((e) => String(e).toLowerCase().replace(/^\./, ""))
+  ).map((e) => String(e).toLowerCase().replace(/^\./, "")),
 );
 
 function renderUserMessageContent(text, container) {
@@ -422,7 +426,10 @@ function renderUserMessageContent(text, container) {
     const withoutLineRef = stripLineReference(core);
     const normalizedQuery = normalizeFileQuery(withoutLineRef);
 
-    if (!normalizedQuery || !isLikelyFileToken(withoutLineRef, FILE_EXTENSIONS)) {
+    if (
+      !normalizedQuery ||
+      !isLikelyFileToken(withoutLineRef, FILE_EXTENSIONS)
+    ) {
       container.appendChild(document.createTextNode(chunk));
       return;
     }
@@ -497,19 +504,18 @@ function parseMessageContent(content) {
   );
   if (detailsMatch) {
     let thoughtText = detailsMatch[2].trim();
-    
+
     // Extract tool calls from <tools> JSON tag
     const toolsMatch = thoughtText.match(/<tools>(\[[\s\S]*?\])<\/tools>/);
     let toolCalls = [];
     if (toolsMatch) {
       try {
         toolCalls = JSON.parse(toolsMatch[1]);
-      } catch (e) {
-      }
+      } catch (e) {}
       // Remove the <tools> tag from thought text
       thoughtText = thoughtText.replace(/<tools>[\s\S]*?<\/tools>/, "").trim();
     }
-    
+
     return {
       hasThought: true,
       thought: thoughtText,
@@ -689,7 +695,9 @@ function isFocusInsideRightFrame() {
 }
 
 function focusSafeLeftFrameTarget() {
-  const chatInput = document.querySelector(".editable-bubble [contenteditable='true']");
+  const chatInput = document.querySelector(
+    ".editable-bubble [contenteditable='true']",
+  );
   if (chatInput && typeof chatInput.focus === "function") {
     chatInput.focus();
     return;
@@ -732,7 +740,10 @@ async function toggleRightFrameCollapse(forcedState) {
       }),
     });
   } catch (error) {
-    console.error("[frame] Failed to persist right frame collapse state:", error);
+    console.error(
+      "[frame] Failed to persist right frame collapse state:",
+      error,
+    );
   }
 
   return true;
@@ -879,11 +890,16 @@ function handleWebSocketMessage(data) {
       handleUsageUpdate(data.usage, data.duration, data.durationMs);
       break;
     case "expert_diff_ready":
-      if (window.EditBuffer && typeof window.EditBuffer.handleDiffReady === "function") {
+      if (
+        window.EditBuffer &&
+        typeof window.EditBuffer.handleDiffReady === "function"
+      ) {
         window.EditBuffer.handleDiffReady(data);
       }
       try {
-        window.dispatchEvent(new CustomEvent("mimo_expert_diff_ready", { detail: data }));
+        window.dispatchEvent(
+          new CustomEvent("mimo_expert_diff_ready", { detail: data }),
+        );
       } catch (e) {
         console.warn("[CHAT] Failed to dispatch mimo_expert_diff_ready", e);
       }
@@ -1095,7 +1111,13 @@ function handleToolCall(data) {
     input: data.toolInput,
     element: null,
   });
-  renderToolCall(data.toolCallId, data.toolTitle, data.toolKind, data.toolStatus, data.toolInput);
+  renderToolCall(
+    data.toolCallId,
+    data.toolTitle,
+    data.toolKind,
+    data.toolStatus,
+    data.toolInput,
+  );
 }
 
 // Controller: Handle tool call update (progress/result)
@@ -1142,29 +1164,32 @@ const TOOL_STATUS_MAP = {
 function createToolRowElement(tool, toolCallId = null) {
   const icon = TOOL_ICON_MAP[tool.kind] || "🔧";
   const statusIcon = TOOL_STATUS_MAP[tool.status] || "✓";
-  
+
   let inputStr = "";
   if (tool.input) {
     // Skip empty objects
-    const inputVal = typeof tool.input === "string" ? tool.input : JSON.stringify(tool.input);
+    const inputVal =
+      typeof tool.input === "string" ? tool.input : JSON.stringify(tool.input);
     if (inputVal && inputVal !== "{}" && inputVal !== '{"":{}}') {
-      const truncated = inputVal.length > 50 ? inputVal.slice(0, 50) + "..." : inputVal;
+      const truncated =
+        inputVal.length > 50 ? inputVal.slice(0, 50) + "..." : inputVal;
       inputStr = ` <span style="color: #888; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">${truncated}</span>`;
     }
   }
-  
+
   const row = document.createElement("div");
   row.className = "tool-call-row";
   if (toolCallId) {
     row.dataset.toolCallId = toolCallId;
   }
-  row.style.cssText = "display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 6px 8px; font-size: 0.85em; border-bottom: 1px solid #3d3d3d; width: 100%; box-sizing: border-box;";
+  row.style.cssText =
+    "display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 6px 8px; font-size: 0.85em; border-bottom: 1px solid #3d3d3d; width: 100%; box-sizing: border-box;";
   row.innerHTML = `
     <span class="tool-icon" style="font-size: 1.1em; flex-shrink: 0;">${icon}</span>
     <span class="tool-title" style="flex: 1 1 auto; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${tool.title}</span>${inputStr}
     <span class="tool-status" data-status="${tool.status}" style="flex-shrink: 0; font-size: 1em;">${statusIcon}</span>
   `;
-  
+
   return row;
 }
 
@@ -1188,7 +1213,9 @@ function renderToolCall(toolCallId, title, kind, status, input) {
 
 // View: Update tool call status - just update the status icon (don't rebuild row)
 function updateToolCallStatus(toolCallId, status, output) {
-  const row = document.querySelector(`.tool-call-row[data-tool-call-id="${toolCallId}"]`);
+  const row = document.querySelector(
+    `.tool-call-row[data-tool-call-id="${toolCallId}"]`,
+  );
   if (!row) return;
 
   // Update status text only
@@ -1814,7 +1841,10 @@ function finalizeStreamingAsCancelled() {
   ChatState.streaming.startTime = null;
 
   // If expert mode was processing, abort it (clears badge without sending duplicate cancel_request)
-  if (window.EditBuffer && typeof window.EditBuffer.abortProcessing === "function") {
+  if (
+    window.EditBuffer &&
+    typeof window.EditBuffer.abortProcessing === "function"
+  ) {
     const expertState = window.EditBuffer.getExpertModeState
       ? window.EditBuffer.getExpertModeState()
       : null;
@@ -1902,7 +1932,9 @@ function insertThoughtSection() {
 // DOM: Update thought content
 function updateThoughtContent(text) {
   if (!ChatState.streaming.thoughtElement) return;
-  const shouldAutoFollow = isNearBottom(document.querySelector("#chat-messages"));
+  const shouldAutoFollow = isNearBottom(
+    document.querySelector("#chat-messages"),
+  );
   const contentDiv =
     ChatState.streaming.thoughtElement.querySelector(".message-content");
   contentDiv.textContent += text;
@@ -1925,7 +1957,9 @@ function finalizeThoughtSection() {
 // DOM: Update message content
 function updateMessageContent(text) {
   if (!ChatState.streaming.messageElement) return;
-  const shouldAutoFollow = isNearBottom(document.querySelector("#chat-messages"));
+  const shouldAutoFollow = isNearBottom(
+    document.querySelector("#chat-messages"),
+  );
 
   let responseEl =
     ChatState.streaming.messageElement.querySelector(".message-response");
@@ -2281,7 +2315,10 @@ function loadChatHistory(messages) {
       if (inThought) {
         // Extract tool calls from content and build thought with tools
         const toolCalls = extractToolCallsFromContent(currentMessage);
-        const thoughtWithTools = buildThoughtWithTools(currentThought, toolCalls);
+        const thoughtWithTools = buildThoughtWithTools(
+          currentThought,
+          toolCalls,
+        );
         insertMessage({
           role: "assistant",
           content: thoughtWithTools,
@@ -2302,7 +2339,10 @@ function loadChatHistory(messages) {
       // Flush any pending streaming messages first
       if (inThought) {
         const toolCalls = extractToolCallsFromContent(currentMessage);
-        const thoughtWithTools = buildThoughtWithTools(currentThought, toolCalls);
+        const thoughtWithTools = buildThoughtWithTools(
+          currentThought,
+          toolCalls,
+        );
         insertMessage({
           role: "assistant",
           content: thoughtWithTools,
@@ -2388,10 +2428,9 @@ function extractToolCallsFromContent(content) {
   const toolsJsonRegex = /<tools>(\[[^\]]+\])<\/tools>/;
   const jsonMatch = content.match(toolsJsonRegex);
   if (jsonMatch) {
-try {
-        stateStorage.setItem("left-frame", JSON.stringify(state.left));
-      } catch (error) {
-      }
+    try {
+      stateStorage.setItem("left-frame", JSON.stringify(state.left));
+    } catch (error) {}
   }
   // Fallback: legacy <tool> format
   const toolRegex = /<tool>([^<]+)<\/tool>/g;
@@ -2399,9 +2438,21 @@ try {
   let match;
   while ((match = toolRegex.exec(content)) !== null) {
     const text = match[1].trim();
-    const kind = Object.keys({ read: 1, edit: 1, bash: 1, search: 1, glob: 1 }).find(k => text.toLowerCase().includes(k)) || "unknown";
-    const status = text.includes("✓") ? "completed" : text.includes("✗") ? "failed" : text.includes("🔄") ? "in_progress" : "pending";
-    const title = text.replace(/[📁📝⚡🔍🔎🔧]/g, "").replace(/[⏳🔄✓✗]/g, "").trim();
+    const kind =
+      Object.keys({ read: 1, edit: 1, bash: 1, search: 1, glob: 1 }).find((k) =>
+        text.toLowerCase().includes(k),
+      ) || "unknown";
+    const status = text.includes("✓")
+      ? "completed"
+      : text.includes("✗")
+        ? "failed"
+        : text.includes("🔄")
+          ? "in_progress"
+          : "pending";
+    const title = text
+      .replace(/[📁📝⚡🔍🔎🔧]/g, "")
+      .replace(/[⏳🔄✓✗]/g, "")
+      .trim();
     tools.push({ title, kind, status });
   }
   return tools;
@@ -2438,7 +2489,9 @@ function buildThoughtWithTools(thoughtContent, toolCalls) {
   for (const tool of toolCalls) {
     const icon = iconMap[tool.kind] || "🔧";
     const statusIcon = statusIconMap[tool.status] || "✓";
-    const inputStr = tool.input ? ` <span style="color: #888;">${typeof tool.input === "string" ? tool.input : JSON.stringify(tool.input).slice(0, 60)}</span>` : "";
+    const inputStr = tool.input
+      ? ` <span style="color: #888;">${typeof tool.input === "string" ? tool.input : JSON.stringify(tool.input).slice(0, 60)}</span>`
+      : "";
     toolRowsHtml += `<div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; font-size: 0.85em; border-bottom: 1px solid #3d3d3d;">
       <span style="font-size: 1.1em; flex-shrink: 0;">${icon}</span>
       <span style="flex: 1; font-weight: 500;">${tool.title}</span>${inputStr}
@@ -2636,9 +2689,7 @@ function setupEventListeners() {
 
       event.preventDefault();
       const query =
-        fileRef.getAttribute("data-file-query") ||
-        fileRef.textContent ||
-        "";
+        fileRef.getAttribute("data-file-query") || fileRef.textContent || "";
 
       if (
         typeof window.EditBuffer !== "undefined" &&
@@ -2665,14 +2716,18 @@ function setupEventListeners() {
     });
   }
 
-  const restoreRightFrameBtn = document.querySelector("#right-frame-restore-btn");
+  const restoreRightFrameBtn = document.querySelector(
+    "#right-frame-restore-btn",
+  );
   if (restoreRightFrameBtn) {
     restoreRightFrameBtn.addEventListener("click", () => {
       toggleRightFrameCollapse(false);
     });
   }
 
-  const mcpRightFrameToggleBtn = document.querySelector("#mcp-right-frame-toggle-btn");
+  const mcpRightFrameToggleBtn = document.querySelector(
+    "#mcp-right-frame-toggle-btn",
+  );
   if (mcpRightFrameToggleBtn) {
     mcpRightFrameToggleBtn.addEventListener("click", () => {
       toggleRightFrameCollapse();
@@ -2826,12 +2881,12 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Global accessor for expert mode to get streaming content
-window.MIMO_GET_STREAMING_CONTENT = function() {
+window.MIMO_GET_STREAMING_CONTENT = function () {
   if (ChatState && ChatState.streaming) {
     return {
       content: ChatState.streaming.content,
       thoughtContent: ChatState.streaming.thoughtContent,
-      active: ChatState.streaming.active
+      active: ChatState.streaming.active,
     };
   }
   return { content: "", thoughtContent: "", active: false };

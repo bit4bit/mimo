@@ -10,6 +10,58 @@
    * @param {string} response - The LLM response text
    * @returns {Array|null} Array of replacement objects, or null if invalid
    */
+  /**
+   * Fix malformed JSON where LLM outputs literal newlines in string values
+   * instead of escaped \n sequences.
+   * @param {string} text - The potentially malformed JSON string
+   * @returns {string} Fixed JSON string
+   */
+  function fixMalformedJson(text) {
+    if (!text) return text;
+
+    var result = "";
+    var inString = false;
+    var escaped = false;
+
+    for (var i = 0; i < text.length; i++) {
+      var char = text[i];
+
+      if (escaped) {
+        result += char;
+        escaped = false;
+        continue;
+      }
+
+      if (char === "\\") {
+        escaped = true;
+        result += char;
+        continue;
+      }
+
+      if (char === '"' && !escaped) {
+        inString = !inString;
+        result += char;
+        continue;
+      }
+
+      // If we're inside a string and hit a literal newline, escape it
+      if (inString && char === "\n") {
+        result += "\\n";
+        continue;
+      }
+
+      // If we're inside a string and hit a literal carriage return, escape it
+      if (inString && char === "\r") {
+        result += "\\r";
+        continue;
+      }
+
+      result += char;
+    }
+
+    return result;
+  }
+
   function extractReplacement(response) {
     if (!response || typeof response !== "string") {
       return null;
@@ -21,28 +73,28 @@
 
     var parsed = null;
 
-    // Try the cleaned text directly as JSON
+    // Try the cleaned text directly as JSON (with fix for malformed newlines)
     if (cleaned.startsWith("{") && cleaned.endsWith("}")) {
       try {
-        parsed = JSON.parse(cleaned);
+        parsed = JSON.parse(fixMalformedJson(cleaned));
       } catch (e) {
         // fall through
       }
     }
 
-    // Try to find JSON in code blocks
+    // Try to find JSON in code blocks (with fix for malformed newlines)
     if (!parsed) {
       var codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (codeBlockMatch) {
         try {
-          parsed = JSON.parse(codeBlockMatch[1].trim());
+          parsed = JSON.parse(fixMalformedJson(codeBlockMatch[1].trim()));
         } catch (e) {
           // fall through
         }
       }
     }
 
-    // Last resort: find the last { ... } pair that parses as valid JSON
+    // Last resort: find the last { ... } pair that parses as valid JSON (with fix for malformed newlines)
     if (!parsed) {
       var lastClose = cleaned.lastIndexOf("}");
       if (lastClose !== -1) {
@@ -50,7 +102,7 @@
         var firstOpen = sub.lastIndexOf("{");
         if (firstOpen !== -1) {
           try {
-            parsed = JSON.parse(sub.substring(firstOpen));
+            parsed = JSON.parse(fixMalformedJson(sub.substring(firstOpen)));
           } catch (e) {
             // fall through
           }
@@ -151,7 +203,11 @@
       throw new Error(`${prefix}: not an object`);
     }
 
-    const requiredFields = ["replace_start_line", "replace_end_line", "replacement"];
+    const requiredFields = [
+      "replace_start_line",
+      "replace_end_line",
+      "replacement",
+    ];
     for (const field of requiredFields) {
       if (replacement[field] === undefined) {
         throw new Error(`${prefix}: missing ${field}`);
@@ -166,7 +222,9 @@
     }
 
     if (isNaN(endLine) || endLine < startLine) {
-      throw new Error(`${prefix}: replace_end_line must be >= replace_start_line`);
+      throw new Error(
+        `${prefix}: replace_end_line must be >= replace_start_line`,
+      );
     }
 
     if (typeof replacement.replacement !== "string") {
@@ -233,6 +291,7 @@
     applyReplacement,
     applyReplacements,
     rangesOverlap,
+    fixMalformedJson,
   };
 
   if (typeof window !== "undefined") {

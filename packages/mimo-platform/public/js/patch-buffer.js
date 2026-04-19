@@ -121,7 +121,9 @@
     diff.original.lines.forEach(function (line) {
       const isRemoved = line.type === "removed";
       const bg = isRemoved ? "#3a1a1a" : "transparent";
-      const borderLeft = isRemoved ? "2px solid #f44336" : "2px solid transparent";
+      const borderLeft = isRemoved
+        ? "2px solid #f44336"
+        : "2px solid transparent";
       const marker = isRemoved ? "─" : "";
 
       originalHtml +=
@@ -146,7 +148,9 @@
     diff.modified.lines.forEach(function (line) {
       const isAdded = line.type === "added";
       const bg = isAdded ? "#1a3a1a" : "transparent";
-      const borderLeft = isAdded ? "2px solid #4caf50" : "2px solid transparent";
+      const borderLeft = isAdded
+        ? "2px solid #4caf50"
+        : "2px solid transparent";
       const marker = isAdded ? "+" : "";
 
       patchedHtml +=
@@ -203,12 +207,12 @@
         index +
         '" style="display:flex;align-items:center;padding:8px 12px;cursor:pointer;border-right:1px solid #444;background:' +
         (isActive ? "#1a1a1a" : "transparent") +
-        ';color:' +
+        ";color:" +
         (isActive ? "#d4d4d4" : "#888") +
         ';font-family:monospace;font-size:12px;">' +
-        '<span>' +
+        "<span>" +
         fileName +
-        '</span>' +
+        "</span>" +
         '<span class="patch-tab-close" data-index="' +
         index +
         '" style="margin-left:8px;padding:2px 4px;cursor:pointer;color:#666;">✕</span>' +
@@ -281,7 +285,8 @@
     }
 
     el.textContent = message;
-    el.style.background = type === "success" ? "#4caf50" : type === "error" ? "#f44336" : "#333";
+    el.style.background =
+      type === "success" ? "#4caf50" : type === "error" ? "#f44336" : "#333";
     el.style.color = "#fff";
     el.style.display = "block";
 
@@ -324,7 +329,7 @@
         "/sessions/" +
           sessionId +
           "/files/content?path=" +
-          encodeURIComponent(tab.originalPath)
+          encodeURIComponent(tab.originalPath),
       );
       if (!originalRes.ok) throw new Error("Failed to load original file");
       const originalData = await originalRes.json();
@@ -335,7 +340,7 @@
         "/sessions/" +
           sessionId +
           "/files/content?path=" +
-          encodeURIComponent(tab.patchPath)
+          encodeURIComponent(tab.patchPath),
       );
       if (!patchedRes.ok) throw new Error("Failed to load patch file");
       const patchedData = await patchedRes.json();
@@ -346,7 +351,7 @@
       PatchBufferState.updateTabContent(
         activeIndex,
         originalContent,
-        patchedContent
+        patchedContent,
       );
 
       // Render diff
@@ -381,26 +386,25 @@
     if (!sessionId) return;
 
     try {
-      const res = await fetch(
-        "/sessions/" + sessionId + "/patches/approve",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            originalPath: activeTab.originalPath,
-          }),
-        }
-      );
+      const res = await fetch("/sessions/" + sessionId + "/patches/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originalPath: activeTab.originalPath,
+        }),
+      });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        const errorData = await res
+          .json()
+          .catch(() => ({ error: "Unknown error" }));
         throw new Error(errorData.error || "Failed to approve patch");
       }
 
       const result = await res.json();
       const fileName = activeTab.originalPath.split("/").pop();
       const sourceBufferId = activeTab.sourceBufferId;
-      
+
       if (result.sent) {
         showToast("Sent to agent — " + fileName, "success");
       } else {
@@ -418,7 +422,11 @@
       if (newActiveTab && newActiveTab.originalContent) {
         renderDiff(newActiveTab.originalContent, newActiveTab.patchedContent);
       } else if (!newActiveTab && sourceBufferId) {
-        var invokerTab = document.querySelector('.frame-tab[data-frame-id="left"][data-buffer-id="' + sourceBufferId + '"]');
+        var invokerTab = document.querySelector(
+          '.frame-tab[data-frame-id="left"][data-buffer-id="' +
+            sourceBufferId +
+            '"]',
+        );
         if (invokerTab) invokerTab.click();
       }
     } catch (err) {
@@ -460,7 +468,11 @@
         if (newActiveTab && newActiveTab.originalContent) {
           renderDiff(newActiveTab.originalContent, newActiveTab.patchedContent);
         } else if (!newActiveTab && sourceBufferId) {
-          var invokerTab = document.querySelector('.frame-tab[data-frame-id="left"][data-buffer-id="' + sourceBufferId + '"]');
+          var invokerTab = document.querySelector(
+            '.frame-tab[data-frame-id="left"][data-buffer-id="' +
+              sourceBufferId +
+              '"]',
+          );
           if (invokerTab) invokerTab.click();
         }
       } else {

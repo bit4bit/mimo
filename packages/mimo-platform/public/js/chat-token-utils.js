@@ -48,5 +48,10 @@ function isLikelyFileToken(token, fileExtensions) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { splitTokenAffixes, normalizeFileQuery, stripLineReference, isLikelyFileToken };
+  module.exports = {
+    splitTokenAffixes,
+    normalizeFileQuery,
+    stripLineReference,
+    isLikelyFileToken,
+  };
 }
