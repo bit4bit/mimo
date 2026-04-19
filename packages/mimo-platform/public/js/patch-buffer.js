@@ -23,12 +23,15 @@
       });
 
       if (existingIndex !== -1) {
-        // Update existing tab
+        // Update existing tab, preserve sourceBufferId if not overridden
         tabs[existingIndex] = { ...tabs[existingIndex], ...tab };
+        if (tab.sourceBufferId) {
+          tabs[existingIndex].sourceBufferId = tab.sourceBufferId;
+        }
         activeIndex = existingIndex;
       } else {
         // Add new tab
-        tabs.push(tab);
+        tabs.push({ ...tab, sourceBufferId: tab.sourceBufferId || null });
         activeIndex = tabs.length - 1;
       }
     }
@@ -396,6 +399,7 @@
 
       const result = await res.json();
       const fileName = activeTab.originalPath.split("/").pop();
+      const sourceBufferId = activeTab.sourceBufferId;
       
       if (result.sent) {
         showToast("Sent to agent — " + fileName, "success");
@@ -413,6 +417,9 @@
       const newActiveTab = PatchBufferState.getActiveTab();
       if (newActiveTab && newActiveTab.originalContent) {
         renderDiff(newActiveTab.originalContent, newActiveTab.patchedContent);
+      } else if (!newActiveTab && sourceBufferId) {
+        var invokerTab = document.querySelector('.frame-tab[data-frame-id="left"][data-buffer-id="' + sourceBufferId + '"]');
+        if (invokerTab) invokerTab.click();
       }
     } catch (err) {
       console.error("[PatchBuffer] Failed to approve patch:", err);
@@ -438,6 +445,7 @@
       if (!res.ok) throw new Error("Failed to decline patch");
 
       const fileName = tab.originalPath.split("/").pop();
+      const sourceBufferId = tab.sourceBufferId;
       showToast("Declined — " + fileName, "success");
 
       // Remove tab
@@ -451,6 +459,9 @@
         const newActiveTab = PatchBufferState.getActiveTab();
         if (newActiveTab && newActiveTab.originalContent) {
           renderDiff(newActiveTab.originalContent, newActiveTab.patchedContent);
+        } else if (!newActiveTab && sourceBufferId) {
+          var invokerTab = document.querySelector('.frame-tab[data-frame-id="left"][data-buffer-id="' + sourceBufferId + '"]');
+          if (invokerTab) invokerTab.click();
         }
       } else {
         renderTabs();
@@ -463,7 +474,7 @@
 
   // ── Public API ───────────────────────────────────────────────────────────────
 
-  function addPatch({ sessionId, originalPath, patchPath }) {
+  function addPatch({ sessionId, originalPath, patchPath, sourceBufferId }) {
     // Initialize session ID on first call
     if (!PatchBufferState.getSessionId()) {
       PatchBufferState.setSessionId(sessionId);
@@ -474,6 +485,7 @@
       sessionId,
       originalPath,
       patchPath,
+      sourceBufferId: sourceBufferId || null,
       originalContent: null,
       patchedContent: null,
     });

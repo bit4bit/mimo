@@ -724,7 +724,11 @@
             sessionId: sessionId,
             originalPath: state.originalPath,
             patchPath: patchPath,
+            sourceBufferId: "edit",
           });
+
+          var patchesTab = document.querySelector('.frame-tab[data-frame-id="left"][data-buffer-id="patches"]');
+          if (patchesTab) patchesTab.click();
         }
         
         // Clear originalContent and transition to idle
@@ -814,6 +818,7 @@
               sessionId: sessionId,
               originalPath: patch.originalPath,
               patchPath: patch.patchPath,
+              sourceBufferId: "edit",
             });
           }
         });
