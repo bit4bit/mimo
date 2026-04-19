@@ -37,6 +37,9 @@ In priority order:
 1. **Tests pass** - the code does what it's supposed to do
 2. **Reveals intention** - anyone can read it and understand what it does
 3. **No duplication** - every piece of knowledge exists in one place (DRY)
+   - **Never duplicate code or behavior** — always reuse existing code when possible
+   - Reuse must preserve semantic correctness; do not force reuse if it changes meaning
+   - Prefer composition over copy-paste; extract shared behavior rather than duplicating it
 4. **Fewest elements** - no unnecessary classes, functions, abstractions, or indirection
 
 When in doubt, delete code, not add it. Prefer the simpler solution.
