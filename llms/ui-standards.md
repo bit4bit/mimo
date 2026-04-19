@@ -29,6 +29,13 @@ Every new page must follow these standards.
 - `openspec/specs/projects/spec.md`
 - `openspec/specs/<capability>/spec.md`
 
+## Keybinding Design Rules
+
+- **Before proposing or using any keybinding, verify it is not already in use**
+- Check `docs/KEYBINDINGS.md` and existing UI code for conflicts
+- New shortcuts must use the `Mod+Shift` namespace (or other approved namespace) and avoid collisions with browser defaults
+- Keybindings that override browser behavior require explicit justification
+
 ## Never Skip
 
 - Write tests first (BDD)
