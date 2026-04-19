@@ -805,6 +805,44 @@ class MimoAgent {
           timestamp: new Date().toISOString(),
         });
       },
+      onToolCall: (sessionId, tool) => {
+        let inputStr: string | undefined;
+        if (tool.rawInput) {
+          inputStr = JSON.stringify(tool.rawInput);
+          if (inputStr.length > 200) {
+            inputStr = inputStr.slice(0, 200) + "...";
+          }
+        }
+        this.send({
+          type: "tool_call",
+          sessionId,
+          chatThreadId,
+          toolCallId: tool.toolCallId,
+          toolTitle: tool.title,
+          toolKind: tool.kind,
+          toolInput: inputStr,
+          toolStatus: tool.status,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onToolCallUpdate: (sessionId, update) => {
+        let outputStr: string | undefined;
+        if (update.rawOutput) {
+          outputStr = String(update.rawOutput);
+          if (outputStr.length > 500) {
+            outputStr = outputStr.slice(0, 500) + "...";
+          }
+        }
+        this.send({
+          type: "tool_call_update",
+          sessionId,
+          chatThreadId,
+          toolCallId: update.toolCallId,
+          toolStatus: update.status,
+          toolOutput: outputStr,
+          timestamp: new Date().toISOString(),
+        });
+      },
       onPermissionRequest: (sessionId, requestId, params) => {
         return new Promise((resolve) => {
           this.pendingPermissions.set(requestId, resolve);
@@ -1008,6 +1046,46 @@ class MimoAgent {
           sessionId: sid,
           chatThreadId,
           content,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onToolCall: (sid, tool) => {
+        this.lifecycleManager.recordActivity(sid, chatThreadId);
+        let inputStr: string | undefined;
+        if (tool.rawInput) {
+          inputStr = JSON.stringify(tool.rawInput);
+          if (inputStr.length > 200) {
+            inputStr = inputStr.slice(0, 200) + "...";
+          }
+        }
+        this.send({
+          type: "tool_call",
+          sessionId: sid,
+          chatThreadId,
+          toolCallId: tool.toolCallId,
+          toolTitle: tool.title,
+          toolKind: tool.kind,
+          toolInput: inputStr,
+          toolStatus: tool.status,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onToolCallUpdate: (sid, update) => {
+        this.lifecycleManager.recordActivity(sid, chatThreadId);
+        let outputStr: string | undefined;
+        if (update.rawOutput) {
+          outputStr = String(update.rawOutput);
+          if (outputStr.length > 500) {
+            outputStr = outputStr.slice(0, 500) + "...";
+          }
+        }
+        this.send({
+          type: "tool_call_update",
+          sessionId: sid,
+          chatThreadId,
+          toolCallId: update.toolCallId,
+          toolStatus: update.status,
+          toolOutput: outputStr,
           timestamp: new Date().toISOString(),
         });
       },
@@ -2128,6 +2206,8 @@ class MimoAgent {
       onMessageChunk: () => {},
       onUsageUpdate: () => {},
       onGenericUpdate: () => {},
+      onToolCall: () => {},
+      onToolCallUpdate: () => {},
       onPermissionRequest: async () => ({ outcome: "allow" }),
     };
   }
@@ -2199,7 +2279,7 @@ class MimoAgent {
   private setupShutdownHandlers(): void {
     const shutdown = () => {
       logger.debug("[mimo-agent] Shutting down...");
-      this.sessionManager.terminateAll();
+      this.sessionManager.stopAllSessions();
       this.ws?.close();
       process.exit(0);
     };

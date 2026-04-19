@@ -77,6 +77,7 @@ interface SessionDetailProps {
   activeChatThreadId?: string | null;
   sessionKeybindings?: SessionKeybindingsConfig;
   agentWorkspacePath?: string;
+  chatFileExtensions?: string[];
 }
 
 function toEmacsNotation(binding: string): string {
@@ -154,6 +155,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   activeChatThreadId,
   sessionKeybindings,
   agentWorkspacePath = "",
+  chatFileExtensions,
 }) => {
   ensureDefaultBuffersRegistered();
   const leftBuffers = getBuffersForFrame("left");
@@ -166,6 +168,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       sessionId={session.id}
       streamingTimeoutMs={streamingTimeoutMs}
       sessionKeybindings={sessionKeybindings}
+      chatFileExtensions={chatFileExtensions}
     >
       <div class="session-container">
         <div class="session-header-bar">
@@ -713,6 +716,24 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         .message-content {
           white-space: pre-wrap;
           word-break: break-word;
+        }
+        .chat-file-ref {
+          background: transparent;
+          border: 1px solid #4f667f;
+          border-radius: 3px;
+          color: #9ecbff;
+          cursor: pointer;
+          font: inherit;
+          line-height: inherit;
+          margin: 0;
+          padding: 0 4px;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+        .chat-file-ref:hover {
+          background: #263242;
+          color: #cfe5ff;
+          border-color: #6d8cae;
         }
         /* Chat threads styles */
         .chat-threads-container {

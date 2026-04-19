@@ -143,7 +143,9 @@ function renderMessage(message) {
   const content = document.createElement("div");
   content.className = "message-content";
   if (message.role === "assistant") {
-    renderTextAsLines(message.content, content);
+    renderAgentMessageContent(message.content, content);
+  } else if (message.role === "user") {
+    renderUserMessageContent(message.content, content);
   } else {
     content.textContent = message.content;
   }
@@ -334,7 +336,17 @@ function renderNotification(message, type = "info") {
 // View: Render text as per-line block elements (preserves newlines in clipboard)
 // Each line becomes a <div>; empty lines become <div><br></div> to hold height.
 function renderTextAsLines(text, container) {
-  container.textContent = "";
+  container.innerHTML = "";
+
+  const hasHtmlTags = /<[^>]+>/.test(text);
+
+  if (hasHtmlTags) {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = text;
+    container.appendChild(wrapper);
+    return;
+  }
+
   const lines = text.split("\n");
   for (const line of lines) {
     const div = document.createElement("div");
@@ -345,6 +357,92 @@ function renderTextAsLines(text, container) {
     }
     container.appendChild(div);
   }
+}
+
+function renderAgentMessageContent(text, container) {
+  container.textContent = "";
+  container.dataset.rawText = String(text || "");
+
+  const lines = String(text || "").split("\n");
+  for (const line of lines) {
+    const div = document.createElement("div");
+    if (line === "") {
+      div.appendChild(document.createElement("br"));
+    } else {
+      const chunks = line.split(/(\s+)/);
+      chunks.forEach((chunk) => {
+        if (!chunk) return;
+        if (/^\s+$/.test(chunk)) {
+          div.appendChild(document.createTextNode(chunk));
+          return;
+        }
+        const { prefix, core, suffix } = splitTokenAffixes(chunk);
+        const withoutLineRef = stripLineReference(core);
+        const normalizedQuery = normalizeFileQuery(withoutLineRef);
+
+        if (!normalizedQuery || !isLikelyFileToken(withoutLineRef, FILE_EXTENSIONS)) {
+          div.appendChild(document.createTextNode(chunk));
+          return;
+        }
+        if (prefix) div.appendChild(document.createTextNode(prefix));
+        const fileRefBtn = document.createElement("button");
+        fileRefBtn.type = "button";
+        fileRefBtn.className = "chat-file-ref";
+        fileRefBtn.textContent = core;
+        fileRefBtn.setAttribute("data-file-query", normalizedQuery);
+        fileRefBtn.title = `Open file finder for ${normalizedQuery}`;
+        div.appendChild(fileRefBtn);
+        if (suffix) div.appendChild(document.createTextNode(suffix));
+      });
+    }
+    container.appendChild(div);
+  }
+}
+
+const FILE_EXTENSIONS = new Set(
+  (window.MIMO_CHAT_FILE_EXTENSIONS && window.MIMO_CHAT_FILE_EXTENSIONS.length > 0
+    ? window.MIMO_CHAT_FILE_EXTENSIONS
+    : []
+  ).map((e) => String(e).toLowerCase().replace(/^\./, ""))
+);
+
+function renderUserMessageContent(text, container) {
+  container.textContent = "";
+  container.dataset.rawText = String(text || "");
+
+  const chunks = String(text || "").split(/(\s+)/);
+  chunks.forEach((chunk) => {
+    if (!chunk) return;
+    if (/^\s+$/.test(chunk)) {
+      container.appendChild(document.createTextNode(chunk));
+      return;
+    }
+
+    const { prefix, core, suffix } = splitTokenAffixes(chunk);
+    const withoutLineRef = stripLineReference(core);
+    const normalizedQuery = normalizeFileQuery(withoutLineRef);
+
+    if (!normalizedQuery || !isLikelyFileToken(withoutLineRef, FILE_EXTENSIONS)) {
+      container.appendChild(document.createTextNode(chunk));
+      return;
+    }
+
+    if (prefix) {
+      container.appendChild(document.createTextNode(prefix));
+    }
+
+    const fileRefBtn = document.createElement("button");
+    fileRefBtn.type = "button";
+    fileRefBtn.className = "chat-file-ref";
+    fileRefBtn.textContent = core;
+    fileRefBtn.setAttribute("data-file-query", normalizedQuery);
+    fileRefBtn.title = `Open file finder for ${normalizedQuery}`;
+    container.appendChild(fileRefBtn);
+
+    if (suffix) {
+      container.appendChild(document.createTextNode(suffix));
+    }
+  });
 }
 
 // View: Permission card
@@ -398,15 +496,31 @@ function parseMessageContent(content) {
     /\u003cdetails\u003e\s*\u003csummary\u003e(.+?)\u003c\/summary\u003e\s*([\s\S]*?)\u003c\/details\u003e/,
   );
   if (detailsMatch) {
+    let thoughtText = detailsMatch[2].trim();
+    
+    // Extract tool calls from <tools> JSON tag
+    const toolsMatch = thoughtText.match(/<tools>(\[[\s\S]*?\])<\/tools>/);
+    let toolCalls = [];
+    if (toolsMatch) {
+      try {
+        toolCalls = JSON.parse(toolsMatch[1]);
+      } catch (e) {
+        console.warn("[CHAT] Failed to parse tools JSON:", e);
+      }
+      // Remove the <tools> tag from thought text
+      thoughtText = thoughtText.replace(/<tools>[\s\S]*?<\/tools>/, "").trim();
+    }
+    
     return {
       hasThought: true,
-      thought: detailsMatch[2].trim(),
+      thought: thoughtText,
+      toolCalls: toolCalls,
       message: content
         .replace(/\u003cdetails\u003e[\s\S]*?\u003c\/details\u003e/, "")
         .replace(/^\s*\n+/, ""),
     };
   }
-  return { hasThought: false, thought: null, message: content };
+  return { hasThought: false, thought: null, toolCalls: [], message: content };
 }
 
 // Service: Parse history message for streaming chunks
@@ -454,6 +568,9 @@ function extractMessageText(el) {
   }
   const contentEl = el.querySelector(".message-content");
   if (!contentEl) return "";
+  if (contentEl.dataset.rawText !== undefined) {
+    return contentEl.dataset.rawText;
+  }
   return Array.from(contentEl.children)
     .filter((child) => !child.classList.contains("message-thought"))
     .map((div) => div.textContent)
@@ -777,6 +894,26 @@ function handleWebSocketMessage(data) {
         console.warn("[CHAT] Failed to dispatch mimo_expert_diff_ready", e);
       }
       break;
+    case "tool_call":
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
+        return;
+      }
+      handleToolCall(data);
+      break;
+    case "tool_call_update":
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
+        return;
+      }
+      handleToolCallUpdate(data);
+      break;
     case "message":
       if (
         activeThreadId &&
@@ -946,6 +1083,131 @@ function handleUsageUpdate(usage, duration, durationMs) {
   updateUsageDisplay(usage);
   finalizeMessageStream(duration);
   insertEditableBubble();
+}
+
+// Controller: Handle tool call (tool starts)
+function handleToolCall(data) {
+  startStreamingTimeout();
+  if (!ChatState.streaming.thoughtElement) {
+    insertThoughtSection();
+  }
+  if (!ChatState.toolCalls) {
+    ChatState.toolCalls = new Map();
+  }
+  ChatState.toolCalls.set(data.toolCallId, {
+    title: data.toolTitle,
+    kind: data.toolKind,
+    status: data.toolStatus,
+    input: data.toolInput,
+    element: null,
+  });
+  renderToolCall(data.toolCallId, data.toolTitle, data.toolKind, data.toolStatus, data.toolInput);
+}
+
+// Controller: Handle tool call update (progress/result)
+function handleToolCallUpdate(data) {
+  startStreamingTimeout();
+  if (!ChatState.toolCalls) {
+    ChatState.toolCalls = new Map();
+  }
+  const toolCall = ChatState.toolCalls.get(data.toolCallId);
+  if (toolCall) {
+    toolCall.status = data.toolStatus;
+    if (data.toolOutput) {
+      toolCall.output = data.toolOutput;
+    }
+  }
+  updateToolCallStatus(data.toolCallId, data.toolStatus, data.toolOutput);
+}
+
+// Shared: Icon map for tool kinds
+const TOOL_ICON_MAP = {
+  read: "📁",
+  file: "📁",
+  edit: "📝",
+  write: "📝",
+  execute: "⚡",
+  bash: "⚡",
+  shell: "⚡",
+  cmd: "⚡",
+  search: "🔍",
+  grep: "🔍",
+  glob: "🔎",
+  find: "🔎",
+};
+
+// Shared: Status icon map
+const TOOL_STATUS_MAP = {
+  pending: "⏳",
+  in_progress: "🔄",
+  completed: "✓",
+  failed: "✗",
+};
+
+// Shared: Render a single tool row (used by both real-time and history)
+function createToolRowElement(tool, toolCallId = null) {
+  const icon = TOOL_ICON_MAP[tool.kind] || "🔧";
+  const statusIcon = TOOL_STATUS_MAP[tool.status] || "✓";
+  
+  let inputStr = "";
+  if (tool.input) {
+    // Skip empty objects
+    const inputVal = typeof tool.input === "string" ? tool.input : JSON.stringify(tool.input);
+    if (inputVal && inputVal !== "{}" && inputVal !== '{"":{}}') {
+      const truncated = inputVal.length > 50 ? inputVal.slice(0, 50) + "..." : inputVal;
+      inputStr = ` <span style="color: #888; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">${truncated}</span>`;
+    }
+  }
+  
+  const row = document.createElement("div");
+  row.className = "tool-call-row";
+  if (toolCallId) {
+    row.dataset.toolCallId = toolCallId;
+  }
+  row.style.cssText = "display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 6px 8px; font-size: 0.85em; border-bottom: 1px solid #3d3d3d; width: 100%; box-sizing: border-box;";
+  row.innerHTML = `
+    <span class="tool-icon" style="font-size: 1.1em; flex-shrink: 0;">${icon}</span>
+    <span class="tool-title" style="flex: 1 1 auto; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${tool.title}</span>${inputStr}
+    <span class="tool-status" data-status="${tool.status}" style="flex-shrink: 0; font-size: 1em;">${statusIcon}</span>
+  `;
+  
+  return row;
+}
+
+// View: Render a tool call row (real-time)
+function renderToolCall(toolCallId, title, kind, status, input) {
+  const thoughtEl = ChatState.streaming.thoughtElement;
+  if (!thoughtEl) return;
+
+  const thoughtContent = thoughtEl.querySelector(".message-content");
+  if (!thoughtContent) return;
+
+  const tool = { title, kind, status, input };
+  const row = createToolRowElement(tool, toolCallId);
+  thoughtContent.appendChild(row);
+
+  const toolCall = ChatState.toolCalls?.get(toolCallId);
+  if (toolCall) {
+    toolCall.element = row;
+  }
+}
+
+// View: Update tool call status - just update the status icon (don't rebuild row)
+function updateToolCallStatus(toolCallId, status, output) {
+  const row = document.querySelector(`.tool-call-row[data-tool-call-id="${toolCallId}"]`);
+  if (!row) return;
+
+  // Update status text only
+  const statusEl = row.querySelector(".tool-status");
+  if (statusEl) {
+    statusEl.textContent = TOOL_STATUS_MAP[status] || "✓";
+  }
+
+  // Update stored tool call
+  const toolCall = ChatState.toolCalls?.get(toolCallId);
+  if (toolCall) {
+    toolCall.status = status;
+  }
 }
 
 // Controller: Handle regular message
@@ -1342,6 +1604,14 @@ function insertMessage(message) {
     const header = thoughtEl.querySelector(".message-header");
     const thoughtContentDiv = thoughtEl.querySelector(".message-content");
 
+    // Render tool calls inside thought section
+    if (parsed.toolCalls && parsed.toolCalls.length > 0) {
+      for (const tool of parsed.toolCalls) {
+        const toolRow = createToolRowElement(tool);
+        thoughtContentDiv.appendChild(toolRow);
+      }
+    }
+
     header.addEventListener("click", () => {
       const isVisible = thoughtContentDiv.style.display !== "none";
       thoughtContentDiv.style.display = isVisible ? "none" : "block";
@@ -1475,6 +1745,7 @@ function submitEditableBubble() {
   staticHeader.className = "message-header";
   staticHeader.textContent = "You";
   ChatState.editableBubble.insertBefore(staticHeader, content);
+  renderUserMessageContent(message, content);
 
   ChatState.editableBubble = null;
 
@@ -1538,7 +1809,7 @@ function finalizeStreamingAsCancelled() {
     const cursor = responseContent.querySelector(".typing-cursor");
     if (cursor) cursor.remove();
     const accumulated = responseContent.textContent;
-    renderTextAsLines(accumulated, responseContent);
+    renderAgentMessageContent(accumulated, responseContent);
   }
 
   // Add cancelled indicator to header
@@ -1590,7 +1861,7 @@ function finalizeMessageStream(duration) {
     const cursor = responseContent.querySelector(".typing-cursor");
     if (cursor) cursor.remove();
     const accumulated = responseContent.textContent;
-    renderTextAsLines(accumulated, responseContent);
+    renderAgentMessageContent(accumulated, responseContent);
   }
 
   const cancelBtn = ChatState.streaming.messageElement.querySelector(
@@ -1666,6 +1937,11 @@ function finalizeThoughtSection() {
   const header =
     ChatState.streaming.thoughtElement.querySelector(".message-header");
   header.innerHTML = '<span class="thought-toggle">▶</span> Thought Process';
+
+  // Clear tool call state after thought ends
+  if (ChatState.toolCalls) {
+    ChatState.toolCalls.clear();
+  }
 }
 
 // DOM: Update message content
@@ -2007,6 +2283,7 @@ function loadChatHistory(messages) {
   let inMessage = false;
   let lastRole = null;
   let lastUsageCost = null;
+  let currentToolCalls = [];
 
   messages.forEach((msg) => {
     if (msg.content?.includes("available_commands_update")) return;
@@ -2024,10 +2301,14 @@ function loadChatHistory(messages) {
 
     if (parsed.type === "message_chunk") {
       if (inThought) {
+        // Extract tool calls from content and build thought with tools
+        const toolCalls = extractToolCallsFromContent(currentMessage);
+        const thoughtWithTools = buildThoughtWithTools(currentThought, toolCalls);
         insertMessage({
           role: "assistant",
-          content: `<details><summary>Thought Process</summary>${currentThought}</details>`,
+          content: thoughtWithTools,
         });
+        currentToolCalls = [];
         inThought = false;
         currentThought = "";
       }
@@ -2042,12 +2323,15 @@ function loadChatHistory(messages) {
     if (parsed.type === "cancelled") {
       // Flush any pending streaming messages first
       if (inThought) {
+        const toolCalls = extractToolCallsFromContent(currentMessage);
+        const thoughtWithTools = buildThoughtWithTools(currentThought, toolCalls);
         insertMessage({
           role: "assistant",
-          content: `<details><summary>Thought Process</summary>${currentThought}</details>`,
+          content: thoughtWithTools,
         });
         inThought = false;
         currentThought = "";
+        currentMessage = "";
       }
       if (inMessage && currentMessage) {
         insertMessage({
@@ -2089,9 +2373,11 @@ function loadChatHistory(messages) {
 
   // Flush any pending
   if (inThought && currentThought) {
+    const toolCalls = extractToolCallsFromContent(currentMessage);
+    const thoughtWithTools = buildThoughtWithTools(currentThought, toolCalls);
     insertMessage({
       role: "assistant",
-      content: `<details><summary>Thought Process</summary>${currentThought}</details>`,
+      content: thoughtWithTools,
     });
   }
 
@@ -2117,6 +2403,76 @@ function loadChatHistory(messages) {
       insertEditableBubble();
     }
   }, 2000);
+}
+
+// Service: Extract tool calls from content (looking for <tools> JSON)
+function extractToolCallsFromContent(content) {
+  // Handle both formats:
+  // 1. <tools>[...]</tools> (structured JSON inside thought)
+  // 2. <tool>...</tool> (legacy format after thought)
+  const toolsJsonRegex = /<tools>(\[[^\]]+\])<\/tools>/;
+  const jsonMatch = content.match(toolsJsonRegex);
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[1]);
+    } catch (e) {
+      console.warn("[CHAT] Failed to parse tools JSON:", e);
+    }
+  }
+  // Fallback: legacy <tool> format
+  const toolRegex = /<tool>([^<]+)<\/tool>/g;
+  const tools = [];
+  let match;
+  while ((match = toolRegex.exec(content)) !== null) {
+    const text = match[1].trim();
+    const kind = Object.keys({ read: 1, edit: 1, bash: 1, search: 1, glob: 1 }).find(k => text.toLowerCase().includes(k)) || "unknown";
+    const status = text.includes("✓") ? "completed" : text.includes("✗") ? "failed" : text.includes("🔄") ? "in_progress" : "pending";
+    const title = text.replace(/[📁📝⚡🔍🔎🔧]/g, "").replace(/[⏳🔄✓✗]/g, "").trim();
+    tools.push({ title, kind, status });
+  }
+  return tools;
+}
+
+// DOM: Build thought section with tool calls rendered inside
+function buildThoughtWithTools(thoughtContent, toolCalls) {
+  if (!toolCalls || toolCalls.length === 0) {
+    return `<details><summary>Thought Process</summary>${thoughtContent}</details>`;
+  }
+
+  const iconMap = {
+    read: "📁",
+    file: "📁",
+    edit: "📝",
+    write: "📝",
+    bash: "⚡",
+    shell: "⚡",
+    cmd: "⚡",
+    search: "🔍",
+    grep: "🔍",
+    glob: "🔎",
+    find: "🔎",
+  };
+
+  const statusIconMap = {
+    pending: "⏳",
+    in_progress: "🔄",
+    completed: "✓",
+    failed: "✗",
+  };
+
+  let toolRowsHtml = "";
+  for (const tool of toolCalls) {
+    const icon = iconMap[tool.kind] || "🔧";
+    const statusIcon = statusIconMap[tool.status] || "✓";
+    const inputStr = tool.input ? ` <span style="color: #888;">${typeof tool.input === "string" ? tool.input : JSON.stringify(tool.input).slice(0, 60)}</span>` : "";
+    toolRowsHtml += `<div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; font-size: 0.85em; border-bottom: 1px solid #3d3d3d;">
+      <span style="font-size: 1.1em; flex-shrink: 0;">${icon}</span>
+      <span style="flex: 1; font-weight: 500;">${tool.title}</span>${inputStr}
+      <span style="flex-shrink: 0; font-size: 1em;">${statusIcon}</span>
+    </div>`;
+  }
+
+  return `<details><summary>Thought Process</summary>${thoughtContent}\n${toolRowsHtml}</details>`;
 }
 
 // DOM: Update model selector
@@ -2311,6 +2667,31 @@ function setupEventListeners() {
     }
   });
 
+  const messagesContainer = document.querySelector("#chat-messages");
+  if (messagesContainer) {
+    messagesContainer.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const fileRef = target.closest(".chat-file-ref");
+      if (!fileRef) return;
+
+      event.preventDefault();
+      const query =
+        fileRef.getAttribute("data-file-query") ||
+        fileRef.textContent ||
+        "";
+
+      if (
+        typeof window.EditBuffer !== "undefined" &&
+        window.EditBuffer &&
+        typeof window.EditBuffer.openFileFinder === "function"
+      ) {
+        window.EditBuffer.openFileFinder(query);
+      }
+    });
+  }
+
   const buffersContainer = document.querySelector(".buffers-container");
   if (buffersContainer) {
     ChatState.frames.rightCollapsed = buffersContainer.classList.contains(
@@ -2469,6 +2850,10 @@ if (!document.getElementById("chat-animations")) {
     @keyframes blink {
       0%, 50% { opacity: 1; }
       51%, 100% { opacity: 0; }
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   `;
   document.head.appendChild(style);

@@ -387,6 +387,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const loadedConfig = configService.load();
     const streamingTimeoutMs = loadedConfig.streamingTimeoutMs;
     const sessionKeybindings = loadedConfig.sessionKeybindings;
+    const chatFileExtensions = loadedConfig.chatFileExtensions;
 
     return c.html(
       <SessionDetailPage
@@ -408,6 +409,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         mcpServers={mcpServers}
         streamingTimeoutMs={streamingTimeoutMs}
         sessionKeybindings={sessionKeybindings}
+        chatFileExtensions={chatFileExtensions}
         chatThreads={session.chatThreads}
         activeChatThreadId={session.activeChatThreadId}
         agentWorkspacePath={session.agentWorkspacePath}

@@ -216,6 +216,12 @@ export class SessionManager {
     this.pendingChanges.delete(sessionId);
   }
 
+  stopAllSessions(): void {
+    for (const sessionId of this.sessions.keys()) {
+      this.stopSession(sessionId);
+    }
+  }
+
   terminateAll(): void {
     for (const sessionId of this.sessions.keys()) {
       this.terminateSession(sessionId);

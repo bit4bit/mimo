@@ -40,6 +40,31 @@ describe("findFiles", () => {
     expect(result.map((f) => f.name)).toContain("service.test.ts");
   });
 
+  it("prioritizes full path matches before filename-only matches", () => {
+    const prioritized: FileInfo[] = [
+      { path: "src/service.ts", name: "service.ts", size: 100 },
+      { path: "src/domain/service/helper.ts", name: "helper.ts", size: 100 },
+      { path: "docs/service-guide.md", name: "service-guide.md", size: 100 },
+    ];
+
+    const result = findFiles("src/service", prioritized);
+    expect(result).toHaveLength(2);
+    expect(result[0]?.path).toBe("src/service.ts");
+    expect(result[1]?.path).toBe("docs/service-guide.md");
+  });
+
+  it("matches absolute path queries against relative file paths", () => {
+    const result = findFiles("/workspace/project/src/routes.ts", files);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.path).toBe("src/routes.ts");
+  });
+
+  it("matches dot-relative path queries", () => {
+    const result = findFiles("./src/routes.ts", files);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.path).toBe("src/routes.ts");
+  });
+
   it("returns empty array when no files match", () => {
     expect(findFiles("nonexistent", files)).toHaveLength(0);
   });
