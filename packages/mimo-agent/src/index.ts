@@ -411,7 +411,6 @@ class MimoAgent {
         fossilUrl,
         agentWorkspaceUser,
         agentWorkspacePassword,
-        acpSessionId,
         modelState,
         modeState,
         agentSubpath,
@@ -872,7 +871,7 @@ class MimoAgent {
         acpCwd,
         toWebWritable(spawnResult.stdin),
         toWebReadable(spawnResult.stdout),
-        sessionInfo.acpSessionId,
+        this.threadConfigs.get(key)?.acpSessionId,
         sessionInfo.mcpServers,
       )
       .then(async (result) => {
@@ -927,9 +926,9 @@ class MimoAgent {
           timestamp: new Date().toISOString(),
         });
 
-        // Send acp_session_created to platform
+        // Send acp_thread_created to platform
         this.send({
-          type: "acp_session_created",
+          type: "acp_thread_created",
           sessionId: session.sessionId,
           chatThreadId,
           acpSessionId: result.acpSessionId,
@@ -1207,17 +1206,15 @@ class MimoAgent {
         timestamp: new Date().toISOString(),
       });
 
-      if (result.wasReset) {
-        this.send({
-          type: "acp_session_created",
-          sessionId,
-          chatThreadId,
-          acpSessionId: result.acpSessionId,
-          wasReset: true,
-          resetReason: result.resetReason || "session_resumed",
-          timestamp: new Date().toISOString(),
-        });
-      }
+      this.send({
+        type: "acp_thread_created",
+        sessionId,
+        chatThreadId,
+        acpSessionId: result.acpSessionId,
+        wasReset: result.wasReset,
+        resetReason: result.resetReason,
+        timestamp: new Date().toISOString(),
+      });
 
       process.stderr?.on("data", (data: Buffer) => {
         logger.error(
@@ -1936,7 +1933,7 @@ class MimoAgent {
 
       // Send success message to platform
       this.send({
-        type: "acp_session_cleared",
+        type: "acp_thread_cleared",
         sessionId,
         chatThreadId,
         acpSessionId: result.acpSessionId,

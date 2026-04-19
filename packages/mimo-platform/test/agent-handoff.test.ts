@@ -190,25 +190,25 @@ describe("Agent Handoff Tests", () => {
     });
   });
 
-  describe("acp_session_created message format", () => {
-    it("should format acp_session_created with session resumption", () => {
+  describe("acp_thread_created message format", () => {
+    it("should format acp_thread_created with session resumption", () => {
       const message = {
-        type: "acp_session_created" as const,
+        type: "acp_thread_created" as const,
         sessionId: "session-1",
         acpSessionId: "acp-abc123",
         wasReset: false,
         timestamp: new Date().toISOString(),
       };
 
-      expect(message.type).toBe("acp_session_created");
+      expect(message.type).toBe("acp_thread_created");
       expect(message.sessionId).toBe("session-1");
       expect(message.acpSessionId).toBe("acp-abc123");
       expect(message.wasReset).toBe(false);
     });
 
-    it("should format acp_session_created with session reset", () => {
+    it("should format acp_thread_created with session reset", () => {
       const message = {
-        type: "acp_session_created" as const,
+        type: "acp_thread_created" as const,
         sessionId: "session-1",
         acpSessionId: "acp-xyz789",
         wasReset: true,
@@ -216,16 +216,16 @@ describe("Agent Handoff Tests", () => {
         timestamp: new Date().toISOString(),
       };
 
-      expect(message.type).toBe("acp_session_created");
+      expect(message.type).toBe("acp_thread_created");
       expect(message.sessionId).toBe("session-1");
       expect(message.acpSessionId).toBe("acp-xyz789");
       expect(message.wasReset).toBe(true);
       expect(message.resetReason).toBe("loadSession not supported");
     });
 
-    it("should format acp_session_created with reset but no reason", () => {
+    it("should format acp_thread_created with reset but no reason", () => {
       const message = {
-        type: "acp_session_created" as const,
+        type: "acp_thread_created" as const,
         sessionId: "session-1",
         acpSessionId: "acp-new456",
         wasReset: true,
@@ -458,9 +458,9 @@ describe("Agent Handoff Tests", () => {
       expect(reviewThread.acpSessionId).toBe("acp-review-456");
     });
 
-    it("should include chatThreadId in acp_session_created for thread tracking", () => {
+    it("should include chatThreadId in acp_thread_created for thread tracking", () => {
       const message = {
-        type: "acp_session_created" as const,
+        type: "acp_thread_created" as const,
         sessionId: "session-1",
         chatThreadId: "thread-review",
         acpSessionId: "acp-review-789",
@@ -468,7 +468,7 @@ describe("Agent Handoff Tests", () => {
         timestamp: new Date().toISOString(),
       };
 
-      expect(message.type).toBe("acp_session_created");
+      expect(message.type).toBe("acp_thread_created");
       expect(message.chatThreadId).toBe("thread-review");
       expect(message.acpSessionId).toBe("acp-review-789");
     });

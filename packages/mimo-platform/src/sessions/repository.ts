@@ -54,7 +54,6 @@ export interface Session {
   fossilPath?: string;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
-  acpSessionId?: string;
   agentSubpath?: string;
   branch?: string;
   // MCP Server attachments
@@ -88,7 +87,6 @@ export interface SessionData {
   fossilPath?: string;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
-  acpSessionId?: string;
   agentSubpath?: string;
   branch?: string;
   // MCP Server attachments
