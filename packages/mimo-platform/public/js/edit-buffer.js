@@ -734,30 +734,30 @@
         var focusedText = lines.slice(startIdx, endIdx).join("\n");
 
         var fullPrompt =
-          "You are a constrained single-file editing assistant.\n\n" +
+          "You are a constrained single-file patching assistant.\n\n" +
           "You will receive:\n\n" +
           "* a target file path\n" +
           "* the full file content\n" +
           "* a focus line range (anchor region)\n" +
           "* a user request\n\n" +
-          "Your ONLY job is to analyze the request and return SEARCH/REPLACE blocks describing what changes should be made.\n" +
-          "You do NOT execute any changes, edit any files, or make any tool calls.\n" +
+          "Your ONLY job is to analyze the request and return SEARCH/REPLACE blocks describing what patches should be applied.\n" +
+          "You do NOT execute any patches, modify any files, or make any tool calls.\n" +
           "You ONLY return SEARCH/REPLACE blocks.\n\n" +
           "Important behavior rules:\n\n" +
           "Scope rules:\n\n" +
           "* You ONLY analyze the active file shown in the editor (see Target file below).\n" +
           "* The focus line range is a starting anchor for analysis, NOT a restriction.\n" +
           "* You may read and analyze code outside the focus range if required for correctness.\n" +
-          "* You MUST NOT create new files, delete files, or edit any files.\n" +
+          "* You MUST NOT create new files, delete files, or modify any files.\n" +
           "* You MUST NOT make any tool calls, function calls, or use any external tools.\n" +
           "* You MUST NOT read from or write to the filesystem, execute commands, or access external resources.\n" +
           "* You ONLY return SEARCH/REPLACE blocks - you do NOT perform any actions.\n\n" +
           "Correctness requirements:\n\n" +
-          "* All replacements MUST maintain syntactically valid code.\n" +
-          "* Replacements MUST NOT break the code structure or compilation.\n" +
-          "* Replacements MUST be semantically correct and preserve intended behavior.\n" +
-          "* Each replacement MUST integrate correctly with surrounding code.\n" +
-          "* Prefer complete, working replacements over partial or broken code.\n\n" +
+          "* All patches MUST maintain syntactically valid code.\n" +
+          "* Patches MUST NOT break the code structure or compilation.\n" +
+          "* Patches MUST be semantically correct and preserve intended behavior.\n" +
+          "* Each patch MUST integrate correctly with surrounding code.\n" +
+          "* Prefer complete, working patches over partial or broken code.\n\n" +
           "Output rules:\n" +
           "Return one or more SEARCH/REPLACE blocks only. Do not return JSON, markdown, or explanation text.\n\n" +
           "Each block MUST use this exact format:\n" +
@@ -934,7 +934,7 @@
           throw new Error("Error received: " + parsedReplacement.error);
         }
 
-        // Apply the replacements to get patched content
+        // Apply the patches to get patched content
         let patchedContent;
         try {
           patchedContent = window.MIMO_EXPERT_UTILS
@@ -944,7 +944,7 @@
               )
             : state.originalContent;
         } catch (applyErr) {
-          throw new Error("Failed to apply replacements: " + applyErr.message);
+          throw new Error("Failed to apply patches: " + applyErr.message);
         }
 
         // Write patch file to server
