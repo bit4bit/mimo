@@ -521,6 +521,21 @@
     }
   }
 
+  function focusDiffPane() {
+    var pane =
+      document.getElementById("patch-patched-pane") ||
+      document.getElementById("patch-original-pane");
+    if (!pane) return;
+    if (!pane.hasAttribute("tabindex")) {
+      pane.setAttribute("tabindex", "-1");
+    }
+    try {
+      pane.focus({ preventScroll: true });
+    } catch (_err) {
+      pane.focus();
+    }
+  }
+
   function init(sessionId) {
     PatchBufferState.setSessionId(sessionId);
 
@@ -544,6 +559,7 @@
     addPatch,
     approve: approveCurrentPatch,
     decline: declineCurrentPatch,
+    focusDiffPane,
     showStaleWarning,
     init,
   };

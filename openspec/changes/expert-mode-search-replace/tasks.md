@@ -66,8 +66,8 @@
   - [x] T11: Ambiguous match error
   - [x] T12: Empty search block error
 - [x] Backward compatibility
-  - [x] T13: JSON format still works
-  - [x] T14: SEARCH/REPLACE takes precedence over JSON
+  - [ ] T13: JSON format still works
+  - [ ] T14: SEARCH/REPLACE takes precedence over JSON
 - [x] End-to-end
   - [x] T15: Real-world example (replace function with docstring)
   - [x] T16: Multiple independent edits in one response

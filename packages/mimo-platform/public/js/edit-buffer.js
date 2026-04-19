@@ -793,11 +793,8 @@
           "    pass\n" +
           "=======\n" +
           ">>>>>>> REPLACE\n\n" +
-          "If the task cannot be completed within this file alone, return:\n\n" +
-          "{\n" +
-          '"file": "<FILE_PATH>",\n' +
-          '"error": "OUT_OF_SCOPE_CHANGE_REQUIRED"\n' +
-          "}\n\n" +
+          "If the task cannot be completed within this file alone, return exactly:\n\n" +
+          "OUT_OF_SCOPE_CHANGE_REQUIRED\n\n" +
           "Input:\n\n" +
           "Target file: " +
           filePath +
@@ -980,7 +977,17 @@
           var patchesTab = document.querySelector(
             '.frame-tab[data-frame-id="left"][data-buffer-id="patches"]',
           );
-          if (patchesTab) patchesTab.click();
+          if (patchesTab) {
+            patchesTab.click();
+            setTimeout(function () {
+              if (
+                window.MIMO_PATCH_BUFFER &&
+                typeof window.MIMO_PATCH_BUFFER.focusDiffPane === "function"
+              ) {
+                window.MIMO_PATCH_BUFFER.focusDiffPane();
+              }
+            }, 0);
+          }
         }
 
         // Clear originalContent and transition to idle
