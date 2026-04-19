@@ -261,24 +261,24 @@ describe("Agent Handoff Tests", () => {
       expect(result.resetReason).toBe("loadSession failed");
     });
 
-    it("should format acp_session_created for successful resumption", () => {
+    it("should format acp_thread_created for successful resumption", () => {
       const message = {
-        type: "acp_session_created",
+        type: "acp_thread_created",
         sessionId: "session-1",
         acpSessionId: "acp-abc123",
         wasReset: false,
         timestamp: new Date().toISOString(),
       };
 
-      expect(message.type).toBe("acp_session_created");
+      expect(message.type).toBe("acp_thread_created");
       expect(message.sessionId).toBe("session-1");
       expect(message.acpSessionId).toBe("acp-abc123");
       expect(message.wasReset).toBe(false);
     });
 
-    it("should format acp_session_created for reset with reason", () => {
+    it("should format acp_thread_created for reset with reason", () => {
       const message = {
-        type: "acp_session_created",
+        type: "acp_thread_created",
         sessionId: "session-1",
         acpSessionId: "acp-xyz789",
         wasReset: true,
@@ -286,7 +286,7 @@ describe("Agent Handoff Tests", () => {
         timestamp: new Date().toISOString(),
       };
 
-      expect(message.type).toBe("acp_session_created");
+      expect(message.type).toBe("acp_thread_created");
       expect(message.wasReset).toBe(true);
       expect(message.resetReason).toBe("loadSession not supported");
     });

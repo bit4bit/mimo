@@ -57,7 +57,6 @@ export interface SessionInfo {
   agentWorkspacePassword?: string;
   acpProcess: ChildProcess | null;
   fileWatcher: ReturnType<typeof watch> | null;
-  acpSessionId?: string;
   currentThoughtBuffer?: string;
   modelState?: ModelState;
   modeState?: ModeState;

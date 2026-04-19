@@ -1247,7 +1247,7 @@ async function handleAgentMessage(ws, data) {
     case "agent_sessions_ready":
       logger.debug("[agent] Agent sessions ready:", data.sessionIds);
       break;
-    case "acp_session_created":
+    case "acp_thread_created":
       {
         const { sessionId, acpSessionId, wasReset, resetReason } = data;
         const createdThreadId = data.chatThreadId;
@@ -1259,23 +1259,17 @@ async function handleAgentMessage(ws, data) {
           resetReason,
         });
 
-        if (sessionId && acpSessionId) {
-          // Update session-level acpSessionId (backward compatibility)
-          await sessionRepository.update(sessionId, { acpSessionId });
-
-          // Update thread-level acpSessionId if chatThreadId is provided
-          if (createdThreadId) {
-            await sessionRepository.updateChatThread(
-              sessionId,
-              createdThreadId,
-              {
-                acpSessionId,
-              },
-            );
-            logger.debug(
-              `[agent] Updated thread ${createdThreadId} acpSessionId to ${acpSessionId}`,
-            );
-          }
+        if (sessionId && acpSessionId && createdThreadId) {
+          await sessionRepository.updateChatThread(
+            sessionId,
+            createdThreadId,
+            {
+              acpSessionId,
+            },
+          );
+          logger.debug(
+            `[agent] Updated thread ${createdThreadId} acpSessionId to ${acpSessionId}`,
+          );
 
           if (wasReset) {
             const timestamp = new Date().toISOString();
@@ -1301,7 +1295,7 @@ async function handleAgentMessage(ws, data) {
       }
       break;
 
-    case "acp_session_cleared":
+    case "acp_thread_cleared":
       {
         const { sessionId, acpSessionId } = data;
         const clearedThreadId = data.chatThreadId;
@@ -1311,23 +1305,17 @@ async function handleAgentMessage(ws, data) {
           acpSessionId,
         });
 
-        if (sessionId && acpSessionId) {
-          // Update session-level acpSessionId (backward compatibility)
-          await sessionRepository.update(sessionId, { acpSessionId });
-
-          // Update thread-level acpSessionId if chatThreadId is provided
-          if (clearedThreadId) {
-            await sessionRepository.updateChatThread(
-              sessionId,
-              clearedThreadId,
-              {
-                acpSessionId,
-              },
-            );
-            logger.debug(
-              `[agent] Updated thread ${clearedThreadId} acpSessionId to ${acpSessionId} after clear`,
-            );
-          }
+        if (sessionId && acpSessionId && clearedThreadId) {
+          await sessionRepository.updateChatThread(
+            sessionId,
+            clearedThreadId,
+            {
+              acpSessionId,
+            },
+          );
+          logger.debug(
+            `[agent] Updated thread ${clearedThreadId} acpSessionId to ${acpSessionId} after clear`,
+          );
 
           // Add system message to chat history
           const timestamp = new Date().toISOString();

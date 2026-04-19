@@ -92,13 +92,6 @@ export class SessionManager {
     }
   }
 
-  setSessionAcpSessionId(sessionId: string, acpSessionId: string): void {
-    const session = this.sessions.get(sessionId);
-    if (session) {
-      session.acpSessionId = acpSessionId;
-    }
-  }
-
   setSessionMcpServers(sessionId: string, mcpServers: McpServerConfig[]): void {
     const session = this.sessions.get(sessionId);
     if (session) {

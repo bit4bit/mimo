@@ -1101,7 +1101,6 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
                 agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
                 agentWorkspacePassword:
                   sessionWithCreds?.agentWorkspacePassword,
-                acpSessionId: sessionWithCreds?.acpSessionId ?? null,
                 agentSubpath: sessionWithCreds?.agentSubpath ?? null,
                 chatThreads: [
                   {
