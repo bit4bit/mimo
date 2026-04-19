@@ -3,7 +3,14 @@ import { logger } from "./logger.js";
 import { decodeJwt } from "jose";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { existsSync, mkdirSync, copyFileSync, unlinkSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  copyFileSync,
+  unlinkSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { execSync, spawnSync } from "node:child_process";
 import { Writable, Readable } from "node:stream";
 import { SessionManager } from "./session.js";
@@ -1483,10 +1490,14 @@ class MimoAgent {
         }
 
         // Handle merge conflicts - try to update and resolve
-        if (combined.includes("unresolved merge conflicts") || 
-            combined.includes("abort due to unresolved")) {
-          logger.debug(`[mimo-agent] Merge conflicts detected for ${sessionId}, attempting to resolve...`);
-          
+        if (
+          combined.includes("unresolved merge conflicts") ||
+          combined.includes("abort due to unresolved")
+        ) {
+          logger.debug(
+            `[mimo-agent] Merge conflicts detected for ${sessionId}, attempting to resolve...`,
+          );
+
           // Try to update and merge
           const updateResult = runFossil(["update", "--nosync"]);
           if (!updateResult.success) {
@@ -1495,15 +1506,21 @@ class MimoAgent {
               sessionId,
               requestId,
               success: false,
-              message: "Failed to update fossil checkout - manual intervention required",
+              message:
+                "Failed to update fossil checkout - manual intervention required",
               error: `Update failed: ${updateResult.error || updateResult.output}`,
               timestamp: new Date().toISOString(),
             });
             return;
           }
-          
+
           // Try commit again after update
-          commitResult = runFossil(["commit", "-m", commitMessage, "--allow-conflict"]);
+          commitResult = runFossil([
+            "commit",
+            "-m",
+            commitMessage,
+            "--allow-conflict",
+          ]);
           if (!commitResult.success) {
             this.send({
               type: "sync_now_result",
@@ -1511,7 +1528,10 @@ class MimoAgent {
               requestId,
               success: false,
               message: "Failed to commit after resolving conflicts",
-              error: commitResult.error || commitResult.output || "fossil commit failed",
+              error:
+                commitResult.error ||
+                commitResult.output ||
+                "fossil commit failed",
               timestamp: new Date().toISOString(),
             });
             return;
@@ -1963,7 +1983,9 @@ class MimoAgent {
   private async handleThreadDeleted(message: any): Promise<void> {
     const { sessionId, chatThreadId } = message;
     if (!sessionId || !chatThreadId) {
-      logger.debug("[mimo-agent] Missing sessionId or chatThreadId in thread_deleted");
+      logger.debug(
+        "[mimo-agent] Missing sessionId or chatThreadId in thread_deleted",
+      );
       return;
     }
 
@@ -1985,7 +2007,9 @@ class MimoAgent {
 
     const session = this.sessionManager.getSession(sessionId);
     if (!session) {
-      logger.debug(`[mimo-agent] No session for expert_copy_file: ${sessionId}`);
+      logger.debug(
+        `[mimo-agent] No session for expert_copy_file: ${sessionId}`,
+      );
       return;
     }
 
@@ -1994,7 +2018,9 @@ class MimoAgent {
     const tmpFullPath = join(checkoutPath, tempPath);
 
     if (!existsSync(srcFullPath)) {
-      logger.debug(`[mimo-agent] expert_copy_file: source not found: ${srcFullPath}`);
+      logger.debug(
+        `[mimo-agent] expert_copy_file: source not found: ${srcFullPath}`,
+      );
       this.send({
         type: "error_response",
         sessionId,
@@ -2006,7 +2032,9 @@ class MimoAgent {
 
     try {
       copyFileSync(srcFullPath, tmpFullPath);
-      logger.debug(`[mimo-agent] expert_copy_file: ${srcFullPath} -> ${tmpFullPath}`);
+      logger.debug(
+        `[mimo-agent] expert_copy_file: ${srcFullPath} -> ${tmpFullPath}`,
+      );
     } catch (err) {
       logger.error(`[mimo-agent] expert_copy_file failed:`, err);
       this.send({
@@ -2033,7 +2061,9 @@ class MimoAgent {
       if (existsSync(srcFullPath)) {
         copyFileSync(srcFullPath, dstFullPath);
         unlinkSync(srcFullPath);
-        logger.debug(`[mimo-agent] expert_apply_file: ${tempPath} -> ${originalPath}, temp deleted`);
+        logger.debug(
+          `[mimo-agent] expert_apply_file: ${tempPath} -> ${originalPath}, temp deleted`,
+        );
       }
     } catch (err) {
       logger.error(`[mimo-agent] expert_apply_file failed:`, err);
@@ -2277,20 +2307,28 @@ class MimoAgent {
   }
 
   private setupShutdownHandlers(): void {
-    const shutdown = () => {
+    const shutdown = async () => {
       logger.debug("[mimo-agent] Shutting down...");
+
+      // First, gracefully close all ACP clients to preserve session state
+      // This must happen BEFORE stopAllSessions() which force-kills processes
+      const acpClientKeys = Array.from(this.acpClients.keys());
+      for (const key of acpClientKeys) {
+        await this.closeAcpClientByKey(key);
+      }
+
       this.sessionManager.stopAllSessions();
       this.ws?.close();
       process.exit(0);
     };
 
-    process.on("SIGTERM", shutdown);
-    process.on("SIGINT", shutdown);
-    process.on("SIGUSR2", shutdown);
+    process.on("SIGTERM", () => void shutdown());
+    process.on("SIGINT", () => void shutdown());
+    process.on("SIGUSR2", () => void shutdown());
 
     process.on("uncaughtException", (error) => {
       logger.error("[mimo-agent] Uncaught exception:", error);
-      shutdown();
+      void shutdown();
     });
   }
 }
