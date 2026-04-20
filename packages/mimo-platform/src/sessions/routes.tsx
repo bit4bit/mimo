@@ -12,6 +12,8 @@ import { logger } from "../logger.js";
 import type { MimoContext } from "../context/mimo-context.js";
 import { createFileService, findFiles } from "../files/service.js";
 import { detectLanguage, escapeHtml } from "../files/syntax-highlighter.js";
+import { canDeleteSessionNow } from "./session-retention.js";
+import { createSessionDeletionUseCase } from "./session-deletion.js";
 
 type SessionsRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
 
@@ -32,6 +34,13 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
   const platformUrl = mimoContext.env?.PLATFORM_URL ?? "http://localhost:3000";
   const fileService = createFileService();
   const expertService = mimoContext.services.expert;
+  const sessionDeletion = createSessionDeletionUseCase({
+    sessionRepository,
+    sessionStateService,
+    fileSyncService: mimoContext.services.fileSync,
+    impactCalculator: mimoContext.services.impactCalculator,
+    agentService,
+  });
 
   // Helper to get authenticated username from cookie
   async function getAuthUsername(c: Context): Promise<string | null> {
@@ -140,6 +149,8 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const projectId = (body.projectId as string) || getProjectId(c);
     const agentSubpath = (body.agentSubpath as string) || null;
     const branchName = (body.branchName as string) || null;
+    const sessionTtlDaysRaw = (body.sessionTtlDays as string) || "180";
+    const sessionTtlDays = parseInt(sessionTtlDaysRaw, 10);
     const branchModeRaw = (body.branchMode as string) || "new";
     const branchMode: "new" | "sync" =
       branchModeRaw === "sync" ? "sync" : "new";
@@ -156,6 +167,10 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 
     if (!name || !projectId) {
       return c.text("Name and project ID required", 400);
+    }
+
+    if (isNaN(sessionTtlDays) || !Number.isInteger(sessionTtlDays) || sessionTtlDays < 1) {
+      return c.text("sessionTtlDays must be an integer >= 1", 400);
     }
 
     const project = await projectRepository.findById(projectId);
@@ -208,6 +223,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       owner: username,
       agentSubpath: agentSubpath || undefined,
       mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
+      sessionTtlDays,
     });
 
     // Initialize repository: clone → import to fossil
@@ -417,6 +433,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const streamingTimeoutMs = loadedConfig.streamingTimeoutMs;
     const sessionKeybindings = loadedConfig.sessionKeybindings;
     const chatFileExtensions = loadedConfig.chatFileExtensions;
+    const canDelete = canDeleteSessionNow(session);
 
     return c.html(
       <SessionDetailPage
@@ -442,6 +459,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         chatThreads={session.chatThreads}
         activeChatThreadId={session.activeChatThreadId}
         agentWorkspacePath={session.agentWorkspacePath}
+        canDelete={canDelete}
       />,
     );
   });
@@ -573,25 +591,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       return c.text("Session not found", 404);
     }
 
-    // Delete session and cleanup all associated resources
-    await sessionRepository.delete(session.projectId, sessionId);
-
-    // Note: fossil file is deleted by SessionRepository.delete()
-    // No need to stop any server - shared server continues running
-
-    // Clear in-memory session state
-    sessionStateService.clearSessionState(sessionId);
-
-    // Cleanup sync tracking data
-    await mimoContext.services.fileSync.cleanupSession(sessionId);
-
-    // Clear impact calculator cache
-    mimoContext.services.impactCalculator.clearState(sessionId);
-
-    // Notify assigned agent if any
-    if (session.assignedAgentId) {
-      await agentService.notifySessionEnded(sessionId, session.assignedAgentId);
-    }
+    await sessionDeletion.deleteSessionByRecord(session);
 
     return c.redirect(`/projects/${session.projectId}/sessions`);
   });
@@ -647,6 +647,8 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       },
       session.activeChatThreadId,
     );
+
+    await sessionRepository.touchSessionActivity(sessionId);
 
     return c.json({ success: true });
   });
@@ -822,17 +824,28 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 
     try {
       const body = await c.req.json();
-      const { idleTimeoutMs } = body;
+      const idleTimeoutMs =
+        body.idleTimeoutMs === undefined
+          ? undefined
+          : Number(body.idleTimeoutMs);
+      const sessionTtlDays =
+        body.sessionTtlDays === undefined
+          ? undefined
+          : Number(body.sessionTtlDays);
 
-      if (idleTimeoutMs === undefined) {
-        return c.json({ error: "idleTimeoutMs is required" }, 400);
+      if (idleTimeoutMs === undefined && sessionTtlDays === undefined) {
+        return c.json(
+          { error: "Either idleTimeoutMs or sessionTtlDays is required" },
+          400,
+        );
       }
 
       // Update session config (validation happens in repository)
       const updatedSession = await sessionRepository.updateSessionConfig(
         sessionId,
         {
-          idleTimeoutMs,
+          ...(idleTimeoutMs !== undefined ? { idleTimeoutMs } : {}),
+          ...(sessionTtlDays !== undefined ? { sessionTtlDays } : {}),
         },
       );
 
@@ -851,13 +864,14 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         if (agentWs && agentWs.readyState === 1) {
           agentWs.send(
             JSON.stringify({
-              type: "session_config_updated",
-              sessionId,
-              config: {
-                idleTimeoutMs: updatedSession.idleTimeoutMs,
-              },
-              timestamp: new Date().toISOString(),
-            }),
+                type: "session_config_updated",
+                sessionId,
+                config: {
+                  idleTimeoutMs: updatedSession.idleTimeoutMs,
+                  sessionTtlDays: updatedSession.sessionTtlDays,
+                },
+                timestamp: new Date().toISOString(),
+              }),
           );
         }
       }
@@ -867,6 +881,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         session: {
           id: updatedSession.id,
           idleTimeoutMs: updatedSession.idleTimeoutMs,
+          sessionTtlDays: updatedSession.sessionTtlDays,
           acpStatus: updatedSession.acpStatus,
         },
       });
@@ -925,6 +940,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
           id: session.id,
           name: session.name,
           idleTimeoutMs: session.idleTimeoutMs,
+          sessionTtlDays: session.sessionTtlDays,
           acpStatus: session.acpStatus,
         }}
         project={{
@@ -960,6 +976,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 
     const body = await c.req.parseBody();
     const idleTimeoutMs = parseInt(body.idleTimeoutMs as string, 10);
+    const sessionTtlDays = parseInt(body.sessionTtlDays as string, 10);
 
     if (
       isNaN(idleTimeoutMs) ||
@@ -980,9 +997,28 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       );
     }
 
+    if (isNaN(sessionTtlDays) || !Number.isInteger(sessionTtlDays) || sessionTtlDays < 1) {
+      return c.html(
+        <div style="padding: 20px; color: #ff6b6b;">
+          Error: Invalid TTL value. Must be an integer number of days and at
+          least 1.
+          <br />
+          <br />
+          <a
+            href={`/projects/${session.projectId}/sessions/${sessionId}/settings`}
+          >
+            Go Back
+          </a>
+        </div>,
+      );
+    }
+
     try {
       // Update the session config
-      await sessionRepository.updateSessionConfig(sessionId, { idleTimeoutMs });
+      await sessionRepository.updateSessionConfig(sessionId, {
+        idleTimeoutMs,
+        sessionTtlDays,
+      });
 
       // Notify agent of config change if assigned and online
       if (
@@ -995,11 +1031,11 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         if (agentWs && agentWs.readyState === 1) {
           agentWs.send(
             JSON.stringify({
-              type: "session_config_updated",
-              sessionId,
-              config: { idleTimeoutMs },
-              timestamp: new Date().toISOString(),
-            }),
+                type: "session_config_updated",
+                sessionId,
+                config: { idleTimeoutMs, sessionTtlDays },
+                timestamp: new Date().toISOString(),
+              }),
           );
         }
       }

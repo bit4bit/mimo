@@ -60,6 +60,8 @@ export interface Session {
   mcpServerIds: string[];
   // ACP Session Parking fields
   idleTimeoutMs: number;
+  sessionTtlDays: number;
+  lastActivityAt: string | null;
   acpStatus: "active" | "parked";
   syncState: "idle" | "syncing" | "error";
   lastSyncAt?: string;
@@ -93,6 +95,8 @@ export interface SessionData {
   mcpServerIds?: string[];
   // ACP Session Parking fields
   idleTimeoutMs?: number;
+  sessionTtlDays?: number;
+  lastActivityAt?: string | null;
   acpStatus?: "active" | "parked";
   syncState?: "idle" | "syncing" | "error";
   lastSyncAt?: string;
@@ -115,10 +119,12 @@ export interface CreateSessionInput {
   agentSubpath?: string;
   branchName?: string;
   mcpServerIds?: string[];
+  sessionTtlDays?: number;
 }
 
 export interface UpdateSessionConfigInput {
   idleTimeoutMs?: number;
+  sessionTtlDays?: number;
 }
 
 interface SessionRepositoryDeps {
@@ -247,6 +253,8 @@ export class SessionRepository {
       mcpServerIds: input.mcpServerIds || [],
       // ACP Session Parking defaults
       idleTimeoutMs: 600000, // 10 minutes default
+      sessionTtlDays: input.sessionTtlDays ?? 180,
+      lastActivityAt: null,
       acpStatus: "active",
       syncState: "idle",
       frameState: createDefaultFrameState(),
@@ -300,6 +308,8 @@ export class SessionRepository {
               agentWorkspacePath:
                 data.agentWorkspacePath || (data as any).checkoutPath,
               idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+              sessionTtlDays: data.sessionTtlDays ?? 180,
+              lastActivityAt: data.lastActivityAt ?? null,
               acpStatus: data.acpStatus ?? "active",
               syncState: data.syncState ?? "idle",
               mcpServerIds: data.mcpServerIds ?? [],
@@ -338,6 +348,8 @@ export class SessionRepository {
       ...data,
       agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
       idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+      sessionTtlDays: data.sessionTtlDays ?? 180,
+      lastActivityAt: data.lastActivityAt ?? null,
       acpStatus: data.acpStatus ?? "active",
       syncState: data.syncState ?? "idle",
       frameState: normalizeFrameState(data.frameState),
@@ -376,6 +388,8 @@ export class SessionRepository {
             agentWorkspacePath:
               data.agentWorkspacePath || (data as any).checkoutPath,
             idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+            sessionTtlDays: data.sessionTtlDays ?? 180,
+            lastActivityAt: data.lastActivityAt ?? null,
             acpStatus: data.acpStatus ?? "active",
             syncState: data.syncState ?? "idle",
             frameState: normalizeFrameState(data.frameState),
@@ -448,6 +462,8 @@ export class SessionRepository {
                   agentWorkspacePath:
                     data.agentWorkspacePath || (data as any).checkoutPath,
                   idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+                  sessionTtlDays: data.sessionTtlDays ?? 180,
+                  lastActivityAt: data.lastActivityAt ?? null,
                   acpStatus: data.acpStatus ?? "active",
                   syncState: data.syncState ?? "idle",
                   frameState: normalizeFrameState(data.frameState),
@@ -505,6 +521,8 @@ export class SessionRepository {
           agentWorkspacePath:
             data.agentWorkspacePath || (data as any).checkoutPath,
           idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+          sessionTtlDays: data.sessionTtlDays ?? 180,
+          lastActivityAt: data.lastActivityAt ?? null,
           acpStatus: data.acpStatus ?? "active",
           syncState: data.syncState ?? "idle",
           mcpServerIds: data.mcpServerIds ?? [],
@@ -670,11 +688,27 @@ export class SessionRepository {
       }
     }
 
+    if (config.sessionTtlDays !== undefined) {
+      if (!Number.isInteger(config.sessionTtlDays) || config.sessionTtlDays < 1) {
+        throw new Error("sessionTtlDays must be an integer >= 1");
+      }
+    }
+
     const updates: Partial<SessionData> = {};
     if (config.idleTimeoutMs !== undefined) {
       updates.idleTimeoutMs = config.idleTimeoutMs;
     }
+    if (config.sessionTtlDays !== undefined) {
+      updates.sessionTtlDays = config.sessionTtlDays;
+    }
 
     return this.update(sessionId, updates);
+  }
+
+  async touchSessionActivity(
+    sessionId: string,
+    timestamp: string = new Date().toISOString(),
+  ): Promise<Session | null> {
+    return this.update(sessionId, { lastActivityAt: timestamp });
   }
 }

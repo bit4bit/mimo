@@ -4,6 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, readFileSync, mkdirSync, writeFileSync } from "fs";
 import bcrypt from "bcrypt";
+import { load, dump } from "js-yaml";
 
 // Re-import modules after setting up environment
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
@@ -15,6 +16,7 @@ let userRepository: any;
 let projectRepository: any;
 let authService: any;
 let agentService: any;
+let mimoContext: any;
 let testHome: string;
 
 describe("Session Management Integration Tests", () => {
@@ -32,6 +34,7 @@ describe("Session Management Integration Tests", () => {
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       services: { sharedFossil: new DummySharedFossilServer() },
     });
+    mimoContext = ctx;
 
     userRepository = ctx.repos.users;
     projectRepository = ctx.repos.projects;
@@ -83,8 +86,45 @@ describe("Session Management Integration Tests", () => {
       expect(html).not.toContain("Local Development Mirror");
       expect(html).not.toContain('name="localDevMirrorPath"');
       expect(html).toContain('name="branchMode"');
+      expect(html).toContain('name="sessionTtlDays"');
       expect(html).toContain('value="new"');
       expect(html).toContain('value="sync"');
+    });
+
+    it("should create session with ttl days from creation form", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "TTL Session",
+          sessionTtlDays: "365",
+        }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      const sessionId = (res.headers.get("location") || "").split("/").pop();
+      const session = await sessionRepository.findById(sessionId!);
+      expect(session).not.toBeNull();
+      expect(session?.sessionTtlDays).toBe(365);
     });
 
     it("should create a new session for a project", async () => {
@@ -162,7 +202,60 @@ describe("Session Management Integration Tests", () => {
 
       expect(session).not.toBeNull();
       expect(session?.idleTimeoutMs).toBe(600000); // 10 minutes default
+      expect(session?.sessionTtlDays).toBe(180); // 6 months default
+      expect(session?.lastActivityAt).toBeNull();
       expect(session?.acpStatus).toBe("active");
+    });
+
+    it("should apply backward-compatible defaults for retention fields", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "Legacy Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      const sessionId = (res.headers.get("location") || "").split("/").pop();
+      const sessionPath = join(
+        testHome,
+        "projects",
+        project.id,
+        "sessions",
+        sessionId!,
+        "session.yaml",
+      );
+
+      const yamlData = (load(readFileSync(sessionPath, "utf-8")) as Record<
+        string,
+        unknown
+      >)!;
+      delete yamlData.sessionTtlDays;
+      delete yamlData.lastActivityAt;
+      writeFileSync(sessionPath, dump(yamlData), "utf-8");
+
+      const hydrated = await sessionRepository.findById(sessionId!);
+      expect(hydrated).not.toBeNull();
+      expect(hydrated?.sessionTtlDays).toBe(180);
+      expect(hydrated?.lastActivityAt).toBeNull();
     });
 
     it("should provision dev workspace credentials during session creation", async () => {
@@ -259,6 +352,94 @@ describe("Session Management Integration Tests", () => {
 
       const updatedSession = await sessionRepository.findById(sessionId!);
       expect(updatedSession?.idleTimeoutMs).toBe(120000);
+    });
+
+    it("should update sessionTtlDays via updateSessionConfig", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "Retention Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      const sessionId = (res.headers.get("location") || "").split("/").pop();
+
+      const patchRes = await app.request(
+        `/projects/${project.id}/sessions/${sessionId}/config`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({ sessionTtlDays: 365 }),
+        },
+      );
+
+      expect(patchRes.status).toBe(200);
+      const updatedSession = await sessionRepository.findById(sessionId!);
+      expect(updatedSession?.sessionTtlDays).toBe(365);
+    });
+
+    it("should reject invalid sessionTtlDays", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "Retention Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      const sessionId = (res.headers.get("location") || "").split("/").pop();
+
+      const patchRes = await app.request(
+        `/projects/${project.id}/sessions/${sessionId}/config`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({ sessionTtlDays: 0 }),
+        },
+      );
+
+      expect(patchRes.status).toBe(400);
     });
 
     it("should reject idleTimeoutMs below 10000ms", async () => {
@@ -892,6 +1073,127 @@ describe("Session Management Integration Tests", () => {
       // Verify session was deleted
       const sessions = await sessionRepository.listByProject(project.id);
       expect(sessions.length).toBe(0);
+    });
+
+    it("should create then auto-delete expired inactive session via sweeper", async () => {
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Expired Session",
+        projectId: project.id,
+        owner: "testuser",
+        sessionTtlDays: 1,
+      });
+
+      await sessionRepository.update(session.id, {
+        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        lastActivityAt: null,
+      });
+
+      const { createSessionDeletionUseCase } = await import(
+        "../src/sessions/session-deletion.ts"
+      );
+      const { sweepExpiredInactiveSessions } = await import(
+        "../src/sessions/session-retention-sweeper.ts"
+      );
+
+      const sessionDeletion = createSessionDeletionUseCase({
+        sessionRepository: mimoContext.repos.sessions,
+        sessionStateService: mimoContext.services.sessionState,
+        fileSyncService: mimoContext.services.fileSync,
+        impactCalculator: mimoContext.services.impactCalculator,
+        agentService: mimoContext.services.agents,
+      });
+
+      const sweepResult = await sweepExpiredInactiveSessions({
+        sessionRepository: mimoContext.repos.sessions,
+        sessionDeletion,
+      });
+
+      expect(sweepResult.deleted).toBe(1);
+
+      const deleted = await sessionRepository.findById(session.id);
+      expect(deleted).toBeNull();
+
+      const remaining = await sessionRepository.listByProject(project.id);
+      expect(remaining.length).toBe(0);
+    });
+
+    it("should hide delete button while session is active", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+      const session = await sessionRepository.create({
+        name: "Active Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      await sessionRepository.update(session.id, {
+        lastActivityAt: new Date().toISOString(),
+      });
+
+      const token = await authService.generateToken("testuser");
+      const res = await app.request(`/projects/${project.id}/sessions/${session.id}`, {
+        headers: { Cookie: `token=${token}` },
+      });
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).not.toContain("Delete Session");
+    });
+
+    it("should show delete button when session is inactive", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+      const session = await sessionRepository.create({
+        name: "Inactive Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      await sessionRepository.update(session.id, {
+        lastActivityAt: new Date(Date.now() - 11 * 60 * 1000).toISOString(),
+      });
+
+      const token = await authService.generateToken("testuser");
+      const res = await app.request(`/projects/${project.id}/sessions/${session.id}`, {
+        headers: { Cookie: `token=${token}` },
+      });
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("Delete Session");
     });
   });
 

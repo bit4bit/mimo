@@ -50,6 +50,22 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
           </div>
 
           <div class="form-group">
+            <label>Session TTL (days)</label>
+            <select name="sessionTtlDays" required>
+              <option value="30">30 days</option>
+              <option value="90">90 days</option>
+              <option value="180" selected>
+                180 days (Default)
+              </option>
+              <option value="365">365 days</option>
+            </select>
+            <p style="color: #888; font-size: 12px; margin-top: 5px;">
+              Session is eligible for auto-delete after this age, only when
+              inactive for at least 10 minutes.
+            </p>
+          </div>
+
+          <div class="form-group">
             <label>Agent working directory (optional)</label>
             <input
               type="text"

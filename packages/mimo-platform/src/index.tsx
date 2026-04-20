@@ -32,6 +32,8 @@ import {
 import { logger } from "./logger.js";
 import { join } from "path";
 import { homedir } from "os";
+import { createSessionDeletionUseCase } from "./sessions/session-deletion.js";
+import { sweepExpiredInactiveSessions } from "./sessions/session-retention-sweeper.js";
 
 const app = new Hono();
 const _port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -566,6 +568,45 @@ mimoServer.setup({
 
 const server = mimoServer.start();
 
+const sessionDeletion = createSessionDeletionUseCase({
+  sessionRepository,
+  sessionStateService,
+  fileSyncService: mimoContext.services.fileSync,
+  impactCalculator: mimoContext.services.impactCalculator,
+  agentService,
+});
+
+const SESSION_RETENTION_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
+setInterval(() => {
+  void sweepExpiredInactiveSessions({
+    sessionRepository,
+    sessionDeletion,
+  }).then((result) => {
+    if (result.deleted > 0) {
+      logger.debug("[retention] sweep completed", result);
+    }
+  });
+}, SESSION_RETENTION_SWEEP_INTERVAL_MS);
+
+const SESSION_ACTIVITY_EVENT_TYPES = new Set([
+  "thought_start",
+  "thought_chunk",
+  "thought_end",
+  "message_chunk",
+  "usage_update",
+]);
+
+async function touchSessionActivity(sessionId: string): Promise<void> {
+  try {
+    await sessionRepository.touchSessionActivity(sessionId);
+  } catch (error) {
+    logger.error("[activity] failed to touch session activity", {
+      sessionId,
+      error,
+    });
+  }
+}
+
 // Handle agent messages
 async function triggerAutoSync(
   sessionId: string,
@@ -619,6 +660,14 @@ async function triggerAutoSync(
 async function handleAgentMessage(ws, data) {
   logger.debug("[agent] Received message:", data.type, data);
   process.stdout?.write?.(""); // Flush stdout
+
+  if (
+    data.sessionId &&
+    typeof data.sessionId === "string" &&
+    SESSION_ACTIVITY_EVENT_TYPES.has(data.type)
+  ) {
+    await touchSessionActivity(data.sessionId);
+  }
 
   switch (data.type) {
     case "ping":
@@ -1678,6 +1727,7 @@ async function handleChatMessage(ws, data) {
         },
         userThreadId,
       );
+      await touchSessionActivity(sessionId);
 
       // Broadcast to all clients in session
       const subscribers = chatSessions.get(sessionId);

@@ -28,6 +28,7 @@ interface Session {
   lastSyncAt?: string;
   lastSyncError?: string;
   createdAt: Date;
+  lastActivityAt: string | null;
 }
 
 interface ChatMessage {
@@ -79,6 +80,7 @@ interface SessionDetailProps {
   sessionKeybindings?: SessionKeybindingsConfig;
   agentWorkspacePath?: string;
   chatFileExtensions?: string[];
+  canDelete?: boolean;
 }
 
 function toEmacsNotation(binding: string): string {
@@ -157,6 +159,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   sessionKeybindings,
   agentWorkspacePath = "",
   chatFileExtensions,
+  canDelete = true,
 }) => {
   ensureDefaultBuffersRegistered();
   const leftBuffers = getBuffersForFrame("left");
@@ -281,15 +284,17 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               style="color: #888; font-size: 12px;"
             ></span>
           </div>
-          <form
-            method="POST"
-            action={`/projects/${project.id}/sessions/${session.id}/delete`}
-            style="display: inline;"
-          >
-            <button type="submit" class="btn-danger">
-              Delete Session
-            </button>
-          </form>
+          {canDelete && (
+            <form
+              method="POST"
+              action={`/projects/${project.id}/sessions/${session.id}/delete`}
+              style="display: inline;"
+            >
+              <button type="submit" class="btn-danger">
+                Delete Session
+              </button>
+            </form>
+          )}
         </div>
 
         <div
