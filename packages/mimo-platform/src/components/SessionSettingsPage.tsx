@@ -7,6 +7,7 @@ interface SessionSettingsPageProps {
     name: string;
     idleTimeoutMs: number;
     acpStatus: string;
+    priority: "high" | "medium" | "low";
   };
   project: {
     id: string;
@@ -137,6 +138,28 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
         >
           Runtime Settings
         </h2>
+
+        <form
+          method="POST"
+          action={`/projects/${project.id}/sessions/${session.id}/settings/priority`}
+        >
+          <div class="form-group">
+            <label>Priority</label>
+            <select name="priority" required>
+              <option value="high" selected={session.priority === "high"}>High</option>
+              <option value="medium" selected={session.priority === "medium"}>Medium</option>
+              <option value="low" selected={session.priority === "low"}>Low</option>
+            </select>
+            <p class="form-help">
+              Affects the order this session appears in the list.
+            </p>
+          </div>
+          <div class="actions">
+            <button type="submit" class="btn">
+              Update Priority
+            </button>
+          </div>
+        </form>
 
         <form
           method="POST"

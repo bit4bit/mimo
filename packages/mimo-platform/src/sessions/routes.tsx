@@ -143,6 +143,11 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const branchModeRaw = (body.branchMode as string) || "new";
     const branchMode: "new" | "sync" =
       branchModeRaw === "sync" ? "sync" : "new";
+    const priorityRaw = (body.priority as string) || undefined;
+    if (priorityRaw !== undefined && !["high", "medium", "low"].includes(priorityRaw)) {
+      return c.text("priority must be one of: high, medium, low", 400);
+    }
+    const priority = priorityRaw as "high" | "medium" | "low" | undefined;
 
     // Parse MCP server IDs from form (can be single string or array)
     let mcpServerIds: string[] = [];
@@ -208,6 +213,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       owner: username,
       agentSubpath: agentSubpath || undefined,
       mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
+      priority,
     });
 
     // Initialize repository: clone → import to fossil
@@ -822,10 +828,14 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 
     try {
       const body = await c.req.json();
-      const { idleTimeoutMs } = body;
+      const { idleTimeoutMs, priority } = body;
 
-      if (idleTimeoutMs === undefined) {
+      if (idleTimeoutMs === undefined && priority === undefined) {
         return c.json({ error: "idleTimeoutMs is required" }, 400);
+      }
+
+      if (priority !== undefined && !["high", "medium", "low"].includes(priority)) {
+        return c.json({ error: "priority must be one of: high, medium, low" }, 400);
       }
 
       // Update session config (validation happens in repository)
@@ -833,6 +843,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         sessionId,
         {
           idleTimeoutMs,
+          priority,
         },
       );
 
@@ -926,6 +937,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
           name: session.name,
           idleTimeoutMs: session.idleTimeoutMs,
           acpStatus: session.acpStatus,
+          priority: session.priority,
         }}
         project={{
           id: project.id,
@@ -1023,6 +1035,47 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         </div>,
       );
     }
+  });
+
+  // POST /sessions/:id/settings/priority - Update priority via form
+  router.post("/:id/settings/priority", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) {
+      return c.redirect("/auth/login");
+    }
+
+    const sessionId = c.req.param("id");
+    const session = await sessionRepository.findById(sessionId);
+
+    if (!session || session.owner !== username) {
+      return c.text("Session not found", 404);
+    }
+
+    const body = await c.req.parseBody();
+    const priority = body.priority as string;
+
+    if (!["high", "medium", "low"].includes(priority)) {
+      return c.html(
+        <div style="padding: 20px; color: #ff6b6b;">
+          Error: priority must be one of: high, medium, low
+          <br />
+          <br />
+          <a
+            href={`/projects/${session.projectId}/sessions/${sessionId}/settings`}
+          >
+            Go Back
+          </a>
+        </div>,
+      );
+    }
+
+    await sessionRepository.updateSessionConfig(sessionId, {
+      priority: priority as "high" | "medium" | "low",
+    });
+
+    return c.redirect(
+      `/projects/${session.projectId}/sessions/${sessionId}/settings`,
+    );
   });
 
   // ---------------------------------------------------------------------------

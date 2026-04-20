@@ -26,6 +26,7 @@ interface Session {
   status: "active" | "paused" | "closed";
   createdAt: Date;
   updatedAt: Date;
+  priority: "high" | "medium" | "low";
 }
 
 interface ProjectDetailProps {
@@ -39,6 +40,13 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({
   sessions,
   credential,
 }) => {
+  const priorityWeight: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  const sortedSessions = [...sessions].sort((a, b) => {
+    const pw = (priorityWeight[a.priority] ?? 1) - (priorityWeight[b.priority] ?? 1);
+    if (pw !== 0) return pw;
+    return b.createdAt.getTime() - a.createdAt.getTime();
+  });
+
   const columns: DataTableColumn<Session>[] = [
     {
       key: "name",
@@ -50,6 +58,15 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({
         >
           {session.name}
         </a>
+      ),
+    },
+    {
+      key: "priority",
+      label: "Priority",
+      render: (session) => (
+        <span class={`session-priority ${session.priority}`}>
+          {session.priority}
+        </span>
       ),
     },
     {
@@ -147,13 +164,11 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({
           </div>
 
           <DataTable
-            rows={sessions}
+            rows={sortedSessions}
             columns={columns}
             searchFields={["name"]}
             pageSize={10}
             emptyMessage="No sessions yet. Create one to start development."
-            sortBy="createdAt"
-            sortDesc={true}
           />
         </div>
 
