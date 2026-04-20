@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "skills": {
+    "backprop": {
+      "source": "JuliusBrussee/cavekit",
+      "sourceType": "github",
+      "computedHash": "7d23e415bf412ff01fa8c3d920c269f6ac7a9ca0c337eafda861d412ba8f946c"
+    },
+    "build": {
+      "source": "JuliusBrussee/cavekit",
+      "sourceType": "github",
+      "computedHash": "380b2ed44d9766582dca06e3a564ffafe3129132e8b0051664716521b76c9c50"
+    },
+    "caveman": {
+      "source": "JuliusBrussee/cavekit",
+      "sourceType": "github",
+      "computedHash": "b7296730e7d074253e6806b9e71dab4a6e1cbfeb643cafc000f9ce7bec0a825c"
+    },
+    "check": {
+      "source": "JuliusBrussee/cavekit",
+      "sourceType": "github",
+      "computedHash": "9318e8cf08cbb3be90cb1970d4cfa225f18645f5775d83e2bce83c2dc813220a"
+    },
+    "spec": {
+      "source": "JuliusBrussee/cavekit",
+      "sourceType": "github",
+      "computedHash": "968e19b8644a9dc182bd481fe6e534befc78f158514dfa9d16c53ecd7a543065"
+    }
+  }
+}
