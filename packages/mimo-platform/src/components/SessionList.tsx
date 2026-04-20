@@ -6,6 +6,7 @@ export interface SessionListItem {
   status: "active" | "paused" | "closed";
   createdAt: Date | string;
   projectId: string;
+  priority: "high" | "medium" | "low";
 }
 
 interface SessionListProps {
@@ -53,7 +54,10 @@ export const SessionList: FC<SessionListProps> = ({
     );
   }
 
+  const priorityWeight: Record<string, number> = { high: 0, medium: 1, low: 2 };
   const sorted = [...sessions].sort((a, b) => {
+    const pw = (priorityWeight[a.priority] ?? 1) - (priorityWeight[b.priority] ?? 1);
+    if (pw !== 0) return pw;
     const da = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
     const db = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
     return db.getTime() - da.getTime();
@@ -81,6 +85,7 @@ export const SessionList: FC<SessionListProps> = ({
             <tr>
               <th>Name</th>
               {showProject && <th>Project</th>}
+              <th>Priority</th>
               <th>Status</th>
               <th>Created</th>
             </tr>
@@ -107,6 +112,11 @@ export const SessionList: FC<SessionListProps> = ({
                     </span>
                   </td>
                 )}
+                <td>
+                  <span class={`session-priority ${s.priority}`}>
+                    {s.priority}
+                  </span>
+                </td>
                 <td>
                   <span class={`session-status ${s.status}`}>
                     {s.status}
