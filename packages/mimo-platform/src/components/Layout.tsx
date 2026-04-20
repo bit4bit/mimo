@@ -74,11 +74,15 @@ export const Layout: FC<LayoutProps> = ({
              display: flex;
              flex-direction: column;
            }
-          .container { 
-            max-width: 400px; 
-            margin: 50px auto; 
-            padding: 20px; 
-          }
+           .container { 
+             max-width: 400px; 
+             margin: 50px auto; 
+             padding: 20px; 
+           }
+           .container-wide { 
+             max-width: 100%; 
+             padding: 20px; 
+           }
           h1 { color: #fff; margin-bottom: 20px; }
           form { display: flex; flex-direction: column; gap: 15px; }
           label { color: #888; font-size: 12px; text-transform: uppercase; }
@@ -209,9 +213,81 @@ export const Layout: FC<LayoutProps> = ({
            .session-status.active { background: #2d5a2d; color: #6bff6b; }
            .session-status.paused { background: #5a5a2d; color: #ffff6b; }
            .session-status.closed { background: #5a2d2d; color: #ff6b6b; }
-           .session-meta { color: #888; font-size: 12px; }
-           
-           /* Buffer Focus Styles */
+            .session-meta { color: #888; font-size: 12px; }
+            
+            /* DataTable Styles */
+            .data-table-container { display: flex; flex-direction: column; gap: 12px; }
+            .data-table-search { display: flex; }
+            .data-table-search-input {
+              background: #1a1a1a;
+              border: 1px solid #444;
+              color: #d4d4d4;
+              padding: 8px 12px;
+              font-family: monospace;
+              font-size: 13px;
+              width: 100%;
+              max-width: 300px;
+            }
+            .data-table-search-input:focus { outline: none; border-color: #666; }
+            .data-table-wrap { overflow-x: auto; }
+            .data-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 13px;
+            }
+            .data-table th,
+            .data-table td {
+              padding: 10px 12px;
+              text-align: left;
+              border-bottom: 1px solid #3a3a3a;
+            }
+            .data-table th {
+              background: #252525;
+              color: #888;
+              font-size: 11px;
+              text-transform: uppercase;
+              font-weight: bold;
+            }
+            .data-table tr:hover { background: #2a2a2a; }
+            .data-table .session-status,
+            .data-table .status-badge {
+              font-size: 11px;
+              text-transform: uppercase;
+              padding: 2px 6px;
+              border-radius: 3px;
+            }
+            .data-table .session-status.active,
+            .data-table .status-badge.active { background: #2d5a2d; color: #6bff6b; }
+            .data-table .session-status.paused,
+            .data-table .status-badge.paused { background: #5a5a2d; color: #ffff6b; }
+            .data-table .session-status.closed,
+            .data-table .status-badge.closed { background: #5a2d2d; color: #ff6b6b; }
+            .data-table .session-status.online,
+            .data-table .status-badge.online { background: #0b3d0b; color: #51cf66; }
+            .data-table .session-status.offline,
+            .data-table .status-badge.offline { background: #3d0b0b; color: #ff6b6b; }
+            .data-table .session-time { color: #888; font-size: 12px; white-space: nowrap; }
+            .data-table .session-project { color: #888; font-size: 12px; }
+            .data-table-paginator {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              gap: 12px;
+              padding: 10px 0;
+            }
+            .data-table-paginator .page-btn {
+              background: #2d2d2d;
+              border: 1px solid #444;
+              color: #d4d4d4;
+              padding: 6px 12px;
+              font-family: monospace;
+              font-size: 12px;
+              cursor: pointer;
+            }
+            .data-table-paginator .page-btn:hover { background: #3d3d3d; }
+            .data-table-paginator .page-info { color: #888; font-size: 12px; }
+            
+            /* Buffer Focus Styles */
            .buffer-focused {
              box-shadow: inset 0 0 0 2px #74c0fc;
            }

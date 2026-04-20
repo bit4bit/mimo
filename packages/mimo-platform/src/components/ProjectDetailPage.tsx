@@ -1,5 +1,6 @@
 import type { FC } from "hono/jsx";
 import { Layout } from "./Layout.js";
+import { DataTable, type DataTableColumn } from "./DataTable.js";
 import type { Credential } from "../credentials/repository";
 
 interface Project {
@@ -38,13 +39,42 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({
   sessions,
   credential,
 }) => {
-  const sortedSessions = sessions.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
+  const columns: DataTableColumn<Session>[] = [
+    {
+      key: "name",
+      label: "Name",
+      render: (session) => (
+        <a
+          href={`/projects/${project.id}/sessions/${session.id}`}
+          class="session-name"
+        >
+          {session.name}
+        </a>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (session) => (
+        <span class={`session-status ${session.status}`}>
+          {session.status}
+        </span>
+      ),
+    },
+    {
+      key: "createdAt",
+      label: "Created",
+      render: (session) => (
+        <span class="session-time">
+          {new Date(session.createdAt).toLocaleDateString()}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <Layout title={project.name}>
-      <div class="container" style="max-width: 800px;">
+      <div class="container-wide">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <h1>{project.name}</h1>
           <div style="display: flex; gap: 10px;">
@@ -116,35 +146,15 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({
             </a>
           </div>
 
-          {sortedSessions.length === 0 ? (
-            <div class="empty-state">
-              <p>No sessions yet. Create one to start development.</p>
-            </div>
-          ) : (
-            <div class="session-list">
-              {sortedSessions.map((session) => (
-                <div key={session.id} class="session-card">
-                  <div class="session-header">
-                    <a
-                      href={`/projects/${project.id}/sessions/${session.id}`}
-                      class="session-name"
-                    >
-                      {session.name}
-                    </a>
-                    <span class={`session-status ${session.status}`}>
-                      {session.status}
-                    </span>
-                  </div>
-                  <div class="session-meta">
-                    <span>
-                      Created:{" "}
-                      {new Date(session.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <DataTable
+            rows={sessions}
+            columns={columns}
+            searchFields={["name"]}
+            pageSize={10}
+            emptyMessage="No sessions yet. Create one to start development."
+            sortBy="createdAt"
+            sortDesc={true}
+          />
         </div>
 
         <div class="actions" style="margin-top: 30px;">

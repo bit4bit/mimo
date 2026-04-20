@@ -1,5 +1,6 @@
 import type { FC } from "hono/jsx";
 import { Layout } from "./Layout.js";
+import { DataTable, type DataTableColumn } from "./DataTable.js";
 
 interface Project {
   id: string;
@@ -22,9 +23,42 @@ export const SessionListPage: FC<SessionListProps> = ({
   project,
   sessions,
 }) => {
+  const columns: DataTableColumn<Session>[] = [
+    {
+      key: "name",
+      label: "Name",
+      render: (session) => (
+        <a
+          href={`/projects/${project.id}/sessions/${session.id}`}
+          class="session-name"
+        >
+          {session.name}
+        </a>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (session) => (
+        <span class={`session-status ${session.status}`}>
+          {session.status}
+        </span>
+      ),
+    },
+    {
+      key: "createdAt",
+      label: "Created",
+      render: (session) => (
+        <span class="session-time">
+          {new Date(session.createdAt).toLocaleString()}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <Layout title={`Sessions - ${project.name}`}>
-      <div class="container" style="max-width: 800px;">
+      <div class="container-wide">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <h1>Sessions: {project.name}</h1>
           <a href={`/projects/${project.id}/sessions/new`} class="btn">
@@ -32,37 +66,20 @@ export const SessionListPage: FC<SessionListProps> = ({
           </a>
         </div>
 
-        {sessions.length === 0 ? (
-          <div class="empty-state">
-            <p>No sessions yet.</p>
+        <DataTable
+          rows={sessions}
+          columns={columns}
+          searchFields={["name"]}
+          pageSize={10}
+          emptyMessage="No sessions yet."
+          emptyAction={
             <a href={`/projects/${project.id}/sessions/new`} class="btn">
               Create your first session
             </a>
-          </div>
-        ) : (
-          <div class="session-list">
-            {sessions.map((session) => (
-              <div key={session.id} class="session-card">
-                <div class="session-header">
-                  <a
-                    href={`/projects/${project.id}/sessions/${session.id}`}
-                    class="session-name"
-                  >
-                    {session.name}
-                  </a>
-                  <span class={`status-badge ${session.status}`}>
-                    {session.status}
-                  </span>
-                </div>
-                <div class="session-meta">
-                  <span>
-                    Created: {new Date(session.createdAt).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+          }
+          sortBy="createdAt"
+          sortDesc={true}
+        />
 
         <div style="margin-top: 30px;">
           <a href={`/projects/${project.id}`} class="btn-secondary">

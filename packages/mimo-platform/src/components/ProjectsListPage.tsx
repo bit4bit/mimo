@@ -1,5 +1,6 @@
 import type { FC } from "hono/jsx";
 import { Layout } from "./Layout.js";
+import { DataTable, type DataTableColumn } from "./DataTable.js";
 
 interface Project {
   id: string;
@@ -21,9 +22,47 @@ const truncateText = (text: string, maxLength: number): string => {
 };
 
 export const ProjectsListPage: FC<ProjectsListProps> = ({ projects }) => {
+  const columns: DataTableColumn<Project>[] = [
+    {
+      key: "name",
+      label: "Name",
+      render: (project) => (
+        <a href={`/projects/${project.id}`} class="project-name">
+          {project.name}
+        </a>
+      ),
+    },
+    {
+      key: "repoType",
+      label: "Type",
+      render: (project) => (
+        <span class={`repo-type ${project.repoType}`}>
+          {project.repoType}
+        </span>
+      ),
+    },
+    {
+      key: "description",
+      label: "Description",
+      render: (project) =>
+        project.description ? (
+          truncateText(project.description, 80)
+        ) : (
+          <span style="color: #666;">No description</span>
+        ),
+    },
+    {
+      key: "repoUrl",
+      label: "Repository",
+      render: (project) => (
+        <span class="project-meta">{truncateText(project.repoUrl, 50)}</span>
+      ),
+    },
+  ];
+
   return (
     <Layout title="Projects">
-      <div class="container" style="max-width: 800px;">
+      <div class="container-wide">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <h1>Projects</h1>
           <a href="/projects/new" class="btn">
@@ -31,39 +70,20 @@ export const ProjectsListPage: FC<ProjectsListProps> = ({ projects }) => {
           </a>
         </div>
 
-        {projects.length === 0 ? (
-          <div class="empty-state">
-            <p>No projects yet.</p>
+        <DataTable
+          rows={projects}
+          columns={columns}
+          searchFields={["name"]}
+          pageSize={10}
+          emptyMessage="No projects yet."
+          emptyAction={
             <a href="/projects/new" class="btn">
               Create your first project
             </a>
-          </div>
-        ) : (
-          <div class="project-list">
-            {projects.map((project) => (
-              <div key={project.id} class="project-card">
-                <div class="project-header">
-                  <a href={`/projects/${project.id}`} class="project-name">
-                    {project.name}
-                  </a>
-                  <span class={`repo-type ${project.repoType}`}>
-                    {project.repoType}
-                  </span>
-                </div>
-                <div style="color: #888; margin: 8px 0; font-size: 14px;">
-                  {project.description ? (
-                    truncateText(project.description, 200)
-                  ) : (
-                    <span style="color: #666;">No description</span>
-                  )}
-                </div>
-                <div class="project-meta">
-                  <span>{project.repoUrl}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+          }
+          sortBy="createdAt"
+          sortDesc={true}
+        />
       </div>
     </Layout>
   );

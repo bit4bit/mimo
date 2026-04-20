@@ -1,5 +1,6 @@
 import type { FC } from "hono/jsx";
 import { Layout } from "./Layout.js";
+import { DataTable, type DataTableColumn } from "./DataTable.js";
 import type { Credential } from "../credentials/repository";
 
 interface CredentialsListPageProps {
@@ -9,9 +10,56 @@ interface CredentialsListPageProps {
 export const CredentialsListPage: FC<CredentialsListPageProps> = ({
   credentials,
 }) => {
+  const columns: DataTableColumn<Credential>[] = [
+    {
+      key: "name",
+      label: "Name",
+      render: (cred) => (
+        <a href={`/credentials/${cred.id}/edit`}>{cred.name}</a>
+      ),
+    },
+    {
+      key: "type",
+      label: "Type",
+      render: (cred) => (
+        <span class={`credential-type type-${cred.type}`}>
+          {cred.type.toUpperCase()}
+        </span>
+      ),
+    },
+    {
+      key: "details",
+      label: "Details",
+      render: (cred) =>
+        cred.type === "https" ? (
+          <span>{cred.username} / ********</span>
+        ) : (
+          <span>SSH Key: ********</span>
+        ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (cred) => (
+        <div>
+          <a href={`/credentials/${cred.id}/edit`} class="btn-secondary">
+            Edit
+          </a>
+          <form
+            method="post"
+            action={`/credentials/${cred.id}/delete`}
+            style="display: inline;"
+          >
+            <button type="submit" class="btn-danger">Delete</button>
+          </form>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <Layout title="Credentials">
-      <div class="container" style="max-width: 800px;">
+      <div class="container-wide">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <h1>Credentials</h1>
           <a href="/credentials/new" class="btn">
@@ -19,64 +67,35 @@ export const CredentialsListPage: FC<CredentialsListPageProps> = ({
           </a>
         </div>
 
-        {credentials.length === 0 ? (
-          <div class="empty-state">
-            <p>No credentials configured yet.</p>
+        <DataTable
+          rows={credentials}
+          columns={columns}
+          searchFields={["name"]}
+          pageSize={10}
+          emptyMessage="No credentials configured yet."
+          emptyAction={
             <p>Create credentials to authenticate with private repositories.</p>
-          </div>
-        ) : (
-          <div class="credentials-grid">
-            {credentials.map((cred) => (
-              <div key={cred.id} class="credential-card">
-                <div class="credential-header">
-                  <div class="credential-name">{cred.name}</div>
-                  <div class={`credential-type type-${cred.type}`}>
-                    {cred.type.toUpperCase()}
-                  </div>
-                </div>
-
-                <div class="credential-details">
-                  {cred.type === "https" ? (
-                    <>
-                      <div class="credential-field">
-                        <span class="field-label">Username:</span>
-                        <span class="field-value">{cred.username}</span>
-                      </div>
-                      <div class="credential-field">
-                        <span class="field-label">Password:</span>
-                        <span class="field-value masked">********</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div class="credential-field">
-                      <span class="field-label">SSH Key:</span>
-                      <span class="field-value masked">********</span>
-                    </div>
-                  )}
-                </div>
-
-                <div class="credential-actions">
-                  <a
-                    href={`/credentials/${cred.id}/edit`}
-                    class="btn-secondary"
-                  >
-                    Edit
-                  </a>
-                  <form
-                    method="post"
-                    action={`/credentials/${cred.id}/delete`}
-                    style="display: inline;"
-                  >
-                    <button type="submit" class="btn-danger">
-                      Delete
-                    </button>
-                  </form>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+          }
+        />
       </div>
+
+      <style>{`
+        .credential-type {
+          font-size: 10px;
+          text-transform: uppercase;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-weight: bold;
+        }
+        .credential-type.type-https {
+          background: #2d5a2d;
+          color: #6bff6b;
+        }
+        .credential-type.type-ssh {
+          background: #2d4a5a;
+          color: #6bafff;
+        }
+      `}</style>
     </Layout>
   );
 };
