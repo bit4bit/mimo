@@ -41,6 +41,8 @@ export interface ChatThread {
   createdAt: string;
 }
 
+export type SessionPriority = "high" | "medium" | "low";
+
 export interface Session {
   id: string;
   name: string;
@@ -56,6 +58,7 @@ export interface Session {
   agentWorkspacePassword?: string;
   agentSubpath?: string;
   branch?: string;
+  priority: SessionPriority;
   // MCP Server attachments
   mcpServerIds: string[];
   // ACP Session Parking fields
@@ -91,6 +94,7 @@ export interface SessionData {
   agentWorkspacePassword?: string;
   agentSubpath?: string;
   branch?: string;
+  priority?: SessionPriority;
   // MCP Server attachments
   mcpServerIds?: string[];
   // ACP Session Parking fields
@@ -120,11 +124,26 @@ export interface CreateSessionInput {
   branchName?: string;
   mcpServerIds?: string[];
   sessionTtlDays?: number;
+  priority?: SessionPriority;
 }
 
 export interface UpdateSessionConfigInput {
   idleTimeoutMs?: number;
   sessionTtlDays?: number;
+  priority?: SessionPriority;
+}
+
+const PRIORITY_WEIGHT: Record<SessionPriority, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
+
+export function compareSessions(a: Session, b: Session): number {
+  const priorityDiff =
+    PRIORITY_WEIGHT[a.priority] - PRIORITY_WEIGHT[b.priority];
+  if (priorityDiff !== 0) return priorityDiff;
+  return b.createdAt.getTime() - a.createdAt.getTime();
 }
 
 interface SessionRepositoryDeps {
@@ -251,6 +270,7 @@ export class SessionRepository {
       port: null,
       // MCP Server defaults
       mcpServerIds: input.mcpServerIds || [],
+      priority: input.priority ?? "medium",
       // ACP Session Parking defaults
       idleTimeoutMs: 600000, // 10 minutes default
       sessionTtlDays: input.sessionTtlDays ?? 180,
@@ -313,6 +333,7 @@ export class SessionRepository {
               acpStatus: data.acpStatus ?? "active",
               syncState: data.syncState ?? "idle",
               mcpServerIds: data.mcpServerIds ?? [],
+              priority: data.priority ?? "medium",
               frameState: normalizeFrameState(data.frameState),
               chatThreads,
               activeChatThreadId,
@@ -352,6 +373,7 @@ export class SessionRepository {
       lastActivityAt: data.lastActivityAt ?? null,
       acpStatus: data.acpStatus ?? "active",
       syncState: data.syncState ?? "idle",
+      priority: data.priority ?? "medium",
       frameState: normalizeFrameState(data.frameState),
       chatThreads,
       activeChatThreadId,
@@ -392,6 +414,7 @@ export class SessionRepository {
             lastActivityAt: data.lastActivityAt ?? null,
             acpStatus: data.acpStatus ?? "active",
             syncState: data.syncState ?? "idle",
+            priority: data.priority ?? "medium",
             frameState: normalizeFrameState(data.frameState),
             chatThreads,
             activeChatThreadId,
@@ -405,9 +428,7 @@ export class SessionRepository {
       }
     }
 
-    return sessions.sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
-    );
+    return sessions.sort(compareSessions);
   }
 
   async listAll(): Promise<Session[]> {
@@ -428,9 +449,7 @@ export class SessionRepository {
       sessions.push(...projectSessions);
     }
 
-    return sessions.sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
-    );
+    return sessions.sort(compareSessions);
   }
 
   async findByAssignedAgentId(agentId: string): Promise<Session[]> {
@@ -466,6 +485,7 @@ export class SessionRepository {
                   lastActivityAt: data.lastActivityAt ?? null,
                   acpStatus: data.acpStatus ?? "active",
                   syncState: data.syncState ?? "idle",
+                  priority: data.priority ?? "medium",
                   frameState: normalizeFrameState(data.frameState),
                   chatThreads,
                   activeChatThreadId,
@@ -484,9 +504,7 @@ export class SessionRepository {
       }
     }
 
-    return sessions.sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
-    );
+    return sessions.sort(compareSessions);
   }
 
   async findByThreadAgentId(agentId: string): Promise<Session[]> {
@@ -526,6 +544,7 @@ export class SessionRepository {
           acpStatus: data.acpStatus ?? "active",
           syncState: data.syncState ?? "idle",
           mcpServerIds: data.mcpServerIds ?? [],
+          priority: data.priority ?? "medium",
           frameState: normalizeFrameState(data.frameState),
           chatThreads,
           activeChatThreadId,
@@ -535,9 +554,7 @@ export class SessionRepository {
       }
     }
 
-    return sessions.sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
-    );
+    return sessions.sort(compareSessions);
   }
 
   async update(
@@ -689,8 +706,18 @@ export class SessionRepository {
     }
 
     if (config.sessionTtlDays !== undefined) {
-      if (!Number.isInteger(config.sessionTtlDays) || config.sessionTtlDays < 1) {
+      if (
+        !Number.isInteger(config.sessionTtlDays) ||
+        config.sessionTtlDays < 1
+      ) {
         throw new Error("sessionTtlDays must be an integer >= 1");
+      }
+    }
+
+    if (config.priority !== undefined) {
+      const valid: SessionPriority[] = ["high", "medium", "low"];
+      if (!valid.includes(config.priority)) {
+        throw new Error("priority must be one of: high, medium, low");
       }
     }
 
@@ -700,6 +727,9 @@ export class SessionRepository {
     }
     if (config.sessionTtlDays !== undefined) {
       updates.sessionTtlDays = config.sessionTtlDays;
+    }
+    if (config.priority !== undefined) {
+      updates.priority = config.priority;
     }
 
     return this.update(sessionId, updates);

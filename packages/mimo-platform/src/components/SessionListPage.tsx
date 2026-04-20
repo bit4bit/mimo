@@ -12,6 +12,7 @@ interface Session {
   name: string;
   status: "active" | "paused" | "closed";
   createdAt: Date;
+  priority: "high" | "medium" | "low";
 }
 
 interface SessionListProps {
@@ -23,6 +24,14 @@ export const SessionListPage: FC<SessionListProps> = ({
   project,
   sessions,
 }) => {
+  const priorityWeight: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  const sortedSessions = [...sessions].sort((a, b) => {
+    const pw =
+      (priorityWeight[a.priority] ?? 1) - (priorityWeight[b.priority] ?? 1);
+    if (pw !== 0) return pw;
+    return b.createdAt.getTime() - a.createdAt.getTime();
+  });
+
   const columns: DataTableColumn<Session>[] = [
     {
       key: "name",
@@ -37,12 +46,19 @@ export const SessionListPage: FC<SessionListProps> = ({
       ),
     },
     {
+      key: "priority",
+      label: "Priority",
+      render: (session) => (
+        <span class={`session-priority ${session.priority}`}>
+          {session.priority}
+        </span>
+      ),
+    },
+    {
       key: "status",
       label: "Status",
       render: (session) => (
-        <span class={`session-status ${session.status}`}>
-          {session.status}
-        </span>
+        <span class={`session-status ${session.status}`}>{session.status}</span>
       ),
     },
     {
@@ -67,7 +83,7 @@ export const SessionListPage: FC<SessionListProps> = ({
         </div>
 
         <DataTable
-          rows={sessions}
+          rows={sortedSessions}
           columns={columns}
           searchFields={["name"]}
           pageSize={10}
@@ -77,8 +93,6 @@ export const SessionListPage: FC<SessionListProps> = ({
               Create your first session
             </a>
           }
-          sortBy="createdAt"
-          sortDesc={true}
         />
 
         <div style="margin-top: 30px;">

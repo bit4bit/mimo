@@ -298,7 +298,9 @@ describe("Session Management Integration Tests", () => {
       expect(session).not.toBeNull();
       expect(session?.agentWorkspaceUser).toBe("dev");
       expect(session?.agentWorkspacePassword).toBeTruthy();
-      expect(session?.agentWorkspacePassword?.length).toBeGreaterThanOrEqual(16);
+      expect(session?.agentWorkspacePassword?.length).toBeGreaterThanOrEqual(
+        16,
+      );
       expect(createFossilUserArgs).not.toBeNull();
       expect(createFossilUserArgs?.[1]).toBe("dev");
       expect(createFossilUserArgs?.[3]).toBe("s");
@@ -1099,12 +1101,10 @@ describe("Session Management Integration Tests", () => {
         lastActivityAt: null,
       });
 
-      const { createSessionDeletionUseCase } = await import(
-        "../src/sessions/session-deletion.ts"
-      );
-      const { sweepExpiredInactiveSessions } = await import(
-        "../src/sessions/session-retention-sweeper.ts"
-      );
+      const { createSessionDeletionUseCase } =
+        await import("../src/sessions/session-deletion.ts");
+      const { sweepExpiredInactiveSessions } =
+        await import("../src/sessions/session-retention-sweeper.ts");
 
       const sessionDeletion = createSessionDeletionUseCase({
         sessionRepository: mimoContext.repos.sessions,
@@ -1153,9 +1153,12 @@ describe("Session Management Integration Tests", () => {
       });
 
       const token = await authService.generateToken("testuser");
-      const res = await app.request(`/projects/${project.id}/sessions/${session.id}`, {
-        headers: { Cookie: `token=${token}` },
-      });
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}`,
+        {
+          headers: { Cookie: `token=${token}` },
+        },
+      );
 
       expect(res.status).toBe(200);
       const html = await res.text();
@@ -1187,9 +1190,12 @@ describe("Session Management Integration Tests", () => {
       });
 
       const token = await authService.generateToken("testuser");
-      const res = await app.request(`/projects/${project.id}/sessions/${session.id}`, {
-        headers: { Cookie: `token=${token}` },
-      });
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}`,
+        {
+          headers: { Cookie: `token=${token}` },
+        },
+      );
 
       expect(res.status).toBe(200);
       const html = await res.text();

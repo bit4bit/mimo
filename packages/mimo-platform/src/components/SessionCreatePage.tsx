@@ -42,6 +42,20 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
           </div>
 
           <div class="form-group">
+            <label>Priority</label>
+            <select name="priority">
+              <option value="high">High</option>
+              <option value="medium" selected>
+                Medium
+              </option>
+              <option value="low">Low</option>
+            </select>
+            <p class="form-help">
+              Affects the order sessions appear in the list.
+            </p>
+          </div>
+
+          <div class="form-group">
             <label>Session Type</label>
             <p style="color: #888; font-size: 14px;">
               Creates a worktree for isolated development. Changes will be

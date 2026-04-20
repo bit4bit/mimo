@@ -17,7 +17,8 @@ describe("Dev workspace user migration", () => {
       `mimo-dev-user-migration-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     );
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       services: { sharedFossil: new DummySharedFossilServer() },

@@ -43,26 +43,44 @@ export const Layout: FC<LayoutProps> = ({
     <>
       {raw("<!DOCTYPE html>")}
       <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>{title} | MIMO</title>
-        <script dangerouslySetInnerHTML={{ __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};\nwindow.MIMO_SESSION_KEYBINDINGS = ${JSON.stringify(sessionKeybindings || {})};\nwindow.MIMO_CHAT_FILE_EXTENSIONS = ${JSON.stringify(chatFileExtensions ?? [])};` }} />
-        {sessionId && <link rel="stylesheet" href="/vendor/highlight/atom-one-dark.min.css" />}
-        {sessionId && <script src="/vendor/highlight/highlight.min.js" defer></script>}
-        {sessionId && <script src="/vendor/highlight/elixir.min.js" defer></script>}
-        {sessionId && <script src="/js/diff.js" defer></script>}
-        {sessionId && <script src="/js/expert-utils.js" defer></script>}
-        {sessionId && <script src="/js/patch-buffer.js" defer></script>}
-        {sessionId && <script src="/js/chat-token-utils.js" defer></script>}
-        {sessionId && <script src="/js/chat.js" defer></script>}
-        {sessionId && <script src="/js/chat-threads.js" defer></script>}
-        {sessionId && <script src="/js/commit.js" defer></script>}
-        {sessionId && <script src="/js/session-clone.js" defer></script>}
-        {sessionId && <script src="/js/notes.js" defer></script>}
-        {sessionId && <script src="/js/edit-buffer.js" defer></script>}
-        {sessionId && <script src="/js/session-keybindings.js" defer></script>}
-        <style>{`
+        <head>
+          <meta charset="UTF-8" />
+          <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+          />
+          <title>{title} | MIMO</title>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};\nwindow.MIMO_SESSION_KEYBINDINGS = ${JSON.stringify(sessionKeybindings || {})};\nwindow.MIMO_CHAT_FILE_EXTENSIONS = ${JSON.stringify(chatFileExtensions ?? [])};`,
+            }}
+          />
+          {sessionId && (
+            <link
+              rel="stylesheet"
+              href="/vendor/highlight/atom-one-dark.min.css"
+            />
+          )}
+          {sessionId && (
+            <script src="/vendor/highlight/highlight.min.js" defer></script>
+          )}
+          {sessionId && (
+            <script src="/vendor/highlight/elixir.min.js" defer></script>
+          )}
+          {sessionId && <script src="/js/diff.js" defer></script>}
+          {sessionId && <script src="/js/expert-utils.js" defer></script>}
+          {sessionId && <script src="/js/patch-buffer.js" defer></script>}
+          {sessionId && <script src="/js/chat-token-utils.js" defer></script>}
+          {sessionId && <script src="/js/chat.js" defer></script>}
+          {sessionId && <script src="/js/chat-threads.js" defer></script>}
+          {sessionId && <script src="/js/commit.js" defer></script>}
+          {sessionId && <script src="/js/session-clone.js" defer></script>}
+          {sessionId && <script src="/js/notes.js" defer></script>}
+          {sessionId && <script src="/js/edit-buffer.js" defer></script>}
+          {sessionId && (
+            <script src="/js/session-keybindings.js" defer></script>
+          )}
+          <style>{`
            * { margin: 0; padding: 0; box-sizing: border-box; }
            html, body { 
              height: 100%;
@@ -428,70 +446,75 @@ export const Layout: FC<LayoutProps> = ({
               padding: 4px;
             }
           `}</style>
-      </head>
-      <body>
-        <nav class="top-nav">
-          <div class="nav-brand">
-            {backUrl && (
-              <a href={backUrl} style="margin-right: 8px;" title="Back">
-                &lt;
-              </a>
-            )}
-            <a href="/dashboard">MIMO</a>
-            {(sessionName || projectName) && (
-              <span style="margin-left: 10px; color: #888;">
-                {sessionName && (
-                  <span>
-                    | {sessionName}
-                    {sessionBranch && <span title="Branch"> | ⎇ {sessionBranch}</span>}
-                  </span>
-                )}
-                {projectName && (
-                  <span>
-                    {sessionName ? " | " : "| "}
-                    <a href={`/projects/${projectId}`} style="color: #888;">
-                      {projectName}
-                    </a>
-                    {fossilUrl && (
-                      <a
-                        href={`${fossilUrl}timeline`}
-                        target="_blank"
-                        title="View Fossil Repository"
-                        style="margin-left: 4px;"
-                      >
-                        🌿
+        </head>
+        <body>
+          <nav class="top-nav">
+            <div class="nav-brand">
+              {backUrl && (
+                <a href={backUrl} style="margin-right: 8px;" title="Back">
+                  &lt;
+                </a>
+              )}
+              <a href="/dashboard">MIMO</a>
+              {(sessionName || projectName) && (
+                <span style="margin-left: 10px; color: #888;">
+                  {sessionName && (
+                    <span>
+                      | {sessionName}
+                      {sessionBranch && (
+                        <span title="Branch"> | ⎇ {sessionBranch}</span>
+                      )}
+                    </span>
+                  )}
+                  {projectName && (
+                    <span>
+                      {sessionName ? " | " : "| "}
+                      <a href={`/projects/${projectId}`} style="color: #888;">
+                        {projectName}
                       </a>
-                    )}
-                    {agentId && agentName && (
-                      <span style="margin-left: 4px;">
-                        | <a href={`/agents/${agentId}`} style="color: #888;">{agentName}</a>
-                      </span>
-                    )}
-                    {cloneWorkspaceHtml}
-                  </span>
-                )}
-              </span>
-            )}
-          </div>
-          <div class="nav-links">
-            <a href="/dashboard">Dashboard</a>
-            <a href="/projects">Projects</a>
-            <a href="/mcp-servers">MCP Servers</a>
-            <a href="/credentials">Credentials</a>
-            <a href="/agents">Agents</a>
-            <a href="/auth/logout">Logout</a>
-          </div>
-        </nav>
-        <main style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto;">
-          {children}
-        </main>
-        {showStatusLine && (
-          <div class="status-line">
-            <span class="status-line-message"></span>
-          </div>
-        )}
-      </body>
-    </html>
+                      {fossilUrl && (
+                        <a
+                          href={`${fossilUrl}timeline`}
+                          target="_blank"
+                          title="View Fossil Repository"
+                          style="margin-left: 4px;"
+                        >
+                          🌿
+                        </a>
+                      )}
+                      {agentId && agentName && (
+                        <span style="margin-left: 4px;">
+                          |{" "}
+                          <a href={`/agents/${agentId}`} style="color: #888;">
+                            {agentName}
+                          </a>
+                        </span>
+                      )}
+                      {cloneWorkspaceHtml}
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
+            <div class="nav-links">
+              <a href="/dashboard">Dashboard</a>
+              <a href="/projects">Projects</a>
+              <a href="/mcp-servers">MCP Servers</a>
+              <a href="/credentials">Credentials</a>
+              <a href="/agents">Agents</a>
+              <a href="/auth/logout">Logout</a>
+            </div>
+          </nav>
+          <main style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto;">
+            {children}
+          </main>
+          {showStatusLine && (
+            <div class="status-line">
+              <span class="status-line-message"></span>
+            </div>
+          )}
+        </body>
+      </html>
     </>
   );
 };

@@ -15,7 +15,7 @@ export interface FileWatcherService {
     sessionId: string,
     filePath: string,
     currentChecksum: string,
-    callback: (event: WatchEvent) => void
+    callback: (event: WatchEvent) => void,
   ): Promise<void>;
 
   /**
@@ -116,7 +116,10 @@ export function createFileWatcherService(): FileWatcherService {
   }
 
   function isPatchFile(filePath: string): boolean {
-    return filePath.includes(".mimo-patches/") || filePath.startsWith(".mimo-patches");
+    return (
+      filePath.includes(".mimo-patches/") ||
+      filePath.startsWith(".mimo-patches")
+    );
   }
 
   function handleFileChange(filePath: string) {
@@ -128,12 +131,19 @@ export function createFileWatcherService(): FileWatcherService {
     logger.debug(`[FileWatcher] Total sessions: ${watches.size}`);
 
     for (const [sessionId, sessionWatches] of watches) {
-      logger.debug(`[FileWatcher] Checking session ${sessionId}, watches: ${sessionWatches.size}`);
+      logger.debug(
+        `[FileWatcher] Checking session ${sessionId}, watches: ${sessionWatches.size}`,
+      );
       const watchedFile = sessionWatches.get(resolvedPath);
-      logger.debug(`[FileWatcher] Lookup result for ${resolvedPath}:`, watchedFile ? "found" : "not found");
+      logger.debug(
+        `[FileWatcher] Lookup result for ${resolvedPath}:`,
+        watchedFile ? "found" : "not found",
+      );
 
       if (!watchedFile) {
-        logger.debug(`[FileWatcher] Available paths in session ${sessionId}:`, [...sessionWatches.keys()]);
+        logger.debug(`[FileWatcher] Available paths in session ${sessionId}:`, [
+          ...sessionWatches.keys(),
+        ]);
       }
 
       if (watchedFile) {
@@ -141,9 +151,13 @@ export function createFileWatcherService(): FileWatcherService {
         setImmediate(async () => {
           try {
             const newChecksum = await computeChecksum(resolvedPath);
-            logger.debug(`[FileWatcher] Checksums - current: ${watchedFile.currentChecksum}, new: ${newChecksum}`);
+            logger.debug(
+              `[FileWatcher] Checksums - current: ${watchedFile.currentChecksum}, new: ${newChecksum}`,
+            );
             if (newChecksum !== watchedFile.currentChecksum) {
-              logger.debug(`[FileWatcher] Checksums differ, calling callback with path: ${resolvedPath}`);
+              logger.debug(
+                `[FileWatcher] Checksums differ, calling callback with path: ${resolvedPath}`,
+              );
               watchedFile.callback({
                 type: "file_outdated",
                 path: resolvedPath,
@@ -153,7 +167,9 @@ export function createFileWatcherService(): FileWatcherService {
               logger.debug(`[FileWatcher] Checksums match, no outdated event`);
             }
           } catch (error) {
-            logger.debug(`[FileWatcher] Error computing checksum, sending file_deleted: ${error}`);
+            logger.debug(
+              `[FileWatcher] Error computing checksum, sending file_deleted: ${error}`,
+            );
             watchedFile.callback({
               type: "file_deleted",
               path: resolvedPath,
@@ -179,17 +195,17 @@ export function createFileWatcherService(): FileWatcherService {
           clearTimeout(existingTimer);
           debounceTimers.delete(resolvedPath);
         }
-        
+
         watchedFile.callback({
           type: "file_deleted",
           path: resolvedPath,
         });
-        
+
         // Remove this file from the session watches since it's deleted
         sessionWatches.delete(resolvedPath);
       }
     }
-    
+
     // Clean up from watchedPaths
     watchedPaths.delete(resolvedPath);
   }
@@ -208,7 +224,7 @@ export function createFileWatcherService(): FileWatcherService {
     sessionId: string,
     filePath: string,
     currentChecksum: string,
-    callback: (event: WatchEvent) => void
+    callback: (event: WatchEvent) => void,
   ): Promise<void> {
     const resolvedPath = resolve(filePath);
     logger.debug(`[FileWatcher] watchFile called for session ${sessionId}`);
@@ -221,7 +237,9 @@ export function createFileWatcherService(): FileWatcherService {
     if (!sessionWatches) {
       sessionWatches = new Map();
       watches.set(sessionId, sessionWatches);
-      logger.debug(`[FileWatcher] Created new session watches for ${sessionId}`);
+      logger.debug(
+        `[FileWatcher] Created new session watches for ${sessionId}`,
+      );
     }
 
     // Store watch info
@@ -232,16 +250,22 @@ export function createFileWatcherService(): FileWatcherService {
       callback,
     });
     logger.debug(`[FileWatcher] Stored watch for ${resolvedPath}`);
-    logger.debug(`[FileWatcher] Session ${sessionId} now has ${sessionWatches.size} watches`);
+    logger.debug(
+      `[FileWatcher] Session ${sessionId} now has ${sessionWatches.size} watches`,
+    );
 
     // Add to chokidar if not already watching
     if (!watchedPaths.has(resolvedPath)) {
       watchedPaths.add(resolvedPath);
       logger.debug(`[FileWatcher] Adding ${resolvedPath} to chokidar`);
       ensureWatcher().add(resolvedPath);
-      logger.debug(`[FileWatcher] chokidar now watching ${watchedPaths.size} paths`);
+      logger.debug(
+        `[FileWatcher] chokidar now watching ${watchedPaths.size} paths`,
+      );
     } else {
-      logger.debug(`[FileWatcher] Path ${resolvedPath} already being watched by chokidar`);
+      logger.debug(
+        `[FileWatcher] Path ${resolvedPath} already being watched by chokidar`,
+      );
     }
   }
 

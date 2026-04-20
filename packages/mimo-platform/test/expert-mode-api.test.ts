@@ -77,7 +77,11 @@ describe("GET /sessions/:id/files/content", () => {
     app.route("/sessions", sessionRoutes);
 
     const { session, token } = await createUserAndSession("user1");
-    writeFileSync(join(session.agentWorkspacePath, "hello.ts"), "const x = 1 < 2;", "utf-8");
+    writeFileSync(
+      join(session.agentWorkspacePath, "hello.ts"),
+      "const x = 1 < 2;",
+      "utf-8",
+    );
 
     const res = await app.request(
       `/sessions/${session.id}/files/content?path=hello.ts`,
@@ -110,7 +114,9 @@ describe("GET /sessions/:id/files/content", () => {
 
     const { session } = await createUserAndSession("user3");
 
-    const res = await app.request(`/sessions/${session.id}/files/content?path=foo.ts`);
+    const res = await app.request(
+      `/sessions/${session.id}/files/content?path=foo.ts`,
+    );
 
     expect(res.status).toBe(401);
   });
@@ -142,7 +148,9 @@ describe("POST /sessions/:id/files/write", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(readFileSync(join(session.agentWorkspacePath, "edit.ts"), "utf-8")).toBe("new content");
+    expect(
+      readFileSync(join(session.agentWorkspacePath, "edit.ts"), "utf-8"),
+    ).toBe("new content");
   });
 
   it("returns 400 when path contains ..", async () => {

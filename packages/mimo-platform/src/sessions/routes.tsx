@@ -154,6 +154,14 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const branchModeRaw = (body.branchMode as string) || "new";
     const branchMode: "new" | "sync" =
       branchModeRaw === "sync" ? "sync" : "new";
+    const priorityRaw = (body.priority as string) || undefined;
+    if (
+      priorityRaw !== undefined &&
+      !["high", "medium", "low"].includes(priorityRaw)
+    ) {
+      return c.text("priority must be one of: high, medium, low", 400);
+    }
+    const priority = priorityRaw as "high" | "medium" | "low" | undefined;
 
     // Parse MCP server IDs from form (can be single string or array)
     let mcpServerIds: string[] = [];
@@ -169,7 +177,11 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       return c.text("Name and project ID required", 400);
     }
 
-    if (isNaN(sessionTtlDays) || !Number.isInteger(sessionTtlDays) || sessionTtlDays < 1) {
+    if (
+      isNaN(sessionTtlDays) ||
+      !Number.isInteger(sessionTtlDays) ||
+      sessionTtlDays < 1
+    ) {
       return c.text("sessionTtlDays must be an integer >= 1", 400);
     }
 
@@ -185,10 +197,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       );
     }
     if (branchMode === "sync" && project.repoType !== "git") {
-      return c.text(
-        "Sync mode is only supported for git repositories",
-        400,
-      );
+      return c.text("Sync mode is only supported for git repositories", 400);
     }
 
     // Validate MCP server IDs if provided
@@ -224,6 +233,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       agentSubpath: agentSubpath || undefined,
       mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
       sessionTtlDays,
+      priority,
     });
 
     // Initialize repository: clone → import to fossil
@@ -508,15 +518,18 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       return c.json({ error: "Invalid frame-state payload" }, 400);
     }
 
-    if (frame === "right" && !activeBufferId && typeof isCollapsed !== "boolean") {
+    if (
+      frame === "right" &&
+      !activeBufferId &&
+      typeof isCollapsed !== "boolean"
+    ) {
       return c.json({ error: "Invalid frame-state payload" }, 400);
     }
 
-    const nextState = updateFrameState(
-      session.frameState,
-      frame,
-      { activeBufferId, isCollapsed },
-    );
+    const nextState = updateFrameState(session.frameState, frame, {
+      activeBufferId,
+      isCollapsed,
+    });
     await sessionRepository.update(sessionId, { frameState: nextState });
 
     return c.json(nextState);
@@ -603,7 +616,8 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const sessionId = c.req.param("id");
     const pattern = c.req.query("pattern") ?? "";
     const session = await sessionRepository.findById(sessionId);
-    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
     try {
       const allFiles = await fileService.listFiles(session.agentWorkspacePath);
       return c.json(findFiles(pattern, allFiles));
@@ -832,10 +846,28 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         body.sessionTtlDays === undefined
           ? undefined
           : Number(body.sessionTtlDays);
+      const { priority } = body;
 
-      if (idleTimeoutMs === undefined && sessionTtlDays === undefined) {
+      if (
+        idleTimeoutMs === undefined &&
+        sessionTtlDays === undefined &&
+        priority === undefined
+      ) {
         return c.json(
-          { error: "Either idleTimeoutMs or sessionTtlDays is required" },
+          {
+            error:
+              "Either idleTimeoutMs, sessionTtlDays, or priority is required",
+          },
+          400,
+        );
+      }
+
+      if (
+        priority !== undefined &&
+        !["high", "medium", "low"].includes(priority)
+      ) {
+        return c.json(
+          { error: "priority must be one of: high, medium, low" },
           400,
         );
       }
@@ -846,6 +878,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         {
           ...(idleTimeoutMs !== undefined ? { idleTimeoutMs } : {}),
           ...(sessionTtlDays !== undefined ? { sessionTtlDays } : {}),
+          ...(priority !== undefined ? { priority } : {}),
         },
       );
 
@@ -864,14 +897,14 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         if (agentWs && agentWs.readyState === 1) {
           agentWs.send(
             JSON.stringify({
-                type: "session_config_updated",
-                sessionId,
-                config: {
-                  idleTimeoutMs: updatedSession.idleTimeoutMs,
-                  sessionTtlDays: updatedSession.sessionTtlDays,
-                },
-                timestamp: new Date().toISOString(),
-              }),
+              type: "session_config_updated",
+              sessionId,
+              config: {
+                idleTimeoutMs: updatedSession.idleTimeoutMs,
+                sessionTtlDays: updatedSession.sessionTtlDays,
+              },
+              timestamp: new Date().toISOString(),
+            }),
           );
         }
       }
@@ -942,6 +975,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
           idleTimeoutMs: session.idleTimeoutMs,
           sessionTtlDays: session.sessionTtlDays,
           acpStatus: session.acpStatus,
+          priority: session.priority,
         }}
         project={{
           id: project.id,
@@ -997,7 +1031,11 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       );
     }
 
-    if (isNaN(sessionTtlDays) || !Number.isInteger(sessionTtlDays) || sessionTtlDays < 1) {
+    if (
+      isNaN(sessionTtlDays) ||
+      !Number.isInteger(sessionTtlDays) ||
+      sessionTtlDays < 1
+    ) {
       return c.html(
         <div style="padding: 20px; color: #ff6b6b;">
           Error: Invalid TTL value. Must be an integer number of days and at
@@ -1031,11 +1069,11 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         if (agentWs && agentWs.readyState === 1) {
           agentWs.send(
             JSON.stringify({
-                type: "session_config_updated",
-                sessionId,
-                config: { idleTimeoutMs, sessionTtlDays },
-                timestamp: new Date().toISOString(),
-              }),
+              type: "session_config_updated",
+              sessionId,
+              config: { idleTimeoutMs, sessionTtlDays },
+              timestamp: new Date().toISOString(),
+            }),
           );
         }
       }
@@ -1059,6 +1097,47 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         </div>,
       );
     }
+  });
+
+  // POST /sessions/:id/settings/priority - Update priority via form
+  router.post("/:id/settings/priority", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) {
+      return c.redirect("/auth/login");
+    }
+
+    const sessionId = c.req.param("id");
+    const session = await sessionRepository.findById(sessionId);
+
+    if (!session || session.owner !== username) {
+      return c.text("Session not found", 404);
+    }
+
+    const body = await c.req.parseBody();
+    const priority = body.priority as string;
+
+    if (!["high", "medium", "low"].includes(priority)) {
+      return c.html(
+        <div style="padding: 20px; color: #ff6b6b;">
+          Error: priority must be one of: high, medium, low
+          <br />
+          <br />
+          <a
+            href={`/projects/${session.projectId}/sessions/${sessionId}/settings`}
+          >
+            Go Back
+          </a>
+        </div>,
+      );
+    }
+
+    await sessionRepository.updateSessionConfig(sessionId, {
+      priority: priority as "high" | "medium" | "low",
+    });
+
+    return c.redirect(
+      `/projects/${session.projectId}/sessions/${sessionId}/settings`,
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -1309,18 +1388,26 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const filePath = c.req.query("path");
     if (!filePath) return c.json({ error: "path query param required" }, 400);
     const session = await sessionRepository.findById(sessionId);
-    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
     let raw: string;
     try {
       raw = await fileService.readFile(session.agentWorkspacePath, filePath);
     } catch (err: any) {
-      if (err?.message?.includes("Access denied")) return c.json({ error: "Access denied" }, 403);
+      if (err?.message?.includes("Access denied"))
+        return c.json({ error: "Access denied" }, 403);
       return c.json({ error: "File not found" }, 404);
     }
     const language = detectLanguage(filePath);
     const name = filePath.split("/").pop() ?? filePath;
     const lineCount = raw.split("\n").length;
-    return c.json({ path: filePath, name, language, lineCount, content: escapeHtml(raw) });
+    return c.json({
+      path: filePath,
+      name,
+      language,
+      lineCount,
+      content: escapeHtml(raw),
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -1335,7 +1422,8 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const filePath = c.req.query("path");
     if (!filePath) return c.json({ error: "path query param required" }, 400);
     const session = await sessionRepository.findById(sessionId);
-    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
 
     try {
       const result = await expertService.readFileContent(
@@ -1357,9 +1445,11 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const body = await c.req.json().catch(() => null);
     const path = body?.path;
     const content = body?.content;
-    if (!path || content === undefined) return c.json({ error: "path and content required" }, 400);
+    if (!path || content === undefined)
+      return c.json({ error: "path and content required" }, 400);
     const session = await sessionRepository.findById(sessionId);
-    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
 
     try {
       const result = await expertService.writeFileContent(
@@ -1369,7 +1459,10 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       );
       return c.json(result);
     } catch (err: any) {
-      if (err.message.includes("Invalid path") || err.message.includes("not found")) {
+      if (
+        err.message.includes("Invalid path") ||
+        err.message.includes("not found")
+      ) {
         return c.json({ error: err.message }, 400);
       }
       logger.error("[expert] writeFileContent error:", err);
@@ -1387,10 +1480,13 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     if (!username) return c.json({ error: "Unauthorized" }, 401);
     const sessionId = c.req.param("id");
     const session = await sessionRepository.findById(sessionId);
-    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
 
     try {
-      const patches = await expertService.listPatchFiles(session.agentWorkspacePath);
+      const patches = await expertService.listPatchFiles(
+        session.agentWorkspacePath,
+      );
       return c.json({ patches });
     } catch (err: any) {
       logger.error("[patches] listPatchFiles error:", err);
@@ -1404,7 +1500,8 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     if (!username) return c.json({ error: "Unauthorized" }, 401);
     const sessionId = c.req.param("id");
     const session = await sessionRepository.findById(sessionId);
-    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
 
     const body = await c.req.json().catch(() => null);
     const originalPath = body?.originalPath;
@@ -1432,7 +1529,8 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     if (!username) return c.json({ error: "Unauthorized" }, 401);
     const sessionId = c.req.param("id");
     const session = await sessionRepository.findById(sessionId);
-    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
 
     const body = await c.req.json().catch(() => null);
     const originalPath = body?.originalPath;
@@ -1443,7 +1541,10 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       const { readFileSync, existsSync, unlinkSync } = await import("fs");
       const { join } = await import("path");
       const patchPath = join(".mimo-patches", originalPath).replace(/\\/g, "/");
-      const fullPatchPath = join(session.agentWorkspacePath, patchPath).replace(/\\/g, "/");
+      const fullPatchPath = join(session.agentWorkspacePath, patchPath).replace(
+        /\\/g,
+        "/",
+      );
 
       if (!existsSync(fullPatchPath)) {
         return c.json({ error: `Patch file not found: ${patchPath}` }, 404);
@@ -1453,17 +1554,17 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 
       // Find the agent to use: active chat thread agent first, then session-level
       let targetAgentId: string | null = null;
-      
+
       // Check active chat thread's assigned agent first
       if (session.activeChatThreadId && session.chatThreads) {
         const activeThread = session.chatThreads.find(
-          (t) => t.id === session.activeChatThreadId
+          (t) => t.id === session.activeChatThreadId,
         );
         if (activeThread?.assignedAgentId) {
           targetAgentId = activeThread.assignedAgentId;
         }
       }
-      
+
       // Fall back to session-level assigned agent
       if (!targetAgentId) {
         targetAgentId = session.assignedAgentId || null;
@@ -1482,7 +1583,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         targetAgentId,
         sessionId,
         originalPath,
-        content
+        content,
       );
 
       if (!sent) {
@@ -1505,7 +1606,8 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     if (!username) return c.json({ error: "Unauthorized" }, 401);
     const sessionId = c.req.param("id");
     const session = await sessionRepository.findById(sessionId);
-    if (!session || session.owner !== username) return c.json({ error: "Session not found" }, 404);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
 
     const body = await c.req.json().catch(() => null);
     const patchPath = body?.patchPath;

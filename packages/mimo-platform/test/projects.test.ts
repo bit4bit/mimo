@@ -599,5 +599,4 @@ describe("Project Management Integration Tests", () => {
       ).toBe("ai-branch");
     });
   });
-
 });

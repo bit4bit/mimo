@@ -24,7 +24,10 @@ import { vcs } from "../vcs/index.js";
 import { sessionStateService } from "../sessions/state.js";
 import { SharedFossilServer } from "../vcs/shared-fossil-server.js";
 import type { SharedFossilServerConfig } from "../vcs/shared-fossil-server.js";
-import { createFileWatcherService, type FileWatcherService } from "../files/file-watcher-service.js";
+import {
+  createFileWatcherService,
+  type FileWatcherService,
+} from "../files/file-watcher-service.js";
 import { ExpertService, createExpertService } from "../files/expert-service.js";
 
 export interface MimoEnv {
@@ -206,8 +209,7 @@ export function createMimoContext(
   };
 
   const expertService =
-    overrides.services?.expert ??
-    createExpertService(fileService as any);
+    overrides.services?.expert ?? createExpertService(fileService as any);
 
   const services: MimoContext["services"] = {
     auth: overrides.services?.auth ?? new JwtService(env.JWT_SECRET),
@@ -255,8 +257,7 @@ export function createMimoContext(
     vcs: vcs,
     sessionState: sessionStateService,
     sharedFossil: sharedFossilServer,
-    fileWatcher:
-      overrides.services?.fileWatcher ?? createFileWatcherService(),
+    fileWatcher: overrides.services?.fileWatcher ?? createFileWatcherService(),
     expert: expertService,
   };
 

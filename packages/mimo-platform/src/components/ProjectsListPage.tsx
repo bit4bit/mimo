@@ -36,9 +36,7 @@ export const ProjectsListPage: FC<ProjectsListProps> = ({ projects }) => {
       key: "repoType",
       label: "Type",
       render: (project) => (
-        <span class={`repo-type ${project.repoType}`}>
-          {project.repoType}
-        </span>
+        <span class={`repo-type ${project.repoType}`}>{project.repoType}</span>
       ),
     },
     {

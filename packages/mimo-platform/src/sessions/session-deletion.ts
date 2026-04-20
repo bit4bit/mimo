@@ -21,7 +21,9 @@ interface AgentServiceLike {
 }
 
 export interface SessionDeletionLike {
-  deleteSessionByRecord(session: Pick<Session, "id" | "projectId" | "assignedAgentId">): Promise<void>;
+  deleteSessionByRecord(
+    session: Pick<Session, "id" | "projectId" | "assignedAgentId">,
+  ): Promise<void>;
 }
 
 interface SessionDeletionDeps {
@@ -45,7 +47,10 @@ export function createSessionDeletionUseCase(
       deps.impactCalculator.clearState(session.id);
 
       if (session.assignedAgentId) {
-        await deps.agentService.notifySessionEnded(session.id, session.assignedAgentId);
+        await deps.agentService.notifySessionEnded(
+          session.id,
+          session.assignedAgentId,
+        );
       }
     },
   };
