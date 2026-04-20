@@ -709,7 +709,7 @@ async function showCreateThreadDialog() {
     '<option value="" disabled selected>Select an agent first</option>';
 
   dialog.innerHTML = `
-    <div class="modal-content" style="
+    <form id="create-thread-form" class="modal-content" style="
       background: #2d2d2d;
       border: 1px solid #444;
       padding: 20px;
@@ -766,8 +766,8 @@ async function showCreateThreadDialog() {
           border-radius: 3px;
           background: #3d3d3d;
           color: #d4d4d4;
-        ">Cancel</button>
-        <button type="button" id="confirm-create-thread" class="btn-primary" style="
+        " title="Cancel (Alt+Shift+G)">Cancel</button>
+        <button type="submit" id="confirm-create-thread" class="btn-primary" style="
           padding: 6px 12px;
           border: none;
           cursor: pointer;
@@ -777,9 +777,9 @@ async function showCreateThreadDialog() {
           border-radius: 3px;
           background: #74c0fc;
           color: #1a1a1a;
-        ">Create</button>
+        " title="Create thread (Enter / Ctrl+Enter)">Create</button>
       </div>
-    </div>
+    </form>
   `;
 
   document.body.appendChild(dialog);
@@ -851,8 +851,10 @@ async function showCreateThreadDialog() {
     });
 
   document
-    .querySelector("#confirm-create-thread")
-    ?.addEventListener("click", async () => {
+    .querySelector("#create-thread-form")
+    ?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
       const nameInput = document.querySelector("#new-thread-name");
       const modelSelect = document.querySelector("#new-thread-model");
       const modeSelect = document.querySelector("#new-thread-mode");
@@ -893,12 +895,38 @@ async function showCreateThreadDialog() {
       }
     });
 
-  // Enter key to submit
+  // Modal shortcuts: Ctrl+Enter submit, Alt+Shift+G cancel
+  document
+    .querySelector("#create-thread-form")
+    ?.addEventListener("keydown", (e) => {
+      const isCtrlEnter =
+        e.key === "Enter" && e.ctrlKey && !e.altKey && !e.metaKey;
+      const isAltShiftG =
+        e.altKey &&
+        e.shiftKey &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        e.key.toLowerCase() === "g";
+
+      if (isCtrlEnter) {
+        e.preventDefault();
+        e.currentTarget.requestSubmit();
+        return;
+      }
+
+      if (isAltShiftG) {
+        e.preventDefault();
+        dialog.remove();
+      }
+    });
+
+  // Enter in the name field submits immediately
   document
     .querySelector("#new-thread-name")
     ?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
-        document.querySelector("#confirm-create-thread")?.click();
+        e.preventDefault();
+        document.querySelector("#create-thread-form")?.requestSubmit();
       }
     });
 }
