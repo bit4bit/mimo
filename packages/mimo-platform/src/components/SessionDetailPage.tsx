@@ -19,6 +19,7 @@ interface Project {
 interface Session {
   id: string;
   name: string;
+  branch?: string;
   status: "active" | "paused" | "closed";
   upstreamPath: string;
   agentWorkspacePath: string;
@@ -172,6 +173,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       projectId={project.id}
       projectName={project.name}
       sessionName={session.name}
+      sessionBranch={session.branch}
       fossilUrl={fossilUrl}
       agentId={agent?.id}
       agentName={agent?.name}
