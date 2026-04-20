@@ -17,6 +17,11 @@ const LANG_MAP: Record<string, string> = {
   toml: "toml",
   xml: "xml",
   sql: "sql",
+  ex: "elixir",
+  exs: "elixir",
+  heex: "elixir",
+  leex: "elixir",
+  eex: "elixir",
 };
 
 export function detectLanguage(filePath: string): string {

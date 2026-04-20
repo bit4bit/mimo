@@ -49,6 +49,7 @@ export const Layout: FC<LayoutProps> = ({
         />
         {sessionId && <link rel="stylesheet" href="/vendor/highlight/atom-one-dark.min.css" />}
         {sessionId && <script src="/vendor/highlight/highlight.min.js" defer></script>}
+        {sessionId && <script src="/vendor/highlight/elixir.min.js" defer></script>}
         {sessionId && <script src="/js/diff.js" defer></script>}
         {sessionId && <script src="/js/expert-utils.js" defer></script>}
         {sessionId && <script src="/js/patch-buffer.js" defer></script>}

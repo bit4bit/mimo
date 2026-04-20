@@ -70,10 +70,37 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
               placeholder="feature/my-session-work"
             />
             <p style="color: #888; font-size: 12px; margin-top: 5px;">
-              Create a custom branch for this session. Leave empty to use the
-              project default
+              Leave empty to use the project default
               {project.newBranch ? ` (${project.newBranch})` : " (none)"}.
             </p>
+
+            <div style="margin-top: 10px;">
+              <label style="display: block; margin-bottom: 4px; font-weight: normal;">
+                <input
+                  type="radio"
+                  name="branchMode"
+                  value="new"
+                  checked
+                  style="margin-right: 6px;"
+                />
+                Create new branch
+                <span style="color: #888; font-size: 12px; margin-left: 4px;">
+                  — clone project default, create this branch locally
+                </span>
+              </label>
+              <label style="display: block; font-weight: normal;">
+                <input
+                  type="radio"
+                  name="branchMode"
+                  value="sync"
+                  style="margin-right: 6px;"
+                />
+                Sync existing branch
+                <span style="color: #888; font-size: 12px; margin-left: 4px;">
+                  — branch already exists on remote; clone it directly
+                </span>
+              </label>
+            </div>
           </div>
 
           <div class="form-group">

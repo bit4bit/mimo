@@ -82,6 +82,9 @@ describe("Session Management Integration Tests", () => {
       const html = await res.text();
       expect(html).not.toContain("Local Development Mirror");
       expect(html).not.toContain('name="localDevMirrorPath"');
+      expect(html).toContain('name="branchMode"');
+      expect(html).toContain('value="new"');
+      expect(html).toContain('value="sync"');
     });
 
     it("should create a new session for a project", async () => {
@@ -584,6 +587,7 @@ describe("Session Management Integration Tests", () => {
         body: new URLSearchParams({
           name: "My Session",
           branchName: "feature/override",
+          branchMode: "new",
         }).toString(),
       });
 
@@ -613,7 +617,10 @@ describe("Session Management Integration Tests", () => {
           "Content-Type": "application/x-www-form-urlencoded",
           Cookie: `token=${token}`,
         },
-        body: new URLSearchParams({ name: "My Session" }).toString(),
+        body: new URLSearchParams({
+          name: "My Session",
+          branchMode: "new",
+        }).toString(),
       });
 
       expect(res.status).toBe(302);
@@ -640,11 +647,208 @@ describe("Session Management Integration Tests", () => {
           "Content-Type": "application/x-www-form-urlencoded",
           Cookie: `token=${token}`,
         },
-        body: new URLSearchParams({ name: "My Session" }).toString(),
+        body: new URLSearchParams({
+          name: "My Session",
+          branchMode: "new",
+        }).toString(),
       });
 
       expect(res.status).toBe(302);
       expect(createBranchCalled).toBe(false);
+    });
+
+    it("defaults to new mode when branchMode is omitted", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      const vcsModule = await import("../src/vcs/index.ts");
+      let capturedBranch: string | null = null;
+      vcsModule.vcs.createBranch = async (branch: string) => {
+        capturedBranch = branch;
+        return { success: true };
+      };
+      vcsModule.vcs.createFossilUser = async () => ({ success: true });
+
+      const { project, token } = await createUserAndProject();
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "My Session",
+          branchName: "feature/legacy-client",
+        }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      expect(capturedBranch).toBe("feature/legacy-client");
+    });
+  });
+
+  describe("Session Branch Sync Mode", () => {
+    async function createUserAndProject(extra: Record<string, unknown> = {}) {
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        ...extra,
+      });
+      const token = await authService.generateToken("testuser");
+      return { project, token };
+    }
+
+    it("clones existing remote branch directly and skips createBranch", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      const vcsModule = await import("../src/vcs/index.ts");
+      let cloneArgs: any[] | null = null;
+      let createBranchCalled = false;
+      vcsModule.vcs.cloneRepository = async (...args: any[]) => {
+        cloneArgs = args;
+        return { success: true };
+      };
+      vcsModule.vcs.createBranch = async () => {
+        createBranchCalled = true;
+        return { success: true };
+      };
+      vcsModule.vcs.createFossilUser = async () => ({ success: true });
+
+      const { project, token } = await createUserAndProject({
+        sourceBranch: "main",
+      });
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "My Session",
+          branchName: "feature/existing",
+          branchMode: "sync",
+        }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      // cloneRepository signature: (repoUrl, repoType, targetDir, credential, sourceBranch)
+      expect(cloneArgs?.[4]).toBe("feature/existing");
+      expect(createBranchCalled).toBe(false);
+    });
+
+    it("persists session.branch in sync mode for push flow", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      const vcsModule = await import("../src/vcs/index.ts");
+      vcsModule.vcs.createFossilUser = async () => ({ success: true });
+
+      const { project, token } = await createUserAndProject();
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "Sync Session",
+          branchName: "feature/pushback",
+          branchMode: "sync",
+        }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      const sessionId = (res.headers.get("location") || "").split("/").pop()!;
+      const session = await sessionRepository.findById(sessionId);
+      expect(session?.branch).toBe("feature/pushback");
+    });
+
+    it("returns 400 when sync mode has empty branchName", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      const { project, token } = await createUserAndProject();
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "My Session",
+          branchMode: "sync",
+        }).toString(),
+      });
+
+      expect(res.status).toBe(400);
+      expect(await res.text()).toContain("Branch name is required");
+    });
+
+    it("returns 400 when sync mode is used on fossil project", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      const { project, token } = await createUserAndProject({
+        repoType: "fossil",
+      });
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "My Session",
+          branchName: "feature/existing",
+          branchMode: "sync",
+        }).toString(),
+      });
+
+      expect(res.status).toBe(400);
+      expect(await res.text()).toContain("git repositories");
+    });
+
+    it("returns 500 and deletes session when sync clone fails", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      const vcsModule = await import("../src/vcs/index.ts");
+      vcsModule.vcs.cloneRepository = async () => ({
+        success: false,
+        error: "Remote branch feature/missing not found in upstream origin",
+      });
+      vcsModule.vcs.createFossilUser = async () => ({ success: true });
+
+      const { project, token } = await createUserAndProject();
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "Doomed Session",
+          branchName: "feature/missing",
+          branchMode: "sync",
+        }).toString(),
+      });
+
+      expect(res.status).toBe(500);
+      const sessions = await sessionRepository.listByProject(project.id);
+      expect(sessions.length).toBe(0);
     });
   });
 

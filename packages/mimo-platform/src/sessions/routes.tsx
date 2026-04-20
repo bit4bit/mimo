@@ -140,6 +140,9 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const projectId = (body.projectId as string) || getProjectId(c);
     const agentSubpath = (body.agentSubpath as string) || null;
     const branchName = (body.branchName as string) || null;
+    const branchModeRaw = (body.branchMode as string) || "new";
+    const branchMode: "new" | "sync" =
+      branchModeRaw === "sync" ? "sync" : "new";
 
     // Parse MCP server IDs from form (can be single string or array)
     let mcpServerIds: string[] = [];
@@ -158,6 +161,19 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const project = await projectRepository.findById(projectId);
     if (!project || project.owner !== username) {
       return c.text("Project not found", 404);
+    }
+
+    if (branchMode === "sync" && !branchName) {
+      return c.text(
+        "Branch name is required when syncing an existing branch",
+        400,
+      );
+    }
+    if (branchMode === "sync" && project.repoType !== "git") {
+      return c.text(
+        "Sync mode is only supported for git repositories",
+        400,
+      );
     }
 
     // Validate MCP server IDs if provided
@@ -198,12 +214,16 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     // Note: checkout is created by agent when it receives session_ready
     try {
       // Step 1: Clone repository to upstream/
+      // In sync mode, clone the existing remote branch directly; otherwise use
+      // the project's configured sourceBranch.
+      const cloneBranch =
+        branchMode === "sync" ? branchName! : project.sourceBranch;
       const cloneResult = await vcs.cloneRepository(
         project.repoUrl,
         project.repoType,
         session.upstreamPath,
         undefined,
-        project.sourceBranch,
+        cloneBranch,
       );
 
       if (!cloneResult.success) {
@@ -236,23 +256,32 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         );
       }
 
-      // Step 3: Create branch if specified — session override takes priority over project default
-      const effectiveBranch = branchName || project.newBranch || null;
-      if (effectiveBranch) {
-        const branchResult = await vcs.createBranch(
-          effectiveBranch,
-          project.repoType,
-          session.upstreamPath,
-        );
-        if (!branchResult.success) {
-          await sessionRepository.delete(projectId, session.id);
-          return c.text(
-            `Failed to create branch '${effectiveBranch}': ${branchResult.error}`,
-            500,
+      // Step 3: Resolve branch based on mode.
+      // - "new": clone default sourceBranch, then create branch locally
+      //   (session override takes priority over project default).
+      // - "sync": clone --branch already put us on the target branch; just persist.
+      if (branchMode === "new") {
+        const effectiveBranch = branchName || project.newBranch || null;
+        if (effectiveBranch) {
+          const branchResult = await vcs.createBranch(
+            effectiveBranch,
+            project.repoType,
+            session.upstreamPath,
           );
+          if (!branchResult.success) {
+            await sessionRepository.delete(projectId, session.id);
+            return c.text(
+              `Failed to create branch '${effectiveBranch}': ${branchResult.error}`,
+              500,
+            );
+          }
+          await sessionRepository.update(session.id, {
+            branch: effectiveBranch,
+          });
         }
-        // Persist so the commit service can push to the correct branch
-        await sessionRepository.update(session.id, { branch: effectiveBranch });
+      } else {
+        // sync mode: branchName is already checked out via clone --branch
+        await sessionRepository.update(session.id, { branch: branchName! });
       }
 
       // Step 4: Create fossil user for agent access

@@ -189,6 +189,14 @@ describe("detectLanguage", () => {
     expect(detectLanguage("main.go")).toBe("go");
   });
 
+  it("detects Elixir from .ex/.exs/.heex/.leex/.eex extensions", () => {
+    expect(detectLanguage("foo.ex")).toBe("elixir");
+    expect(detectLanguage("foo.exs")).toBe("elixir");
+    expect(detectLanguage("foo.heex")).toBe("elixir");
+    expect(detectLanguage("foo.leex")).toBe("elixir");
+    expect(detectLanguage("foo.eex")).toBe("elixir");
+  });
+
   it("falls back to plaintext for unknown extensions", () => {
     expect(detectLanguage("binary.xyz")).toBe("plaintext");
     expect(detectLanguage("noextension")).toBe("plaintext");
