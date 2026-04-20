@@ -11,6 +11,7 @@ interface LayoutProps {
   sessionKeybindings?: SessionKeybindingsConfig;
   chatFileExtensions?: string[];
   sessionName?: string;
+  sessionBranch?: string;
   projectId?: string;
   projectName?: string;
   fossilUrl?: string;
@@ -29,6 +30,7 @@ export const Layout: FC<LayoutProps> = ({
   sessionKeybindings,
   chatFileExtensions,
   sessionName,
+  sessionBranch,
   projectId,
   projectName,
   fossilUrl,
@@ -436,41 +438,38 @@ export const Layout: FC<LayoutProps> = ({
               </a>
             )}
             <a href="/dashboard">MIMO</a>
-            {sessionName && (
+            {(sessionName || projectName) && (
               <span style="margin-left: 10px; color: #888;">
-                | {sessionName}
+                {sessionName && (
+                  <span>
+                    | {sessionName}
+                    {sessionBranch && <span title="Branch"> | ⎇ {sessionBranch}</span>}
+                  </span>
+                )}
                 {projectName && (
                   <span>
-                    {" "}| <a href={`/projects/${projectId}`} style="color: #888;">{projectName}</a>
+                    {sessionName ? " | " : "| "}
+                    <a href={`/projects/${projectId}`} style="color: #888;">
+                      {projectName}
+                    </a>
                     {fossilUrl && (
-                      <a href={`${fossilUrl}timeline`} target="_blank" title="View Fossil Repository" style="margin-left: 4px;">
+                      <a
+                        href={`${fossilUrl}timeline`}
+                        target="_blank"
+                        title="View Fossil Repository"
+                        style="margin-left: 4px;"
+                      >
                         🌿
                       </a>
                     )}
-{agentId && agentName && (
+                    {agentId && agentName && (
                       <span style="margin-left: 4px;">
                         | <a href={`/agents/${agentId}`} style="color: #888;">{agentName}</a>
                       </span>
                     )}
-                {cloneWorkspaceHtml}
+                    {cloneWorkspaceHtml}
                   </span>
                 )}
-              </span>
-            )}
-            {!sessionName && projectName && (
-              <span style="margin-left: 10px; color: #888;">
-                | <a href={`/projects/${projectId}`} style="color: #888;">{projectName}</a>
-                {fossilUrl && (
-                  <a href={`${fossilUrl}timeline`} target="_blank" title="View Fossil Repository" style="margin-left: 4px;">
-                    🌿
-                  </a>
-                )}
-                {agentId && agentName && (
-                      <span style="margin-left: 4px;">
-                        | <a href={`/agents/${agentId}`} style="color: #888;">{agentName}</a>
-                      </span>
-                    )}
-                {cloneWorkspaceHtml}
               </span>
             )}
           </div>

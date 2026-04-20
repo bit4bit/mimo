@@ -13,6 +13,7 @@ describe("Session impact refresh UI", () => {
           session={{
             id: "s1",
             name: "Session",
+            branch: "feature/top-nav",
             status: "active",
             upstreamPath: "/tmp/upstream",
             agentWorkspacePath: "/tmp/workspace",
@@ -35,6 +36,8 @@ describe("Session impact refresh UI", () => {
     expect(html).toContain("impact-stale-badge");
     expect(html).toContain("impact-calculating-badge");
     expect(html).toContain("Click Refresh to calculate impact metrics");
+    expect(html).toContain("| Session");
+    expect(html).toContain("| feature/top-nav");
     expect(html).not.toContain("setInterval(fetchImpact, 5000)");
   });
 });
