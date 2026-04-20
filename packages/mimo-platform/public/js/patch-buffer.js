@@ -266,9 +266,16 @@
       emptyState.style.display = "none";
     }
 
-    // Enable/disable buttons
-    if (approveBtn) approveBtn.disabled = false;
-    if (declineBtn) declineBtn.disabled = false;
+    // Show/hide buttons based on readOnly flag
+    const readOnly = activeTab.readOnly || false;
+    if (approveBtn) {
+      approveBtn.disabled = readOnly;
+      approveBtn.style.display = readOnly ? "none" : "";
+    }
+    if (declineBtn) {
+      declineBtn.disabled = readOnly;
+      declineBtn.style.display = readOnly ? "none" : "";
+    }
   }
 
   function showToast(message, type) {
@@ -325,10 +332,13 @@
 
     try {
       // Fetch original file content
+      const originalEndpoint = tab.originalEndpoint || "files/content";
       const originalRes = await fetch(
         "/sessions/" +
           sessionId +
-          "/files/content?path=" +
+          "/" +
+          originalEndpoint +
+          "?path=" +
           encodeURIComponent(tab.originalPath),
       );
       if (!originalRes.ok) throw new Error("Failed to load original file");
@@ -486,7 +496,7 @@
 
   // ── Public API ───────────────────────────────────────────────────────────────
 
-  function addPatch({ sessionId, originalPath, patchPath, sourceBufferId }) {
+  function addPatch({ sessionId, originalPath, patchPath, sourceBufferId, originalEndpoint, readOnly }) {
     // Initialize session ID on first call
     if (!PatchBufferState.getSessionId()) {
       PatchBufferState.setSessionId(sessionId);
@@ -498,6 +508,8 @@
       originalPath,
       patchPath,
       sourceBufferId: sourceBufferId || null,
+      originalEndpoint: originalEndpoint || null,
+      readOnly: readOnly || false,
       originalContent: null,
       patchedContent: null,
     });
