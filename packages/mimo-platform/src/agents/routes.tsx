@@ -5,6 +5,7 @@ import type { MimoContext } from "../context/mimo-context.js";
 import type { Context } from "hono";
 
 import { Layout } from "../components/Layout.js";
+import { DataTable, type DataTableColumn } from "../components/DataTable.js";
 import { authMiddleware, createAuthMiddleware } from "../auth/middleware.js";
 
 type AgentsRoutesContext = Pick<MimoContext, "services" | "repos">;
@@ -220,6 +221,75 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
       ? agentsWithDetails.filter((agent) => agent.status === statusFilter)
       : agentsWithDetails;
 
+    const agentColumns: DataTableColumn<any>[] = [
+      {
+        key: "name",
+        label: "Name",
+        render: (agent) => (
+          <a href={`/agents/${agent.id}`}>{agent.name}</a>
+        ),
+      },
+      {
+        key: "id",
+        label: "ID",
+        render: (agent) => (
+          <span class="agent-id">{agent.id.slice(0, 8)}...</span>
+        ),
+      },
+      {
+        key: "status",
+        label: "Status",
+        render: (agent) => (
+          <span class={`status-badge status-${agent.status}`}>
+            {agent.status === "online" ? "🟢" : "🔴"} {agent.status}
+          </span>
+        ),
+      },
+      {
+        key: "provider",
+        label: "Provider",
+        render: (agent) => agent.provider || "opencode",
+      },
+      {
+        key: "sessionCount",
+        label: "Sessions",
+        render: (agent) => agent.sessionCount,
+      },
+      {
+        key: "startedAt",
+        label: "Created",
+        render: (agent) => new Date(agent.startedAt).toLocaleString(),
+      },
+      {
+        key: "lastActivityAt",
+        label: "Last Active",
+        render: (agent) =>
+          agent.lastActivityAt
+            ? new Date(agent.lastActivityAt).toLocaleString()
+            : "-",
+      },
+      {
+        key: "actions",
+        label: "Actions",
+        render: (agent) => (
+          <div>
+            <a href={`/agents/${agent.id}`} class="btn-secondary">
+              View
+            </a>
+            <form
+              method="POST"
+              action={`/agents/${agent.id}/delete`}
+              style="display: inline;"
+            >
+              <button type="submit" class="btn-danger">
+                Delete
+              </button>
+            </form>
+          </div>
+        ),
+      },
+    ];
+
     return c.html(
       <Layout title="Agents">
         <div class="agents-container">
@@ -259,63 +329,15 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
             </a>
           </div>
 
-          {filteredAgents.length === 0 ? (
-            <p>No agents found. Create an agent to get started.</p>
-          ) : (
-            <table class="agents-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>ID</th>
-                  <th>Status</th>
-                  <th>Provider</th>
-                  <th>Sessions</th>
-                  <th>Created</th>
-                  <th>Last Active</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAgents.map((agent) => (
-                  <tr key={agent.id}>
-                    <td>
-                      <a href={`/agents/${agent.id}`}>{agent.name}</a>
-                    </td>
-                    <td>
-                      <span class="agent-id">{agent.id.slice(0, 8)}...</span>
-                    </td>
-                    <td>
-                      <span class={`status-badge status-${agent.status}`}>
-                        {agent.status === "online" ? "🟢" : "🔴"} {agent.status}
-                      </span>
-                    </td>
-                    <td>{agent.provider || "opencode"}</td>
-                    <td>{agent.sessionCount}</td>
-                    <td>{new Date(agent.startedAt).toLocaleString()}</td>
-                    <td>
-                      {agent.lastActivityAt
-                        ? new Date(agent.lastActivityAt).toLocaleString()
-                        : "-"}
-                    </td>
-                    <td>
-                      <a href={`/agents/${agent.id}`} class="btn-secondary">
-                        View
-                      </a>
-                      <form
-                        method="POST"
-                        action={`/agents/${agent.id}/delete`}
-                        style="display: inline;"
-                      >
-                        <button type="submit" class="btn-danger">
-                          Delete
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          <DataTable
+            rows={filteredAgents}
+            columns={agentColumns}
+            searchFields={["name"]}
+            pageSize={10}
+            emptyMessage="No agents found. Create an agent to get started."
+            sortBy="startedAt"
+            sortDesc={true}
+          />
         </div>
 
         <style>{`
@@ -360,38 +382,6 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
           color: #d4d4d4;
         }
         .filter-link:hover { background: #2d2d2d; }
-        .agents-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-top: 20px;
-        }
-        .agents-table th,
-        .agents-table td {
-          padding: 12px;
-          text-align: left;
-          border-bottom: 1px solid #444;
-        }
-        .agents-table th {
-          background: #2d2d2d;
-          font-weight: bold;
-          text-transform: uppercase;
-          font-size: 12px;
-          color: #888;
-        }
-        .status-badge {
-          padding: 4px 8px;
-          border-radius: 3px;
-          font-size: 11px;
-          text-transform: uppercase;
-        }
-        .status-online {
-          background: #0b3d0b;
-          color: #51cf66;
-        }
-        .status-offline {
-          background: #3d0b0b;
-          color: #ff6b6b;
-        }
         .agent-id {
           font-size: 11px;
           color: #888;
@@ -599,6 +589,36 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
 
     const sessions = await sessionRepository.findByAssignedAgentId(agentId);
 
+    const sessionColumns: DataTableColumn<any>[] = [
+      {
+        key: "name",
+        label: "Session Name",
+        render: (session) => (
+          <a
+            href={`/projects/${session.projectId}/sessions/${session.id}`}
+          >
+            {session.name}
+          </a>
+        ),
+      },
+      {
+        key: "projectId",
+        label: "Project",
+        render: (session) => (
+          <span class="agent-id">{session.projectId.slice(0, 8)}...</span>
+        ),
+      },
+      {
+        key: "status",
+        label: "Status",
+        render: (session) => (
+          <span class={`session-status ${session.status}`}>
+            {session.status}
+          </span>
+        ),
+      },
+    ];
+
     return c.html(
       <Layout title={`Agent ${agent.name}`}>
         <div class="agent-detail-container">
@@ -705,34 +725,15 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
 
           <div class="sessions-section">
             <h2>Sessions using this agent ({sessions.length})</h2>
-            {sessions.length === 0 ? (
-              <p style="color: #888;">No sessions are using this agent yet.</p>
-            ) : (
-              <table class="sessions-table">
-                <thead>
-                  <tr>
-                    <th>Session Name</th>
-                    <th>Project</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sessions.map((session) => (
-                    <tr key={session.id}>
-                      <td>
-                        <a
-                          href={`/projects/${session.projectId}/sessions/${session.id}`}
-                        >
-                          {session.name}
-                        </a>
-                      </td>
-                      <td>{session.projectId.slice(0, 8)}...</td>
-                      <td>{session.status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            <DataTable
+              rows={sessions}
+              columns={sessionColumns}
+              searchFields={["name"]}
+              pageSize={10}
+              emptyMessage="No sessions are using this agent yet."
+              sortBy="createdAt"
+              sortDesc={true}
+            />
           </div>
 
           <div style="margin-top: 30px;">
@@ -815,9 +816,6 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
         .btn-secondary { background: #3d3d3d; color: #d4d4d4; border: none; cursor: pointer; }
         .btn-danger { background: #ff6b6b; color: #1a1a1a; padding: 6px 12px; border: none; cursor: pointer; border-radius: 3px; }
 .sessions-section { margin-top: 30px; }
-.sessions-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-.sessions-table th, .sessions-table td { padding: 10px; text-align: left; border-bottom: 1px solid #444; }
-.sessions-table th { background: #2d2d2d; color: #888; text-transform: uppercase; font-size: 11px; }
 .capabilities-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #444; }
 .capabilities-section label { color: #888; font-weight: bold; }
 .capabilities-box { margin-top: 10px; }

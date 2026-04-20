@@ -146,6 +146,9 @@ export const DashboardPage: FC<DashboardProps> = ({
           <div class="dashboard-section">
             <div class="section-header">
               <h2>Recent Sessions</h2>
+              <a href="/projects" class="btn-small">
+                View All
+              </a>
             </div>
             {sessions.length === 0 ? (
               <div class="empty-state">
