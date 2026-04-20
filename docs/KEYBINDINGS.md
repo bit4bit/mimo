@@ -17,6 +17,14 @@ MIMO session pages support browser-safe `Mod+Shift` shortcuts (`Mod = Cmd on mac
 |-----|--------|-------------|
 | `Enter` | Send Message | Submit the chat message |
 
+## Create Thread Dialog
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| `Enter` | Verify/Create | Submit the create-thread form when the focused control supports submit |
+| `Ctrl+Enter` | Verify/Create | Submit the create-thread form from any field |
+| `Alt+Shift+G` | Cancel | Close the create-thread dialog without creating |
+
 ## Session Shortcuts
 
 | Key | Action | Description |

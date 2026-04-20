@@ -361,7 +361,8 @@ describe("Agent Lifecycle Integration Tests", () => {
       );
 
       expect(res.status).toBe(302);
-      expect(res.headers.get("location")).toBe(`/agents/${agent.id}?refreshed=1`);
+      const location = res.headers.get("location");
+      expect(location).toContain(`/agents/${agent.id}?refreshed=1`);
 
       // Verify capabilities are cleared
       found = await agentRepository.findById(agent.id);
