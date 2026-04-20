@@ -206,6 +206,57 @@ export const ImpactBuffer: FC<ImpactBufferProps> = ({ sessionId }) => {
         .impact-clone-lines {
           color: #666;
         }
+
+        .impact-file-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 2px;
+          border-radius: 3px;
+          cursor: pointer;
+        }
+
+        .impact-file-row:hover {
+          background: #3a3a3a;
+        }
+
+        .impact-file-row.deleted {
+          cursor: default;
+          opacity: 0.6;
+        }
+
+        .impact-file-row.deleted:hover {
+          background: none;
+        }
+
+        .impact-file-status {
+          font-family: monospace;
+          font-size: 12px;
+          font-weight: bold;
+          min-width: 12px;
+          text-align: center;
+        }
+
+        .impact-file-status-new {
+          color: #51cf66;
+        }
+
+        .impact-file-status-changed {
+          color: #74c0fc;
+        }
+
+        .impact-file-status-deleted {
+          color: #ff6b6b;
+        }
+
+        .impact-file-path {
+          font-family: monospace;
+          font-size: 12px;
+          color: #d4d4d4;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
       `}</style>
     </div>
   );

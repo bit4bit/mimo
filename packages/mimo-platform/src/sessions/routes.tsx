@@ -1410,6 +1410,36 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     });
   });
 
+  // GET /sessions/:id/files/upstream-content?path=...
+  router.get("/:id/files/upstream-content", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+    const sessionId = c.req.param("id");
+    const filePath = c.req.query("path");
+    if (!filePath) return c.json({ error: "path query param required" }, 400);
+    const session = await sessionRepository.findById(sessionId);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
+    let raw: string;
+    try {
+      raw = await fileService.readFile(session.upstreamPath, filePath);
+    } catch (err: any) {
+      if (err?.message?.includes("Access denied"))
+        return c.json({ error: "Access denied" }, 403);
+      return c.json({ error: "File not found" }, 404);
+    }
+    const language = detectLanguage(filePath);
+    const name = filePath.split("/").pop() ?? filePath;
+    const lineCount = raw.split("\n").length;
+    return c.json({
+      path: filePath,
+      name,
+      language,
+      lineCount,
+      content: escapeHtml(raw),
+    });
+  });
+
   // ---------------------------------------------------------------------------
   // Expert Mode API
   // ---------------------------------------------------------------------------

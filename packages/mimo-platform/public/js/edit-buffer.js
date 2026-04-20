@@ -1782,6 +1782,19 @@
       switchFile: switchFile,
       scrollContent: scrollContent,
       reloadCurrentFile: reloadCurrentFile,
+      openFile: function (path) {
+        var sessionId = getSessionId();
+        if (!sessionId) return;
+        fetchAndAddFile(sessionId, path, function () {
+          renderEditBuffer();
+          var filesTab = document.querySelector(
+            '.frame-tab[data-frame-id="left"][data-buffer-id="edit"]',
+          );
+          if (filesTab) filesTab.click();
+          var contentEl = document.getElementById("edit-buffer-content");
+          if (contentEl) contentEl.focus();
+        });
+      },
       ws: null,
       toggleExpertMode: function () {
         var sid = getSessionId();

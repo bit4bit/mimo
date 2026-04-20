@@ -2104,6 +2104,10 @@ function renderImpactMetrics(metrics, trends) {
     metrics.linesOfCode.net >= 0
       ? `+${metrics.linesOfCode.net}`
       : `${metrics.linesOfCode.net}`;
+  const shortPath = (p) => {
+    const parts = p.split("/");
+    return parts.length > 2 ? `.../${parts.slice(-2).join("/")}` : p;
+  };
 
   let duplicationHtml = "";
   if (metrics.duplication !== undefined) {
@@ -2126,11 +2130,6 @@ function renderImpactMetrics(metrics, trends) {
 
       const crossClones = dup.clones.filter((c) => c.type === "cross");
       const intraClones = dup.clones.filter((c) => c.type === "intra");
-
-      const shortPath = (p) => {
-        const parts = p.split("/");
-        return parts.length > 2 ? `.../${parts.slice(-2).join("/")}` : p;
-      };
 
       const crossHtml =
         crossClones.length > 0
@@ -2180,6 +2179,40 @@ function renderImpactMetrics(metrics, trends) {
     }
   }
 
+  const changedFiles = (metrics.byFile || []).filter(
+    (f) => f.status !== "unchanged",
+  );
+  const statusBadge = { new: "+", changed: "~", deleted: "-" };
+  const statusClass = {
+    new: "impact-file-status-new",
+    changed: "impact-file-status-changed",
+    deleted: "impact-file-status-deleted",
+  };
+  const changedFilesHtml =
+    changedFiles.length > 0
+      ? `<div class="impact-section">
+      <div class="impact-section-title">Changed Files</div>
+      ${changedFiles
+        .map((f) => {
+          const badge = statusBadge[f.status] || "?";
+          const cls = statusClass[f.status] || "";
+          const clickable = f.status !== "deleted";
+          const safePath = f.path.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+          let onclick = "";
+          if (f.status === "new") {
+            onclick = `onclick="window.EditBuffer && window.EditBuffer.openFile('${safePath}')"`;
+          } else if (f.status === "changed") {
+            onclick = `onclick="if(window.MIMO_PATCH_BUFFER){window.MIMO_PATCH_BUFFER.addPatch({sessionId:document.getElementById('impact-buffer').dataset.sessionId,originalPath:'${safePath}',patchPath:'${safePath}',originalEndpoint:'files/upstream-content',readOnly:true,sourceBufferId:'impact'});switchFrameBuffer('left','patches').then(function(){window.MIMO_PATCH_BUFFER.focusDiffPane&&window.MIMO_PATCH_BUFFER.focusDiffPane();});}"`;
+          }
+          return `<div class="impact-file-row${clickable ? "" : " deleted"}"${clickable ? ` ${onclick}` : ""}>
+          <span class="impact-file-status ${cls}">${badge}</span>
+          <span class="impact-file-path" title="${f.path}">${shortPath(f.path)}</span>
+        </div>`;
+        })
+        .join("")}
+    </div>`
+      : "";
+
   content.innerHTML = `
     <div class="impact-section">
       <div class="impact-section-title">Files</div>
@@ -2200,6 +2233,7 @@ function renderImpactMetrics(metrics, trends) {
       <div class="impact-metric"><span class="impact-metric-label">Est. Time:</span><span class="impact-metric-value">~${metrics.complexity.estimatedMinutes} min</span></div>
     </div>
     ${duplicationHtml}
+    ${changedFilesHtml}
   `;
 }
 
