@@ -118,10 +118,16 @@
       };
     }
 
-    for (var start = 0; start <= contentLines.length - searchLines.length; start++) {
+    for (
+      var start = 0;
+      start <= contentLines.length - searchLines.length;
+      start++
+    ) {
       var isMatch = true;
       for (var offset = 0; offset < searchLines.length; offset++) {
-        if (contentLines[start + offset].trim() !== searchLines[offset].trim()) {
+        if (
+          contentLines[start + offset].trim() !== searchLines[offset].trim()
+        ) {
           isMatch = false;
           break;
         }
@@ -138,10 +144,16 @@
     };
   }
 
-  function applyLineRangeReplacement(contentLines, startLineIndex, lineCount, replacementText) {
+  function applyLineRangeReplacement(
+    contentLines,
+    startLineIndex,
+    lineCount,
+    replacementText,
+  ) {
     var before = contentLines.slice(0, startLineIndex);
     var after = contentLines.slice(startLineIndex + lineCount);
-    var replacementLines = replacementText === "" ? [] : replacementText.split("\n");
+    var replacementLines =
+      replacementText === "" ? [] : replacementText.split("\n");
     return before.concat(replacementLines, after).join("\n");
   }
 
@@ -165,7 +177,9 @@
 
     var exactCount = countOccurrences(content, searchText);
     if (exactCount > 1) {
-      throw new Error("Multiple matches found. Make the search text more specific.");
+      throw new Error(
+        "Multiple matches found. Make the search text more specific.",
+      );
     }
     if (exactCount === 1) {
       var exactIndex = content.indexOf(searchText);
@@ -178,7 +192,9 @@
 
     var fuzzy = findWhitespaceNormalizedMatch(content, searchText);
     if (fuzzy.matches.length > 1) {
-      throw new Error("Multiple matches found. Make the search text more specific.");
+      throw new Error(
+        "Multiple matches found. Make the search text more specific.",
+      );
     }
     if (fuzzy.matches.length === 1) {
       var fuzzyStart = fuzzy.matches[0];
@@ -219,12 +235,19 @@
         }
 
         if (nearMatch) {
-          return applyLineRangeReplacement(contentLines, i, searchLines.length, replaceText);
+          return applyLineRangeReplacement(
+            contentLines,
+            i,
+            searchLines.length,
+            replaceText,
+          );
         }
       }
     }
 
-    throw new Error("Could not find the code to replace. The file may have changed.");
+    throw new Error(
+      "Could not find the code to replace. The file may have changed.",
+    );
   }
 
   function applySearchReplaceBlocks(content, blocks) {
@@ -237,7 +260,9 @@
       try {
         var block = blocks[i];
         var focusLine =
-          block && typeof block.focusLine === "number" ? block.focusLine : undefined;
+          block && typeof block.focusLine === "number"
+            ? block.focusLine
+            : undefined;
         result = applySearchReplaceBlock(result, block, focusLine);
       } catch (err) {
         throw new Error("Block " + (i + 1) + ": " + err.message);

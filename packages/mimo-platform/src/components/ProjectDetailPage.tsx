@@ -42,7 +42,8 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({
 }) => {
   const priorityWeight: Record<string, number> = { high: 0, medium: 1, low: 2 };
   const sortedSessions = [...sessions].sort((a, b) => {
-    const pw = (priorityWeight[a.priority] ?? 1) - (priorityWeight[b.priority] ?? 1);
+    const pw =
+      (priorityWeight[a.priority] ?? 1) - (priorityWeight[b.priority] ?? 1);
     if (pw !== 0) return pw;
     return b.createdAt.getTime() - a.createdAt.getTime();
   });
@@ -73,9 +74,7 @@ export const ProjectDetailPage: FC<ProjectDetailProps> = ({
       key: "status",
       label: "Status",
       render: (session) => (
-        <span class={`session-status ${session.status}`}>
-          {session.status}
-        </span>
+        <span class={`session-status ${session.status}`}>{session.status}</span>
       ),
     },
     {

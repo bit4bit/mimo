@@ -148,7 +148,7 @@ export class ExpertService {
   async listPatchFiles(workspacePath: string): Promise<PatchInfo[]> {
     const { readdirSync, statSync } = await import("fs");
     const patchesDir = join(workspacePath, ".mimo-patches").replace(/\\/g, "/");
-    
+
     if (!existsSync(patchesDir)) {
       return [];
     }
@@ -160,7 +160,7 @@ export class ExpertService {
       for (const entry of entries) {
         const fullPath = join(dir, entry.name).replace(/\\/g, "/");
         const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
-        
+
         if (entry.isDirectory()) {
           scanDir(fullPath, relPath);
         } else {

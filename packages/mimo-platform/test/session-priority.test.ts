@@ -21,7 +21,8 @@ describe("Session Priority", () => {
       `mimo-priority-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     );
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       services: { sharedFossil: new DummySharedFossilServer() },
@@ -72,7 +73,10 @@ describe("Session Priority", () => {
           "Content-Type": "application/x-www-form-urlencoded",
           Cookie: `token=${token}`,
         },
-        body: new URLSearchParams({ name: "High Priority Session", priority: "high" }).toString(),
+        body: new URLSearchParams({
+          name: "High Priority Session",
+          priority: "high",
+        }).toString(),
       });
 
       expect(res.status).toBe(302);
@@ -97,7 +101,9 @@ describe("Session Priority", () => {
           "Content-Type": "application/x-www-form-urlencoded",
           Cookie: `token=${token}`,
         },
-        body: new URLSearchParams({ name: "Default Priority Session" }).toString(),
+        body: new URLSearchParams({
+          name: "Default Priority Session",
+        }).toString(),
       });
 
       expect(res.status).toBe(302);
@@ -122,7 +128,10 @@ describe("Session Priority", () => {
           "Content-Type": "application/x-www-form-urlencoded",
           Cookie: `token=${token}`,
         },
-        body: new URLSearchParams({ name: "Bad Priority Session", priority: "urgent" }).toString(),
+        body: new URLSearchParams({
+          name: "Bad Priority Session",
+          priority: "urgent",
+        }).toString(),
       });
 
       expect(res.status).toBe(400);
@@ -205,7 +214,11 @@ describe("Session Priority", () => {
         // NOTE: no priority field
       };
 
-      writeFileSync(join(sessionsDir, "session.yaml"), dump(legacyData), "utf-8");
+      writeFileSync(
+        join(sessionsDir, "session.yaml"),
+        dump(legacyData),
+        "utf-8",
+      );
 
       const session = await sessionRepository.findById(sessionId);
       expect(session).not.toBeNull();
@@ -259,7 +272,10 @@ describe("Session Priority", () => {
           "Content-Type": "application/x-www-form-urlencoded",
           Cookie: `token=${token}`,
         },
-        body: new URLSearchParams({ name: "Older High", priority: "high" }).toString(),
+        body: new URLSearchParams({
+          name: "Older High",
+          priority: "high",
+        }).toString(),
       });
 
       // Ensure different createdAt timestamps
@@ -271,7 +287,10 @@ describe("Session Priority", () => {
           "Content-Type": "application/x-www-form-urlencoded",
           Cookie: `token=${token}`,
         },
-        body: new URLSearchParams({ name: "Newer High", priority: "high" }).toString(),
+        body: new URLSearchParams({
+          name: "Newer High",
+          priority: "high",
+        }).toString(),
       });
 
       const sessions = await sessionRepository.listByProject(project.id);

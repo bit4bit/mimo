@@ -34,16 +34,20 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
       key: "description",
       label: "Description",
       render: (server) =>
-        server.description
-          ? truncate(server.description, 60)
-          : <span style="color: #666;">No description</span>,
+        server.description ? (
+          truncate(server.description, 60)
+        ) : (
+          <span style="color: #666;">No description</span>
+        ),
     },
     {
       key: "endpoint",
       label: "Endpoint",
       render: (server) =>
         server.transport === "stdio" ? (
-          <code>{truncate(`${server.command} ${server.args?.join(" ") || ""}`, 40)}</code>
+          <code>
+            {truncate(`${server.command} ${server.args?.join(" ") || ""}`, 40)}
+          </code>
         ) : (
           <code>{truncate(server.url || "", 40)}</code>
         ),
@@ -62,7 +66,9 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
             style="display: inline;"
             onsubmit="return confirm('Are you sure you want to delete this MCP server? Sessions using it may fail to start.')"
           >
-            <button type="submit" class="btn-danger">Delete</button>
+            <button type="submit" class="btn-danger">
+              Delete
+            </button>
           </form>
         </div>
       ),
@@ -87,7 +93,10 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
           emptyMessage="No MCP servers configured yet."
           emptyAction={
             <div>
-              <p>MCP servers extend your AI agent's capabilities with tools and resources.</p>
+              <p>
+                MCP servers extend your AI agent's capabilities with tools and
+                resources.
+              </p>
               <a href="/mcp-servers/new" class="btn" style="margin-top: 20px;">
                 Create your first MCP server
               </a>

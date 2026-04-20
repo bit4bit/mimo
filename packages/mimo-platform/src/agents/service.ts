@@ -306,10 +306,15 @@ export class AgentService {
           timestamp: new Date().toISOString(),
         }),
       );
-      logger.debug(`[AgentService] Requested capabilities refresh for agent ${agentId}`);
+      logger.debug(
+        `[AgentService] Requested capabilities refresh for agent ${agentId}`,
+      );
       return true;
     } catch (error) {
-      logger.error(`[AgentService] Failed to request capabilities refresh for agent ${agentId}:`, error);
+      logger.error(
+        `[AgentService] Failed to request capabilities refresh for agent ${agentId}:`,
+        error,
+      );
       return false;
     }
   }

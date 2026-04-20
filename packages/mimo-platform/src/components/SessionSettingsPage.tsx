@@ -6,6 +6,7 @@ interface SessionSettingsPageProps {
     id: string;
     name: string;
     idleTimeoutMs: number;
+    sessionTtlDays: number;
     acpStatus: string;
     priority: "high" | "medium" | "low";
   };
@@ -146,9 +147,15 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
           <div class="form-group">
             <label>Priority</label>
             <select name="priority" required>
-              <option value="high" selected={session.priority === "high"}>High</option>
-              <option value="medium" selected={session.priority === "medium"}>Medium</option>
-              <option value="low" selected={session.priority === "low"}>Low</option>
+              <option value="high" selected={session.priority === "high"}>
+                High
+              </option>
+              <option value="medium" selected={session.priority === "medium"}>
+                Medium
+              </option>
+              <option value="low" selected={session.priority === "low"}>
+                Low
+              </option>
             </select>
             <p class="form-help">
               Affects the order this session appears in the list.
@@ -237,6 +244,28 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
             </p>
           </div>
 
+          <div class="form-group">
+            <label>Session TTL (days)</label>
+            <select name="sessionTtlDays" required>
+              <option value="30" selected={session.sessionTtlDays === 30}>
+                30 days
+              </option>
+              <option value="90" selected={session.sessionTtlDays === 90}>
+                90 days
+              </option>
+              <option value="180" selected={session.sessionTtlDays === 180}>
+                180 days (Default)
+              </option>
+              <option value="365" selected={session.sessionTtlDays === 365}>
+                365 days
+              </option>
+            </select>
+            <p class="form-help">
+              Session is eligible for auto-delete after this age, only when
+              inactive for at least 10 minutes.
+            </p>
+          </div>
+
           <div
             class="form-group"
             style="background: '#1e1e1e', padding: '15px', borderRadius: '4px', borderLeft: '3px solid #007acc'"
@@ -263,6 +292,12 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
                   {session.idleTimeoutMs === 0
                     ? "Disabled"
                     : `After ${formatTimeout(session.idleTimeoutMs)} of inactivity`}
+                </span>
+              </div>
+              <div style="margin-top: '8px'">
+                <span style="color: '#888'">Auto-delete TTL: </span>
+                <span style="color: '#d4d4d4'">
+                  {session.sessionTtlDays} days
                 </span>
               </div>
             </div>

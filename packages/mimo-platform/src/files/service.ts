@@ -165,7 +165,9 @@ async function fossilLs(workspacePath: string): Promise<string[]> {
     .filter((l) => l.length > 0);
 }
 
-export function createFileService(additionalPatterns: string[] = []): FileService {
+export function createFileService(
+  additionalPatterns: string[] = [],
+): FileService {
   return {
     listFiles: async (workspacePath: string): Promise<FileInfo[]> => {
       if (!existsSync(workspacePath)) return [];
@@ -182,13 +184,16 @@ export function createFileService(additionalPatterns: string[] = []): FileServic
       ];
       return applyIgnorePatterns(all, patterns);
     },
-    readFile: async (workspacePath: string, filePath: string): Promise<string> => {
+    readFile: async (
+      workspacePath: string,
+      filePath: string,
+    ): Promise<string> => {
       const full = join(workspacePath, filePath).replace(/\\/g, "/");
       const base = workspacePath.replace(/\\/g, "/");
       if (!full.startsWith(base + "/") && full !== base) {
         throw new Error("Access denied: path outside workspace");
       }
-return readFileSync(full, "utf-8");
+      return readFileSync(full, "utf-8");
     },
   };
 }

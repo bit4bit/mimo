@@ -42,7 +42,9 @@ export const Frame: FC<FrameProps> = ({
             </button>
           );
         })}
-        {tabBarActions && <div class="frame-tab-bar-actions">{tabBarActions}</div>}
+        {tabBarActions && (
+          <div class="frame-tab-bar-actions">{tabBarActions}</div>
+        )}
       </div>
 
       <div class="frame-content">

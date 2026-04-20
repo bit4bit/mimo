@@ -17,7 +17,8 @@ export const FileFinderDialog: FC<FileFinderDialogProps> = ({ sessionId }) => {
         style="width: 600px; max-width: 90%; background: #2d2d2d; border: 1px solid #444;"
       >
         <div style="font-size: 13px; color: #888; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #444;">
-          Open File <span style="float: right; font-size: 11px;">Esc to close</span>
+          Open File{" "}
+          <span style="float: right; font-size: 11px;">Esc to close</span>
         </div>
         <input
           id="file-finder-input"
@@ -40,7 +41,9 @@ export const FileFinderDialog: FC<FileFinderDialogProps> = ({ sessionId }) => {
           id="file-finder-results"
           style="margin-top: 8px; max-height: 320px; overflow-y: auto;"
         >
-          <div style="color: #888; font-size: 12px; padding: 8px 0;">Loading files...</div>
+          <div style="color: #888; font-size: 12px; padding: 8px 0;">
+            Loading files...
+          </div>
         </div>
       </div>
     </div>

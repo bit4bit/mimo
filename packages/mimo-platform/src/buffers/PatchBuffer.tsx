@@ -51,9 +51,7 @@ export const PatchBuffer: FC<PatchBufferProps> = ({ sessionId }) => {
       >
         {/* Original pane */}
         <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
-          <div
-            style="padding: 6px 12px; background: #2a2a2a; border-bottom: 1px solid #444; border-right: 1px solid #444; font-size: 12px; color: #888; flex-shrink: 0;"
-          >
+          <div style="padding: 6px 12px; background: #2a2a2a; border-bottom: 1px solid #444; border-right: 1px solid #444; font-size: 12px; color: #888; flex-shrink: 0;">
             ORIGINAL
           </div>
           <div
@@ -67,9 +65,7 @@ export const PatchBuffer: FC<PatchBufferProps> = ({ sessionId }) => {
 
         {/* Patched pane */}
         <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
-          <div
-            style="padding: 6px 12px; background: #2a2a2a; border-bottom: 1px solid #444; font-size: 12px; color: #888; flex-shrink: 0;"
-          >
+          <div style="padding: 6px 12px; background: #2a2a2a; border-bottom: 1px solid #444; font-size: 12px; color: #888; flex-shrink: 0;">
             PATCHED
           </div>
           <div

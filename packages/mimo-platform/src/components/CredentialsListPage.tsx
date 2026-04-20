@@ -50,7 +50,9 @@ export const CredentialsListPage: FC<CredentialsListPageProps> = ({
             action={`/credentials/${cred.id}/delete`}
             style="display: inline;"
           >
-            <button type="submit" class="btn-danger">Delete</button>
+            <button type="submit" class="btn-danger">
+              Delete
+            </button>
           </form>
         </div>
       ),

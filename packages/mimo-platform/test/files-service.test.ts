@@ -1,5 +1,10 @@
 import { describe, it, expect } from "bun:test";
-import { matchesPattern, findFiles, applyIgnorePatterns, loadIgnorePatterns } from "../src/files/service.js";
+import {
+  matchesPattern,
+  findFiles,
+  applyIgnorePatterns,
+  loadIgnorePatterns,
+} from "../src/files/service.js";
 import { detectLanguage, escapeHtml } from "../src/files/syntax-highlighter.js";
 import type { FileInfo } from "../src/files/types.js";
 
@@ -100,7 +105,9 @@ describe("applyIgnorePatterns", () => {
 
   it("excludes files matching a ** pattern", () => {
     const result = applyIgnorePatterns(files, ["node_modules/**"]);
-    expect(result.map((f) => f.path)).not.toContain("node_modules/lodash/index.js");
+    expect(result.map((f) => f.path)).not.toContain(
+      "node_modules/lodash/index.js",
+    );
   });
 
   it("re-includes files matching a negation pattern", () => {
@@ -111,7 +118,9 @@ describe("applyIgnorePatterns", () => {
 
   it("excludes all files under a trailing-slash directory pattern", () => {
     const result = applyIgnorePatterns(files, ["node_modules/"]);
-    expect(result.map((f) => f.path)).not.toContain("node_modules/lodash/index.js");
+    expect(result.map((f) => f.path)).not.toContain(
+      "node_modules/lodash/index.js",
+    );
     expect(result.map((f) => f.path)).toContain("src/index.ts");
   });
 
@@ -126,7 +135,9 @@ describe("applyIgnorePatterns", () => {
 
 describe("loadIgnorePatterns", () => {
   it("returns empty array when neither .gitignore nor .mimoignore exists", () => {
-    expect(loadIgnorePatterns("/nonexistent/path/xyz123")).toEqual([".mimo-patches/"]);
+    expect(loadIgnorePatterns("/nonexistent/path/xyz123")).toEqual([
+      ".mimo-patches/",
+    ]);
   });
 
   it("reads patterns from a real .gitignore file", async () => {
@@ -168,7 +179,9 @@ describe("createFileService readFile", () => {
   it("rejects path traversal outside workspace", async () => {
     const { createFileService } = await import("../src/files/service.js");
     const service = createFileService();
-    await expect(service.readFile("/some/workspace", "../etc/passwd")).rejects.toThrow("Access denied");
+    await expect(
+      service.readFile("/some/workspace", "../etc/passwd"),
+    ).rejects.toThrow("Access denied");
   });
 });
 

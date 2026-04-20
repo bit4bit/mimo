@@ -56,10 +56,13 @@ export const SessionList: FC<SessionListProps> = ({
 
   const priorityWeight: Record<string, number> = { high: 0, medium: 1, low: 2 };
   const sorted = [...sessions].sort((a, b) => {
-    const pw = (priorityWeight[a.priority] ?? 1) - (priorityWeight[b.priority] ?? 1);
+    const pw =
+      (priorityWeight[a.priority] ?? 1) - (priorityWeight[b.priority] ?? 1);
     if (pw !== 0) return pw;
-    const da = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
-    const db = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+    const da =
+      a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+    const db =
+      b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
     return db.getTime() - da.getTime();
   });
 
@@ -118,9 +121,7 @@ export const SessionList: FC<SessionListProps> = ({
                   </span>
                 </td>
                 <td>
-                  <span class={`session-status ${s.status}`}>
-                    {s.status}
-                  </span>
+                  <span class={`session-status ${s.status}`}>{s.status}</span>
                 </td>
                 <td class="session-time" title={fmtDate(s.createdAt)}>
                   {relTime(s.createdAt)}
@@ -133,15 +134,21 @@ export const SessionList: FC<SessionListProps> = ({
 
       {sorted.length > pageSize && (
         <div class="session-paginator" data-sl-pag={id}>
-          <button class="page-btn" data-sl-prev={id}>&lt; Prev</button>
+          <button class="page-btn" data-sl-prev={id}>
+            &lt; Prev
+          </button>
           <span class="page-info" data-sl-info={id}>
             Page 1 of {pages}
           </span>
-          <button class="page-btn" data-sl-next={id}>Next &gt;</button>
+          <button class="page-btn" data-sl-next={id}>
+            Next &gt;
+          </button>
         </div>
       )}
 
-      <script dangerouslySetInnerHTML={{ __html: `
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
         (function(){
           var id="${id}",pageSize=${pageSize},totalPages=${pages},cur=1;
           var wrap=document.getElementById(id);
@@ -174,7 +181,9 @@ export const SessionList: FC<SessionListProps> = ({
           }
           show(1);
         })();
-      ` }} />
+      `,
+        }}
+      />
     </div>
   );
 };

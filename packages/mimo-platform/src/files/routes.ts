@@ -58,13 +58,22 @@ export function createFilesRoutes(ctx: FilesRoutesContext) {
     const lineCount = raw.split("\n").length;
     const escapedContent = escapeHtml(raw);
 
-    return c.json({ path: filePath, name, language, lineCount, content: escapedContent });
+    return c.json({
+      path: filePath,
+      name,
+      language,
+      lineCount,
+      content: escapedContent,
+    });
   });
 
   // POST /api/sessions/:sessionId/files/write
   router.post("/write", async (c: Context) => {
     const sessionId = c.req.param("sessionId");
-    const { path, content } = await c.req.json<{ path: string; content: string }>();
+    const { path, content } = await c.req.json<{
+      path: string;
+      content: string;
+    }>();
 
     if (!path || content === undefined) {
       return c.json({ error: "path and content required" }, 400);
@@ -76,7 +85,11 @@ export function createFilesRoutes(ctx: FilesRoutesContext) {
     }
 
     try {
-      const result = await ctx.expertService.writeFileContent(workspacePath, path, content);
+      const result = await ctx.expertService.writeFileContent(
+        workspacePath,
+        path,
+        content,
+      );
       return c.json(result);
     } catch (err: any) {
       if (err.message.includes("not found")) {

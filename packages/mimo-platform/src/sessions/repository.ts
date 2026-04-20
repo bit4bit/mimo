@@ -63,6 +63,8 @@ export interface Session {
   mcpServerIds: string[];
   // ACP Session Parking fields
   idleTimeoutMs: number;
+  sessionTtlDays: number;
+  lastActivityAt: string | null;
   acpStatus: "active" | "parked";
   syncState: "idle" | "syncing" | "error";
   lastSyncAt?: string;
@@ -97,6 +99,8 @@ export interface SessionData {
   mcpServerIds?: string[];
   // ACP Session Parking fields
   idleTimeoutMs?: number;
+  sessionTtlDays?: number;
+  lastActivityAt?: string | null;
   acpStatus?: "active" | "parked";
   syncState?: "idle" | "syncing" | "error";
   lastSyncAt?: string;
@@ -119,11 +123,13 @@ export interface CreateSessionInput {
   agentSubpath?: string;
   branchName?: string;
   mcpServerIds?: string[];
+  sessionTtlDays?: number;
   priority?: SessionPriority;
 }
 
 export interface UpdateSessionConfigInput {
   idleTimeoutMs?: number;
+  sessionTtlDays?: number;
   priority?: SessionPriority;
 }
 
@@ -134,7 +140,8 @@ const PRIORITY_WEIGHT: Record<SessionPriority, number> = {
 };
 
 export function compareSessions(a: Session, b: Session): number {
-  const priorityDiff = PRIORITY_WEIGHT[a.priority] - PRIORITY_WEIGHT[b.priority];
+  const priorityDiff =
+    PRIORITY_WEIGHT[a.priority] - PRIORITY_WEIGHT[b.priority];
   if (priorityDiff !== 0) return priorityDiff;
   return b.createdAt.getTime() - a.createdAt.getTime();
 }
@@ -266,6 +273,8 @@ export class SessionRepository {
       priority: input.priority ?? "medium",
       // ACP Session Parking defaults
       idleTimeoutMs: 600000, // 10 minutes default
+      sessionTtlDays: input.sessionTtlDays ?? 180,
+      lastActivityAt: null,
       acpStatus: "active",
       syncState: "idle",
       frameState: createDefaultFrameState(),
@@ -319,6 +328,8 @@ export class SessionRepository {
               agentWorkspacePath:
                 data.agentWorkspacePath || (data as any).checkoutPath,
               idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+              sessionTtlDays: data.sessionTtlDays ?? 180,
+              lastActivityAt: data.lastActivityAt ?? null,
               acpStatus: data.acpStatus ?? "active",
               syncState: data.syncState ?? "idle",
               mcpServerIds: data.mcpServerIds ?? [],
@@ -358,6 +369,8 @@ export class SessionRepository {
       ...data,
       agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
       idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+      sessionTtlDays: data.sessionTtlDays ?? 180,
+      lastActivityAt: data.lastActivityAt ?? null,
       acpStatus: data.acpStatus ?? "active",
       syncState: data.syncState ?? "idle",
       priority: data.priority ?? "medium",
@@ -397,6 +410,8 @@ export class SessionRepository {
             agentWorkspacePath:
               data.agentWorkspacePath || (data as any).checkoutPath,
             idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+            sessionTtlDays: data.sessionTtlDays ?? 180,
+            lastActivityAt: data.lastActivityAt ?? null,
             acpStatus: data.acpStatus ?? "active",
             syncState: data.syncState ?? "idle",
             priority: data.priority ?? "medium",
@@ -466,6 +481,8 @@ export class SessionRepository {
                   agentWorkspacePath:
                     data.agentWorkspacePath || (data as any).checkoutPath,
                   idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+                  sessionTtlDays: data.sessionTtlDays ?? 180,
+                  lastActivityAt: data.lastActivityAt ?? null,
                   acpStatus: data.acpStatus ?? "active",
                   syncState: data.syncState ?? "idle",
                   priority: data.priority ?? "medium",
@@ -522,6 +539,8 @@ export class SessionRepository {
           agentWorkspacePath:
             data.agentWorkspacePath || (data as any).checkoutPath,
           idleTimeoutMs: data.idleTimeoutMs ?? 600000,
+          sessionTtlDays: data.sessionTtlDays ?? 180,
+          lastActivityAt: data.lastActivityAt ?? null,
           acpStatus: data.acpStatus ?? "active",
           syncState: data.syncState ?? "idle",
           mcpServerIds: data.mcpServerIds ?? [],
@@ -686,6 +705,15 @@ export class SessionRepository {
       }
     }
 
+    if (config.sessionTtlDays !== undefined) {
+      if (
+        !Number.isInteger(config.sessionTtlDays) ||
+        config.sessionTtlDays < 1
+      ) {
+        throw new Error("sessionTtlDays must be an integer >= 1");
+      }
+    }
+
     if (config.priority !== undefined) {
       const valid: SessionPriority[] = ["high", "medium", "low"];
       if (!valid.includes(config.priority)) {
@@ -697,10 +725,20 @@ export class SessionRepository {
     if (config.idleTimeoutMs !== undefined) {
       updates.idleTimeoutMs = config.idleTimeoutMs;
     }
+    if (config.sessionTtlDays !== undefined) {
+      updates.sessionTtlDays = config.sessionTtlDays;
+    }
     if (config.priority !== undefined) {
       updates.priority = config.priority;
     }
 
     return this.update(sessionId, updates);
+  }
+
+  async touchSessionActivity(
+    sessionId: string,
+    timestamp: string = new Date().toISOString(),
+  ): Promise<Session | null> {
+    return this.update(sessionId, { lastActivityAt: timestamp });
   }
 }

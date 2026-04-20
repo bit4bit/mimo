@@ -225,9 +225,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
       {
         key: "name",
         label: "Name",
-        render: (agent) => (
-          <a href={`/agents/${agent.id}`}>{agent.name}</a>
-        ),
+        render: (agent) => <a href={`/agents/${agent.id}`}>{agent.name}</a>,
       },
       {
         key: "id",
@@ -578,9 +576,9 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     const user = c.get("user") as { username: string };
     const username = user.username;
     const agentId = c.req.param("id");
-          const showToken = c.req.query("created") === "1";
-          const showRefreshed = c.req.query("refreshed") === "1";
-          const agentOffline = c.req.query("offline") === "1";
+    const showToken = c.req.query("created") === "1";
+    const showRefreshed = c.req.query("refreshed") === "1";
+    const agentOffline = c.req.query("offline") === "1";
 
     const agent = await agentRepository.findById(agentId);
     if (!agent || agent.owner !== username) {
@@ -594,9 +592,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
         key: "name",
         label: "Session Name",
         render: (session) => (
-          <a
-            href={`/projects/${session.projectId}/sessions/${session.id}`}
-          >
+          <a href={`/projects/${session.projectId}/sessions/${session.id}`}>
             {session.name}
           </a>
         ),
@@ -640,13 +636,14 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
             <div class="refresh-notice">
               {agentOffline ? (
                 <>
-                  <strong>Capabilities cache cleared!</strong> Agent is currently offline.
-                  New capabilities will be cached when the agent reconnects.
+                  <strong>Capabilities cache cleared!</strong> Agent is
+                  currently offline. New capabilities will be cached when the
+                  agent reconnects.
                 </>
               ) : (
                 <>
-                  <strong>Capabilities refreshed!</strong> Request sent to agent.
-                  New capabilities will appear shortly.
+                  <strong>Capabilities refreshed!</strong> Request sent to
+                  agent. New capabilities will appear shortly.
                 </>
               )}
             </div>
@@ -706,7 +703,11 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
                   </div>
                   <div class="cap-row">
                     <span class="cap-label">Available Models:</span>
-                    <span>{agent.capabilities.availableModels.map(m => m.name).join(', ')}</span>
+                    <span>
+                      {agent.capabilities.availableModels
+                        .map((m) => m.name)
+                        .join(", ")}
+                    </span>
                   </div>
                   <div class="cap-row">
                     <span class="cap-label">Default Mode:</span>
@@ -714,11 +715,18 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
                   </div>
                   <div class="cap-row">
                     <span class="cap-label">Available Modes:</span>
-                    <span>{agent.capabilities.availableModes.map(m => m.name).join(', ')}</span>
+                    <span>
+                      {agent.capabilities.availableModes
+                        .map((m) => m.name)
+                        .join(", ")}
+                    </span>
                   </div>
                 </div>
               ) : (
-                <p style="color: #888; margin: 10px 0;">No capabilities cached. Agent will advertise capabilities on next connection.</p>
+                <p style="color: #888; margin: 10px 0;">
+                  No capabilities cached. Agent will advertise capabilities on
+                  next connection.
+                </p>
               )}
             </div>
           </div>
@@ -739,7 +747,8 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
           <div style="margin-top: 30px;">
             <a href="/agents" class="btn-secondary">
               Back to Agents
-            </a>            <form
+            </a>{" "}
+            <form
               method="POST"
               action={`/agents/${agent.id}/capabilities/refresh`}
               style="display: inline; margin-left: 10px;"
@@ -760,13 +769,17 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
           </div>
         </div>
 
-        <script dangerouslySetInnerHTML={{ __html: `
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
         function copyToken() {
           const token = document.getElementById('agent-token').textContent;
           navigator.clipboard.writeText(token);
           alert('Token copied to clipboard!');
         }
-      ` }} />
+      `,
+          }}
+        />
 
         <style>{`
         .agent-detail-container { padding: 20px; max-width: 900px; }

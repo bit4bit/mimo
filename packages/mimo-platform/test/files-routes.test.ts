@@ -11,7 +11,10 @@ const TEST_FILES: FileInfo[] = [
   { path: "README.md", name: "README.md", size: 300 },
 ];
 
-function makeApp(files: FileInfo[], workspacePath: string | null = "/workspace") {
+function makeApp(
+  files: FileInfo[],
+  workspacePath: string | null = "/workspace",
+) {
   const router = createFilesRoutes({
     fileService: {
       listFiles: async () => files,
@@ -31,7 +34,7 @@ describe("GET /sessions/:sessionId/files", () => {
     const res = await app.request("/sessions/abc/files");
 
     expect(res.status).toBe(200);
-    const body = await res.json() as FileInfo[];
+    const body = (await res.json()) as FileInfo[];
     expect(body).toHaveLength(TEST_FILES.length);
   });
 
@@ -40,7 +43,7 @@ describe("GET /sessions/:sessionId/files", () => {
     const res = await app.request("/sessions/abc/files?pattern=");
 
     expect(res.status).toBe(200);
-    const body = await res.json() as FileInfo[];
+    const body = (await res.json()) as FileInfo[];
     expect(body).toHaveLength(TEST_FILES.length);
   });
 
@@ -49,7 +52,7 @@ describe("GET /sessions/:sessionId/files", () => {
     const res = await app.request("/sessions/abc/files?pattern=service");
 
     expect(res.status).toBe(200);
-    const body = await res.json() as FileInfo[];
+    const body = (await res.json()) as FileInfo[];
     expect(body.map((f) => f.path)).toContain("src/service.ts");
     expect(body.map((f) => f.path)).toContain("test/service.test.ts");
     expect(body.map((f) => f.path)).not.toContain("src/routes.ts");
@@ -61,7 +64,7 @@ describe("GET /sessions/:sessionId/files", () => {
     const res = await app.request("/sessions/abc/files?pattern=src/service");
 
     expect(res.status).toBe(200);
-    const body = await res.json() as FileInfo[];
+    const body = (await res.json()) as FileInfo[];
     expect(body[0]?.path).toBe("src/service.ts");
   });
 
@@ -77,7 +80,7 @@ describe("GET /sessions/:sessionId/files", () => {
     const res = await app.request("/sessions/abc/files?pattern=nonexistent");
 
     expect(res.status).toBe(200);
-    const body = await res.json() as FileInfo[];
+    const body = (await res.json()) as FileInfo[];
     expect(body).toHaveLength(0);
   });
 });

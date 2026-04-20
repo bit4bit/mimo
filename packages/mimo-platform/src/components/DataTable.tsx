@@ -68,7 +68,9 @@ export const DataTable: FC<DataTableProps<any>> = ({
       const vb = b[sortBy];
       const da = va instanceof Date ? va : new Date(va);
       const db = vb instanceof Date ? vb : new Date(vb);
-      return sortDesc ? db.getTime() - da.getTime() : da.getTime() - db.getTime();
+      return sortDesc
+        ? db.getTime() - da.getTime()
+        : da.getTime() - db.getTime();
     });
   }
 
@@ -93,7 +95,9 @@ export const DataTable: FC<DataTableProps<any>> = ({
           <thead>
             <tr>
               {columns.map((col) => (
-                <th key={col.key} class={col.className}>{col.label}</th>
+                <th key={col.key} class={col.className}>
+                  {col.label}
+                </th>
               ))}
             </tr>
           </thead>
@@ -117,15 +121,21 @@ export const DataTable: FC<DataTableProps<any>> = ({
 
       {sorted.length > pageSize && (
         <div class="data-table-paginator" data-dt-pag={id}>
-          <button class="page-btn" data-dt-prev={id}>&lt; Prev</button>
+          <button class="page-btn" data-dt-prev={id}>
+            &lt; Prev
+          </button>
           <span class="page-info" data-dt-info={id}>
             Page 1 of {pages}
           </span>
-          <button class="page-btn" data-dt-next={id}>Next &gt;</button>
+          <button class="page-btn" data-dt-next={id}>
+            Next &gt;
+          </button>
         </div>
       )}
 
-      <script dangerouslySetInnerHTML={{ __html: `
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
         (function(){
           var id="${id}",pageSize=${pageSize},totalPages=${pages},cur=1;
           var wrap=document.getElementById(id);
@@ -165,7 +175,9 @@ export const DataTable: FC<DataTableProps<any>> = ({
           }
           show(1);
         })();
-      ` }} />
+      `,
+        }}
+      />
     </div>
   );
 };
