@@ -131,7 +131,7 @@ export const SessionList: FC<SessionListProps> = ({
         </div>
       )}
 
-      <script>{`
+      <script dangerouslySetInnerHTML={{ __html: `
         (function(){
           var id="${id}",pageSize=${pageSize},totalPages=${pages},cur=1;
           var wrap=document.getElementById(id);
@@ -164,7 +164,7 @@ export const SessionList: FC<SessionListProps> = ({
           }
           show(1);
         })();
-      `}</script>
+      ` }} />
     </div>
   );
 };
