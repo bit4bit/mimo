@@ -760,13 +760,13 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
           </div>
         </div>
 
-        <script>{`
+        <script dangerouslySetInnerHTML={{ __html: `
         function copyToken() {
           const token = document.getElementById('agent-token').textContent;
           navigator.clipboard.writeText(token);
           alert('Token copied to clipboard!');
         }
-      `}</script>
+      ` }} />
 
         <style>{`
         .agent-detail-container { padding: 20px; max-width: 900px; }

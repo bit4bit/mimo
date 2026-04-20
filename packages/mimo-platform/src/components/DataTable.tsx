@@ -77,7 +77,7 @@ export const DataTable: FC<DataTableProps<any>> = ({
 
   return (
     <div class="data-table-container" id={id}>
-      {searchFields.length > 0 && sorted.length > pageSize && (
+      {searchFields.length > 0 && (
         <div class="data-table-search">
           <input
             type="text"
@@ -125,7 +125,7 @@ export const DataTable: FC<DataTableProps<any>> = ({
         </div>
       )}
 
-      <script>{`
+      <script dangerouslySetInnerHTML={{ __html: `
         (function(){
           var id="${id}",pageSize=${pageSize},totalPages=${pages},cur=1;
           var wrap=document.getElementById(id);
@@ -142,14 +142,21 @@ export const DataTable: FC<DataTableProps<any>> = ({
           if(prev)prev.addEventListener('click',function(){if(cur>1)show(cur-1);});
           if(next)next.addEventListener('click',function(){if(cur<totalPages)show(cur+1);});
           var search=wrap.querySelector('[data-dt-search="'+id+'"]');
+          var searchFields=${JSON.stringify(searchFields)};
           if(search){
             search.addEventListener('input',function(e){
               var t=e.target.value.toLowerCase();
               if(!t){show(1);var pag=wrap.querySelector('[data-dt-pag="'+id+'"]');if(pag)pag.style.display='';return;}
+              var colIndexMap={};
+              var headers=wrap.querySelectorAll('.data-table th');
+              headers.forEach(function(th,idx){colIndexMap[th.textContent.trim().toLowerCase()]=idx;});
               rows.forEach(function(r){
                 var cells=r.querySelectorAll('td');
                 var match=false;
-                cells.forEach(function(c){if(c.textContent.toLowerCase().indexOf(t)!==-1)match=true;});
+                searchFields.forEach(function(field){
+                  var idx=colIndexMap[field.toLowerCase()];
+                  if(idx!==undefined && cells[idx] && cells[idx].textContent.toLowerCase().indexOf(t)!==-1)match=true;
+                });
                 r.style.display=match?'':'none';
               });
               var pag=wrap.querySelector('[data-dt-pag="'+id+'"]');
@@ -158,7 +165,7 @@ export const DataTable: FC<DataTableProps<any>> = ({
           }
           show(1);
         })();
-      `}</script>
+      ` }} />
     </div>
   );
 };

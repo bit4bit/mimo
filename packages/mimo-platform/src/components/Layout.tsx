@@ -1,4 +1,5 @@
 import type { FC } from "hono/jsx";
+import { raw } from "hono/html";
 import type { SessionKeybindingsConfig } from "../config/service.js";
 
 interface LayoutProps {
@@ -37,16 +38,14 @@ export const Layout: FC<LayoutProps> = ({
   backUrl,
 }) => {
   return (
-    <html lang="en">
+    <>
+      {raw("<!DOCTYPE html>")}
+      <html lang="en">
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{title} | MIMO</title>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};\nwindow.MIMO_SESSION_KEYBINDINGS = ${JSON.stringify(sessionKeybindings || {})};\nwindow.MIMO_CHAT_FILE_EXTENSIONS = ${JSON.stringify(chatFileExtensions ?? [])};`,
-          }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};\nwindow.MIMO_SESSION_KEYBINDINGS = ${JSON.stringify(sessionKeybindings || {})};\nwindow.MIMO_CHAT_FILE_EXTENSIONS = ${JSON.stringify(chatFileExtensions ?? [])};` }} />
         {sessionId && <link rel="stylesheet" href="/vendor/highlight/atom-one-dark.min.css" />}
         {sessionId && <script src="/vendor/highlight/highlight.min.js" defer></script>}
         {sessionId && <script src="/vendor/highlight/elixir.min.js" defer></script>}
@@ -219,15 +218,14 @@ export const Layout: FC<LayoutProps> = ({
             .data-table-container { display: flex; flex-direction: column; gap: 12px; }
             .data-table-search { display: flex; }
             .data-table-search-input {
-              background: #1a1a1a;
-              border: 1px solid #444;
-              color: #d4d4d4;
-              padding: 8px 12px;
-              font-family: monospace;
-              font-size: 13px;
-              width: 100%;
-              max-width: 300px;
-            }
+               background: #1a1a1a;
+               border: 1px solid #444;
+               color: #d4d4d4;
+               padding: 8px 12px;
+               font-family: monospace;
+               font-size: 13px;
+               width: 100%;
+             }
             .data-table-search-input:focus { outline: none; border-color: #666; }
             .data-table-wrap { overflow-x: auto; }
             .data-table {
@@ -495,5 +493,6 @@ export const Layout: FC<LayoutProps> = ({
         )}
       </body>
     </html>
+    </>
   );
 };
