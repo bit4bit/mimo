@@ -1,6 +1,7 @@
-import { join, relative } from "path";
-import { existsSync, readdirSync, statSync, readFileSync } from "fs";
+import { join } from "path";
+import { statSync, readFileSync } from "fs";
 import crypto from "crypto";
+import { VCS_INTERNALS, scanDirectory } from "../vcs/index.js";
 
 export type FileChangeStatus = "added" | "modified" | "deleted";
 
@@ -19,43 +20,28 @@ export interface ChangedFilesResult {
   };
 }
 
-function scanDirectory(
+async function collectFiles(
   dirPath: string,
   basePath: string,
   fileMap: Map<string, { checksum: string; size: number }>,
-): void {
-  if (!existsSync(dirPath)) return;
-
-  const entries = readdirSync(dirPath, { withFileTypes: true });
-
-  for (const entry of entries) {
-    const fullPath = join(dirPath, entry.name);
-    const relPath = relative(basePath, fullPath);
-
-    // Skip hidden files and directories
-    if (entry.name.startsWith(".")) continue;
-
-    if (entry.isDirectory()) {
-      scanDirectory(fullPath, basePath, fileMap);
-    } else {
-      const stats = statSync(fullPath);
-      const content = readFileSync(fullPath);
-      const checksum = crypto.createHash("md5").update(content).digest("hex");
-
-      fileMap.set(relPath, { checksum, size: stats.size });
-    }
-  }
+): Promise<void> {
+  await scanDirectory(dirPath, basePath, (fullPath, relPath) => {
+    const stats = statSync(fullPath);
+    const content = readFileSync(fullPath);
+    const checksum = crypto.createHash("md5").update(content).digest("hex");
+    fileMap.set(relPath, { checksum, size: stats.size });
+  });
 }
 
-export function detectChangedFiles(
+export async function detectChangedFiles(
   upstreamPath: string,
   workspacePath: string,
-): ChangedFilesResult {
+): Promise<ChangedFilesResult> {
   const upstreamFiles = new Map<string, { checksum: string; size: number }>();
   const workspaceFiles = new Map<string, { checksum: string; size: number }>();
 
-  scanDirectory(upstreamPath, upstreamPath, upstreamFiles);
-  scanDirectory(workspacePath, workspacePath, workspaceFiles);
+  await collectFiles(upstreamPath, upstreamPath, upstreamFiles);
+  await collectFiles(workspacePath, workspacePath, workspaceFiles);
 
   const files: FileChange[] = [];
   let added = 0;

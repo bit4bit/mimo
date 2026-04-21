@@ -14,6 +14,7 @@ import { createFileService, findFiles } from "../files/service.js";
 import { detectLanguage, escapeHtml } from "../files/syntax-highlighter.js";
 import { canDeleteSessionNow } from "./session-retention.js";
 import { createSessionDeletionUseCase } from "./session-deletion.js";
+import { VCS_INTERNALS } from "../vcs/index.js";
 
 type SessionsRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
 
@@ -762,7 +763,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
           for (const entry of entries) {
             const fullPath = join(dir, entry.name);
             const relPath = relative(baseDir, fullPath);
-            if (entry.name.startsWith(".")) continue;
+            if (VCS_INTERNALS.has(entry.name)) continue;
             if (entry.isDirectory()) {
               scanDir(fullPath, baseDir, files);
             } else {

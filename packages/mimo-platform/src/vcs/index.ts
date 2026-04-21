@@ -18,6 +18,58 @@ export interface VCSResult {
   port?: number;
 }
 
+/**
+ * VCS internal directories/files that must never be tracked as changes.
+ * These are excluded from file scanning and change detection.
+ */
+export const VCS_INTERNALS = new Set([
+  ".fossil",
+  ".fslckout",
+  ".fossil-settings",
+  ".git",
+]);
+
+/**
+ * VCS metadata files that must never be committed, regardless of repo type.
+ * These are actively removed before addremove/commit operations.
+ */
+export const VCS_METADATA = [".fslckout", "_FOSSIL_", ".fslckout-journal"];
+
+/**
+ * Scan a directory recursively, calling a callback for each non-VCS file.
+ * Skips VCS internal directories (VCS_INTERNALS) automatically.
+ *
+ * @param dirPath - The directory to scan
+ * @param basePath - The base path for computing relative paths
+ * @param callback - Called for each file with (fullPath, relPath)
+ */
+export async function scanDirectory(
+  dirPath: string,
+  basePath: string,
+  callback: (fullPath: string, relPath: string) => void | Promise<void>,
+): Promise<void> {
+  const { existsSync, readdirSync } = await import("fs");
+  const { join, relative } = await import("path");
+
+  if (!existsSync(dirPath)) return;
+
+  const entries = readdirSync(dirPath, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const fullPath = join(dirPath, entry.name);
+    const relPath = relative(basePath, fullPath);
+
+    // Skip VCS internals only (not all hidden files)
+    if (VCS_INTERNALS.has(entry.name)) continue;
+
+    if (entry.isDirectory()) {
+      await scanDirectory(fullPath, basePath, callback);
+    } else {
+      await callback(fullPath, relPath);
+    }
+  }
+}
+
 export class VCS {
   private async execCommand(
     command: string[],
@@ -791,8 +843,9 @@ export class VCS {
       }
 
       // Step 3: Add all files and commit the current state
+      // --dotfiles flag is required to include dotfiles (hidden files starting with '.')
       const addResult = await this.execCommand(
-        ["fossil", "addremove"],
+        ["fossil", "addremove", "--dotfiles"],
         upstreamPath,
       );
       if (!addResult.success) {
@@ -1023,9 +1076,6 @@ export class VCS {
     const commitMessage =
       message?.trim() || `Mimo commit at ${new Date().toISOString()}`;
 
-    // VCS metadata files that must never be committed, regardless of repo type.
-    const VCS_METADATA = [".fslckout", "_FOSSIL_", ".fslckout-journal"];
-
     if (repoType === "git") {
       // Git: add all and commit
       const addResult = await this.execCommand(
@@ -1081,8 +1131,9 @@ export class VCS {
         }
       }
 
+      // --dotfiles flag is required to include dotfiles (hidden files starting with '.')
       const addResult = await this.execCommand(
-        ["fossil", "addremove"],
+        ["fossil", "addremove", "--dotfiles"],
         upstreamPath,
       );
       if (!addResult.success) {
@@ -1388,11 +1439,6 @@ export class VCS {
    * Remove diff hunks for VCS metadata files from a patch.
    */
   private filterVcsMetadata(patch: string): string {
-    // Files/dirs to exclude from patches.
-    // ".git/" is matched as a prefix to filter all files under .git/
-    const VCS_EXACT = [".fslckout", "_FOSSIL_", ".fslckout-journal"];
-    const VCS_PREFIXES = [".git/", ".fossil/"];
-
     const lines = patch.split("\n");
     const result: string[] = [];
     let skipCurrentFile = false;
@@ -1400,12 +1446,13 @@ export class VCS {
     for (const line of lines) {
       if (line.startsWith("diff --git")) {
         skipCurrentFile =
-          VCS_EXACT.some(
+          VCS_METADATA.some(
             (meta) => line.includes(`a/${meta}`) || line.includes(`b/${meta}`),
           ) ||
-          VCS_PREFIXES.some(
-            (prefix) =>
-              line.includes(`a/${prefix}`) || line.includes(`b/${prefix}`),
+          Array.from(VCS_INTERNALS).some(
+            (internal) =>
+              line.includes(`a/${internal}/`) ||
+              line.includes(`b/${internal}/`),
           );
       }
 

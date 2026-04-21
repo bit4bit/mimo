@@ -1423,7 +1423,8 @@ class MimoAgent {
     };
 
     try {
-      const addremoveResult = runFossil(["addremove"]);
+      // --dotfiles flag is required to include dotfiles (hidden files starting with '.')
+      const addremoveResult = runFossil(["addremove", "--dotfiles"]);
       if (!addremoveResult.success) {
         this.send({
           type: "sync_now_result",

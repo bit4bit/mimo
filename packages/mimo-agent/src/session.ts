@@ -115,10 +115,11 @@ export class SessionManager {
       (eventType: string, filename: string | null) => {
         if (!filename) return;
 
-        // Skip hidden files and common ignore patterns
+        // Skip VCS internals and common ignore patterns
+        const VCS_INTERNALS = new Set([".fossil", ".fslckout", ".fossil-settings", ".git"]);
+        const firstSegment = filename.split("/")[0];
         if (
-          filename.startsWith(".") ||
-          filename.includes("/.") ||
+          VCS_INTERNALS.has(firstSegment) ||
           filename.includes("node_modules") ||
           filename.includes("__pycache__") ||
           filename.endsWith(".tmp") ||
