@@ -1,9 +1,13 @@
 import { vcs } from "../vcs/index.js";
 import { logger } from "../logger.js";
 import {
+  detectChangedFiles,
+  applySelectedFiles,
+  type FileChange,
+} from "./changed-files.js";
+import {
   parsePatchPreview,
-  type PatchPreview,
-  filterPatchByPaths,
+  type DiffHunk,
 } from "./patch-preview.js";
 
 export interface CommitResult {
@@ -27,9 +31,17 @@ export interface CommitAndPushResult {
   step: "sync" | "copy" | "commit" | "push" | null;
 }
 
+export interface PreviewFile extends FileChange {
+  hunks?: DiffHunk[];
+  isBinary?: boolean;
+}
+
 export interface CommitPreviewResult {
   success: boolean;
-  preview?: PatchPreview;
+  preview?: {
+    summary: { added: number; modified: number; deleted: number; binary: number };
+    files: PreviewFile[];
+  };
   error?: string;
 }
 
@@ -49,10 +61,10 @@ export class CommitService {
   constructor(private deps: CommitServiceDeps) {}
   /**
    * Get commit preview for a session.
-   * Generates a patch between agent-workspace and upstream, then parses it into preview format.
+   * Detects changed files by comparing workspace with upstream.
+   * Also generates patch for inline diff display.
    */
   async getPreview(sessionId: string): Promise<CommitPreviewResult> {
-    // Get session and project
     const session = await this.deps.sessionRepository.findById(sessionId);
     if (!session) {
       return {
@@ -71,96 +83,60 @@ export class CommitService {
       };
     }
 
-    // Ensure agent-workspace has fossil checkout
-    const fossilPath = this.deps.sessionRepository.getFossilPath(sessionId);
-    const { existsSync } = await import("fs");
-    const { join } = await import("path");
-    const fslckoutPath = join(session.agentWorkspacePath, ".fslckout");
-
-    if (!existsSync(fslckoutPath)) {
-      const openResult = await this.deps.vcs.openFossil(
-        fossilPath,
-        session.agentWorkspacePath,
-      );
-      if (!openResult.success) {
-        return {
-          success: false,
-          error: `Failed to initialize fossil checkout: ${openResult.error}`,
-        };
-      }
-    }
-
-    // Sync agent-workspace with repo.fossil
-    const syncResult = await this.deps.vcs.fossilUp(session.agentWorkspacePath);
-    if (!syncResult.success) {
-      if (
-        syncResult.error?.includes("not within an open check-out") ||
-        syncResult.error?.includes("current directory is not within")
-      ) {
-        const openResult = await this.deps.vcs.openFossil(
-          fossilPath,
-          session.agentWorkspacePath,
-        );
-        if (!openResult.success) {
-          return {
-            success: false,
-            error: `Failed to open fossil checkout: ${openResult.error}`,
-          };
-        }
-        const retryResult = await this.deps.vcs.fossilUp(
-          session.agentWorkspacePath,
-        );
-        if (!retryResult.success) {
-          return {
-            success: false,
-            error: `Failed to sync with agent: ${retryResult.error}`,
-          };
-        }
-      } else {
-        return {
-          success: false,
-          error: `Failed to sync with agent: ${syncResult.error}`,
-        };
-      }
-    }
-
-    // Generate patch
-    const genResult = await this.deps.vcs.generatePatch(
-      session.agentWorkspacePath,
+    // Detect changed files (accurate file list)
+    const detected = detectChangedFiles(
       session.upstreamPath,
+      session.agentWorkspacePath,
     );
 
-    if (!genResult.success) {
-      return {
-        success: false,
-        error: `Failed to generate patch: ${genResult.error}`,
-      };
-    }
-
-    // No changes - return empty preview
-    if (!genResult.patch || genResult.patch.trim() === "") {
+    if (detected.files.length === 0) {
       return {
         success: true,
         preview: {
           summary: { added: 0, modified: 0, deleted: 0, binary: 0 },
           files: [],
-          tree: [],
         },
       };
     }
 
-    // Parse patch into preview format
-    const preview = parsePatchPreview(genResult.patch);
+    // Generate patch for inline diff display
+    const genResult = await this.deps.vcs.generatePatch(
+      session.agentWorkspacePath,
+      session.upstreamPath,
+    );
+
+    let patchPreview = null;
+    if (genResult.success && genResult.patch) {
+      patchPreview = parsePatchPreview(genResult.patch);
+    }
+
+    // Merge detected files with patch hunks for modified files
+    const files: PreviewFile[] = detected.files.map((file) => {
+      const previewFile: PreviewFile = { ...file };
+
+      if (patchPreview) {
+        const patchFile = patchPreview.files.find((f) => f.path === file.path);
+        if (patchFile) {
+          previewFile.hunks = patchFile.hunks;
+          previewFile.isBinary = patchFile.isBinary;
+        }
+      }
+
+      return previewFile;
+    });
 
     return {
       success: true,
-      preview,
+      preview: {
+        summary: { ...detected.summary, binary: patchPreview?.summary.binary || 0 },
+        files,
+      },
     };
   }
 
   /**
    * Commit and push with selective file application.
-   * Only applies selected paths from the generated patch.
+   * Copies selected files from workspace to upstream, then commits.
    */
   async commitAndPushSelective(
     sessionId: string,
@@ -168,7 +144,6 @@ export class CommitService {
     selectedPaths?: string[],
     applyStatuses?: { added: boolean; modified: boolean; deleted: boolean },
   ): Promise<SelectiveCommitResult> {
-    // Get session and project
     const session = await this.deps.sessionRepository.findById(sessionId);
     if (!session) {
       return {
@@ -193,7 +168,6 @@ export class CommitService {
 
     const repoType = project.repoType;
 
-    // Validate commit message
     if (!commitMessage || commitMessage.trim() === "") {
       return {
         success: false,
@@ -203,84 +177,13 @@ export class CommitService {
       };
     }
 
-    // Ensure agent-workspace has fossil checkout
-    const fossilPath = this.deps.sessionRepository.getFossilPath(sessionId);
-    const { existsSync } = await import("fs");
-    const { join, dirname } = await import("path");
-    const fslckoutPath = join(session.agentWorkspacePath, ".fslckout");
-
-    if (!existsSync(fslckoutPath)) {
-      const openResult = await this.deps.vcs.openFossil(
-        fossilPath,
-        session.agentWorkspacePath,
-      );
-      if (!openResult.success) {
-        return {
-          success: false,
-          message: "Failed to initialize fossil checkout",
-          error: openResult.error || "Checkout initialization failed",
-          step: null,
-        };
-      }
-    }
-
-    // Step 1: Sync agent-workspace with repo.fossil
-    const syncResult = await this.deps.vcs.fossilUp(session.agentWorkspacePath);
-    if (!syncResult.success) {
-      if (
-        syncResult.error?.includes("not within an open check-out") ||
-        syncResult.error?.includes("current directory is not within")
-      ) {
-        const openResult = await this.deps.vcs.openFossil(
-          fossilPath,
-          session.agentWorkspacePath,
-        );
-        if (!openResult.success) {
-          return {
-            success: false,
-            message: "Failed to open fossil checkout",
-            error: openResult.error || "fossil open failed",
-            step: "sync",
-          };
-        }
-        const retryResult = await this.deps.vcs.fossilUp(
-          session.agentWorkspacePath,
-        );
-        if (!retryResult.success) {
-          return {
-            success: false,
-            message: "Failed to sync with agent",
-            error: retryResult.error || "fossil up failed after open",
-            step: "sync",
-          };
-        }
-      } else {
-        return {
-          success: false,
-          message: "Failed to sync with agent",
-          error: syncResult.error || "fossil up failed",
-          step: "sync",
-        };
-      }
-    }
-
-    // Step 2: Generate patch
-    const genResult = await this.deps.vcs.generatePatch(
-      session.agentWorkspacePath,
+    // Detect changed files
+    const changes = detectChangedFiles(
       session.upstreamPath,
+      session.agentWorkspacePath,
     );
 
-    if (!genResult.success) {
-      return {
-        success: false,
-        message: "Failed to generate patch",
-        error: genResult.error || "Patch generation failed",
-        step: "copy",
-      };
-    }
-
-    // No changes
-    if (!genResult.patch || genResult.patch.trim() === "") {
+    if (changes.files.length === 0) {
       return {
         success: true,
         message: "No changes to commit",
@@ -288,13 +191,10 @@ export class CommitService {
       };
     }
 
-    // Parse patch to get available files
-    const preview = parsePatchPreview(genResult.patch);
-
     // Filter by status if applyStatuses provided
-    let availablePaths = preview.files.map((f) => f.path);
+    let availablePaths = changes.files.map((f) => f.path);
     if (applyStatuses) {
-      availablePaths = preview.files
+      availablePaths = changes.files
         .filter((f) => {
           if (f.status === "added" && applyStatuses.added) return true;
           if (f.status === "modified" && applyStatuses.modified) return true;
@@ -311,20 +211,19 @@ export class CommitService {
         : availablePaths;
 
     // Validate selected paths
-    const validPaths = new Set(preview.files.map((f) => f.path));
+    const validPaths = new Set(changes.files.map((f) => f.path));
     const invalidPaths = pathsToApply.filter((p) => !validPaths.has(p));
 
     if (invalidPaths.length > 0) {
       return {
         success: false,
         message: "Invalid file paths selected",
-        error: `Selected paths not found in preview: ${invalidPaths.join(", ")}`,
+        error: `Selected paths not found: ${invalidPaths.join(", ")}`,
         step: null,
         invalidPaths,
       };
     }
 
-    // Check if any files are selected
     if (pathsToApply.length === 0) {
       return {
         success: false,
@@ -334,43 +233,43 @@ export class CommitService {
       };
     }
 
-    // Filter patch to selected paths
-    const filteredPatch = filterPatchByPaths(genResult.patch, pathsToApply);
-
-    if (filteredPatch.trim() === "") {
-      return {
-        success: false,
-        message: "No changes to apply for selected files",
-        error: "Selected files have no changes to commit",
-        step: null,
-      };
-    }
-
-    // Step 3: Store and apply filtered patch
-    const sessionDir = dirname(session.agentWorkspacePath);
-    const patchDir = join(sessionDir, "patches");
-    const patchPath = await this.deps.vcs.storePatch(patchDir, filteredPatch);
-
-    const applyResult = await this.deps.vcs.applyPatch(
-      patchPath,
+    // Generate patch BEFORE applying (captures actual changes)
+    const { dirname, join } = await import("path");
+    const genResult = await this.deps.vcs.generatePatch(
+      session.agentWorkspacePath,
       session.upstreamPath,
-      repoType,
     );
+
+    // Apply selected files
+    const applyResult = applySelectedFiles(
+      session.upstreamPath,
+      session.agentWorkspacePath,
+      pathsToApply,
+    );
+
     if (!applyResult.success) {
       return {
         success: false,
-        message: "Failed to apply patch",
-        error: applyResult.error || "Patch failed",
+        message: "Failed to apply changes",
+        error: applyResult.error || "Apply failed",
         step: "copy",
       };
     }
 
-    // Step 4: Commit in upstream
+    // Store patch for history (generated before apply, so it has the actual diff)
+    if (genResult.success && genResult.patch) {
+      const sessionDir = dirname(session.agentWorkspacePath);
+      const patchDir = join(sessionDir, "patches");
+      await this.deps.vcs.storePatch(patchDir, genResult.patch);
+    }
+
+    // Commit in upstream
     const commitResult = await this.deps.vcs.commitUpstream(
       session.upstreamPath,
       repoType,
       commitMessage,
     );
+
     if (!commitResult.success) {
       if (
         commitResult.output?.includes("nothing to commit") ||
@@ -401,7 +300,7 @@ export class CommitService {
       };
     }
 
-    // Step 5: Push to remote
+    // Push to remote
     const pushBranch = session.branch || project.newBranch || undefined;
     const pushResult = await this.deps.vcs.pushUpstream(
       session.upstreamPath,
@@ -409,6 +308,7 @@ export class CommitService {
       undefined,
       pushBranch,
     );
+
     if (!pushResult.success) {
       return {
         success: false,
@@ -418,62 +318,23 @@ export class CommitService {
       };
     }
 
-    // Step 6: Capture and save impact metrics (best effort - don't fail commit if this fails)
-    try {
-      const { metrics } = await this.deps.impactCalculator.calculateImpact(
-        sessionId,
-        session.upstreamPath,
-        session.agentWorkspacePath,
-      );
-
-      const commitHash =
-        commitResult.output?.match(/[a-f0-9]{40}|[a-f0-9]{64}/)?.[0] ||
-        "unknown";
-
-      this.deps.impactRepository.save({
-        id: `${sessionId}-${commitHash}`,
-        sessionId: sessionId,
-        sessionName: session.name,
-        projectId: session.projectId,
-        commitHash: commitHash,
-        commitDate: new Date(),
-        files: {
-          new: metrics.files.new,
-          changed: metrics.files.changed,
-          deleted: metrics.files.deleted,
-        },
-        linesOfCode: {
-          added: metrics.linesOfCode.added,
-          removed: metrics.linesOfCode.removed,
-          net: metrics.linesOfCode.net,
-        },
-        complexity: {
-          cyclomatic: metrics.complexity.cyclomatic,
-          cognitive: metrics.complexity.cognitive,
-          estimatedMinutes: metrics.complexity.estimatedMinutes,
-        },
-        complexityByLanguage: metrics.byLanguage,
-        fossilUrl: ``,
-      });
-    } catch (error) {
-      logger.error(`[commit] Failed to capture impact metrics:`, error);
-      // Don't fail the commit if impact capture fails
-    }
-
     return {
       success: true,
-      message: "Changes committed and pushed successfully!",
+      message: "Changes committed and pushed successfully",
       step: null,
     };
   }
 
+  /**
+   * Commit and push all changes (backward compatibility).
+   * Alias for commitAndPushSelective with no selected paths.
+   */
   async commitAndPush(
     sessionId: string,
     commitMessage?: string,
   ): Promise<CommitAndPushResult> {
-    // Use default message if none provided
-    const message =
-      commitMessage?.trim() || `Mimo commit at ${new Date().toISOString()}`;
+    // Generate default message if none provided
+    const message = commitMessage?.trim() || `Mimo commit at ${new Date().toISOString()}`;
     return this.commitAndPushSelective(
       sessionId,
       message,

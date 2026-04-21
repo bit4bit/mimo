@@ -2182,36 +2182,6 @@ function renderImpactMetrics(metrics, trends) {
   const changedFiles = (metrics.byFile || []).filter(
     (f) => f.status !== "unchanged",
   );
-  const statusBadge = { new: "+", changed: "~", deleted: "-" };
-  const statusClass = {
-    new: "impact-file-status-new",
-    changed: "impact-file-status-changed",
-    deleted: "impact-file-status-deleted",
-  };
-  const changedFilesHtml =
-    changedFiles.length > 0
-      ? `<div class="impact-section">
-      <div class="impact-section-title">Changed Files</div>
-      ${changedFiles
-        .map((f) => {
-          const badge = statusBadge[f.status] || "?";
-          const cls = statusClass[f.status] || "";
-          const clickable = f.status !== "deleted";
-          const safePath = f.path.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-          let onclick = "";
-          if (f.status === "new") {
-            onclick = `onclick="window.EditBuffer && window.EditBuffer.openFile('${safePath}')"`;
-          } else if (f.status === "changed") {
-            onclick = `onclick="if(window.MIMO_PATCH_BUFFER){window.MIMO_PATCH_BUFFER.addPatch({sessionId:document.getElementById('impact-buffer').dataset.sessionId,originalPath:'${safePath}',patchPath:'${safePath}',originalEndpoint:'files/upstream-content',readOnly:true,sourceBufferId:'impact'});switchFrameBuffer('left','patches').then(function(){window.MIMO_PATCH_BUFFER.focusDiffPane&&window.MIMO_PATCH_BUFFER.focusDiffPane();});}"`;
-          }
-          return `<div class="impact-file-row${clickable ? "" : " deleted"}"${clickable ? ` ${onclick}` : ""}>
-          <span class="impact-file-status ${cls}">${badge}</span>
-          <span class="impact-file-path" title="${f.path}">${shortPath(f.path)}</span>
-        </div>`;
-        })
-        .join("")}
-    </div>`
-      : "";
 
   content.innerHTML = `
     <div class="impact-section">
@@ -2233,8 +2203,39 @@ function renderImpactMetrics(metrics, trends) {
       <div class="impact-metric"><span class="impact-metric-label">Est. Time:</span><span class="impact-metric-value">~${metrics.complexity.estimatedMinutes} min</span></div>
     </div>
     ${duplicationHtml}
-    ${changedFilesHtml}
   `;
+
+  // Append changed files section using shared render function
+  if (changedFiles.length > 0) {
+    const section = document.createElement("div");
+    section.className = "impact-section";
+
+    const title = document.createElement("div");
+    title.className = "impact-section-title";
+    title.textContent = "Changed Files";
+    section.appendChild(title);
+
+    const sessionId = document.getElementById("impact-buffer")?.dataset.sessionId;
+    changedFiles.forEach((file) => {
+      const row = renderChangedFileRow(file, {
+        sessionId,
+        sourceBufferId: "impact",
+      });
+      // Map classes to impact buffer classes for CSS compatibility
+      row.className = row.className.replace("changed-file-row", "impact-file-row");
+      const status = row.querySelector(".changed-file-status");
+      if (status) {
+        status.className = status.className.replace("changed-file-status", "impact-file-status");
+      }
+      const path = row.querySelector(".changed-file-path");
+      if (path) {
+        path.className = path.className.replace("changed-file-path", "impact-file-path");
+      }
+      section.appendChild(row);
+    });
+
+    content.appendChild(section);
+  }
 }
 
 // DOM: Show notification

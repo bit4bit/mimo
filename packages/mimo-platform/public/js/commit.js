@@ -103,12 +103,12 @@
 
   // Update all UI elements
   function updateUI() {
-    if (!previewData) return;
+    if (!previewData || !previewData.summary) return;
 
     // Update status counts
-    countAdded.textContent = previewData.summary.added;
-    countModified.textContent = previewData.summary.modified;
-    countDeleted.textContent = previewData.summary.deleted;
+    countAdded.textContent = previewData.summary.added || 0;
+    countModified.textContent = previewData.summary.modified || 0;
+    countDeleted.textContent = previewData.summary.deleted || 0;
 
     // Update selected/total counts
     const visibleFiles = getVisibleFiles();
@@ -129,34 +129,13 @@
 
   // Get files filtered by status
   function getVisibleFiles() {
-    if (!previewData) return [];
+    if (!previewData || !previewData.files) return [];
     return previewData.files.filter((f) => {
       if (f.status === "added" && !statusFilters.added) return false;
       if (f.status === "modified" && !statusFilters.modified) return false;
       if (f.status === "deleted" && !statusFilters.deleted) return false;
       return true;
     });
-  }
-
-  // Render the file tree
-  function renderTree() {
-    if (!previewData || previewData.files.length === 0) {
-      commitTree.innerHTML =
-        '<div class="commit-empty-state">No changes to commit</div>';
-      return;
-    }
-
-    const visibleFiles = getVisibleFiles();
-    if (visibleFiles.length === 0) {
-      commitTree.innerHTML =
-        '<div class="commit-empty-state">No files match the selected filters</div>';
-      return;
-    }
-
-    // Build tree from visible files
-    const treeRoot = buildTree(visibleFiles);
-    commitTree.innerHTML = "";
-    commitTree.appendChild(renderTreeNodes(treeRoot, ""));
   }
 
   // Build tree structure from files
@@ -191,6 +170,43 @@
     });
 
     return root;
+  }
+
+  // Get all file paths under a directory node
+  function getDescendantFiles(node) {
+    const files = [];
+
+    function collect(n) {
+      if (n.type === "file") {
+        files.push(n.path);
+      } else if (n.children) {
+        Object.values(n.children).forEach(collect);
+      }
+    }
+
+    collect(node);
+    return files;
+  }
+
+  // Render the file tree
+  function renderTree() {
+    if (!previewData || previewData.files.length === 0) {
+      commitTree.innerHTML =
+        '<div class="commit-empty-state">No changes to commit</div>';
+      return;
+    }
+
+    const visibleFiles = getVisibleFiles();
+    if (visibleFiles.length === 0) {
+      commitTree.innerHTML =
+        '<div class="commit-empty-state">No files match the selected filters</div>';
+      return;
+    }
+
+    // Build tree from visible files
+    const treeRoot = buildTree(visibleFiles);
+    commitTree.innerHTML = "";
+    commitTree.appendChild(renderTreeNodes(treeRoot, ""));
   }
 
   // Render tree nodes recursively
@@ -296,16 +312,16 @@
       label.appendChild(name);
 
       if (node.type === "file") {
+        const statusMeta = {
+          added: { badge: "+", color: "#51cf66" },
+          modified: { badge: "~", color: "#74c0fc" },
+          deleted: { badge: "-", color: "#ff6b6b" },
+        };
+        const meta = statusMeta[node.file.status] || { badge: "?", color: "#888" };
         const statusBadge = document.createElement("span");
         statusBadge.className = `file-status file-status--${node.file.status}`;
-        if (node.file.isBinary) {
-          statusBadge.className += " file-status--binary";
-          statusBadge.textContent = "Binary";
-        } else {
-          statusBadge.textContent =
-            node.file.status.charAt(0).toUpperCase() +
-            node.file.status.slice(1);
-        }
+        statusBadge.textContent = meta.badge;
+        statusBadge.style.color = meta.color;
         label.appendChild(statusBadge);
       }
 
@@ -360,22 +376,6 @@
     });
 
     return container;
-  }
-
-  // Get all file paths under a directory node
-  function getDescendantFiles(node) {
-    const files = [];
-
-    function collect(n) {
-      if (n.type === "file") {
-        files.push(n.path);
-      } else if (n.children) {
-        Object.values(n.children).forEach(collect);
-      }
-    }
-
-    collect(node);
-    return files;
   }
 
   // Update parent checkboxes based on child state

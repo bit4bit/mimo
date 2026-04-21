@@ -1,9 +1,9 @@
-import { join, relative, dirname } from "path";
-import { existsSync, readdirSync, statSync, readFileSync } from "fs";
-import crypto from "crypto";
+import { join } from "path";
+import { existsSync } from "fs";
 import type { SccService, SccMetrics, SccFileMetrics } from "./scc-service.js";
 import type { JscpdService, Clone } from "./jscpd-service.js";
 import { logger } from "../logger.js";
+import { detectChangedFiles } from "../files/changed-files.js";
 
 export type FileStatus = "new" | "changed" | "deleted" | "unchanged";
 
@@ -144,24 +144,10 @@ export class ImpactCalculator {
       logger.error(`[impact] Failed to get workspace metrics:`, error);
     }
 
-    // Calculate file changes by scanning directories
-    const fileChanges = await this.calculateFileChanges(
+    // Detect changed files using shared logic
+    const changedFilesResult = detectChangedFiles(
       upstreamPath,
       agentWorkspacePath,
-    );
-
-    // Build file map for quick lookup
-    const upstreamFiles = new Map<string, { checksum: string; size: number }>();
-    const workspaceFiles = new Map<
-      string,
-      { checksum: string; size: number }
-    >();
-
-    await this.scanDirectory(upstreamPath, upstreamPath, upstreamFiles);
-    await this.scanDirectory(
-      agentWorkspacePath,
-      agentWorkspacePath,
-      workspaceFiles,
     );
 
     // Calculate file counts
@@ -174,41 +160,43 @@ export class ImpactCalculator {
 
     const byFile: FileImpactDetail[] = [];
 
-    // Check workspace files
-    for (const [relPath, workspaceInfo] of workspaceFiles) {
-      const upstreamInfo = upstreamFiles.get(relPath);
-
-      if (!upstreamInfo) {
+    // Map shared result to impact format
+    for (const fileChange of changedFilesResult.files) {
+      if (fileChange.status === "added") {
         files.new++;
         byFile.push({
-          path: relPath,
+          path: fileChange.path,
           status: "new",
-          size: workspaceInfo.size,
-          checksum: workspaceInfo.checksum,
+          size: fileChange.size,
         });
-      } else if (upstreamInfo.checksum !== workspaceInfo.checksum) {
+      } else if (fileChange.status === "modified") {
         files.changed++;
         byFile.push({
-          path: relPath,
+          path: fileChange.path,
           status: "changed",
-          size: workspaceInfo.size,
-          checksum: workspaceInfo.checksum,
+          size: fileChange.size,
         });
-      } else {
-        files.unchanged++;
+      } else if (fileChange.status === "deleted") {
+        files.deleted++;
+        byFile.push({
+          path: fileChange.path,
+          status: "deleted",
+          size: fileChange.size,
+        });
       }
     }
 
-    // Check for deleted files
-    for (const [relPath, upstreamInfo] of upstreamFiles) {
-      if (!workspaceFiles.has(relPath)) {
-        files.deleted++;
-        byFile.push({
-          path: relPath,
-          status: "deleted",
-          size: upstreamInfo.size,
-          checksum: upstreamInfo.checksum,
-        });
+    // Calculate unchanged count from scc metrics if available
+    if (upstreamMetrics && workspaceMetrics) {
+      const changedPaths = new Set(byFile.map((f) => f.path));
+      const allPaths = new Set([
+        ...upstreamMetrics.byFile.map((f) => f.path),
+        ...workspaceMetrics.byFile.map((f) => f.path),
+      ]);
+      for (const path of allPaths) {
+        if (!changedPaths.has(path)) {
+          files.unchanged++;
+        }
       }
     }
 
@@ -442,44 +430,6 @@ export class ImpactCalculator {
         clones: [],
         byFile: {},
       };
-    }
-  }
-
-  private async calculateFileChanges(
-    upstreamPath: string,
-    agentWorkspacePath: string,
-  ): Promise<FileImpact[]> {
-    const changes: FileImpact[] = [];
-
-    // This is a simplified version - the main logic is in the calculateImpact method
-    return changes;
-  }
-
-  private async scanDirectory(
-    dirPath: string,
-    basePath: string,
-    fileMap: Map<string, { checksum: string; size: number }>,
-  ): Promise<void> {
-    if (!existsSync(dirPath)) return;
-
-    const entries = readdirSync(dirPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = join(dirPath, entry.name);
-      const relativePath = relative(basePath, fullPath);
-
-      // Skip hidden files and directories
-      if (entry.name.startsWith(".")) continue;
-
-      if (entry.isDirectory()) {
-        await this.scanDirectory(fullPath, basePath, fileMap);
-      } else {
-        const stats = statSync(fullPath);
-        const content = readFileSync(fullPath);
-        const checksum = crypto.createHash("md5").update(content).digest("hex");
-
-        fileMap.set(relativePath, { checksum, size: stats.size });
-      }
     }
   }
 
