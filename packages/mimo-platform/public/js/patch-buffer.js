@@ -202,6 +202,17 @@
     tabs.forEach(function (tab, index) {
       const isActive = index === activeIndex;
       const fileName = tab.originalPath.split("/").pop() || tab.originalPath;
+      const readOnly = tab.readOnly || false;
+      const approveBtn = readOnly
+        ? ""
+        : '<span class="patch-tab-approve" data-index="' +
+          index +
+          '" style="margin-left:8px;padding:2px 5px;cursor:pointer;color:#4caf50;font-size:13px;" title="Approve patch (Ctrl+Enter)">✓</span>';
+      const declineBtn = readOnly
+        ? ""
+        : '<span class="patch-tab-decline" data-index="' +
+          index +
+          '" style="margin-left:2px;padding:2px 5px;cursor:pointer;color:#f44336;font-size:13px;" title="Decline patch (Alt+Shift+G)">✗</span>';
       html +=
         '<div class="patch-tab" data-index="' +
         index +
@@ -213,9 +224,8 @@
         "<span>" +
         fileName +
         "</span>" +
-        '<span class="patch-tab-close" data-index="' +
-        index +
-        '" style="margin-left:8px;padding:2px 4px;cursor:pointer;color:#666;">✕</span>' +
+        approveBtn +
+        declineBtn +
         "</div>";
     });
 
@@ -224,7 +234,13 @@
     // Add click handlers
     tabsEl.querySelectorAll(".patch-tab").forEach(function (tabEl) {
       tabEl.addEventListener("click", function (e) {
-        if (e.target.classList.contains("patch-tab-close")) {
+        if (e.target.classList.contains("patch-tab-approve")) {
+          e.stopPropagation();
+          const index = parseInt(e.target.getAttribute("data-index"), 10);
+          activateTab(index).then(function () {
+            approveActivePatch();
+          });
+        } else if (e.target.classList.contains("patch-tab-decline")) {
           e.stopPropagation();
           const index = parseInt(e.target.getAttribute("data-index"), 10);
           declinePatch(index);
@@ -241,8 +257,6 @@
     const pathEl = document.getElementById("patch-file-path");
     const diffContainer = document.getElementById("patch-diff-container");
     const emptyState = document.getElementById("patch-empty-state");
-    const approveBtn = document.getElementById("patch-approve-btn");
-    const declineBtn = document.getElementById("patch-decline-btn");
 
     const activeTab = PatchBufferState.getActiveTab();
 
@@ -264,17 +278,6 @@
 
     if (emptyState) {
       emptyState.style.display = "none";
-    }
-
-    // Show/hide buttons based on readOnly flag
-    const readOnly = activeTab.readOnly || false;
-    if (approveBtn) {
-      approveBtn.disabled = readOnly;
-      approveBtn.style.display = readOnly ? "none" : "";
-    }
-    if (declineBtn) {
-      declineBtn.disabled = readOnly;
-      declineBtn.style.display = readOnly ? "none" : "";
     }
   }
 
@@ -533,6 +536,18 @@
     }
   }
 
+  function closeActiveTab() {
+    const activeIndex = PatchBufferState.getActiveIndex();
+    if (activeIndex < 0) return;
+    PatchBufferState.removeTab(activeIndex);
+    renderTabs();
+    updateContextBar();
+    const newActiveTab = PatchBufferState.getActiveTab();
+    if (newActiveTab && newActiveTab.originalContent) {
+      renderDiff(newActiveTab.originalContent, newActiveTab.patchedContent);
+    }
+  }
+
   function focusDiffPane() {
     var pane =
       document.getElementById("patch-patched-pane") ||
@@ -551,18 +566,9 @@
   function init(sessionId) {
     PatchBufferState.setSessionId(sessionId);
 
-    // Add button event listeners
-    const approveBtn = document.getElementById("patch-approve-btn");
-    const declineBtn = document.getElementById("patch-decline-btn");
-
-    if (approveBtn) {
-      approveBtn.addEventListener("click", approveActivePatch);
-    }
-
-    if (declineBtn) {
-      declineBtn.addEventListener("click", function () {
-        declineCurrentPatch();
-      });
+    const closeBtn = document.getElementById("patch-close-btn");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", closeActiveTab);
     }
   }
 
@@ -571,6 +577,7 @@
     addPatch,
     approve: approveCurrentPatch,
     decline: declineCurrentPatch,
+    close: closeActiveTab,
     focusDiffPane,
     showStaleWarning,
     init,
