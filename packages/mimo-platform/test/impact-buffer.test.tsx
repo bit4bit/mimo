@@ -36,5 +36,8 @@ describe("ImpactBuffer", () => {
     expect(html).toContain("impact-section");
     expect(html).toContain("impact-metric");
     expect(html).toContain("duplication-warning");
+    expect(html).toContain("impact-dependency-section");
+    expect(html).toContain("impact-dependency-line");
+    expect(html).toContain("impact-dependency-files");
   });
 });

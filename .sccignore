@@ -6,8 +6,6 @@
 # --- From: .gitignore ---
 **/node_modules
 **/dist
-.claude
-.codex
 **/session-fossils
 **/bin
 **/.mimo
