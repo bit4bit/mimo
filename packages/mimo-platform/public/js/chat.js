@@ -1993,6 +1993,18 @@ function insertEditableBubble() {
   const container = document.querySelector("#chat-messages");
   if (!container || ChatState.editableBubble) return;
 
+  if (window.MIMO_SESSION_CLOSED) {
+    if (!container.querySelector(".session-closed-banner")) {
+      const banner = document.createElement("div");
+      banner.className = "session-closed-banner";
+      banner.style.cssText =
+        "padding:12px 16px;background:#2a1a1a;border:1px solid #5a2d2d;border-radius:4px;color:#ff6b6b;font-size:12px;margin:10px 0;text-align:center;";
+      banner.textContent = "This session is closed and read-only.";
+      container.appendChild(banner);
+    }
+    return;
+  }
+
   const bubble = renderEditableBubble();
   const content = bubble.querySelector(".message-content");
   const sendBtn = bubble.querySelector(".editable-send-btn");

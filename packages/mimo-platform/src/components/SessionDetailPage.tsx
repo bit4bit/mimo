@@ -284,17 +284,31 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               style="color: #888; font-size: 12px;"
             ></span>
           </div>
-          {canDelete && (
-            <form
-              method="POST"
-              action={`/projects/${project.id}/sessions/${session.id}/delete`}
-              style="display: inline;"
-            >
-              <button type="submit" class="btn-danger">
-                Delete Session
-              </button>
-            </form>
-          )}
+          <div style="display: flex; gap: 8px;">
+            {session.status !== "closed" && (
+              <form
+                method="POST"
+                action={`/projects/${project.id}/sessions/${session.id}/close`}
+                style="display: inline;"
+                onsubmit={`return confirm('Close session "${session.name}"? It will become read-only.')`}
+              >
+                <button type="submit" class="btn-secondary">
+                  Close Session
+                </button>
+              </form>
+            )}
+            {canDelete && (
+              <form
+                method="POST"
+                action={`/projects/${project.id}/sessions/${session.id}/delete`}
+                style="display: inline;"
+              >
+                <button type="submit" class="btn-danger">
+                  Delete Session
+                </button>
+              </form>
+            )}
+          </div>
         </div>
 
         <div
@@ -574,6 +588,13 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           </div>
         </div>
       )}
+
+      {/* Inject session closed flag for JS */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `window.MIMO_SESSION_CLOSED = ${session.status === "closed" ? "true" : "false"};`,
+        }}
+      />
 
       {/* Inject thread data for JS */}
       {chatThreads.length > 0 && (
