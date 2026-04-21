@@ -152,10 +152,11 @@ export class OpencodeProvider implements IAcpProvider {
       usage_update: "usage_update",
       tool_call: "tool_call",
       tool_call_update: "tool_call_update",
-      available_commands_update: null, // Skip
+      available_commands_update: "available_commands_update",
+      availableCommandsUpdate: "available_commands_update",
+      available_commands: "available_commands_update",
     };
 
-    // Only handle known update types - skip unknown ones (like available_commands_update)
     return mapping[updateType] ?? null;
   }
 }

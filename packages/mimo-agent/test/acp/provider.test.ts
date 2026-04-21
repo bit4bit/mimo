@@ -21,9 +21,9 @@ describe("OpencodeProvider", () => {
       expect(result).toBe("usage_update");
     });
 
-    it("should return null for available_commands_update (skip)", () => {
+    it("should map available_commands_update to available_commands_update", () => {
       const result = provider.mapUpdateType("available_commands_update");
-      expect(result).toBeNull();
+      expect(result).toBe("available_commands_update");
     });
 
     it("should return null for unknown update types", () => {

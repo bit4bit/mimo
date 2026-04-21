@@ -56,6 +56,14 @@ const ChatState = {
   modelState: null,
   modeState: null,
 
+  availableCommands: [],
+  commandPicker: {
+    open: false,
+    selectedIndex: 0,
+    filteredCommands: [],
+    slashMode: false,
+  },
+
   // Impact
   impact: {
     stale: false,
@@ -211,9 +219,17 @@ function renderEditableBubble() {
   sendBtn.className = "editable-send-btn";
   sendBtn.textContent = "⌃↵ Send";
 
+  const commandsBtn = document.createElement("button");
+  commandsBtn.type = "button";
+  commandsBtn.className = "editable-commands-btn";
+  commandsBtn.textContent = "Commands";
+  commandsBtn.style.cssText =
+    "margin-right: 6px; font-family: monospace; font-size: 11px; padding: 1px 8px; background: none; color: #aaa; border: 1px solid #777; border-radius: 3px; cursor: pointer;";
+
   header.appendChild(label);
   header.appendChild(status);
   header.appendChild(spacer);
+  header.appendChild(commandsBtn);
   header.appendChild(sendBtn);
 
   const content = document.createElement("div");
@@ -221,8 +237,14 @@ function renderEditableBubble() {
   content.contentEditable = "true";
   content.setAttribute("data-placeholder", "Type a message...");
 
+  const picker = document.createElement("div");
+  picker.className = "command-picker";
+  picker.style.cssText =
+    "display:none; margin-top: 8px; border: 1px solid #444; border-radius: 6px; background: #1d1d1d; max-height: 220px; overflow-y: auto;";
+
   bubble.appendChild(header);
   bubble.appendChild(content);
+  bubble.appendChild(picker);
 
   return bubble;
 }
@@ -779,10 +801,16 @@ function connectWebSocket(sessionId) {
     ChatState.connectionStatus = "connected";
     updateConnectionStatusUI();
 
+    const activeThreadId =
+      typeof ChatThreadsState !== "undefined" && ChatThreadsState
+        ? ChatThreadsState.activeThreadId
+        : undefined;
+
     ChatState.socket.send(
       JSON.stringify({
         type: "request_state",
         sessionId: ChatState.sessionId,
+        ...(activeThreadId && { chatThreadId: activeThreadId }),
       }),
     );
 
@@ -923,6 +951,16 @@ function handleWebSocketMessage(data) {
         return;
       }
       handleToolCallUpdate(data);
+      break;
+    case "available_commands_update":
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
+        return;
+      }
+      handleAvailableCommandsUpdate(data.commands);
       break;
     case "message":
       if (
@@ -1134,6 +1172,312 @@ function handleToolCallUpdate(data) {
     }
   }
   updateToolCallStatus(data.toolCallId, data.toolStatus, data.toolOutput);
+}
+
+function normalizeAvailableCommands(commands) {
+  if (!Array.isArray(commands)) return [];
+  return commands
+    .map((command) => {
+      const name =
+        typeof command === "string"
+          ? command
+          : command?.name || command?.command || command?.id || "";
+      if (!name) return null;
+      return {
+        name,
+        description:
+          typeof command === "object"
+            ? command?.description || command?.summary
+            : undefined,
+        template:
+          typeof command === "object"
+            ? command?.template || command?.usage
+            : undefined,
+      };
+    })
+    .filter(Boolean);
+}
+
+function getCommandInvocationText(command) {
+  const raw = (command?.template || command?.name || "").trim();
+  if (!raw) return "";
+  return raw;
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function handleAvailableCommandsUpdate(commands) {
+  const normalized = normalizeAvailableCommands(commands);
+  if (normalized.length === 0 && ChatState.availableCommands.length > 0) {
+    return;
+  }
+
+  ChatState.availableCommands = normalized;
+  const input = ChatState.editableBubble?.querySelector(".message-content");
+  if (!input) return;
+
+  if (ChatState.commandPicker.open) {
+    const query = ChatState.commandPicker.slashMode
+      ? extractSlashQuery(input)
+      : "";
+    updateCommandPicker(query);
+  }
+}
+
+function extractSlashQuery(contentElement) {
+  const text = (contentElement?.innerText || "").trim();
+  if (!text.startsWith("/")) return "";
+  const token = text.split(/\s+/)[0] || "";
+  return token.slice(1);
+}
+
+function getFilteredCommands(query) {
+  const normalized = (query || "").trim().toLowerCase();
+  if (!normalized) return ChatState.availableCommands;
+  return ChatState.availableCommands.filter((command) => {
+    const haystack = `${command.name} ${command.description || ""}`.toLowerCase();
+    return haystack.includes(normalized);
+  });
+}
+
+function updateCommandPicker(query = "") {
+  const bubble = ChatState.editableBubble;
+  if (!bubble) return;
+  const picker = bubble.querySelector(".command-picker");
+  if (!picker) return;
+
+  const filtered = getFilteredCommands(query);
+  ChatState.commandPicker.filteredCommands = filtered;
+  if (ChatState.commandPicker.selectedIndex >= filtered.length) {
+    ChatState.commandPicker.selectedIndex = 0;
+  }
+
+  picker.innerHTML = "";
+
+  if (filtered.length === 0) {
+    const empty = document.createElement("div");
+    empty.textContent = ChatState.availableCommands.length
+      ? "No matching commands"
+      : "No commands available";
+    empty.style.cssText = "padding: 8px 10px; color: #888; font-size: 12px;";
+    picker.appendChild(empty);
+    return;
+  }
+
+  filtered.forEach((command, index) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "command-picker-item";
+    row.dataset.index = String(index);
+    row.style.cssText =
+      "display:block; width:100%; text-align:left; border:0; border-bottom:1px solid #333; background:transparent; color:#ddd; cursor:pointer; padding:8px 10px;";
+    if (index === ChatState.commandPicker.selectedIndex) {
+      row.style.background = "#2f2f2f";
+      row.dataset.selected = "true";
+    }
+
+    const title = document.createElement("div");
+    title.style.fontFamily = "monospace";
+    title.style.fontSize = "12px";
+    title.textContent = command.name;
+    row.appendChild(title);
+
+    if (command.description) {
+      const description = document.createElement("div");
+      description.style.fontSize = "11px";
+      description.style.color = "#999";
+      description.style.marginTop = "2px";
+      description.textContent = command.description;
+      row.appendChild(description);
+    }
+
+    row.addEventListener("mouseenter", () => {
+      ChatState.commandPicker.selectedIndex = index;
+      const rows = picker.querySelectorAll(".command-picker-item");
+      rows.forEach((item, itemIndex) => {
+        if (itemIndex === index) {
+          item.style.background = "#2f2f2f";
+          item.dataset.selected = "true";
+        } else {
+          item.style.background = "transparent";
+          delete item.dataset.selected;
+        }
+      });
+    });
+    row.addEventListener("click", () => {
+      insertSelectedCommand(command);
+    });
+
+    picker.appendChild(row);
+  });
+
+  ensureSelectedCommandVisible();
+}
+
+function ensureSelectedCommandVisible() {
+  const bubble = ChatState.editableBubble;
+  if (!bubble) return;
+
+  const picker = bubble.querySelector(".command-picker");
+  if (!picker) return;
+
+  const selected = picker.querySelector('.command-picker-item[data-selected="true"]');
+  if (!selected) return;
+
+  selected.scrollIntoView({ block: "nearest" });
+}
+
+function openCommandPicker({ slashMode, query = "" }) {
+  const bubble = ChatState.editableBubble;
+  if (!bubble) return;
+  const picker = bubble.querySelector(".command-picker");
+  if (!picker) return;
+
+  const wasOpen = ChatState.commandPicker.open;
+  ChatState.commandPicker.open = true;
+  ChatState.commandPicker.slashMode = !!slashMode;
+  if (!wasOpen) {
+    ChatState.commandPicker.selectedIndex = 0;
+  }
+  picker.style.display = "block";
+  updateCommandPicker(query);
+}
+
+function closeCommandPicker() {
+  const bubble = ChatState.editableBubble;
+  const picker = bubble?.querySelector(".command-picker");
+  if (picker) {
+    picker.style.display = "none";
+  }
+  ChatState.commandPicker.open = false;
+  ChatState.commandPicker.slashMode = false;
+  ChatState.commandPicker.filteredCommands = [];
+  ChatState.commandPicker.selectedIndex = 0;
+}
+
+function insertSelectedCommand(command) {
+  const bubble = ChatState.editableBubble;
+  if (!bubble) return;
+  const input = bubble.querySelector(".message-content");
+  if (!input) return;
+
+  const insertText = getCommandInvocationText(command);
+  if (!insertText) return;
+  input.focus();
+
+  if (ChatState.commandPicker.slashMode) {
+    const text = input.innerText || "";
+    const slashInsertText = insertText.startsWith("/")
+      ? insertText
+      : `/${insertText}`;
+    const replaced = text.replace(/(^|\s)\/[\S]*$/, `$1${slashInsertText}`);
+    input.innerText =
+      replaced === text
+        ? `${text}${text && !text.endsWith(" ") ? " " : ""}${slashInsertText}`
+        : replaced;
+
+    const deduped = input.innerText.replace(
+      new RegExp(`^(\\s*)${escapeRegExp(slashInsertText)}\\s+${escapeRegExp(slashInsertText)}\\b`),
+      `$1${slashInsertText}`,
+    );
+    input.innerText = deduped;
+
+    if (window.getSelection && document.createRange) {
+      const range = document.createRange();
+      range.selectNodeContents(input);
+      range.collapse(false);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+  } else {
+    document.execCommand("insertText", false, `${insertText} `);
+  }
+
+  closeCommandPicker();
+}
+
+function handleCommandPickerInput() {
+  const bubble = ChatState.editableBubble;
+  if (!bubble) return;
+  const input = bubble.querySelector(".message-content");
+  if (!input) return;
+
+  const query = extractSlashQuery(input);
+  if (query || (input.innerText || "").trim().startsWith("/")) {
+    if (ChatState.commandPicker.open && ChatState.commandPicker.slashMode) {
+      updateCommandPicker(query);
+    } else {
+      openCommandPicker({ slashMode: true, query });
+    }
+    return;
+  }
+
+  if (ChatState.commandPicker.open && ChatState.commandPicker.slashMode) {
+    closeCommandPicker();
+  }
+}
+
+function handleCommandPickerKeydown(event) {
+  if (!ChatState.commandPicker.open) return false;
+
+  const commands = ChatState.commandPicker.filteredCommands;
+  if (commands.length === 0) {
+    if (event.key === "Escape") {
+      closeCommandPicker();
+      return true;
+    }
+    return false;
+  }
+
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    ChatState.commandPicker.selectedIndex =
+      (ChatState.commandPicker.selectedIndex + 1) % commands.length;
+    const input = ChatState.editableBubble?.querySelector(".message-content");
+    updateCommandPicker(ChatState.commandPicker.slashMode ? extractSlashQuery(input) : "");
+    return true;
+  }
+
+  if (event.key === "ArrowUp") {
+    event.preventDefault();
+    ChatState.commandPicker.selectedIndex =
+      (ChatState.commandPicker.selectedIndex - 1 + commands.length) %
+      commands.length;
+    const input = ChatState.editableBubble?.querySelector(".message-content");
+    updateCommandPicker(ChatState.commandPicker.slashMode ? extractSlashQuery(input) : "");
+    return true;
+  }
+
+  if (event.key === "Enter" && !event.ctrlKey) {
+    event.preventDefault();
+    const selected = commands[ChatState.commandPicker.selectedIndex];
+    if (selected) {
+      const input = ChatState.editableBubble?.querySelector(".message-content");
+      const query = extractSlashQuery(input);
+      const selectedName = String(selected.name || "").replace(/^\//, "");
+      if (
+        ChatState.commandPicker.slashMode &&
+        query &&
+        query === selectedName
+      ) {
+        closeCommandPicker();
+        return true;
+      }
+      insertSelectedCommand(selected);
+      return true;
+    }
+  }
+
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeCommandPicker();
+    return true;
+  }
+
+  return false;
 }
 
 // Shared: Icon map for tool kinds
@@ -1652,14 +1996,28 @@ function insertEditableBubble() {
   const bubble = renderEditableBubble();
   const content = bubble.querySelector(".message-content");
   const sendBtn = bubble.querySelector(".editable-send-btn");
+  const commandsBtn = bubble.querySelector(".editable-commands-btn");
 
   // Event handlers
   sendBtn.addEventListener("click", submitEditableBubble);
+  commandsBtn.addEventListener("click", () => {
+    if (ChatState.commandPicker.open) {
+      closeCommandPicker();
+      return;
+    }
+    openCommandPicker({ slashMode: false, query: "" });
+  });
   content.addEventListener("keydown", (e) => {
+    if (handleCommandPickerKeydown(e)) {
+      return;
+    }
     if (e.key === "Enter" && e.ctrlKey) {
       e.preventDefault();
       submitEditableBubble();
     }
+  });
+  content.addEventListener("input", () => {
+    handleCommandPickerInput();
   });
   content.addEventListener("paste", (e) => {
     e.preventDefault();
@@ -1676,6 +2034,7 @@ function insertEditableBubble() {
 // DOM: Remove editable bubble
 function removeEditableBubble() {
   if (ChatState.editableBubble) {
+    closeCommandPicker();
     ChatState.editableBubble.remove();
     ChatState.editableBubble = null;
   }
@@ -1696,14 +2055,28 @@ function insertEditableBubbleWithContent(prefilledContent) {
   const bubble = renderEditableBubble();
   const content = bubble.querySelector(".message-content");
   const sendBtn = bubble.querySelector(".editable-send-btn");
+  const commandsBtn = bubble.querySelector(".editable-commands-btn");
 
   // Event handlers
   sendBtn.addEventListener("click", submitEditableBubble);
+  commandsBtn.addEventListener("click", () => {
+    if (ChatState.commandPicker.open) {
+      closeCommandPicker();
+      return;
+    }
+    openCommandPicker({ slashMode: false, query: "" });
+  });
   content.addEventListener("keydown", (e) => {
+    if (handleCommandPickerKeydown(e)) {
+      return;
+    }
     if (e.key === "Enter" && e.ctrlKey) {
       e.preventDefault();
       submitEditableBubble();
     }
+  });
+  content.addEventListener("input", () => {
+    handleCommandPickerInput();
   });
   content.addEventListener("paste", (e) => {
     e.preventDefault();
@@ -1735,7 +2108,8 @@ function submitEditableBubble() {
   if (!ChatState.editableBubble) return;
 
   const content = ChatState.editableBubble.querySelector(".message-content");
-  const message = content.innerText.trim();
+  const rawMessage = content.innerText.trim();
+  const message = rawMessage;
   if (!message) return;
 
   // Convert to static message

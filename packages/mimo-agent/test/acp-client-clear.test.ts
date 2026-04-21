@@ -79,6 +79,7 @@ const mockCallbacks: AcpClientCallbacks = {
   onMessageChunk: () => {},
   onUsageUpdate: () => {},
   onGenericUpdate: () => {},
+  onAvailableCommandsUpdate: () => {},
   onPermissionRequest: async () => ({ outcome: "allow" }),
 };
 

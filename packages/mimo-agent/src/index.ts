@@ -64,6 +64,11 @@ class MimoAgent {
   // Store thread-specific model/mode from platform (keyed by acpKey)
   private threadConfigs: Map<string, { model?: string; mode?: string }> =
     new Map();
+  // Latest command inventory per session (thread fallback)
+  private sessionAvailableCommands: Map<
+    string,
+    Array<{ name: string; description?: string; template?: string }>
+  > = new Map();
 
   private static readonly CAPABILITY_PROBE_SESSION_ID = "capability-probe";
 
@@ -815,6 +820,18 @@ class MimoAgent {
           timestamp: new Date().toISOString(),
         });
       },
+      onAvailableCommandsUpdate: (sessionId, commands) => {
+        if (commands.length > 0) {
+          this.sessionAvailableCommands.set(sessionId, commands);
+        }
+        this.send({
+          type: "available_commands_update",
+          sessionId,
+          chatThreadId,
+          commands,
+          timestamp: new Date().toISOString(),
+        });
+      },
       onToolCall: (sessionId, tool) => {
         let inputStr: string | undefined;
         if (tool.rawInput) {
@@ -1056,6 +1073,18 @@ class MimoAgent {
           sessionId: sid,
           chatThreadId,
           content,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onAvailableCommandsUpdate: (sid, commands) => {
+        if (commands.length > 0) {
+          this.sessionAvailableCommands.set(sid, commands);
+        }
+        this.send({
+          type: "available_commands_update",
+          sessionId: sid,
+          chatThreadId,
+          commands,
           timestamp: new Date().toISOString(),
         });
       },
@@ -1743,6 +1772,11 @@ class MimoAgent {
     chatThreadId: string,
     content: string,
   ): Promise<void> {
+    const normalizedContent = this.normalizeCommandPrompt(
+      content,
+      acpClient,
+      sessionId,
+    );
     logger.debug(
       `[mimo-agent] Sending prompt for session ${sessionId}/${chatThreadId}`,
     );
@@ -1754,7 +1788,7 @@ class MimoAgent {
     });
 
     try {
-      await acpClient.prompt(content);
+      await acpClient.prompt(normalizedContent);
       logger.debug(
         `[mimo-agent] Prompt completed for ${sessionId}/${chatThreadId}`,
       );
@@ -1767,6 +1801,44 @@ class MimoAgent {
         timestamp: new Date().toISOString(),
       });
     }
+  }
+
+  private normalizeCommandPrompt(
+    content: string,
+    acpClient: AcpClient,
+    sessionId: string,
+  ): string {
+    const trimmed = (content || "").trim();
+    if (!trimmed.startsWith("/")) {
+      return content;
+    }
+
+    const firstToken = trimmed.split(/\s+/)[0] || "";
+    const commandToken = firstToken.slice(1);
+    if (!commandToken) {
+      return content;
+    }
+
+    const availableCommands =
+      acpClient.availableCommands && acpClient.availableCommands.length > 0
+        ? acpClient.availableCommands
+        : this.sessionAvailableCommands.get(sessionId) || [];
+    const hasExactSlash = availableCommands.some(
+      (command) => String(command.name || "").trim() === firstToken,
+    );
+    if (hasExactSlash) {
+      return content;
+    }
+
+    const hasBare = availableCommands.some(
+      (command) => String(command.name || "").trim() === commandToken,
+    );
+    if (!hasBare) {
+      return content;
+    }
+
+    const suffix = trimmed.slice(firstToken.length);
+    return `${commandToken}${suffix}`.trim();
   }
 
   private async handleSetModel(message: any): Promise<void> {
@@ -1882,6 +1954,17 @@ class MimoAgent {
       timestamp: new Date().toISOString(),
     });
 
+    const stateCommands = acpClient.availableCommands || [];
+    if (stateCommands.length > 0) {
+      this.send({
+        type: "available_commands_update",
+        sessionId,
+        chatThreadId,
+        commands: stateCommands,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     logger.debug(`[mimo-agent] Sent state for session ${sessionId}`);
   }
 
@@ -1976,6 +2059,8 @@ class MimoAgent {
         this.acpClients.delete(key);
       }
     }
+
+    this.sessionAvailableCommands.delete(sessionId);
 
     // Terminate session - handles process, watcher, timers
     this.sessionManager.terminateSession(sessionId);
@@ -2237,6 +2322,7 @@ class MimoAgent {
       onMessageChunk: () => {},
       onUsageUpdate: () => {},
       onGenericUpdate: () => {},
+      onAvailableCommandsUpdate: () => {},
       onToolCall: () => {},
       onToolCallUpdate: () => {},
       onPermissionRequest: async () => ({ outcome: "allow" }),

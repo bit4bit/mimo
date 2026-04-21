@@ -34,6 +34,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { createSessionDeletionUseCase } from "./sessions/session-deletion.js";
 import { sweepExpiredInactiveSessions } from "./sessions/session-retention-sweeper.js";
+import { normalizeAvailableCommands } from "./sessions/available-commands.js";
 
 const app = new Hono();
 const _port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -108,6 +109,10 @@ const fileWatchSessions = new Map<string, Set<any>>();
 const streamingBuffers = new Map<string, string>();
 const thoughtBuffers = new Map<string, string>();
 const toolCallBuffers = new Map<string, Map<string, any>>();
+const availableCommandsBuffers = new Map<
+  string,
+  Array<{ name: string; description?: string; template?: string }>
+>();
 const messageStartTimes = new Map<string, number>();
 const autoSyncInFlight = new Set<string>();
 
@@ -493,6 +498,20 @@ mimoServer.setup({
               chatThreadId: activeThreadId,
               thoughtContent: thoughtContent || "",
               messageContent: messageContent || "",
+              timestamp: new Date().toISOString(),
+            }),
+          );
+        }
+
+        const openCommands =
+          availableCommandsBuffers.get(activeStreamKey) ||
+          availableCommandsBuffers.get(streamKey(sessionId));
+        if (openCommands && openCommands.length > 0) {
+          ws.send(
+            JSON.stringify({
+              type: "available_commands_update",
+              chatThreadId: activeThreadId,
+              commands: openCommands,
               timestamp: new Date().toISOString(),
             }),
           );
@@ -1269,6 +1288,48 @@ async function handleAgentMessage(ws, data) {
         );
       }
       break;
+    case "available_commands_update": {
+      const commandsSessionId = data.sessionId;
+      const commandsThreadId = data.chatThreadId;
+      if (!commandsSessionId) {
+        logger.debug("No sessionId in available_commands_update");
+        return;
+      }
+
+      const commands = normalizeAvailableCommands(data.commands);
+      const commandsStreamKey = streamKey(commandsSessionId, commandsThreadId);
+      const existingCommands = availableCommandsBuffers.get(commandsStreamKey);
+      if (
+        commands.length === 0 &&
+        Array.isArray(existingCommands) &&
+        existingCommands.length > 0
+      ) {
+        return;
+      }
+
+      availableCommandsBuffers.set(commandsStreamKey, commands);
+      if (commands.length > 0) {
+        const sessionFallbackKey = streamKey(commandsSessionId);
+        availableCommandsBuffers.set(sessionFallbackKey, commands);
+      }
+
+      const commandSubscribers = chatSessions.get(commandsSessionId);
+      if (commandSubscribers) {
+        commandSubscribers.forEach((client) => {
+          if (client.readyState === 1) {
+            client.send(
+              JSON.stringify({
+                type: "available_commands_update",
+                chatThreadId: commandsThreadId,
+                commands,
+                timestamp: new Date().toISOString(),
+              }),
+            );
+          }
+        });
+      }
+      break;
+    }
     case "file_changed":
       logger.debug("File changed:", data.files);
 
@@ -1884,6 +1945,22 @@ async function handleChatMessage(ws, data) {
             chatThreadId: stateThreadId,
             thoughtContent: stateThoughtContent || "",
             messageContent: stateMessageContent || "",
+            timestamp: new Date().toISOString(),
+          }),
+        );
+      }
+
+      const stateAvailableCommands = availableCommandsBuffers.get(stateStreamKey);
+      const stateFallbackCommands = availableCommandsBuffers.get(
+        streamKey(sessionId),
+      );
+      const replayCommands = stateAvailableCommands || stateFallbackCommands;
+      if (replayCommands) {
+        ws.send(
+          JSON.stringify({
+            type: "available_commands_update",
+            chatThreadId: stateThreadId,
+            commands: replayCommands,
             timestamp: new Date().toISOString(),
           }),
         );
