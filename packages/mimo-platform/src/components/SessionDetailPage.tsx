@@ -1142,33 +1142,24 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         .tree-icon--file {
           color: #888;
         }
-        .tree-icon--expanded {
-          color: #888;
-        }
         .tree-children {
           margin-left: 20px;
         }
         .file-status {
-          font-size: 10px;
-          padding: 1px 6px;
-          border-radius: 3px;
-          margin-left: auto;
+          font-family: monospace;
+          font-size: 12px;
+          font-weight: bold;
+          min-width: 12px;
+          text-align: center;
         }
         .file-status--added {
-          background: #0b3d0b;
           color: #51cf66;
         }
         .file-status--modified {
-          background: #3d3d0b;
-          color: #ffd43b;
+          color: #74c0fc;
         }
         .file-status--deleted {
-          background: #3d0b0b;
           color: #ff6b6b;
-        }
-        .file-status--binary {
-          background: #3d0b3d;
-          color: #da77f2;
         }
         .file-diff {
           margin: 8px 0;

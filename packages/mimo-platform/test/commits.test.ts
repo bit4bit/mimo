@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
-import { rmSync, existsSync, mkdirSync, writeFileSync, unlinkSync } from "fs";
+import { rmSync, existsSync, mkdirSync, writeFileSync, unlinkSync, readdirSync, readFileSync } from "fs";
 import { execSync } from "child_process";
 
 describe("Commit Service Tests", () => {
@@ -287,7 +287,7 @@ describe("Commit Service Tests", () => {
   });
 
   describe("5. Commit Preview and Selective Apply", () => {
-    it("should return correct tree and statuses from preview endpoint", async () => {
+    it("should return correct flat file list and statuses from preview endpoint", async () => {
       const vcs = new VCS();
       const sessionRepo = ctx.repos.sessions;
       const projectRepo = ctx.repos.projects;
@@ -336,18 +336,6 @@ describe("Commit Service Tests", () => {
       expect(preview.success).toBe(true);
       expect(preview.preview).toBeDefined();
       expect(preview.preview!.summary.added).toBeGreaterThan(0);
-      expect(preview.preview!.tree.length).toBeGreaterThan(0);
-      // Tree should have "src" directory and "root.txt" file
-      expect(
-        preview.preview!.tree.some(
-          (n) => n.name === "src" && n.type === "directory",
-        ),
-      ).toBe(true);
-      expect(
-        preview.preview!.tree.some(
-          (n) => n.name === "root.txt" && n.type === "file",
-        ),
-      ).toBe(true);
       // Files should have correct paths and status
       expect(
         preview.preview!.files.some(
@@ -364,6 +352,65 @@ describe("Commit Service Tests", () => {
           (f) => f.path === "root.txt" && f.status === "added",
         ),
       ).toBe(true);
+    }, 30000);
+
+    it("should include hunks for modified files in preview", async () => {
+      const vcs = new VCS();
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      // Create initial file in upstream and commit it
+      writeFileSync(join(upstreamPath, "test.txt"), "original content");
+      execSync("git add .", { cwd: upstreamPath });
+      execSync('git commit -m "Initial"', { cwd: upstreamPath });
+
+      const agentWorkspacePath = session.agentWorkspacePath;
+      const fossilPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(fossilPath);
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      await vcs.openFossil(fossilPath, agentWorkspacePath);
+
+      // Create modified file in workspace
+      writeFileSync(join(agentWorkspacePath, "test.txt"), "modified content");
+      await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Modify"],
+        agentWorkspacePath,
+      );
+
+      // Get preview
+      const preview = await ctx.services.commits.getPreview(session.id);
+
+      expect(preview.success).toBe(true);
+      expect(preview.preview).toBeDefined();
+
+      // Find the modified file
+      const modifiedFile = preview.preview!.files.find(
+        (f) => f.path === "test.txt" && f.status === "modified",
+      );
+      expect(modifiedFile).toBeDefined();
+      expect(modifiedFile!.hunks).toBeDefined();
+      expect(modifiedFile!.hunks!.length).toBeGreaterThan(0);
+      expect(modifiedFile!.hunks![0].lines.length).toBeGreaterThan(0);
     }, 30000);
 
     it("should block commit with empty message", async () => {
@@ -494,6 +541,81 @@ describe("Commit Service Tests", () => {
 
       // Verify only file1 is in upstream
       expect(existsSync(join(upstreamPath, "file1.txt"))).toBe(true);
+    }, 30000);
+
+    it("should store patch with actual diff before applying files", async () => {
+      const vcs = new VCS();
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      const agentWorkspacePath = session.agentWorkspacePath;
+      const fossilPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(fossilPath);
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      await vcs.openFossil(fossilPath, agentWorkspacePath);
+
+      // Create file in workspace
+      writeFileSync(join(agentWorkspacePath, "test.txt"), "new content");
+      await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Initial"],
+        agentWorkspacePath,
+      );
+
+      // Commit via service
+      const result = await ctx.services.commits.commitAndPushSelective(
+        session.id,
+        "Test commit",
+        ["test.txt"],
+        undefined,
+      );
+
+      expect(result.success).toBe(true);
+
+      // Verify patch was stored
+      // Session path is: {projects}/{projectId}/sessions/{sessionId}
+      const sessionDir = join(
+        testHome,
+        "projects",
+        project.id,
+        "sessions",
+        session.id,
+      );
+      const patchesDir = join(sessionDir, "patches");
+      expect(existsSync(patchesDir)).toBe(true);
+
+      // Read stored patch
+      const patchFiles = readdirSync(patchesDir);
+      expect(patchFiles.length).toBeGreaterThan(0);
+
+      const patchContent = readFileSync(
+        join(patchesDir, patchFiles[0]),
+        "utf-8",
+      );
+
+      // Patch should contain the actual diff, not be empty
+      expect(patchContent).toContain("diff");
+      expect(patchContent).toContain("new content");
+      expect(patchContent).not.toBe("");
     }, 30000);
   });
 });
