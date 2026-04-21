@@ -44,8 +44,6 @@ function acpKey(sessionId: string, chatThreadId: string): string {
   return `${sessionId}:${chatThreadId}`;
 }
 
-// Default thread name used for legacy/single-thread sessions
-const DEFAULT_THREAD_ID = "main";
 
 class MimoAgent {
   private ws: WebSocket | null = null;
@@ -131,12 +129,6 @@ class MimoAgent {
 
         // Close the ACP client gracefully
         await this.closeAcpClientByKey(key);
-
-        // Only stop the session-manager session when all threads are done
-        // For now stop it when the default thread terminates
-        if (chatThreadId === DEFAULT_THREAD_ID) {
-          this.sessionManager.stopSession(sessionId);
-        }
       },
     });
 
@@ -496,22 +488,6 @@ class MimoAgent {
           }
         }
 
-        // Register the default thread in the lifecycle manager (task 4.1)
-        this.lifecycleManager.initializeThread(
-          sessionId,
-          DEFAULT_THREAD_ID,
-          600000, // platform will update via session_config_updated
-        );
-
-        // Spawn ACP process for the default thread (task 4.2)
-        await this.spawnAcpProcess(
-          {
-            ...sessionInfo,
-            agentSubpath: agentSubpath || undefined,
-          },
-          DEFAULT_THREAD_ID,
-        );
-
         sessionIds.push(sessionId);
         logger.debug(`[mimo-agent] Session ${sessionId} ready`);
       } catch (error) {
@@ -731,15 +707,10 @@ class MimoAgent {
     }
   }
 
-  /** Close the default-thread ACP client for a session (backward compat). */
-  private async closeAcpClient(sessionId: string): Promise<void> {
-    await this.closeAcpClientByKey(acpKey(sessionId, DEFAULT_THREAD_ID));
-  }
-
   // task 4.2: spawn ACP per thread using shared checkout path
   private async spawnAcpProcess(
     session: any,
-    chatThreadId: string = DEFAULT_THREAD_ID,
+    chatThreadId: string,
   ): Promise<void> {
     const sessionInfo = this.sessionManager.getSession(session.sessionId);
     if (!sessionInfo) return;
@@ -1300,7 +1271,11 @@ class MimoAgent {
       return;
     }
 
-    const chatThreadId: string = message.chatThreadId ?? DEFAULT_THREAD_ID;
+    const chatThreadId: string = message.chatThreadId;
+    if (!chatThreadId) {
+      logger.debug("[mimo-agent] No chatThreadId in acp_request");
+      return;
+    }
     logger.debug(
       `[mimo-agent] Restarting ACP for session ${sessionId}/${chatThreadId}`,
     );
@@ -1314,9 +1289,13 @@ class MimoAgent {
 
   private async handleCancelRequest(message: any): Promise<void> {
     const sessionId = message.sessionId;
-    const chatThreadId: string = message.chatThreadId ?? DEFAULT_THREAD_ID;
     if (!sessionId) {
       logger.debug("[mimo-agent] No sessionId in cancel_request");
+      return;
+    }
+    const chatThreadId: string = message.chatThreadId;
+    if (!chatThreadId) {
+      logger.debug("[mimo-agent] No chatThreadId in cancel_request");
       return;
     }
 
@@ -1624,11 +1603,15 @@ class MimoAgent {
   private async handleUserMessage(message: any): Promise<void> {
     const sessionId = message.sessionId;
     const content = message.content;
-    // task 5.1: route strictly by chatThreadId; fall back for legacy messages
-    const chatThreadId: string = message.chatThreadId ?? DEFAULT_THREAD_ID;
+    // task 5.1: route strictly by chatThreadId
+    const chatThreadId: string = message.chatThreadId;
 
     if (!sessionId) {
       logger.debug("[mimo-agent] No sessionId in user_message");
+      return;
+    }
+    if (!chatThreadId) {
+      logger.debug("[mimo-agent] No chatThreadId in user_message");
       return;
     }
 
@@ -1844,7 +1827,15 @@ class MimoAgent {
 
   private async handleSetModel(message: any): Promise<void> {
     const { sessionId, modelId } = message;
-    const chatThreadId: string = message.chatThreadId ?? DEFAULT_THREAD_ID;
+    if (!sessionId) {
+      logger.debug("[mimo-agent] No sessionId in set_model");
+      return;
+    }
+    const chatThreadId: string = message.chatThreadId;
+    if (!chatThreadId) {
+      logger.debug("[mimo-agent] No chatThreadId in set_model");
+      return;
+    }
     logger.debug(
       `[mimo-agent] Set model for ${sessionId}/${chatThreadId}: ${modelId}`,
     );
@@ -1882,7 +1873,15 @@ class MimoAgent {
 
   private async handleSetMode(message: any): Promise<void> {
     const { sessionId, modeId } = message;
-    const chatThreadId: string = message.chatThreadId ?? DEFAULT_THREAD_ID;
+    if (!sessionId) {
+      logger.debug("[mimo-agent] No sessionId in set_mode");
+      return;
+    }
+    const chatThreadId: string = message.chatThreadId;
+    if (!chatThreadId) {
+      logger.debug("[mimo-agent] No chatThreadId in set_mode");
+      return;
+    }
     logger.debug(
       `[mimo-agent] Set mode for ${sessionId}/${chatThreadId}: ${modeId}`,
     );
@@ -1920,7 +1919,15 @@ class MimoAgent {
 
   private async handleRequestState(message: any): Promise<void> {
     const { sessionId } = message;
-    const chatThreadId: string = message.chatThreadId ?? DEFAULT_THREAD_ID;
+    if (!sessionId) {
+      logger.debug("[mimo-agent] No sessionId in request_state");
+      return;
+    }
+    const chatThreadId: string = message.chatThreadId;
+    if (!chatThreadId) {
+      logger.debug("[mimo-agent] No chatThreadId in request_state");
+      return;
+    }
 
     // Store thread config from platform (model/mode/acpSessionId to apply on first spawn)
     const key = acpKey(sessionId, chatThreadId);
@@ -1979,22 +1986,31 @@ class MimoAgent {
   }
 
   private async handleClearSession(message: any): Promise<void> {
-    const { sessionId } = message;
+    const { sessionId, chatThreadId } = message;
 
     if (!sessionId) {
       logger.debug("[mimo-agent] No sessionId in clear_session");
       this.send({
         type: "clear_session_error",
-        sessionId,
-        chatThreadId: DEFAULT_THREAD_ID,
+        sessionId: null,
+        chatThreadId: chatThreadId ?? null,
         error: "No sessionId provided",
         timestamp: new Date().toISOString(),
       });
       return;
     }
+    if (!chatThreadId) {
+      logger.debug("[mimo-agent] No chatThreadId in clear_session");
+      this.send({
+        type: "clear_session_error",
+        sessionId,
+        chatThreadId: null,
+        error: "No chatThreadId provided",
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
 
-    const chatThreadId: string =
-      (message as any).chatThreadId ?? DEFAULT_THREAD_ID;
     logger.debug(`[mimo-agent] Clearing session ${sessionId}/${chatThreadId}`);
 
     const acpClient = this.acpClients.get(acpKey(sessionId, chatThreadId));
