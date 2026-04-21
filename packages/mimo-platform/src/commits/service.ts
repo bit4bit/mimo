@@ -84,7 +84,7 @@ export class CommitService {
     }
 
     // Detect changed files (accurate file list)
-    const detected = detectChangedFiles(
+    const detected = await detectChangedFiles(
       session.upstreamPath,
       session.agentWorkspacePath,
     );
@@ -178,7 +178,7 @@ export class CommitService {
     }
 
     // Detect changed files
-    const changes = detectChangedFiles(
+    const changes = await detectChangedFiles(
       session.upstreamPath,
       session.agentWorkspacePath,
     );

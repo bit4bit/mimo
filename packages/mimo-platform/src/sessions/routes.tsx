@@ -749,35 +749,25 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 
       if (!sccInstalled) {
         // Return basic file counts without complexity
-        const { readdirSync, statSync, readFileSync } = await import("fs");
-        const { join, relative } = await import("path");
-        const crypto = await import("crypto");
-
-        const scanDir = (
-          dir: string,
-          baseDir: string,
-          files: Map<string, { checksum: string; size: number }>,
-        ) => {
-          if (!statSync(dir, { throwIfNoEntry: false })) return;
-          const entries = readdirSync(dir, { withFileTypes: true });
+const { readdirSync, statSync, readFileSync, lstatSync } = await import("fs");
           for (const entry of entries) {
             const fullPath = join(dir, entry.name);
             const relPath = relative(baseDir, fullPath);
             if (VCS_INTERNALS.has(entry.name)) continue;
-            if (entry.isDirectory()) {
+            const entryStats = lstatSync(fullPath);
+            if (entryStats.isDirectory()) {
               scanDir(fullPath, baseDir, files);
-            } else {
+            } else if (entryStats.isFile()) {
               const stats = statSync(fullPath);
               const content = readFileSync(fullPath);
               const checksum = crypto
                 .createHash("md5")
                 .update(content)
                 .digest("hex");
-              files.set(relPath, { checksum, size: stats.size });
+files.set(relPath, { checksum, size: stats.size });
             }
-          }
-        };
-
+          };
+        
         const upstreamFiles = new Map<
           string,
           { checksum: string; size: number }
