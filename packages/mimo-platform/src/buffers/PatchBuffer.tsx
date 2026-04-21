@@ -25,22 +25,24 @@ export const PatchBuffer: FC<PatchBufferProps> = ({ sessionId }) => {
         id="patch-context-bar"
         style="display: none; padding: 8px 12px; background: #252525; border-bottom: 1px solid #444; flex-direction: row; gap: 12px; align-items: center; flex-shrink: 0; font-size: 12px; color: #888;"
       >
-        <span id="patch-file-path" style="color: #d4d4d4; flex: 1;"></span>
+        <span id="patch-file-path" style="color: #d4d4d4;"></span>
+        <div style="flex: 1;"></div>
         <button
           type="button"
-          id="patch-approve-btn"
-          style="padding: 6px 16px; background: #4caf50; border: none; color: #fff; font-family: monospace; font-size: 12px; cursor: pointer; border-radius: 3px;"
-          title="Approve patch (Ctrl+Enter)"
+          id="patch-close-btn"
+          style="
+            padding: 4px 8px;
+            background: transparent;
+            border: 1px solid #555;
+            color: #888;
+            font-family: monospace;
+            font-size: 10px;
+            cursor: pointer;
+            border-radius: 3px;
+          "
+          title="Close patch"
         >
-          ✓ Approve
-        </button>
-        <button
-          type="button"
-          id="patch-decline-btn"
-          style="padding: 6px 16px; background: #f44336; border: none; color: #fff; font-family: monospace; font-size: 12px; cursor: pointer; border-radius: 3px;"
-          title="Decline patch (Alt+Shift+G)"
-        >
-          ✕ Decline
+          ✕ Close
         </button>
       </div>
 

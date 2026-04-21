@@ -408,6 +408,22 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             </span>
             <span class="session-shortcut-desc">Toggle right</span>
           </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.approvePatch || "Control+Enter",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Approve patch</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.declinePatch || "Alt+Shift+G",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Decline patch</span>
+          </span>
           <span class="session-shortcut-item expert-mode-shortcut">
             <span class="session-shortcut-key">
               {toEmacsNotation(

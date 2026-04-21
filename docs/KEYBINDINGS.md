@@ -55,6 +55,13 @@ sessionKeybindings:
   toggleRightFrame: "Alt+Shift+Control+F"
 ```
 
+## Patch Buffer
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| `Ctrl+Enter` | Approve Patch | Approve the active patch (applies it) |
+| `Alt+Shift+G` | Decline Patch | Decline and discard the active patch |
+
 ## Notes
 
 - Session shortcuts are active even while focus is inside text inputs and editable chat content.

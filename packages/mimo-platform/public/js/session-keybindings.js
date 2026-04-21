@@ -240,6 +240,19 @@
     if (!parsed.requiresAlt && event.altKey) {
       return false;
     }
+    // Reject if Shift is pressed but not required (prevents misfires)
+    if (!parsed.requiresShift && event.shiftKey) {
+      return false;
+    }
+    // Reject if Ctrl is pressed but neither Ctrl nor Mod is required
+    // (exempts Mod so Linux Ctrl-as-Mod bindings still work)
+    if (!parsed.requiresCtrl && !parsed.requiresMod && event.ctrlKey) {
+      return false;
+    }
+    // Reject if Meta is pressed but neither Meta nor Mod is required
+    if (!parsed.requiresMeta && !parsed.requiresMod && event.metaKey) {
+      return false;
+    }
 
     const eventKey = normalizeEventKey(event);
     const eventCode = normalizeEventCode(event);
