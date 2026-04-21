@@ -8,6 +8,10 @@ export interface AcpClientCallbacks {
   onMessageChunk: (sessionId: string, content: string) => void;
   onUsageUpdate: (sessionId: string, usage: any) => void;
   onGenericUpdate: (sessionId: string, content: string) => void;
+  onAvailableCommandsUpdate: (
+    sessionId: string,
+    commands: Array<{ name: string; description?: string; template?: string }>,
+  ) => void;
   onToolCall: (
     sessionId: string,
     tool: {
@@ -44,6 +48,11 @@ export interface AcpClientSession {
   currentThoughtBuffer?: string;
   checkoutPath?: string;
   mcpServers?: McpServerConfig[];
+  availableCommands: Array<{
+    name: string;
+    description?: string;
+    template?: string;
+  }>;
 }
 
 export interface InitializeResult {
@@ -79,6 +88,12 @@ export class AcpClient {
 
   get modeState(): ModeState | undefined {
     return this.session?.modeState;
+  }
+
+  get availableCommands():
+    | Array<{ name: string; description?: string; template?: string }>
+    | undefined {
+    return this.session?.availableCommands;
   }
 
   async initialize(
@@ -179,6 +194,7 @@ export class AcpClient {
       modeState: state.modeState,
       checkoutPath: cwd,
       mcpServers,
+      availableCommands: [],
     };
 
     return {
@@ -290,9 +306,64 @@ export class AcpClient {
         });
         break;
 
+      case "available_commands_update":
+        this.session.availableCommands = this.normalizeAvailableCommands(update);
+        this.callbacks.onAvailableCommandsUpdate(
+          this.sessionId,
+          this.session.availableCommands,
+        );
+        break;
+
       default:
         this.callbacks.onGenericUpdate(this.sessionId, updateType || "update");
     }
+  }
+
+  private normalizeAvailableCommands(
+    update: any,
+  ): Array<{ name: string; description?: string; template?: string }> {
+    const rawCandidates = [
+      update?.commands,
+      update?.availableCommands,
+      update?.available_commands,
+      update?.availableCommands?.commands,
+      update?.availableCommands?.items,
+      update?.availableCommands?.list,
+      update?.available_commands?.commands,
+      update?.available_commands?.items,
+      update?.available_commands?.list,
+    ];
+
+    const rawCommands = rawCandidates.find((candidate) =>
+      Array.isArray(candidate),
+    );
+
+    if (!Array.isArray(rawCommands)) return [];
+
+    return rawCommands
+      .map((command: any) => {
+        const name =
+          typeof command === "string"
+            ? command
+            : command?.name || command?.command || command?.id || "";
+
+        if (!name) {
+          return null;
+        }
+
+        return {
+          name,
+          description:
+            typeof command === "object"
+              ? command?.description || command?.summary
+              : undefined,
+          template:
+            typeof command === "object"
+              ? command?.template || command?.usage
+              : undefined,
+        };
+      })
+      .filter(Boolean);
   }
 
   async prompt(content: string): Promise<acp.PromptResponse> {
@@ -403,6 +474,7 @@ export class AcpClient {
       currentThoughtBuffer: undefined,
       checkoutPath: currentSession.checkoutPath,
       mcpServers: currentSession.mcpServers,
+      availableCommands: [],
     };
 
     logger.debug(

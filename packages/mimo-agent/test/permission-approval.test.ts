@@ -17,6 +17,7 @@ describe("AcpClient.onPermissionRequest", () => {
       onMessageChunk: () => {},
       onUsageUpdate: () => {},
       onGenericUpdate: () => {},
+      onAvailableCommandsUpdate: () => {},
       onPermissionRequest: async (
         sessionId: string,
         requestId: string,
@@ -88,6 +89,7 @@ describe("AcpClient.onPermissionRequest", () => {
       onMessageChunk: () => {},
       onUsageUpdate: () => {},
       onGenericUpdate: () => {},
+      onAvailableCommandsUpdate: () => {},
       onPermissionRequest: async (_sessionId, _requestId, _params) => ({
         outcome: { outcome: "cancelled" as const },
       }),
