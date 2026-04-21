@@ -145,7 +145,7 @@ export class ImpactCalculator {
     }
 
     // Detect changed files using shared logic
-    const changedFilesResult = detectChangedFiles(
+    const changedFilesResult = await detectChangedFiles(
       upstreamPath,
       agentWorkspacePath,
     );
