@@ -68,6 +68,23 @@
     return (event.metaKey || event.ctrlKey) && event.shiftKey;
   }
 
+  function getActiveBufferContext() {
+    const leftTab = document.querySelector(
+      '.frame-tab[data-frame-id="left"].active',
+    );
+    const rightTab = document.querySelector(
+      '.frame-tab[data-frame-id="right"].active',
+    );
+    return {
+      leftBufferId: leftTab ? leftTab.getAttribute("data-buffer-id") : null,
+      rightBufferId: rightTab ? rightTab.getAttribute("data-buffer-id") : null,
+    };
+  }
+
+  function isActiveLeftBuffer(id) {
+    return getActiveBufferContext().leftBufferId === id;
+  }
+
   function normalizeBindingToken(token) {
     if (!token) {
       return "";
@@ -386,7 +403,7 @@
 
     // Edit buffer keybindings (checked before thread keybindings to keep them separate)
     if (bindingMatches(event, keybindings.openFileFinder)) {
-      if (window.EditBuffer) {
+      if (window.EditBuffer && isActiveLeftBuffer("edit")) {
         handled = window.EditBuffer.isFileFinderOpen()
           ? window.EditBuffer.closeFileFinder()
           : window.EditBuffer.openFileFinder();
@@ -396,15 +413,21 @@
       window.EditBuffer &&
       window.EditBuffer.isFileFinderOpen()
     ) {
+      // Escape closes the finder based on finder state, not tab context:
+      // if it's open the user expects Escape to close it even after switching tabs.
       handled = window.EditBuffer.closeFileFinder();
     } else if (bindingMatches(event, keybindings.nextFile)) {
-      if (window.EditBuffer) handled = window.EditBuffer.switchFile("right");
+      if (window.EditBuffer && isActiveLeftBuffer("edit"))
+        handled = window.EditBuffer.switchFile("right");
     } else if (bindingMatches(event, keybindings.previousFile)) {
-      if (window.EditBuffer) handled = window.EditBuffer.switchFile("left");
+      if (window.EditBuffer && isActiveLeftBuffer("edit"))
+        handled = window.EditBuffer.switchFile("left");
     } else if (bindingMatches(event, keybindings.closeFile)) {
-      if (window.EditBuffer) handled = window.EditBuffer.closeCurrentFile();
+      if (window.EditBuffer && isActiveLeftBuffer("edit"))
+        handled = window.EditBuffer.closeCurrentFile();
     } else if (bindingMatches(event, keybindings.reloadFile)) {
-      if (window.EditBuffer) handled = window.EditBuffer.reloadCurrentFile();
+      if (window.EditBuffer && isActiveLeftBuffer("edit"))
+        handled = window.EditBuffer.reloadCurrentFile();
     } else if (bindingMatches(event, keybindings.nextLeftBuffer)) {
       handled = switchLeftBuffer(1);
     } else if (bindingMatches(event, keybindings.previousLeftBuffer)) {
@@ -419,11 +442,11 @@
     } else if (isHelpShortcut) {
       handled = highlightShortcutsBar();
     } else if (bindingMatches(event, keybindings.nextThread)) {
-      handled = switchThread(1);
+      if (isActiveLeftBuffer("chat")) handled = switchThread(1);
     } else if (bindingMatches(event, keybindings.previousThread)) {
-      handled = switchThread(-1);
+      if (isActiveLeftBuffer("chat")) handled = switchThread(-1);
     } else if (bindingMatches(event, keybindings.newThread)) {
-      handled = openCreateThreadDialog();
+      if (isActiveLeftBuffer("chat")) handled = openCreateThreadDialog();
     } else if (bindingMatches(event, keybindings.commit)) {
       handled = isCommitDialogOpen() ? closeCommitDialog() : openCommitDialog();
     } else if (bindingMatches(event, keybindings.projectNotes)) {
@@ -432,6 +455,7 @@
       handled = focusNotesInput("#notes-input");
     } else if (bindingMatches(event, keybindings.toggleExpertMode)) {
       if (
+        isActiveLeftBuffer("edit") &&
         window.EditBuffer &&
         typeof window.EditBuffer.toggleExpertMode === "function"
       ) {
@@ -439,7 +463,6 @@
         handled = true;
       }
     } else if (bindingMatches(event, keybindings.expertInput)) {
-      // Only trigger Enter when not in an input/textarea/contenteditable and expert mode is enabled
       var tag = event.target.tagName;
       var isEditable =
         tag === "INPUT" ||
@@ -448,6 +471,7 @@
         event.target.isContentEditable;
       if (
         !isEditable &&
+        isActiveLeftBuffer("edit") &&
         window.EditBuffer &&
         typeof window.EditBuffer.toggleExpertInput === "function"
       ) {
@@ -455,8 +479,8 @@
         handled = true;
       }
     } else if (bindingMatches(event, keybindings.moveFocusUp)) {
-      // Move focus up one line when expert mode is enabled and not processing
       if (
+        isActiveLeftBuffer("edit") &&
         window.EditBuffer &&
         typeof window.EditBuffer.moveFocusUp === "function"
       ) {
@@ -473,8 +497,8 @@
         }
       }
     } else if (bindingMatches(event, keybindings.moveFocusDown)) {
-      // Move focus down one line when expert mode is enabled and not processing
       if (
+        isActiveLeftBuffer("edit") &&
         window.EditBuffer &&
         typeof window.EditBuffer.moveFocusDown === "function"
       ) {
@@ -491,8 +515,8 @@
         }
       }
     } else if (bindingMatches(event, keybindings.centerFocus)) {
-      // Center focus on current viewport when expert mode is enabled and not processing
       if (
+        isActiveLeftBuffer("edit") &&
         window.EditBuffer &&
         typeof window.EditBuffer.centerFocusOnViewport === "function"
       ) {
@@ -509,8 +533,8 @@
         }
       }
     } else if (bindingMatches(event, keybindings.increaseFocus)) {
-      // Increase focus guide size when expert mode is enabled and not processing
       if (
+        isActiveLeftBuffer("edit") &&
         window.EditBuffer &&
         typeof window.EditBuffer.increaseFocusGuideSize === "function"
       ) {
@@ -527,8 +551,8 @@
         }
       }
     } else if (bindingMatches(event, keybindings.decreaseFocus)) {
-      // Decrease focus guide size when expert mode is enabled and not processing
       if (
+        isActiveLeftBuffer("edit") &&
         window.EditBuffer &&
         typeof window.EditBuffer.decreaseFocusGuideSize === "function"
       ) {
@@ -545,32 +569,22 @@
         }
       }
     } else if (bindingMatches(event, keybindings.approvePatch)) {
-      // Approve patch when PatchBuffer is focused
-      const activeTab = document.querySelector(
-        '.frame-tab[data-frame-id="left"].active',
-      );
-      if (activeTab && activeTab.getAttribute("data-buffer-id") === "patches") {
-        if (
-          window.MIMO_PATCH_BUFFER &&
-          typeof window.MIMO_PATCH_BUFFER.approve === "function"
-        ) {
-          window.MIMO_PATCH_BUFFER.approve();
-          handled = true;
-        }
+      if (
+        isActiveLeftBuffer("patches") &&
+        window.MIMO_PATCH_BUFFER &&
+        typeof window.MIMO_PATCH_BUFFER.approve === "function"
+      ) {
+        window.MIMO_PATCH_BUFFER.approve();
+        handled = true;
       }
     } else if (bindingMatches(event, keybindings.declinePatch)) {
-      // Decline patch when PatchBuffer is focused
-      const activeTab = document.querySelector(
-        '.frame-tab[data-frame-id="left"].active',
-      );
-      if (activeTab && activeTab.getAttribute("data-buffer-id") === "patches") {
-        if (
-          window.MIMO_PATCH_BUFFER &&
-          typeof window.MIMO_PATCH_BUFFER.decline === "function"
-        ) {
-          window.MIMO_PATCH_BUFFER.decline();
-          handled = true;
-        }
+      if (
+        isActiveLeftBuffer("patches") &&
+        window.MIMO_PATCH_BUFFER &&
+        typeof window.MIMO_PATCH_BUFFER.decline === "function"
+      ) {
+        window.MIMO_PATCH_BUFFER.decline();
+        handled = true;
       }
     }
 
