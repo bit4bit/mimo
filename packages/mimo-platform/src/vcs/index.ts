@@ -5,6 +5,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  lstatSync,
 } from "fs";
 import { tmpdir } from "os";
 import { join, dirname, basename } from "path";
@@ -59,12 +60,12 @@ export async function scanDirectory(
     const fullPath = join(dirPath, entry.name);
     const relPath = relative(basePath, fullPath);
 
-    // Skip VCS internals only (not all hidden files)
     if (VCS_INTERNALS.has(entry.name)) continue;
 
-    if (entry.isDirectory()) {
+    const entryStats = lstatSync(fullPath);
+    if (entryStats.isDirectory()) {
       await scanDirectory(fullPath, basePath, callback);
-    } else {
+    } else if (entryStats.isFile()) {
       await callback(fullPath, relPath);
     }
   }

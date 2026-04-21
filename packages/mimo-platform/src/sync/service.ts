@@ -4,6 +4,7 @@ import {
   copyFileSync,
   mkdirSync,
   statSync,
+  lstatSync,
   readFileSync,
   readdirSync,
   unlinkSync,
@@ -467,12 +468,12 @@ export class FileSyncService {
       const fullPath = join(dirPath, entry.name);
       const relativePath = relative(basePath, fullPath);
 
-      // Skip VCS internals only (not all hidden files)
       if (VCS_INTERNALS.has(entry.name)) continue;
 
-      if (entry.isDirectory()) {
+      const entryStats = lstatSync(fullPath);
+      if (entryStats.isDirectory()) {
         await this.scanDirectory(fullPath, basePath, callback);
-      } else {
+      } else if (entryStats.isFile()) {
         await callback(fullPath, relativePath);
       }
     }
@@ -491,7 +492,11 @@ export class FileSyncService {
       return {};
     }
 
-    const stats = statSync(sessionPath);
+    const stats = lstatSync(sessionPath);
+    if (!stats.isFile()) {
+      return {};
+    }
+
     const checksum = await this.calculateChecksum(sessionPath);
 
     return {
@@ -502,6 +507,10 @@ export class FileSyncService {
   }
 
   private async calculateChecksum(filePath: string): Promise<string> {
+    const stats = statSync(filePath);
+    if (stats.isDirectory()) {
+      throw new Error(`Cannot calculate checksum for directory: ${filePath}`);
+    }
     const content = readFileSync(filePath);
     return crypto.createHash("md5").update(content).digest("hex");
   }
