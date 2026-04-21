@@ -1,9 +1,21 @@
-import { join } from "path";
-import { existsSync } from "fs";
+import { join, extname, dirname } from "path";
+import { existsSync, readFileSync } from "fs";
 import type { SccService, SccMetrics, SccFileMetrics } from "./scc-service.js";
 import type { JscpdService, Clone } from "./jscpd-service.js";
 import { logger } from "../logger.js";
 import { detectChangedFiles } from "../files/changed-files.js";
+import {
+  buildDependencyGraph,
+  compareDependencyGraphs,
+  extractTargetDirectory,
+  isExternalDependency,
+  parseElixirImports,
+  parsePythonImports,
+  parseTypeScriptImports,
+  type DependencyChanges,
+  type DependencyEdgeInput,
+  type DependencyParserLanguage,
+} from "./dependency-parser.js";
 
 export type FileStatus = "new" | "changed" | "deleted" | "unchanged";
 
@@ -42,6 +54,7 @@ export interface ImpactMetrics {
   byLanguage: LanguageImpact[];
   byFile: FileImpactDetail[];
   duplication?: DuplicationMetrics;
+  dependencies?: DependencyChanges;
 }
 
 export interface LanguageImpact {
@@ -325,6 +338,12 @@ export class ImpactCalculator {
       linesAdded + linesRemoved,
     );
 
+    const dependencies = this.calculateDependencyChanges(
+      changedFilesResult.files,
+      upstreamPath,
+      agentWorkspacePath,
+    );
+
     const metrics: ImpactMetrics = {
       files,
       linesOfCode: {
@@ -340,6 +359,7 @@ export class ImpactCalculator {
       byLanguage: Array.from(languageMap.values()),
       byFile: byFileWithDetails,
       duplication,
+      dependencies,
     };
 
     // Calculate trends
@@ -362,6 +382,103 @@ export class ImpactCalculator {
     });
 
     return { metrics, trends };
+  }
+
+  private calculateDependencyChanges(
+    changedFiles: { path: string; status: "added" | "modified" | "deleted" }[],
+    upstreamPath: string,
+    workspacePath: string,
+  ): DependencyChanges | undefined {
+    try {
+      const upstreamEdges: DependencyEdgeInput[] = [];
+      const workspaceEdges: DependencyEdgeInput[] = [];
+
+      for (const changedFile of changedFiles) {
+        const language = this.getDependencyLanguage(changedFile.path);
+        if (!language) {
+          continue;
+        }
+
+        if (changedFile.status === "added" || changedFile.status === "modified") {
+          const workspaceFilePath = join(workspacePath, changedFile.path);
+          if (existsSync(workspaceFilePath)) {
+            workspaceEdges.push(
+              ...this.parseDependencyEdgesForFile(
+                changedFile.path,
+                readFileSync(workspaceFilePath, "utf8"),
+                language,
+              ),
+            );
+          }
+        }
+
+        if (changedFile.status === "deleted" || changedFile.status === "modified") {
+          const upstreamFilePath = join(upstreamPath, changedFile.path);
+          if (existsSync(upstreamFilePath)) {
+            upstreamEdges.push(
+              ...this.parseDependencyEdgesForFile(
+                changedFile.path,
+                readFileSync(upstreamFilePath, "utf8"),
+                language,
+              ),
+            );
+          }
+        }
+      }
+
+      const upstreamGraph = buildDependencyGraph(upstreamEdges);
+      const workspaceGraph = buildDependencyGraph(workspaceEdges);
+      return compareDependencyGraphs(upstreamGraph, workspaceGraph);
+    } catch (error) {
+      logger.error("[impact] Failed to calculate dependency changes:", error);
+      return undefined;
+    }
+  }
+
+  private getDependencyLanguage(
+    filePath: string,
+  ): DependencyParserLanguage | undefined {
+    const extension = extname(filePath).toLowerCase();
+    if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(extension)) {
+      return "typescript";
+    }
+    if (extension === ".py") {
+      return "python";
+    }
+    if (extension === ".ex" || extension === ".exs") {
+      return "elixir";
+    }
+    return undefined;
+  }
+
+  private parseDependencyEdgesForFile(
+    filePath: string,
+    content: string,
+    language: DependencyParserLanguage,
+  ): DependencyEdgeInput[] {
+    const sourceDirectory = dirname(filePath).replace(/\\/g, "/") || ".";
+    let parsedDependencies: string[] = [];
+
+    if (language === "typescript") {
+      parsedDependencies = parseTypeScriptImports(content);
+    } else if (language === "python") {
+      parsedDependencies = parsePythonImports(content);
+    } else {
+      parsedDependencies = parseElixirImports(content);
+    }
+
+    const edges: DependencyEdgeInput[] = [];
+    for (const dependencyPath of parsedDependencies) {
+      if (isExternalDependency(dependencyPath, language)) {
+        continue;
+      }
+      const target = extractTargetDirectory(filePath, dependencyPath, language);
+      if (!target || target === sourceDirectory) {
+        continue;
+      }
+      edges.push({ source: sourceDirectory, target, file: filePath });
+    }
+    return edges;
   }
 
   private async calculateDuplication(

@@ -2565,6 +2565,8 @@ function renderImpactMetrics(metrics, trends) {
     }
   }
 
+  const dependencyHtml = renderDependencyChanges(metrics.dependencies);
+
   const changedFiles = (metrics.byFile || []).filter(
     (f) => f.status !== "unchanged",
   );
@@ -2588,6 +2590,7 @@ function renderImpactMetrics(metrics, trends) {
       <div class="impact-metric"><span class="impact-metric-label">Cognitive:</span><span class="impact-metric-value">${metrics.complexity.cognitive}</span><span class="impact-trend">${complexityTrend.cognitive || "→"}</span></div>
       <div class="impact-metric"><span class="impact-metric-label">Est. Time:</span><span class="impact-metric-value">~${metrics.complexity.estimatedMinutes} min</span></div>
     </div>
+    ${dependencyHtml}
     ${duplicationHtml}
   `;
 
@@ -2622,6 +2625,45 @@ function renderImpactMetrics(metrics, trends) {
 
     content.appendChild(section);
   }
+}
+
+function renderDependencyChanges(dependencies) {
+  if (!dependencies) {
+    return "";
+  }
+
+  const added = Array.isArray(dependencies.added) ? dependencies.added : [];
+  const removed = Array.isArray(dependencies.removed) ? dependencies.removed : [];
+
+  if (added.length === 0 && removed.length === 0) {
+    return `
+      <div class="impact-section impact-dependency-section">
+        <div class="impact-section-title">Dependency Changes</div>
+        <div class="impact-no-data">No dependency changes detected</div>
+      </div>`;
+  }
+
+  const renderGroup = (list, prefix) =>
+    list
+      .map((change) => {
+        const files = Array.isArray(change.files) ? change.files : [];
+        const filesHtml = files
+          .map((file) => `<div class="impact-dependency-files">  └── ${file}</div>`)
+          .join("");
+        return `
+          <div class="impact-dependency-item">
+            <div class="impact-dependency-line">${prefix} ${change.source} → ${change.target}</div>
+            ${filesHtml}
+          </div>`;
+      })
+      .join("");
+
+  return `
+    <div class="impact-section impact-dependency-section">
+      <div class="impact-section-title">Dependency Changes</div>
+      ${renderGroup(added, "+")}
+      ${renderGroup(removed, "-")}
+    </div>`;
 }
 
 // DOM: Show notification

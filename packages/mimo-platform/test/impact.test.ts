@@ -373,6 +373,57 @@ echo '[]'`;
       expect(result.metrics.files.new).toBe(0);
       expect(result.metrics.files.changed).toBe(0);
     });
+
+    it("should detect dependency changes between upstream and workspace", async () => {
+      const { createMimoContext } =
+        await import("../src/context/mimo-context.ts");
+      const localCtx = createMimoContext({
+        env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+      });
+
+      const calculator = localCtx.services.impactCalculator;
+
+      const upstreamDir = join(testHome, "upstream-deps");
+      const workspaceDir = join(testHome, "workspace-deps");
+      mkdirSync(join(upstreamDir, "src/components"), { recursive: true });
+      mkdirSync(join(upstreamDir, "src/services"), { recursive: true });
+      mkdirSync(join(workspaceDir, "src/components"), { recursive: true });
+      mkdirSync(join(workspaceDir, "src/services"), { recursive: true });
+      mkdirSync(join(workspaceDir, "src/utils"), { recursive: true });
+
+      writeFileSync(
+        join(upstreamDir, "src/components/Button.ts"),
+        "import svc from '../services/api';\n",
+      );
+      writeFileSync(
+        join(workspaceDir, "src/components/Button.ts"),
+        "import helper from '../utils/helper';\n",
+      );
+
+      const result = await calculator.calculateImpact(
+        "deps-session",
+        upstreamDir,
+        workspaceDir,
+      );
+
+      expect(result.metrics.dependencies).toBeDefined();
+      expect(result.metrics.dependencies?.added).toEqual([
+        {
+          source: "src/components",
+          target: "src/utils",
+          files: ["src/components/Button.ts"],
+          status: "added",
+        },
+      ]);
+      expect(result.metrics.dependencies?.removed).toEqual([
+        {
+          source: "src/components",
+          target: "src/services",
+          files: ["src/components/Button.ts"],
+          status: "removed",
+        },
+      ]);
+    }, 10000);
   });
 
   describe("ImpactRepository", () => {

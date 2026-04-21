@@ -207,6 +207,33 @@ export const ImpactBuffer: FC<ImpactBufferProps> = ({ sessionId }) => {
           color: #666;
         }
 
+        .impact-dependency-section {
+          border-color: #495057;
+        }
+
+        .impact-dependency-item {
+          margin-bottom: 8px;
+        }
+
+        .impact-dependency-item:last-child {
+          margin-bottom: 0;
+        }
+
+        .impact-dependency-line {
+          font-family: monospace;
+          font-size: 12px;
+          color: #ced4da;
+          padding: 2px 0;
+        }
+
+        .impact-dependency-files {
+          font-family: monospace;
+          font-size: 11px;
+          color: #868e96;
+          padding-left: 14px;
+          line-height: 1.4;
+        }
+
         .impact-file-row {
           display: flex;
           align-items: center;
