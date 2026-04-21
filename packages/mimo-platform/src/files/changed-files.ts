@@ -27,6 +27,8 @@ async function collectFiles(
 ): Promise<void> {
   await scanDirectory(dirPath, basePath, (fullPath, relPath) => {
     const stats = statSync(fullPath);
+    // Skip directories and non-regular files (symlinks, etc.)
+    if (!stats.isFile()) return;
     const content = readFileSync(fullPath);
     const checksum = crypto.createHash("md5").update(content).digest("hex");
     fileMap.set(relPath, { checksum, size: stats.size });
