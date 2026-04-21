@@ -13,6 +13,34 @@ interface Session {
   status: "active" | "paused" | "closed";
   createdAt: Date;
   priority: "high" | "medium" | "low";
+  sessionTtlDays: number;
+  lastActivityAt: string | null;
+}
+
+function expiresInDays(createdAt: Date, sessionTtlDays: number): number {
+  const expiresAt = new Date(createdAt).getTime() + sessionTtlDays * 86400000;
+  return Math.ceil((expiresAt - Date.now()) / 86400000);
+}
+
+function expiresLabel(createdAt: Date, sessionTtlDays: number): string {
+  const days = expiresInDays(createdAt, sessionTtlDays);
+  if (days <= 0) return "expired";
+  if (days === 1) return "in 1d";
+  return `in ${days}d`;
+}
+
+function expiresFullDate(createdAt: Date, sessionTtlDays: number): string {
+  const expiresAt = new Date(
+    new Date(createdAt).getTime() + sessionTtlDays * 86400000,
+  );
+  return expiresAt.toLocaleDateString();
+}
+
+function expiresColor(createdAt: Date, sessionTtlDays: number): string {
+  const days = expiresInDays(createdAt, sessionTtlDays);
+  if (days <= 7) return "#ff6b6b";
+  if (days <= 14) return "#ffd43b";
+  return "#888";
 }
 
 interface SessionListProps {
@@ -26,6 +54,9 @@ export const SessionListPage: FC<SessionListProps> = ({
 }) => {
   const priorityWeight: Record<string, number> = { high: 0, medium: 1, low: 2 };
   const sortedSessions = [...sessions].sort((a, b) => {
+    const aClosed = a.status === "closed" ? 1 : 0;
+    const bClosed = b.status === "closed" ? 1 : 0;
+    if (aClosed !== bClosed) return aClosed - bClosed;
     const pw =
       (priorityWeight[a.priority] ?? 1) - (priorityWeight[b.priority] ?? 1);
     if (pw !== 0) return pw;
@@ -70,6 +101,49 @@ export const SessionListPage: FC<SessionListProps> = ({
         </span>
       ),
     },
+    {
+      key: "expires",
+      label: "Expires",
+      render: (session) => (
+        <span
+          class="session-time"
+          title={`Expires on ${expiresFullDate(session.createdAt, session.sessionTtlDays)}`}
+          style={`color: ${expiresColor(session.createdAt, session.sessionTtlDays)}`}
+        >
+          {expiresLabel(session.createdAt, session.sessionTtlDays)}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (session) => (
+        <div style="display: flex; gap: 6px;">
+          {session.status !== "closed" && (
+            <form
+              method="POST"
+              action={`/projects/${project.id}/sessions/${session.id}/close`}
+              style="display: inline;"
+              onsubmit={`return confirm('Close session "${session.name}"? It will become read-only.')`}
+            >
+              <button type="submit" class="btn-secondary btn-sm">
+                Close
+              </button>
+            </form>
+          )}
+          <form
+            method="POST"
+            action={`/projects/${project.id}/sessions/${session.id}/delete`}
+            style="display: inline;"
+            onsubmit={`return confirm('Delete session "${session.name}"? This cannot be undone.')`}
+          >
+            <button type="submit" class="btn-danger btn-sm">
+              Delete
+            </button>
+          </form>
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -101,6 +175,12 @@ export const SessionListPage: FC<SessionListProps> = ({
           </a>
         </div>
       </div>
+      <style>{`
+        .btn-sm {
+          padding: 3px 8px;
+          font-size: 11px;
+        }
+      `}</style>
     </Layout>
   );
 };

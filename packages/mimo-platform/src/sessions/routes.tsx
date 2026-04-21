@@ -110,7 +110,20 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 
     const sessions = await sessionRepository.listByProject(projectId);
 
-    return c.html(<SessionListPage project={project} sessions={sessions} />);
+    return c.html(
+      <SessionListPage
+        project={project}
+        sessions={sessions.map((s) => ({
+          id: s.id,
+          name: s.name,
+          status: s.status,
+          createdAt: s.createdAt,
+          priority: s.priority,
+          sessionTtlDays: s.sessionTtlDays,
+          lastActivityAt: s.lastActivityAt,
+        }))}
+      />,
+    );
   });
 
   // GET /sessions/new or /projects/:projectId/sessions/new - Create session form
@@ -590,6 +603,27 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     return c.json({ success: cancelled });
   });
 
+  // POST /sessions/:id/close - Close session (readonly, no more interactions)
+  router.post("/:id/close", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) {
+      return c.redirect("/auth/login");
+    }
+
+    const sessionId = c.req.param("id");
+    const session = await sessionRepository.findById(sessionId);
+
+    if (!session || session.owner !== username) {
+      return c.text("Session not found", 404);
+    }
+
+    await sessionRepository.update(sessionId, { status: "closed" });
+
+    return c.redirect(
+      `/projects/${session.projectId}/sessions/${sessionId}`,
+    );
+  });
+
   // POST /sessions/:id/delete or /projects/:projectId/sessions/:id/delete - Delete session
   router.post("/:id/delete", async (c: Context) => {
     const username = await getAuthUsername(c);
@@ -639,6 +673,10 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 
     if (!session || session.owner !== username) {
       return c.text("Session not found", 404);
+    }
+
+    if (session.status === "closed") {
+      return c.text("Session is closed", 403);
     }
 
     const body = await c.req.parseBody();
