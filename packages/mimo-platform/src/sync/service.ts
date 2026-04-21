@@ -11,6 +11,7 @@ import {
 import crypto from "crypto";
 import { logger } from "../logger.js";
 import type { SccService } from "../impact/scc-service.js";
+import { VCS_INTERNALS } from "../vcs/index.js";
 
 export type FileStatus =
   | "clean" // File hasn't changed
@@ -466,8 +467,8 @@ export class FileSyncService {
       const fullPath = join(dirPath, entry.name);
       const relativePath = relative(basePath, fullPath);
 
-      // Skip hidden files and directories
-      if (entry.name.startsWith(".")) continue;
+      // Skip VCS internals only (not all hidden files)
+      if (VCS_INTERNALS.has(entry.name)) continue;
 
       if (entry.isDirectory()) {
         await this.scanDirectory(fullPath, basePath, callback);
