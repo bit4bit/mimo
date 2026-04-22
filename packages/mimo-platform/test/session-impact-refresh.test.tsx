@@ -37,7 +37,7 @@ describe("Session impact refresh UI", () => {
     expect(html).toContain("impact-calculating-badge");
     expect(html).toContain("Click Refresh to calculate impact metrics");
     expect(html).toContain("| Session");
-    expect(html).toContain("| feature/top-nav");
+    expect(html).toContain("| ⎇ feature/top-nav");
     expect(html).not.toContain("setInterval(fetchImpact, 5000)");
   });
 });

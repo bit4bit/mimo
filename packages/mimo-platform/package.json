@@ -1,5 +1,6 @@
 {
   "name": "mimo-platform",
+  "license": "AGPL-3.0-only",
   "module": "src/index.tsx",
   "type": "module",
   "private": true,

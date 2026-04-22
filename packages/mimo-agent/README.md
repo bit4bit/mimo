@@ -276,3 +276,9 @@ No path coordination needed between platform and agent.
 2. **"Unknown session"**
    - Session may not be assigned to this agent
    - Check that session's `assignedAgentId` matches agent's ID
+
+## License
+
+GNU Affero General Public License v3.0 only (AGPL-3.0-only).
+
+Copyright (C) 2026 Jovany Leandro G.C <bit4bit@riseup.net>

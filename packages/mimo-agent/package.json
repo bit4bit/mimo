@@ -1,6 +1,7 @@
 {
   "name": "mimo-agent",
   "version": "0.1.0",
+  "license": "AGPL-3.0-only",
   "description": "mimo-platform agent - proxies ACP protocol and watches file changes",
   "module": "src/index.ts",
   "type": "module",

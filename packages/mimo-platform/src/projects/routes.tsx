@@ -2,8 +2,7 @@ import { Hono } from "hono";
 import { CreateProjectInput } from "../projects/repository";
 import { Credential } from "../credentials/repository";
 import { authMiddleware } from "../auth/middleware";
-import { ProjectsListPage } from "../components/ProjectsListPage";
-import { ProjectDetailPage } from "../components/ProjectDetailPage";
+import { ProjectsSessionsPage } from "../components/ProjectsSessionsPage";
 import { ProjectCreatePage } from "../components/ProjectCreatePage";
 import { ProjectEditPage } from "../components/ProjectEditPage";
 import { ImpactHistoryPage } from "../components/ImpactHistoryPage";
@@ -33,8 +32,50 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
   // List all projects (GET /projects)
   projects.get("/", authMiddleware, async (c) => {
     const user = c.get("user") as { username: string };
+    const selectedId = c.req.query("selected");
     const projectsList = await projectRepository.listByOwner(user.username);
-    return c.html(<ProjectsListPage projects={projectsList} />);
+
+    let selectedProject = null;
+    let selectedCredential: Credential | null = null;
+    let selectedProjectSessions: Awaited<ReturnType<typeof sessionRepository.listByProject>> =
+      [];
+
+    if (selectedId) {
+      const candidate = await projectRepository.findById(selectedId);
+      if (candidate && candidate.owner === user.username) {
+        selectedProject = candidate;
+        selectedProjectSessions = await sessionRepository.listByProject(candidate.id);
+        if (candidate.credentialId) {
+          selectedCredential = await credentialRepository.findById(
+            candidate.credentialId,
+            user.username,
+          );
+        }
+      }
+    }
+
+    return c.html(
+      <ProjectsSessionsPage
+        projects={projectsList}
+        selectedProject={selectedProject}
+        selectedProjectId={selectedProject?.id ?? selectedId}
+        selectedProjectSessions={selectedProjectSessions.map((s) => ({
+          id: s.id,
+          name: s.name,
+          status: s.status,
+          createdAt: s.createdAt,
+          priority: s.priority,
+          sessionTtlDays: s.sessionTtlDays,
+        }))}
+        selectedCredential={
+          selectedCredential
+            ? {
+                name: selectedCredential.name,
+              }
+            : null
+        }
+      />,
+    );
   });
 
   // Show create form (GET /projects/new)
@@ -184,24 +225,7 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
       return c.notFound();
     }
 
-    // Load credential info if exists
-    let credential: Credential | null = null;
-    if (project.credentialId) {
-      credential = await credentialRepository.findById(
-        project.credentialId,
-        user.username,
-      );
-    }
-
-    const sessions = await sessionRepository.listByProject(id);
-
-    return c.html(
-      <ProjectDetailPage
-        project={project}
-        sessions={sessions}
-        credential={credential}
-      />,
-    );
+    return c.redirect(`/projects?selected=${id}`, 302);
   });
 
   // Edit project form (GET /projects/:id/edit)

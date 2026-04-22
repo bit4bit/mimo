@@ -68,7 +68,9 @@ describe("Sessions routes with injected repositories", () => {
       },
     });
 
-    expect(res.status).toBe(200);
-    expect(await res.text()).toContain("Injected Project");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(
+      "/projects?selected=project-injected",
+    );
   });
 });

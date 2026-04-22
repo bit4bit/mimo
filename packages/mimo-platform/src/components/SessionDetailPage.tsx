@@ -82,6 +82,7 @@ interface SessionDetailProps {
   agentWorkspacePath?: string;
   chatFileExtensions?: string[];
   canDelete?: boolean;
+  backUrl?: string;
 }
 
 function toEmacsNotation(binding: string): string {
@@ -162,6 +163,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   agentWorkspacePath = "",
   chatFileExtensions,
   canDelete = true,
+  backUrl,
 }) => {
   ensureDefaultBuffersRegistered();
   const leftBuffers = getBuffersForFrame("left");
@@ -194,7 +196,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           </button>
         ) : undefined
       }
-      backUrl={`/projects/${project.id}/sessions`}
+      backUrl={backUrl ?? `/projects/${project.id}/sessions`}
     >
       <div class="session-container">
         <div
