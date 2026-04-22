@@ -115,6 +115,8 @@ const availableCommandsBuffers = new Map<
 >();
 const messageStartTimes = new Map<string, number>();
 const autoSyncInFlight = new Set<string>();
+const pendingActivityTouches = new Map<string, NodeJS.Timeout>();
+const ACTIVITY_TOUCH_DEBOUNCE_MS = 30_000;
 
 // Track pending expert mode instructions
 const expertPending = new Map<
@@ -635,15 +637,22 @@ const SESSION_ACTIVITY_EVENT_TYPES = new Set([
   "usage_update",
 ]);
 
-async function touchSessionActivity(sessionId: string): Promise<void> {
-  try {
-    await sessionRepository.touchSessionActivity(sessionId);
-  } catch (error) {
-    logger.error("[activity] failed to touch session activity", {
-      sessionId,
-      error,
-    });
-  }
+function touchSessionActivity(sessionId: string): void {
+  if (pendingActivityTouches.has(sessionId)) return;
+
+  const timer = setTimeout(async () => {
+    pendingActivityTouches.delete(sessionId);
+    try {
+      await sessionRepository.touchSessionActivity(sessionId);
+    } catch (error) {
+      logger.error("[activity] failed to touch session activity", {
+        sessionId,
+        error,
+      });
+    }
+  }, ACTIVITY_TOUCH_DEBOUNCE_MS);
+
+  pendingActivityTouches.set(sessionId, timer);
 }
 
 // Handle agent messages
@@ -705,7 +714,7 @@ async function handleAgentMessage(ws, data) {
     typeof data.sessionId === "string" &&
     SESSION_ACTIVITY_EVENT_TYPES.has(data.type)
   ) {
-    await touchSessionActivity(data.sessionId);
+    touchSessionActivity(data.sessionId);
   }
 
   switch (data.type) {
