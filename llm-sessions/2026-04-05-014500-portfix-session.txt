@@ -1,6 +1,0 @@
-[2026-04-05 01:33:00] User: mimo-agent is failing with fossil clone error - server did not reply
-[2026-04-05 01:33:05] LLM: Checking if port 8000 is in use...
-[2026-04-05 01:33:10] User: agent is failing, are we sure is using a free port from the pool?
-[2026-04-05 01:33:15] LLM: Port 8000 was already in use by a fossil process. The fix adds actual port availability checking before assigning ports.
-[2026-04-05 01:34:00] User: apply the fix
-[2026-04-05 01:34:05] LLM: Modified fossil-server.ts to check if ports are actually available on the system using net.createConnection(). Updated tests to use async/await for assignPort(). All tests pass.

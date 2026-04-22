@@ -1,3 +1,0 @@
-[2026-04-14 18:17:02] User: next
-[2026-04-14 18:17:55] LLM: Done — I pushed the next routing slice so sessions routes can consume injected repositories from mimoContext, added packages/mimo-platform/test/sessions-repos-context.test.ts, refactored packages/mimo-platform/src/sessions/routes.tsx to accept repos.projects and repos.sessions in createSessionsRoutes, and validated focused tests while noting unrelated flaky fossil integration tests in full platform suite.
-[2026-04-14 18:18:10] User: commit and push
