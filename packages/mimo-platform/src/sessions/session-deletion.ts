@@ -20,9 +20,15 @@ interface AgentServiceLike {
   notifySessionEnded(sessionId: string, agentId: string): Promise<void>;
 }
 
+interface McpTokenStoreLike {
+  revoke(token: string): void;
+}
+
 export interface SessionDeletionLike {
   deleteSessionByRecord(
-    session: Pick<Session, "id" | "projectId" | "assignedAgentId">,
+    session: Pick<Session, "id" | "projectId" | "assignedAgentId"> & {
+      mcpToken?: string;
+    },
   ): Promise<void>;
 }
 
@@ -32,6 +38,7 @@ interface SessionDeletionDeps {
   fileSyncService: FileSyncServiceLike;
   impactCalculator: ImpactCalculatorLike;
   agentService: AgentServiceLike;
+  mcpTokenStore: McpTokenStoreLike;
 }
 
 export function createSessionDeletionUseCase(
@@ -39,8 +46,13 @@ export function createSessionDeletionUseCase(
 ): SessionDeletionLike {
   return {
     async deleteSessionByRecord(
-      session: Pick<Session, "id" | "projectId" | "assignedAgentId">,
+      session: Pick<Session, "id" | "projectId" | "assignedAgentId"> & {
+        mcpToken?: string;
+      },
     ): Promise<void> {
+      if (session.mcpToken) {
+        deps.mcpTokenStore.revoke(session.mcpToken);
+      }
       await deps.sessionRepository.delete(session.projectId, session.id);
       deps.sessionStateService.clearSessionState(session.id);
       await deps.fileSyncService.cleanupSession(session.id);

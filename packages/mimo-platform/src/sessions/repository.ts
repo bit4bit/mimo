@@ -17,6 +17,7 @@ import {
   normalizeFrameState,
   type FrameState,
 } from "./frame-state.js";
+import { mcpTokenStore } from "../mcp/token-store.js";
 
 export interface ModelState {
   currentModelId: string;
@@ -75,6 +76,7 @@ export interface Session {
   // Chat threads
   chatThreads: ChatThread[];
   activeChatThreadId: string | null;
+  mcpToken: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -111,6 +113,7 @@ export interface SessionData {
   // Chat threads
   chatThreads?: ChatThread[];
   activeChatThreadId?: string | null;
+  mcpToken?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -258,6 +261,7 @@ export class SessionRepository {
     }
 
     const now = new Date().toISOString();
+    const mcpToken = crypto.randomUUID();
     const sessionData: SessionData = {
       id,
       name: input.name,
@@ -281,6 +285,7 @@ export class SessionRepository {
       // Chat threads
       chatThreads: [],
       activeChatThreadId: null,
+      mcpToken,
       createdAt: now,
       updatedAt: now,
       ...(input.agentSubpath && { agentSubpath: input.agentSubpath }),
@@ -291,6 +296,9 @@ export class SessionRepository {
       dump(sessionData),
       "utf-8",
     );
+
+    // Register MCP token in the token store
+    mcpTokenStore.register(mcpToken, id);
 
     return {
       ...sessionData,
@@ -337,6 +345,7 @@ export class SessionRepository {
               frameState: normalizeFrameState(data.frameState),
               chatThreads,
               activeChatThreadId,
+              mcpToken: data.mcpToken ?? "",
             };
             return {
               ...sessionData,
@@ -377,6 +386,7 @@ export class SessionRepository {
       frameState: normalizeFrameState(data.frameState),
       chatThreads,
       activeChatThreadId,
+      mcpToken: data.mcpToken ?? "",
     };
 
     return {
@@ -418,6 +428,7 @@ export class SessionRepository {
             frameState: normalizeFrameState(data.frameState),
             chatThreads,
             activeChatThreadId,
+            mcpToken: data.mcpToken ?? "",
           };
           sessions.push({
             ...sessionData,
@@ -489,6 +500,7 @@ export class SessionRepository {
                   frameState: normalizeFrameState(data.frameState),
                   chatThreads,
                   activeChatThreadId,
+                  mcpToken: data.mcpToken ?? "",
                 };
                 if (data.assignedAgentId === agentId) {
                   sessions.push({
@@ -548,6 +560,7 @@ export class SessionRepository {
           frameState: normalizeFrameState(data.frameState),
           chatThreads,
           activeChatThreadId,
+          mcpToken: data.mcpToken ?? "",
           createdAt: new Date(data.createdAt),
           updatedAt: new Date(data.updatedAt),
         });

@@ -16,6 +16,8 @@ import { detectLanguage, escapeHtml } from "../files/syntax-highlighter.js";
 import { canDeleteSessionNow } from "./session-retention.js";
 import { createSessionDeletionUseCase } from "./session-deletion.js";
 import { VCS_INTERNALS } from "../vcs/index.js";
+import { mcpTokenStore } from "../mcp/token-store.js";
+import { createPlatformMcpServerConfig } from "../mcp/platform-config.js";
 
 type SessionsRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
 
@@ -42,6 +44,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     fileSyncService: mimoContext.services.fileSync,
     impactCalculator: mimoContext.services.impactCalculator,
     agentService,
+    mcpTokenStore,
   });
 
   // Helper to get authenticated username from cookie
@@ -1307,6 +1310,31 @@ files.set(relPath, { checksum, size: stats.size });
       if (agentWs && agentWs.readyState === 1) {
         const sessionWithCreds = await sessionRepository.findById(sessionId);
         const fossilUrl = sharedFossilServer.getUrl(sessionId);
+        let mcpServers: any[] = [];
+        if (
+          sessionWithCreds?.mcpServerIds &&
+          sessionWithCreds.mcpServerIds.length > 0
+        ) {
+          try {
+            mcpServers = await mcpServerService.resolveMcpServers(
+              sessionWithCreds.mcpServerIds,
+            );
+          } catch (err) {
+            logger.error(
+              `[session] Failed to resolve MCP servers for session ${sessionId}:`,
+              err,
+            );
+          }
+        }
+        if (sessionWithCreds?.mcpToken) {
+          mcpServers.push(
+            createPlatformMcpServerConfig(
+              platformUrl,
+              sessionWithCreds.mcpToken,
+            ),
+          );
+        }
+
         agentWs.send(
           JSON.stringify({
             type: "session_ready",
@@ -1333,6 +1361,7 @@ files.set(relPath, { checksum, size: stats.size });
                   },
                 ],
                 activeChatThreadId: thread.id,
+                mcpServers,
               },
             ],
           }),

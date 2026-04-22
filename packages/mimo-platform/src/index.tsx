@@ -97,6 +97,9 @@ app.use("/js/*", serveStatic({ root: "./public" }));
 app.use("/vendor/*", serveStatic({ root: "./public" }));
 
 import { sessionStateService } from "./sessions/state.js";
+import { mcpTokenStore } from "./mcp/token-store.js";
+import { createMcpRoutes } from "./mcp/server.js";
+import { createPlatformMcpServerConfig } from "./mcp/platform-config.js";
 
 // Track active chat sessions
 const chatSessions = new Map<string, Set<SessionWsClient>>();
@@ -275,6 +278,19 @@ app.route(
     sessionRepository: mimoContext.repos.sessions,
     agentService: mimoContext.services.agents,
     sccService: mimoContext.services.scc,
+  }),
+);
+
+// Platform MCP HTTP endpoint (no session auth needed - uses Bearer token)
+app.route(
+  "/api/mimo-mcp",
+  createMcpRoutes({
+    chatSessions,
+    fileWatchSessions,
+    getSessionWorkspace: async (sessionId: string) => {
+      const session = await sessionRepository.findById(sessionId);
+      return session?.agentWorkspacePath ?? null;
+    },
   }),
 );
 
@@ -607,12 +623,20 @@ mimoServer.setup({
 
 const server = mimoServer.start();
 
+// Populate MCP token store from all existing sessions
+const existingSessions = await sessionRepository.listAll();
+mcpTokenStore.populateFromSessions(existingSessions);
+logger.debug(
+  `[mcp] Populated token store with ${existingSessions.filter((s) => s.mcpToken).length} tokens from ${existingSessions.length} sessions`,
+);
+
 const sessionDeletion = createSessionDeletionUseCase({
   sessionRepository,
   sessionStateService,
   fileSyncService: mimoContext.services.fileSync,
   impactCalculator: mimoContext.services.impactCalculator,
   agentService,
+  mcpTokenStore,
 });
 
 const SESSION_RETENTION_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
@@ -821,6 +845,15 @@ async function handleAgentMessage(ws, data) {
                   err,
                 );
               }
+            }
+
+            if (sessionWithCreds?.mcpToken) {
+              mcpServers.push(
+                createPlatformMcpServerConfig(
+                  PLATFORM_URL,
+                  sessionWithCreds.mcpToken,
+                ),
+              );
             }
 
             // Build thread bootstrap metadata — only threads assigned to this agent
