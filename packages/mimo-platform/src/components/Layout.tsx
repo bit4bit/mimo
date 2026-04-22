@@ -502,7 +502,6 @@ export const Layout: FC<LayoutProps> = ({
             <div class="nav-links">
               <a href="/dashboard">Dashboard</a>
               <a href="/projects">Projects</a>
-              <a href="/sessions">Sessions</a>
               <a href="/mcp-servers">MCP Servers</a>
               <a href="/credentials">Credentials</a>
               <a href="/agents">Agents</a>

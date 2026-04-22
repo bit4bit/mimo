@@ -582,10 +582,10 @@ describe("Session Management Integration Tests", () => {
         headers: { Cookie: `token=${token}` },
       });
 
-      expect(res.status).toBe(200);
-      const html = await res.text();
-      expect(html).toContain("Session 1");
-      expect(html).toContain("Session 2");
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe(
+        `/projects?selected=${project.id}`,
+      );
     });
 
     it("should show empty state", async () => {
@@ -609,9 +609,10 @@ describe("Session Management Integration Tests", () => {
         headers: { Cookie: `token=${token}` },
       });
 
-      expect(res.status).toBe(200);
-      const html = await res.text();
-      expect(html).toContain("No sessions");
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe(
+        `/projects?selected=${project.id}`,
+      );
     });
   });
 
@@ -653,6 +654,7 @@ describe("Session Management Integration Tests", () => {
       expect(html).toContain("Chat");
       expect(html).toContain("Notes");
       expect(html).toContain("Impact");
+      expect(html).toContain(`href="/projects?selected=${project.id}"`);
     });
 
     it("should return 404 for non-existent session", async () => {
@@ -1069,7 +1071,7 @@ describe("Session Management Integration Tests", () => {
 
       expect(res.status).toBe(302);
       expect(res.headers.get("location")).toBe(
-        `/projects/${project.id}/sessions`,
+        `/projects?selected=${project.id}`,
       );
 
       // Verify session was deleted

@@ -8,6 +8,7 @@ import bcrypt from "bcrypt";
 // Re-import modules after setting up environment
 let projectRoutes: any;
 let projectRepository: any;
+let sessionRepository: any;
 let authMiddleware: any;
 let userRepository: any;
 
@@ -33,6 +34,7 @@ describe("Project Management Integration Tests", () => {
     authMiddleware = middlewareModule.authMiddleware;
 
     projectRepository = ctx.repos.projects;
+    sessionRepository = ctx.repos.sessions;
 
     const { createProjectsRoutes } = await import("../src/projects/routes.tsx");
     projectRoutes = createProjectsRoutes(ctx);
@@ -181,6 +183,53 @@ describe("Project Management Integration Tests", () => {
       const html = await res.text();
       expect(html).toContain("Project 1");
       expect(html).toContain("Project 2");
+      expect(html).toContain("Select a project");
+      expect(html).not.toContain("Sessions for");
+    });
+
+    it("should render selected project sessions in unified page", async () => {
+      const app = new Hono();
+      app.route("/projects", projectRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const { generateToken } = await import("../src/auth/jwt.ts");
+      const token = await generateToken("testuser");
+
+      await projectRepository.create({
+        name: "Project 1",
+        repoUrl: "https://github.com/user/repo1.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+      const project2 = await projectRepository.create({
+        name: "Project 2",
+        repoUrl: "https://github.com/user/repo2.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      await sessionRepository.create({
+        name: "Session A",
+        projectId: project2.id,
+        owner: "testuser",
+      });
+
+      const res = await app.request(`/projects?selected=${project2.id}`, {
+        headers: { Cookie: `token=${token}` },
+      });
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("Project 1");
+      expect(html).toContain("Project 2");
+      expect(html).toContain("Sessions for Project 2");
+      expect(html).toContain("Session A");
+      expect(html).toContain(`/projects?selected=${project2.id}`);
+      expect(html).toContain(`/projects/${project2.id}/sessions/new`);
+      expect(html).not.toContain("Select a project");
     });
 
     it("should show empty state when no projects", async () => {
@@ -205,7 +254,7 @@ describe("Project Management Integration Tests", () => {
   });
 
   describe("Project View", () => {
-    it("should show project details", async () => {
+    it("should redirect legacy project detail URL to unified page", async () => {
       const app = new Hono();
       app.route("/projects", projectRoutes);
 
@@ -227,10 +276,10 @@ describe("Project Management Integration Tests", () => {
         headers: { Cookie: `token=${token}` },
       });
 
-      expect(res.status).toBe(200);
-      const html = await res.text();
-      expect(html).toContain("Test Project");
-      expect(html).toContain("https://github.com/user/repo.git");
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe(
+        `/projects?selected=${project.id}`,
+      );
     });
 
     it("should return 404 for non-existent project", async () => {

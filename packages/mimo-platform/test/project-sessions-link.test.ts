@@ -40,8 +40,8 @@ describe("Project Sessions Link Integration Tests", () => {
     app.route("/projects", projectsModule.createProjectsRoutes(ctx));
   });
 
-  describe("Project Detail Page with Sessions", () => {
-    it("should show sessions list on project detail page", async () => {
+  describe("Unified Projects Sessions Page", () => {
+    it("should show sessions list when a project is selected", async () => {
       await userRepository.create(
         "testuser",
         await bcrypt.hash("testpass", 10),
@@ -68,18 +68,18 @@ describe("Project Sessions Link Integration Tests", () => {
         owner: "testuser",
       });
 
-      const res = await app.request(`/projects/${project.id}`, {
+      const res = await app.request(`/projects?selected=${project.id}`, {
         headers: { Cookie: `token=${token}` },
       });
 
       expect(res.status).toBe(200);
       const html = await res.text();
-      expect(html).toContain("Sessions");
+      expect(html).toContain(`Sessions for ${project.name}`);
       expect(html).toContain("Feature Implementation");
       expect(html).toContain("Bug Fix");
     });
 
-    it("should show empty state when no sessions exist", async () => {
+    it("should show empty session state when no sessions exist", async () => {
       await userRepository.create(
         "testuser",
         await bcrypt.hash("testpass", 10),
@@ -94,15 +94,13 @@ describe("Project Sessions Link Integration Tests", () => {
         owner: "testuser",
       });
 
-      const res = await app.request(`/projects/${project.id}`, {
+      const res = await app.request(`/projects?selected=${project.id}`, {
         headers: { Cookie: `token=${token}` },
       });
 
       expect(res.status).toBe(200);
       const html = await res.text();
-      expect(html).toContain(
-        "No sessions yet. Create one to start development.",
-      );
+      expect(html).toContain("No sessions yet.");
     });
 
     it("should show New Session button", async () => {
@@ -120,13 +118,13 @@ describe("Project Sessions Link Integration Tests", () => {
         owner: "testuser",
       });
 
-      const res = await app.request(`/projects/${project.id}`, {
+      const res = await app.request(`/projects?selected=${project.id}`, {
         headers: { Cookie: `token=${token}` },
       });
 
       expect(res.status).toBe(200);
       const html = await res.text();
-      expect(html).toContain("New Session");
+      expect(html).toContain("+ New Session");
       expect(html).toContain(`/projects/${project.id}/sessions/new`);
     });
 
@@ -151,7 +149,7 @@ describe("Project Sessions Link Integration Tests", () => {
         owner: "testuser",
       });
 
-      const res = await app.request(`/projects/${project.id}`, {
+      const res = await app.request(`/projects?selected=${project.id}`, {
         headers: { Cookie: `token=${token}` },
       });
 
@@ -160,7 +158,7 @@ describe("Project Sessions Link Integration Tests", () => {
       expect(html).toContain(`/projects/${project.id}/sessions/${session.id}`);
     });
 
-    it("should order sessions by creation date (most recent first)", async () => {
+    it("should order sessions by recency when priorities are equal", async () => {
       await userRepository.create(
         "testuser",
         await bcrypt.hash("testpass", 10),
@@ -175,22 +173,24 @@ describe("Project Sessions Link Integration Tests", () => {
         owner: "testuser",
       });
 
-      const session1 = await sessionRepository.create({
+      await sessionRepository.create({
         name: "First Session",
         projectId: project.id,
         owner: "testuser",
+        priority: "medium",
       });
 
       // Small delay to ensure different timestamps
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const session2 = await sessionRepository.create({
+      await sessionRepository.create({
         name: "Second Session",
         projectId: project.id,
         owner: "testuser",
+        priority: "medium",
       });
 
-      const res = await app.request(`/projects/${project.id}`, {
+      const res = await app.request(`/projects?selected=${project.id}`, {
         headers: { Cookie: `token=${token}` },
       });
 

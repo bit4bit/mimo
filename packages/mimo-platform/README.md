@@ -30,3 +30,9 @@ PLATFORM_URL=http://192.168.1.10:3000 bun run index.ts
 ```
 
 The agent uses this URL to construct the Fossil server address for each session.
+
+## License
+
+GNU Affero General Public License v3.0 only (AGPL-3.0-only).
+
+Copyright (C) 2026 Jovany Leandro G.C <bit4bit@riseup.net>

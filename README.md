@@ -307,7 +307,11 @@ cd ../mimo-agent && bun run build
 
 ## License
 
-MIT License - see LICENSE file for details.
+GNU Affero General Public License v3.0 only (AGPL-3.0-only).
+
+Copyright (C) 2026 Jovany Leandro G.C <bit4bit@riseup.net>
+
+See `LICENSE` for the full text.
 
 ## Contributing
 
