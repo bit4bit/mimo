@@ -1712,6 +1712,18 @@
             ExpertMode.showExternalModifyWarning();
           }
           renderEditBuffer();
+        } else if (data.type === "open_file_in_editbuffer") {
+          if (typeof data.path === "string" && data.path.length > 0) {
+            fetchAndAddFile(sessionId, data.path, function () {
+              renderEditBuffer();
+              var editTab = document.querySelector(
+                '.frame-tab[data-frame-id="left"][data-buffer-id="edit"]',
+              );
+              if (editTab) editTab.click();
+              var contentEl = document.getElementById("edit-buffer-content");
+              if (contentEl) contentEl.focus();
+            });
+          }
         } else if (data.type === "error") {
           console.error("[FileWatcher] Server error:", data.error);
         }

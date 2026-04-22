@@ -22,6 +22,7 @@ let sessionRepository: any;
 let projectRepository: any;
 let userRepository: any;
 let authService: any;
+let agentService: any;
 let token: string;
 let projectId: string;
 let sessionId: string;
@@ -44,6 +45,7 @@ describe("Chat Threads API", () => {
     projectRepository = ctx.repos.projects;
     sessionRepository = ctx.repos.sessions;
     authService = ctx.services.auth;
+    agentService = ctx.services.agents;
 
     // Mock VCS to avoid real git/fossil operations
     const vcsModule = await import("../src/vcs/index.ts");
@@ -430,6 +432,112 @@ describe("Chat Threads API", () => {
       expect(reloadedThread?.acpSessionId).toBe("acp-feature-session-456");
       expect(reloadedThread?.model).toBe("claude-3-opus");
       expect(reloadedThread?.mode).toBe("build");
+    });
+  });
+
+  describe("session_ready MCP config injection", () => {
+    it("4.4 session_ready includes platform MCP server config", async () => {
+      const sentMessages: any[] = [];
+      const originalIsOnline = agentService.isAgentOnline.bind(agentService);
+      const originalGetConnection = agentService.getAgentConnection.bind(agentService);
+
+      agentService.isAgentOnline = () => true;
+      agentService.getAgentConnection = () => ({
+        readyState: 1,
+        send: (payload: string) => sentMessages.push(JSON.parse(payload)),
+      });
+
+      try {
+        const session = await sessionRepository.findById(sessionId);
+        expect(session?.mcpToken).toBeTruthy();
+
+        const res = await app.request(
+          `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Cookie: `token=${token}`,
+            },
+            body: JSON.stringify({
+              name: "MCP Thread",
+              model: "claude-3",
+              mode: "code",
+              assignedAgentId: "agent-xyz",
+            }),
+          },
+        );
+
+        expect(res.status).toBe(201);
+        expect(sentMessages.length).toBeGreaterThan(0);
+        const ready = sentMessages.find((msg) => msg.type === "session_ready");
+        expect(ready).toBeDefined();
+        expect(Array.isArray(ready.sessions)).toBe(true);
+        expect(ready.sessions[0].mcpServers).toBeDefined();
+
+        const mimoEntry = ready.sessions[0].mcpServers.find(
+          (entry: any) => entry.name === "mimo" && entry.type === "http",
+        );
+        expect(mimoEntry).toBeDefined();
+        expect(mimoEntry.url).toContain("/api/mimo-mcp");
+        expect(mimoEntry.headers[0].name).toBe("Authorization");
+        expect(mimoEntry.headers[0].value).toBe(`Bearer ${session!.mcpToken}`);
+      } finally {
+        agentService.isAgentOnline = originalIsOnline;
+        agentService.getAgentConnection = originalGetConnection;
+      }
+    });
+
+    it("4.5 repeated session_ready payloads keep the same mcpToken", async () => {
+      const sentMessages: any[] = [];
+      const originalIsOnline = agentService.isAgentOnline.bind(agentService);
+      const originalGetConnection = agentService.getAgentConnection.bind(agentService);
+
+      agentService.isAgentOnline = () => true;
+      agentService.getAgentConnection = () => ({
+        readyState: 1,
+        send: (payload: string) => sentMessages.push(JSON.parse(payload)),
+      });
+
+      try {
+        const initial = await sessionRepository.findById(sessionId);
+        const firstToken = initial!.mcpToken;
+
+        for (let i = 0; i < 2; i += 1) {
+          const res = await app.request(
+            `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Cookie: `token=${token}`,
+              },
+              body: JSON.stringify({
+                name: `Restart Test ${i}`,
+                model: "claude-3",
+                mode: "code",
+                assignedAgentId: "agent-xyz",
+              }),
+            },
+          );
+          expect(res.status).toBe(201);
+        }
+
+        const readyMessages = sentMessages.filter(
+          (msg) => msg.type === "session_ready",
+        );
+        expect(readyMessages.length).toBeGreaterThanOrEqual(2);
+
+        for (const msg of readyMessages) {
+          const mimoEntry = msg.sessions[0].mcpServers.find(
+            (entry: any) => entry.name === "mimo" && entry.type === "http",
+          );
+          expect(mimoEntry.headers[0].value).toBe(`Bearer ${firstToken}`);
+        }
+      } finally {
+        agentService.isAgentOnline = originalIsOnline;
+        agentService.getAgentConnection = originalGetConnection;
+      }
     });
   });
 });

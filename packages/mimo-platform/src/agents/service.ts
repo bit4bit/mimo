@@ -134,6 +134,10 @@ export class AgentService {
     }
     await this.repository.updateStatus(agentId, "online");
     await this.repository.updateLastActivity(agentId);
+    logger.debug(`[agent] Connected: ${agentId}`, {
+      hasWorkdir: Boolean(workdir),
+      workdir: workdir ?? null,
+    });
   }
 
   getAgentWorkdir(agentId: string): string | undefined {

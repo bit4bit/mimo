@@ -1112,6 +1112,9 @@ describe("Session Management Integration Tests", () => {
         fileSyncService: mimoContext.services.fileSync,
         impactCalculator: mimoContext.services.impactCalculator,
         agentService: mimoContext.services.agents,
+        mcpTokenStore: {
+          revoke: () => {},
+        },
       });
 
       const sweepResult = await sweepExpiredInactiveSessions({
