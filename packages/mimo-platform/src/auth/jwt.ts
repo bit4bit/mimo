@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Jovany Leandro G.C <bit4bit@riseup.net>
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { SignJWT, jwtVerify } from "jose";
 
 const DEFAULT_JWT_SECRET = "your-secret-key-change-in-production";

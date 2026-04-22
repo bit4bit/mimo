@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Jovany Leandro G.C <bit4bit@riseup.net>
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { join, resolve } from "path";
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";

@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Jovany Leandro G.C <bit4bit@riseup.net>
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import type { AcpClientCallbacks } from "../src/acp/client.js";
 

@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Jovany Leandro G.C <bit4bit@riseup.net>
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import type { Session } from "./repository.js";
 
 export const DEFAULT_SESSION_TTL_DAYS = 180;
