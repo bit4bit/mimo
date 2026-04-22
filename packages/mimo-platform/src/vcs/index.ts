@@ -1170,6 +1170,26 @@ export class VCS {
             upstreamPath,
           );
         }
+
+        if (
+          !commitResult.success &&
+          combined.includes("Abandoning commit due to long lines in")
+        ) {
+          const longLineFiles: string[] = [];
+          for (const line of combined.split("\n")) {
+            const match = line.match(
+              /Abandoning commit due to long lines in (.+)/,
+            );
+            if (match) longLineFiles.push(match[1].trim());
+          }
+          for (const file of longLineFiles) {
+            await this.execCommand(["fossil", "forget", file], upstreamPath);
+          }
+          commitResult = await this.execCommand(
+            ["fossil", "commit", "-m", commitMessage],
+            upstreamPath,
+          );
+        }
       }
 
       return {

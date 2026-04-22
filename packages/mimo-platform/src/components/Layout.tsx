@@ -1,6 +1,6 @@
 import type { FC } from "hono/jsx";
 import { raw } from "hono/html";
-import type { SessionKeybindingsConfig } from "../config/service.js";
+import type { SessionKeybindingsConfig, GlobalKeybindingsConfig } from "../config/service.js";
 
 interface LayoutProps {
   title: string;
@@ -9,6 +9,7 @@ interface LayoutProps {
   sessionId?: string;
   streamingTimeoutMs?: number;
   sessionKeybindings?: SessionKeybindingsConfig;
+  globalKeybindings?: GlobalKeybindingsConfig;
   chatFileExtensions?: string[];
   sessionName?: string;
   sessionBranch?: string;
@@ -28,6 +29,7 @@ export const Layout: FC<LayoutProps> = ({
   sessionId,
   streamingTimeoutMs,
   sessionKeybindings,
+  globalKeybindings,
   chatFileExtensions,
   sessionName,
   sessionBranch,
@@ -52,7 +54,7 @@ export const Layout: FC<LayoutProps> = ({
           <title>{title} | MIMO</title>
           <script
             dangerouslySetInnerHTML={{
-              __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};\nwindow.MIMO_SESSION_KEYBINDINGS = ${JSON.stringify(sessionKeybindings || {})};\nwindow.MIMO_CHAT_FILE_EXTENSIONS = ${JSON.stringify(chatFileExtensions ?? [])};`,
+              __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};\nwindow.MIMO_SESSION_KEYBINDINGS = ${JSON.stringify(sessionKeybindings || {})};\nwindow.MIMO_GLOBAL_KEYBINDINGS = ${JSON.stringify(globalKeybindings || {})};\nwindow.MIMO_CHAT_FILE_EXTENSIONS = ${JSON.stringify(chatFileExtensions ?? [])};`,
             }}
           />
           {sessionId && (
@@ -500,6 +502,7 @@ export const Layout: FC<LayoutProps> = ({
             <div class="nav-links">
               <a href="/dashboard">Dashboard</a>
               <a href="/projects">Projects</a>
+              <a href="/sessions">Sessions</a>
               <a href="/mcp-servers">MCP Servers</a>
               <a href="/credentials">Credentials</a>
               <a href="/agents">Agents</a>

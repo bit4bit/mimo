@@ -2,6 +2,20 @@ import { readFileSync, existsSync, writeFileSync } from "fs";
 import { load, dump } from "js-yaml";
 import { logger } from "../logger.js";
 
+export interface GlobalKeybindingsConfig {
+  newThread?: string;
+  nextThread?: string;
+  previousThread?: string;
+  openFileFinder?: string;
+}
+
+export const defaultGlobalKeybindings: GlobalKeybindingsConfig = {
+  newThread: "Control+Shift+N",
+  nextThread: "Control+Shift+ArrowRight",
+  previousThread: "Control+Shift+ArrowLeft",
+  openFileFinder: "Control+Shift+F",
+};
+
 export interface SessionKeybindingsConfig {
   newThread?: string;
   nextThread?: string;
@@ -36,6 +50,7 @@ export interface Config {
   sharedFossilServerPort?: number;
   streamingTimeoutMs?: number;
   sessionKeybindings?: SessionKeybindingsConfig;
+  globalKeybindings?: GlobalKeybindingsConfig;
   chatFileExtensions?: string[];
 }
 
@@ -148,6 +163,7 @@ export const defaultConfig: Config = {
   sharedFossilServerPort: 8000,
   streamingTimeoutMs: 600000, // 10 minutes
   sessionKeybindings: { ...defaultSessionKeybindings },
+  globalKeybindings: { ...defaultGlobalKeybindings },
   chatFileExtensions: [...defaultChatFileExtensions],
 };
 
@@ -182,6 +198,32 @@ function sanitizeSessionKeybindings(
     "decreaseFocus",
     "approvePatch",
     "declinePatch",
+  ];
+
+  for (const key of supportedKeys) {
+    const value = raw[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      result[key] = value.trim();
+    }
+  }
+
+  return result;
+}
+
+function sanitizeGlobalKeybindings(
+  keybindings: unknown,
+): GlobalKeybindingsConfig {
+  if (!keybindings || typeof keybindings !== "object") {
+    return { ...defaultGlobalKeybindings };
+  }
+
+  const raw = keybindings as Record<string, unknown>;
+  const result: GlobalKeybindingsConfig = { ...defaultGlobalKeybindings };
+  const supportedKeys: Array<keyof GlobalKeybindingsConfig> = [
+    "newThread",
+    "nextThread",
+    "previousThread",
+    "openFileFinder",
   ];
 
   for (const key of supportedKeys) {
@@ -257,6 +299,7 @@ export class ConfigService {
         sessionKeybindings: sanitizeSessionKeybindings(
           loaded.sessionKeybindings,
         ),
+        globalKeybindings: sanitizeGlobalKeybindings(loaded.globalKeybindings),
         chatFileExtensions: sanitizeChatFileExtensions(
           loaded.chatFileExtensions,
         ),

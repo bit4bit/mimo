@@ -146,7 +146,7 @@ export const DashboardPage: FC<DashboardProps> = ({
           <div class="dashboard-section">
             <div class="section-header">
               <h2>Recent Sessions</h2>
-              <a href="/projects" class="btn-small">
+              <a href="/sessions" class="btn-small">
                 View All
               </a>
             </div>

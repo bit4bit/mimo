@@ -8,7 +8,7 @@ import {
 import type { FrameState } from "../sessions/frame-state.js";
 import type { McpServer } from "../mcp-servers/types.js";
 import type { ChatThread } from "../sessions/repository.js";
-import type { SessionKeybindingsConfig } from "../config/service.js";
+import type { SessionKeybindingsConfig, GlobalKeybindingsConfig } from "../config/service.js";
 import { FileFinderDialog } from "./FileFinderDialog.js";
 
 interface Project {
@@ -78,6 +78,7 @@ interface SessionDetailProps {
   chatThreads?: ChatThread[];
   activeChatThreadId?: string | null;
   sessionKeybindings?: SessionKeybindingsConfig;
+  globalKeybindings?: GlobalKeybindingsConfig;
   agentWorkspacePath?: string;
   chatFileExtensions?: string[];
   canDelete?: boolean;
@@ -157,6 +158,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   chatThreads = [],
   activeChatThreadId,
   sessionKeybindings,
+  globalKeybindings,
   agentWorkspacePath = "",
   chatFileExtensions,
   canDelete = true,
@@ -172,6 +174,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       sessionId={session.id}
       streamingTimeoutMs={streamingTimeoutMs}
       sessionKeybindings={sessionKeybindings}
+      globalKeybindings={globalKeybindings}
       chatFileExtensions={chatFileExtensions}
       projectId={project.id}
       projectName={project.name}
@@ -489,6 +492,40 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               )}
             </span>
             <span class="session-shortcut-desc">Focus-</span>
+          </span>
+          <span class="session-shortcut-separator">|</span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                globalKeybindings?.newThread || "Control+Shift+N",
+              )}
+            </span>
+            <span class="session-shortcut-desc">New thread (G)</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                globalKeybindings?.nextThread || "Control+Shift+ArrowRight",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Next thread (G)</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                globalKeybindings?.previousThread ||
+                  "Control+Shift+ArrowLeft",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Prev thread (G)</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                globalKeybindings?.openFileFinder || "Control+Shift+F",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Open file (G)</span>
           </span>
         </div>
       </div>

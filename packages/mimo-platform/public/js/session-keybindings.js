@@ -3,6 +3,30 @@
 (function () {
   let shortcutBarPulseTimeout = null;
 
+  const DEFAULT_GLOBAL_KEYBINDINGS = {
+    newThread: "Control+Shift+N",
+    nextThread: "Control+Shift+ArrowRight",
+    previousThread: "Control+Shift+ArrowLeft",
+    openFileFinder: "Control+Shift+F",
+  };
+
+  function getConfiguredGlobalKeybindings() {
+    const configured = Object.assign({}, DEFAULT_GLOBAL_KEYBINDINGS);
+    const raw = window.MIMO_GLOBAL_KEYBINDINGS;
+    if (!raw || typeof raw !== "object") {
+      return configured;
+    }
+    Object.keys(DEFAULT_GLOBAL_KEYBINDINGS).forEach((key) => {
+      const value = raw[key];
+      if (typeof value === "string" && value.trim().length > 0) {
+        configured[key] = value.trim();
+      }
+    });
+    return configured;
+  }
+
+  const globalKeybindings = getConfiguredGlobalKeybindings();
+
   const DEFAULT_KEYBINDINGS = {
     newThread: "Mod+Shift+N",
     nextThread: "Mod+Shift+ArrowRight",
@@ -83,6 +107,13 @@
 
   function isActiveLeftBuffer(id) {
     return getActiveBufferContext().leftBufferId === id;
+  }
+
+  function activateLeftBuffer(bufferId) {
+    const tab = document.querySelector(
+      `.frame-tab[data-frame-id="left"][data-buffer-id="${bufferId}"]`,
+    );
+    if (tab && !tab.classList.contains("active")) tab.click();
   }
 
   function normalizeBindingToken(token) {
@@ -408,6 +439,46 @@
       event.preventDefault();
       closeCommitDialog();
       return;
+    }
+
+    // Global keybindings — fire regardless of active buffer or input focus
+    if (
+      globalKeybindings.newThread &&
+      bindingMatches(event, globalKeybindings.newThread)
+    ) {
+      event.preventDefault();
+      openCreateThreadDialog();
+      return;
+    }
+    if (
+      globalKeybindings.nextThread &&
+      bindingMatches(event, globalKeybindings.nextThread)
+    ) {
+      event.preventDefault();
+      switchThread(1);
+      return;
+    }
+    if (
+      globalKeybindings.previousThread &&
+      bindingMatches(event, globalKeybindings.previousThread)
+    ) {
+      event.preventDefault();
+      switchThread(-1);
+      return;
+    }
+    if (
+      globalKeybindings.openFileFinder &&
+      bindingMatches(event, globalKeybindings.openFileFinder) &&
+      window.EditBuffer
+    ) {
+      if (!isActiveLeftBuffer("edit")) activateLeftBuffer("edit");
+      const globalHandled = window.EditBuffer.isFileFinderOpen()
+        ? window.EditBuffer.closeFileFinder()
+        : window.EditBuffer.openFileFinder();
+      if (globalHandled) {
+        event.preventDefault();
+        return;
+      }
     }
 
     const isHelpShortcut = bindingMatches(event, keybindings.shortcutsHelp);

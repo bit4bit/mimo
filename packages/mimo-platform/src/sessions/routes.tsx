@@ -6,6 +6,7 @@ import crypto from "crypto";
 import { SessionDetailPage } from "../components/SessionDetailPage.js";
 import { SessionCreatePage } from "../components/SessionCreatePage.js";
 import { SessionListPage } from "../components/SessionListPage.js";
+import { AllSessionsPage } from "../components/AllSessionsPage.js";
 import type { Context } from "hono";
 import { normalizeFrameState, updateFrameState } from "./frame-state.js";
 import { logger } from "../logger.js";
@@ -92,7 +93,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     return `"${escaped}"`;
   }
 
-  // GET /sessions or /projects/:projectId/sessions - List sessions for a project
+  // GET /sessions or /projects/:projectId/sessions - List sessions
   router.get("/", async (c: Context) => {
     const username = await getAuthUsername(c);
     if (!username) {
@@ -100,31 +101,75 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     }
 
     const projectId = getProjectId(c);
-    if (!projectId) {
-      return c.text("Project ID required", 400);
+
+    // Scoped to a single project (used by /projects/:id/sessions)
+    if (projectId) {
+      const project = await projectRepository.findById(projectId);
+      if (!project || project.owner !== username) {
+        return c.text("Project not found", 404);
+      }
+
+      const sessions = await sessionRepository.listByProject(projectId);
+
+      return c.html(
+        <SessionListPage
+          project={project}
+          sessions={sessions.map((s) => ({
+            id: s.id,
+            name: s.name,
+            status: s.status,
+            createdAt: s.createdAt,
+            priority: s.priority,
+            sessionTtlDays: s.sessionTtlDays,
+            lastActivityAt: s.lastActivityAt,
+          }))}
+        />,
+      );
     }
 
-    const project = await projectRepository.findById(projectId);
-    if (!project || project.owner !== username) {
-      return c.text("Project not found", 404);
-    }
+    // No projectId: render all sessions across all the user's projects
+    const priorityWeight: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    const userProjects = await projectRepository.listByOwner(username);
 
-    const sessions = await sessionRepository.listByProject(projectId);
+    const allSessions: {
+      id: string;
+      projectId: string;
+      projectName: string;
+      name: string;
+      status: "active" | "paused" | "closed";
+      createdAt: Date;
+      priority: "high" | "medium" | "low";
+      sessionTtlDays: number;
+      lastActivityAt: string | null;
+    }[] = [];
 
-    return c.html(
-      <SessionListPage
-        project={project}
-        sessions={sessions.map((s) => ({
+    for (const project of userProjects) {
+      const sessions = await sessionRepository.listByProject(project.id);
+      for (const s of sessions) {
+        allSessions.push({
           id: s.id,
+          projectId: project.id,
+          projectName: project.name,
           name: s.name,
           status: s.status,
           createdAt: s.createdAt,
           priority: s.priority,
           sessionTtlDays: s.sessionTtlDays,
           lastActivityAt: s.lastActivityAt,
-        }))}
-      />,
-    );
+        });
+      }
+    }
+
+    allSessions.sort((a, b) => {
+      const aClosed = a.status === "closed" ? 1 : 0;
+      const bClosed = b.status === "closed" ? 1 : 0;
+      if (aClosed !== bClosed) return aClosed - bClosed;
+      const pw = (priorityWeight[a.priority] ?? 1) - (priorityWeight[b.priority] ?? 1);
+      if (pw !== 0) return pw;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
+
+    return c.html(<AllSessionsPage sessions={allSessions} />);
   });
 
   // GET /sessions/new or /projects/:projectId/sessions/new - Create session form
@@ -456,6 +501,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const loadedConfig = configService.load();
     const streamingTimeoutMs = loadedConfig.streamingTimeoutMs;
     const sessionKeybindings = loadedConfig.sessionKeybindings;
+    const globalKeybindings = loadedConfig.globalKeybindings;
     const chatFileExtensions = loadedConfig.chatFileExtensions;
     const canDelete = canDeleteSessionNow(session);
 
@@ -479,6 +525,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         mcpServers={mcpServers}
         streamingTimeoutMs={streamingTimeoutMs}
         sessionKeybindings={sessionKeybindings}
+        globalKeybindings={globalKeybindings}
         chatFileExtensions={chatFileExtensions}
         chatThreads={session.chatThreads}
         activeChatThreadId={session.activeChatThreadId}
