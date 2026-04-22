@@ -36,6 +36,15 @@ export const VCS_INTERNALS = new Set([
  */
 export const VCS_METADATA = [".fslckout", "_FOSSIL_", ".fslckout-journal"];
 
+const DEFAULT_FOSSIL_IGNORE_PATTERNS = [
+  ".git",
+  ".git/**",
+  ".hg",
+  ".hg/**",
+  ".svn",
+  ".svn/**",
+];
+
 /**
  * Scan a directory recursively, calling a callback for each non-VCS file.
  * Skips VCS internal directories (VCS_INTERNALS) automatically.
@@ -466,16 +475,11 @@ export class VCS {
         : [];
 
     const patterns = [
+      ...DEFAULT_FOSSIL_IGNORE_PATTERNS,
       ...parsePatterns(join(upstreamPath, ".gitignore")),
       ...parsePatterns(join(upstreamPath, ".mimoignore")),
     ];
-
-    if (patterns.length === 0) {
-      return {
-        success: true,
-        output: "No patterns found in .gitignore or .mimoignore, skipping",
-      };
-    }
+    const uniquePatterns = Array.from(new Set(patterns));
 
     // Write .fossil-settings/ignore-glob
     const fossilSettingsDir = join(agentWorkspacePath, ".fossil-settings");
@@ -484,7 +488,7 @@ export class VCS {
     }
     writeFileSync(
       join(fossilSettingsDir, "ignore-glob"),
-      patterns.join("\n") + "\n",
+      uniquePatterns.join("\n") + "\n",
     );
 
     // Commit into fossil checkout — use explicit add since fossil addremove
@@ -493,7 +497,12 @@ export class VCS {
       ["fossil", "add", ".fossil-settings/ignore-glob"],
       agentWorkspacePath,
     );
-    if (!addResult.success) {
+    const addCombined = `${addResult.output}\n${addResult.error}`.toLowerCase();
+    if (
+      !addResult.success &&
+      !addCombined.includes("already part of the repository") &&
+      !addCombined.includes("already in repository")
+    ) {
       return { success: false, error: `fossil add failed: ${addResult.error}` };
     }
 
@@ -507,6 +516,15 @@ export class VCS {
       ],
       agentWorkspacePath,
     );
+
+    const commitCombined =
+      `${commitResult.output}\n${commitResult.error}`.toLowerCase();
+    if (
+      !commitResult.success &&
+      commitCombined.includes("nothing has changed")
+    ) {
+      return { success: true, output: "ignore-glob unchanged" };
+    }
 
     return {
       success: commitResult.success,

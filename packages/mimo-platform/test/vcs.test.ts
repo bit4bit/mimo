@@ -593,6 +593,11 @@ describe("VCS Integration Tests", () => {
           join(agentWorkspacePath, ".fossil-settings", "ignore-glob"),
           "utf8",
         );
+        // default VCS internal patterns always present
+        expect(ignoreGlob).toContain(".git");
+        expect(ignoreGlob).toContain(".git/**");
+        expect(ignoreGlob).toContain(".hg/**");
+        expect(ignoreGlob).toContain(".svn/**");
         // .gitignore patterns present
         expect(ignoreGlob).toContain("node_modules/");
         expect(ignoreGlob).toContain("dist/");
@@ -639,8 +644,9 @@ describe("VCS Integration Tests", () => {
         expect(ignoreGlob).toContain("*.tmp");
       }, 15000);
 
-      it("should return success and skip when neither .gitignore nor .mimoignore exist", async () => {
+      it("should write default VCS ignore patterns when neither .gitignore nor .mimoignore exist", async () => {
         const vcs = new VCS();
+        const { readFileSync } = await import("fs");
         const upstreamPath = join(testHome, "upstream-no-ignores");
         const agentWorkspacePath = join(testHome, "agent-no-ignores");
         const repoPath = join(testHome, "no-ignores.fossil");
@@ -657,17 +663,24 @@ describe("VCS Integration Tests", () => {
         );
 
         expect(result.success).toBe(true);
-        expect(result.output).toContain("skipping");
         expect(
           existsSync(
             join(agentWorkspacePath, ".fossil-settings", "ignore-glob"),
           ),
-        ).toBe(false);
+        ).toBe(true);
+        const ignoreGlob = readFileSync(
+          join(agentWorkspacePath, ".fossil-settings", "ignore-glob"),
+          "utf8",
+        );
+        expect(ignoreGlob).toContain(".git");
+        expect(ignoreGlob).toContain(".git/**");
+        expect(ignoreGlob).toContain(".hg");
+        expect(ignoreGlob).toContain(".svn");
       }, 15000);
 
-      it("should return success and skip when both ignore files have only comments and blank lines", async () => {
+      it("should keep default VCS patterns when ignore files have only comments/blank lines", async () => {
         const vcs = new VCS();
-        const { writeFileSync } = await import("fs");
+        const { writeFileSync, readFileSync } = await import("fs");
 
         const upstreamPath = join(testHome, "upstream-empty-ignores");
         const agentWorkspacePath = join(testHome, "agent-empty-ignores");
@@ -688,7 +701,14 @@ describe("VCS Integration Tests", () => {
         );
 
         expect(result.success).toBe(true);
-        expect(result.output).toContain("skipping");
+        const ignoreGlob = readFileSync(
+          join(agentWorkspacePath, ".fossil-settings", "ignore-glob"),
+          "utf8",
+        );
+        expect(ignoreGlob).toContain(".git");
+        expect(ignoreGlob).toContain(".git/**");
+        expect(ignoreGlob).toContain(".hg");
+        expect(ignoreGlob).toContain(".svn");
       }, 15000);
 
       it("should commit the ignore-glob so it appears in fossil history", async () => {
