@@ -22,10 +22,7 @@ jobs:
           - os: ubuntu-latest
             target: bun-linux-x64
             suffix: linux-x64
-          - os: macos-13  # Intel
-            target: bun-darwin-x64
-            suffix: darwin-x64
-          - os: macos-14  # Apple Silicon
+          - os: macos-14  # Apple Silicon (can run x64 via Rosetta)
             target: bun-darwin-arm64
             suffix: darwin-arm64
 
