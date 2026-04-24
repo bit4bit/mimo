@@ -80,6 +80,20 @@ export async function scanDirectory(
   }
 }
 
+const DEFAULT_TIMEOUT_MS = 30000;
+
+const withTimeout = <T>(
+  promise: Promise<T>,
+  ms: number = DEFAULT_TIMEOUT_MS,
+): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms),
+    ),
+  ]);
+};
+
 export class VCS {
   private async execCommand(
     command: string[],
@@ -93,15 +107,28 @@ export class VCS {
       env: env ? { ...process.env, ...env } : undefined,
     });
 
-    const exitCode = await proc.exited;
-    const stdout = await new Response(proc.stdout).text();
-    const stderr = await new Response(proc.stderr).text();
+    const promise = (async () => {
+      const exitCode = await proc.exited;
+      const stdout = await new Response(proc.stdout).text();
+      const stderr = await new Response(proc.stderr).text();
 
-    return {
-      success: exitCode === 0,
-      output: stdout.trim(),
-      error: stderr.trim(),
-    };
+      return {
+        success: exitCode === 0,
+        output: stdout.trim(),
+        error: stderr.trim(),
+      };
+    })();
+
+    try {
+      return await withTimeout(promise, DEFAULT_TIMEOUT_MS);
+    } catch (err) {
+      proc.kill();
+      return {
+        success: false,
+        output: "",
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   }
 
   // Helper to inject HTTPS credentials into URL
