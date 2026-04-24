@@ -71,12 +71,17 @@ jobs:
         chmod +x dist/mimo-platform-${{ matrix.suffix }}
         chmod +x dist/mimo-agent-${{ matrix.suffix }}
 
-    # Calculate checksums
+    # Calculate checksums (cross-platform: sha256sum on Linux, shasum on macOS)
     - name: Calculate checksums
       run: |
         cd dist
-        sha256sum mimo-platform-${{ matrix.suffix }} > mimo-platform-${{ matrix.suffix }}.sha256
-        sha256sum mimo-agent-${{ matrix.suffix }} > mimo-agent-${{ matrix.suffix }}.sha256
+        if command -v sha256sum &> /dev/null; then
+          sha256sum mimo-platform-${{ matrix.suffix }} > mimo-platform-${{ matrix.suffix }}.sha256
+          sha256sum mimo-agent-${{ matrix.suffix }} > mimo-agent-${{ matrix.suffix }}.sha256
+        else
+          shasum -a 256 mimo-platform-${{ matrix.suffix }} > mimo-platform-${{ matrix.suffix }}.sha256
+          shasum -a 256 mimo-agent-${{ matrix.suffix }} > mimo-agent-${{ matrix.suffix }}.sha256
+        fi
 
     # Upload artifacts
     - name: Upload artifacts
