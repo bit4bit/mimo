@@ -173,7 +173,6 @@
     if (!currentResults || currentResults.length === 0) return;
     highlightedIndex = idx;
     renderResults();
-    console.log("[session-finder] Highlighted index:", idx);
   }
 
   function navigateToResult(idx) {
@@ -187,25 +186,10 @@
   }
 
   function handleGlobalKeydown(e) {
-    // Debug: log all keydown events with ctrl+shift
-    if (e.ctrlKey && e.shiftKey) {
-      console.log("[session-finder] Key event:", {
-        key: e.key,
-        keyCode: e.keyCode,
-        code: e.code,
-        ctrl: e.ctrlKey,
-        shift: e.shiftKey,
-        alt: e.altKey,
-        meta: e.metaKey
-      });
-    }
-    
-    // Check for session finder keybinding
     const targetKb = getKeybinding();
     const match = matchesKeybinding(e, targetKb);
     
     if (match) {
-      console.log("[session-finder] Keybinding matched!", targetKb, e.key);
       e.preventDefault();
       if (isDialogOpen()) {
         closeDialog();
@@ -215,19 +199,14 @@
       return;
     }
     
-    // If dialog is open and Tab is pressed, prevent global handling
     if (isDialogOpen() && e.key === "Tab") {
-      // Let the input handler deal with Tab
       return;
     }
   }
 
   function handleInputKeydown(e) {
-    console.log("[session-finder] input keydown:", e.key, "dialogOpen:", isDialogOpen());
-    
     if (!isDialogOpen()) return;
 
-    // Alt+Shift+G closes the dialog
     if (e.altKey && e.shiftKey && e.key.toLowerCase() === "g") {
       e.preventDefault();
       closeDialog();
@@ -289,21 +268,15 @@
     resultsEl = document.getElementById(RESULTS_ID);
 
     if (!dialog || !input || !resultsEl) {
-      console.warn("[session-finder] Dialog elements not found");
       return;
     }
 
-    console.log("[session-finder] Initialized with keybinding:", getKeybinding());
-    console.log("[session-finder] MIMO_GLOBAL_KEYBINDINGS:", window.MIMO_GLOBAL_KEYBINDINGS);
-
-    // Use capture phase for input to catch Tab before browser default
     document.addEventListener("keydown", handleGlobalKeydown);
     input.addEventListener("keydown", handleInputKeydown, { capture: true });
     input.addEventListener("input", handleInputChange);
     dialog.addEventListener("click", handleClickOutside);
 
     document.addEventListener("mimo:openSessionFinder", () => {
-      console.log("[session-finder] Received mimo:openSessionFinder event");
       openDialog();
     });
   }
