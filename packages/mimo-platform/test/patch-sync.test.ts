@@ -10,10 +10,12 @@ import {
   readdirSync,
 } from "fs";
 import { execSync } from "child_process";
+import { createOS } from "../src/os/node-adapter.js";
 
 describe("Patch-based Sync", () => {
   let testHome: string;
   let VCS: any;
+  let os: any;
 
   beforeEach(async () => {
     testHome = join(
@@ -33,13 +35,15 @@ describe("Patch-based Sync", () => {
 
     mkdirSync(testHome, { recursive: true });
 
+    os = createOS({ ...process.env });
+
     const vcsModule = await import("../src/vcs/index.ts");
     VCS = vcsModule.VCS;
   });
 
   describe("alignWorkspaceWithFossil", () => {
     it("should delete files that fossil considers DELETED but still exist on disk", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const workDir = join(testHome, "align-test");
       const repoPath = join(testHome, "align-test.fossil");
 
@@ -71,7 +75,7 @@ describe("Patch-based Sync", () => {
     }, 15000);
 
     it("should succeed when workspace is not a fossil checkout", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const plainDir = join(testHome, "plain-dir");
       mkdirSync(plainDir, { recursive: true });
 
@@ -80,7 +84,7 @@ describe("Patch-based Sync", () => {
     }, 10000);
 
     it("should succeed when no files are deleted", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const workDir = join(testHome, "no-delete-test");
       const repoPath = join(testHome, "no-delete-test.fossil");
 
@@ -103,7 +107,7 @@ describe("Patch-based Sync", () => {
 
   describe("generatePatch", () => {
     it("should generate patch for modified files", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionDir = join(testHome, "session-gen");
       const upstream = join(sessionDir, "upstream");
       const agentWorkspace = join(sessionDir, "agent-workspace");
@@ -125,7 +129,7 @@ describe("Patch-based Sync", () => {
     }, 10000);
 
     it("should generate patch for new files", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionDir = join(testHome, "session-new");
       const upstream = join(sessionDir, "upstream");
       const agentWorkspace = join(sessionDir, "agent-workspace");
@@ -145,7 +149,7 @@ describe("Patch-based Sync", () => {
     }, 10000);
 
     it("should generate patch for deleted files", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionDir = join(testHome, "session-del");
       const upstream = join(sessionDir, "upstream");
       const agentWorkspace = join(sessionDir, "agent-workspace");
@@ -165,7 +169,7 @@ describe("Patch-based Sync", () => {
     }, 10000);
 
     it("should return empty patch when no differences", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionDir = join(testHome, "session-empty");
       const upstream = join(sessionDir, "upstream");
       const agentWorkspace = join(sessionDir, "agent-workspace");
@@ -184,7 +188,7 @@ describe("Patch-based Sync", () => {
     }, 10000);
 
     it("should filter VCS metadata from patch", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionDir = join(testHome, "session-meta");
       const upstream = join(sessionDir, "upstream");
       const agentWorkspace = join(sessionDir, "agent-workspace");
@@ -205,7 +209,7 @@ describe("Patch-based Sync", () => {
     }, 10000);
 
     it("should normalize paths correctly", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionDir = join(testHome, "session-paths");
       const upstream = join(sessionDir, "upstream");
       const agentWorkspace = join(sessionDir, "agent-workspace");
@@ -229,7 +233,7 @@ describe("Patch-based Sync", () => {
 
   describe("normalizePatchPaths and filterVcsMetadata", () => {
     it("should normalize all header types", () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const input = [
         "diff --git a/upstream/src/app.ts b/agent-workspace/src/app.ts",
         "--- a/upstream/src/app.ts",
@@ -251,7 +255,7 @@ describe("Patch-based Sync", () => {
     });
 
     it("should filter VCS metadata hunks", () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const input = [
         "diff --git a/.fslckout b/.fslckout",
         "new file mode 100644",
@@ -281,7 +285,7 @@ describe("Patch-based Sync", () => {
 
   describe("storePatch", () => {
     it("should store patch with timestamp filename", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const patchDir = join(testHome, "patches");
 
       const patchContent =
@@ -295,7 +299,7 @@ describe("Patch-based Sync", () => {
     });
 
     it("should create patches directory if it does not exist", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const patchDir = join(testHome, "new-patches-dir");
 
       expect(existsSync(patchDir)).toBe(false);
@@ -306,7 +310,7 @@ describe("Patch-based Sync", () => {
 
   describe("applyPatch", () => {
     it("should apply patch to git upstream", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionDir = join(testHome, "session-apply-git");
       const upstream = join(sessionDir, "upstream");
       const agentWorkspace = join(sessionDir, "agent-workspace");
@@ -344,7 +348,7 @@ describe("Patch-based Sync", () => {
     }, 15000);
 
     it("should apply patch to fossil upstream using patch -p1", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const upstream = join(testHome, "upstream-apply-fossil");
       const patchDir = join(testHome, "patches-apply-fossil");
 
@@ -378,7 +382,7 @@ describe("Patch-based Sync", () => {
 
   describe("generateAndApplyPatch (integration)", () => {
     it("should complete full patch workflow for git upstream", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionDir = join(testHome, "session-full");
       const upstream = join(sessionDir, "upstream");
       const agentWorkspace = join(sessionDir, "agent-workspace");
@@ -426,7 +430,7 @@ describe("Patch-based Sync", () => {
     }, 15000);
 
     it("should handle no changes gracefully", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionDir = join(testHome, "session-nochange");
       const upstream = join(sessionDir, "upstream");
       const agentWorkspace = join(sessionDir, "agent-workspace");
@@ -459,7 +463,7 @@ describe("Patch-based Sync", () => {
     }, 10000);
 
     it("should handle file deletions in full workflow", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionDir = join(testHome, "session-delete");
       const upstream = join(sessionDir, "upstream");
       const agentWorkspace = join(sessionDir, "agent-workspace");
@@ -492,7 +496,7 @@ describe("Patch-based Sync", () => {
     }, 15000);
 
     it("should handle nested directory structures", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionDir = join(testHome, "session-nested");
       const upstream = join(sessionDir, "upstream");
       const agentWorkspace = join(sessionDir, "agent-workspace");

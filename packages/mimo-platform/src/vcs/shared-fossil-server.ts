@@ -1,7 +1,5 @@
-import { spawn, ChildProcess } from "child_process";
-import { existsSync, mkdirSync } from "fs";
-import { join } from "path";
 import { createConnection } from "net";
+import type { OS } from "../os/types.js";
 import { logger } from "../logger.js";
 
 /**
@@ -51,7 +49,7 @@ export class DummySharedFossilServer {
 
   getFossilPath(sessionId: string): string {
     const normalizedId = normalizeSessionIdForFossil(sessionId);
-    return join(this._reposDir, `${normalizedId}.fossil`);
+    return this.os.path.join(this._reposDir, `${normalizedId}.fossil`);
   }
 
   getReposDir(): string {
@@ -92,20 +90,22 @@ export interface SharedFossilServerConfig {
  *   http://localhost:<port>/<normalized-session-id>.fossil/
  */
 export class SharedFossilServer {
-  private process: ChildProcess | null = null;
+  private process: ReturnType<OS["command"]["spawn"]> | null = null;
   private readonly _port: number;
   private _reposDir: string;
   private watchdogTimer: ReturnType<typeof setTimeout> | null = null;
   private restartDelayMs: number = 2000;
   private maxRestartAttempts: number = 5;
   private restartAttempts: number = 0;
+  private os: OS;
 
   /**
    * Creates a new SharedFossilServer instance.
    * @param config - Configuration object (port is required)
+   * @param os - OS abstraction layer
    * @throws Error if port is not provided
    */
-  constructor(config: SharedFossilServerConfig) {
+  constructor(config: SharedFossilServerConfig, os: OS) {
     if (typeof config.port !== "number") {
       throw new Error("SharedFossilServer: port is required");
     }
@@ -121,6 +121,7 @@ export class SharedFossilServer {
     }
     this._port = config.port;
     this._reposDir = config.reposDir;
+    this.os = os;
     this.ensureReposDir();
   }
 
@@ -143,8 +144,8 @@ export class SharedFossilServer {
   }
 
   private ensureReposDir(): void {
-    if (this._reposDir && !existsSync(this._reposDir)) {
-      mkdirSync(this._reposDir, { recursive: true });
+    if (this._reposDir && !this.os.fs.exists(this._reposDir)) {
+      this.os.fs.mkdir(this._reposDir, { recursive: true });
       logger.debug(
         `[SharedFossilServer] Created repos directory: ${this._reposDir}`,
       );
@@ -233,12 +234,9 @@ export class SharedFossilServer {
       `[SharedFossilServer] Starting server on port ${this.port} serving ${this.reposDir}`,
     );
 
-    this.process = spawn(
-      "fossil",
-      ["server", "--port", this.port.toString(), this.reposDir],
+    this.process = this.os.command.spawn(
+      ["fossil", "server", "--port", this.port.toString(), this.reposDir],
       {
-        stdio: ["ignore", "pipe", "pipe"],
-        detached: false,
         cwd: this.reposDir, // Ensure fossil server has valid working directory
       },
     );
@@ -250,36 +248,49 @@ export class SharedFossilServer {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Check if process started successfully
-    if (this.process.pid === undefined) {
-      logger.error("[SharedFossilServer] Failed to start fossil server");
+    // We can't check pid on SpawnedProcess, so we just wait and check if it exits
+    let started = true;
+    
+    // Set up process exit handler
+    const exitPromise = new Promise<number>((resolve) => {
+      this.process!.exited.then((code) => {
+        resolve(code);
+      });
+    });
+
+    // Check if it exited immediately
+    const timeout = setTimeout(() => {
+      // If we get here, it hasn't exited yet, so assume it's running
+    }, 1000);
+
+    const exitCode = await Promise.race([
+      exitPromise,
+      new Promise<number>((resolve) => setTimeout(() => resolve(-1), 1000)),
+    ]);
+
+    clearTimeout(timeout);
+
+    if (exitCode !== -1) {
+      logger.error(`[SharedFossilServer] Server exited immediately with code ${exitCode}`);
       this.process = null;
       return false;
     }
 
     logger.debug(
-      `[SharedFossilServer] Server started with PID ${this.process.pid}`,
+      `[SharedFossilServer] Server started on port ${this.port}`,
     );
 
-    // Set up process event handlers
-    this.process.on("exit", (code, signal) => {
+    // Set up process event handlers via the exited promise
+    this.process.exited.then((code) => {
       logger.debug(
-        `[SharedFossilServer] Server process exited (code: ${code}, signal: ${signal})`,
+        `[SharedFossilServer] Server process exited with code ${code}`,
       );
       this.process = null;
 
       // Trigger watchdog restart if not a deliberate stop
-      if (signal !== "SIGTERM" && signal !== "SIGINT") {
+      if (code !== 0 && code !== null) {
         this.scheduleRestart();
       }
-    });
-
-    this.process.on("error", (err) => {
-      logger.error("[SharedFossilServer] Server process error:", err);
-    });
-
-    // Log stderr for debugging
-    this.process.stderr?.on("data", (data) => {
-      logger.error("[SharedFossilServer] stderr:", data.toString().trim());
     });
 
     return true;
@@ -314,7 +325,7 @@ export class SharedFossilServer {
         resolve();
       }, 5000);
 
-      this.process?.on("exit", () => {
+      this.process?.exited.then(() => {
         clearTimeout(timeout);
         resolve();
       });
@@ -330,7 +341,7 @@ export class SharedFossilServer {
    */
   async isRunning(): Promise<boolean> {
     // First check if we have our own process running
-    if (this.process !== null && this.process.pid !== undefined) {
+    if (this.process !== null) {
       return true;
     }
 
@@ -367,7 +378,7 @@ export class SharedFossilServer {
    */
   getFossilPath(sessionId: string): string {
     const normalizedId = normalizeSessionIdForFossil(sessionId);
-    return join(this.reposDir, `${normalizedId}.fossil`);
+    return this.os.path.join(this.reposDir, `${normalizedId}.fossil`);
   }
 
   /**

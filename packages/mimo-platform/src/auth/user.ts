@@ -1,11 +1,4 @@
-import { join } from "path";
-import {
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
-  readdirSync,
-} from "fs";
+import type { OS } from "../os/types.js";
 import { dump, load } from "js-yaml";
 
 export interface UserCredentials {
@@ -20,26 +13,31 @@ export interface User {
 }
 
 interface UserRepositoryDeps {
+  os: OS;
   usersPath: string;
 }
 
 export class UserRepository {
-  constructor(private deps: UserRepositoryDeps) {}
+  private os: OS;
+
+  constructor(private deps: UserRepositoryDeps) {
+    this.os = deps.os;
+  }
 
   private getUsersPath(): string {
     return this.deps.usersPath;
   }
 
   private getUserPath(username: string): string {
-    return join(this.getUsersPath(), username);
+    return this.os.path.join(this.getUsersPath(), username);
   }
 
   private getCredentialsPath(username: string): string {
-    return join(this.getUserPath(username), "credentials.yaml");
+    return this.os.path.join(this.getUserPath(username), "credentials.yaml");
   }
 
   async exists(username: string): Promise<boolean> {
-    return existsSync(this.getCredentialsPath(username));
+    return this.os.fs.exists(this.getCredentialsPath(username));
   }
 
   async create(username: string, passwordHash: string): Promise<User> {
@@ -48,8 +46,8 @@ export class UserRepository {
     }
 
     const userPath = this.getUserPath(username);
-    if (!existsSync(userPath)) {
-      mkdirSync(userPath, { recursive: true });
+    if (!this.os.fs.exists(userPath)) {
+      this.os.fs.mkdir(userPath, { recursive: true });
     }
 
     const credentials: UserCredentials = {
@@ -58,10 +56,10 @@ export class UserRepository {
       createdAt: new Date().toISOString(),
     };
 
-    writeFileSync(
+    this.os.fs.writeFile(
       this.getCredentialsPath(username),
       dump(credentials),
-      "utf-8",
+      { encoding: "utf-8" },
     );
 
     return {
@@ -72,28 +70,28 @@ export class UserRepository {
 
   async getCredentials(username: string): Promise<UserCredentials | null> {
     const path = this.getCredentialsPath(username);
-    if (!existsSync(path)) {
+    if (!this.os.fs.exists(path)) {
       return null;
     }
 
-    const content = readFileSync(path, "utf-8");
+    const content = this.os.fs.readFile(path, "utf-8");
     return load(content) as UserCredentials;
   }
 
   async listUsers(): Promise<User[]> {
     const usersPath = this.getUsersPath();
-    if (!existsSync(usersPath)) {
+    if (!this.os.fs.exists(usersPath)) {
       return [];
     }
 
-    const entries = readdirSync(usersPath, { withFileTypes: true });
+    const entries = this.os.fs.readdir(usersPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
     const users: User[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const credentialsPath = join(usersPath, entry.name, "credentials.yaml");
-        if (existsSync(credentialsPath)) {
-          const content = readFileSync(credentialsPath, "utf-8");
+        const credentialsPath = this.os.path.join(usersPath, entry.name, "credentials.yaml");
+        if (this.os.fs.exists(credentialsPath)) {
+          const content = this.os.fs.readFile(credentialsPath, "utf-8");
           const creds = load(content) as UserCredentials;
           users.push({
             username: creds.username,
@@ -110,4 +108,4 @@ export class UserRepository {
 // Legacy singleton export - requires paths to be injected via constructor
 // This will fail at runtime if not initialized with proper paths
 // Use createMimoContext() instead for proper initialization
-export const userRepository = new UserRepository({ usersPath: "" });
+export const userRepository = new UserRepository({ os: null as any, usersPath: "" });

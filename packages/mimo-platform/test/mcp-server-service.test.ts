@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { McpServerService } from "../src/mcp-servers/service.js";
 import { McpServerRepository } from "../src/mcp-servers/repository.js";
+import { createOS } from "../src/os/node-adapter.js";
+import type { OS } from "../src/os/types.js";
 import { rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -8,11 +10,14 @@ import { tmpdir } from "os";
 describe("McpServerService", () => {
   let service: McpServerService;
   let repository: McpServerRepository;
+  let os: OS;
   const testHome = join(tmpdir(), `mimo-mcp-service-test-${Date.now()}`);
 
   beforeEach(() => {
+    os = createOS(process.env as Record<string, string>);
     repository = new McpServerRepository({
       mcpServersPath: join(testHome, "mcp-servers"),
+      os,
     });
     service = new McpServerService(repository);
   });

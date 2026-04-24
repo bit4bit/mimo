@@ -1,16 +1,18 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { SessionManager } from "../src/session.js";
 import type { McpServerConfig } from "../src/types";
+import { createOS } from "../src/os/node-adapter.js";
 
 describe("SessionManager with MCP Servers", () => {
   let sessionManager: SessionManager;
   const testWorkDir = "/tmp/mimo-agent-test-sessions";
 
   beforeEach(() => {
+    const os = createOS({ ...process.env });
     sessionManager = new SessionManager(testWorkDir, {
       onFileChange: () => {},
       onSessionError: () => {},
-    });
+    }, os);
   });
 
   describe("setSessionMcpServers", () => {

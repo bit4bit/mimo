@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { join, resolve } from "path";
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { tmpdir } from "os";
+import { createMockOS } from "../src/os/mock-adapter.js";
 
 const AGENT_CWD = import.meta.dir.replace("/integration-test", "");
 
@@ -173,7 +174,7 @@ describe("mimo-agent", () => {
         onSessionError: () => {},
       };
 
-      const manager = new SessionManager(tempDir, mockCallbacks);
+      const manager = new SessionManager(tempDir, mockCallbacks, createMockOS());
 
       // Create a session
       const sessionId = "test-session-1";
@@ -202,7 +203,7 @@ describe("mimo-agent", () => {
         onSessionError: () => {},
       };
 
-      const manager = new SessionManager(tempDir, mockCallbacks);
+      const manager = new SessionManager(tempDir, mockCallbacks, createMockOS());
 
       const sessionId = "test-session-2";
       await manager.createSession(
@@ -229,7 +230,7 @@ describe("mimo-agent", () => {
         onSessionError: () => {},
       };
 
-      const manager = new SessionManager(tempDir, mockCallbacks);
+      const manager = new SessionManager(tempDir, mockCallbacks, createMockOS());
 
       // Terminate a session that was never created (should not throw)
       expect(() =>
@@ -246,7 +247,7 @@ describe("mimo-agent", () => {
         onSessionError: () => {},
       };
 
-      const manager = new SessionManager(tempDir, mockCallbacks);
+      const manager = new SessionManager(tempDir, mockCallbacks, createMockOS());
 
       const sessionId = "test-session-3";
       const session = await manager.createSession(

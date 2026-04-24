@@ -1,14 +1,4 @@
-import { join } from "path";
-import {
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
-  readdirSync,
-  unlinkSync,
-  rmdirSync,
-  chmodSync,
-} from "fs";
+import type { OS } from "../os/types.js";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
 
@@ -68,18 +58,23 @@ export type CreateCredentialInput =
   | CreateSshCredentialInput;
 
 interface CredentialRepositoryDeps {
+  os: OS;
   usersPath: string;
 }
 
 export class CredentialRepository {
-  constructor(private deps: CredentialRepositoryDeps) {}
+  private os: OS;
+
+  constructor(private deps: CredentialRepositoryDeps) {
+    this.os = deps.os;
+  }
 
   private getCredentialsDirPath(username: string): string {
-    return join(this.deps.usersPath, username, "credentials");
+    return this.os.path.join(this.deps.usersPath, username, "credentials");
   }
 
   private getCredentialFilePath(username: string, id: string): string {
-    return join(this.getCredentialsDirPath(username), `${id}.yaml`);
+    return this.os.path.join(this.getCredentialsDirPath(username), `${id}.yaml`);
   }
 
   private generateId(): string {
@@ -109,8 +104,8 @@ export class CredentialRepository {
     const id = this.generateId();
     const credentialsDir = this.getCredentialsDirPath(input.owner);
 
-    if (!existsSync(credentialsDir)) {
-      mkdirSync(credentialsDir, { recursive: true });
+    if (!this.os.fs.exists(credentialsDir)) {
+      this.os.fs.mkdir(credentialsDir, { recursive: true });
     }
 
     let credentialData: CredentialData;
@@ -142,10 +137,10 @@ export class CredentialRepository {
     }
 
     const filePath = this.getCredentialFilePath(input.owner, id);
-    writeFileSync(filePath, dump(credentialData), "utf-8");
+    this.os.fs.writeFile(filePath, dump(credentialData), { encoding: "utf-8" });
 
     // Set file permissions to 600 (owner read/write only)
-    chmodSync(filePath, 0o600);
+    this.os.fs.chmod(filePath, 0o600);
 
     return {
       ...credentialData,
@@ -155,11 +150,11 @@ export class CredentialRepository {
 
   async findById(id: string, owner: string): Promise<Credential | null> {
     const filePath = this.getCredentialFilePath(owner, id);
-    if (!existsSync(filePath)) {
+    if (!this.os.fs.exists(filePath)) {
       return null;
     }
 
-    const content = readFileSync(filePath, "utf-8");
+    const content = this.os.fs.readFile(filePath, "utf-8");
     const data = load(content) as CredentialData;
 
     return {
@@ -170,17 +165,17 @@ export class CredentialRepository {
 
   async findByOwner(owner: string): Promise<Credential[]> {
     const credentialsDir = this.getCredentialsDirPath(owner);
-    if (!existsSync(credentialsDir)) {
+    if (!this.os.fs.exists(credentialsDir)) {
       return [];
     }
 
-    const entries = readdirSync(credentialsDir, { withFileTypes: true });
+    const entries = this.os.fs.readdir(credentialsDir, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
     const credentials: Credential[] = [];
 
     for (const entry of entries) {
       if (entry.isFile() && entry.name.endsWith(".yaml")) {
-        const filePath = join(credentialsDir, entry.name);
-        const content = readFileSync(filePath, "utf-8");
+        const filePath = this.os.path.join(credentialsDir, entry.name);
+        const content = this.os.fs.readFile(filePath, "utf-8");
         const data = load(content) as CredentialData;
         credentials.push({
           ...data,
@@ -203,7 +198,7 @@ export class CredentialRepository {
     }
 
     const filePath = this.getCredentialFilePath(owner, id);
-    const content = readFileSync(filePath, "utf-8");
+    const content = this.os.fs.readFile(filePath, "utf-8");
     const data = load(content) as CredentialData;
 
     // Update name
@@ -228,8 +223,8 @@ export class CredentialRepository {
       }
     }
 
-    writeFileSync(filePath, dump(data), "utf-8");
-    chmodSync(filePath, 0o600);
+    this.os.fs.writeFile(filePath, dump(data), { encoding: "utf-8" });
+    this.os.fs.chmod(filePath, 0o600);
 
     return {
       ...data,
@@ -239,17 +234,17 @@ export class CredentialRepository {
 
   async delete(id: string, owner: string): Promise<void> {
     const filePath = this.getCredentialFilePath(owner, id);
-    if (existsSync(filePath)) {
-      unlinkSync(filePath);
+    if (this.os.fs.exists(filePath)) {
+      this.os.fs.unlink(filePath);
     }
   }
 
   async exists(id: string, owner: string): Promise<boolean> {
-    return existsSync(this.getCredentialFilePath(owner, id));
+    return this.os.fs.exists(this.getCredentialFilePath(owner, id));
   }
 }
 
 // Legacy singleton export - requires paths to be injected via constructor
 // This will fail at runtime if not initialized with proper paths
 // Use createMimoContext() instead for proper initialization
-export const credentialRepository = new CredentialRepository({ usersPath: "" });
+export const credentialRepository = new CredentialRepository({ os: null as any, usersPath: "" });

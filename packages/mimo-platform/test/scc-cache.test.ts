@@ -10,6 +10,7 @@ import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { tmpdir } from "os";
 import { SccService, SccMetrics } from "../src/impact/scc-service.js";
+import { createOS } from "../src/os/node-adapter.js";
 
 describe("SCC Smart Cache", () => {
   let testDir: string;
@@ -46,7 +47,8 @@ echo '${mockOutput}'`,
       { mode: 0o755 },
     );
 
-    sccService = new SccService(mockSccPath, testDir);
+    const os = createOS({ ...process.env });
+    sccService = new SccService(os, mockSccPath, testDir);
   });
 
   afterAll(() => {
@@ -345,7 +347,8 @@ echo '${mockOutput}'`,
       await sccService.saveCache();
 
       // WHEN new service instance loads cache (simulating restart)
-      const newService = new SccService(mockSccPath, testDir);
+      const os = createOS({ ...process.env });
+      const newService = new SccService(os, mockSccPath, testDir);
       newService.loadCache();
 
       // THEN valid state is preserved

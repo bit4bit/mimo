@@ -1,14 +1,4 @@
-import { join } from "path";
-import { homedir } from "os";
-import {
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
-  readdirSync,
-  rmdirSync,
-  unlinkSync,
-} from "fs";
+import type { OS } from "../os/types.js";
 import { dump, load } from "js-yaml";
 import type {
   McpServer,
@@ -19,11 +9,16 @@ import type {
 import { slugify } from "./types.js";
 
 interface McpServerRepositoryDeps {
+  os: OS;
   mcpServersPath?: string;
 }
 
 export class McpServerRepository {
-  constructor(private deps: McpServerRepositoryDeps = {}) {}
+  private os: OS;
+
+  constructor(private deps: McpServerRepositoryDeps = {} as McpServerRepositoryDeps) {
+    this.os = deps.os;
+  }
 
   private getMcpServersPath(): string {
     if (!this.deps.mcpServersPath) {
@@ -35,17 +30,17 @@ export class McpServerRepository {
   }
 
   private getMcpServerPath(id: string): string {
-    return join(this.getMcpServersPath(), id);
+    return this.os.path.join(this.getMcpServersPath(), id);
   }
 
   private getMcpServerConfigPath(id: string): string {
-    return join(this.getMcpServerPath(id), "config.yaml");
+    return this.os.path.join(this.getMcpServerPath(id), "config.yaml");
   }
 
   private ensureMcpServersDir(): void {
     const path = this.getMcpServersPath();
-    if (!existsSync(path)) {
-      mkdirSync(path, { recursive: true });
+    if (!this.os.fs.exists(path)) {
+      this.os.fs.mkdir(path, { recursive: true });
     }
   }
 
@@ -56,12 +51,12 @@ export class McpServerRepository {
     const mcpServerPath = this.getMcpServerPath(id);
 
     // Check if already exists
-    if (existsSync(mcpServerPath)) {
+    if (this.os.fs.exists(mcpServerPath)) {
       throw new Error(`MCP server with name '${input.name}' already exists`);
     }
 
     // Create directory
-    mkdirSync(mcpServerPath, { recursive: true });
+    this.os.fs.mkdir(mcpServerPath, { recursive: true });
 
     const now = new Date().toISOString();
     const mcpServerData: McpServerData = {
@@ -81,10 +76,10 @@ export class McpServerRepository {
       updatedAt: now,
     };
 
-    writeFileSync(
+    this.os.fs.writeFile(
       this.getMcpServerConfigPath(id),
       dump(mcpServerData),
-      "utf-8",
+      { encoding: "utf-8" },
     );
 
     return {
@@ -96,11 +91,11 @@ export class McpServerRepository {
 
   async findById(id: string): Promise<McpServer | null> {
     const configPath = this.getMcpServerConfigPath(id);
-    if (!existsSync(configPath)) {
+    if (!this.os.fs.exists(configPath)) {
       return null;
     }
 
-    const content = readFileSync(configPath, "utf-8");
+    const content = this.os.fs.readFile(configPath, "utf-8");
     const data = load(content) as McpServerData;
 
     return {
@@ -112,18 +107,18 @@ export class McpServerRepository {
 
   async findAll(): Promise<McpServer[]> {
     const mcpServersPath = this.getMcpServersPath();
-    if (!existsSync(mcpServersPath)) {
+    if (!this.os.fs.exists(mcpServersPath)) {
       return [];
     }
 
-    const entries = readdirSync(mcpServersPath, { withFileTypes: true });
+    const entries = this.os.fs.readdir(mcpServersPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
     const servers: McpServer[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
         const configPath = this.getMcpServerConfigPath(entry.name);
-        if (existsSync(configPath)) {
-          const content = readFileSync(configPath, "utf-8");
+        if (this.os.fs.exists(configPath)) {
+          const content = this.os.fs.readFile(configPath, "utf-8");
           const data = load(content) as McpServerData;
           servers.push({
             ...data,
@@ -161,7 +156,7 @@ export class McpServerRepository {
       updatedAt: new Date().toISOString(),
     };
 
-    writeFileSync(this.getMcpServerConfigPath(id), dump(updatedData), "utf-8");
+    this.os.fs.writeFile(this.getMcpServerConfigPath(id), dump(updatedData), { encoding: "utf-8" });
 
     return {
       ...updatedData,
@@ -172,22 +167,22 @@ export class McpServerRepository {
 
   async delete(id: string): Promise<boolean> {
     const mcpServerPath = this.getMcpServerPath(id);
-    if (!existsSync(mcpServerPath)) {
+    if (!this.os.fs.exists(mcpServerPath)) {
       return false;
     }
 
     // Delete all files in the directory
-    const entries = readdirSync(mcpServerPath);
+    const entries = this.os.fs.readdir(mcpServerPath) as string[];
     for (const entry of entries) {
-      unlinkSync(join(mcpServerPath, entry));
+      this.os.fs.unlink(this.os.path.join(mcpServerPath, entry));
     }
 
     // Delete the directory
-    rmdirSync(mcpServerPath);
+    this.os.fs.rm(mcpServerPath);
     return true;
   }
 
   async exists(id: string): Promise<boolean> {
-    return existsSync(this.getMcpServerConfigPath(id));
+    return this.os.fs.exists(this.getMcpServerConfigPath(id));
   }
 }

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync, writeFileSync, readdirSync } from "fs";
+import { createOS } from "../src/os/node-adapter.js";
 
 describe("SCC Determinism Test", () => {
   let testHome: string;
@@ -62,7 +63,8 @@ export function multiply(x: number, y: number): number {
       "bin",
       "scc",
     );
-    const service = new SccService(sccPath);
+    const os = createOS({ ...process.env });
+    const service = new SccService(os, sccPath);
 
     if (!service.isInstalled()) {
       console.log("SCC not installed, skipping test");
@@ -134,14 +136,15 @@ export function multiply(x: number, y: number): number {
       "bin",
       "scc",
     );
-    const sccService = new SccService(sccPath);
+    const os = createOS({ ...process.env });
+    const sccService = new SccService(os, sccPath);
 
     if (!sccService.isInstalled()) {
       console.log("SCC not installed, skipping test");
       return;
     }
 
-    const calculator = new ImpactCalculator(sccService);
+    const calculator = new ImpactCalculator(sccService, undefined, os);
 
     const upstreamDir = join(testHome, "upstream");
     const workspaceDir = join(testHome, "workspace");

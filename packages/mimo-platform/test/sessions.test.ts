@@ -47,13 +47,12 @@ describe("Session Management Integration Tests", () => {
     agentService = ctx.services.agents;
 
     // Mock VCS methods to avoid actual git/fossil operations in these tests
-    const vcsModule = await import("../src/vcs/index.ts");
-    vcsModule.vcs.cloneRepository = async () => ({ success: true });
-    vcsModule.vcs.importToFossil = async () => ({ success: true });
-    vcsModule.vcs.openFossilCheckout = async () => ({ success: true });
-    vcsModule.vcs.openFossil = async () => ({ success: true });
-    vcsModule.vcs.syncIgnoresToFossil = async () => ({ success: true });
-    vcsModule.vcs.createFossilUser = async () => ({ success: true });
+    ctx.services.vcs.cloneRepository = async () => ({ success: true });
+    ctx.services.vcs.importToFossil = async () => ({ success: true });
+    ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
+    ctx.services.vcs.openFossil = async () => ({ success: true });
+    ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });
+    ctx.services.vcs.createFossilUser = async () => ({ success: true });
 
     const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
     sessionRoutes = createSessionsRoutes(ctx);
@@ -273,9 +272,8 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      const vcsModule = await import("../src/vcs/index.ts");
       let createFossilUserArgs: any[] | null = null;
-      vcsModule.vcs.createFossilUser = async (...args: any[]) => {
+      mimoContext.services.vcs.createFossilUser = async (...args: any[]) => {
         createFossilUserArgs = args;
         return { success: true };
       };
@@ -751,13 +749,12 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      const vcsModule = await import("../src/vcs/index.ts");
       let capturedBranch: string | null = null;
-      vcsModule.vcs.createBranch = async (branch: string) => {
+      mimoContext.services.vcs.createBranch = async (branch: string) => {
         capturedBranch = branch;
         return { success: true };
       };
-      vcsModule.vcs.createFossilUser = async () => ({ success: true });
+      mimoContext.services.vcs.createFossilUser = async () => ({ success: true });
 
       const { project, token } = await createUserAndProject({
         newBranch: "project-default",
@@ -784,13 +781,12 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      const vcsModule = await import("../src/vcs/index.ts");
       let capturedBranch: string | null = null;
-      vcsModule.vcs.createBranch = async (branch: string) => {
+      mimoContext.services.vcs.createBranch = async (branch: string) => {
         capturedBranch = branch;
         return { success: true };
       };
-      vcsModule.vcs.createFossilUser = async () => ({ success: true });
+      mimoContext.services.vcs.createFossilUser = async () => ({ success: true });
 
       const { project, token } = await createUserAndProject({
         newBranch: "project-default",
@@ -816,13 +812,12 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      const vcsModule = await import("../src/vcs/index.ts");
       let createBranchCalled = false;
-      vcsModule.vcs.createBranch = async () => {
+      mimoContext.services.vcs.createBranch = async () => {
         createBranchCalled = true;
         return { success: true };
       };
-      vcsModule.vcs.createFossilUser = async () => ({ success: true });
+      mimoContext.services.vcs.createFossilUser = async () => ({ success: true });
 
       const { project, token } = await createUserAndProject();
 
@@ -846,13 +841,12 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      const vcsModule = await import("../src/vcs/index.ts");
       let capturedBranch: string | null = null;
-      vcsModule.vcs.createBranch = async (branch: string) => {
+      mimoContext.services.vcs.createBranch = async (branch: string) => {
         capturedBranch = branch;
         return { success: true };
       };
-      vcsModule.vcs.createFossilUser = async () => ({ success: true });
+      mimoContext.services.vcs.createFossilUser = async () => ({ success: true });
 
       const { project, token } = await createUserAndProject();
 
@@ -894,18 +888,17 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      const vcsModule = await import("../src/vcs/index.ts");
       let cloneArgs: any[] | null = null;
       let createBranchCalled = false;
-      vcsModule.vcs.cloneRepository = async (...args: any[]) => {
+      mimoContext.services.vcs.cloneRepository = async (...args: any[]) => {
         cloneArgs = args;
         return { success: true };
       };
-      vcsModule.vcs.createBranch = async () => {
+      mimoContext.services.vcs.createBranch = async () => {
         createBranchCalled = true;
         return { success: true };
       };
-      vcsModule.vcs.createFossilUser = async () => ({ success: true });
+      mimoContext.services.vcs.createFossilUser = async () => ({ success: true });
 
       const { project, token } = await createUserAndProject({
         sourceBranch: "main",
@@ -934,8 +927,7 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      const vcsModule = await import("../src/vcs/index.ts");
-      vcsModule.vcs.createFossilUser = async () => ({ success: true });
+      mimoContext.services.vcs.createFossilUser = async () => ({ success: true });
 
       const { project, token } = await createUserAndProject();
 
@@ -1009,12 +1001,11 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      const vcsModule = await import("../src/vcs/index.ts");
-      vcsModule.vcs.cloneRepository = async () => ({
+      mimoContext.services.vcs.cloneRepository = async () => ({
         success: false,
         error: "Remote branch feature/missing not found in upstream origin",
       });
-      vcsModule.vcs.createFossilUser = async () => ({ success: true });
+      mimoContext.services.vcs.createFossilUser = async () => ({ success: true });
 
       const { project, token } = await createUserAndProject();
 

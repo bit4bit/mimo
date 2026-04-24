@@ -6,6 +6,7 @@ import {
   loadIgnorePatterns,
 } from "../src/files/service.js";
 import { detectLanguage, escapeHtml } from "../src/files/syntax-highlighter.js";
+import { createOS } from "../src/os/node-adapter.js";
 import type { FileInfo } from "../src/files/types.js";
 
 // --- matchesPattern ---
@@ -135,7 +136,8 @@ describe("applyIgnorePatterns", () => {
 
 describe("loadIgnorePatterns", () => {
   it("returns empty array when neither .gitignore nor .mimoignore exists", () => {
-    expect(loadIgnorePatterns("/nonexistent/path/xyz123")).toEqual([
+    const os = createOS({ ...process.env });
+    expect(loadIgnorePatterns("/nonexistent/path/xyz123", os)).toEqual([
       ".mimo-patches/",
     ]);
   });
@@ -145,7 +147,8 @@ describe("loadIgnorePatterns", () => {
     const { tmpdir } = await import("os");
     const dir = mkdtempSync(tmpdir() + "/mimo-test-");
     writeFileSync(dir + "/.gitignore", "# comment\n\n*.log\ndist/\n");
-    const patterns = loadIgnorePatterns(dir);
+    const os = createOS({ ...process.env });
+    const patterns = loadIgnorePatterns(dir, os);
     expect(patterns).toContain(".mimo-patches/");
     expect(patterns).toContain("*.log");
     expect(patterns).toContain("dist/");
@@ -157,7 +160,8 @@ describe("loadIgnorePatterns", () => {
     const dir = mkdtempSync(tmpdir() + "/mimo-test-");
     writeFileSync(dir + "/.gitignore", "*.log\n");
     writeFileSync(dir + "/.mimoignore", "*.tmp\n");
-    const patterns = loadIgnorePatterns(dir);
+    const os = createOS({ ...process.env });
+    const patterns = loadIgnorePatterns(dir, os);
     expect(patterns).toContain("*.log");
     expect(patterns).toContain("*.tmp");
   });
@@ -167,7 +171,8 @@ describe("loadIgnorePatterns", () => {
     const { tmpdir } = await import("os");
     const dir = mkdtempSync(tmpdir() + "/mimo-test-");
     writeFileSync(dir + "/.mimoignore", "# ignored\n\n  \nbuild/\n");
-    const patterns = loadIgnorePatterns(dir);
+    const os = createOS({ ...process.env });
+    const patterns = loadIgnorePatterns(dir, os);
     expect(patterns).toContain(".mimo-patches/");
     expect(patterns).toContain("build/");
   });
@@ -178,7 +183,8 @@ describe("loadIgnorePatterns", () => {
 describe("createFileService readFile", () => {
   it("rejects path traversal outside workspace", async () => {
     const { createFileService } = await import("../src/files/service.js");
-    const service = createFileService();
+    const os = createOS({ ...process.env });
+    const service = createFileService(os);
     await expect(
       service.readFile("/some/workspace", "../etc/passwd"),
     ).rejects.toThrow("Access denied");

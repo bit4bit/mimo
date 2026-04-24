@@ -1,17 +1,8 @@
 import type { ModelState, ModeState } from "./types";
 import { logger } from "./logger.js";
 import { decodeJwt } from "jose";
-import { join } from "node:path";
-import { homedir } from "node:os";
-import {
-  existsSync,
-  mkdirSync,
-  copyFileSync,
-  unlinkSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
-import { execSync, spawnSync } from "node:child_process";
+import { createOS } from "./os/node-adapter.js";
+import type { OS } from "./os/types.js";
 import { Writable, Readable } from "node:stream";
 import { SessionManager } from "./session.js";
 import type { SessionCallbacks } from "./session.js";
@@ -49,6 +40,7 @@ class MimoAgent {
   private ws: WebSocket | null = null;
   private config: AgentConfig;
   private sessionManager: SessionManager;
+  private os: OS;
   // keyed by acpKey(sessionId, chatThreadId) — task 4.1
   private acpClients: Map<string, AcpClient> = new Map();
   private reconnectAttempts = 0;
@@ -71,6 +63,7 @@ class MimoAgent {
   private static readonly CAPABILITY_PROBE_SESSION_ID = "capability-probe";
 
   constructor() {
+    this.os = createOS({ ...process.env });
     this.config = this.parseArgs();
     this.sessionManager = new SessionManager(this.config.workDir, {
       onFileChange: (sessionId, changes) => {
@@ -89,7 +82,7 @@ class MimoAgent {
           timestamp: new Date().toISOString(),
         });
       },
-    });
+    }, this.os);
 
     // Initialize lifecycle manager with thread-aware callbacks (tasks 4.5–4.7)
     this.lifecycleManager = new SessionLifecycleManager({
@@ -168,12 +161,12 @@ class MimoAgent {
     }
 
     if (!config.workDir) {
-      config.workDir = join(homedir(), ".mimo-agent");
+      config.workDir = this.os.path.join(this.os.path.homeDir(), ".mimo-agent");
     }
 
     // Ensure workDir exists
-    if (!existsSync(config.workDir)) {
-      mkdirSync(config.workDir, { recursive: true });
+    if (!this.os.fs.exists(config.workDir)) {
+      this.os.fs.mkdir(config.workDir, { recursive: true });
       logger.debug(`[mimo-agent] Created workDir: ${config.workDir}`);
     }
 
@@ -420,7 +413,7 @@ class MimoAgent {
       } = session;
 
       try {
-        const checkoutPath = join(this.config.workDir, sessionId);
+        const checkoutPath = this.os.path.join(this.config.workDir, sessionId);
 
         if (!fossilUrl) {
           throw new Error("No fossilUrl provided in session data");
@@ -518,18 +511,17 @@ class MimoAgent {
     agentWorkspaceUser?: string,
     agentWorkspacePassword?: string,
   ): Promise<void> {
-    const repoPath = join(checkoutPath, "..", `${sessionId}.fossil`);
+    const repoPath = this.os.path.join(checkoutPath, "..", `${sessionId}.fossil`);
 
-    if (existsSync(repoPath)) {
+    if (this.os.fs.exists(repoPath)) {
       logger.debug(`[mimo-agent]   Fossil repo exists, opening`);
-      if (!existsSync(checkoutPath)) {
-        mkdirSync(checkoutPath, { recursive: true });
+      if (!this.os.fs.exists(checkoutPath)) {
+        this.os.fs.mkdir(checkoutPath, { recursive: true });
       }
       try {
-        execSync(`fossil open ${repoPath}`, {
+        this.os.command.runSync(["fossil", "open", repoPath], {
           cwd: checkoutPath,
-          stdio: "pipe",
-          timeout: 30000,
+          timeoutMs: 30000,
         });
       } catch {
         // Already open or error, continue
@@ -544,19 +536,18 @@ class MimoAgent {
           `[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`,
         );
         try {
-          execSync(`fossil remote-url ${remoteUrl}`, {
+          this.os.command.runSync(["fossil", "remote-url", remoteUrl], {
             cwd: checkoutPath,
-            stdio: "pipe",
-            timeout: 30000,
+            timeoutMs: 30000,
           });
         } catch {
           // Ignore error, may already be correct
         }
         // Ensure local password matches server password
         try {
-          execSync(
-            `fossil user password ${agentWorkspaceUser} ${agentWorkspacePassword}`,
-            { cwd: checkoutPath, stdio: "pipe", timeout: 30000 },
+          this.os.command.runSync(
+            ["fossil", "user", "password", agentWorkspaceUser, agentWorkspacePassword],
+            { cwd: checkoutPath, timeoutMs: 30000 },
           );
           logger.debug(`[mimo-agent]   Updated local user password`);
         } catch {
@@ -566,31 +557,29 @@ class MimoAgent {
         try {
           // Remove existing remote if exists, then add new one
           try {
-            execSync(`fossil remote rm server`, {
+            this.os.command.runSync(["fossil", "remote", "rm", "server"], {
               cwd: checkoutPath,
-              stdio: "pipe",
-              timeout: 30000,
+              timeoutMs: 30000,
             });
           } catch {
             // Remote may not exist, ignore
           }
-          execSync(`fossil remote add server ${remoteUrl}`, {
+          this.os.command.runSync(["fossil", "remote", "add", "server", remoteUrl], {
             cwd: checkoutPath,
-            stdio: "pipe",
-            timeout: 30000,
+            timeoutMs: 30000,
           });
           logger.debug(`[mimo-agent]   Updated remote 'server'`);
           // Do a sync using the named remote to verify credentials work
-          execSync(`fossil sync server`, { cwd: checkoutPath, stdio: "pipe", timeout: 30000 });
+          this.os.command.runSync(["fossil", "sync", "server"], { cwd: checkoutPath, timeoutMs: 30000 });
           logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
         } catch {
           // Ignore error
         }
       }
-    } else if (existsSync(join(checkoutPath, ".fossil"))) {
+    } else if (this.os.fs.exists(this.os.path.join(checkoutPath, ".fossil"))) {
       logger.debug(`[mimo-agent]   Checkout exists, ensuring open`);
       try {
-        execSync(`fossil open`, { cwd: checkoutPath, stdio: "pipe", timeout: 30000 });
+        this.os.command.runSync(["fossil", "open"], { cwd: checkoutPath, timeoutMs: 30000 });
       } catch {
         // Already open or error, continue
       }
@@ -604,19 +593,18 @@ class MimoAgent {
           `[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`,
         );
         try {
-          execSync(`fossil remote-url ${remoteUrl}`, {
+          this.os.command.runSync(["fossil", "remote-url", remoteUrl], {
             cwd: checkoutPath,
-            stdio: "pipe",
-            timeout: 30000,
+            timeoutMs: 30000,
           });
         } catch {
           // Ignore error, may already be correct
         }
         // Ensure local password matches server password
         try {
-          execSync(
-            `fossil user password ${agentWorkspaceUser} ${agentWorkspacePassword}`,
-            { cwd: checkoutPath, stdio: "pipe", timeout: 30000 },
+          this.os.command.runSync(
+            ["fossil", "user", "password", agentWorkspaceUser, agentWorkspacePassword],
+            { cwd: checkoutPath, timeoutMs: 30000 },
           );
           logger.debug(`[mimo-agent]   Updated local user password`);
         } catch {
@@ -626,22 +614,20 @@ class MimoAgent {
         try {
           // Remove existing remote if exists, then add new one
           try {
-            execSync(`fossil remote rm server`, {
+            this.os.command.runSync(["fossil", "remote", "rm", "server"], {
               cwd: checkoutPath,
-              stdio: "pipe",
-              timeout: 30000,
+              timeoutMs: 30000,
             });
           } catch {
             // Remote may not exist, ignore
           }
-          execSync(`fossil remote add server ${remoteUrl}`, {
+          this.os.command.runSync(["fossil", "remote", "add", "server", remoteUrl], {
             cwd: checkoutPath,
-            stdio: "pipe",
-            timeout: 30000,
+            timeoutMs: 30000,
           });
           logger.debug(`[mimo-agent]   Updated remote 'server'`);
           // Do a sync using the named remote to verify credentials work
-          execSync(`fossil sync server`, { cwd: checkoutPath, stdio: "pipe", timeout: 30000 });
+          this.os.command.runSync(["fossil", "sync", "server"], { cwd: checkoutPath, timeoutMs: 30000 });
           logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
         } catch {
           // Ignore error
@@ -660,36 +646,33 @@ class MimoAgent {
           `[mimo-agent]   Using authenticated URL: ${url.protocol}//${url.username}:****@${url.host}/`,
         );
       }
-      execSync(`fossil clone ${cloneUrl} ${repoPath}`, { stdio: "pipe", timeout: 30000 });
-      if (!existsSync(checkoutPath)) {
-        mkdirSync(checkoutPath, { recursive: true });
+      this.os.command.runSync(["fossil", "clone", cloneUrl, repoPath], { timeoutMs: 30000 });
+      if (!this.os.fs.exists(checkoutPath)) {
+        this.os.fs.mkdir(checkoutPath, { recursive: true });
       }
       // Open without sync first, then set remote with credentials
-      execSync(`fossil open --nosync ${repoPath}`, {
+      this.os.command.runSync(["fossil", "open", "--nosync", repoPath], {
         cwd: checkoutPath,
-        stdio: "pipe",
-        timeout: 30000,
+        timeoutMs: 30000,
       });
       // Set remote URL with credentials for future syncs
-      execSync(`fossil remote-url ${cloneUrl}`, {
+      this.os.command.runSync(["fossil", "remote-url", cloneUrl], {
         cwd: checkoutPath,
-        stdio: "pipe",
-        timeout: 30000,
+        timeoutMs: 30000,
       });
       // Set local password to match server password (fossil creates local admin with random password)
       if (agentWorkspaceUser && agentWorkspacePassword) {
-        execSync(
-          `fossil user password ${agentWorkspaceUser} ${agentWorkspacePassword}`,
-          { cwd: checkoutPath, stdio: "pipe", timeout: 30000 },
+        this.os.command.runSync(
+          ["fossil", "user", "password", agentWorkspaceUser, agentWorkspacePassword],
+          { cwd: checkoutPath, timeoutMs: 30000 },
         );
         // Add a named remote "server" with credentials embedded
-        execSync(`fossil remote add server ${cloneUrl}`, {
+        this.os.command.runSync(["fossil", "remote", "add", "server", cloneUrl], {
           cwd: checkoutPath,
-          stdio: "pipe",
-          timeout: 30000,
+          timeoutMs: 30000,
         });
         // Do an initial sync using the named remote with credentials
-        execSync(`fossil sync server`, { cwd: checkoutPath, stdio: "pipe", timeout: 30000 });
+        this.os.command.runSync(["fossil", "sync", "server"], { cwd: checkoutPath, timeoutMs: 30000 });
       }
     }
   }
@@ -740,7 +723,7 @@ class MimoAgent {
     }
 
     const acpCwd = session.agentSubpath
-      ? join(sessionInfo.checkoutPath, session.agentSubpath)
+      ? this.os.path.join(sessionInfo.checkoutPath, session.agentSubpath)
       : sessionInfo.checkoutPath;
 
     const spawnResult = this.provider.spawn(acpCwd);
@@ -993,7 +976,7 @@ class MimoAgent {
     );
 
     const acpCwd = sessionInfo.agentSubpath
-      ? join(sessionInfo.checkoutPath, sessionInfo.agentSubpath)
+      ? this.os.path.join(sessionInfo.checkoutPath, sessionInfo.agentSubpath)
       : sessionInfo.checkoutPath;
 
     const spawnResult = this.provider.spawn(acpCwd);
@@ -1380,35 +1363,16 @@ class MimoAgent {
     }
 
     const runFossil = (args: string[]) => {
-      const result = spawnSync("fossil", args, {
+      const result = this.os.command.runSync(["fossil", ...args], {
         cwd: session.checkoutPath,
-        encoding: "utf8",
-        timeout: 15000,
+        timeoutMs: 15000,
         env: {
-          ...process.env,
+          ...this.os.env.getAll(),
           FOSSIL_FORCE_TTY: "0",
         },
       });
 
-      if (result.error) {
-        const err = result.error as Error & { code?: string };
-        const timeoutMessage =
-          err.code === "ETIMEDOUT"
-            ? `fossil ${args.join(" ")} timed out`
-            : err.message;
-
-        return {
-          success: false,
-          output: (result.stdout || "").trim(),
-          error: timeoutMessage,
-        };
-      }
-
-      return {
-        success: result.status === 0,
-        output: (result.stdout || "").trim(),
-        error: (result.stderr || "").trim(),
-      };
+      return result;
     };
 
     try {
@@ -2127,10 +2091,10 @@ class MimoAgent {
     }
 
     const checkoutPath = session.checkoutPath;
-    const srcFullPath = join(checkoutPath, originalPath);
-    const tmpFullPath = join(checkoutPath, tempPath);
+    const srcFullPath = this.os.path.join(checkoutPath, originalPath);
+    const tmpFullPath = this.os.path.join(checkoutPath, tempPath);
 
-    if (!existsSync(srcFullPath)) {
+    if (!this.os.fs.exists(srcFullPath)) {
       logger.debug(
         `[mimo-agent] expert_copy_file: source not found: ${srcFullPath}`,
       );
@@ -2144,7 +2108,7 @@ class MimoAgent {
     }
 
     try {
-      copyFileSync(srcFullPath, tmpFullPath);
+      this.os.fs.copyFile(srcFullPath, tmpFullPath);
       logger.debug(
         `[mimo-agent] expert_copy_file: ${srcFullPath} -> ${tmpFullPath}`,
       );
@@ -2167,13 +2131,13 @@ class MimoAgent {
     if (!session) return;
 
     const checkoutPath = session.checkoutPath;
-    const srcFullPath = join(checkoutPath, tempPath);
-    const dstFullPath = join(checkoutPath, originalPath);
+    const srcFullPath = this.os.path.join(checkoutPath, tempPath);
+    const dstFullPath = this.os.path.join(checkoutPath, originalPath);
 
     try {
-      if (existsSync(srcFullPath)) {
-        copyFileSync(srcFullPath, dstFullPath);
-        unlinkSync(srcFullPath);
+      if (this.os.fs.exists(srcFullPath)) {
+        this.os.fs.copyFile(srcFullPath, dstFullPath);
+        this.os.fs.unlink(srcFullPath);
         logger.debug(
           `[mimo-agent] expert_apply_file: ${tempPath} -> ${originalPath}, temp deleted`,
         );
@@ -2190,11 +2154,11 @@ class MimoAgent {
     const session = this.sessionManager.getSession(sessionId);
     if (!session) return;
 
-    const tmpFullPath = join(session.checkoutPath, tempPath);
+    const tmpFullPath = this.os.path.join(session.checkoutPath, tempPath);
 
     try {
-      if (existsSync(tmpFullPath)) {
-        unlinkSync(tmpFullPath);
+      if (this.os.fs.exists(tmpFullPath)) {
+        this.os.fs.unlink(tmpFullPath);
         logger.debug(`[mimo-agent] expert_delete_file: ${tempPath} deleted`);
       }
     } catch (err) {
@@ -2209,10 +2173,10 @@ class MimoAgent {
     const session = this.sessionManager.getSession(sessionId);
     if (!session) return;
 
-    const tmpFullPath = join(session.checkoutPath, tempPath);
+    const tmpFullPath = this.os.path.join(session.checkoutPath, tempPath);
 
     try {
-      if (!existsSync(tmpFullPath)) {
+      if (!this.os.fs.exists(tmpFullPath)) {
         this.send({
           type: "expert_temp_content",
           sessionId,
@@ -2224,7 +2188,7 @@ class MimoAgent {
         return;
       }
 
-      const content = readFileSync(tmpFullPath, "utf-8");
+      const content = this.os.fs.readFile(tmpFullPath, "utf-8");
       this.send({
         type: "expert_temp_content",
         sessionId,
@@ -2258,17 +2222,17 @@ class MimoAgent {
       return;
     }
 
-    const fullPath = join(session.checkoutPath, filePath);
-    const dir = join(fullPath, "..").replace(/\\/g, "/");
+    const fullPath = this.os.path.join(session.checkoutPath, filePath);
+    const dir = this.os.path.join(fullPath, "..").replace(/\\/g, "/");
 
     try {
       // Ensure parent directory exists
-      if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true });
+      if (!this.os.fs.exists(dir)) {
+        this.os.fs.mkdir(dir, { recursive: true });
       }
 
       // Write file content
-      writeFileSync(fullPath, content, "utf-8");
+      this.os.fs.writeFile(fullPath, content, { encoding: "utf-8" });
       logger.debug(`[mimo-agent] write_file: ${fullPath} written`);
 
       this.send({

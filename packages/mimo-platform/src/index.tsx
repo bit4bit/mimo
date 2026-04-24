@@ -36,6 +36,8 @@ import { homedir } from "os";
 import { createSessionDeletionUseCase } from "./sessions/session-deletion.js";
 import { sweepExpiredInactiveSessions } from "./sessions/session-retention-sweeper.js";
 import { normalizeAvailableCommands } from "./sessions/available-commands.js";
+import { createOS } from "./os/node-adapter.js";
+import type { OS } from "./os/types.js";
 
 const app = new Hono();
 const _port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -44,6 +46,13 @@ const _port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const mimoHome = process.env.MIMO_HOME ?? join(homedir(), ".mimo");
 const fossilReposDir =
   process.env.FOSSIL_REPOS_DIR ?? join(mimoHome, "session-fossils");
+
+// Create OS abstraction at the system boundary
+const os: OS = createOS({
+  PATH: process.env.PATH,
+  HOME: process.env.HOME,
+  ...process.env,
+});
 
 // Create shared fossil server explicitly before context (dependency injection)
 const sharedFossilServer = createSharedFossilServer({
@@ -55,7 +64,7 @@ const sharedFossilServer = createSharedFossilServer({
   MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
     ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
     : 8000, // Default port for production
-});
+}, os);
 
 const mimoContext = createMimoContext({
   env: {
@@ -295,6 +304,7 @@ app.route(
     sessionRepository: mimoContext.repos.sessions,
     agentService: mimoContext.services.agents,
     sccService: mimoContext.services.scc,
+    vcs: mimoContext.services.vcs,
   }),
 );
 

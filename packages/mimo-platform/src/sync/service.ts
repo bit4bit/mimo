@@ -1,18 +1,8 @@
-import { join, relative, dirname, resolve } from "path";
-import {
-  existsSync,
-  copyFileSync,
-  mkdirSync,
-  statSync,
-  lstatSync,
-  readFileSync,
-  readdirSync,
-  unlinkSync,
-} from "fs";
 import crypto from "crypto";
 import { logger } from "../logger.js";
 import type { SccService } from "../impact/scc-service.js";
 import { VCS_INTERNALS } from "../vcs/index.js";
+import type { OS } from "../os/types.js";
 
 export type FileStatus =
   | "clean" // File hasn't changed
@@ -49,10 +39,14 @@ export interface FileSyncState {
 export interface FileSyncServiceDeps {
   sessionRepository: typeof sessionRepository;
   sccService: typeof sccService;
+  os: OS;
 }
 
 export class FileSyncService {
-  constructor(private deps: FileSyncServiceDeps) {}
+  private os: OS;
+  constructor(private deps: FileSyncServiceDeps) {
+    this.os = deps.os;
+  }
   private syncStates: Map<string, FileSyncState> = new Map();
   private pendingChanges: Map<string, FileChange[]> = new Map(); // Buffered changes for reconnects
   private impactStaleHandler?: (sessionId: string) => void;
@@ -114,10 +108,10 @@ export class FileSyncService {
         status = "new";
       } else {
         // Check if file exists in original repo
-        const originalPath = join(syncState!.upstreamPath, change.path);
-        const sessionPath = join(syncState!.agentWorkspacePath, change.path);
+        const originalPath = this.os.path.join(syncState!.upstreamPath, change.path);
+        const sessionPath = this.os.path.join(syncState!.agentWorkspacePath, change.path);
 
-        if (!existsSync(originalPath) && existsSync(sessionPath)) {
+        if (!this.os.fs.exists(originalPath) && this.os.fs.exists(sessionPath)) {
           status = "new";
         }
       }
@@ -164,17 +158,17 @@ export class FileSyncService {
     // Skip conflict check for new files
     if (agentStatus === "new") return null;
 
-    const originalPath = join(syncState.upstreamPath, filePath);
+    const originalPath = this.os.path.join(syncState.upstreamPath, filePath);
 
     // If file doesn't exist in original, no conflict
-    if (!existsSync(originalPath)) {
+    if (!this.os.fs.exists(originalPath)) {
       return null;
     }
 
     // Get checksums
-    const sessionPath = join(syncState.agentWorkspacePath, filePath);
+    const sessionPath = this.os.path.join(syncState.agentWorkspacePath, filePath);
 
-    if (!existsSync(sessionPath)) {
+    if (!this.os.fs.exists(sessionPath)) {
       // File was deleted in session but exists in original
       // Check if original was modified since last sync
       const originalChecksum = await this.calculateChecksum(originalPath);
@@ -216,31 +210,30 @@ export class FileSyncService {
         continue;
       }
 
-      const sessionPath = join(syncState.agentWorkspacePath, change.path);
-      const originalPath = join(syncState.upstreamPath, change.path);
+      const sessionPath = this.os.path.join(syncState.agentWorkspacePath, change.path);
+      const originalPath = this.os.path.join(syncState.upstreamPath, change.path);
 
       try {
         if (change.status === "deleted") {
-          if (existsSync(originalPath)) {
-            unlinkSync(originalPath);
+          if (this.os.fs.exists(originalPath)) {
+            this.os.fs.unlink(originalPath);
           }
           // Remove from baseline
           syncState.baselineChecksums.delete(change.path);
         } else if (change.status === "new" || change.status === "modified") {
           // Ensure directory exists
-          const originalDir = dirname(originalPath);
-          if (!existsSync(originalDir)) {
-            mkdirSync(originalDir, { recursive: true });
+          const originalDir = this.os.path.dirname(originalPath);
+          if (!this.os.fs.exists(originalDir)) {
+            this.os.fs.mkdir(originalDir, { recursive: true });
           }
 
           // Copy file with permissions
-          if (existsSync(sessionPath)) {
-            copyFileSync(sessionPath, originalPath);
+          if (this.os.fs.exists(sessionPath)) {
+            this.os.fs.copyFile(sessionPath, originalPath);
 
             // Preserve timestamps if available
             if (change.lastModified) {
-              const fs = require("fs");
-              fs.utimesSync(
+              this.os.fs.utimes(
                 originalPath,
                 change.lastModified,
                 change.lastModified,
@@ -274,17 +267,17 @@ export class FileSyncService {
       syncState.upstreamPath,
       syncState.upstreamPath,
       async (originalPath, relativePath) => {
-        const sessionPath = join(syncState.agentWorkspacePath, relativePath);
+        const sessionPath = this.os.path.join(syncState.agentWorkspacePath, relativePath);
 
         // Check if file exists in session
-        if (!existsSync(sessionPath)) {
+        if (!this.os.fs.exists(sessionPath)) {
           // File exists in original but not in session - copy it
-          const sessionDir = dirname(sessionPath);
-          if (!existsSync(sessionDir)) {
-            mkdirSync(sessionDir, { recursive: true });
+          const sessionDir = this.os.path.dirname(sessionPath);
+          if (!this.os.fs.exists(sessionDir)) {
+            this.os.fs.mkdir(sessionDir, { recursive: true });
           }
 
-          copyFileSync(originalPath, sessionPath);
+          this.os.fs.copyFile(originalPath, sessionPath);
 
           const fileChange: FileChange = {
             path: relativePath,
@@ -323,7 +316,7 @@ export class FileSyncService {
             } else {
               // Only original changed or only session changed (not both)
               // Copy from original to session
-              copyFileSync(originalPath, sessionPath);
+              this.os.fs.copyFile(originalPath, sessionPath);
 
               // Update baseline
               syncState.baselineChecksums.set(relativePath, originalChecksum);
@@ -357,26 +350,26 @@ export class FileSyncService {
       throw new Error(`Session ${sessionId} not initialized`);
     }
 
-    const sessionPath = join(syncState.agentWorkspacePath, filePath);
-    const originalPath = join(syncState.upstreamPath, filePath);
+    const sessionPath = this.os.path.join(syncState.agentWorkspacePath, filePath);
+    const originalPath = this.os.path.join(syncState.upstreamPath, filePath);
 
     if (resolution === "session") {
       // Keep session version
-      if (existsSync(sessionPath)) {
-        const originalDir = dirname(originalPath);
-        if (!existsSync(originalDir)) {
-          mkdirSync(originalDir, { recursive: true });
+      if (this.os.fs.exists(sessionPath)) {
+        const originalDir = this.os.path.dirname(originalPath);
+        if (!this.os.fs.exists(originalDir)) {
+          this.os.fs.mkdir(originalDir, { recursive: true });
         }
-        copyFileSync(sessionPath, originalPath);
+        this.os.fs.copyFile(sessionPath, originalPath);
       }
     } else if (resolution === "original") {
       // Keep original version
-      if (existsSync(originalPath)) {
-        const sessionDir = dirname(sessionPath);
-        if (!existsSync(sessionDir)) {
-          mkdirSync(sessionDir, { recursive: true });
+      if (this.os.fs.exists(originalPath)) {
+        const sessionDir = this.os.path.dirname(sessionPath);
+        if (!this.os.fs.exists(sessionDir)) {
+          this.os.fs.mkdir(sessionDir, { recursive: true });
         }
-        copyFileSync(originalPath, sessionPath);
+        this.os.fs.copyFile(originalPath, sessionPath);
       }
     }
     // "merge" would require a merge tool - not implemented yet
@@ -460,17 +453,17 @@ export class FileSyncService {
     basePath: string,
     callback: (fullPath: string, relativePath: string) => Promise<void>,
   ): Promise<void> {
-    if (!existsSync(dirPath)) return;
+    if (!this.os.fs.exists(dirPath)) return;
 
-    const entries = readdirSync(dirPath, { withFileTypes: true });
+    const entries = this.os.fs.readdir(dirPath, { withFileTypes: true }) as Array<{ name: string; isDirectory(): boolean; isFile(): boolean }>;
 
     for (const entry of entries) {
-      const fullPath = join(dirPath, entry.name);
-      const relativePath = relative(basePath, fullPath);
+      const fullPath = this.os.path.join(dirPath, entry.name);
+      const relativePath = this.os.path.relative(basePath, fullPath);
 
       if (VCS_INTERNALS.has(entry.name)) continue;
 
-      const entryStats = lstatSync(fullPath);
+      const entryStats = this.os.fs.lstat(fullPath);
       if (entryStats.isDirectory()) {
         await this.scanDirectory(fullPath, basePath, callback);
       } else if (entryStats.isFile()) {
@@ -486,13 +479,13 @@ export class FileSyncService {
     const syncState = this.syncStates.get(sessionId);
     if (!syncState) return {};
 
-    const sessionPath = join(syncState.agentWorkspacePath, filePath);
+    const sessionPath = this.os.path.join(syncState.agentWorkspacePath, filePath);
 
-    if (!existsSync(sessionPath)) {
+    if (!this.os.fs.exists(sessionPath)) {
       return {};
     }
 
-    const stats = lstatSync(sessionPath);
+    const stats = this.os.fs.lstat(sessionPath);
     if (!stats.isFile()) {
       return {};
     }
@@ -501,17 +494,17 @@ export class FileSyncService {
 
     return {
       size: stats.size,
-      lastModified: stats.mtime,
+      lastModified: stats.mtime as Date,
       checksum,
     };
   }
 
   private async calculateChecksum(filePath: string): Promise<string> {
-    const stats = statSync(filePath);
+    const stats = this.os.fs.stat(filePath);
     if (stats.isDirectory()) {
       throw new Error(`Cannot calculate checksum for directory: ${filePath}`);
     }
-    const content = readFileSync(filePath);
+    const content = this.os.fs.readFile(filePath);
     return crypto.createHash("md5").update(content).digest("hex");
   }
 
@@ -546,4 +539,5 @@ const mockSccService = {
 export const fileSyncService = new FileSyncService({
   sessionRepository: {} as any,
   sccService: mockSccService as any,
+  os: {} as any,
 });

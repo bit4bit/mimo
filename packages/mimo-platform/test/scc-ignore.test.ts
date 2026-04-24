@@ -10,6 +10,7 @@ import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { SccService } from "../src/impact/scc-service.js";
+import { createOS } from "../src/os/node-adapter.js";
 
 describe("SCC Composite Ignore File", () => {
   let testDir: string;
@@ -30,7 +31,8 @@ echo '[]'`,
       { mode: 0o755 },
     );
 
-    sccService = new SccService(mockSccPath);
+    const os = createOS({ ...process.env });
+    sccService = new SccService(os, mockSccPath);
   });
 
   afterAll(() => {

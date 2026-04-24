@@ -1,5 +1,4 @@
-import { join } from "path";
-import { statSync, readFileSync } from "fs";
+import type { OS } from "../os/types.js";
 import crypto from "crypto";
 import { VCS_INTERNALS, scanDirectory } from "../vcs/index.js";
 
@@ -21,65 +20,53 @@ export interface ChangedFilesResult {
 }
 
 async function collectFiles(
+  os: OS,
   dirPath: string,
   basePath: string,
   fileMap: Map<string, { checksum: string; size: number }>,
 ): Promise<void> {
-  await scanDirectory(dirPath, basePath, (fullPath, relPath) => {
-    const stats = statSync(fullPath);
+  await scanDirectory(os, dirPath, basePath, (fullPath, relPath) => {
+    const stats = os.fs.stat(fullPath);
     // Skip directories and non-regular files (symlinks, etc.)
     if (!stats.isFile()) return;
-    const content = readFileSync(fullPath);
+    const content = os.fs.readFile(fullPath);
     const checksum = crypto.createHash("md5").update(content).digest("hex");
     fileMap.set(relPath, { checksum, size: stats.size });
   });
 }
 
 export async function detectChangedFiles(
+  os: OS,
   upstreamPath: string,
   workspacePath: string,
 ): Promise<ChangedFilesResult> {
   const upstreamFiles = new Map<string, { checksum: string; size: number }>();
   const workspaceFiles = new Map<string, { checksum: string; size: number }>();
 
-  await collectFiles(upstreamPath, upstreamPath, upstreamFiles);
-  await collectFiles(workspacePath, workspacePath, workspaceFiles);
+  await collectFiles(os, upstreamPath, upstreamPath, upstreamFiles);
+  await collectFiles(os, workspacePath, workspacePath, workspaceFiles);
 
   const files: FileChange[] = [];
   let added = 0;
   let modified = 0;
   let deleted = 0;
 
-  // Check workspace files
-  for (const [relPath, workspaceInfo] of workspaceFiles) {
-    const upstreamInfo = upstreamFiles.get(relPath);
-
-    if (!upstreamInfo) {
+  // Files in workspace but not in upstream = added
+  for (const [path, workspaceData] of workspaceFiles) {
+    if (!upstreamFiles.has(path)) {
+      files.push({ path, status: "added", size: workspaceData.size });
       added++;
-      files.push({
-        path: relPath,
-        status: "added",
-        size: workspaceInfo.size,
-      });
-    } else if (upstreamInfo.checksum !== workspaceInfo.checksum) {
+    } else if (upstreamFiles.get(path)!.checksum !== workspaceData.checksum) {
+      files.push({ path, status: "modified", size: workspaceData.size });
       modified++;
-      files.push({
-        path: relPath,
-        status: "modified",
-        size: workspaceInfo.size,
-      });
     }
   }
 
-  // Check for deleted files
-  for (const [relPath, upstreamInfo] of upstreamFiles) {
-    if (!workspaceFiles.has(relPath)) {
+  // Files in upstream but not in workspace = deleted
+  for (const [path, upstreamData] of upstreamFiles) {
+    if (!workspaceFiles.has(path)) {
+      files.push({ path, status: "deleted", size: upstreamData.size });
       deleted++;
-      files.push({
-        path: relPath,
-        status: "deleted",
-        size: upstreamInfo.size,
-      });
     }
   }
 

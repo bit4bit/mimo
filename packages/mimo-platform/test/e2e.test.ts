@@ -9,6 +9,7 @@ import {
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
+import { createOS } from "../src/os/node-adapter.js";
 
 /**
  * Integration Tests
@@ -161,7 +162,9 @@ describe("Integration Tests", () => {
         );
 
         const { ConfigService } = await import("../src/config/service.js");
+        const os = createOS(process.env as Record<string, string>);
         const isolatedConfigService = new ConfigService(
+          os,
           join(mimoDir, "config.yaml"),
         );
         const loadedConfig = isolatedConfigService.load();
@@ -198,7 +201,9 @@ describe("Integration Tests", () => {
         );
 
         const { ConfigService } = await import("../src/config/service.js");
+        const os = createOS(process.env as Record<string, string>);
         const isolatedConfigService = new ConfigService(
+          os,
           join(mimoDir, "config.yaml"),
         );
         const loadedConfig = isolatedConfigService.load();
@@ -232,12 +237,15 @@ describe("Integration Tests", () => {
 
   describe("13.9: Error Handling Integration", () => {
     it("should handle missing session gracefully", async () => {
+      const { createOS } = await import("../src/os/node-adapter.js");
+      const os = createOS(process.env as Record<string, string>);
       const { SessionRepository } =
         await import("../src/sessions/repository.js");
 
       const tempDir = mkdtempSync(join(tmpdir(), "mimo-session-test-"));
       const sessionRepository = new SessionRepository({
         paths: { projects: join(tempDir, "projects"), data: tempDir },
+        os,
       });
 
       const session = await sessionRepository.findById("nonexistent-id");
@@ -247,12 +255,15 @@ describe("Integration Tests", () => {
     });
 
     it("should handle missing project gracefully", async () => {
+      const { createOS } = await import("../src/os/node-adapter.js");
+      const os = createOS(process.env as Record<string, string>);
       const { ProjectRepository } =
         await import("../src/projects/repository.js");
 
       const tempDir = mkdtempSync(join(tmpdir(), "mimo-project-test-"));
       const projectRepository = new ProjectRepository({
         projectsPath: join(tempDir, "projects"),
+        os,
       });
 
       const project = await projectRepository.findById("nonexistent-id");

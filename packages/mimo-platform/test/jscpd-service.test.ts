@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync, writeFileSync } from "fs";
+import { createOS } from "../src/os/node-adapter.js";
 
 // Duplicated block used across multiple test files
 const DUPLICATED_BLOCK = `function compute(x: number, y: number): number {
@@ -30,22 +31,25 @@ describe("JscpdService", () => {
 
   it("initializes with a binary path", async () => {
     const { JscpdService } = await import("../src/impact/jscpd-service.ts");
+    const os = createOS({ ...process.env });
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
-    const service = new JscpdService(jscpdBin);
+    const service = new JscpdService(os, jscpdBin);
     expect(service.getJscpdPath()).toBe(jscpdBin);
   });
 
   it("reports as installed when binary exists", async () => {
     const { JscpdService } = await import("../src/impact/jscpd-service.ts");
+    const os = createOS({ ...process.env });
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
-    const service = new JscpdService(jscpdBin);
+    const service = new JscpdService(os, jscpdBin);
     expect(service.isInstalled()).toBe(true);
   });
 
   it("parses cross-file duplicates from jscpd output", async () => {
     const { JscpdService } = await import("../src/impact/jscpd-service.ts");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
-    const service = new JscpdService(jscpdBin);
+    const os = createOS({ ...process.env });
+    const service = new JscpdService(os, jscpdBin);
 
     // Write two files with the same block
     const fileA = join(testDir, "a.ts");
@@ -67,7 +71,8 @@ describe("JscpdService", () => {
   it("parses intra-file duplicates from jscpd output", async () => {
     const { JscpdService } = await import("../src/impact/jscpd-service.ts");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
-    const service = new JscpdService(jscpdBin);
+    const os = createOS({ ...process.env });
+    const service = new JscpdService(os, jscpdBin);
 
     // Write a single file with the same block twice
     const fileA = join(testDir, "intra.ts");
@@ -90,7 +95,8 @@ describe("JscpdService", () => {
   it("returns empty metrics when no duplicates exist", async () => {
     const { JscpdService } = await import("../src/impact/jscpd-service.ts");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
-    const service = new JscpdService(jscpdBin);
+    const os = createOS({ ...process.env });
+    const service = new JscpdService(os, jscpdBin);
 
     const fileA = join(testDir, "unique.ts");
     writeFileSync(fileA, `export const a = 1;\nexport const b = 2;\n`);
@@ -105,7 +111,8 @@ describe("JscpdService", () => {
   it("builds composite ignore file from gitignore and mimoignore", async () => {
     const { JscpdService } = await import("../src/impact/jscpd-service.ts");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
-    const service = new JscpdService(jscpdBin);
+    const os = createOS({ ...process.env });
+    const service = new JscpdService(os, jscpdBin);
 
     writeFileSync(join(testDir, ".gitignore"), "node_modules\ndist\n");
     writeFileSync(join(testDir, ".mimoignore"), "*.generated.ts\n");

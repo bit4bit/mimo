@@ -1,6 +1,6 @@
-import { readFileSync, existsSync, writeFileSync } from "fs";
 import { load, dump } from "js-yaml";
 import { logger } from "../logger.js";
+import type { OS } from "../os/types.js";
 
 export interface GlobalKeybindingsConfig {
   newThread?: string;
@@ -278,8 +278,10 @@ function sanitizeSummaryConfig(config: unknown): SummaryConfig {
 export class ConfigService {
   private config: Config | null = null;
   private _configPath: string | null = null;
+  private os: OS;
 
-  constructor(configPath?: string) {
+  constructor(os: OS, configPath?: string) {
+    this.os = os;
     this._configPath = configPath ?? null;
   }
 
@@ -304,14 +306,14 @@ export class ConfigService {
       return defaultConfig;
     }
 
-    if (!existsSync(configPath)) {
+    if (!this.os.fs.exists(configPath)) {
       // Create default config
       this.save(defaultConfig);
       return defaultConfig;
     }
 
     try {
-      const content = readFileSync(configPath, "utf-8");
+      const content = this.os.fs.readFile(configPath, "utf-8");
       const loaded = load(content) as Partial<Config>;
 
       this.config = {
@@ -346,7 +348,7 @@ export class ConfigService {
       return;
     }
     try {
-      writeFileSync(configPath, dump(config), "utf-8");
+      this.os.fs.writeFile(configPath, dump(config), "utf-8");
       this.config = config;
     } catch (error) {
       logger.error("Failed to save config:", error);
@@ -365,4 +367,42 @@ export class ConfigService {
   }
 }
 
-export const configService = new ConfigService();
+// Singleton instance for backward compatibility with existing tests
+// Production code should use createMimoContext() and inject OS properly
+export const configService = new ConfigService(
+  {
+    fs: {
+      exists: () => false,
+      readFile: () => "",
+      writeFile: () => {},
+      appendFile: () => {},
+      mkdir: () => {},
+      unlink: () => {},
+      copyFile: () => {},
+      chmod: () => {},
+      rename: () => {},
+      watch: () => ({ close: () => {} }),
+      rm: () => {},
+      readdir: () => [],
+      stat: () => ({ isDirectory: () => false, isFile: () => false, size: 0 }),
+      lstat: () => ({ isDirectory: () => false, isFile: () => false, isSymbolicLink: () => false, size: 0 }),
+      cp: () => {},
+      utimes: () => {},
+      realpath: (p: string) => p,
+      mkdtemp: () => "",
+    } as any,
+    path: {
+      homeDir: () => "/home/test",
+      tempDir: () => "/tmp",
+      platform: () => "linux",
+      arch: () => "x64",
+      join: (...paths: string[]) => paths.join("/").replace(/\/+/g, "/"),
+      dirname: (p: string) => { const i = p.lastIndexOf("/"); return i <= 0 ? "/" : p.slice(0, i); },
+      basename: (p: string) => p.split("/").filter(Boolean).pop() || "",
+      relative: (from: string, to: string) => to.startsWith(from + "/") ? to.slice(from.length + 1) : to,
+      resolve: (...paths: string[]) => paths.join("/").replace(/\/+/g, "/"),
+    } as any,
+    command: {} as any,
+    env: { get: () => undefined, getOrThrow: () => "", getAll: () => ({}), has: () => false } as any,
+  }
+);

@@ -6,7 +6,7 @@ import {
   afterAll,
   beforeEach,
 } from "bun:test";
-import { fileSyncService, FileChange, FileStatus } from "../src/sync/service";
+import { FileSyncService, FileChange, FileStatus } from "../src/sync/service";
 import {
   mkdtempSync,
   writeFileSync,
@@ -17,10 +17,12 @@ import {
 } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
+import { createOS } from "../src/os/node-adapter.js";
 
 describe("File Synchronization", () => {
   let sessionWorktree: string;
   let originalRepo: string;
+  let fileSyncService: FileSyncService;
   const sessionId = "test-session-123";
 
   beforeEach(() => {
@@ -32,6 +34,14 @@ describe("File Synchronization", () => {
     mkdirSync(join(originalRepo, "src"), { recursive: true });
     writeFileSync(join(originalRepo, "src", "app.js"), "console.log('hello');");
     writeFileSync(join(originalRepo, "README.md"), "# Test Project");
+
+    // Create FileSyncService with proper OS injection
+    const os = createOS({ ...process.env });
+    fileSyncService = new FileSyncService({
+      sessionRepository: {} as any,
+      sccService: { invalidateCache: () => {} } as any,
+      os,
+    });
 
     // Initialize sync service
     fileSyncService.initializeSession(sessionId, sessionWorktree, originalRepo);
@@ -337,6 +347,7 @@ describe("File Synchronization", () => {
 describe("File Sync API Routes", () => {
   let sessionWorktree: string;
   let originalRepo: string;
+  let fileSyncService: FileSyncService;
   const sessionId = "api-test-session";
   const baseUrl = "http://localhost:3456";
 
@@ -351,6 +362,14 @@ describe("File Sync API Routes", () => {
 
     mkdirSync(join(originalRepo, "src"), { recursive: true });
     writeFileSync(join(originalRepo, "src", "app.js"), "console.log('hello');");
+
+    // Create FileSyncService with proper OS injection
+    const os = createOS({ ...process.env });
+    fileSyncService = new FileSyncService({
+      sessionRepository: {} as any,
+      sccService: { invalidateCache: () => {} } as any,
+      os,
+    });
 
     fileSyncService.initializeSession(sessionId, sessionWorktree, originalRepo);
   });
