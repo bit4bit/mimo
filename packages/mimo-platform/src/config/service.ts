@@ -10,6 +10,10 @@ export interface GlobalKeybindingsConfig {
   openSessionFinder?: string;
 }
 
+export interface SummaryConfig {
+  prompt?: string;
+}
+
 export const defaultGlobalKeybindings: GlobalKeybindingsConfig = {
   newThread: "Control+Shift+N",
   nextThread: "Control+Shift+ArrowRight",
@@ -54,6 +58,7 @@ export interface Config {
   sessionKeybindings?: SessionKeybindingsConfig;
   globalKeybindings?: GlobalKeybindingsConfig;
   chatFileExtensions?: string[];
+  summary?: SummaryConfig;
 }
 
 export const defaultSessionKeybindings: SessionKeybindingsConfig = {
@@ -252,6 +257,21 @@ function sanitizeChatFileExtensions(extensions: unknown): string[] {
   return Array.from(merged);
 }
 
+export const defaultSummaryPrompt =
+  "Analyze the following conversation history in chronological order. Produce a concise structured summary covering: what was done (actions taken, files created/modified), main topics discussed, decisions made, current state, and any open questions. History:";
+
+function sanitizeSummaryConfig(config: unknown): SummaryConfig {
+  if (!config || typeof config !== "object") {
+    return { prompt: defaultSummaryPrompt };
+  }
+  const raw = config as Record<string, unknown>;
+  const result: SummaryConfig = { prompt: defaultSummaryPrompt };
+  if (typeof raw.prompt === "string" && raw.prompt.trim().length > 0) {
+    result.prompt = raw.prompt.trim();
+  }
+  return result;
+}
+
 export class ConfigService {
   private config: Config | null = null;
   private _configPath: string | null = null;
@@ -306,6 +326,7 @@ export class ConfigService {
         chatFileExtensions: sanitizeChatFileExtensions(
           loaded.chatFileExtensions,
         ),
+        summary: sanitizeSummaryConfig(loaded.summary),
       };
 
       return this.config;
