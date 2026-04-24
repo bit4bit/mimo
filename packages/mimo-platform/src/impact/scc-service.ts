@@ -203,7 +203,7 @@ export class SccService {
       logger.debug(`[scc] Downloading from ${url}...`);
 
       // Download using curl
-      this.os.command.runSync([
+      await this.os.command.run([
         "curl",
         "-L",
         "-o",
@@ -217,13 +217,13 @@ export class SccService {
 
       // Extract
       if (platform.os === "Windows") {
-        this.os.command.runSync([
+        await this.os.command.run([
           "powershell",
           "-command",
           `Expand-Archive -Path '${downloadPath}' -DestinationPath '${binDir}' -Force`,
         ]);
       } else {
-        this.os.command.runSync([
+        await this.os.command.run([
           "tar",
           "-xzf",
           downloadPath,

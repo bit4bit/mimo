@@ -352,7 +352,7 @@ class MimoAgent {
         break;
 
       case "sync_now":
-        this.handleSyncNow(message);
+        void this.handleSyncNow(message);
         break;
 
       case "thread_deleted":
@@ -519,7 +519,7 @@ class MimoAgent {
         this.os.fs.mkdir(checkoutPath, { recursive: true });
       }
       try {
-        this.os.command.runSync(["fossil", "open", repoPath], {
+        await this.os.command.run(["fossil", "open", repoPath], {
           cwd: checkoutPath,
           timeoutMs: 30000,
         });
@@ -536,7 +536,7 @@ class MimoAgent {
           `[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`,
         );
         try {
-          this.os.command.runSync(["fossil", "remote-url", remoteUrl], {
+          await this.os.command.run(["fossil", "remote-url", remoteUrl], {
             cwd: checkoutPath,
             timeoutMs: 30000,
           });
@@ -545,7 +545,7 @@ class MimoAgent {
         }
         // Ensure local password matches server password
         try {
-          this.os.command.runSync(
+          await this.os.command.run(
             ["fossil", "user", "password", agentWorkspaceUser, agentWorkspacePassword],
             { cwd: checkoutPath, timeoutMs: 30000 },
           );
@@ -557,20 +557,20 @@ class MimoAgent {
         try {
           // Remove existing remote if exists, then add new one
           try {
-            this.os.command.runSync(["fossil", "remote", "rm", "server"], {
+            await this.os.command.run(["fossil", "remote", "rm", "server"], {
               cwd: checkoutPath,
               timeoutMs: 30000,
             });
           } catch {
             // Remote may not exist, ignore
           }
-          this.os.command.runSync(["fossil", "remote", "add", "server", remoteUrl], {
+          await this.os.command.run(["fossil", "remote", "add", "server", remoteUrl], {
             cwd: checkoutPath,
             timeoutMs: 30000,
           });
           logger.debug(`[mimo-agent]   Updated remote 'server'`);
           // Do a sync using the named remote to verify credentials work
-          this.os.command.runSync(["fossil", "sync", "server"], { cwd: checkoutPath, timeoutMs: 30000 });
+          await this.os.command.run(["fossil", "sync", "server"], { cwd: checkoutPath, timeoutMs: 30000 });
           logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
         } catch {
           // Ignore error
@@ -579,7 +579,7 @@ class MimoAgent {
     } else if (this.os.fs.exists(this.os.path.join(checkoutPath, ".fossil"))) {
       logger.debug(`[mimo-agent]   Checkout exists, ensuring open`);
       try {
-        this.os.command.runSync(["fossil", "open"], { cwd: checkoutPath, timeoutMs: 30000 });
+        await this.os.command.run(["fossil", "open"], { cwd: checkoutPath, timeoutMs: 30000 });
       } catch {
         // Already open or error, continue
       }
@@ -593,7 +593,7 @@ class MimoAgent {
           `[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`,
         );
         try {
-          this.os.command.runSync(["fossil", "remote-url", remoteUrl], {
+          await this.os.command.run(["fossil", "remote-url", remoteUrl], {
             cwd: checkoutPath,
             timeoutMs: 30000,
           });
@@ -602,7 +602,7 @@ class MimoAgent {
         }
         // Ensure local password matches server password
         try {
-          this.os.command.runSync(
+          await this.os.command.run(
             ["fossil", "user", "password", agentWorkspaceUser, agentWorkspacePassword],
             { cwd: checkoutPath, timeoutMs: 30000 },
           );
@@ -614,20 +614,20 @@ class MimoAgent {
         try {
           // Remove existing remote if exists, then add new one
           try {
-            this.os.command.runSync(["fossil", "remote", "rm", "server"], {
+            await this.os.command.run(["fossil", "remote", "rm", "server"], {
               cwd: checkoutPath,
               timeoutMs: 30000,
             });
           } catch {
             // Remote may not exist, ignore
           }
-          this.os.command.runSync(["fossil", "remote", "add", "server", remoteUrl], {
+          await this.os.command.run(["fossil", "remote", "add", "server", remoteUrl], {
             cwd: checkoutPath,
             timeoutMs: 30000,
           });
           logger.debug(`[mimo-agent]   Updated remote 'server'`);
           // Do a sync using the named remote to verify credentials work
-          this.os.command.runSync(["fossil", "sync", "server"], { cwd: checkoutPath, timeoutMs: 30000 });
+          await this.os.command.run(["fossil", "sync", "server"], { cwd: checkoutPath, timeoutMs: 30000 });
           logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
         } catch {
           // Ignore error
@@ -646,33 +646,33 @@ class MimoAgent {
           `[mimo-agent]   Using authenticated URL: ${url.protocol}//${url.username}:****@${url.host}/`,
         );
       }
-      this.os.command.runSync(["fossil", "clone", cloneUrl, repoPath], { timeoutMs: 30000 });
+      await this.os.command.run(["fossil", "clone", cloneUrl, repoPath], { timeoutMs: 30000 });
       if (!this.os.fs.exists(checkoutPath)) {
         this.os.fs.mkdir(checkoutPath, { recursive: true });
       }
       // Open without sync first, then set remote with credentials
-      this.os.command.runSync(["fossil", "open", "--nosync", repoPath], {
+      await this.os.command.run(["fossil", "open", "--nosync", repoPath], {
         cwd: checkoutPath,
         timeoutMs: 30000,
       });
       // Set remote URL with credentials for future syncs
-      this.os.command.runSync(["fossil", "remote-url", cloneUrl], {
+      await this.os.command.run(["fossil", "remote-url", cloneUrl], {
         cwd: checkoutPath,
         timeoutMs: 30000,
       });
       // Set local password to match server password (fossil creates local admin with random password)
       if (agentWorkspaceUser && agentWorkspacePassword) {
-        this.os.command.runSync(
+        await this.os.command.run(
           ["fossil", "user", "password", agentWorkspaceUser, agentWorkspacePassword],
           { cwd: checkoutPath, timeoutMs: 30000 },
         );
         // Add a named remote "server" with credentials embedded
-        this.os.command.runSync(["fossil", "remote", "add", "server", cloneUrl], {
+        await this.os.command.run(["fossil", "remote", "add", "server", cloneUrl], {
           cwd: checkoutPath,
           timeoutMs: 30000,
         });
         // Do an initial sync using the named remote with credentials
-        this.os.command.runSync(["fossil", "sync", "server"], { cwd: checkoutPath, timeoutMs: 30000 });
+        await this.os.command.run(["fossil", "sync", "server"], { cwd: checkoutPath, timeoutMs: 30000 });
       }
     }
   }
@@ -1331,7 +1331,7 @@ class MimoAgent {
     );
   }
 
-  private handleSyncNow(message: any): void {
+  private async handleSyncNow(message: any): Promise<void> {
     const sessionId = message.sessionId;
     const requestId = message.requestId;
 
@@ -1362,8 +1362,8 @@ class MimoAgent {
       return;
     }
 
-    const runFossil = (args: string[]) => {
-      const result = this.os.command.runSync(["fossil", ...args], {
+    const runFossil = async (args: string[]) => {
+      const result = await this.os.command.run(["fossil", ...args], {
         cwd: session.checkoutPath,
         timeoutMs: 15000,
         env: {
@@ -1377,7 +1377,7 @@ class MimoAgent {
 
     try {
       // --dotfiles flag is required to include dotfiles (hidden files starting with '.')
-      const addremoveResult = runFossil(["addremove", "--dotfiles"]);
+      const addremoveResult = await runFossil(["addremove", "--dotfiles"]);
       if (!addremoveResult.success) {
         this.send({
           type: "sync_now_result",
@@ -1394,7 +1394,7 @@ class MimoAgent {
         return;
       }
 
-      const changesResult = runFossil(["changes"]);
+      const changesResult = await runFossil(["changes"]);
       if (!changesResult.success) {
         this.send({
           type: "sync_now_result",
@@ -1425,7 +1425,7 @@ class MimoAgent {
       }
 
       const commitMessage = `agent-sync(${sessionId}): sync fossil changes ${new Date().toISOString()}`;
-      let commitResult = runFossil(["commit", "-m", commitMessage]);
+      let commitResult = await runFossil(["commit", "-m", commitMessage]);
       if (!commitResult.success) {
         const combined = `${commitResult.output}\n${commitResult.error}`;
         if (combined.includes("nothing has changed")) {
@@ -1454,7 +1454,7 @@ class MimoAgent {
           for (const file of binaryFiles) {
             runFossil(["forget", file]);
           }
-          commitResult = runFossil(["commit", "-m", commitMessage]);
+          commitResult = await runFossil(["commit", "-m", commitMessage]);
           const retryCombined = `${commitResult.output}\n${commitResult.error}`;
           if (
             !commitResult.success &&
@@ -1483,7 +1483,7 @@ class MimoAgent {
           );
 
           // Try to update and merge
-          const updateResult = runFossil(["update", "--nosync"]);
+          const updateResult = await runFossil(["update", "--nosync"]);
           if (!updateResult.success) {
             this.send({
               type: "sync_now_result",
@@ -1499,7 +1499,7 @@ class MimoAgent {
           }
 
           // Try commit again after update
-          commitResult = runFossil([
+          commitResult = await runFossil([
             "commit",
             "-m",
             commitMessage,
@@ -1539,7 +1539,7 @@ class MimoAgent {
         }
       }
 
-      const pushResult = runFossil(["push"]);
+      const pushResult = await runFossil(["push"]);
       if (!pushResult.success) {
         this.send({
           type: "sync_now_result",
