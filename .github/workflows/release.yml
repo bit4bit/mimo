@@ -2,6 +2,8 @@ name: Release
 
 on:
   push:
+    branches:
+      - 'release'
     tags:
       - 'v*'
 
@@ -115,16 +117,24 @@ jobs:
         cd dist
         cat *.sha256 > checksums.txt
 
-    - name: Get version from tag
+    - name: Get version
       id: get_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      run: |
+        if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          VERSION="${GITHUB_REF#refs/tags/v}"
+        else
+          # For branch pushes (testing), use branch name + short sha
+          VERSION="test-${GITHUB_REF#refs/heads/}-$(git rev-parse --short HEAD)"
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Release version: $VERSION"
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
         name: Release ${{ steps.get_version.outputs.VERSION }}
         draft: false
-        prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
+        prerelease: true
         files: |
           dist/mimo-platform-*
           dist/mimo-agent-*
