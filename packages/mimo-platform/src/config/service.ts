@@ -47,6 +47,7 @@ export interface SessionKeybindingsConfig {
   decreaseFocus?: string;
   approvePatch?: string;
   declinePatch?: string;
+  newSession?: string;
 }
 
 export interface Config {
@@ -86,6 +87,7 @@ export const defaultSessionKeybindings: SessionKeybindingsConfig = {
   decreaseFocus: "Alt+Shift+ArrowLeft",
   approvePatch: "Control+Enter",
   declinePatch: "Alt+Shift+G",
+  newSession: "Alt+Shift+P",
 };
 
 export const defaultChatFileExtensions: string[] = [
@@ -205,6 +207,7 @@ function sanitizeSessionKeybindings(
     "decreaseFocus",
     "approvePatch",
     "declinePatch",
+    "newSession",
   ];
 
   for (const key of supportedKeys) {

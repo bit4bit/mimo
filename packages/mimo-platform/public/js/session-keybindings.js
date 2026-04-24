@@ -54,6 +54,7 @@
     decreaseFocus: "Alt+Shift+ArrowLeft",
     approvePatch: "Control+Enter",
     declinePatch: "Alt+Shift+G",
+    newSession: "Alt+Shift+P",
   };
 
   function getConfiguredKeybindings() {
@@ -70,24 +71,14 @@
       }
     });
 
-    // Edit buffer keybindings (also configurable)
-    [
-      "openFileFinder",
-      "closeFile",
-      "reloadFile",
-      "nextFile",
-      "previousFile",
-    ].forEach((key) => {
-      const value = raw[key];
-      if (typeof value === "string" && value.trim().length > 0) {
-        configured[key] = value.trim();
-      }
-    });
-
     return configured;
   }
 
   const keybindings = getConfiguredKeybindings();
+
+  function isSessionPage() {
+    return !!window.MIMO_SESSION_ID;
+  }
 
   function isModShift(event) {
     return (event.metaKey || event.ctrlKey) && event.shiftKey;
@@ -492,6 +483,13 @@
 
     const isHelpShortcut = bindingMatches(event, keybindings.shortcutsHelp);
 
+    if (!isSessionPage()) {
+      if (isModShift(event)) {
+        highlightShortcutsBar();
+      }
+      return;
+    }
+
     let handled = false;
 
     // Edit buffer keybindings (checked before thread keybindings to keep them separate)
@@ -677,6 +675,12 @@
         typeof window.MIMO_PATCH_BUFFER.decline === "function"
       ) {
         window.MIMO_PATCH_BUFFER.decline();
+        handled = true;
+      }
+    } else if (bindingMatches(event, keybindings.newSession)) {
+      var projectId = window.MIMO_PROJECT_ID;
+      if (projectId) {
+        window.location.href = "/projects/" + projectId + "/sessions/new";
         handled = true;
       }
     }

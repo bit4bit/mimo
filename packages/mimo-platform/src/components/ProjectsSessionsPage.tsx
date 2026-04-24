@@ -272,6 +272,24 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
         </section>
       </div>
 
+      {selectedProject && (
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+(function () {
+  var newSessionUrl = "/projects/${selectedProject.id}/sessions/new";
+  document.addEventListener("keydown", function (e) {
+    if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && (e.key === "p" || e.key === "P")) {
+      e.preventDefault();
+      window.location.href = newSessionUrl;
+    }
+  });
+})();
+`,
+          }}
+        />
+      )}
+
       <style>{`
         .projects-sessions-page {
           display: grid;
