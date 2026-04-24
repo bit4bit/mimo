@@ -49,21 +49,31 @@ jobs:
     # Build mimo-platform with embedded assets
     - name: Build mimo-platform
       working-directory: ./packages/mimo-platform
+      timeout-minutes: 15
       run: |
+        echo "Building mimo-platform for ${{ matrix.target }}..."
         bun build --compile \
           --target=${{ matrix.target }} \
           ./src/index.tsx \
           ./src/assets.ts \
-          --outfile ../../dist/mimo-platform-${{ matrix.suffix }}
+          --outfile ../../dist/mimo-platform-${{ matrix.suffix }} \
+          2>&1
+        echo "mimo-platform build complete"
+        ls -lh ../../dist/mimo-platform-${{ matrix.suffix }} || echo "Binary not found"
 
     # Build mimo-agent
     - name: Build mimo-agent
       working-directory: ./packages/mimo-agent
+      timeout-minutes: 10
       run: |
+        echo "Building mimo-agent for ${{ matrix.target }}..."
         bun build --compile \
           --target=${{ matrix.target }} \
           ./src/index.ts \
-          --outfile ../../dist/mimo-agent-${{ matrix.suffix }}
+          --outfile ../../dist/mimo-agent-${{ matrix.suffix }} \
+          2>&1
+        echo "mimo-agent build complete"
+        ls -lh ../../dist/mimo-agent-${{ matrix.suffix }} || echo "Binary not found"
 
     # Make binaries executable
     - name: Make binaries executable
@@ -122,14 +132,22 @@ jobs:
         cd dist
         cat *.sha256 > checksums.txt
 
-    - name: Get version
+    - name: Get version and create tag if needed
       id: get_version
       run: |
         if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
           VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "IS_TAG=true" >> $GITHUB_OUTPUT
         else
-          # For branch pushes (testing), use branch name + short sha
+          # For branch pushes (testing), create a test tag
           VERSION="test-${GITHUB_REF#refs/heads/}-$(git rev-parse --short HEAD)"
+          echo "IS_TAG=false" >> $GITHUB_OUTPUT
+          # Create lightweight tag for the release
+          git config user.email "github-actions@github.com"
+          git config user.name "GitHub Actions"
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+          echo "Created test tag: v$VERSION"
         fi
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         echo "Release version: $VERSION"
@@ -138,8 +156,9 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         name: Release ${{ steps.get_version.outputs.VERSION }}
+        tag_name: v${{ steps.get_version.outputs.VERSION }}
         draft: false
-        prerelease: true
+        prerelease: ${{ steps.get_version.outputs.IS_TAG == 'false' }}
         files: |
           dist/mimo-platform-*
           dist/mimo-agent-*
