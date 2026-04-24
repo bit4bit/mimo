@@ -250,6 +250,9 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 projectNotesContent,
               },
               "mcp-servers": { servers: mcpServers },
+              summary: {
+                threads: chatThreads,
+              },
             }}
           />
 

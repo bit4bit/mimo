@@ -5,6 +5,7 @@ import { ImpactBuffer } from "../components/ImpactBuffer.js";
 import { McpServersBuffer } from "./McpServersBuffer.js";
 import { EditBuffer } from "./EditBuffer.js";
 import { PatchBuffer } from "./PatchBuffer.js";
+import { SummaryBuffer } from "../components/SummaryBuffer.js";
 
 let initialized = false;
 
@@ -32,6 +33,13 @@ export function ensureDefaultBuffersRegistered(): void {
     name: "Impact",
     frame: "right",
     component: ImpactBuffer,
+  });
+
+  registerBuffer({
+    id: "summary",
+    name: "Summary",
+    frame: "right",
+    component: SummaryBuffer,
   });
 
   registerBuffer({

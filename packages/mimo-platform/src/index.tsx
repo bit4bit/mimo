@@ -11,6 +11,7 @@ import { createCommitRoutes } from "./commits/routes";
 import { createConfigRoutes } from "./config/routes";
 import { createCredentialsRoutes } from "./credentials/routes";
 import { createMcpServerRoutes } from "./mcp-servers/routes";
+import { createSummaryRoutes } from "./summary/routes";
 import {
   createAutoCommitRouter,
   resolveAgentSyncNowResult,
@@ -246,6 +247,11 @@ app.get("/api/projects/public", async (c) => {
   return c.json(publicProjects);
 });
 
+// Test endpoint - BEFORE protected routes
+app.get("/api/test", (c) => {
+  return c.json({ message: "test endpoint works" });
+});
+
 // Protected routes
 app.route("/", protectedRoutes);
 
@@ -254,6 +260,15 @@ app.route("/projects", createProjectsRoutes(mimoContext));
 
 // Session routes (protected)
 app.route("/sessions", createSessionsRoutes(mimoContext));
+
+// Summary API routes
+app.route("/api/summary", createSummaryRoutes(mimoContext));
+
+// Test endpoint
+app.get("/api/test", (c) => {
+  console.log("TEST ENDPOINT HIT");
+  return c.json({ message: "test endpoint works" });
+});
 
 // Agent routes (protected)
 app.route("/agents", createAgentsRoutes(mimoContext));

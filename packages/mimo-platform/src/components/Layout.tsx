@@ -80,6 +80,7 @@ export const Layout: FC<LayoutProps> = ({
           {sessionId && <script src="/js/session-clone.js" defer></script>}
           {sessionId && <script src="/js/notes.js" defer></script>}
           {sessionId && <script src="/js/edit-buffer.js" defer></script>}
+          {sessionId && <script src="/js/summary-buffer.js" defer></script>}
           {sessionId && (
             <script src="/js/session-keybindings.js" defer></script>
           )}

@@ -2288,6 +2288,10 @@ function finalizeMessageStream(duration) {
   ChatState.streaming.reconstructed = false;
   ChatState.streaming.active = false;
   ChatState.streaming.startTime = null;
+
+  // Dispatch event for summary auto-refresh
+  const threadId = typeof ChatThreadsState !== "undefined" ? ChatThreadsState.activeThreadId : null;
+  window.dispatchEvent(new CustomEvent("mimo_message_finalized", { detail: { chatThreadId: threadId } }));
 }
 
 // DOM: Insert thought section
