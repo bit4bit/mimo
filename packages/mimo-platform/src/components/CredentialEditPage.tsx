@@ -35,7 +35,7 @@ export const CredentialEditPage: FC<CredentialEditPageProps> = ({
               value={credential.type.toUpperCase()}
               disabled
               class="form-input disabled"
-            />
+             data-help-id="credential-edit-page-type-input" />
             <p class="form-help">Credential type cannot be changed.</p>
           </div>
 
@@ -49,7 +49,7 @@ export const CredentialEditPage: FC<CredentialEditPageProps> = ({
               placeholder="e.g., GitHub Work"
               required
               class="form-input"
-            />
+             data-help-id="credential-edit-page-name-input" />
           </div>
 
           {isHttps ? (
@@ -63,7 +63,7 @@ export const CredentialEditPage: FC<CredentialEditPageProps> = ({
                   defaultValue={cred?.username}
                   placeholder="e.g., developer"
                   class="form-input"
-                />
+                 data-help-id="credential-edit-page-username-input" />
               </div>
 
               <div class="form-group">
@@ -74,7 +74,7 @@ export const CredentialEditPage: FC<CredentialEditPageProps> = ({
                   name="password"
                   placeholder="Leave blank to keep existing password"
                   class="form-input"
-                />
+                 data-help-id="credential-edit-page-password-input" />
                 <p class="form-help">
                   Leave blank to keep the existing password. Enter a new value
                   to update it.
@@ -90,7 +90,7 @@ export const CredentialEditPage: FC<CredentialEditPageProps> = ({
                 placeholder="Leave blank to keep existing key. Paste new key to update."
                 rows={8}
                 class="form-textarea"
-              />
+               data-help-id="credential-edit-page-private-key-textarea" />
               <p class="form-help">
                 Leave blank to keep the existing key. Paste a new key to update
                 it. Supported formats: OpenSSH, RSA, ECDSA, Ed25519.
@@ -99,10 +99,10 @@ export const CredentialEditPage: FC<CredentialEditPageProps> = ({
           )}
 
           <div class="form-actions">
-            <button type="submit" class="btn">
+            <button type="submit" class="btn" data-help-id="credential-edit-page-button">
               Update Credential
             </button>
-            <a href="/credentials" class="btn-secondary">
+            <a href="/credentials" class="btn-secondary" data-help-id="credential-edit-page-a">
               Cancel
             </a>
           </div>

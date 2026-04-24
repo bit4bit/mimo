@@ -27,7 +27,7 @@ export const ImpactBuffer: FC<ImpactBufferProps> = ({ sessionId }) => {
           >
             ⏳ Analyzing...
           </span>
-          <button id="impact-refresh-btn" type="button" class="btn-small">
+          <button id="impact-refresh-btn" type="button" class="btn-small" data-help-id="impact-buffer-impact-refresh-btn-button">
             Refresh
           </button>
         </div>

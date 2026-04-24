@@ -38,16 +38,16 @@ export const LandingPage: FC<LandingPageProps> = ({
                   Logged in as{" "}
                   <strong style="color: #d4d4d4;">{username}</strong>
                 </span>
-                <a href="/auth/logout" class="btn-secondary">
+                <a href="/auth/logout" class="btn-secondary" data-help-id="landing-page-a">
                   Logout
                 </a>
               </>
             ) : (
               <>
-                <a href="/auth/login" class="btn">
+                <a href="/auth/login" class="btn" data-help-id="landing-page-a">
                   Login
                 </a>
-                <a href="/auth/register" class="btn-secondary">
+                <a href="/auth/register" class="btn-secondary" data-help-id="landing-page-a">
                   Register
                 </a>
               </>
@@ -90,7 +90,7 @@ export const LandingPage: FC<LandingPageProps> = ({
             <div class="empty-state">
               <p>No projects yet.</p>
               {isAuthenticated && (
-                <a href="/projects/new" class="btn">
+                <a href="/projects/new" class="btn" data-help-id="landing-page-a">
                   Create your first project
                 </a>
               )}
@@ -102,7 +102,7 @@ export const LandingPage: FC<LandingPageProps> = ({
                   href={`/projects/${project.id}`}
                   class="project-card"
                   style="text-decoration: none; color: inherit; display: block;"
-                >
+                 data-help-id="landing-page-project-card-a">
                   <div class="project-header">
                     <span class="project-name">{project.name}</span>
                     <span class={`repo-type ${project.repoType}`}>
