@@ -1,0 +1,17 @@
+{
+  "name": "mimo",
+  "version": "0.0.0",
+  "description": "Mimo - AI-powered development platform",
+  "license": "AGPL-3.0-only",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "release": "./scripts/release.sh"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  }
+}

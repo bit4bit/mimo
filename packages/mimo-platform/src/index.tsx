@@ -37,6 +37,10 @@ import { createSessionDeletionUseCase } from "./sessions/session-deletion.js";
 import { sweepExpiredInactiveSessions } from "./sessions/session-retention-sweeper.js";
 import { normalizeAvailableCommands } from "./sessions/available-commands.js";
 
+// Asset embedding support for compiled executable
+// @ts-ignore - Module only exists after embedding
+import { getEmbeddedAssets, getMimeType, isCompiled } from "./assets.js";
+
 const app = new Hono();
 const _port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
@@ -93,9 +97,45 @@ function createMimoServer() {
 
 const mimoServer = createMimoServer();
 
-// Serve static files from public/
-app.use("/js/*", serveStatic({ root: "./public" }));
-app.use("/vendor/*", serveStatic({ root: "./public" }));
+// Serve static files from public/ (or embedded assets in compiled executable)
+let embeddedAssets: Map<string, Blob> | null = null;
+
+try {
+  if (isCompiled()) {
+    embeddedAssets = getEmbeddedAssets();
+    logger.debug("Using embedded assets for static file serving");
+  }
+} catch {
+  // Not compiled, will use filesystem
+  logger.debug("Using filesystem for static file serving");
+}
+
+// Serve static files - prefer embedded assets in compiled executable
+app.use("/js/*", async (c, next) => {
+  if (embeddedAssets) {
+    const path = "/js/" + c.req.path.split("/js/")[1];
+    const blob = embeddedAssets.get(path);
+    if (blob) {
+      return new Response(blob, {
+        headers: { "Content-Type": getMimeType(path) },
+      });
+    }
+  }
+  return serveStatic({ root: "./public" })(c, next);
+});
+
+app.use("/vendor/*", async (c, next) => {
+  if (embeddedAssets) {
+    const path = "/vendor/" + c.req.path.split("/vendor/")[1];
+    const blob = embeddedAssets.get(path);
+    if (blob) {
+      return new Response(blob, {
+        headers: { "Content-Type": getMimeType(path) },
+      });
+    }
+  }
+  return serveStatic({ root: "./public" })(c, next);
+});
 
 import { sessionStateService } from "./sessions/state.js";
 import { mcpTokenStore } from "./mcp/token-store.js";
