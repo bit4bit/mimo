@@ -141,6 +141,7 @@ import { sessionStateService } from "./sessions/state.js";
 import { mcpTokenStore } from "./mcp/token-store.js";
 import { createMcpRoutes } from "./mcp/server.js";
 import { createPlatformMcpServerConfig } from "./mcp/platform-config.js";
+import { registerHelpRoutes } from "./help/routes.js";
 
 // Track active chat sessions
 const chatSessions = new Map<string, Set<SessionWsClient>>();
@@ -350,6 +351,9 @@ app.route(
     },
   }),
 );
+
+// Help API endpoint (unprotected, read-only)
+registerHelpRoutes(app);
 
 // Health check
 app.get("/health", (c) => {

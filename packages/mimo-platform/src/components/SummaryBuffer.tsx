@@ -62,6 +62,7 @@ export const SummaryBuffer: FC<SummaryBufferProps> = ({ sessionId, threads = [] 
             class="summary-analyze-select"
             value={analyzeThreadId}
             onChange={(e) => setAnalyzeThreadId(e.target.value)}
+            data-help-id="summary-buffer-summary-analyze-select"
             style="width: 100%; padding: 6px; background: #222; color: #ddd; border: 1px solid #444; border-radius: 4px;"
           >
             {threads.map((thread) => (
@@ -73,6 +74,7 @@ export const SummaryBuffer: FC<SummaryBufferProps> = ({ sessionId, threads = [] 
         </div>
         <div style="flex: 1;">
           <label
+            data-help-id="summary-buffer-summarize-via-label"
             style="display: block; font-size: 10px; color: #888; margin-bottom: 4px;"
           >
             Summarize via
@@ -81,6 +83,7 @@ export const SummaryBuffer: FC<SummaryBufferProps> = ({ sessionId, threads = [] 
             class="summary-summarize-select"
             value={summarizeThreadId}
             onChange={(e) => setSummarizeThreadId(e.target.value)}
+            data-help-id="summary-buffer-summary-summarize-select"
             style="width: 100%; padding: 6px; background: #222; color: #ddd; border: 1px solid #444; border-radius: 4px;"
           >
             {threads.map((thread) => (
@@ -95,6 +98,7 @@ export const SummaryBuffer: FC<SummaryBufferProps> = ({ sessionId, threads = [] 
       <button
         type="button"
         id="summary-refresh-btn"
+        data-help-id="summary-buffer-summary-refresh-btn"
         style="padding: 8px 16px; background: #4a5568; color: white; border: none; border-radius: 4px; cursor: pointer; opacity: 0.9;"
       >
         Refresh
@@ -112,8 +116,16 @@ export const SummaryBuffer: FC<SummaryBufferProps> = ({ sessionId, threads = [] 
 
       <div
         id="summary-content"
+        data-help-id="summary-buffer-summary-content"
         style="margin-top: 12px; padding: 12px; background: #1a1a2a; color: #ddd; border-radius: 4px; font-size: 13px; white-space: pre-wrap; overflow-y: auto; flex: 1; display: none;"
       ></div>
+      <div
+        id="summary-description"
+        data-help-id="summary-buffer-description"
+        style="margin-top: 8px; font-size: 11px; color: #666;"
+      >
+        The summary helps you remember what happened in the chat.
+      </div>
     </div>
   );
 };

@@ -34,7 +34,7 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
         )}
 
         <form method="post" action={action} class="mcp-server-form">
-          {isEditing && <input type="hidden" name="_method" value="PATCH" />}
+          {isEditing && <input type="hidden" name="_method" value="PATCH"  data-help-id="mcp-server-form-page--method-input" />}
 
           <div class="form-group">
             <label htmlFor="name">
@@ -57,7 +57,7 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
               style={
                 isEditing ? { background: "#1a1a1a", color: "#666" } : undefined
               }
-            />
+             data-help-id="mcp-server-form-page-name-input" />
             <p class="form-help">
               {isEditing
                 ? "Name cannot be changed after creation. ID is auto-generated from the name."
@@ -74,7 +74,7 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
               placeholder="e.g., Access to project files"
               defaultValue={server?.description}
               class="form-input"
-            />
+             data-help-id="mcp-server-form-page-description-input" />
             <p class="form-help">
               Optional description to help identify this server's purpose.
             </p>
@@ -93,7 +93,7 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
                 isEditing ? { background: "#1a1a1a", color: "#666" } : undefined
               }
               onchange="toggleTransportFields()"
-            >
+             data-help-id="mcp-server-form-page-transport-select">
               <option value="stdio">
                 Standard I/O (stdio) - Spawn local process
               </option>
@@ -120,7 +120,7 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
                 placeholder="e.g., npx, node, python"
                 defaultValue={server?.command}
                 class="form-input"
-              />
+               data-help-id="mcp-server-form-page-command-input" />
               <p class="form-help">
                 The command to run the MCP server (e.g., npx, node, python,
                 docker).
@@ -138,7 +138,7 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
                 rows={5}
                 class="form-textarea"
                 defaultValue={server?.args?.join("\n")}
-              />
+               data-help-id="mcp-server-form-page-args-textarea" />
               <p class="form-help">
                 Command-line arguments, one per line. These will be passed to
                 the command.
@@ -157,7 +157,7 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
                 placeholder="e.g., http://localhost:3000/mcp"
                 defaultValue={server?.url}
                 class="form-input"
-              />
+               data-help-id="mcp-server-form-page-url-input" />
               <p class="form-help">
                 The URL of the MCP server endpoint (HTTP or SSE).
               </p>
@@ -179,6 +179,7 @@ X-Custom-Header: value`}
                         .join("\n")
                     : ""
                 }
+                data-help-id="mcp-server-form-page-headers-textarea"
               />
               <p class="form-help">
                 Optional HTTP headers, one per line in "Key: Value" format
@@ -188,10 +189,10 @@ X-Custom-Header: value`}
           </div>
 
           <div class="form-actions">
-            <button type="submit" class="btn">
+            <button type="submit" class="btn" data-help-id="mcp-server-form-page-button">
               {isEditing ? "Update MCP Server" : "Create MCP Server"}
             </button>
-            <a href="/mcp-servers" class="btn-secondary">
+            <a href="/mcp-servers" class="btn-secondary" data-help-id="mcp-server-form-page-a">
               Cancel
             </a>
           </div>

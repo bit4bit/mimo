@@ -18,7 +18,7 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
       key: "name",
       label: "Name",
       render: (server) => (
-        <a href={`/mcp-servers/${server.id}/edit`}>{server.name}</a>
+        <a href={`/mcp-servers/${server.id}/edit`} data-help-id="mcp-server-list-page-a">{server.name}</a>
       ),
     },
     {
@@ -57,7 +57,7 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
       label: "Actions",
       render: (server) => (
         <div>
-          <a href={`/mcp-servers/${server.id}/edit`} class="btn-secondary">
+          <a href={`/mcp-servers/${server.id}/edit`} class="btn-secondary" data-help-id="mcp-server-list-page-a">
             Edit
           </a>
           <form
@@ -66,7 +66,7 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
             style="display: inline;"
             onsubmit="return confirm('Are you sure you want to delete this MCP server? Sessions using it may fail to start.')"
           >
-            <button type="submit" class="btn-danger">
+            <button type="submit" class="btn-danger" data-help-id="mcp-server-list-page-button">
               Delete
             </button>
           </form>
@@ -80,7 +80,7 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
       <div class="container-wide">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <h1>MCP Servers</h1>
-          <a href="/mcp-servers/new" class="btn">
+          <a href="/mcp-servers/new" class="btn" data-help-id="mcp-server-list-page-a">
             New MCP Server
           </a>
         </div>
@@ -97,7 +97,7 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
                 MCP servers extend your AI agent's capabilities with tools and
                 resources.
               </p>
-              <a href="/mcp-servers/new" class="btn" style="margin-top: 20px;">
+              <a href="/mcp-servers/new" class="btn" style="margin-top: 20px;" data-help-id="mcp-server-list-page-a">
                 Create your first MCP server
               </a>
             </div>

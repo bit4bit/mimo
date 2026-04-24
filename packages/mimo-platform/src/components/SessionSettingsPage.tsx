@@ -146,7 +146,7 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
         >
           <div class="form-group">
             <label>Priority</label>
-            <select name="priority" required>
+            <select name="priority" required data-help-id="session-settings-page-priority-select">
               <option value="high" selected={session.priority === "high"}>
                 High
               </option>
@@ -162,7 +162,7 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
             </p>
           </div>
           <div class="actions">
-            <button type="submit" class="btn">
+            <button type="submit" class="btn" data-help-id="session-settings-page-button">
               Update Priority
             </button>
           </div>
@@ -198,7 +198,7 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
               </span>
             </label>
 
-            <select name="idleTimeoutMs" required>
+            <select name="idleTimeoutMs" required data-help-id="session-settings-page-idle-timeout-ms-select">
               <option value="0" selected={session.idleTimeoutMs === 0}>
                 Never (Always Active)
               </option>
@@ -246,7 +246,7 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
 
           <div class="form-group">
             <label>Session TTL (days)</label>
-            <select name="sessionTtlDays" required>
+            <select name="sessionTtlDays" required data-help-id="session-settings-page-session-ttl-days-select">
               <option value="30" selected={session.sessionTtlDays === 30}>
                 30 days
               </option>
@@ -327,13 +327,13 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
           </div>
 
           <div class="actions">
-            <button type="submit" class="btn">
+            <button type="submit" class="btn" data-help-id="session-settings-page-button">
               Update Settings
             </button>
             <a
               href={`/projects/${project.id}/sessions/${session.id}`}
               class="btn-secondary"
-            >
+             data-help-id="session-settings-page-a">
               Cancel
             </a>
           </div>

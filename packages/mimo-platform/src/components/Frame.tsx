@@ -37,6 +37,7 @@ export const Frame: FC<FrameProps> = ({
               data-frame-id={frameId}
               data-buffer-id={buffer.id}
               aria-selected={isActive ? "true" : "false"}
+              data-help-id={`${buffer.id}-tab-button`}
             >
               {buffer.name}
             </button>

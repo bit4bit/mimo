@@ -15,7 +15,7 @@ export const CredentialsListPage: FC<CredentialsListPageProps> = ({
       key: "name",
       label: "Name",
       render: (cred) => (
-        <a href={`/credentials/${cred.id}/edit`}>{cred.name}</a>
+        <a href={`/credentials/${cred.id}/edit`} data-help-id="credentials-list-page-a">{cred.name}</a>
       ),
     },
     {
@@ -42,7 +42,7 @@ export const CredentialsListPage: FC<CredentialsListPageProps> = ({
       label: "Actions",
       render: (cred) => (
         <div>
-          <a href={`/credentials/${cred.id}/edit`} class="btn-secondary">
+          <a href={`/credentials/${cred.id}/edit`} class="btn-secondary" data-help-id="credentials-list-page-a">
             Edit
           </a>
           <form
@@ -50,7 +50,7 @@ export const CredentialsListPage: FC<CredentialsListPageProps> = ({
             action={`/credentials/${cred.id}/delete`}
             style="display: inline;"
           >
-            <button type="submit" class="btn-danger">
+            <button type="submit" class="btn-danger" data-help-id="credentials-list-page-button">
               Delete
             </button>
           </form>
@@ -64,7 +64,7 @@ export const CredentialsListPage: FC<CredentialsListPageProps> = ({
       <div class="container-wide">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <h1>Credentials</h1>
-          <a href="/credentials/new" class="btn">
+          <a href="/credentials/new" class="btn" data-help-id="credentials-list-page-a">
             New Credential
           </a>
         </div>

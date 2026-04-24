@@ -88,7 +88,7 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
           href={`/projects/${selectedProject?.id}/sessions/${session.id}`}
           class="session-name"
           target={`session-${session.id}`}
-        >
+         data-help-id="projects-sessions-page-session-name-a">
           {session.name}
         </a>
       ),
@@ -143,7 +143,7 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
               style="display: inline;"
               onsubmit={`return confirm('Close session "${session.name}"? It will become read-only.')`}
             >
-              <button type="submit" class="btn-secondary btn-sm">
+              <button type="submit" class="btn-secondary btn-sm" data-help-id="projects-sessions-page-button">
                 Close
               </button>
             </form>
@@ -154,7 +154,7 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
             style="display: inline;"
             onsubmit={`return confirm('Delete session "${session.name}"? This cannot be undone.')`}
           >
-            <button type="submit" class="btn-danger btn-sm">
+            <button type="submit" class="btn-danger btn-sm" data-help-id="projects-sessions-page-button">
               Delete
             </button>
           </form>
@@ -169,7 +169,7 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
         <aside class="projects-pane">
           <div class="pane-header">
             <h1>Projects</h1>
-            <a href="/projects/new" class="btn-secondary pane-btn">
+            <a href="/projects/new" class="btn-secondary pane-btn" data-help-id="projects-sessions-page-pane-btn-a">
               Create Project
             </a>
           </div>
@@ -177,7 +177,7 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
           {projects.length === 0 ? (
             <div class="empty-state">
               <p>No projects yet.</p>
-              <a href="/projects/new" class="btn-secondary pane-btn">
+              <a href="/projects/new" class="btn-secondary pane-btn" data-help-id="projects-sessions-page-pane-btn-a">
                 Create your first project
               </a>
             </div>
@@ -190,17 +190,17 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
                     key={project.id}
                     class={`project-row ${isSelected ? "selected" : ""}`}
                   >
-                    <a href={`/projects?selected=${project.id}`} class="project-row-name">
+                    <a href={`/projects?selected=${project.id}`} class="project-row-name" data-help-id="projects-sessions-page-project-row-name-a">
                       {project.name}
                     </a>
                     <div class="project-row-actions">
-                      <a href={`/projects/${project.id}/edit`} title="Edit project">
+                      <a href={`/projects/${project.id}/edit`} title="Edit project" data-help-id="projects-sessions-page-a">
                         ✎
                       </a>
                       <a
                         href={`/projects/${project.id}/impacts`}
                         title="View impact history"
-                      >
+                       data-help-id="projects-sessions-page-a">
                         📊
                       </a>
                     </div>
@@ -234,19 +234,19 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
                   </div>
                 </div>
                 <div class="sessions-header-actions">
-                  <a href={`/projects/${selectedProject.id}/edit`} title="Edit project">
+                  <a href={`/projects/${selectedProject.id}/edit`} title="Edit project" data-help-id="projects-sessions-page-a">
                     ✎
                   </a>
                   <a
                     href={`/projects/${selectedProject.id}/impacts`}
                     title="View impact history"
-                  >
+                   data-help-id="projects-sessions-page-a">
                     📊
                   </a>
                   <a
                     href={`/projects/${selectedProject.id}/sessions/new`}
                     class="btn-secondary pane-btn"
-                  >
+                   data-help-id="projects-sessions-page-pane-btn-a">
                     + New Session
                   </a>
                 </div>
@@ -369,7 +369,7 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
           flex-wrap: wrap;
         }
         .project-metadata span::after {
-          content: "\00b7";
+          content: "\u00b7";
           margin-left: 10px;
           color: #666;
         }

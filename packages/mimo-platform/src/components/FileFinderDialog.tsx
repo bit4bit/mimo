@@ -36,7 +36,7 @@ export const FileFinderDialog: FC<FileFinderDialogProps> = ({ sessionId }) => {
             outline: none;
             box-sizing: border-box;
           "
-        />
+         data-help-id="file-finder-dialog-file-finder-input-input" />
         <div
           id="file-finder-results"
           style="margin-top: 8px; max-height: 320px; overflow-y: auto;"

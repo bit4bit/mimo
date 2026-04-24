@@ -84,9 +84,9 @@ export const Layout: FC<LayoutProps> = ({
           {sessionId && <script src="/js/notes.js" defer></script>}
           {sessionId && <script src="/js/edit-buffer.js" defer></script>}
           {sessionId && <script src="/js/summary-buffer.js" defer></script>}
-          {sessionId && (
-            <script src="/js/session-keybindings.js" defer></script>
-          )}
+          {sessionId && <script src="/js/session-keybindings.js" defer></script>}
+          <script src="/vendor/marked.min.js" defer></script>
+          <script src="/js/help-tooltip.js" defer></script>
           {showSessionFinder && (
             <script src="/js/session-finder.js"></script>
           )}
@@ -455,17 +455,58 @@ export const Layout: FC<LayoutProps> = ({
               color: #d4d4d4;
               padding: 4px;
             }
+
+            /* Help Tooltip Styles */
+            .help-tooltip {
+              position: absolute;
+              z-index: 9999;
+              max-width: 300px;
+              padding: 12px 16px;
+              background: #1a1a1a;
+              border: 1px solid #444;
+              border-radius: 4px;
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+              font-size: 13px;
+              color: #d4d4d4;
+              pointer-events: none;
+              opacity: 0;
+              transition: opacity 0.15s ease;
+            }
+            .help-tooltip.visible {
+              opacity: 1;
+            }
+            .help-tooltip-title {
+              font-weight: bold;
+              color: #fff;
+              margin-bottom: 8px;
+              font-size: 14px;
+            }
+            .help-tooltip-content {
+              line-height: 1.5;
+            }
+            .help-tooltip-content code {
+              background: #333;
+              padding: 2px 6px;
+              border-radius: 3px;
+              font-size: 12px;
+            }
+            .help-tooltip-content a {
+              color: #74c0fc;
+            }
+            .help-tooltip-content strong {
+              color: #fff;
+            }
           `}</style>
         </head>
         <body>
           <nav class="top-nav">
             <div class="nav-brand">
               {backUrl && (
-                <a href={backUrl} style="margin-right: 8px;" title="Back">
+                <a href={backUrl} style="margin-right: 8px;" title="Back" data-help-id="layout-a">
                   &lt;
                 </a>
               )}
-              <a href="/dashboard">MIMO</a>
+              <a href="/dashboard" data-help-id="layout-a">MIMO</a>
               {(sessionName || projectName) && (
                 <span style="margin-left: 10px; color: #888;">
                   {sessionName && (
@@ -479,7 +520,7 @@ export const Layout: FC<LayoutProps> = ({
                   {projectName && (
                     <span>
                       {sessionName ? " | " : "| "}
-                      <a href={`/projects/${projectId}`} style="color: #888;">
+                      <a href={`/projects/${projectId}`} style="color: #888;" data-help-id="layout-a">
                         {projectName}
                       </a>
                       {fossilUrl && (
@@ -488,14 +529,14 @@ export const Layout: FC<LayoutProps> = ({
                           target="_blank"
                           title="View Fossil Repository"
                           style="margin-left: 4px;"
-                        >
+                         data-help-id="layout-a">
                           🌿
                         </a>
                       )}
                       {agentId && agentName && (
                         <span style="margin-left: 4px;">
                           |{" "}
-                          <a href={`/agents/${agentId}`} style="color: #888;">
+                          <a href={`/agents/${agentId}`} style="color: #888;" data-help-id="layout-a">
                             {agentName}
                           </a>
                         </span>
@@ -507,12 +548,12 @@ export const Layout: FC<LayoutProps> = ({
               )}
             </div>
             <div class="nav-links">
-              <a href="/dashboard">Dashboard</a>
-              <a href="/projects">Projects</a>
-              <a href="/mcp-servers">MCP Servers</a>
-              <a href="/credentials">Credentials</a>
-              <a href="/agents">Agents</a>
-              <a href="/auth/logout">Logout</a>
+              <a href="/dashboard" data-help-id="layout-a">Dashboard</a>
+              <a href="/projects" data-help-id="layout-a">Projects</a>
+              <a href="/mcp-servers" data-help-id="layout-a">MCP Servers</a>
+              <a href="/credentials" data-help-id="layout-a">Credentials</a>
+              <a href="/agents" data-help-id="layout-a">Agents</a>
+              <a href="/auth/logout" data-help-id="layout-a">Logout</a>
             </div>
           </nav>
           <main style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto;">
