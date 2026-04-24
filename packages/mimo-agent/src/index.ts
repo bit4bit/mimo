@@ -529,6 +529,7 @@ class MimoAgent {
         execSync(`fossil open ${repoPath}`, {
           cwd: checkoutPath,
           stdio: "pipe",
+          timeout: 30000,
         });
       } catch {
         // Already open or error, continue
@@ -546,6 +547,7 @@ class MimoAgent {
           execSync(`fossil remote-url ${remoteUrl}`, {
             cwd: checkoutPath,
             stdio: "pipe",
+            timeout: 30000,
           });
         } catch {
           // Ignore error, may already be correct
@@ -554,7 +556,7 @@ class MimoAgent {
         try {
           execSync(
             `fossil user password ${agentWorkspaceUser} ${agentWorkspacePassword}`,
-            { cwd: checkoutPath, stdio: "pipe" },
+            { cwd: checkoutPath, stdio: "pipe", timeout: 30000 },
           );
           logger.debug(`[mimo-agent]   Updated local user password`);
         } catch {
@@ -567,6 +569,7 @@ class MimoAgent {
             execSync(`fossil remote rm server`, {
               cwd: checkoutPath,
               stdio: "pipe",
+              timeout: 30000,
             });
           } catch {
             // Remote may not exist, ignore
@@ -574,10 +577,11 @@ class MimoAgent {
           execSync(`fossil remote add server ${remoteUrl}`, {
             cwd: checkoutPath,
             stdio: "pipe",
+            timeout: 30000,
           });
           logger.debug(`[mimo-agent]   Updated remote 'server'`);
           // Do a sync using the named remote to verify credentials work
-          execSync(`fossil sync server`, { cwd: checkoutPath, stdio: "pipe" });
+          execSync(`fossil sync server`, { cwd: checkoutPath, stdio: "pipe", timeout: 30000 });
           logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
         } catch {
           // Ignore error
@@ -586,7 +590,7 @@ class MimoAgent {
     } else if (existsSync(join(checkoutPath, ".fossil"))) {
       logger.debug(`[mimo-agent]   Checkout exists, ensuring open`);
       try {
-        execSync(`fossil open`, { cwd: checkoutPath, stdio: "pipe" });
+        execSync(`fossil open`, { cwd: checkoutPath, stdio: "pipe", timeout: 30000 });
       } catch {
         // Already open or error, continue
       }
@@ -603,6 +607,7 @@ class MimoAgent {
           execSync(`fossil remote-url ${remoteUrl}`, {
             cwd: checkoutPath,
             stdio: "pipe",
+            timeout: 30000,
           });
         } catch {
           // Ignore error, may already be correct
@@ -611,7 +616,7 @@ class MimoAgent {
         try {
           execSync(
             `fossil user password ${agentWorkspaceUser} ${agentWorkspacePassword}`,
-            { cwd: checkoutPath, stdio: "pipe" },
+            { cwd: checkoutPath, stdio: "pipe", timeout: 30000 },
           );
           logger.debug(`[mimo-agent]   Updated local user password`);
         } catch {
@@ -624,6 +629,7 @@ class MimoAgent {
             execSync(`fossil remote rm server`, {
               cwd: checkoutPath,
               stdio: "pipe",
+              timeout: 30000,
             });
           } catch {
             // Remote may not exist, ignore
@@ -631,10 +637,11 @@ class MimoAgent {
           execSync(`fossil remote add server ${remoteUrl}`, {
             cwd: checkoutPath,
             stdio: "pipe",
+            timeout: 30000,
           });
           logger.debug(`[mimo-agent]   Updated remote 'server'`);
           // Do a sync using the named remote to verify credentials work
-          execSync(`fossil sync server`, { cwd: checkoutPath, stdio: "pipe" });
+          execSync(`fossil sync server`, { cwd: checkoutPath, stdio: "pipe", timeout: 30000 });
           logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
         } catch {
           // Ignore error
@@ -653,7 +660,7 @@ class MimoAgent {
           `[mimo-agent]   Using authenticated URL: ${url.protocol}//${url.username}:****@${url.host}/`,
         );
       }
-      execSync(`fossil clone ${cloneUrl} ${repoPath}`, { stdio: "pipe" });
+      execSync(`fossil clone ${cloneUrl} ${repoPath}`, { stdio: "pipe", timeout: 30000 });
       if (!existsSync(checkoutPath)) {
         mkdirSync(checkoutPath, { recursive: true });
       }
@@ -661,25 +668,28 @@ class MimoAgent {
       execSync(`fossil open --nosync ${repoPath}`, {
         cwd: checkoutPath,
         stdio: "pipe",
+        timeout: 30000,
       });
       // Set remote URL with credentials for future syncs
       execSync(`fossil remote-url ${cloneUrl}`, {
         cwd: checkoutPath,
         stdio: "pipe",
+        timeout: 30000,
       });
       // Set local password to match server password (fossil creates local admin with random password)
       if (agentWorkspaceUser && agentWorkspacePassword) {
         execSync(
           `fossil user password ${agentWorkspaceUser} ${agentWorkspacePassword}`,
-          { cwd: checkoutPath, stdio: "pipe" },
+          { cwd: checkoutPath, stdio: "pipe", timeout: 30000 },
         );
         // Add a named remote "server" with credentials embedded
         execSync(`fossil remote add server ${cloneUrl}`, {
           cwd: checkoutPath,
           stdio: "pipe",
+          timeout: 30000,
         });
         // Do an initial sync using the named remote with credentials
-        execSync(`fossil sync server`, { cwd: checkoutPath, stdio: "pipe" });
+        execSync(`fossil sync server`, { cwd: checkoutPath, stdio: "pipe", timeout: 30000 });
       }
     }
   }
