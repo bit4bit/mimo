@@ -973,7 +973,7 @@ function handleWebSocketMessage(data) {
       handleMessage(data);
       break;
     case "error":
-      handleErrorMessage(data.message);
+      handleErrorMessage(data.message || data.error);
       break;
     case "history":
       if (

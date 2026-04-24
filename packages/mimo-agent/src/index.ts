@@ -1656,7 +1656,8 @@ class MimoAgent {
         this.send({
           type: "error_response",
           sessionId,
-          error: `Failed to wake thread: ${err instanceof Error ? err.message : String(err)}`,
+          chatThreadId,
+          error: err,
           timestamp: new Date().toISOString(),
         });
       }
@@ -1687,7 +1688,8 @@ class MimoAgent {
         this.send({
           type: "error_response",
           sessionId,
-          error: `Failed to queue prompt: ${err instanceof Error ? err.message : String(err)}`,
+          chatThreadId,
+          error: err,
           timestamp: new Date().toISOString(),
         });
       }
@@ -1791,7 +1793,8 @@ class MimoAgent {
       this.send({
         type: "error_response",
         sessionId,
-        error: `ACP prompt error: ${err instanceof Error ? err.message : String(err)}`,
+        chatThreadId,
+        error: err,
         timestamp: new Date().toISOString(),
       });
     }
@@ -1875,7 +1878,8 @@ class MimoAgent {
       this.send({
         type: "error_response",
         sessionId,
-        error: `Failed to set model: ${err.message}`,
+        chatThreadId,
+        error: err,
         timestamp: new Date().toISOString(),
       });
     }
@@ -1921,7 +1925,8 @@ class MimoAgent {
       this.send({
         type: "error_response",
         sessionId,
-        error: `Failed to set mode: ${err.message}`,
+        chatThreadId,
+        error: err,
         timestamp: new Date().toISOString(),
       });
     }
@@ -2153,7 +2158,8 @@ class MimoAgent {
       this.send({
         type: "error_response",
         sessionId,
-        error: `Expert copy failed: ${err instanceof Error ? err.message : String(err)}`,
+        chatThreadId,
+        error: err,
         timestamp: new Date().toISOString(),
       });
     }
@@ -2239,7 +2245,7 @@ class MimoAgent {
         sessionId,
         tempPath,
         content: "",
-        error: `Failed to read temp file: ${err instanceof Error ? err.message : String(err)}`,
+        error: err,
         timestamp: new Date().toISOString(),
       });
     }
@@ -2288,7 +2294,8 @@ class MimoAgent {
       this.send({
         type: "error_response",
         sessionId,
-        error: `Write file failed: ${err instanceof Error ? err.message : String(err)}`,
+        chatThreadId,
+        error: err,
         timestamp: new Date().toISOString(),
       });
     }

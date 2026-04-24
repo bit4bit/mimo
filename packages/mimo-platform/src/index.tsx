@@ -1811,6 +1811,43 @@ async function handleAgentMessage(ws, data) {
       }
       break;
 
+    case "error_response":
+      {
+        const errorSessionId = data.sessionId;
+        const errorThreadId = data.chatThreadId;
+        const rawError = data.error;
+        
+        // Extract error message from error object
+        const errorMessage = rawError?.message || String(rawError);
+        
+        if (errorSessionId && errorMessage) {
+          const timestamp = new Date().toISOString();
+          // Save error as system message in chat history
+          const errorSession = await sessionRepository.findById(errorSessionId);
+          const historyThreadId =
+            errorThreadId || errorSession?.activeChatThreadId;
+          if (historyThreadId) {
+            await mimoContext.services.chat.saveMessage(
+              errorSessionId,
+              {
+                role: "system",
+                content: errorMessage,
+                timestamp,
+              },
+              historyThreadId,
+            );
+          }
+          // Broadcast error to all UI clients
+          broadcastToSession(chatSessions, errorSessionId, {
+            type: "error",
+            chatThreadId: historyThreadId,
+            message: errorMessage,
+            timestamp,
+          });
+        }
+      }
+      break;
+
     default:
       logger.debug("[agent] Unknown message type:", data.type);
   }
