@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     branches:
-      - 'release'
+      - 'main'
     tags:
       - 'v*'
 
@@ -129,56 +129,126 @@ jobs:
         cd dist
         cat *.sha256 > checksums.txt
 
-    - name: Get version and create tag if needed
+    - name: Get version and determine release type
       id: get_version
       run: |
         if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          # Tag push - use the tag version
           VERSION="${GITHUB_REF#refs/tags/v}"
           echo "IS_TAG=true" >> $GITHUB_OUTPUT
-        else
-          # For branch pushes (testing), create a test tag
-          VERSION="test-${GITHUB_REF#refs/heads/}-$(git rev-parse --short HEAD)"
+          echo "RELEASE_NAME=Release v$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=v$VERSION" >> $GITHUB_OUTPUT
+          echo "IS_LATEST=false" >> $GITHUB_OUTPUT
+        elif [[ "$GITHUB_REF" == refs/heads/main ]]; then
+          # Main branch push - update latest release
+          VERSION="latest-$(date +%Y%m%d)-$(git rev-parse --short HEAD)"
           echo "IS_TAG=false" >> $GITHUB_OUTPUT
-          # Create lightweight tag for the release
-          git config user.email "github-actions@github.com"
-          git config user.name "GitHub Actions"
-          git tag "v$VERSION"
-          git push origin "v$VERSION"
-          echo "Created test tag: v$VERSION"
+          echo "RELEASE_NAME=Latest" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=latest" >> $GITHUB_OUTPUT
+          echo "IS_LATEST=true" >> $GITHUB_OUTPUT
+        else
+          # Other branch - skip release
+          echo "IS_TAG=false" >> $GITHUB_OUTPUT
+          echo "SKIP_RELEASE=true" >> $GITHUB_OUTPUT
         fi
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-        echo "Release version: $VERSION"
+        echo "Version: $VERSION"
+
+    - name: Delete existing latest release (if updating)
+      if: steps.get_version.outputs.IS_LATEST == 'true'
+      run: |
+        echo "Deleting existing latest release..."
+        gh release delete latest --yes || echo "No existing latest release to delete"
+        git push --delete origin latest || echo "No latest tag to delete"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create or update latest tag (for main branch)
+      if: steps.get_version.outputs.IS_LATEST == 'true'
+      run: |
+        git config user.email "github-actions@github.com"
+        git config user.name "GitHub Actions"
+        git tag -fa latest -m "Latest release from main branch"
+        git push -f origin latest
+        echo "Updated latest tag"
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        name: Release ${{ steps.get_version.outputs.VERSION }}
-        tag_name: v${{ steps.get_version.outputs.VERSION }}
+        name: ${{ steps.get_version.outputs.RELEASE_NAME }}
+        tag_name: ${{ steps.get_version.outputs.TAG_NAME }}
         draft: false
-        prerelease: ${{ steps.get_version.outputs.IS_TAG == 'false' }}
+        prerelease: ${{ steps.get_version.outputs.IS_TAG == 'false' && steps.get_version.outputs.IS_LATEST != 'true' }}
         files: |
           dist/mimo-platform-*
           dist/mimo-agent-*
           dist/checksums.txt
         body: |
-          ## Mimo v${{ steps.get_version.outputs.VERSION }}
+          ## Mimo ${{ steps.get_version.outputs.IS_LATEST == 'true' && 'Latest' || 'v' }}${{ steps.get_version.outputs.VERSION }}
+
+          ${{ steps.get_version.outputs.IS_LATEST == 'true' && '**This is the latest development build from the main branch.**' || '' }}
 
           ### Downloads
 
           | Platform | mimo-platform | mimo-agent |
           |----------|---------------|------------|
           | Linux x64 | [mimo-platform-linux-x64](mimo-platform-linux-x64) | [mimo-agent-linux-x64](mimo-agent-linux-x64) |
-          | macOS x64 (Intel) | [mimo-platform-darwin-x64](mimo-platform-darwin-x64) | [mimo-agent-darwin-x64](mimo-agent-darwin-x64) |
           | macOS ARM64 (Apple Silicon) | [mimo-platform-darwin-arm64](mimo-platform-darwin-arm64) | [mimo-agent-darwin-arm64](mimo-agent-darwin-arm64) |
 
           ### Installation
 
-          Download the appropriate binary for your platform, make it executable, and run:
+          Download the appropriate binary for your platform and make it executable:
 
           ```bash
-          chmod +x mimo-platform-linux-x64
+          # Linux
+          chmod +x mimo-platform-linux-x64 mimo-agent-linux-x64
+
+          # macOS
+          chmod +x mimo-platform-darwin-arm64 mimo-agent-darwin-arm64
+          ```
+
+          ### Running the Platform Server
+
+          Start the web platform (runs on port 3000 by default):
+
+          ```bash
+          # Linux
+          ./mimo-platform-linux-x64
+
+          # macOS
+          ./mimo-platform-darwin-arm64
+          ```
+
+          **Configuration via environment variables:**
+
+          ```bash
+          export PORT=3000                    # Server port (default: 3000)
+          export JWT_SECRET="your-secret"     # JWT signing key (required)
+          export MIMO_HOME="$HOME/.mimo"      # Data directory (default: ~/.mimo)
+
           ./mimo-platform-linux-x64
           ```
+
+          The platform listens on the PORT you specify (default 3000). Use a different port by setting `PORT=8080 ./mimo-platform-linux-x64`
+
+          ### Running the Agent
+
+          Start an agent that connects to the platform:
+
+          ```bash
+          # Linux
+          ./mimo-agent-linux-x64 --token <AGENT_JWT> --platform ws://localhost:3000/ws/agent --provider opencode
+
+          # macOS
+          ./mimo-agent-darwin-arm64 --token <AGENT_JWT> --platform ws://localhost:3000/ws/agent --provider opencode
+          ```
+
+          **Getting an agent token:**
+          1. Start the platform server
+          2. Go to http://localhost:3000/agents
+          3. Create a new agent and copy the JWT token
+
+          **Available providers:** `opencode` or `claude`
 
           ### Verification
 
@@ -192,5 +262,6 @@ jobs:
           - Binaries are single-file executables with all assets embedded
           - No runtime dependencies required (includes Bun runtime)
           - Static assets are served from embedded memory when running compiled binary
+          - First run creates `~/.mimo` directory for data storage
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

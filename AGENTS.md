@@ -58,3 +58,89 @@ If assistance with the running production environment is needed, ask the user fi
 - Do not use hidden globals or singletons.
 - Keep dependencies explicit via injection.
 - Keep changes minimal, clear, and behavior-driven.
+
+## Semantic Versioning
+
+This project uses **semantic versioning** with shared versions across all packages.
+
+### Current Version
+
+Check the root `package.json`:
+```sh
+node -p "require('./package.json').version"
+```
+
+### Versioning Rules
+
+- **MAJOR** (X.y.z): Breaking changes that require user intervention
+- **MINOR** (x.Y.z): New features, backwards compatible
+- **PATCH** (x.y.Z): Bug fixes, backwards compatible
+
+### How to Bump Version
+
+From the repository root:
+
+```sh
+# Bump patch version (0.0.0 → 0.0.1)
+./scripts/bump-version.sh patch
+
+# Bump minor version (0.0.0 → 0.1.0)
+./scripts/bump-version.sh minor
+
+# Bump major version (0.0.0 → 1.0.0)
+./scripts/bump-version.sh major
+
+# Set specific version
+./scripts/bump-version.sh 1.2.3
+```
+
+This updates:
+- Root `package.json`
+- `packages/mimo-platform/package.json`
+- `packages/mimo-agent/package.json`
+
+After bumping, commit the changes and create a tag:
+
+```sh
+git add -A
+git commit -m "chore: bump version to 0.0.1"
+git tag v0.0.1
+git push origin main
+git push origin v0.0.1
+```
+
+### Release Workflow
+
+Pushing a tag starting with `v` triggers the release workflow:
+
+1. GitHub Actions builds cross-platform binaries:
+   - Linux x64
+   - macOS x64 (Intel)
+   - macOS ARM64 (Apple Silicon)
+
+2. Each binary is a single-file executable with embedded assets
+
+3. A draft GitHub Release is created with all binaries and SHA256 checksums
+
+4. Review the draft release and publish it manually
+
+### Release Artifacts
+
+| Artifact | Description |
+|----------|-------------|
+| `mimo-platform-{platform}` | Web platform server |
+| `mimo-agent-{platform}` | Agent CLI tool |
+| `checksums.txt` | SHA256 checksums for verification |
+
+### Cross-Compilation
+
+The release workflow uses Bun's native cross-compilation:
+```sh
+bun build --compile --target=bun-linux-x64 ./src/index.ts --outfile myapp
+```
+
+Supported targets: `bun-linux-x64`, `bun-darwin-x64`, `bun-darwin-arm64`
+
+### Asset Embedding
+
+Static assets in `packages/mimo-platform/public/` are embedded in the compiled binary using Bun's native `with { type: "file" }` import attribute. The `src/assets.ts` module imports all assets, making them available via `Bun.embeddedFiles` when running as a compiled executable.
