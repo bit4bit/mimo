@@ -35,6 +35,7 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
             <label>Session Name</label>
             <input
               type="text"
+              id="session-name-input"
               name="name"
               required
               placeholder="Feature implementation"
@@ -96,11 +97,13 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
             <label>Branch (optional)</label>
             <input
               type="text"
+              id="branch-name-input"
               name="branchName"
-              placeholder="feature/my-session-work"
+              placeholder="auto: uses session name"
             />
             <p style="color: #888; font-size: 12px; margin-top: 5px;">
-              Leave empty to use the project default
+              Defaults to the session name (slugified). Edit to override, or
+              clear to use the project default
               {project.newBranch ? ` (${project.newBranch})` : " (none)"}.
             </p>
 
@@ -184,6 +187,36 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
 
           {error && <div class="error">{error}</div>}
         </form>
+
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+(function () {
+  var nameInput = document.getElementById('session-name-input');
+  var branchInput = document.getElementById('branch-name-input');
+  var branchManuallyEdited = false;
+
+  if (nameInput) {
+    nameInput.focus();
+  }
+
+  function slugify(str) {
+    return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  }
+
+  branchInput.addEventListener('input', function () {
+    branchManuallyEdited = true;
+  });
+
+  nameInput.addEventListener('input', function () {
+    if (!branchManuallyEdited) {
+      branchInput.value = slugify(nameInput.value);
+    }
+  });
+})();
+`,
+          }}
+        />
       </div>
     </Layout>
   );

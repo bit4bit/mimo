@@ -57,7 +57,7 @@ export const Layout: FC<LayoutProps> = ({
           <title>{title} | MIMO</title>
           <script
             dangerouslySetInnerHTML={{
-              __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};\nwindow.MIMO_SESSION_KEYBINDINGS = ${JSON.stringify(sessionKeybindings || {})};\nwindow.MIMO_GLOBAL_KEYBINDINGS = ${JSON.stringify(globalKeybindings || {})};\nwindow.MIMO_CHAT_FILE_EXTENSIONS = ${JSON.stringify(chatFileExtensions ?? [])};`,
+              __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_PROJECT_ID = "${projectId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};\nwindow.MIMO_SESSION_KEYBINDINGS = ${JSON.stringify(sessionKeybindings || {})};\nwindow.MIMO_GLOBAL_KEYBINDINGS = ${JSON.stringify(globalKeybindings || {})};\nwindow.MIMO_CHAT_FILE_EXTENSIONS = ${JSON.stringify(chatFileExtensions ?? [])};`,
             }}
           />
           {sessionId && (
