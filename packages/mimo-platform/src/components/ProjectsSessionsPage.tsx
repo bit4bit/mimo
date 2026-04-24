@@ -164,7 +164,7 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
   ];
 
   return (
-    <Layout title="Projects">
+    <Layout title="Projects" showSessionFinder={true}>
       <div class="container-wide projects-sessions-page">
         <aside class="projects-pane">
           <div class="pane-header">

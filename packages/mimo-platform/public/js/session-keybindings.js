@@ -8,6 +8,7 @@
     nextThread: "Control+Shift+ArrowRight",
     previousThread: "Control+Shift+ArrowLeft",
     openFileFinder: "Control+Shift+F",
+    openSessionFinder: "Control+Shift+3",
   };
 
   function getConfiguredGlobalKeybindings() {
@@ -479,6 +480,14 @@
         event.preventDefault();
         return;
       }
+    }
+    if (
+      globalKeybindings.openSessionFinder &&
+      bindingMatches(event, globalKeybindings.openSessionFinder)
+    ) {
+      event.preventDefault();
+      document.dispatchEvent(new CustomEvent("mimo:openSessionFinder"));
+      return;
     }
 
     const isHelpShortcut = bindingMatches(event, keybindings.shortcutsHelp);

@@ -1,6 +1,7 @@
 import type { FC } from "hono/jsx";
 import { raw } from "hono/html";
 import type { SessionKeybindingsConfig, GlobalKeybindingsConfig } from "../config/service.js";
+import { SessionFinderDialog } from "./SessionFinderDialog.js";
 
 interface LayoutProps {
   title: string;
@@ -20,6 +21,7 @@ interface LayoutProps {
   agentName?: string;
   cloneWorkspaceHtml?: any;
   backUrl?: string;
+  showSessionFinder?: boolean;
 }
 
 export const Layout: FC<LayoutProps> = ({
@@ -40,6 +42,7 @@ export const Layout: FC<LayoutProps> = ({
   agentName,
   cloneWorkspaceHtml,
   backUrl,
+  showSessionFinder = false,
 }) => {
   return (
     <>
@@ -82,6 +85,9 @@ export const Layout: FC<LayoutProps> = ({
           {sessionId && <script src="/js/edit-buffer.js" defer></script>}
           {sessionId && (
             <script src="/js/session-keybindings.js" defer></script>
+          )}
+          {showSessionFinder && (
+            <script src="/js/session-finder.js"></script>
           )}
           <style>{`
            * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -516,6 +522,7 @@ export const Layout: FC<LayoutProps> = ({
               <span class="status-line-message"></span>
             </div>
           )}
+          {showSessionFinder && <SessionFinderDialog />}
         </body>
       </html>
     </>

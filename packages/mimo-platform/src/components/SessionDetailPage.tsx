@@ -197,6 +197,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         ) : undefined
       }
       backUrl={backUrl ?? `/projects/${project.id}/sessions`}
+      showSessionFinder={true}
     >
       <div class="session-container">
         <div
@@ -528,6 +529,18 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               )}
             </span>
             <span class="session-shortcut-desc">Open file (G)</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                globalKeybindings?.openSessionFinder || "Control+Shift+3",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Find session (G)</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">Alt+Shift+G</span>
+            <span class="session-shortcut-desc">Close finder</span>
           </span>
         </div>
       </div>

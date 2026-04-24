@@ -7,6 +7,7 @@ export interface GlobalKeybindingsConfig {
   nextThread?: string;
   previousThread?: string;
   openFileFinder?: string;
+  openSessionFinder?: string;
 }
 
 export const defaultGlobalKeybindings: GlobalKeybindingsConfig = {
@@ -14,6 +15,7 @@ export const defaultGlobalKeybindings: GlobalKeybindingsConfig = {
   nextThread: "Control+Shift+ArrowRight",
   previousThread: "Control+Shift+ArrowLeft",
   openFileFinder: "Control+Shift+F",
+  openSessionFinder: "Control+Shift+3",
 };
 
 export interface SessionKeybindingsConfig {
@@ -224,6 +226,7 @@ function sanitizeGlobalKeybindings(
     "nextThread",
     "previousThread",
     "openFileFinder",
+    "openSessionFinder",
   ];
 
   for (const key of supportedKeys) {

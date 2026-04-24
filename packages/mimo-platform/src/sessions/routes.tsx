@@ -390,6 +390,69 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     return c.redirect(`/projects/${projectId}/sessions/${session.id}`);
   });
 
+  // GET /sessions/search - Search sessions across all projects
+  router.get("/search", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const q = c.req.query("q") ?? "";
+
+    // List all sessions and filter by owner
+    const allSessions = await sessionRepository.listAll();
+    const ownerSessions = allSessions.filter((s) => s.owner === username);
+
+    // Load project names for each session
+    const projectMap = new Map<string, string>();
+    const results: Array<{
+      sessionId: string;
+      sessionName: string;
+      projectId: string;
+      projectName: string;
+      status: string;
+    }> = [];
+
+    for (const session of ownerSessions) {
+      let projectName = projectMap.get(session.projectId);
+      if (!projectName) {
+        const project = await projectRepository.findById(session.projectId);
+        projectName = project?.name ?? "Unknown Project";
+        projectMap.set(session.projectId, projectName);
+      }
+
+      if (q) {
+        const lowerQ = q.toLowerCase();
+        const matchSessionName = session.name.toLowerCase().includes(lowerQ);
+        const matchProjectName = projectName.toLowerCase().includes(lowerQ);
+        if (!matchSessionName && !matchProjectName) continue;
+      }
+
+      results.push({
+        sessionId: session.id,
+        sessionName: session.name,
+        projectId: session.projectId,
+        projectName,
+        status: session.status,
+      });
+    }
+
+    if (!q) {
+      // Sort by lastActivityAt descending, fallback to createdAt
+      results.sort((a, b) => {
+        const sessionA = ownerSessions.find((s) => s.id === a.sessionId);
+        const sessionB = ownerSessions.find((s) => s.id === b.sessionId);
+        const dateA = sessionA?.lastActivityAt ?? sessionA?.createdAt;
+        const dateB = sessionB?.lastActivityAt ?? sessionB?.createdAt;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return new Date(dateB).getTime() - new Date(dateA).getTime();
+      });
+    }
+
+    return c.json(results.slice(0, 10));
+  });
+
   // GET /sessions/:id or /projects/:projectId/sessions/:id - View session detail
   router.get("/:id", async (c: Context) => {
     const username = await getAuthUsername(c);
