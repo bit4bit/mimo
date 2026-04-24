@@ -45,7 +45,7 @@ export const DashboardPage: FC<DashboardProps> = ({
   const activeSessions = sessions.filter((s) => s.status === "active").length;
 
   return (
-    <Layout title="Dashboard">
+    <Layout title="Dashboard" showSessionFinder={true}>
       <div class="dashboard">
         <div class="dashboard-header">
           <h1>Dashboard</h1>
