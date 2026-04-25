@@ -810,6 +810,8 @@ async function triggerAutoSync(
       sessionRepository: mimoContext.repos.sessions,
       agentService: mimoContext.services.agents,
       sccService: mimoContext.services.scc,
+      vcs: mimoContext.services.vcs,
+      os: os,
     });
     const status = result.syncStatus;
     const syncSubscribers = chatSessions.get(sessionId);
