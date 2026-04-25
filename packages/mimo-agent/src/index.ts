@@ -3,7 +3,6 @@ import { logger } from "./logger.js";
 import { decodeJwt } from "jose";
 import { createOS } from "./os/node-adapter.js";
 import type { OS } from "./os/types.js";
-import { Writable, Readable } from "node:stream";
 import { SessionManager } from "./session.js";
 import type { SessionCallbacks } from "./session.js";
 import { SessionLifecycleManager } from "./lifecycle.js";
@@ -37,15 +36,6 @@ export interface AgentConfig {
   platform: string;
   workDir: string;
   provider: "opencode" | "claude";
-}
-
-// Convert Node.js streams to Web Streams API
-function toWebWritable(nodeWritable: Writable): WritableStream<Uint8Array> {
-  return Writable.toWeb(nodeWritable) as WritableStream<Uint8Array>;
-}
-
-function toWebReadable(nodeReadable: Readable): ReadableStream<Uint8Array> {
-  return Readable.toWeb(nodeReadable) as ReadableStream<Uint8Array>;
 }
 
 // Composite key helpers (task 4.1)
@@ -709,8 +699,8 @@ class MimoAgent {
     acpClient
       .initialize(
         acpCwd,
-        toWebWritable(spawnResult.stdin),
-        toWebReadable(spawnResult.stdout),
+        spawnResult.input,
+        spawnResult.output,
         this.threadConfigs.get(key)?.acpSessionId,
         sessionInfo.mcpServers,
       )
@@ -966,8 +956,8 @@ class MimoAgent {
     try {
       const result = await acpClient.initialize(
         acpCwd,
-        toWebWritable(spawnResult.stdin),
-        toWebReadable(spawnResult.stdout),
+        spawnResult.input,
+        spawnResult.output,
         cachedState?.acpSessionId,
         sessionInfo.mcpServers,
       );
@@ -2194,8 +2184,8 @@ class MimoAgent {
     try {
       await acpClient.initialize(
         this.config.workDir,
-        toWebWritable(spawnResult.stdin),
-        toWebReadable(spawnResult.stdout),
+        spawnResult.input,
+        spawnResult.output,
       );
 
       const modelState = acpClient.modelState;

@@ -1,27 +1,58 @@
-import { IAcpProvider, NewSessionResponse } from "../types";
+import { IAcpProvider, AcpProcessHandle, NewSessionResponse } from "../types";
 import { ModelState, ModeState } from "../../types";
-import { spawn, ChildProcess } from "child_process";
-import { Readable, Writable } from "node:stream";
+import * as acp from "@agentclientprotocol/sdk";
+import { ClaudeAcpAgent } from "@agentclientprotocol/claude-agent-acp";
 
 export class ClaudeAgentProvider implements IAcpProvider {
   readonly name = "claude";
 
-  spawn(cwd: string): {
-    process: ChildProcess;
-    stdin: Writable;
-    stdout: Readable;
-    stderr?: Readable;
+  spawn(_cwd: string): {
+    process: AcpProcessHandle;
+    input: WritableStream<Uint8Array>;
+    output: ReadableStream<Uint8Array>;
   } {
-    const proc = spawn("claude-agent-acp", [], {
-      cwd,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    // Two in-memory pipes connect the client and agent sides without a subprocess.
+    // clientToAgent: client writes outgoing messages → agent reads them
+    // agentToClient: agent writes outgoing messages → client reads them
+    const clientToAgent = new TransformStream<Uint8Array, Uint8Array>();
+    const agentToClient = new TransformStream<Uint8Array, Uint8Array>();
+
+    const agentStream = acp.ndJsonStream(
+      agentToClient.writable,
+      clientToAgent.readable,
+    );
+    const agentConnection = new acp.AgentSideConnection(
+      (conn) => new ClaudeAcpAgent(conn),
+      agentStream,
+    );
+
+    let killed = false;
+    const closeCallbacks: Array<(code: number | null) => void> = [];
+    const errorCallbacks: Array<(err: Error) => void> = [];
+
+    agentConnection.closed
+      .then(() => closeCallbacks.forEach((cb) => cb(0)))
+      .catch((err) => errorCallbacks.forEach((cb) => cb(err)));
+
+    const process: AcpProcessHandle = {
+      get killed() {
+        return killed;
+      },
+      kill() {
+        if (killed) return;
+        killed = true;
+        agentToClient.writable.close().catch(() => {});
+      },
+      on(event: "close" | "error", cb: any) {
+        if (event === "close") closeCallbacks.push(cb);
+        else if (event === "error") errorCallbacks.push(cb);
+      },
+    };
 
     return {
-      process: proc,
-      stdin: proc.stdin!,
-      stdout: proc.stdout!,
-      stderr: proc.stderr!,
+      process,
+      input: clientToAgent.writable,
+      output: agentToClient.readable,
     };
   }
 

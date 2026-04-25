@@ -1,5 +1,12 @@
-import { Readable, Writable } from "node:stream";
 import { ModelState, ModeState } from "../types";
+
+export interface AcpProcessHandle {
+  kill(signal?: string): void;
+  killed?: boolean;
+  stderr?: { on(event: "data", cb: (data: Buffer) => void): void };
+  on(event: "close", cb: (code: number | null) => void): void;
+  on(event: "error", cb: (err: Error) => void): void;
+}
 
 export interface ConfigOption {
   id: string;
@@ -46,13 +53,12 @@ export interface IAcpProvider {
   readonly name: string;
 
   /**
-   * Spawn the ACP process
+   * Spawn the ACP process or start an in-process agent
    */
   spawn(cwd: string): {
-    process: any;
-    stdin: Writable;
-    stdout: Readable;
-    stderr?: Readable;
+    process: AcpProcessHandle;
+    input: WritableStream<Uint8Array>;
+    output: ReadableStream<Uint8Array>;
   };
 
   /**

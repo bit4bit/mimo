@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { OpencodeProvider } from "../../src/acp/providers/opencode";
+import { ClaudeAgentProvider } from "../../src/acp/providers/claude-agent";
 import { NewSessionResponse } from "../../src/acp/types";
 
 describe("OpencodeProvider", () => {
@@ -144,6 +145,41 @@ describe("OpencodeProvider", () => {
   describe("provider metadata", () => {
     it("should have correct provider name", () => {
       expect(provider.name).toBe("opencode");
+    });
+  });
+});
+
+describe("ClaudeAgentProvider", () => {
+  const provider = new ClaudeAgentProvider();
+
+  describe("provider metadata", () => {
+    it("should have correct provider name", () => {
+      expect(provider.name).toBe("claude");
+    });
+  });
+
+  describe("mapUpdateType", () => {
+    it("should map agent_thought_chunk to thought_chunk", () => {
+      expect(provider.mapUpdateType("agent_thought_chunk")).toBe("thought_chunk");
+    });
+
+    it("should map agent_message_chunk to message_chunk", () => {
+      expect(provider.mapUpdateType("agent_message_chunk")).toBe("message_chunk");
+    });
+
+    it("should return null for unknown update types", () => {
+      expect(provider.mapUpdateType("unknown_type")).toBeNull();
+    });
+  });
+
+  describe("spawn", () => {
+    it("should return Web streams and process handle without spawning a subprocess", () => {
+      const result = provider.spawn("/tmp");
+      expect(result.input).toBeInstanceOf(WritableStream);
+      expect(result.output).toBeInstanceOf(ReadableStream);
+      expect(typeof result.process.kill).toBe("function");
+      expect(typeof result.process.on).toBe("function");
+      result.process.kill();
     });
   });
 });

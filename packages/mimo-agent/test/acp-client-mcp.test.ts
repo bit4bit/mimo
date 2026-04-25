@@ -7,9 +7,9 @@ import type { McpServerConfig } from "../src/types";
 const mockProvider = {
   name: "test-provider",
   spawn: () => ({
-    process: { pid: 12345 },
-    stdin: { write: () => {}, end: () => {} },
-    stdout: { on: () => {}, pipe: () => ({}) },
+    process: { kill: () => {}, on: () => {} },
+    input: new WritableStream<Uint8Array>(),
+    output: new ReadableStream<Uint8Array>(),
   }),
   extractState: () => ({
     modelState: {

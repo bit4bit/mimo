@@ -52,7 +52,7 @@ export interface SessionInfo {
   fossilPassword?: string;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
-  acpProcess: { kill(signal?: string): void; exited: Promise<number>; killed?: boolean } | null;
+  acpProcess: import("./acp/types").AcpProcessHandle | null;
   fileWatcher: { close(): void } | null;
   currentThoughtBuffer?: string;
   modelState?: ModelState;

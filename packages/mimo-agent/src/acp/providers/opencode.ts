@@ -1,16 +1,15 @@
-import { IAcpProvider, NewSessionResponse } from "../types";
+import { IAcpProvider, AcpProcessHandle, NewSessionResponse } from "../types";
 import { ModelState, ModeState } from "../../types";
-import { spawn, ChildProcess } from "child_process";
-import { Readable, Writable } from "node:stream";
+import { spawn } from "child_process";
+import { Writable, Readable } from "node:stream";
 
 export class OpencodeProvider implements IAcpProvider {
   readonly name = "opencode";
 
   spawn(cwd: string): {
-    process: ChildProcess;
-    stdin: Writable;
-    stdout: Readable;
-    stderr?: Readable;
+    process: AcpProcessHandle;
+    input: WritableStream<Uint8Array>;
+    output: ReadableStream<Uint8Array>;
   } {
     const proc = spawn("opencode", ["acp"], {
       cwd,
@@ -18,10 +17,9 @@ export class OpencodeProvider implements IAcpProvider {
     });
 
     return {
-      process: proc,
-      stdin: proc.stdin!,
-      stdout: proc.stdout!,
-      stderr: proc.stderr!,
+      process: proc as unknown as AcpProcessHandle,
+      input: Writable.toWeb(proc.stdin!) as WritableStream<Uint8Array>,
+      output: Readable.toWeb(proc.stdout!) as ReadableStream<Uint8Array>,
     };
   }
 

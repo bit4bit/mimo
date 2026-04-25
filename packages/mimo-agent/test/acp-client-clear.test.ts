@@ -41,19 +41,28 @@ mock.module("@agentclientprotocol/sdk", () => {
     }
   }
 
+  class AgentSideConnection {
+    closed = Promise.resolve();
+    get signal() {
+      return new AbortController().signal;
+    }
+    constructor(_factory: unknown, _stream: unknown) {}
+  }
+
   return {
     PROTOCOL_VERSION: "1.0",
     ndJsonStream: () => ({}) as any,
     ClientSideConnection,
+    AgentSideConnection,
   };
 });
 
 const mockProvider = {
   name: "test-provider",
   spawn: () => ({
-    process: { pid: 12345 },
-    stdin: { write: () => {}, end: () => {} },
-    stdout: { on: () => {}, pipe: () => ({}) },
+    process: { kill: () => {}, on: () => {} },
+    input: new WritableStream<Uint8Array>(),
+    output: new ReadableStream<Uint8Array>(),
   }),
   extractState: () => ({
     modelState: {
