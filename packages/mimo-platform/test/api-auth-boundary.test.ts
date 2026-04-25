@@ -101,4 +101,70 @@ describe("API Auth Boundary Tests", () => {
     const res = await app.request("/auth/register");
     expect(res.status).toBe(200);
   });
+
+  it("should redirect /dashboard to /auth/login", async () => {
+    const res = await app.request("/dashboard");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/auth/login");
+  });
+
+  it("should redirect /projects to /auth/login", async () => {
+    const res = await app.request("/projects");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/auth/login");
+  });
+
+  it("should redirect /agents to /auth/login", async () => {
+    const res = await app.request("/agents");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/auth/login");
+  });
+
+  it("should redirect /sessions to /auth/login", async () => {
+    const res = await app.request("/sessions");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/auth/login");
+  });
+
+  it("should redirect /sync to /auth/login", async () => {
+    const res = await app.request("/sync");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/auth/login");
+  });
+
+  it("should redirect /commits to /auth/login", async () => {
+    const res = await app.request("/commits");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/auth/login");
+  });
+
+  it("should redirect /config to /auth/login", async () => {
+    const res = await app.request("/config");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/auth/login");
+  });
+
+  it("should redirect /credentials to /auth/login", async () => {
+    const res = await app.request("/credentials");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/auth/login");
+  });
+
+  it("should redirect /mcp-servers to /auth/login", async () => {
+    const res = await app.request("/mcp-servers");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/auth/login");
+  });
+
+  it("should redirect /api/summary to /auth/login", async () => {
+    const res = await app.request("/api/summary");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/auth/login");
+  });
+
+  it("should redirect /api/projects to /auth/login", async () => {
+    const res = await app.request("/api/projects");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/auth/login");
+  });
 });
