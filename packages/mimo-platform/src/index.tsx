@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import { createAuthRoutes } from "./auth/routes";
-import protectedRoutes from "./protected/routes";
 import { createProjectsRoutes } from "./projects/routes";
 import { createAgentsRoutes } from "./agents/routes.js";
 import { createSessionsRoutes } from "./sessions/routes";
@@ -142,6 +141,33 @@ import { mcpTokenStore } from "./mcp/token-store.js";
 import { createMcpRoutes } from "./mcp/server.js";
 import { createPlatformMcpServerConfig } from "./mcp/platform-config.js";
 import { registerHelpRoutes } from "./help/routes.js";
+import { authMiddleware } from "./auth/middleware.js";
+
+const PUBLIC_PATHS = [
+  "/",
+  "/health",
+  "/api/projects/public",
+  "/api/help",
+];
+const PUBLIC_PATH_PREFIXES = [
+  "/auth/",
+  "/js/",
+  "/vendor/",
+  "/api/mimo-mcp",
+];
+
+function isPublicPath(path: string): boolean {
+  if (PUBLIC_PATHS.includes(path)) return true;
+  return PUBLIC_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
+app.use("*", async (c, next) => {
+  const path = c.req.path;
+  if (isPublicPath(path)) {
+    return next();
+  }
+  return authMiddleware(c, next);
+});
 
 // Track active chat sessions
 const chatSessions = new Map<string, Set<SessionWsClient>>();
@@ -288,13 +314,7 @@ app.get("/api/projects/public", async (c) => {
   return c.json(publicProjects);
 });
 
-// Test endpoint - BEFORE protected routes
-app.get("/api/test", (c) => {
-  return c.json({ message: "test endpoint works" });
-});
 
-// Protected routes
-app.route("/", protectedRoutes);
 
 // Project routes (protected)
 app.route("/projects", createProjectsRoutes(mimoContext));
@@ -306,10 +326,6 @@ app.route("/sessions", createSessionsRoutes(mimoContext));
 app.route("/api/summary", createSummaryRoutes(mimoContext));
 
 // Test endpoint
-app.get("/api/test", (c) => {
-  console.log("TEST ENDPOINT HIT");
-  return c.json({ message: "test endpoint works" });
-});
 
 // Agent routes (protected)
 app.route("/agents", createAgentsRoutes(mimoContext));
@@ -423,6 +439,37 @@ mimoServer.setup({
         if (!sessionId) {
           return new Response("Missing sessionId", { status: 400 });
         }
+
+        const session = await sessionRepository.findById(sessionId);
+        if (!session) {
+          logger.debug("[WS] Chat WebSocket: Session not found", sessionId);
+          return new Response("Session not found", { status: 404 });
+        }
+
+        const cookieHeader = req.headers.get("Cookie") || "";
+        const tokenMatch = cookieHeader.match(/token=([^;]+)/);
+        const token = tokenMatch ? tokenMatch[1] : null;
+
+        if (!token) {
+          logger.debug("[WS] Chat WebSocket: Missing token");
+          return new Response("Unauthorized", { status: 401 });
+        }
+
+        const payload = await mimoContext.services.auth.verifyToken(token);
+        if (!payload) {
+          logger.debug("[WS] Chat WebSocket: Invalid token");
+          return new Response("Unauthorized", { status: 401 });
+        }
+
+        if (session.owner !== payload.username) {
+          logger.debug("[WS] Chat WebSocket: Unauthorized", {
+            username: payload.username,
+            owner: session.owner,
+          });
+          return new Response("Unauthorized", { status: 401 });
+        }
+
+        logger.debug("[WS] Chat WebSocket: Authenticated upgrade for", sessionId);
 
         const upgraded = server.upgrade(req, {
           data: {
