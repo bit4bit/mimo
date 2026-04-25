@@ -4,21 +4,24 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { SessionManager } from "../src/session";
 import type { FileChange } from "../src/types";
+import { createOS } from "../src/os/node-adapter.js";
 
 describe("SessionManager file watcher — hidden files", () => {
   let workDir: string;
   let receivedChanges: FileChange[];
   let manager: SessionManager;
+  let os: ReturnType<typeof createOS>;
 
   beforeEach(() => {
     workDir = mkdtempSync(join(tmpdir(), "mimo-agent-hidden-"));
     receivedChanges = [];
+    os = createOS({ ...process.env });
     manager = new SessionManager(workDir, {
       onFileChange: (_sessionId, changes) => {
         receivedChanges.push(...changes);
       },
       onSessionError: () => {},
-    });
+    }, os);
   });
 
   afterEach(() => {

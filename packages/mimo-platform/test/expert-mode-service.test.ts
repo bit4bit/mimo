@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, writeFileSync, existsSync, readFileSync, rmSync } from "fs";
-import { join } from "path";
 import { tmpdir } from "os";
+import { join } from "path";
+import { rmSync, mkdirSync, existsSync, writeFileSync, readFileSync } from "fs";
+import { createOS } from "../src/os/node-adapter.js";
 import { ExpertService } from "../src/files/expert-service.js";
 
 function makeTmpDir(): string {
@@ -19,7 +20,8 @@ describe("ExpertService.readFileContent", () => {
 
   beforeEach(() => {
     workspace = makeTmpDir();
-    service = new ExpertService();
+    const os = createOS({ ...process.env });
+    service = new ExpertService(os);
   });
 
   afterEach(() => {
@@ -62,7 +64,8 @@ describe("ExpertService.writeFileContent", () => {
 
   beforeEach(() => {
     workspace = makeTmpDir();
-    service = new ExpertService();
+    const os = createOS({ ...process.env });
+    service = new ExpertService(os);
   });
 
   afterEach(() => {

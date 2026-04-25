@@ -3,6 +3,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, mkdirSync, writeFileSync } from "fs";
 import { execSync } from "child_process";
+import { createOS } from "../src/os/node-adapter.js";
 
 describe("Session Bootstrap Integration Tests", () => {
   let testHome: string;
@@ -32,12 +33,14 @@ describe("Session Bootstrap Integration Tests", () => {
     VCS = vcsModule.VCS;
 
     const sessionModule = await import("../src/sessions/repository.ts");
+    const os = createOS(process.env as Record<string, string>);
     sessionRepository = new sessionModule.SessionRepository({
       paths: {
         projects: projectsDir,
         data: testHome,
       },
       fossilReposDir: fossilReposDir,
+      os,
     });
   });
 
@@ -49,7 +52,7 @@ describe("Session Bootstrap Integration Tests", () => {
 
   describe("Git Repository Bootstrap", () => {
     it("should clone a Git repository to upstream directory", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os: createOS({ ...process.env }) });
       const upstreamPath = join(testHome, "test-upstream");
 
       // Clone a small public repo
@@ -64,7 +67,7 @@ describe("Session Bootstrap Integration Tests", () => {
     }, 30000);
 
     it("should import Git repository to Fossil", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os: createOS({ ...process.env }) });
       const upstreamPath = join(testHome, "import-test");
       const fossilPath = join(testHome, "import-test.fossil");
 
@@ -83,7 +86,7 @@ describe("Session Bootstrap Integration Tests", () => {
     }, 15000);
 
     it("should open Fossil checkout", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os: createOS({ ...process.env }) });
       const upstreamPath = join(testHome, "checkout-test");
       const fossilPath = join(testHome, "checkout-test.fossil");
       const agentWorkspacePath = join(testHome, "checkout");
@@ -109,7 +112,7 @@ describe("Session Bootstrap Integration Tests", () => {
     }, 15000);
 
     it("should fail on invalid Git URL", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os: createOS({ ...process.env }) });
       const upstreamPath = join(testHome, "invalid-url");
 
       const result = await vcs.cloneRepository(
@@ -125,7 +128,7 @@ describe("Session Bootstrap Integration Tests", () => {
 
   describe("Fossil Repository Bootstrap", () => {
     it("should clone a Fossil repository", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os: createOS({ ...process.env }) });
 
       // First create a fossil repo to clone from
       const sourcePath = join(testHome, "source.fossil");
@@ -208,7 +211,7 @@ describe("Session Bootstrap Integration Tests", () => {
 
   describe("Full Bootstrap Flow", () => {
     it("should bootstrap a session from Git repository (repo.fossil only, no checkout)", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os: createOS({ ...process.env }) });
       const projectId = "full-bootstrap-test";
       const projectPath = join(testHome, "projects", projectId);
       mkdirSync(projectPath, { recursive: true });

@@ -1,14 +1,4 @@
-import { join } from "path";
-import { homedir } from "os";
-import {
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
-  readdirSync,
-  rmdirSync,
-  unlinkSync,
-} from "fs";
+import type { OS } from "../os/types.js";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
 import { normalizeSessionIdForFossil } from "../vcs/shared-fossil-server.js";
@@ -150,6 +140,7 @@ export function compareSessions(a: Session, b: Session): number {
 }
 
 interface SessionRepositoryDeps {
+  os: OS;
   paths: {
     projects: string;
     data: string;
@@ -158,7 +149,11 @@ interface SessionRepositoryDeps {
 }
 
 export class SessionRepository {
-  constructor(private deps: SessionRepositoryDeps) {}
+  private os: OS;
+
+  constructor(private deps: SessionRepositoryDeps) {
+    this.os = deps.os;
+  }
 
   private getProjectsPath(): string {
     return this.deps.paths.projects;
@@ -169,23 +164,23 @@ export class SessionRepository {
   }
 
   private getSessionPath(projectId: string, sessionId: string): string {
-    return join(this.getProjectsPath(), projectId, "sessions", sessionId);
+    return this.os.path.join(this.getProjectsPath(), projectId, "sessions", sessionId);
   }
 
   private getSessionFilePath(projectId: string, sessionId: string): string {
-    return join(this.getSessionPath(projectId, sessionId), "session.yaml");
+    return this.os.path.join(this.getSessionPath(projectId, sessionId), "session.yaml");
   }
 
   private getUpstreamPath(projectId: string, sessionId: string): string {
-    return join(this.getSessionPath(projectId, sessionId), "upstream");
+    return this.os.path.join(this.getSessionPath(projectId, sessionId), "upstream");
   }
 
   private getAgentWorkspacePath(projectId: string, sessionId: string): string {
-    return join(this.getSessionPath(projectId, sessionId), "agent-workspace");
+    return this.os.path.join(this.getSessionPath(projectId, sessionId), "agent-workspace");
   }
 
   private getPatchesPath(projectId: string, sessionId: string): string {
-    return join(this.getSessionPath(projectId, sessionId), "patches");
+    return this.os.path.join(this.getSessionPath(projectId, sessionId), "patches");
   }
 
   /**
@@ -197,7 +192,7 @@ export class SessionRepository {
     if (this.deps.fossilReposDir) {
       return this.deps.fossilReposDir;
     }
-    return join(this.getDataPath(), "session-fossils");
+    return this.os.path.join(this.getDataPath(), "session-fossils");
   }
 
   /**
@@ -209,7 +204,7 @@ export class SessionRepository {
    */
   getFossilPath(sessionId: string): string {
     const normalizedId = normalizeSessionIdForFossil(sessionId);
-    return join(this.getFossilReposDir(), `${normalizedId}.fossil`);
+    return this.os.path.join(this.getFossilReposDir(), `${normalizedId}.fossil`);
   }
 
   private generateId(): string {
@@ -240,24 +235,24 @@ export class SessionRepository {
     const agentWorkspacePath = this.getAgentWorkspacePath(input.projectId, id);
 
     // Create session directory
-    if (!existsSync(sessionPath)) {
-      mkdirSync(sessionPath, { recursive: true });
+    if (!this.os.fs.exists(sessionPath)) {
+      this.os.fs.mkdir(sessionPath, { recursive: true });
     }
 
     // Create upstream directory
-    if (!existsSync(upstreamPath)) {
-      mkdirSync(upstreamPath, { recursive: true });
+    if (!this.os.fs.exists(upstreamPath)) {
+      this.os.fs.mkdir(upstreamPath, { recursive: true });
     }
 
     // Create agent-workspace directory
-    if (!existsSync(agentWorkspacePath)) {
-      mkdirSync(agentWorkspacePath, { recursive: true });
+    if (!this.os.fs.exists(agentWorkspacePath)) {
+      this.os.fs.mkdir(agentWorkspacePath, { recursive: true });
     }
 
     // Create patches directory for historical patch storage
     const patchesPath = this.getPatchesPath(input.projectId, id);
-    if (!existsSync(patchesPath)) {
-      mkdirSync(patchesPath, { recursive: true });
+    if (!this.os.fs.exists(patchesPath)) {
+      this.os.fs.mkdir(patchesPath, { recursive: true });
     }
 
     const now = new Date().toISOString();
@@ -291,10 +286,10 @@ export class SessionRepository {
       ...(input.agentSubpath && { agentSubpath: input.agentSubpath }),
     };
 
-    writeFileSync(
+    this.os.fs.writeFile(
       this.getSessionFilePath(input.projectId, id),
       dump(sessionData),
-      "utf-8",
+      { encoding: "utf-8" },
     );
 
     // Register MCP token in the token store
@@ -312,19 +307,19 @@ export class SessionRepository {
   async findById(sessionId: string): Promise<Session | null> {
     // Search across all projects for the session
     const Paths = { projects: this.getProjectsPath() };
-    if (!existsSync(Paths.projects)) {
+    if (!this.os.fs.exists(Paths.projects)) {
       return null;
     }
 
-    const projectEntries = readdirSync(Paths.projects, { withFileTypes: true });
+    const projectEntries = this.os.fs.readdir(Paths.projects, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
 
     for (const projectEntry of projectEntries) {
       if (projectEntry.isDirectory()) {
-        const sessionsDir = join(Paths.projects, projectEntry.name, "sessions");
-        if (existsSync(sessionsDir)) {
-          const sessionFile = join(sessionsDir, sessionId, "session.yaml");
-          if (existsSync(sessionFile)) {
-            const content = readFileSync(sessionFile, "utf-8");
+        const sessionsDir = this.os.path.join(Paths.projects, projectEntry.name, "sessions");
+        if (this.os.fs.exists(sessionsDir)) {
+          const sessionFile = this.os.path.join(sessionsDir, sessionId, "session.yaml");
+          if (this.os.fs.exists(sessionFile)) {
+            const content = this.os.fs.readFile(sessionFile, "utf-8");
             const data = load(content) as SessionData;
             // Handle migration from checkoutPath to agentWorkspacePath
             // Handle ACP Session Parking defaults (backward compatibility)
@@ -365,11 +360,11 @@ export class SessionRepository {
     sessionId: string,
   ): Promise<Session | null> {
     const filePath = this.getSessionFilePath(projectId, sessionId);
-    if (!existsSync(filePath)) {
+    if (!this.os.fs.exists(filePath)) {
       return null;
     }
 
-    const content = readFileSync(filePath, "utf-8");
+    const content = this.os.fs.readFile(filePath, "utf-8");
     const data = load(content) as SessionData;
     // Handle migration from checkoutPath to agentWorkspacePath
     // Handle ACP Session Parking defaults (backward compatibility)
@@ -397,19 +392,19 @@ export class SessionRepository {
   }
 
   async listByProject(projectId: string): Promise<Session[]> {
-    const sessionsDir = join(this.getProjectsPath(), projectId, "sessions");
-    if (!existsSync(sessionsDir)) {
+    const sessionsDir = this.os.path.join(this.getProjectsPath(), projectId, "sessions");
+    if (!this.os.fs.exists(sessionsDir)) {
       return [];
     }
 
-    const entries = readdirSync(sessionsDir, { withFileTypes: true });
+    const entries = this.os.fs.readdir(sessionsDir, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
     const sessions: Session[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const sessionFile = join(sessionsDir, entry.name, "session.yaml");
-        if (existsSync(sessionFile)) {
-          const content = readFileSync(sessionFile, "utf-8");
+        const sessionFile = this.os.path.join(sessionsDir, entry.name, "session.yaml");
+        if (this.os.fs.exists(sessionFile)) {
+          const content = this.os.fs.readFile(sessionFile, "utf-8");
           const data = load(content) as SessionData;
           // Handle migration from checkoutPath to agentWorkspacePath
           // Handle ACP Session Parking defaults (backward compatibility)
@@ -444,11 +439,11 @@ export class SessionRepository {
 
   async listAll(): Promise<Session[]> {
     const projectsPath = this.getProjectsPath();
-    if (!existsSync(projectsPath)) {
+    if (!this.os.fs.exists(projectsPath)) {
       return [];
     }
 
-    const projectEntries = readdirSync(projectsPath, { withFileTypes: true });
+    const projectEntries = this.os.fs.readdir(projectsPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
     const sessions: Session[] = [];
 
     for (const projectEntry of projectEntries) {
@@ -465,23 +460,23 @@ export class SessionRepository {
 
   async findByAssignedAgentId(agentId: string): Promise<Session[]> {
     const Paths = { projects: this.getProjectsPath() };
-    if (!existsSync(Paths.projects)) {
+    if (!this.os.fs.exists(Paths.projects)) {
       return [];
     }
 
-    const projectEntries = readdirSync(Paths.projects, { withFileTypes: true });
+    const projectEntries = this.os.fs.readdir(Paths.projects, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
     const sessions: Session[] = [];
 
     for (const projectEntry of projectEntries) {
       if (projectEntry.isDirectory()) {
-        const sessionsDir = join(Paths.projects, projectEntry.name, "sessions");
-        if (existsSync(sessionsDir)) {
-          const entries = readdirSync(sessionsDir, { withFileTypes: true });
+        const sessionsDir = this.os.path.join(Paths.projects, projectEntry.name, "sessions");
+        if (this.os.fs.exists(sessionsDir)) {
+          const entries = this.os.fs.readdir(sessionsDir, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
           for (const entry of entries) {
             if (entry.isDirectory()) {
-              const sessionFile = join(sessionsDir, entry.name, "session.yaml");
-              if (existsSync(sessionFile)) {
-                const content = readFileSync(sessionFile, "utf-8");
+              const sessionFile = this.os.path.join(sessionsDir, entry.name, "session.yaml");
+              if (this.os.fs.exists(sessionFile)) {
+                const content = this.os.fs.readFile(sessionFile, "utf-8");
                 const data = load(content) as SessionData;
                 // Handle migration from checkoutPath to agentWorkspacePath
                 // Handle ACP Session Parking defaults (backward compatibility)
@@ -521,23 +516,23 @@ export class SessionRepository {
 
   async findByThreadAgentId(agentId: string): Promise<Session[]> {
     const projectsPath = this.getProjectsPath();
-    if (!existsSync(projectsPath)) return [];
+    if (!this.os.fs.exists(projectsPath)) return [];
 
-    const projectEntries = readdirSync(projectsPath, { withFileTypes: true });
+    const projectEntries = this.os.fs.readdir(projectsPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
     const sessions: Session[] = [];
 
     for (const projectEntry of projectEntries) {
       if (!projectEntry.isDirectory()) continue;
-      const sessionsDir = join(projectsPath, projectEntry.name, "sessions");
-      if (!existsSync(sessionsDir)) continue;
+      const sessionsDir = this.os.path.join(projectsPath, projectEntry.name, "sessions");
+      if (!this.os.fs.exists(sessionsDir)) continue;
 
-      const entries = readdirSync(sessionsDir, { withFileTypes: true });
+      const entries = this.os.fs.readdir(sessionsDir, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
-        const sessionFile = join(sessionsDir, entry.name, "session.yaml");
-        if (!existsSync(sessionFile)) continue;
+        const sessionFile = this.os.path.join(sessionsDir, entry.name, "session.yaml");
+        if (!this.os.fs.exists(sessionFile)) continue;
 
-        const content = readFileSync(sessionFile, "utf-8");
+        const content = this.os.fs.readFile(sessionFile, "utf-8");
         const data = load(content) as SessionData;
         const hasThread = (data.chatThreads ?? []).some(
           (t) => t.assignedAgentId === agentId,
@@ -584,7 +579,7 @@ export class SessionRepository {
     };
 
     const filePath = this.getSessionFilePath(session.projectId, sessionId);
-    writeFileSync(filePath, dump(updatedData), "utf-8");
+    this.os.fs.writeFile(filePath, dump(updatedData), { encoding: "utf-8" });
 
     return {
       ...updatedData,
@@ -671,35 +666,35 @@ export class SessionRepository {
 
     // Delete the centralized fossil repository file
     const fossilPath = this.getFossilPath(sessionId);
-    if (existsSync(fossilPath)) {
-      unlinkSync(fossilPath);
+    if (this.os.fs.exists(fossilPath)) {
+      this.os.fs.unlink(fossilPath);
     }
 
     // Delete entire session directory (includes upstream/, agent-workspace/, session.yaml)
-    if (existsSync(sessionPath)) {
+    if (this.os.fs.exists(sessionPath)) {
       this.deleteDirectoryRecursive(sessionPath);
     }
   }
 
   private deleteDirectoryRecursive(dirPath: string): void {
-    if (!existsSync(dirPath)) return;
+    if (!this.os.fs.exists(dirPath)) return;
 
-    const entries = readdirSync(dirPath, { withFileTypes: true });
+    const entries = this.os.fs.readdir(dirPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
 
     for (const entry of entries) {
-      const entryPath = join(dirPath, entry.name);
+      const entryPath = this.os.path.join(dirPath, entry.name);
       if (entry.isDirectory()) {
         this.deleteDirectoryRecursive(entryPath);
       } else {
-        unlinkSync(entryPath);
+        this.os.fs.unlink(entryPath);
       }
     }
 
-    rmdirSync(dirPath);
+    this.os.fs.rm(dirPath);
   }
 
   async exists(projectId: string, sessionId: string): Promise<boolean> {
-    return existsSync(this.getSessionFilePath(projectId, sessionId));
+    return this.os.fs.exists(this.getSessionFilePath(projectId, sessionId));
   }
 
   async updateSessionConfig(

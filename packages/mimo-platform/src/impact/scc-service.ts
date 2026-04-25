@@ -1,15 +1,5 @@
-import { join, dirname } from "path";
-import {
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-  chmodSync,
-  readFileSync,
-  renameSync,
-  unlinkSync,
-} from "fs";
-import { execSync, spawn } from "child_process";
 import { logger } from "../logger.js";
+import type { OS } from "../os/types.js";
 
 export interface SccPlatform {
   os: "Linux" | "Darwin" | "Windows";
@@ -107,17 +97,19 @@ export class SccService {
   private staleDirectories: Set<string> = new Set();
   private cacheFilePath: string;
   private customCacheDir?: string;
+  private os: OS;
 
-  constructor(customPath: string, customCacheDir?: string) {
+  constructor(os: OS, customPath: string, customCacheDir?: string) {
+    this.os = os;
     this.sccPath = customPath;
     this.customCacheDir = customCacheDir;
 
     // Initialize cache file path
     if (customCacheDir) {
-      this.cacheFilePath = join(customCacheDir, "scc-cache.json");
+      this.cacheFilePath = os.path.join(customCacheDir, "scc-cache.json");
     } else {
       // Fallback - caller should always provide cacheDir via configure()
-      this.cacheFilePath = join(".mimo", "cache", "scc-cache.json");
+      this.cacheFilePath = os.path.join(".mimo", "cache", "scc-cache.json");
     }
 
     // Load existing cache on initialization (optional)
@@ -129,11 +121,11 @@ export class SccService {
   }
 
   configure(config: { mimoHome: string; cacheDir?: string }): void {
-    this.sccPath = join(config.mimoHome, "bin", "scc");
+    this.sccPath = this.os.path.join(config.mimoHome, "bin", "scc");
     if (!this.customCacheDir && config.cacheDir) {
-      this.cacheFilePath = join(config.cacheDir, "scc-cache.json");
+      this.cacheFilePath = this.os.path.join(config.cacheDir, "scc-cache.json");
     } else if (!this.customCacheDir) {
-      this.cacheFilePath = join(
+      this.cacheFilePath = this.os.path.join(
         config.mimoHome,
         ".mimo",
         "cache",
@@ -147,12 +139,12 @@ export class SccService {
   }
 
   isInstalled(): boolean {
-    return existsSync(this.sccPath);
+    return this.os.fs.exists(this.sccPath);
   }
 
   detectPlatform(): SccPlatform {
-    const platform = process.platform;
-    const arch = process.arch;
+    const platform = this.os.path.platform();
+    const arch = this.os.path.arch();
 
     let os: SccPlatform["os"];
     switch (platform) {
@@ -190,7 +182,7 @@ export class SccService {
   async install(): Promise<{ success: boolean; error?: string }> {
     try {
       // Get bin directory from configured sccPath
-      const binDir = dirname(this.sccPath);
+      const binDir = this.os.path.dirname(this.sccPath);
 
       if (this.isInstalled()) {
         return { success: true };
@@ -200,37 +192,51 @@ export class SccService {
       const url = this.getDownloadUrl(platform);
 
       // Create bin directory if needed
-      if (!existsSync(binDir)) {
-        mkdirSync(binDir, { recursive: true });
+      if (!this.os.fs.exists(binDir)) {
+        this.os.fs.mkdir(binDir, { recursive: true });
       }
 
       // Download and extract scc
       const ext = platform.os === "Windows" ? ".zip" : ".tar.gz";
-      const downloadPath = join(binDir, `scc${ext}`);
+      const downloadPath = this.os.path.join(binDir, `scc${ext}`);
 
       logger.debug(`[scc] Downloading from ${url}...`);
 
       // Download using curl
-      execSync(`curl -L -o "${downloadPath}" "${url}"`, {
-        timeout: 120000,
+      await this.os.command.run([
+        "curl",
+        "-L",
+        "-o",
+        downloadPath,
+        url,
+      ], {
+        timeoutMs: 120000,
       });
 
       logger.debug("[scc] Extracting...");
 
       // Extract
       if (platform.os === "Windows") {
-        execSync(
-          `powershell -command "Expand-Archive -Path '${downloadPath}' -DestinationPath '${binDir}' -Force"`,
-        );
+        await this.os.command.run([
+          "powershell",
+          "-command",
+          `Expand-Archive -Path '${downloadPath}' -DestinationPath '${binDir}' -Force`,
+        ]);
       } else {
-        execSync(`tar -xzf "${downloadPath}" -C "${binDir}"`);
+        await this.os.command.run([
+          "tar",
+          "-xzf",
+          downloadPath,
+          "-C",
+          binDir,
+        ]);
       }
 
       // Make executable
-      chmodSync(this.sccPath, 0o755);
+      this.os.fs.chmod(this.sccPath, 0o755);
 
       // Clean up archive
-      execSync(`rm "${downloadPath}"`);
+      this.os.fs.unlink(downloadPath);
 
       logger.debug(`[scc] Installed to ${this.sccPath}`);
       return { success: true };
@@ -258,47 +264,55 @@ export class SccService {
     // SCC auto-detects .sccignore files, so we write to that
     await this.buildIgnoreFile(directory);
 
-    return new Promise((resolve, reject) => {
-      const args = ["--by-file", "-f", "json", directory];
-      const child = spawn(this.sccPath, args, {
-        timeout: 30000, // 30 second timeout
-      });
-
-      let stdout = "";
-      let stderr = "";
-
-      child.stdout.on("data", (data) => {
-        stdout += data.toString();
-      });
-
-      child.stderr.on("data", (data) => {
-        stderr += data.toString();
-      });
-
-      child.on("close", async (code) => {
-        if (code !== 0) {
-          reject(new Error(`scc exited with code ${code}: ${stderr}`));
-          return;
-        }
-
-        try {
-          const output: SccJsonOutput = JSON.parse(stdout);
-          const metrics = this.parseSccOutput(output);
-
-          // Update smart cache with new results
-          await this.updateCache(directory, metrics);
-          this.staleDirectories.delete(directory);
-
-          resolve(metrics);
-        } catch (error) {
-          reject(new Error(`Failed to parse scc output: ${error}`));
-        }
-      });
-
-      child.on("error", (error) => {
-        reject(new Error(`Failed to run scc: ${error.message}`));
-      });
+    const args = ["--by-file", "-f", "json", directory];
+    const child = this.os.command.spawn([this.sccPath, ...args], {
+      timeoutMs: 30000,
     });
+
+    let stdout = "";
+    let stderr = "";
+
+    const stdoutReader = child.stdout.getReader();
+    const stderrReader = child.stderr.getReader();
+
+    try {
+      while (true) {
+        const { done, value } = await stdoutReader.read();
+        if (done) break;
+        stdout += new TextDecoder().decode(value);
+      }
+    } finally {
+      stdoutReader.releaseLock();
+    }
+
+    try {
+      while (true) {
+        const { done, value } = await stderrReader.read();
+        if (done) break;
+        stderr += new TextDecoder().decode(value);
+      }
+    } finally {
+      stderrReader.releaseLock();
+    }
+
+    const exitCode = await child.exited;
+
+    if (exitCode !== 0) {
+      throw new Error(`scc exited with code ${exitCode}: ${stderr}`);
+    }
+
+    try {
+      const output: SccJsonOutput = JSON.parse(stdout);
+      const metrics = this.parseSccOutput(output);
+
+      // Update smart cache with new results
+      await this.updateCache(directory, metrics);
+      this.staleDirectories.delete(directory);
+
+      return metrics;
+    } catch (error) {
+      throw new Error(`Failed to parse scc output: ${error}`);
+    }
   }
 
   private parseSccOutput(output: SccJsonOutput): SccMetrics {
@@ -380,8 +394,8 @@ export class SccService {
       this.smartCache.clear();
       // Remove cache file entirely when clearing all
       try {
-        if (existsSync(this.cacheFilePath)) {
-          unlinkSync(this.cacheFilePath);
+        if (this.os.fs.exists(this.cacheFilePath)) {
+          this.os.fs.unlink(this.cacheFilePath);
         }
       } catch (error) {
         // Ignore errors during file removal
@@ -399,11 +413,11 @@ export class SccService {
   async buildIgnoreFile(directory: string): Promise<string> {
     const ignoreSources = [
       {
-        path: join(directory, ".fossil-settings", "ignore-glob"),
+        path: this.os.path.join(directory, ".fossil-settings", "ignore-glob"),
         label: ".fossil-settings/ignore-glob",
       },
-      { path: join(directory, ".gitignore"), label: ".gitignore" },
-      { path: join(directory, ".mimoignore"), label: ".mimoignore" },
+      { path: this.os.path.join(directory, ".gitignore"), label: ".gitignore" },
+      { path: this.os.path.join(directory, ".mimoignore"), label: ".mimoignore" },
     ];
 
     // Build composite content
@@ -416,9 +430,9 @@ export class SccService {
     ];
 
     for (const source of ignoreSources) {
-      if (existsSync(source.path)) {
+      if (this.os.fs.exists(source.path)) {
         compositeLines.push(`# --- From: ${source.label} ---`);
-        const content = readFileSync(source.path, "utf-8");
+        const content = this.os.fs.readFile(source.path, "utf-8");
         compositeLines.push(content);
         compositeLines.push("");
       } else {
@@ -430,8 +444,8 @@ export class SccService {
 
     // Write as .sccignore in the target directory
     // SCC automatically detects and uses .sccignore files
-    const sccIgnorePath = join(directory, ".sccignore");
-    writeFileSync(sccIgnorePath, compositeLines.join("\n"), "utf-8");
+    const sccIgnorePath = this.os.path.join(directory, ".sccignore");
+    this.os.fs.writeFile(sccIgnorePath, compositeLines.join("\n"), "utf-8");
 
     return sccIgnorePath;
   }
@@ -441,8 +455,8 @@ export class SccService {
    */
   loadCache(): void {
     try {
-      if (existsSync(this.cacheFilePath)) {
-        const content = readFileSync(this.cacheFilePath, "utf-8");
+      if (this.os.fs.exists(this.cacheFilePath)) {
+        const content = this.os.fs.readFile(this.cacheFilePath, "utf-8");
         const data: SccCacheData = JSON.parse(content);
         this.smartCache = new Map(Object.entries(data.entries || {}));
       }
@@ -457,9 +471,9 @@ export class SccService {
    */
   async saveCache(): Promise<void> {
     try {
-      const cacheDir = dirname(this.cacheFilePath);
-      if (!existsSync(cacheDir)) {
-        mkdirSync(cacheDir, { recursive: true });
+      const cacheDir = this.os.path.dirname(this.cacheFilePath);
+      if (!this.os.fs.exists(cacheDir)) {
+        this.os.fs.mkdir(cacheDir, { recursive: true });
       }
 
       const data: SccCacheData = {
@@ -468,8 +482,8 @@ export class SccService {
 
       // Atomic write: write to temp file, then rename
       const tempPath = `${this.cacheFilePath}.tmp`;
-      writeFileSync(tempPath, JSON.stringify(data, null, 2), "utf-8");
-      renameSync(tempPath, this.cacheFilePath);
+      this.os.fs.writeFile(tempPath, JSON.stringify(data, null, 2), "utf-8");
+      this.os.fs.rename(tempPath, this.cacheFilePath);
     } catch (error) {
       logger.error("[scc] Failed to save cache:", error);
     }

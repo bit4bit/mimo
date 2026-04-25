@@ -1,7 +1,5 @@
-import { join, relative } from "path";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "fs";
-import { spawn } from "child_process";
-import { tmpdir } from "os";
+import type { OS } from "../os/types.js";
+import { logger } from "../logger.js";
 
 export interface Clone {
   firstFile: { path: string; startLine: number; endLine: number };
@@ -42,12 +40,14 @@ interface JscpdReport {
 
 export class JscpdService {
   private jscpdPath: string;
+  private os: OS;
 
-  constructor(customPath?: string) {
+  constructor(os: OS, customPath?: string) {
+    this.os = os;
     if (customPath) {
       this.jscpdPath = customPath;
     } else {
-      this.jscpdPath = join(process.cwd(), "node_modules/.bin/jscpd");
+      this.jscpdPath = os.path.join(process.cwd(), "node_modules/.bin/jscpd");
     }
   }
 
@@ -56,7 +56,7 @@ export class JscpdService {
   }
 
   isInstalled(): boolean {
-    return existsSync(this.jscpdPath);
+    return this.os.fs.exists(this.jscpdPath);
   }
 
   async install(): Promise<{ success: boolean; error?: string }> {
@@ -90,78 +90,76 @@ export class JscpdService {
     // Build composite ignore file
     await this.buildIgnoreFile(directory);
 
-    const outputDir = join(
-      tmpdir(),
+    const outputDir = this.os.path.join(
+      this.os.path.tempDir(),
       `jscpd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     );
-    mkdirSync(outputDir, { recursive: true });
+    this.os.fs.mkdir(outputDir, { recursive: true });
 
     try {
       const report = await this.runJscpd(filePaths, outputDir);
       return this.parseJscpdOutput(report);
     } finally {
       try {
-        rmSync(outputDir, { recursive: true, force: true });
+        this.os.fs.rm(outputDir, { recursive: true, force: true });
       } catch {}
     }
   }
 
-  private runJscpd(
+  private async runJscpd(
     filePaths: string[],
     outputDir: string,
   ): Promise<JscpdReport> {
-    return new Promise((resolve, reject) => {
-      const args = [
-        "--reporters",
-        "json",
-        "--output",
-        outputDir,
-        "--min-lines",
-        "3",
-        "--min-tokens",
-        "30",
-        ...filePaths,
-      ];
+    const args = [
+      "--reporters",
+      "json",
+      "--output",
+      outputDir,
+      "--min-lines",
+      "3",
+      "--min-tokens",
+      "30",
+      ...filePaths,
+    ];
 
-      const child = spawn(this.jscpdPath, args, { timeout: 30000 });
+    const child = this.os.command.spawn([this.jscpdPath, ...args], { timeoutMs: 30000 });
 
-      let stderr = "";
-      child.stderr.on("data", (data) => {
-        stderr += data.toString();
-      });
+    let stderr = "";
+    const stderrReader = child.stderr.getReader();
+    try {
+      while (true) {
+        const { done, value } = await stderrReader.read();
+        if (done) break;
+        stderr += new TextDecoder().decode(value);
+      }
+    } finally {
+      stderrReader.releaseLock();
+    }
 
-      child.on("close", (code) => {
-        if (code !== 0 && code !== 1) {
-          // jscpd exits with 1 when duplicates are found — that's not an error
-          reject(new Error(`jscpd exited with code ${code}: ${stderr}`));
-          return;
-        }
+    const exitCode = await child.exited;
 
-        const reportPath = join(outputDir, "jscpd-report.json");
-        if (!existsSync(reportPath)) {
-          resolve({
-            duplicates: [],
-            statistics: {
-              total: { duplicatedLines: 0, duplicatedTokens: 0, percentage: 0 },
-            },
-          });
-          return;
-        }
+    if (exitCode !== 0 && exitCode !== 1) {
+      // jscpd exits with 1 when duplicates are found — that's not an error
+      throw new Error(`jscpd exited with code ${exitCode}: ${stderr}`);
+    }
 
-        try {
-          const report: JscpdReport = JSON.parse(
-            readFileSync(reportPath, "utf-8"),
-          );
-          resolve(report);
-        } catch (err) {
-          reject(new Error(`Failed to parse jscpd report: ${err}`));
-        }
-      });
+    const reportPath = this.os.path.join(outputDir, "jscpd-report.json");
+    if (!this.os.fs.exists(reportPath)) {
+      return {
+        duplicates: [],
+        statistics: {
+          total: { duplicatedLines: 0, duplicatedTokens: 0, percentage: 0 },
+        },
+      };
+    }
 
-      child.on("error", (err) =>
-        reject(new Error(`Failed to run jscpd: ${err.message}`)),
-      );
-    });
+    try {
+      const reportContent = this.os.fs.readFile(reportPath, "utf-8");
+      const report: JscpdReport = JSON.parse(reportContent);
+      return report;
+    } catch (err) {
+      throw new Error(`Failed to parse jscpd report: ${err}`);
+    }
   }
 
   parseJscpdOutput(report: JscpdReport): JscpdMetrics {
@@ -201,8 +199,8 @@ export class JscpdService {
 
   async buildIgnoreFile(directory: string): Promise<string> {
     const sources = [
-      { path: join(directory, ".gitignore"), label: ".gitignore" },
-      { path: join(directory, ".mimoignore"), label: ".mimoignore" },
+      { path: this.os.path.join(directory, ".gitignore"), label: ".gitignore" },
+      { path: this.os.path.join(directory, ".mimoignore"), label: ".mimoignore" },
     ];
 
     const lines: string[] = [
@@ -211,24 +209,15 @@ export class JscpdService {
     ];
 
     for (const source of sources) {
-      if (existsSync(source.path)) {
+      if (this.os.fs.exists(source.path)) {
         lines.push(`# --- From: ${source.label} ---`);
-        lines.push(readFileSync(source.path, "utf-8"));
+        lines.push(this.os.fs.readFile(source.path, "utf-8"));
         lines.push("");
       }
     }
 
-    const ignorePath = join(directory, ".jscpdignore");
-    writeFileSync(ignorePath, lines.join("\n"), "utf-8");
+    const ignorePath = this.os.path.join(directory, ".jscpdignore");
+    this.os.fs.writeFile(ignorePath, lines.join("\n"), "utf-8");
     return ignorePath;
   }
-}
-
-let _jscpdService: JscpdService | undefined;
-
-export function getJscpdService(): JscpdService {
-  if (!_jscpdService) {
-    _jscpdService = new JscpdService();
-  }
-  return _jscpdService;
 }

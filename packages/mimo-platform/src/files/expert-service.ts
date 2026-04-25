@@ -1,5 +1,4 @@
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
+import type { OS } from "../os/types.js";
 
 export interface ExpertFileResult {
   content: string;
@@ -14,7 +13,7 @@ export interface PatchInfo {
   patchPath: string;
 }
 
-function isValidPath(path: string, workspacePath: string): boolean {
+function isValidPath(path: string, _workspacePath: string): boolean {
   if (path.includes("..")) {
     return false;
   }
@@ -25,11 +24,17 @@ function isPatchPathValid(patchPath: string): boolean {
   return patchPath.startsWith(".mimo-patches/");
 }
 
-export function createExpertService(): ExpertService {
-  return new ExpertService();
+export function createExpertService(os: OS): ExpertService {
+  return new ExpertService(os);
 }
 
 export class ExpertService {
+  private os: OS;
+
+  constructor(os: OS) {
+    this.os = os;
+  }
+
   async readFileContent(
     workspacePath: string,
     filePath: string,
@@ -38,12 +43,12 @@ export class ExpertService {
       throw new Error("Invalid path: must be within workspace");
     }
 
-    const fullPath = join(workspacePath, filePath).replace(/\\/g, "/");
-    if (!existsSync(fullPath)) {
+    const fullPath = this.os.path.join(workspacePath, filePath).replace(/\\/g, "/");
+    if (!this.os.fs.exists(fullPath)) {
       throw new Error(`File not found: ${filePath}`);
     }
 
-    const content = readFileSync(fullPath, "utf-8");
+    const content = this.os.fs.readFile(fullPath, "utf-8");
     return { content };
   }
 
@@ -56,14 +61,13 @@ export class ExpertService {
       throw new Error("Invalid path: must be within workspace");
     }
 
-    const fullPath = join(workspacePath, filePath).replace(/\\/g, "/");
-    const { writeFileSync, existsSync } = await import("fs");
-    const dir = join(fullPath, "..").replace(/\\/g, "/");
-    if (!existsSync(dir)) {
+    const fullPath = this.os.path.join(workspacePath, filePath).replace(/\\/g, "/");
+    const dir = this.os.path.dirname(fullPath);
+    if (!this.os.fs.exists(dir)) {
       throw new Error(`Directory not found: ${dir}`);
     }
 
-    writeFileSync(fullPath, content, "utf-8");
+    this.os.fs.writeFile(fullPath, content, "utf-8");
     return { success: true };
   }
 
@@ -79,19 +83,18 @@ export class ExpertService {
       throw new Error("Invalid path: path traversal not allowed");
     }
 
-    const { readFileSync, unlinkSync, existsSync } = await import("fs");
-    const patchPath = join(".mimo-patches", originalPath).replace(/\\/g, "/");
-    const fullPatchPath = join(workspacePath, patchPath).replace(/\\/g, "/");
+    const patchPath = this.os.path.join(".mimo-patches", originalPath).replace(/\\/g, "/");
+    const fullPatchPath = this.os.path.join(workspacePath, patchPath).replace(/\\/g, "/");
 
-    if (!existsSync(fullPatchPath)) {
+    if (!this.os.fs.exists(fullPatchPath)) {
       throw new Error(`Patch file not found: ${patchPath}`);
     }
 
     // Read patch content (will be sent to agent separately)
-    const content = readFileSync(fullPatchPath, "utf-8");
+    const content = this.os.fs.readFile(fullPatchPath, "utf-8");
 
     // Delete patch file
-    unlinkSync(fullPatchPath);
+    this.os.fs.unlink(fullPatchPath);
 
     return { success: true, content };
   }
@@ -109,15 +112,14 @@ export class ExpertService {
       throw new Error("Invalid path: path traversal not allowed");
     }
 
-    const { mkdirSync, writeFileSync } = await import("fs");
-    const patchPath = join(".mimo-patches", originalPath).replace(/\\/g, "/");
-    const fullPatchPath = join(workspacePath, patchPath).replace(/\\/g, "/");
+    const patchPath = this.os.path.join(".mimo-patches", originalPath).replace(/\\/g, "/");
+    const fullPatchPath = this.os.path.join(workspacePath, patchPath).replace(/\\/g, "/");
 
     // Create parent directories
-    const dir = join(fullPatchPath, "..").replace(/\\/g, "/");
-    mkdirSync(dir, { recursive: true });
+    const dir = this.os.path.dirname(fullPatchPath);
+    this.os.fs.mkdir(dir, { recursive: true });
 
-    writeFileSync(fullPatchPath, content, "utf-8");
+    this.os.fs.writeFile(fullPatchPath, content, "utf-8");
     return { patchPath };
   }
 
@@ -132,11 +134,10 @@ export class ExpertService {
       throw new Error("Invalid patch path: must start with .mimo-patches/");
     }
 
-    const { unlinkSync, existsSync } = await import("fs");
-    const fullPatchPath = join(workspacePath, patchPath).replace(/\\/g, "/");
+    const fullPatchPath = this.os.path.join(workspacePath, patchPath).replace(/\\/g, "/");
 
-    if (existsSync(fullPatchPath)) {
-      unlinkSync(fullPatchPath);
+    if (this.os.fs.exists(fullPatchPath)) {
+      this.os.fs.unlink(fullPatchPath);
     }
 
     return { success: true };
@@ -146,19 +147,22 @@ export class ExpertService {
    * List all pending patch files in .mimo-patches/
    */
   async listPatchFiles(workspacePath: string): Promise<PatchInfo[]> {
-    const { readdirSync, statSync } = await import("fs");
-    const patchesDir = join(workspacePath, ".mimo-patches").replace(/\\/g, "/");
+    const patchesDir = this.os.path.join(workspacePath, ".mimo-patches").replace(/\\/g, "/");
 
-    if (!existsSync(patchesDir)) {
+    if (!this.os.fs.exists(patchesDir)) {
       return [];
     }
 
     const patches: PatchInfo[] = [];
 
-    function scanDir(dir: string, prefix: string) {
-      const entries = readdirSync(dir, { withFileTypes: true });
+    const scanDir = (dir: string, prefix: string) => {
+      const entries = this.os.fs.readdir(dir, { withFileTypes: true }) as Array<{
+        name: string;
+        isDirectory(): boolean;
+        isFile(): boolean;
+      }>;
       for (const entry of entries) {
-        const fullPath = join(dir, entry.name).replace(/\\/g, "/");
+        const fullPath = this.os.path.join(dir, entry.name).replace(/\\/g, "/");
         const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
 
         if (entry.isDirectory()) {
@@ -170,7 +174,7 @@ export class ExpertService {
           });
         }
       }
-    }
+    };
 
     scanDir(patchesDir, "");
     return patches;

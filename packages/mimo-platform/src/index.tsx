@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import { createAuthRoutes } from "./auth/routes";
-import protectedRoutes from "./protected/routes";
 import { createProjectsRoutes } from "./projects/routes";
 import { createAgentsRoutes } from "./agents/routes.js";
 import { createSessionsRoutes } from "./sessions/routes";
@@ -36,6 +35,8 @@ import { homedir } from "os";
 import { createSessionDeletionUseCase } from "./sessions/session-deletion.js";
 import { sweepExpiredInactiveSessions } from "./sessions/session-retention-sweeper.js";
 import { normalizeAvailableCommands } from "./sessions/available-commands.js";
+import { createOS } from "./os/node-adapter.js";
+import type { OS } from "./os/types.js";
 
 // Asset embedding support for compiled executable
 // @ts-ignore - Module only exists after embedding
@@ -49,17 +50,28 @@ const mimoHome = process.env.MIMO_HOME ?? join(homedir(), ".mimo");
 const fossilReposDir =
   process.env.FOSSIL_REPOS_DIR ?? join(mimoHome, "session-fossils");
 
-// Create shared fossil server explicitly before context (dependency injection)
-const sharedFossilServer = createSharedFossilServer({
-  PORT: _port,
-  PLATFORM_URL: process.env.PLATFORM_URL ?? `http://localhost:${_port}`,
-  JWT_SECRET: process.env.JWT_SECRET ?? "your-secret-key-change-in-production",
-  MIMO_HOME: mimoHome,
-  FOSSIL_REPOS_DIR: fossilReposDir,
-  MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
-    ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
-    : 8000, // Default port for production
+// Create OS abstraction at the system boundary
+const os: OS = createOS({
+  PATH: process.env.PATH,
+  HOME: process.env.HOME,
+  ...process.env,
 });
+
+// Create shared fossil server explicitly before context (dependency injection)
+const sharedFossilServer = createSharedFossilServer(
+  {
+    PORT: _port,
+    PLATFORM_URL: process.env.PLATFORM_URL ?? `http://localhost:${_port}`,
+    JWT_SECRET:
+      process.env.JWT_SECRET ?? "your-secret-key-change-in-production",
+    MIMO_HOME: mimoHome,
+    FOSSIL_REPOS_DIR: fossilReposDir,
+    MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
+      ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
+      : 8000, // Default port for production
+  },
+  os,
+);
 
 const mimoContext = createMimoContext({
   env: {
@@ -76,6 +88,7 @@ const mimoContext = createMimoContext({
   services: {
     sharedFossil: sharedFossilServer,
   },
+  os,
 });
 
 mimoContext.services.scc.configure({ mimoHome });
@@ -142,6 +155,23 @@ import { mcpTokenStore } from "./mcp/token-store.js";
 import { createMcpRoutes } from "./mcp/server.js";
 import { createPlatformMcpServerConfig } from "./mcp/platform-config.js";
 import { registerHelpRoutes } from "./help/routes.js";
+import { authMiddleware } from "./auth/middleware.js";
+
+const PUBLIC_PATHS = ["/", "/health", "/api/projects/public", "/api/help"];
+const PUBLIC_PATH_PREFIXES = ["/auth/", "/js/", "/vendor/", "/api/mimo-mcp"];
+
+function isPublicPath(path: string): boolean {
+  if (PUBLIC_PATHS.includes(path)) return true;
+  return PUBLIC_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
+app.use("*", async (c, next) => {
+  const path = c.req.path;
+  if (isPublicPath(path)) {
+    return next();
+  }
+  return authMiddleware(c, next);
+});
 
 // Track active chat sessions
 const chatSessions = new Map<string, Set<SessionWsClient>>();
@@ -263,21 +293,19 @@ app.route("/dashboard", createDashboardRoutes(mimoContext));
 
 // Landing page (public)
 app.get("/", async (c) => {
-  const publicProjects = await mimoContext.repos.projects.listAllPublic();
   const user = c.get("user") as { username: string } | undefined;
-  const isAuthenticated = !!user;
-  const username = user?.username;
+  if (user) return c.redirect("/dashboard");
 
-  // If authenticated, redirect to dashboard
-  if (isAuthenticated) {
-    return c.redirect("/dashboard");
-  }
+  const projects = await mimoContext.repos.projects.listAllPublic();
+  const sessions = await mimoContext.repos.sessions.listAll();
+  const threadCount = sessions.reduce((n, s) => n + s.chatThreads.length, 0);
 
   return c.html(
     <LandingPage
-      projects={publicProjects}
-      isAuthenticated={isAuthenticated}
-      username={username}
+      projectCount={projects.length}
+      sessionCount={sessions.length}
+      threadCount={threadCount}
+      isAuthenticated={false}
     />,
   );
 });
@@ -287,14 +315,6 @@ app.get("/api/projects/public", async (c) => {
   const publicProjects = await mimoContext.repos.projects.listAllPublic();
   return c.json(publicProjects);
 });
-
-// Test endpoint - BEFORE protected routes
-app.get("/api/test", (c) => {
-  return c.json({ message: "test endpoint works" });
-});
-
-// Protected routes
-app.route("/", protectedRoutes);
 
 // Project routes (protected)
 app.route("/projects", createProjectsRoutes(mimoContext));
@@ -306,10 +326,6 @@ app.route("/sessions", createSessionsRoutes(mimoContext));
 app.route("/api/summary", createSummaryRoutes(mimoContext));
 
 // Test endpoint
-app.get("/api/test", (c) => {
-  console.log("TEST ENDPOINT HIT");
-  return c.json({ message: "test endpoint works" });
-});
 
 // Agent routes (protected)
 app.route("/agents", createAgentsRoutes(mimoContext));
@@ -336,6 +352,8 @@ app.route(
     sessionRepository: mimoContext.repos.sessions,
     agentService: mimoContext.services.agents,
     sccService: mimoContext.services.scc,
+    vcs: mimoContext.services.vcs,
+    os,
   }),
 );
 
@@ -349,6 +367,7 @@ app.route(
       const session = await sessionRepository.findById(sessionId);
       return session?.agentWorkspacePath ?? null;
     },
+    fileService: mimoContext.services.fileService,
   }),
 );
 
@@ -423,6 +442,40 @@ mimoServer.setup({
         if (!sessionId) {
           return new Response("Missing sessionId", { status: 400 });
         }
+
+        const session = await sessionRepository.findById(sessionId);
+        if (!session) {
+          logger.debug("[WS] Chat WebSocket: Session not found", sessionId);
+          return new Response("Session not found", { status: 404 });
+        }
+
+        const cookieHeader = req.headers.get("Cookie") || "";
+        const tokenMatch = cookieHeader.match(/token=([^;]+)/);
+        const token = tokenMatch ? tokenMatch[1] : null;
+
+        if (!token) {
+          logger.debug("[WS] Chat WebSocket: Missing token");
+          return new Response("Unauthorized", { status: 401 });
+        }
+
+        const payload = await mimoContext.services.auth.verifyToken(token);
+        if (!payload) {
+          logger.debug("[WS] Chat WebSocket: Invalid token");
+          return new Response("Unauthorized", { status: 401 });
+        }
+
+        if (session.owner !== payload.username) {
+          logger.debug("[WS] Chat WebSocket: Unauthorized", {
+            username: payload.username,
+            owner: session.owner,
+          });
+          return new Response("Unauthorized", { status: 401 });
+        }
+
+        logger.debug(
+          "[WS] Chat WebSocket: Authenticated upgrade for",
+          sessionId,
+        );
 
         const upgraded = server.upgrade(req, {
           data: {
@@ -758,6 +811,8 @@ async function triggerAutoSync(
       sessionRepository: mimoContext.repos.sessions,
       agentService: mimoContext.services.agents,
       sccService: mimoContext.services.scc,
+      vcs: mimoContext.services.vcs,
+      os: os,
     });
     const status = result.syncStatus;
     const syncSubscribers = chatSessions.get(sessionId);
@@ -1860,10 +1915,10 @@ async function handleAgentMessage(ws, data) {
         const errorSessionId = data.sessionId;
         const errorThreadId = data.chatThreadId;
         const rawError = data.error;
-        
+
         // Extract error message from error object
         const errorMessage = rawError?.message || String(rawError);
-        
+
         if (errorSessionId && errorMessage) {
           const timestamp = new Date().toISOString();
           // Save error as system message in chat history
@@ -2088,7 +2143,8 @@ async function handleChatMessage(ws, data) {
         );
       }
 
-      const stateAvailableCommands = availableCommandsBuffers.get(stateStreamKey);
+      const stateAvailableCommands =
+        availableCommandsBuffers.get(stateStreamKey);
       const stateFallbackCommands = availableCommandsBuffers.get(
         streamKey(sessionId),
       );

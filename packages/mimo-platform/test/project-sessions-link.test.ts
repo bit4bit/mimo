@@ -33,8 +33,8 @@ describe("Project Sessions Link Integration Tests", () => {
     const authModule = await import("../src/auth/routes.tsx");
     app.route("/auth", authModule.createAuthRoutes(ctx));
 
-    const protectedModule = await import("../src/protected/routes.tsx");
-    app.route("/", protectedModule.default);
+    // Note: protectedRoutes was empty (new Hono()) and has been removed
+    // Global auth middleware now handles all routes
 
     const projectsModule = await import("../src/projects/routes.tsx");
     app.route("/projects", projectsModule.createProjectsRoutes(ctx));

@@ -1,22 +1,26 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { createFileService } from "../files/service.js";
+import type { FileService } from "../files/types.js";
 import { mcpTokenStore } from "./token-store.js";
 import { broadcastToSession } from "../ws/session-broadcast.js";
 import { logger } from "../logger.js";
 
 interface McpRoutesContext {
-  chatSessions: Map<string, Set<{ readyState: number; send: (msg: string) => void }>>;
+  chatSessions: Map<
+    string,
+    Set<{ readyState: number; send: (msg: string) => void }>
+  >;
   fileWatchSessions?: Map<
     string,
     Set<{ readyState: number; send: (msg: string) => void }>
   >;
   getSessionWorkspace(sessionId: string): Promise<string | null>;
+  fileService: FileService;
 }
 
 export function createMcpRoutes(mimoContext: McpRoutesContext) {
   const router = new Hono();
-  const fileService = createFileService();
+  const fileService = mimoContext.fileService;
 
   router.post("/", async (c: Context) => {
     const authHeader = c.req.header("Authorization");
@@ -98,7 +102,10 @@ export function createMcpRoutes(mimoContext: McpRoutesContext) {
       const name = params?.name;
       const args = params?.arguments;
       if (name !== "open_file") {
-        return respondResult({ success: false, error: `Unknown tool: ${name}` });
+        return respondResult({
+          success: false,
+          error: `Unknown tool: ${name}`,
+        });
       }
 
       const filePath = args?.path;
@@ -144,7 +151,8 @@ export function createMcpRoutes(mimoContext: McpRoutesContext) {
         sessionId,
         path: filePath,
       });
-      const fileWatchSubscribers = mimoContext.fileWatchSessions?.get(sessionId);
+      const fileWatchSubscribers =
+        mimoContext.fileWatchSessions?.get(sessionId);
       if (fileWatchSubscribers) {
         const payload = JSON.stringify({
           type: "open_file_in_editbuffer",
@@ -157,7 +165,10 @@ export function createMcpRoutes(mimoContext: McpRoutesContext) {
           }
         });
       }
-      logger.debug("[mcp] open_file broadcast sent", { sessionId, path: filePath });
+      logger.debug("[mcp] open_file broadcast sent", {
+        sessionId,
+        path: filePath,
+      });
 
       return respondResult({ success: true, path: filePath });
     }

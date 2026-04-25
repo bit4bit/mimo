@@ -1,14 +1,10 @@
-import {
-  writeFileSync,
-  chmodSync,
-  unlinkSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  lstatSync,
-} from "fs";
-import { tmpdir } from "os";
-import { join, dirname, basename } from "path";
+/**
+ * VCS (Version Control System) abstraction.
+ *
+ * All OS operations are injected via the `OS` interface.
+ * No direct imports from `child_process`, `fs`, `os`, or `process.env`.
+ */
+import type { OS } from "../os/types.js";
 import type { Credential } from "../credentials/repository";
 import { logger } from "../logger.js";
 
@@ -45,39 +41,9 @@ const DEFAULT_FOSSIL_IGNORE_PATTERNS = [
   ".svn/**",
 ];
 
-/**
- * Scan a directory recursively, calling a callback for each non-VCS file.
- * Skips VCS internal directories (VCS_INTERNALS) automatically.
- *
- * @param dirPath - The directory to scan
- * @param basePath - The base path for computing relative paths
- * @param callback - Called for each file with (fullPath, relPath)
- */
-export async function scanDirectory(
-  dirPath: string,
-  basePath: string,
-  callback: (fullPath: string, relPath: string) => void | Promise<void>,
-): Promise<void> {
-  const { existsSync, readdirSync } = await import("fs");
-  const { join, relative } = await import("path");
-
-  if (!existsSync(dirPath)) return;
-
-  const entries = readdirSync(dirPath, { withFileTypes: true });
-
-  for (const entry of entries) {
-    const fullPath = join(dirPath, entry.name);
-    const relPath = relative(basePath, fullPath);
-
-    if (VCS_INTERNALS.has(entry.name)) continue;
-
-    const entryStats = lstatSync(fullPath);
-    if (entryStats.isDirectory()) {
-      await scanDirectory(fullPath, basePath, callback);
-    } else if (entryStats.isFile()) {
-      await callback(fullPath, relPath);
-    }
-  }
+export interface VCSConfig {
+  os: OS;
+  timeoutMs?: number;
 }
 
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -94,44 +60,99 @@ const withTimeout = <T>(
   ]);
 };
 
+/**
+ * Scan a directory recursively, calling a callback for each non-VCS file.
+ * Skips VCS internal directories (VCS_INTERNALS) automatically.
+ */
+export async function scanDirectory(
+  os: OS,
+  dirPath: string,
+  basePath: string,
+  callback: (fullPath: string, relPath: string) => void | Promise<void>,
+): Promise<void> {
+  if (!os.fs.exists(dirPath)) return;
+
+  const entries = os.fs.readdir(dirPath, { withFileTypes: true }) as {
+    name: string;
+    isDirectory(): boolean;
+    isFile(): boolean;
+  }[];
+
+  for (const entry of entries) {
+    const fullPath = os.path.join(dirPath, entry.name);
+    const relPath = os.path.relative(basePath, fullPath);
+
+    if (VCS_INTERNALS.has(entry.name)) continue;
+
+    const entryStats = os.fs.lstat(fullPath);
+    if (entryStats.isDirectory()) {
+      await scanDirectory(os, fullPath, basePath, callback);
+    } else if (entryStats.isFile()) {
+      await callback(fullPath, relPath);
+    }
+  }
+}
+
 export class VCS {
+  private readonly os: OS;
+  private readonly timeoutMs: number;
+
+  constructor(config: VCSConfig) {
+    this.os = config.os;
+    this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  }
+
+  // ── Core command execution ──────────────────────────────────────────────
+
   private async execCommand(
     command: string[],
     cwd?: string,
     env?: Record<string, string>,
   ): Promise<{ success: boolean; output: string; error: string }> {
-    const proc = Bun.spawn(command, {
+    const result = await this.os.command.run(command, {
       cwd,
-      stdout: "pipe",
-      stderr: "pipe",
-      env: env ? { ...process.env, ...env } : undefined,
+      env: env ? { ...this.os.env.getAll(), ...env } : undefined,
+      timeoutMs: this.timeoutMs,
     });
 
-    const promise = (async () => {
-      const exitCode = await proc.exited;
-      const stdout = await new Response(proc.stdout).text();
-      const stderr = await new Response(proc.stderr).text();
+    return {
+      success: result.success,
+      output: result.output,
+      error: result.error,
+    };
+  }
 
-      return {
-        success: exitCode === 0,
-        output: stdout.trim(),
-        error: stderr.trim(),
-      };
-    })();
+  // ── SSH key helpers (now use injected fs/path) ──────────────────────────
 
+  private createTempSshKeyFile(privateKey: string): string {
+    const tempDir = this.os.path.tempDir();
+    const keyFile = this.os.path.join(
+      tempDir,
+      `mimo-ssh-key-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    this.os.fs.writeFile(keyFile, privateKey, { mode: 0o600 });
+    this.os.fs.chmod(keyFile, 0o600);
+    return keyFile;
+  }
+
+  private deleteTempSshKeyFile(keyPath: string): void {
     try {
-      return await withTimeout(promise, DEFAULT_TIMEOUT_MS);
-    } catch (err) {
-      proc.kill();
-      return {
-        success: false,
-        output: "",
-        error: err instanceof Error ? err.message : String(err),
-      };
+      this.os.fs.unlink(keyPath);
+    } catch {
+      // Ignore errors during cleanup
     }
   }
 
-  // Helper to inject HTTPS credentials into URL
+  private buildGitSshCommand(keyPath: string): string {
+    return `ssh -i "${keyPath}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`;
+  }
+
+  // ── URL / auth helpers (pure functions, unchanged) ───────────────────────
+
+  private isSshUrl(url: string): boolean {
+    return url.startsWith("git@") || url.startsWith("ssh://");
+  }
+
   private injectHttpsCredentials(
     repoUrl: string,
     credential: Extract<Credential, { type: "https" }>,
@@ -147,38 +168,6 @@ export class VCS {
     }
   }
 
-  // Helper to create temporary SSH key file
-  private createTempSshKeyFile(privateKey: string): string {
-    const tempDir = tmpdir();
-    const keyFile = join(
-      tempDir,
-      `mimo-ssh-key-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    );
-    writeFileSync(keyFile, privateKey, { mode: 0o600 });
-    chmodSync(keyFile, 0o600);
-    return keyFile;
-  }
-
-  // Helper to delete temporary SSH key file
-  private deleteTempSshKeyFile(keyPath: string): void {
-    try {
-      unlinkSync(keyPath);
-    } catch {
-      // Ignore errors during cleanup
-    }
-  }
-
-  // Helper to build SSH command for GIT_SSH_COMMAND
-  private buildGitSshCommand(keyPath: string): string {
-    return `ssh -i "${keyPath}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`;
-  }
-
-  // Helper to detect if URL is SSH
-  private isSshUrl(url: string): boolean {
-    return url.startsWith("git@") || url.startsWith("ssh://");
-  }
-
-  // Helper to check if error is authentication-related
   private isAuthError(error: string, type: "https" | "ssh"): boolean {
     const lowerError = error.toLowerCase();
 
@@ -209,51 +198,42 @@ export class VCS {
     }
   }
 
-  // Helper to safely move files across filesystems (handles EXDEV error)
-  // When rename fails due to cross-device link, falls back to copy+delete
-  private async safeMove(
+  // ── File system helpers ─────────────────────────────────────────────────
+
+  private safeMove(
     sourcePath: string,
     destPath: string,
     isDirectory: boolean,
-  ): Promise<void> {
-    const { renameSync, cpSync, rmSync, mkdirSync, existsSync, readdirSync } =
-      await import("fs");
-    const { dirname, join } = await import("path");
-
+  ): void {
     try {
-      // Try rename first (fastest for same filesystem)
-      renameSync(sourcePath, destPath);
+      this.os.fs.rename(sourcePath, destPath);
     } catch (error: any) {
       // If error is cross-device link, fall back to copy+delete
       if (error.code === "EXDEV" || error.message?.includes("cross-device")) {
         // Ensure parent directory exists for destination
-        const parentDir = dirname(destPath);
-        mkdirSync(parentDir, { recursive: true });
+        const parentDir = this.os.path.dirname(destPath);
+        this.os.fs.mkdir(parentDir, { recursive: true });
 
         if (isDirectory) {
-          // Use cpSync with recursive and preserveTimestamps to properly copy .git
-          cpSync(sourcePath, destPath, {
+          this.os.fs.cp(sourcePath, destPath, {
             recursive: true,
             preserveTimestamps: true,
-            filter: () => true, // Copy all files including hidden ones
           });
           // Verify copy succeeded before deleting source
-          if (!existsSync(destPath)) {
+          if (!this.os.fs.exists(destPath)) {
             throw new Error(
               `Failed to copy directory from ${sourcePath} to ${destPath}`,
             );
           }
-          // Delete source directory recursively
-          rmSync(sourcePath, { recursive: true, force: true });
+          this.os.fs.rm(sourcePath, { recursive: true, force: true });
         } else {
-          // Use cpSync for files too to preserve permissions
-          cpSync(sourcePath, destPath, { preserveTimestamps: true });
-          if (!existsSync(destPath)) {
+          this.os.fs.cp(sourcePath, destPath, { preserveTimestamps: true });
+          if (!this.os.fs.exists(destPath)) {
             throw new Error(
               `Failed to copy file from ${sourcePath} to ${destPath}`,
             );
           }
-          rmSync(sourcePath, { force: true });
+          this.os.fs.rm(sourcePath, { force: true });
         }
       } else {
         // Re-throw other errors
@@ -261,6 +241,8 @@ export class VCS {
       }
     }
   }
+
+  // ── Public API ──────────────────────────────────────────────────────────
 
   async checkFossilAvailable(): Promise<boolean> {
     const result = await this.execCommand(["fossil", "version"]);
@@ -319,7 +301,6 @@ export class VCS {
     password: string,
     capabilities: string = "dio",
   ): Promise<VCSResult> {
-    // Create user in repository (if it already exists we'll update it below)
     const result = await this.execCommand([
       "fossil",
       "user",
@@ -343,7 +324,6 @@ export class VCS {
       };
     }
 
-    // Always ensure password is updated to requested value
     const passwordResult = await this.execCommand([
       "fossil",
       "user",
@@ -362,7 +342,6 @@ export class VCS {
       };
     }
 
-    // Ensure capabilities match expected role
     const capResult = await this.execCommand([
       "fossil",
       "user",
@@ -382,17 +361,6 @@ export class VCS {
     };
   }
 
-  /**
-   * Create a user in a fossil repository via the HTTP remote interface.
-   * This requires the fossil server to be running.
-   *
-   * @param sessionId - The session ID (used to construct the URL)
-   * @param username - The new username to create
-   * @param password - The new user's password
-   * @param port - The port the fossil server is running on
-   * @param setupUser - The setup/admin username for authentication
-   * @param setupPassword - The setup/admin password for authentication
-   */
   async createFossilUserInRepo(
     sessionId: string,
     username: string,
@@ -404,21 +372,18 @@ export class VCS {
     const normalizedId = sessionId.replace(/-/g, "_");
     const url = `http://${encodeURIComponent(setupUser)}:${encodeURIComponent(setupPassword)}@localhost:${port}/${normalizedId}`;
 
-    // Use fossil remote-url command to create a user
     const result = await this.execCommand([
       "fossil",
       "remote-url",
       url,
       "-R",
-      ":memory:", // Use in-memory repo for the operation
+      ":memory:",
       "--user",
       username,
       "--password",
       password,
     ]);
 
-    // The fossil remote-url command doesn't have a direct user creation option
-    // Instead, we need to use the HTTP JSON API
     try {
       const response = await fetch(
         `http://localhost:${port}/${normalizedId}/json/user/new`,
@@ -431,7 +396,7 @@ export class VCS {
           body: JSON.stringify({
             user: username,
             password: password,
-            capabilities: "dio", // develop, check-in, check-out
+            capabilities: "dio",
           }),
         },
       );
@@ -457,7 +422,6 @@ export class VCS {
     fossilPath: string,
     name: string,
   ): Promise<VCSResult> {
-    // project-name is not a regular setting, must use SQL to set it
     const escapedName = name.replace(/'/g, "''");
     const result = await this.execCommand([
       "fossil",
@@ -489,13 +453,9 @@ export class VCS {
     upstreamPath: string,
     agentWorkspacePath: string,
   ): Promise<VCSResult> {
-    const { existsSync, readFileSync, mkdirSync, writeFileSync } =
-      await import("fs");
-    const { join } = await import("path");
-
     const parsePatterns = (filePath: string): string[] =>
-      existsSync(filePath)
-        ? readFileSync(filePath, "utf8")
+      this.os.fs.exists(filePath)
+        ? this.os.fs.readFile(filePath, "utf8")
             .split("\n")
             .map((line: string) => line.trim())
             .filter((line: string) => line.length > 0 && !line.startsWith("#"))
@@ -503,23 +463,20 @@ export class VCS {
 
     const patterns = [
       ...DEFAULT_FOSSIL_IGNORE_PATTERNS,
-      ...parsePatterns(join(upstreamPath, ".gitignore")),
-      ...parsePatterns(join(upstreamPath, ".mimoignore")),
+      ...parsePatterns(this.os.path.join(upstreamPath, ".gitignore")),
+      ...parsePatterns(this.os.path.join(upstreamPath, ".mimoignore")),
     ];
     const uniquePatterns = Array.from(new Set(patterns));
 
-    // Write .fossil-settings/ignore-glob
-    const fossilSettingsDir = join(agentWorkspacePath, ".fossil-settings");
-    if (!existsSync(fossilSettingsDir)) {
-      mkdirSync(fossilSettingsDir, { recursive: true });
+    const fossilSettingsDir = this.os.path.join(agentWorkspacePath, ".fossil-settings");
+    if (!this.os.fs.exists(fossilSettingsDir)) {
+      this.os.fs.mkdir(fossilSettingsDir, { recursive: true });
     }
-    writeFileSync(
-      join(fossilSettingsDir, "ignore-glob"),
+    this.os.fs.writeFile(
+      this.os.path.join(fossilSettingsDir, "ignore-glob"),
       uniquePatterns.join("\n") + "\n",
     );
 
-    // Commit into fossil checkout — use explicit add since fossil addremove
-    // skips .fossil-settings/ as a special directory
     const addResult = await this.execCommand(
       ["fossil", "add", ".fossil-settings/ignore-glob"],
       agentWorkspacePath,
@@ -567,7 +524,6 @@ export class VCS {
   ): Promise<VCSResult> {
     let url = gitUrl;
 
-    // Inject credentials if provided and HTTPS
     if (credential?.type === "https" && !this.isSshUrl(gitUrl)) {
       url = this.injectHttpsCredentials(gitUrl, credential);
     }
@@ -575,7 +531,6 @@ export class VCS {
     try {
       new URL(url);
     } catch {
-      // Allow SSH URLs
       if (!this.isSshUrl(url)) {
         return {
           success: false,
@@ -584,21 +539,18 @@ export class VCS {
       }
     }
 
-    // Create fossil repo first
     const fossilPath = `${workDir}/.fossil`;
     const initResult = await this.createFossilRepo(fossilPath);
     if (!initResult.success) {
       return initResult;
     }
 
-    // Import from git
     const result = await this.execCommand(
       ["fossil", "import", "--git", url, fossilPath],
       workDir,
     );
 
     if (result.success) {
-      // Open the fossil repo in the workdir
       const openResult = await this.openFossil(fossilPath, workDir);
       return openResult;
     }
@@ -611,17 +563,12 @@ export class VCS {
   }
 
   async cloneFossil(sourcePath: string, targetDir: string): Promise<VCSResult> {
-    const { mkdirSync } = await import("fs");
-    const { dirname } = await import("path");
-
-    // Ensure target directory exists
     try {
-      mkdirSync(targetDir, { recursive: true });
+      this.os.fs.mkdir(targetDir, { recursive: true });
     } catch {
       // Directory might already exist
     }
 
-    // Clone the fossil repo
     const result = await this.execCommand([
       "fossil",
       "clone",
@@ -630,7 +577,6 @@ export class VCS {
     ]);
 
     if (result.success) {
-      // Open the cloned repo
       const openResult = await this.openFossil(
         `${targetDir}/.fossil`,
         targetDir,
@@ -650,8 +596,6 @@ export class VCS {
     direction: "pull" | "push",
     credential?: Credential,
   ): Promise<VCSResult> {
-    // Fossil sync doesn't support credentials directly
-    // Credentials would need to be in the URL
     const command = direction === "pull" ? "pull" : "push";
     const result = await this.execCommand(["fossil", command], workDir);
 
@@ -707,11 +651,8 @@ export class VCS {
     credential?: Credential,
     sourceBranch?: string,
   ): Promise<VCSResult> {
-    const { mkdirSync } = await import("fs");
-
-    // Ensure target directory exists
     try {
-      mkdirSync(targetDir, { recursive: true });
+      this.os.fs.mkdir(targetDir, { recursive: true });
     } catch {
       // Directory might already exist
     }
@@ -721,12 +662,10 @@ export class VCS {
       let sshKeyPath: string | null = null;
       let env: Record<string, string> | undefined = undefined;
 
-      // Handle credentials
       if (credential) {
         if (credential.type === "https" && !this.isSshUrl(repoUrl)) {
           url = this.injectHttpsCredentials(repoUrl, credential);
         } else if (credential.type === "ssh" && this.isSshUrl(repoUrl)) {
-          // Create temp SSH key file
           sshKeyPath = this.createTempSshKeyFile(credential.privateKey);
           env = {
             GIT_SSH_COMMAND: this.buildGitSshCommand(sshKeyPath),
@@ -735,7 +674,6 @@ export class VCS {
       }
 
       try {
-        // Clone Git repository with optional branch
         const cloneArgs = sourceBranch
           ? ["git", "clone", "--branch", sourceBranch, url, targetDir]
           : ["git", "clone", url, targetDir];
@@ -765,7 +703,6 @@ export class VCS {
           };
         }
 
-        // If git clone failed but directory has content, try cloning into current directory
         const result2 = await this.execCommand(
           ["git", "clone", url, "."],
           targetDir,
@@ -795,13 +732,11 @@ export class VCS {
           error: result2.error || undefined,
         };
       } finally {
-        // Clean up temp SSH key file
         if (sshKeyPath) {
           this.deleteTempSshKeyFile(sshKeyPath);
         }
       }
     } else {
-      // Clone Fossil repository - inject credentials if HTTPS
       let url = repoUrl;
       if (credential?.type === "https" && !this.isSshUrl(repoUrl)) {
         url = this.injectHttpsCredentials(repoUrl, credential);
@@ -822,7 +757,6 @@ export class VCS {
       }
 
       if (result.success) {
-        // Open the cloned repo in the target directory
         const openResult = await this.openFossil(
           `${targetDir}/.fossil`,
           targetDir,
@@ -832,7 +766,6 @@ export class VCS {
           return openResult;
         }
 
-        // If sourceBranch specified, checkout that branch
         if (sourceBranch) {
           const checkoutResult = await this.execCommand(
             ["fossil", "checkout", sourceBranch],
@@ -864,10 +797,6 @@ export class VCS {
     fossilPath: string,
   ): Promise<VCSResult> {
     if (repoType === "git") {
-      // Create a fossil repo from the current working tree only (no git history).
-      // This is faster than git fast-export --all and avoids issues with signed tags.
-
-      // Step 1: Init the fossil repo
       const initResult = await this.execCommand(["fossil", "init", fossilPath]);
       if (!initResult.success) {
         return {
@@ -876,7 +805,6 @@ export class VCS {
         };
       }
 
-      // Step 2: Open it in the upstream working tree
       const openResult = await this.execCommand(
         ["fossil", "open", fossilPath, "--nested", "--force"],
         upstreamPath,
@@ -888,8 +816,6 @@ export class VCS {
         };
       }
 
-      // Step 3: Add all files and commit the current state
-      // --dotfiles flag is required to include dotfiles (hidden files starting with '.')
       const addResult = await this.execCommand(
         ["fossil", "addremove", "--dotfiles"],
         upstreamPath,
@@ -912,7 +838,6 @@ export class VCS {
         error: commitResult.error || undefined,
       };
     } else {
-      // For fossil, clone from the upstream fossil repo
       const result = await this.execCommand(
         ["fossil", "clone", `${upstreamPath}/.fossil`, fossilPath],
         upstreamPath,
@@ -930,16 +855,12 @@ export class VCS {
     fossilPath: string,
     targetPath: string,
   ): Promise<VCSResult> {
-    const { mkdirSync } = await import("fs");
-
-    // Ensure target directory exists
     try {
-      mkdirSync(targetPath, { recursive: true });
+      this.os.fs.mkdir(targetPath, { recursive: true });
     } catch {
       // Directory might already exist
     }
 
-    // Open the fossil repo in the target directory
     const result = await this.execCommand(
       ["fossil", "open", fossilPath],
       targetPath,
@@ -958,15 +879,12 @@ export class VCS {
     repoType: "git" | "fossil",
   ): Promise<VCSResult> {
     if (repoType === "git") {
-      // Export from Fossil to Git upstream
-      // Use fossil export to create a git-fast-export stream
       const result = await this.execCommand(
         ["fossil", "export", "--git", fossilPath],
         upstreamPath,
       );
 
       if (result.success) {
-        // Apply the export to git
         const applyResult = await this.execCommand(
           ["git", "fast-import"],
           upstreamPath,
@@ -984,7 +902,6 @@ export class VCS {
         error: result.error || undefined,
       };
     } else {
-      // For fossil, push directly from checkout
       return {
         success: true,
         output: "Fossil repos sync directly",
@@ -1002,7 +919,6 @@ export class VCS {
       let sshKeyPath: string | null = null;
       let env: Record<string, string> | undefined = undefined;
 
-      // Handle SSH credentials
       if (credential?.type === "ssh") {
         sshKeyPath = this.createTempSshKeyFile(credential.privateKey);
         env = {
@@ -1020,8 +936,6 @@ export class VCS {
           env,
         );
 
-        // Check if the failure is due to no upstream branch configured
-        // This is expected in test environments or new repos without remotes
         if (
           !result.success &&
           (result.error?.includes("no upstream branch") ||
@@ -1053,7 +967,6 @@ export class VCS {
         }
       }
     } else {
-      // Fossil push
       const args = branch ? ["push", branch] : ["push"];
       const result = await this.execCommand(["fossil", ...args], upstreamPath);
 
@@ -1082,28 +995,21 @@ export class VCS {
   ): Promise<VCSResult> {
     const fossilPath = `${projectPath}/repo.fossil`;
 
-    // Ensure worktree directory exists
-    const { mkdirSync } = await import("fs");
     try {
-      mkdirSync(worktreePath, { recursive: true });
+      this.os.fs.mkdir(worktreePath, { recursive: true });
     } catch {
       // Directory might already exist
     }
 
-    // Check if fossil repo exists
-    const { existsSync } = await import("fs");
-    if (!existsSync(fossilPath)) {
+    if (!this.os.fs.exists(fossilPath)) {
       return {
         success: false,
         error: "Project fossil repository not found",
       };
     }
 
-    // Open the fossil repo in the worktree
     return await this.openFossil(fossilPath, worktreePath);
   }
-
-  // New methods for commit flow
 
   async fossilUp(agentWorkspacePath: string): Promise<VCSResult> {
     const result = await this.execCommand(["fossil", "up"], agentWorkspacePath);
@@ -1123,7 +1029,6 @@ export class VCS {
       message?.trim() || `Mimo commit at ${new Date().toISOString()}`;
 
     if (repoType === "git") {
-      // Git: add all and commit
       const addResult = await this.execCommand(
         ["git", "add", "-A"],
         upstreamPath,
@@ -1136,7 +1041,6 @@ export class VCS {
         };
       }
 
-      // Unstage any VCS metadata files that git add -A may have picked up.
       for (const name of VCS_METADATA) {
         await this.execCommand(
           ["git", "rm", "--cached", "--ignore-unmatch", name],
@@ -1149,7 +1053,6 @@ export class VCS {
         upstreamPath,
       );
 
-      // Check if nothing to commit
       if (
         commitResult.error?.includes("nothing to commit") ||
         commitResult.output?.includes("nothing to commit")
@@ -1166,18 +1069,14 @@ export class VCS {
         error: commitResult.error || undefined,
       };
     } else {
-      // Fossil: remove metadata files before addremove so fossil never tracks them.
-      const { existsSync: fsExistsSync, unlinkSync } = await import("fs");
-      const { join } = await import("path");
       for (const name of VCS_METADATA) {
-        const target = join(upstreamPath, name);
-        if (fsExistsSync(target)) {
-          unlinkSync(target);
+        const target = this.os.path.join(upstreamPath, name);
+        if (this.os.fs.exists(target)) {
+          this.os.fs.unlink(target);
           logger.debug(`[vcs] Removed stray ${name} from fossil upstream`);
         }
       }
 
-      // --dotfiles flag is required to include dotfiles (hidden files starting with '.')
       const addResult = await this.execCommand(
         ["fossil", "addremove", "--dotfiles"],
         upstreamPath,
@@ -1195,8 +1094,6 @@ export class VCS {
         upstreamPath,
       );
 
-      // Fossil refuses to commit binary files added as text. Forget the
-      // offending files and retry once so text-only changes still go through.
       if (!commitResult.success) {
         const combined = `${commitResult.output || ""}\n${commitResult.error || ""}`;
         if (combined.includes("Abandoning commit due to binary data in")) {
@@ -1255,7 +1152,6 @@ export class VCS {
       let sshKeyPath: string | null = null;
       let env: Record<string, string> | undefined = undefined;
 
-      // Handle SSH credentials
       if (credential?.type === "ssh") {
         sshKeyPath = this.createTempSshKeyFile(credential.privateKey);
         env = {
@@ -1273,8 +1169,6 @@ export class VCS {
           env,
         );
 
-        // Check if the failure is due to no upstream branch configured
-        // This is expected in test environments or new repos without remotes
         if (
           !result.success &&
           (result.error?.includes("no upstream branch") ||
@@ -1332,17 +1226,10 @@ export class VCS {
       };
     }
   }
-  // ── Patch-based sync methods ──────────────────────────────────────
 
-  /**
-   * Align workspace disk state with fossil tracking state.
-   * Handles `fossil rm` without physical deletion by deleting files
-   * that fossil considers DELETED but still exist on disk.
-   */
   async alignWorkspaceWithFossil(workspacePath: string): Promise<VCSResult> {
     const result = await this.execCommand(["fossil", "changes"], workspacePath);
     if (!result.success) {
-      // Not a fossil checkout or other error — skip silently
       return {
         success: true,
         output: "Not a fossil checkout, skipping alignment",
@@ -1353,7 +1240,6 @@ export class VCS {
     if (result.output) {
       for (const line of result.output.split("\n")) {
         const trimmed = line.trim();
-        // fossil changes shows "DELETED  path/to/file"
         if (trimmed.startsWith("DELETED")) {
           const filePath = trimmed.replace(/^DELETED\s+/, "");
           if (filePath) {
@@ -1364,9 +1250,9 @@ export class VCS {
     }
 
     for (const file of deletedFiles) {
-      const fullPath = join(workspacePath, file);
-      if (existsSync(fullPath)) {
-        unlinkSync(fullPath);
+      const fullPath = this.os.path.join(workspacePath, file);
+      if (this.os.fs.exists(fullPath)) {
+        this.os.fs.unlink(fullPath);
         logger.debug(`[vcs] Aligned fossil DELETED file: ${file}`);
       }
     }
@@ -1380,22 +1266,15 @@ export class VCS {
     };
   }
 
-  /**
-   * Generate a unified patch comparing upstream and agent-workspace directories.
-   * Uses `git diff --binary --no-index` from the session parent directory.
-   * Returns normalized, filtered patch content.
-   */
   async generatePatch(
     agentWorkspacePath: string,
     upstreamPath: string,
   ): Promise<VCSResult & { patch?: string }> {
-    const sessionDir = dirname(agentWorkspacePath);
-    const upstreamDirName = basename(upstreamPath);
-    const agentDirName = basename(agentWorkspacePath);
+    const sessionDir = this.os.path.dirname(agentWorkspacePath);
+    const upstreamDirName = this.os.path.basename(upstreamPath);
+    const agentDirName = this.os.path.basename(agentWorkspacePath);
 
-    // Run git diff --no-index from the session parent directory
-    // Exit codes: 0 = no diff, 1 = has diff (normal), >1 = error
-    const proc = Bun.spawn(
+    const proc = this.os.command.spawn(
       [
         "git",
         "diff",
@@ -1406,11 +1285,7 @@ export class VCS {
         upstreamDirName,
         agentDirName,
       ],
-      {
-        cwd: sessionDir,
-        stdout: "pipe",
-        stderr: "pipe",
-      },
+      { cwd: sessionDir },
     );
 
     const exitCode = await proc.exited;
@@ -1424,7 +1299,6 @@ export class VCS {
       };
     }
 
-    // Exit code 0 = no differences
     if (exitCode === 0 || !stdout.trim()) {
       return {
         success: true,
@@ -1433,7 +1307,6 @@ export class VCS {
       };
     }
 
-    // Normalize paths and filter VCS metadata
     let patch = this.normalizePatchPaths(stdout, upstreamDirName, agentDirName);
     patch = this.filterVcsMetadata(patch);
 
@@ -1452,14 +1325,117 @@ export class VCS {
     };
   }
 
-  /**
-   * Normalize paths in a patch from `a/upstream/X` and `b/agent-workspace/X`
-   * to `a/X` and `b/X` so that `git apply` and `patch -p1` work in the upstream directory.
-   *
-   * For deleted files, git uses `a/upstream/X b/upstream/X` (both sides use first dir).
-   * For new files, git uses `a/agent-workspace/X b/agent-workspace/X` (both sides use second dir).
-   * So we must strip BOTH dir names from BOTH a/ and b/ positions.
-   */
+  async storePatch(patchDir: string, patchContent: string): Promise<string> {
+    if (!this.os.fs.exists(patchDir)) {
+      this.os.fs.mkdir(patchDir, { recursive: true });
+    }
+
+    const timestamp = new Date().toISOString().replace(/:/g, "-");
+    const patchFile = this.os.path.join(patchDir, `${timestamp}.patch`);
+    this.os.fs.writeFile(patchFile, patchContent, { encoding: "utf8" });
+    return patchFile;
+  }
+
+  async applyPatch(
+    patchFilePath: string,
+    upstreamPath: string,
+    repoType: "git" | "fossil",
+  ): Promise<VCSResult> {
+    if (repoType === "git") {
+      const result = await this.execCommand(
+        ["git", "apply", "--binary", patchFilePath],
+        upstreamPath,
+      );
+      return {
+        success: result.success,
+        output: result.output,
+        error: result.error || undefined,
+      };
+    } else {
+      const patchContent = this.os.fs.readFile(patchFilePath, "utf8");
+      const proc = this.os.command.spawn(
+        ["patch", "-p1", "--no-backup-if-mismatch"],
+        {
+          cwd: upstreamPath,
+          stdin: patchContent,
+        },
+      );
+
+      const exitCode = await proc.exited;
+      const stdout = await new Response(proc.stdout).text();
+      const stderr = await new Response(proc.stderr).text();
+
+      return {
+        success: exitCode === 0,
+        output: stdout.trim(),
+        error: exitCode !== 0 ? stderr.trim() || "patch -p1 failed" : undefined,
+      };
+    }
+  }
+
+  async generateAndApplyPatch(
+    agentWorkspacePath: string,
+    upstreamPath: string,
+    patchDir: string,
+    repoType: "git" | "fossil",
+  ): Promise<VCSResult & { patchPath?: string }> {
+    const alignResult = await this.alignWorkspaceWithFossil(agentWorkspacePath);
+    if (!alignResult.success) {
+      return {
+        success: false,
+        error: `Alignment failed: ${alignResult.error}`,
+      };
+    }
+
+    if (repoType === "fossil") {
+      const upstreamAlignResult =
+        await this.alignWorkspaceWithFossil(upstreamPath);
+      if (!upstreamAlignResult.success) {
+        return {
+          success: false,
+          error: `Upstream alignment failed: ${upstreamAlignResult.error}`,
+        };
+      }
+    }
+
+    const genResult = await this.generatePatch(
+      agentWorkspacePath,
+      upstreamPath,
+    );
+    if (!genResult.success) {
+      return {
+        success: false,
+        error: `Patch generation failed: ${genResult.error}`,
+      };
+    }
+
+    if (!genResult.patch) {
+      return { success: true, output: "No changes" };
+    }
+
+    const patchPath = await this.storePatch(patchDir, genResult.patch);
+    logger.debug(`[vcs] Patch stored: ${patchPath}`);
+
+    const applyResult = await this.applyPatch(
+      patchPath,
+      upstreamPath,
+      repoType,
+    );
+    if (!applyResult.success) {
+      return {
+        success: false,
+        error: `Patch apply failed: ${applyResult.error}`,
+        patchPath,
+      };
+    }
+
+    return {
+      success: true,
+      output: `Patch applied successfully`,
+      patchPath,
+    };
+  }
+
   private normalizePatchPaths(
     patch: string,
     upstreamDirName: string,
@@ -1467,17 +1443,14 @@ export class VCS {
   ): string {
     return (
       patch
-        // diff --git header: strip either dir name from both a/ and b/ positions
         .replace(new RegExp(`^(diff --git a/)${upstreamDirName}/`, "gm"), "$1")
         .replace(new RegExp(`^(diff --git a/)${agentDirName}/`, "gm"), "$1")
         .replace(new RegExp(` b/${upstreamDirName}/`, "g"), " b/")
         .replace(new RegExp(` b/${agentDirName}/`, "g"), " b/")
-        // --- and +++ lines
         .replace(new RegExp(`^--- a/${upstreamDirName}/`, "gm"), "--- a/")
         .replace(new RegExp(`^--- a/${agentDirName}/`, "gm"), "--- a/")
         .replace(new RegExp(`^\\+\\+\\+ b/${upstreamDirName}/`, "gm"), "+++ b/")
         .replace(new RegExp(`^\\+\\+\\+ b/${agentDirName}/`, "gm"), "+++ b/")
-        // rename/copy headers
         .replace(
           new RegExp(`^rename from ${upstreamDirName}/`, "gm"),
           "rename from ",
@@ -1501,9 +1474,6 @@ export class VCS {
     );
   }
 
-  /**
-   * Remove diff hunks for VCS metadata files from a patch.
-   */
   private filterVcsMetadata(patch: string): string {
     const lines = patch.split("\n");
     const result: string[] = [];
@@ -1529,135 +1499,4 @@ export class VCS {
 
     return result.join("\n");
   }
-
-  /**
-   * Store a patch file in the session's patches directory.
-   * Returns the path to the stored patch file.
-   */
-  async storePatch(patchDir: string, patchContent: string): Promise<string> {
-    if (!existsSync(patchDir)) {
-      mkdirSync(patchDir, { recursive: true });
-    }
-
-    const timestamp = new Date().toISOString().replace(/:/g, "-");
-    const patchFile = join(patchDir, `${timestamp}.patch`);
-    writeFileSync(patchFile, patchContent, "utf-8");
-    return patchFile;
-  }
-
-  /**
-   * Apply a patch to the upstream directory.
-   * Uses `git apply --binary` for git repos, `patch -p1` for fossil repos.
-   */
-  async applyPatch(
-    patchFilePath: string,
-    upstreamPath: string,
-    repoType: "git" | "fossil",
-  ): Promise<VCSResult> {
-    if (repoType === "git") {
-      const result = await this.execCommand(
-        ["git", "apply", "--binary", patchFilePath],
-        upstreamPath,
-      );
-      return {
-        success: result.success,
-        output: result.output,
-        error: result.error || undefined,
-      };
-    } else {
-      // For fossil upstream, use POSIX patch command
-      const patchContent = readFileSync(patchFilePath, "utf-8");
-      const proc = Bun.spawn(["patch", "-p1", "--no-backup-if-mismatch"], {
-        cwd: upstreamPath,
-        stdin: new Blob([patchContent]),
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-
-      const exitCode = await proc.exited;
-      const stdout = await new Response(proc.stdout).text();
-      const stderr = await new Response(proc.stderr).text();
-
-      return {
-        success: exitCode === 0,
-        output: stdout.trim(),
-        error: exitCode !== 0 ? stderr.trim() || "patch -p1 failed" : undefined,
-      };
-    }
-  }
-
-  /**
-   * Full patch workflow: align → generate → store → apply.
-   * Replaces cleanCopyToUpstream.
-   */
-  async generateAndApplyPatch(
-    agentWorkspacePath: string,
-    upstreamPath: string,
-    patchDir: string,
-    repoType: "git" | "fossil",
-  ): Promise<VCSResult & { patchPath?: string }> {
-    // Step 1: Align agent-workspace disk state with fossil
-    const alignResult = await this.alignWorkspaceWithFossil(agentWorkspacePath);
-    if (!alignResult.success) {
-      return {
-        success: false,
-        error: `Alignment failed: ${alignResult.error}`,
-      };
-    }
-
-    // Also align upstream if it's a fossil repo
-    if (repoType === "fossil") {
-      const upstreamAlignResult =
-        await this.alignWorkspaceWithFossil(upstreamPath);
-      if (!upstreamAlignResult.success) {
-        return {
-          success: false,
-          error: `Upstream alignment failed: ${upstreamAlignResult.error}`,
-        };
-      }
-    }
-
-    // Step 2: Generate patch
-    const genResult = await this.generatePatch(
-      agentWorkspacePath,
-      upstreamPath,
-    );
-    if (!genResult.success) {
-      return {
-        success: false,
-        error: `Patch generation failed: ${genResult.error}`,
-      };
-    }
-
-    // No changes — nothing to do
-    if (!genResult.patch) {
-      return { success: true, output: "No changes" };
-    }
-
-    // Step 3: Store patch
-    const patchPath = await this.storePatch(patchDir, genResult.patch);
-    logger.debug(`[vcs] Patch stored: ${patchPath}`);
-
-    // Step 4: Apply patch
-    const applyResult = await this.applyPatch(
-      patchPath,
-      upstreamPath,
-      repoType,
-    );
-    if (!applyResult.success) {
-      return {
-        success: false,
-        error: `Patch apply failed: ${applyResult.error}`,
-        patchPath,
-      };
-    }
-
-    return {
-      success: true,
-      output: `Patch applied successfully`,
-      patchPath,
-    };
-  }
 }
-
-export const vcs = new VCS();

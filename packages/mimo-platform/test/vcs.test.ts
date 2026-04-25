@@ -2,12 +2,14 @@ import { describe, it, expect, beforeEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, mkdirSync } from "fs";
+import { createOS } from "../src/os/node-adapter.js";
 
 describe("VCS Integration Tests", () => {
   let testHome: string;
   let VCS: any;
   let fossilServer: any;
   let getNextPort: any;
+  let os: any;
 
   beforeEach(async () => {
     testHome = join(
@@ -23,24 +25,27 @@ describe("VCS Integration Tests", () => {
     mkdirSync(testHome, { recursive: true });
     mkdirSync(join(testHome, "projects"), { recursive: true });
 
+    os = createOS({ ...process.env });
+
     // Re-import to get fresh modules
     const vcsModule = await import("../src/vcs/index.ts");
     VCS = vcsModule.VCS;
 
     const serverModule = await import("../src/vcs/server.ts");
-    fossilServer = serverModule.fossilServer;
+    const FossilServerManager = serverModule.FossilServerManager;
+    fossilServer = new FossilServerManager({ os });
     getNextPort = serverModule.getNextPort;
   });
 
   describe("Fossil CLI Check", () => {
     it("should have fossil CLI available", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const available = await vcs.checkFossilAvailable();
       expect(available).toBe(true);
     });
 
     it("should get fossil version", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const version = await vcs.getFossilVersion();
       expect(version).toContain("2.");
     });
@@ -48,7 +53,7 @@ describe("VCS Integration Tests", () => {
 
   describe("Git Import to Fossil", () => {
     it("should handle invalid Git URL", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
 
       const result = await vcs.importGitToFossil(
         "not-a-valid-url",
@@ -60,7 +65,7 @@ describe("VCS Integration Tests", () => {
     });
 
     it("should handle unreachable Git repository", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const projectPath = join(testHome, "projects", "unreachable-project");
       mkdirSync(projectPath, { recursive: true });
 
@@ -77,7 +82,7 @@ describe("VCS Integration Tests", () => {
 
   describe("Fossil Repository Operations", () => {
     it("should create a new Fossil repository", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const repoPath = join(testHome, "test.fossil");
 
       const result = await vcs.createFossilRepo(repoPath);
@@ -87,7 +92,7 @@ describe("VCS Integration Tests", () => {
     });
 
     it("should open a Fossil repository", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const repoPath = join(testHome, "test.fossil");
       const workDir = join(testHome, "work");
 
@@ -102,7 +107,7 @@ describe("VCS Integration Tests", () => {
     });
 
     it("should clone a Fossil repository", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sourceRepo = join(testHome, "source.fossil");
       const targetDir = join(testHome, "cloned");
 
@@ -136,7 +141,7 @@ describe("VCS Integration Tests", () => {
 
   describe("Fossil Server Lifecycle", () => {
     it("should start a Fossil server", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const repoPath = join(testHome, "server-test.fossil");
       await vcs.createFossilRepo(repoPath);
 
@@ -152,7 +157,7 @@ describe("VCS Integration Tests", () => {
     }, 10000);
 
     it("should stop a Fossil server", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const repoPath = join(testHome, "server-stop-test.fossil");
       await vcs.createFossilRepo(repoPath);
 
@@ -174,7 +179,7 @@ describe("VCS Integration Tests", () => {
     }, 5000);
 
     it("should list running servers", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const repoPath = join(testHome, "list-test.fossil");
       await vcs.createFossilRepo(repoPath);
 
@@ -191,7 +196,7 @@ describe("VCS Integration Tests", () => {
 
   describe("Error Handling", () => {
     it("should handle missing repository gracefully", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const port = getNextPort();
 
       const result = await fossilServer.start("/nonexistent/repo.fossil", port);
@@ -204,7 +209,7 @@ describe("VCS Integration Tests", () => {
   describe("Commit Flow VCS Methods", () => {
     describe("fossilUp", () => {
       it("should sync agent-workspace with repo.fossil", async () => {
-        const vcs = new VCS();
+        const vcs = new VCS({ os });
         const repoPath = join(testHome, "agent-sync.fossil");
         const agentWorkspacePath = join(testHome, "agent-workspace");
 
@@ -237,7 +242,7 @@ describe("VCS Integration Tests", () => {
 
     describe("commitUpstream", () => {
       it("should use explicit commit message when provided for Git upstream", async () => {
-        const vcs = new VCS();
+        const vcs = new VCS({ os });
         const { execSync } = await import("child_process");
         const upstreamPath = join(testHome, "upstream-git-custom-message");
 
@@ -268,7 +273,7 @@ describe("VCS Integration Tests", () => {
       }, 15000);
 
       it("should commit in Git upstream with timestamp message", async () => {
-        const vcs = new VCS();
+        const vcs = new VCS({ os });
         const { execSync } = await import("child_process");
         const upstreamPath = join(testHome, "upstream-git-commit");
 
@@ -290,7 +295,7 @@ describe("VCS Integration Tests", () => {
       }, 15000);
 
       it("should return success when no changes to commit", async () => {
-        const vcs = new VCS();
+        const vcs = new VCS({ os });
         const { execSync } = await import("child_process");
         const upstreamPath = join(testHome, "upstream-git-empty");
 
@@ -312,7 +317,7 @@ describe("VCS Integration Tests", () => {
 
     describe("pushUpstream", () => {
       it("should handle Git push (with no remote configured)", async () => {
-        const vcs = new VCS();
+        const vcs = new VCS({ os });
         const { execSync } = await import("child_process");
         const upstreamPath = join(testHome, "upstream-git-push");
 
@@ -336,7 +341,7 @@ describe("VCS Integration Tests", () => {
       }, 15000);
 
       it("should handle Fossil push", async () => {
-        const vcs = new VCS();
+        const vcs = new VCS({ os });
         const upstreamPath = join(testHome, "upstream-fossil-push");
         const repoPath = join(testHome, "upstream-fossil-push.fossil");
 
@@ -362,7 +367,7 @@ describe("VCS Integration Tests", () => {
     describe("Branch Operations", () => {
       describe("createBranch", () => {
         it("should create a new branch in Git repository", async () => {
-          const vcs = new VCS();
+          const vcs = new VCS({ os });
           const { execSync } = await import("child_process");
           const upstreamPath = join(testHome, "git-branch-test");
 
@@ -402,7 +407,7 @@ describe("VCS Integration Tests", () => {
         }, 15000);
 
         it("should overwrite existing Git branch with -B flag", async () => {
-          const vcs = new VCS();
+          const vcs = new VCS({ os });
           const { execSync } = await import("child_process");
           const upstreamPath = join(testHome, "git-branch-overwrite-test");
 
@@ -445,7 +450,7 @@ describe("VCS Integration Tests", () => {
         }, 15000);
 
         it("should create a new branch in Fossil repository", async () => {
-          const vcs = new VCS();
+          const vcs = new VCS({ os });
           const repoPath = join(testHome, "fossil-branch-test.fossil");
           const workDir = join(testHome, "fossil-branch-work");
 
@@ -470,7 +475,7 @@ describe("VCS Integration Tests", () => {
 
       describe("cloneRepository with sourceBranch", () => {
         it("should clone Git repository without sourceBranch (existing behavior)", async () => {
-          const vcs = new VCS();
+          const vcs = new VCS({ os });
           const { execSync } = await import("child_process");
           const sourcePath = join(testHome, "source-repo");
 
@@ -509,7 +514,7 @@ describe("VCS Integration Tests", () => {
         }, 15000);
 
         it("should clone Git repository with sourceBranch", async () => {
-          const vcs = new VCS();
+          const vcs = new VCS({ os });
           const { execSync } = await import("child_process");
           const sourcePath = join(testHome, "source-repo-branch");
 
@@ -559,7 +564,7 @@ describe("VCS Integration Tests", () => {
 
     describe("syncIgnoresToFossil", () => {
       it("should combine .gitignore and .mimoignore patterns into ignore-glob", async () => {
-        const vcs = new VCS();
+        const vcs = new VCS({ os });
         const { writeFileSync, readFileSync } = await import("fs");
 
         const upstreamPath = join(testHome, "upstream-combined");
@@ -611,7 +616,7 @@ describe("VCS Integration Tests", () => {
       }, 15000);
 
       it("should include patterns from .mimoignore even when .gitignore is absent", async () => {
-        const vcs = new VCS();
+        const vcs = new VCS({ os });
         const { writeFileSync, readFileSync } = await import("fs");
 
         const upstreamPath = join(testHome, "upstream-mimoonly");
@@ -645,7 +650,7 @@ describe("VCS Integration Tests", () => {
       }, 15000);
 
       it("should write default VCS ignore patterns when neither .gitignore nor .mimoignore exist", async () => {
-        const vcs = new VCS();
+        const vcs = new VCS({ os });
         const { readFileSync } = await import("fs");
         const upstreamPath = join(testHome, "upstream-no-ignores");
         const agentWorkspacePath = join(testHome, "agent-no-ignores");
@@ -679,7 +684,7 @@ describe("VCS Integration Tests", () => {
       }, 15000);
 
       it("should keep default VCS patterns when ignore files have only comments/blank lines", async () => {
-        const vcs = new VCS();
+        const vcs = new VCS({ os });
         const { writeFileSync, readFileSync } = await import("fs");
 
         const upstreamPath = join(testHome, "upstream-empty-ignores");
@@ -712,7 +717,7 @@ describe("VCS Integration Tests", () => {
       }, 15000);
 
       it("should commit the ignore-glob so it appears in fossil history", async () => {
-        const vcs = new VCS();
+        const vcs = new VCS({ os });
         const { writeFileSync } = await import("fs");
         const { execSync } = await import("child_process");
 

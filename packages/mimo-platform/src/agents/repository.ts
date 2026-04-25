@@ -1,14 +1,4 @@
-import { join } from "path";
-import { homedir } from "os";
-import {
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
-  readdirSync,
-  rmdirSync,
-  unlinkSync,
-} from "fs";
+import type { OS } from "../os/types.js";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
 
@@ -58,11 +48,16 @@ export interface CreateAgentInput {
 }
 
 interface AgentRepositoryDeps {
+  os: OS;
   agentsPath?: string;
 }
 
 export class AgentRepository {
-  constructor(private deps: AgentRepositoryDeps = {}) {}
+  private os: OS;
+
+  constructor(private deps: AgentRepositoryDeps = {} as AgentRepositoryDeps) {
+    this.os = deps.os;
+  }
 
   private getAgentsPath(): string {
     if (!this.deps.agentsPath) {
@@ -74,11 +69,11 @@ export class AgentRepository {
   }
 
   private getAgentPath(agentId: string): string {
-    return join(this.getAgentsPath(), agentId);
+    return this.os.path.join(this.getAgentsPath(), agentId);
   }
 
   private getAgentFilePath(agentId: string): string {
-    return join(this.getAgentPath(agentId), "agent.yaml");
+    return this.os.path.join(this.getAgentPath(agentId), "agent.yaml");
   }
 
   private generateId(): string {
@@ -89,8 +84,8 @@ export class AgentRepository {
     const id = this.generateId();
     const agentPath = this.getAgentPath(id);
 
-    if (!existsSync(agentPath)) {
-      mkdirSync(agentPath, { recursive: true });
+    if (!this.os.fs.exists(agentPath)) {
+      this.os.fs.mkdir(agentPath, { recursive: true });
     }
 
     const now = new Date().toISOString();
@@ -106,7 +101,7 @@ export class AgentRepository {
       updatedAt: now,
     };
 
-    writeFileSync(this.getAgentFilePath(id), dump(agentData), "utf-8");
+    this.os.fs.writeFile(this.getAgentFilePath(id), dump(agentData), { encoding: "utf-8" });
 
     return {
       ...agentData,
@@ -120,11 +115,11 @@ export class AgentRepository {
 
   async findById(agentId: string): Promise<Agent | null> {
     const filePath = this.getAgentFilePath(agentId);
-    if (!existsSync(filePath)) {
+    if (!this.os.fs.exists(filePath)) {
       return null;
     }
 
-    const content = readFileSync(filePath, "utf-8");
+    const content = this.os.fs.readFile(filePath, "utf-8");
     const data = load(content) as AgentData;
 
     // Backward compatibility: default provider to "opencode" if not present
@@ -143,18 +138,18 @@ export class AgentRepository {
 
   async findByStatus(status: AgentStatus): Promise<Agent[]> {
     const agentsPath = this.getAgentsPath();
-    if (!existsSync(agentsPath)) {
+    if (!this.os.fs.exists(agentsPath)) {
       return [];
     }
 
-    const entries = readdirSync(agentsPath, { withFileTypes: true });
+    const entries = this.os.fs.readdir(agentsPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
     const agents: Agent[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const agentFile = join(agentsPath, entry.name, "agent.yaml");
-        if (existsSync(agentFile)) {
-          const content = readFileSync(agentFile, "utf-8");
+        const agentFile = this.os.path.join(agentsPath, entry.name, "agent.yaml");
+        if (this.os.fs.exists(agentFile)) {
+          const content = this.os.fs.readFile(agentFile, "utf-8");
           const data = load(content) as AgentData;
           if (data.status === status) {
             // Backward compatibility: default provider to "opencode" if not present
@@ -178,18 +173,18 @@ export class AgentRepository {
 
   async findByOwner(owner: string): Promise<Agent[]> {
     const agentsPath = this.getAgentsPath();
-    if (!existsSync(agentsPath)) {
+    if (!this.os.fs.exists(agentsPath)) {
       return [];
     }
 
-    const entries = readdirSync(agentsPath, { withFileTypes: true });
+    const entries = this.os.fs.readdir(agentsPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
     const agents: Agent[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const agentFile = join(agentsPath, entry.name, "agent.yaml");
-        if (existsSync(agentFile)) {
-          const content = readFileSync(agentFile, "utf-8");
+        const agentFile = this.os.path.join(agentsPath, entry.name, "agent.yaml");
+        if (this.os.fs.exists(agentFile)) {
+          const content = this.os.fs.readFile(agentFile, "utf-8");
           const data = load(content) as AgentData;
           if (data.owner === owner) {
             // Backward compatibility: default provider to "opencode" if not present
@@ -225,7 +220,7 @@ export class AgentRepository {
     };
 
     const filePath = this.getAgentFilePath(agentId);
-    writeFileSync(filePath, dump(updatedData), "utf-8");
+    this.os.fs.writeFile(filePath, dump(updatedData), { encoding: "utf-8" });
 
     return {
       ...updatedData,
@@ -314,29 +309,29 @@ export class AgentRepository {
 
   async delete(agentId: string): Promise<void> {
     const agentPath = this.getAgentPath(agentId);
-    if (existsSync(agentPath)) {
+    if (this.os.fs.exists(agentPath)) {
       this.deleteDirectoryRecursive(agentPath);
     }
   }
 
   private deleteDirectoryRecursive(dirPath: string): void {
-    if (!existsSync(dirPath)) return;
+    if (!this.os.fs.exists(dirPath)) return;
 
-    const entries = readdirSync(dirPath, { withFileTypes: true });
+    const entries = this.os.fs.readdir(dirPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
 
     for (const entry of entries) {
-      const entryPath = join(dirPath, entry.name);
+      const entryPath = this.os.path.join(dirPath, entry.name);
       if (entry.isDirectory()) {
         this.deleteDirectoryRecursive(entryPath);
       } else {
-        unlinkSync(entryPath);
+        this.os.fs.unlink(entryPath);
       }
     }
 
-    rmdirSync(dirPath);
+    this.os.fs.rm(dirPath);
   }
 
   async exists(agentId: string): Promise<boolean> {
-    return existsSync(this.getAgentFilePath(agentId));
+    return this.os.fs.exists(this.getAgentFilePath(agentId));
   }
 }

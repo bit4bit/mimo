@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { statSync } from "fs";
 import { rmdirSync, unlinkSync, existsSync } from "fs";
 import { join } from "path";
+import { createOS } from "../src/os/node-adapter.js";
 
 describe("Credentials Management", () => {
   let ctx: any;
@@ -279,9 +280,16 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
   });
 
   describe("VCS Credential Injection", () => {
+    let vcs: any;
+
+    beforeEach(() => {
+      const { VCS } = require("../src/vcs/index");
+      const os = createOS({ ...process.env });
+      vcs = new VCS({ os });
+    });
+
     describe("11.7 Test HTTPS credential injection produces correct URLs", () => {
       it("should inject HTTPS credentials into URL", () => {
-        const { vcs } = require("../src/vcs/index");
         const repoUrl = "https://github.com/user/repo.git";
         const credential = {
           type: "https",
@@ -296,7 +304,6 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
       });
 
       it("should handle special characters in credentials", () => {
-        const { vcs } = require("../src/vcs/index");
         const repoUrl = "https://github.com/user/repo.git";
         const credential = {
           type: "https",
@@ -312,7 +319,6 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
 
     describe("11.9 Test SSH temp key file cleanup", () => {
       it("should create and clean up temp SSH key files", () => {
-        const { vcs } = require("../src/vcs/index");
         const privateKey =
           "-----BEGIN OPENSSH PRIVATE KEY-----\ntest-key-data\n-----END OPENSSH PRIVATE KEY-----";
 
@@ -329,7 +335,6 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
 
     describe("11.10 Test error handling for invalid HTTPS credentials", () => {
       it("should detect HTTPS authentication errors", () => {
-        const { vcs } = require("../src/vcs/index");
         const isAuthError = (vcs as any).isAuthError;
 
         expect(isAuthError("Authentication failed", "https")).toBe(true);
@@ -342,7 +347,6 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
 
     describe("11.11 Test error handling for invalid SSH keys", () => {
       it("should detect SSH authentication errors", () => {
-        const { vcs } = require("../src/vcs/index");
         const isAuthError = (vcs as any).isAuthError;
 
         expect(isAuthError("Permission denied (publickey)", "ssh")).toBe(true);

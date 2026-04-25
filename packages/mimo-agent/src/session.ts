@@ -6,12 +6,8 @@ import {
   McpServerConfig,
 } from "./types";
 import { logger } from "./logger.js";
-import { resolve, join } from "node:path";
-import {
-  watch,
-  existsSync,
-  mkdirSync,
-} from "node:fs";
+import type { OS } from "./os/types.js";
+
 export interface SessionCallbacks {
   onFileChange: (sessionId: string, changes: FileChange[]) => void;
   onSessionError: (sessionId: string, error: string) => void;
@@ -23,10 +19,12 @@ export class SessionManager {
   private changeTimeouts: Map<string, NodeJS.Timeout> = new Map();
   private callbacks: SessionCallbacks;
   private workDir: string;
+  private os: OS;
 
-  constructor(workDir: string, callbacks: SessionCallbacks) {
-    this.workDir = resolve(workDir);
+  constructor(workDir: string, callbacks: SessionCallbacks, os: OS) {
+    this.workDir = os.path.resolve(workDir);
     this.callbacks = callbacks;
+    this.os = os;
   }
 
   getSession(sessionId: string): SessionInfo | undefined {
@@ -43,7 +41,7 @@ export class SessionManager {
     fossilUser?: string,
     fossilPassword?: string,
   ): Promise<SessionInfo> {
-    const checkoutPath = join(this.workDir, sessionId);
+    const checkoutPath = this.os.path.join(this.workDir, sessionId);
 
     logger.debug(`[mimo-agent] Creating session ${sessionId}`);
     logger.debug(`[mimo-agent]   Fossil URL: ${fossilUrl}`);
@@ -51,8 +49,8 @@ export class SessionManager {
 
     // Clone/checkout logic handled by platform via fossil server
     // Just ensure the checkout directory exists
-    if (!existsSync(checkoutPath)) {
-      mkdirSync(checkoutPath, { recursive: true });
+    if (!this.os.fs.exists(checkoutPath)) {
+      this.os.fs.mkdir(checkoutPath, { recursive: true });
     }
 
     const sessionInfo: SessionInfo = {
@@ -109,7 +107,7 @@ export class SessionManager {
   private startFileWatcher(sessionId: string, checkoutPath: string): void {
     logger.debug(`[mimo-agent] Starting file watcher for session ${sessionId}`);
 
-    const watcher = watch(
+    const watcher = this.os.fs.watch(
       checkoutPath,
       { recursive: true },
       (eventType: string, filename: string | null) => {
@@ -130,9 +128,9 @@ export class SessionManager {
 
         // Detect file creation vs deletion for rename events
         // Node.js fs.watch reports both as 'rename' event type
-        const srcPath = join(checkoutPath, filename);
+        const srcPath = this.os.path.join(checkoutPath, filename);
         const isRenameEvent = eventType === "rename";
-        const fileExists = existsSync(srcPath);
+        const fileExists = this.os.fs.exists(srcPath);
 
         const change: FileChange = {
           path: filename,

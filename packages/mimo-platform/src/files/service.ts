@@ -1,17 +1,16 @@
-import { readFileSync, existsSync } from "fs";
-import { join, basename } from "path";
 import type { FileInfo, FileService } from "./types.js";
+import type { OS } from "../os/types.js";
 
 const DEFAULT_IGNORE_PATTERNS: string[] = [".mimo-patches/"];
 
-export function loadIgnorePatterns(workspacePath: string): string[] {
+export function loadIgnorePatterns(workspacePath: string, os: OS): string[] {
   const files = [".gitignore", ".mimoignore"];
   const patterns: string[] = [...DEFAULT_IGNORE_PATTERNS];
   for (const name of files) {
-    const fullPath = join(workspacePath, name);
-    if (!existsSync(fullPath)) continue;
+    const fullPath = os.path.join(workspacePath, name);
+    if (!os.fs.exists(fullPath)) continue;
     try {
-      const lines = readFileSync(fullPath, "utf-8").split("\n");
+      const lines = os.fs.readFile(fullPath, "utf-8").split("\n");
       for (const line of lines) {
         const trimmed = line.trim();
         if (trimmed.length === 0 || trimmed.startsWith("#")) continue;
@@ -108,7 +107,7 @@ function normalizeQuery(query: string): string {
   return query.replace(/\\/g, "/").replace(/^\.\//, "").trim().toLowerCase();
 }
 
-function basename(path: string): string {
+function getBasename(path: string): string {
   const normalized = path.replace(/\\/g, "/");
   const parts = normalized.split("/");
   return parts[parts.length - 1] || normalized;
@@ -122,7 +121,7 @@ function scoreFileMatch(path: string, name: string, pattern: string): number {
   const normalizedPattern = normalizeQuery(pattern);
   if (!normalizedPattern) return 0;
 
-  const namePattern = basename(normalizedPattern);
+  const namePattern = getBasename(normalizedPattern);
 
   if (pathLower === normalizedPattern) return 0;
   if (normalizedPattern.endsWith(`/${pathLower}`)) return 1;
@@ -151,36 +150,34 @@ export function findFiles(pattern: string, files: FileInfo[]): FileInfo[] {
     .map((entry) => entry.file);
 }
 
-async function fossilLs(workspacePath: string): Promise<string[]> {
-  const proc = Bun.spawn(["fossil", "ls"], {
-    cwd: workspacePath,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  await proc.exited;
-  const output = await new Response(proc.stdout).text();
-  return output
+async function fossilLs(workspacePath: string, os: OS): Promise<string[]> {
+  const result = await os.command.run(["fossil", "ls"], { cwd: workspacePath });
+  if (!result.success) {
+    return [];
+  }
+  return result.output
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
 }
 
 export function createFileService(
+  os: OS,
   additionalPatterns: string[] = [],
 ): FileService {
   return {
     listFiles: async (workspacePath: string): Promise<FileInfo[]> => {
-      if (!existsSync(workspacePath)) return [];
-      const paths = await fossilLs(workspacePath);
+      if (!os.fs.exists(workspacePath)) return [];
+      const paths = await fossilLs(workspacePath, os);
       const all = paths.map((p) => ({
         path: p,
-        name: basename(p),
+        name: getBasename(p),
         size: 0,
       }));
       const patterns = [
         ...DEFAULT_IGNORE_PATTERNS,
         ...additionalPatterns,
-        ...loadIgnorePatterns(workspacePath),
+        ...loadIgnorePatterns(workspacePath, os),
       ];
       return applyIgnorePatterns(all, patterns);
     },
@@ -188,12 +185,12 @@ export function createFileService(
       workspacePath: string,
       filePath: string,
     ): Promise<string> => {
-      const full = join(workspacePath, filePath).replace(/\\/g, "/");
+      const full = os.path.join(workspacePath, filePath).replace(/\\/g, "/");
       const base = workspacePath.replace(/\\/g, "/");
       if (!full.startsWith(base + "/") && full !== base) {
         throw new Error("Access denied: path outside workspace");
       }
-      return readFileSync(full, "utf-8");
+      return os.fs.readFile(full, "utf-8");
     },
   };
 }

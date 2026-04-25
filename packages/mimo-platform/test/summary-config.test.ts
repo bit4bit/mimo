@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { ConfigService, defaultSummaryPrompt } from "../src/config/service.js";
+import { createOS } from "../src/os/node-adapter.js";
 
 describe("sanitizeSummaryConfig", () => {
   it("should return default prompt when summary config is missing", async () => {
@@ -16,6 +17,7 @@ describe("sanitizeSummaryConfig", () => {
       );
 
       const isolatedConfigService = new ConfigService(
+        createOS({ ...process.env }),
         join(mimoDir, "config.yaml"),
       );
       const loadedConfig = isolatedConfigService.load();
@@ -37,6 +39,7 @@ describe("sanitizeSummaryConfig", () => {
       );
 
       const isolatedConfigService = new ConfigService(
+        createOS({ ...process.env }),
         join(mimoDir, "config.yaml"),
       );
       const loadedConfig = isolatedConfigService.load();
@@ -58,6 +61,7 @@ describe("sanitizeSummaryConfig", () => {
       );
 
       const isolatedConfigService = new ConfigService(
+        createOS({ ...process.env }),
         join(mimoDir, "config.yaml"),
       );
       const loadedConfig = isolatedConfigService.load();

@@ -1,28 +1,18 @@
 import type { FC } from "hono/jsx";
 import { Layout } from "./Layout.js";
 
-interface PublicProject {
-  id: string;
-  name: string;
-  description?: string;
-  repoType: "git" | "fossil";
-  owner: string;
-  createdAt: string;
-}
-
 interface LandingPageProps {
-  projects: PublicProject[];
+  projectCount: number;
+  sessionCount: number;
+  threadCount: number;
   isAuthenticated: boolean;
   username?: string;
 }
 
-const truncateText = (text: string, maxLength: number): string => {
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + "...";
-};
-
 export const LandingPage: FC<LandingPageProps> = ({
-  projects,
+  projectCount,
+  sessionCount,
+  threadCount,
   isAuthenticated,
   username,
 }) => {
@@ -38,7 +28,11 @@ export const LandingPage: FC<LandingPageProps> = ({
                   Logged in as{" "}
                   <strong style="color: #d4d4d4;">{username}</strong>
                 </span>
-                <a href="/auth/logout" class="btn-secondary" data-help-id="landing-page-a">
+                <a
+                  href="/auth/logout"
+                  class="btn-secondary"
+                  data-help-id="landing-page-a"
+                >
                   Logout
                 </a>
               </>
@@ -47,7 +41,11 @@ export const LandingPage: FC<LandingPageProps> = ({
                 <a href="/auth/login" class="btn" data-help-id="landing-page-a">
                   Login
                 </a>
-                <a href="/auth/register" class="btn-secondary" data-help-id="landing-page-a">
+                <a
+                  href="/auth/register"
+                  class="btn-secondary"
+                  data-help-id="landing-page-a"
+                >
                   Register
                 </a>
               </>
@@ -84,51 +82,23 @@ export const LandingPage: FC<LandingPageProps> = ({
           </ul>
         </div>
 
-        <div style="margin-bottom: 20px;">
-          <h2 style="margin-bottom: 20px;">Projects ({projects.length})</h2>
-          {projects.length === 0 ? (
-            <div class="empty-state">
-              <p>No projects yet.</p>
-              {isAuthenticated && (
-                <a href="/projects/new" class="btn" data-help-id="landing-page-a">
-                  Create your first project
-                </a>
-              )}
+        <div style="display: flex; gap: 40px; margin-bottom: 40px;">
+          <div>
+            <div style="font-size: 2rem; font-weight: bold;">
+              {projectCount}
             </div>
-          ) : (
-            <div class="project-list">
-              {projects.map((project) => (
-                <a
-                  href={`/projects/${project.id}`}
-                  class="project-card"
-                  style="text-decoration: none; color: inherit; display: block;"
-                 data-help-id="landing-page-project-card-a">
-                  <div class="project-header">
-                    <span class="project-name">{project.name}</span>
-                    <span class={`repo-type ${project.repoType}`}>
-                      {project.repoType}
-                    </span>
-                  </div>
-                  <div class="project-meta">
-                    <span style="margin-right: 15px;">
-                      Owner: {project.owner}
-                    </span>
-                    <span>
-                      Created:{" "}
-                      {new Date(project.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div style="color: #888; margin-top: 8px; font-size: 14px;">
-                    {project.description ? (
-                      truncateText(project.description, 200)
-                    ) : (
-                      <span style="color: #666;">No description</span>
-                    )}
-                  </div>
-                </a>
-              ))}
+            <div style="color: #888;">Projects</div>
+          </div>
+          <div>
+            <div style="font-size: 2rem; font-weight: bold;">
+              {sessionCount}
             </div>
-          )}
+            <div style="color: #888;">Sessions</div>
+          </div>
+          <div>
+            <div style="font-size: 2rem; font-weight: bold;">{threadCount}</div>
+            <div style="color: #888;">Chat threads</div>
+          </div>
         </div>
       </div>
     </Layout>

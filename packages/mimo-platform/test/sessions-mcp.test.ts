@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { SessionRepository } from "../src/sessions/repository.js";
+import { createOS } from "../src/os/node-adapter.js";
+import type { OS } from "../src/os/types.js";
 import {
   existsSync,
   rmdirSync,
@@ -16,11 +18,14 @@ import { dump, load } from "js-yaml";
 
 // Use a temp directory for each test
 let testBasePath: string;
+let os: OS;
 
 describe("Session Creation with MCP Servers", () => {
   let sessionRepository: SessionRepository;
 
   beforeEach(() => {
+    os = createOS(process.env as Record<string, string>);
+
     // Create a temp directory for each test
     testBasePath = mkdtempSync(join(tmpdir(), "mimo-session-mcp-test-"));
 
@@ -30,6 +35,7 @@ describe("Session Creation with MCP Servers", () => {
     sessionRepository = new SessionRepository({
       paths: { projects: join(testBasePath, "projects"), data: testBasePath },
       fossilReposDir: join(testBasePath, "session-fossils"),
+      os,
     });
   });
 

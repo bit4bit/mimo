@@ -6,6 +6,7 @@ import {
   createFileWatcherService,
   type FileWatcherService,
 } from "../src/files/file-watcher-service";
+import { createOS } from "../src/os/node-adapter.js";
 
 describe("FileWatcherService", () => {
   let tempDir: string;
@@ -14,7 +15,8 @@ describe("FileWatcherService", () => {
 
   beforeEach(async () => {
     tempDir = mkdtempSync(join(tmpdir(), "file-watcher-test-"));
-    watcher = createFileWatcherService();
+    const os = createOS({ ...process.env });
+    watcher = createFileWatcherService(os);
     receivedEvents = [];
   });
 

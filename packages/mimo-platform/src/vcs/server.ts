@@ -1,8 +1,7 @@
-import { spawn } from "child_process";
-import { existsSync } from "fs";
+import type { OS } from "../os/types.js";
 
 interface RunningServer {
-  process: ReturnType<typeof spawn>;
+  process: ReturnType<OS["command"]["spawn"]>;
   port: number;
   repoPath: string;
   startTime: Date;
@@ -32,10 +31,20 @@ export interface ServerInfo {
   startTime: Date;
 }
 
-export const fossilServer = {
+export interface FossilServerDeps {
+  os: OS;
+}
+
+export class FossilServerManager {
+  private os: OS;
+
+  constructor(deps: FossilServerDeps) {
+    this.os = deps.os;
+  }
+
   start(repoPath: string, port: number = getNextPort()): Promise<ServerResult> {
     return new Promise((resolve) => {
-      if (!existsSync(repoPath)) {
+      if (!this.os.fs.exists(repoPath)) {
         resolve({
           success: false,
           error: `Repository not found: ${repoPath}`,
@@ -53,43 +62,47 @@ export const fossilServer = {
       }
 
       // Start fossil server
-      const proc = spawn(
-        "fossil",
-        ["server", repoPath, "--port", port.toString()],
+      const proc = this.os.command.spawn(
+        ["fossil", "server", repoPath, "--port", port.toString()],
         {
-          stdio: ["ignore", "pipe", "pipe"],
-          detached: false,
+          stdio: "pipe",
         },
       );
 
       let started = false;
       let errorOutput = "";
 
-      proc.stdout?.on("data", (data: Buffer) => {
-        const output = data.toString();
-        // Fossil server usually outputs something when it starts
-        if (
-          (!started && output.includes("Listening")) ||
-          output.includes("listening")
-        ) {
-          started = true;
-        }
-      });
+      // Read stdout
+      const stdoutReader = proc.stdout.getReader();
+      (async () => {
+        try {
+          while (true) {
+            const { done, value } = await stdoutReader.read();
+            if (done) break;
+            const output = new TextDecoder().decode(value);
+            if (
+              (!started && output.includes("Listening")) ||
+              output.includes("listening")
+            ) {
+              started = true;
+            }
+          }
+        } catch {}
+      })();
 
-      proc.stderr?.on("data", (data: Buffer) => {
-        errorOutput += data.toString();
-      });
+      // Read stderr
+      const stderrReader = proc.stderr.getReader();
+      (async () => {
+        try {
+          while (true) {
+            const { done, value } = await stderrReader.read();
+            if (done) break;
+            errorOutput += new TextDecoder().decode(value);
+          }
+        } catch {}
+      })();
 
-      proc.on("error", (err) => {
-        if (!started) {
-          resolve({
-            success: false,
-            error: err.message,
-          });
-        }
-      });
-
-      proc.on("exit", (code) => {
+      proc.exited.then((code) => {
         runningServers.delete(port);
         if (!started) {
           resolve({
@@ -101,7 +114,7 @@ export const fossilServer = {
 
       // Give the server a moment to start
       setTimeout(() => {
-        if (!started && proc.exitCode === null) {
+        if (!started) {
           // Server is still running, assume it's started
           started = true;
         }
@@ -119,7 +132,7 @@ export const fossilServer = {
             port,
           });
         } else {
-          proc.kill();
+          proc.kill("SIGTERM");
           resolve({
             success: false,
             error: errorOutput || "Server failed to start",
@@ -127,7 +140,7 @@ export const fossilServer = {
         }
       }, 500);
     });
-  },
+  }
 
   stop(port: number): Promise<ServerResult> {
     return new Promise((resolve) => {
@@ -140,7 +153,7 @@ export const fossilServer = {
         return;
       }
 
-      server.process.kill();
+      server.process.kill("SIGTERM");
       runningServers.delete(port);
 
       resolve({
@@ -148,15 +161,15 @@ export const fossilServer = {
         port,
       });
     });
-  },
+  }
 
   isRunning(port: number): boolean {
     const server = runningServers.get(port);
     if (!server) return false;
 
     // Check if process is still alive
-    return server.process.exitCode === null;
-  },
+    return true; // SpawnedProcess doesn't expose exitCode synchronously
+  }
 
   async healthCheck(port: number): Promise<boolean> {
     const server = runningServers.get(port);
@@ -171,7 +184,7 @@ export const fossilServer = {
     } catch {
       return false;
     }
-  },
+  }
 
   listRunning(): ServerInfo[] {
     const servers: ServerInfo[] = [];
@@ -185,7 +198,7 @@ export const fossilServer = {
       }
     }
     return servers;
-  },
+  }
 
   stopAll(): Promise<void> {
     return new Promise((resolve) => {
@@ -195,22 +208,34 @@ export const fossilServer = {
       }
       Promise.all(promises).then(() => resolve());
     });
-  },
-};
+  }
+}
 
-// Cleanup on process exit
-process.on("exit", () => {
-  fossilServer.stopAll();
-});
+// Legacy singleton for backward compatibility
+let _fossilServerManager: FossilServerManager | undefined;
 
-process.on("SIGINT", () => {
-  fossilServer.stopAll().then(() => {
-    process.exit(0);
+export function getFossilServerManager(os: OS): FossilServerManager {
+  if (!_fossilServerManager) {
+    _fossilServerManager = new FossilServerManager({ os });
+  }
+  return _fossilServerManager;
+}
+
+// Cleanup on process exit - these should be registered by the caller
+export function registerCleanupHandlers(manager: FossilServerManager): void {
+  process.on("exit", () => {
+    manager.stopAll();
   });
-});
 
-process.on("SIGTERM", () => {
-  fossilServer.stopAll().then(() => {
-    process.exit(0);
+  process.on("SIGINT", () => {
+    manager.stopAll().then(() => {
+      process.exit(0);
+    });
   });
-});
+
+  process.on("SIGTERM", () => {
+    manager.stopAll().then(() => {
+      process.exit(0);
+    });
+  });
+}

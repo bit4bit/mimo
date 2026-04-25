@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, mkdirSync, writeFileSync, chmodSync } from "fs";
+import { createOS } from "../src/os/node-adapter.js";
 
 describe("Impact Buffer Tests", () => {
   let testHome: string;
@@ -37,7 +38,8 @@ describe("Impact Buffer Tests", () => {
   describe("SccService", () => {
     it("should detect platform correctly", async () => {
       const { SccService } = await import("../src/impact/scc-service.ts");
-      const service = new SccService(join(testHome, "bin", "scc"));
+      const os = createOS({ ...process.env });
+      const service = new SccService(os, join(testHome, "bin", "scc"));
       const platform = service.detectPlatform();
 
       expect(platform).toBeDefined();
@@ -47,7 +49,8 @@ describe("Impact Buffer Tests", () => {
 
     it("should generate correct download URL", async () => {
       const { SccService } = await import("../src/impact/scc-service.ts");
-      const service = new SccService(join(testHome, "bin", "scc"));
+      const os = createOS({ ...process.env });
+      const service = new SccService(os, join(testHome, "bin", "scc"));
       const platform = { os: "Linux" as const, arch: "x86_64" as const };
       const url = service.getDownloadUrl(platform);
 
@@ -58,14 +61,16 @@ describe("Impact Buffer Tests", () => {
 
     it("should initially report scc as not installed", async () => {
       const { SccService } = await import("../src/impact/scc-service.ts");
-      const service = new SccService(join(testHome, "bin", "scc"));
+      const os = createOS({ ...process.env });
+      const service = new SccService(os, join(testHome, "bin", "scc"));
       expect(service.isInstalled()).toBe(false);
     });
 
     it("should detect installed scc binary", async () => {
       const { SccService } = await import("../src/impact/scc-service.ts");
+      const os = createOS({ ...process.env });
       const sccPath = join(testHome, "bin", "scc");
-      const service = new SccService(sccPath);
+      const service = new SccService(os, sccPath);
 
       // Create a mock scc binary
       mkdirSync(join(testHome, "bin"), { recursive: true });
@@ -77,8 +82,9 @@ describe("Impact Buffer Tests", () => {
 
     it("should parse scc JSON output correctly", async () => {
       const { SccService } = await import("../src/impact/scc-service.ts");
+      const os = createOS({ ...process.env });
       const sccPath = join(testHome, "bin", "scc");
-      const service = new SccService(sccPath);
+      const service = new SccService(os, sccPath);
 
       // Create a mock scc binary that outputs the correct JSON format
       mkdirSync(join(testHome, "bin"), { recursive: true });
@@ -215,8 +221,9 @@ fi`;
 
     it("should handle empty scc output", async () => {
       const { SccService } = await import("../src/impact/scc-service.ts");
+      const os = createOS({ ...process.env });
       const sccPath = join(testHome, "bin", "scc-empty");
-      const service = new SccService(sccPath);
+      const service = new SccService(os, sccPath);
 
       // Create a mock scc binary that returns empty array
       mkdirSync(join(testHome, "bin"), { recursive: true });

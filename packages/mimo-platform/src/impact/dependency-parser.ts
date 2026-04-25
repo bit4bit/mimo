@@ -1,4 +1,4 @@
-import { dirname, extname, join, normalize } from "path";
+import type { OS } from "../os/types.js";
 
 export type DependencyParserLanguage = "typescript" | "python" | "elixir";
 
@@ -96,13 +96,14 @@ export function parseElixirImports(content: string): string[] {
 }
 
 function normalizePath(pathValue: string): string {
-  return normalize(pathValue).replace(/\\/g, "/");
+  return pathValue.replace(/\\/g, "/");
 }
 
 export function extractTargetDirectory(
   sourceFilePath: string,
   dependencyPath: string,
   language: DependencyParserLanguage,
+  os?: OS,
 ): string {
   if (language === "python") {
     return dependencyPath.split(".")[0] || dependencyPath;
@@ -116,14 +117,16 @@ export function extractTargetDirectory(
     return dependencyPath;
   }
 
-  const sourceDir = dirname(sourceFilePath);
+  const sourceDir = os ? os.path.dirname(sourceFilePath) : sourceFilePath.split("/").slice(0, -1).join("/");
 
   if (dependencyPath.startsWith("./") || dependencyPath.startsWith("../")) {
-    const resolved = normalizePath(join(sourceDir, dependencyPath));
-    const extension = extname(resolved);
+    const resolved = normalizePath(
+      os ? os.path.join(sourceDir, dependencyPath) : `${sourceDir}/${dependencyPath}`.replace(/\/+/g, "/")
+    );
+    const extension = os ? os.path.extname(resolved) : resolved.split(".").pop() || "";
 
     if (extension) {
-      return normalizePath(dirname(resolved));
+      return normalizePath(os ? os.path.dirname(resolved) : resolved.split("/").slice(0, -1).join("/"));
     }
 
     const parts = dependencyPath.split("/");
@@ -131,7 +134,7 @@ export function extractTargetDirectory(
       return resolved;
     }
 
-    return normalizePath(dirname(resolved));
+    return normalizePath(os ? os.path.dirname(resolved) : resolved.split("/").slice(0, -1).join("/"));
   }
 
   return normalizePath(dependencyPath);

@@ -31,13 +31,12 @@ async function setup() {
   userRepository = ctx.repos.users;
   authService = ctx.services.auth;
 
-  const vcsModule = await import("../src/vcs/index.ts");
-  vcsModule.vcs.cloneRepository = async () => ({ success: true });
-  vcsModule.vcs.importToFossil = async () => ({ success: true });
-  vcsModule.vcs.openFossilCheckout = async () => ({ success: true });
-  vcsModule.vcs.openFossil = async () => ({ success: true });
-  vcsModule.vcs.syncIgnoresToFossil = async () => ({ success: true });
-  vcsModule.vcs.createFossilUser = async () => ({ success: true });
+  ctx.services.vcs.cloneRepository = async () => ({ success: true });
+  ctx.services.vcs.importToFossil = async () => ({ success: true });
+  ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
+  ctx.services.vcs.openFossil = async () => ({ success: true });
+  ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });
+  ctx.services.vcs.createFossilUser = async () => ({ success: true });
 
   const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
   sessionRoutes = createSessionsRoutes(ctx);
