@@ -1,5 +1,5 @@
-import { logger } from "../logger.js";
 import type { OS } from "../os/types.js";
+import { logger } from "../logger.js";
 
 export interface SccPlatform {
   os: "Linux" | "Darwin" | "Windows";
@@ -200,7 +200,6 @@ export class SccService {
       const ext = platform.os === "Windows" ? ".zip" : ".tar.gz";
       const downloadPath = this.os.path.join(binDir, `scc${ext}`);
 
-      logger.debug(`[scc] Downloading from ${url}...`);
 
       // Download using curl
       await this.os.command.run([
@@ -213,7 +212,6 @@ export class SccService {
         timeoutMs: 120000,
       });
 
-      logger.debug("[scc] Extracting...");
 
       // Extract
       if (platform.os === "Windows") {
@@ -238,7 +236,6 @@ export class SccService {
       // Clean up archive
       this.os.fs.unlink(downloadPath);
 
-      logger.debug(`[scc] Installed to ${this.sccPath}`);
       return { success: true };
     } catch (error) {
       logger.error("[scc] Installation failed:", error);
@@ -332,9 +329,16 @@ export class SccService {
       const files = group.Files || [];
 
       for (const file of files) {
+        // Validate complexity is non-negative
+        const fileComplexity = file.Complexity || 0;
+        if (fileComplexity < 0) {
+          logger.warn(`[scc:parse:warn] negative_complexity path=${file.Filename} value=${fileComplexity}`);
+        }
+        const validatedComplexity = Math.max(0, fileComplexity);
+
         totalLines += file.Lines;
         totalCode += file.Code;
-        totalComplexity += file.Complexity || 0;
+        totalComplexity += validatedComplexity;
 
         // Language aggregation
         const lang = file.Language || "Unknown";
@@ -345,7 +349,7 @@ export class SccService {
           existing.code += file.Code;
           existing.comment += file.Comment;
           existing.blank += file.Blank;
-          existing.complexity += file.Complexity || 0;
+          existing.complexity += validatedComplexity;
         } else {
           languageMap.set(lang, {
             language: lang,
@@ -354,7 +358,7 @@ export class SccService {
             code: file.Code,
             comment: file.Comment,
             blank: file.Blank,
-            complexity: file.Complexity || 0,
+            complexity: validatedComplexity,
           });
         }
 
@@ -365,10 +369,13 @@ export class SccService {
           code: file.Code,
           comment: file.Comment,
           blank: file.Blank,
-          complexity: file.Complexity || 0,
+          complexity: validatedComplexity,
         });
       }
     }
+
+    // Sort files by path for consistent ordering
+    fileMetrics.sort((a, b) => a.path.localeCompare(b.path));
 
     return {
       linesOfCode: {
@@ -389,7 +396,10 @@ export class SccService {
   clearCache(directory?: string): void {
     if (directory) {
       this.smartCache.delete(directory);
-      this.saveCache();
+      // Fire and forget - don't block on save
+      this.saveCache().catch((error) => {
+        logger.error("[scc] Failed to save cache after clear:", error);
+      });
     } else {
       this.smartCache.clear();
       // Remove cache file entirely when clearing all
@@ -397,7 +407,7 @@ export class SccService {
         if (this.os.fs.exists(this.cacheFilePath)) {
           this.os.fs.unlink(this.cacheFilePath);
         }
-      } catch (error) {
+      } catch {
         // Ignore errors during file removal
       }
     }
@@ -473,17 +483,57 @@ export class SccService {
     try {
       const cacheDir = this.os.path.dirname(this.cacheFilePath);
       if (!this.os.fs.exists(cacheDir)) {
-        this.os.fs.mkdir(cacheDir, { recursive: true });
+        try {
+          this.os.fs.mkdir(cacheDir, { recursive: true });
+        } catch (mkdirError) {
+          logger.error(`[scc] Failed to create cache directory: ${cacheDir}`, mkdirError);
+          return;
+        }
       }
 
       const data: SccCacheData = {
         entries: Object.fromEntries(this.smartCache),
       };
 
+      const jsonData = JSON.stringify(data, null, 2);
+      if (!jsonData) {
+        logger.error(`[scc] Failed to serialize cache data`);
+        return;
+      }
+
       // Atomic write: write to temp file, then rename
       const tempPath = `${this.cacheFilePath}.tmp`;
-      this.os.fs.writeFile(tempPath, JSON.stringify(data, null, 2), "utf-8");
-      this.os.fs.rename(tempPath, this.cacheFilePath);
+      
+      // Remove any existing temp file first
+      if (this.os.fs.exists(tempPath)) {
+        try {
+          this.os.fs.unlink(tempPath);
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+      
+      try {
+        this.os.fs.writeFile(tempPath, jsonData, "utf-8");
+      } catch (writeError) {
+        logger.error(`[scc] Failed to write cache temp file: ${tempPath}`, writeError);
+        return;
+      }
+
+      // Perform atomic rename
+      try {
+        this.os.fs.rename(tempPath, this.cacheFilePath);
+      } catch (renameError) {
+        logger.error(`[scc] Failed to rename cache file: ${tempPath} → ${this.cacheFilePath}`, renameError);
+        // Clean up temp file if rename failed
+        try {
+          if (this.os.fs.exists(tempPath)) {
+            this.os.fs.unlink(tempPath);
+          }
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
     } catch (error) {
       logger.error("[scc] Failed to save cache:", error);
     }
@@ -509,7 +559,10 @@ export class SccService {
         this.markStale(key);
       }
     }
-    this.saveCache();
+    // Fire and forget - don't block on save, but catch errors
+    this.saveCache().catch((error) => {
+      logger.error("[scc:cache:invalidate] failed to save cache:", error);
+    });
   }
 
   markStale(directory: string): void {

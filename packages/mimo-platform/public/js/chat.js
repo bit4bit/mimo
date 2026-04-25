@@ -2499,6 +2499,17 @@ function renderImpactMetrics(metrics, trends) {
     return parts.length > 2 ? `.../${parts.slice(-2).join("/")}` : p;
   };
 
+  // Compute complexity display with absolute values
+  const absComplexity = metrics.absoluteComplexity || { upstream: 0, workspace: 0 };
+  const cyclomaticUp = absComplexity.upstream ?? 0;
+  const cyclomaticWs = absComplexity.workspace ?? 0;
+  const cyclomaticDelta = metrics.complexity?.cyclomatic ?? 0;
+  const cyclomaticDisplay = `${cyclomaticUp}→${cyclomaticWs}(${cyclomaticDelta >= 0 ? '+' : ''}${cyclomaticDelta})`;
+  const cognitiveUp = 0; // SCC doesn't provide cognitive complexity upstream
+  const cognitiveWs = 0;
+  const cognitiveDelta = metrics.complexity?.cognitive ?? 0;
+  const cognitiveDisplay = `${cognitiveUp}→${cognitiveWs}(${cognitiveDelta >= 0 ? '+' : ''}${cognitiveDelta})`;
+
   let duplicationHtml = "";
   if (metrics.duplication !== undefined) {
     const dup = metrics.duplication;
@@ -2590,8 +2601,8 @@ function renderImpactMetrics(metrics, trends) {
     </div>
     <div class="impact-section">
       <div class="impact-section-title">Complexity</div>
-      <div class="impact-metric"><span class="impact-metric-label">Cyclomatic:</span><span class="impact-metric-value">${metrics.complexity.cyclomatic}</span><span class="impact-trend">${complexityTrend.cyclomatic || "→"}</span></div>
-      <div class="impact-metric"><span class="impact-metric-label">Cognitive:</span><span class="impact-metric-value">${metrics.complexity.cognitive}</span><span class="impact-trend">${complexityTrend.cognitive || "→"}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Cyclomatic:</span><span class="impact-metric-value">${cyclomaticDisplay}</span><span class="impact-trend">${complexityTrend.cyclomatic || "→"}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Cognitive:</span><span class="impact-metric-value">${cognitiveDisplay}</span><span class="impact-trend">${complexityTrend.cognitive || "→"}</span></div>
       <div class="impact-metric"><span class="impact-metric-label">Est. Time:</span><span class="impact-metric-value">~${metrics.complexity.estimatedMinutes} min</span></div>
     </div>
     ${dependencyHtml}
