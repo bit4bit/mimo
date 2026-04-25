@@ -1,10 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { Hono } from "hono";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
-import { join } from "path";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  readFileSync,
+} from "fs";
+import { join, resolve } from "path";
 import { tmpdir } from "os";
 import { createMcpRoutes } from "../src/mcp/server.js";
 import { mcpTokenStore } from "../src/mcp/token-store.js";
+import type { FileService } from "../src/files/types.js";
 
 describe("Platform MCP HTTP endpoint", () => {
   let workspacePath: string;
@@ -17,18 +24,36 @@ describe("Platform MCP HTTP endpoint", () => {
   beforeEach(() => {
     workspacePath = mkdtempSync(join(tmpdir(), "mimo-mcp-route-test-"));
     mkdirSync(join(workspacePath, "src"), { recursive: true });
-    writeFileSync(join(workspacePath, "src", "hello.ts"), "export const hello = 1;\n");
+    writeFileSync(
+      join(workspacePath, "src", "hello.ts"),
+      "export const hello = 1;\n",
+    );
 
     sentMessages = [];
     const wsClient = {
       readyState: 1,
       send: (msg: string) => sentMessages.push(msg),
     };
-    const chatSessions = new Map<string, Set<{ readyState: number; send: (msg: string) => void }>>();
+    const chatSessions = new Map<
+      string,
+      Set<{ readyState: number; send: (msg: string) => void }>
+    >();
     chatSessions.set(sessionId, new Set([wsClient]));
 
     mcpTokenStore.register(token, sessionId);
     mcpTokenStore.register("mcp-token-other", otherSessionId);
+
+    const fileService: FileService = {
+      listFiles: async () => [],
+      readFile: async (wsPath: string, filePath: string) => {
+        const base = resolve(wsPath);
+        const abs = resolve(wsPath, filePath);
+        if (!abs.startsWith(base + "/") && abs !== base) {
+          throw new Error("Access denied: path outside workspace");
+        }
+        return readFileSync(abs, "utf-8");
+      },
+    };
 
     app = new Hono();
     app.route(
@@ -37,6 +62,7 @@ describe("Platform MCP HTTP endpoint", () => {
         chatSessions,
         getSessionWorkspace: async (requestedSessionId: string) =>
           requestedSessionId === sessionId ? workspacePath : null,
+        fileService,
       }),
     );
   });

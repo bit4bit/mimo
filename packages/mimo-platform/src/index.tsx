@@ -58,16 +58,20 @@ const os: OS = createOS({
 });
 
 // Create shared fossil server explicitly before context (dependency injection)
-const sharedFossilServer = createSharedFossilServer({
-  PORT: _port,
-  PLATFORM_URL: process.env.PLATFORM_URL ?? `http://localhost:${_port}`,
-  JWT_SECRET: process.env.JWT_SECRET ?? "your-secret-key-change-in-production",
-  MIMO_HOME: mimoHome,
-  FOSSIL_REPOS_DIR: fossilReposDir,
-  MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
-    ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
-    : 8000, // Default port for production
-}, os);
+const sharedFossilServer = createSharedFossilServer(
+  {
+    PORT: _port,
+    PLATFORM_URL: process.env.PLATFORM_URL ?? `http://localhost:${_port}`,
+    JWT_SECRET:
+      process.env.JWT_SECRET ?? "your-secret-key-change-in-production",
+    MIMO_HOME: mimoHome,
+    FOSSIL_REPOS_DIR: fossilReposDir,
+    MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
+      ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
+      : 8000, // Default port for production
+  },
+  os,
+);
 
 const mimoContext = createMimoContext({
   env: {
@@ -152,18 +156,8 @@ import { createPlatformMcpServerConfig } from "./mcp/platform-config.js";
 import { registerHelpRoutes } from "./help/routes.js";
 import { authMiddleware } from "./auth/middleware.js";
 
-const PUBLIC_PATHS = [
-  "/",
-  "/health",
-  "/api/projects/public",
-  "/api/help",
-];
-const PUBLIC_PATH_PREFIXES = [
-  "/auth/",
-  "/js/",
-  "/vendor/",
-  "/api/mimo-mcp",
-];
+const PUBLIC_PATHS = ["/", "/health", "/api/projects/public", "/api/help"];
+const PUBLIC_PATH_PREFIXES = ["/auth/", "/js/", "/vendor/", "/api/mimo-mcp"];
 
 function isPublicPath(path: string): boolean {
   if (PUBLIC_PATHS.includes(path)) return true;
@@ -323,8 +317,6 @@ app.get("/api/projects/public", async (c) => {
   return c.json(publicProjects);
 });
 
-
-
 // Project routes (protected)
 app.route("/projects", createProjectsRoutes(mimoContext));
 
@@ -362,6 +354,7 @@ app.route(
     agentService: mimoContext.services.agents,
     sccService: mimoContext.services.scc,
     vcs: mimoContext.services.vcs,
+    os,
   }),
 );
 
@@ -375,6 +368,7 @@ app.route(
       const session = await sessionRepository.findById(sessionId);
       return session?.agentWorkspacePath ?? null;
     },
+    fileService: mimoContext.services.fileService,
   }),
 );
 
@@ -479,7 +473,10 @@ mimoServer.setup({
           return new Response("Unauthorized", { status: 401 });
         }
 
-        logger.debug("[WS] Chat WebSocket: Authenticated upgrade for", sessionId);
+        logger.debug(
+          "[WS] Chat WebSocket: Authenticated upgrade for",
+          sessionId,
+        );
 
         const upgraded = server.upgrade(req, {
           data: {
@@ -1917,10 +1914,10 @@ async function handleAgentMessage(ws, data) {
         const errorSessionId = data.sessionId;
         const errorThreadId = data.chatThreadId;
         const rawError = data.error;
-        
+
         // Extract error message from error object
         const errorMessage = rawError?.message || String(rawError);
-        
+
         if (errorSessionId && errorMessage) {
           const timestamp = new Date().toISOString();
           // Save error as system message in chat history
@@ -2145,7 +2142,8 @@ async function handleChatMessage(ws, data) {
         );
       }
 
-      const stateAvailableCommands = availableCommandsBuffers.get(stateStreamKey);
+      const stateAvailableCommands =
+        availableCommandsBuffers.get(stateStreamKey);
       const stateFallbackCommands = availableCommandsBuffers.get(
         streamKey(sessionId),
       );

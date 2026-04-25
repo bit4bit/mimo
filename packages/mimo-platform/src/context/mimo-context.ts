@@ -27,6 +27,7 @@ import {
 } from "../files/file-watcher-service.js";
 import { ExpertService, createExpertService } from "../files/expert-service.js";
 import { createFileService } from "../files/service.js";
+import type { FileService } from "../files/types.js";
 import { createOS } from "../os/node-adapter.js";
 import type { OS } from "../os/types.js";
 
@@ -79,6 +80,7 @@ export interface MimoContext {
     sharedFossil: SharedFossilServer | DummySharedFossilServer | null;
     fileWatcher: FileWatcherService;
     expert: ExpertService;
+    fileService: FileService;
   };
 }
 
@@ -112,7 +114,10 @@ function ensurePaths(paths: MimoPaths, os: OS): void {
  * Factory function to create a SharedFossilServer with configuration from MimoEnv.
  * Port is required - throws error if not provided.
  */
-export function createSharedFossilServer(env: MimoEnv, os: OS): SharedFossilServer {
+export function createSharedFossilServer(
+  env: MimoEnv,
+  os: OS,
+): SharedFossilServer {
   const port = env.MIMO_SHARED_FOSSIL_SERVER_PORT;
   if (port === undefined) {
     throw new Error(
@@ -138,7 +143,8 @@ export function createMimoContext(
     ...process.env,
   });
 
-  const mimoHome = overrides.env?.MIMO_HOME ?? os.path.join(os.path.homeDir(), ".mimo");
+  const mimoHome =
+    overrides.env?.MIMO_HOME ?? os.path.join(os.path.homeDir(), ".mimo");
   const port = overrides.env?.PORT ?? 3000;
   const env: MimoEnv = {
     PORT: port,
@@ -147,7 +153,8 @@ export function createMimoContext(
       overrides.env?.JWT_SECRET ?? "your-secret-key-change-in-production",
     MIMO_HOME: mimoHome,
     FOSSIL_REPOS_DIR:
-      overrides.env?.FOSSIL_REPOS_DIR ?? os.path.join(mimoHome, "session-fossils"),
+      overrides.env?.FOSSIL_REPOS_DIR ??
+      os.path.join(mimoHome, "session-fossils"),
     MIMO_SHARED_FOSSIL_SERVER_PORT:
       overrides.env?.MIMO_SHARED_FOSSIL_SERVER_PORT,
   };
@@ -204,7 +211,11 @@ export function createMimoContext(
   // Create shared scc and jscpd service instances to be passed to ImpactCalculator
   const sccService =
     overrides.services?.scc ??
-    new SccService(os, os.path.join(paths.root, "bin", "scc"), os.path.join(paths.root, "cache"));
+    new SccService(
+      os,
+      os.path.join(paths.root, "bin", "scc"),
+      os.path.join(paths.root, "cache"),
+    );
   const jscpdService = overrides.services?.jscpd ?? new JscpdService(os);
 
   // Create shared impactCalculator instance with injected services
@@ -220,8 +231,7 @@ export function createMimoContext(
 
   const fileService = overrides.services?.fileService ?? createFileService(os);
 
-  const expertService =
-    overrides.services?.expert ?? createExpertService(os);
+  const expertService = overrides.services?.expert ?? createExpertService(os);
 
   const services: MimoContext["services"] = {
     auth: overrides.services?.auth ?? new JwtService(env.JWT_SECRET),
@@ -229,7 +239,8 @@ export function createMimoContext(
       overrides.services?.agents ??
       new AgentService(repos.agents, env.JWT_SECRET),
     chat: overrides.services?.chat ?? new ChatService(paths, os),
-    frameState: overrides.services?.frameState ?? new FrameStateService(paths, os),
+    frameState:
+      overrides.services?.frameState ?? new FrameStateService(paths, os),
     scc: sccService,
     jscpd: jscpdService,
     commits:
@@ -272,8 +283,10 @@ export function createMimoContext(
     vcs,
     sessionState: sessionStateService,
     sharedFossil: sharedFossilServer,
-    fileWatcher: overrides.services?.fileWatcher ?? createFileWatcherService(os),
+    fileWatcher:
+      overrides.services?.fileWatcher ?? createFileWatcherService(os),
     expert: expertService,
+    fileService,
   };
 
   return {

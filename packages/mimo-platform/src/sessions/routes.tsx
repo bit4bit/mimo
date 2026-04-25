@@ -9,7 +9,7 @@ import type { Context } from "hono";
 import { normalizeFrameState, updateFrameState } from "./frame-state.js";
 import { logger } from "../logger.js";
 import type { MimoContext } from "../context/mimo-context.js";
-import { createFileService, findFiles } from "../files/service.js";
+import { findFiles } from "../files/service.js";
 import { detectLanguage, escapeHtml } from "../files/syntax-highlighter.js";
 import { canDeleteSessionNow } from "./session-retention.js";
 import { createSessionDeletionUseCase } from "./session-deletion.js";
@@ -34,7 +34,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
   const sharedFossilServer = mimoContext.services.sharedFossil;
   const vcs = mimoContext.services.vcs;
   const platformUrl = mimoContext.env?.PLATFORM_URL ?? "http://localhost:3000";
-  const fileService = createFileService();
+  const fileService = mimoContext.services.fileService;
   const expertService = mimoContext.services.expert;
   const sessionDeletion = createSessionDeletionUseCase({
     sessionRepository,
@@ -675,9 +675,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 
     await sessionRepository.update(sessionId, { status: "closed" });
 
-    return c.redirect(
-      `/projects/${session.projectId}/sessions/${sessionId}`,
-    );
+    return c.redirect(`/projects/${session.projectId}/sessions/${sessionId}`);
   });
 
   // POST /sessions/:id/delete or /projects/:projectId/sessions/:id/delete - Delete session
@@ -802,25 +800,26 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 
       if (!sccInstalled) {
         // Return basic file counts without complexity
-const { readdirSync, statSync, readFileSync, lstatSync } = await import("fs");
-          for (const entry of entries) {
-            const fullPath = join(dir, entry.name);
-            const relPath = relative(baseDir, fullPath);
-            if (VCS_INTERNALS.has(entry.name)) continue;
-            const entryStats = lstatSync(fullPath);
-            if (entryStats.isDirectory()) {
-              scanDir(fullPath, baseDir, files);
-            } else if (entryStats.isFile()) {
-              const stats = statSync(fullPath);
-              const content = readFileSync(fullPath);
-              const checksum = crypto
-                .createHash("md5")
-                .update(content)
-                .digest("hex");
-files.set(relPath, { checksum, size: stats.size });
-            }
-          };
-        
+        const { readdirSync, statSync, readFileSync, lstatSync } =
+          await import("fs");
+        for (const entry of entries) {
+          const fullPath = join(dir, entry.name);
+          const relPath = relative(baseDir, fullPath);
+          if (VCS_INTERNALS.has(entry.name)) continue;
+          const entryStats = lstatSync(fullPath);
+          if (entryStats.isDirectory()) {
+            scanDir(fullPath, baseDir, files);
+          } else if (entryStats.isFile()) {
+            const stats = statSync(fullPath);
+            const content = readFileSync(fullPath);
+            const checksum = crypto
+              .createHash("md5")
+              .update(content)
+              .digest("hex");
+            files.set(relPath, { checksum, size: stats.size });
+          }
+        }
+
         const upstreamFiles = new Map<
           string,
           { checksum: string; size: number }
