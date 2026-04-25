@@ -2,9 +2,16 @@ import { IAcpProvider, NewSessionResponse } from "../types";
 import { ModelState, ModeState } from "../../types";
 import { spawn, ChildProcess } from "child_process";
 import { Readable, Writable } from "node:stream";
+import { fileURLToPath } from "url";
 
 export class ClaudeAgentProvider implements IAcpProvider {
   readonly name = "claude";
+
+  resolvedBinPath(): string {
+    return fileURLToPath(
+      import.meta.resolve("@agentclientprotocol/claude-agent-acp/dist/index.js"),
+    );
+  }
 
   spawn(cwd: string): {
     process: ChildProcess;
@@ -12,7 +19,7 @@ export class ClaudeAgentProvider implements IAcpProvider {
     stdout: Readable;
     stderr?: Readable;
   } {
-    const proc = spawn("claude-agent-acp", [], {
+    const proc = spawn(process.execPath, [this.resolvedBinPath()], {
       cwd,
       stdio: ["pipe", "pipe", "pipe"],
     });
