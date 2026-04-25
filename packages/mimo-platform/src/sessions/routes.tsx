@@ -11,7 +11,7 @@ import { logger } from "../logger.js";
 import type { MimoContext } from "../context/mimo-context.js";
 import { createFileService, findFiles } from "../files/service.js";
 import { detectLanguage, escapeHtml } from "../files/syntax-highlighter.js";
-import { spawnRipgrep, checkRipgrepAvailable, SearchServiceError } from "../files/search-service.js";
+import { SearchServiceError } from "../files/search-service.js";
 import { canDeleteSessionNow } from "./session-retention.js";
 import { createSessionDeletionUseCase } from "./session-deletion.js";
 import { VCS_INTERNALS } from "../vcs/index.js";
@@ -36,6 +36,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
   const vcs = mimoContext.services.vcs;
   const platformUrl = mimoContext.env?.PLATFORM_URL ?? "http://localhost:3000";
   const fileService = createFileService();
+  const searchService = mimoContext.services.search;
   const expertService = mimoContext.services.expert;
   const sessionDeletion = createSessionDeletionUseCase({
     sessionRepository,
@@ -1568,9 +1569,7 @@ files.set(relPath, { checksum, size: stats.size });
     const workspacePath = session.agentWorkspacePath;
 
     try {
-      const results = await spawnRipgrep({
-        workspacePath,
-        query,
+      const results = await searchService.searchContent(workspacePath, query, {
         contextLines,
         maxResults: 100,
       });

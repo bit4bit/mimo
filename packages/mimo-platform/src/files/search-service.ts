@@ -1,6 +1,44 @@
-import { spawn } from "child_process";
 import { which } from "bun";
 import type { ContentSearchResult } from "./types.js";
+import type { SearchOptions, SearchService } from "./types.js";
+
+export interface CommandResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
+export interface OsCommandRunner {
+  run(command: string[], options?: { cwd?: string }): Promise<CommandResult>;
+}
+
+export class BunOsCommandRunner implements OsCommandRunner {
+  async run(
+    command: string[],
+    options?: { cwd?: string },
+  ): Promise<CommandResult> {
+    const proc = Bun.spawn(command, {
+      cwd: options?.cwd,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const [exitCode, stdout, stderr] = await Promise.all([
+      proc.exited,
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+
+    return { exitCode, stdout, stderr };
+  }
+}
+
+export type ResolveBinary = (name: string) => Promise<string | undefined>;
+
+interface SearchServiceDeps {
+  os: OsCommandRunner;
+  resolveBinary: ResolveBinary;
+}
 
 export class SearchServiceError extends Error {
   constructor(message: string, public code: "NOT_FOUND" | "INVALID_REGEX" | "EXECUTION_FAILED") {
@@ -21,88 +59,83 @@ export interface SpawnRipgrepOptions {
   maxResults?: number;
 }
 
-export function spawnRipgrep(options: SpawnRipgrepOptions): Promise<ContentSearchResult[]> {
-  return new Promise(async (resolve, reject) => {
-    const rgPath = await which("rg");
-    if (!rgPath) {
-      reject(new SearchServiceError(
-        "ripgrep (rg) not found. Please install ripgrep: https://github.com/BurntSushi/ripgrep#installation",
-        "NOT_FOUND"
-      ));
-      return;
-    }
+export function createSearchService(
+  deps: Partial<SearchServiceDeps> = {},
+): SearchService {
+  const os = deps.os ?? new BunOsCommandRunner();
+  const resolveBinary = deps.resolveBinary ?? which;
 
-    const { workspacePath, query, contextLines = 2, maxResults = 100 } = options;
-    if (query.includes("\0")) {
-      reject(
-        new SearchServiceError(
-          "Invalid search query",
-          "INVALID_REGEX",
-        ),
+  return {
+    searchContent: async (
+      workspacePath: string,
+      query: string,
+      options: SearchOptions,
+    ) => {
+      return spawnRipgrep(
+        {
+          workspacePath,
+          query,
+          contextLines: options.contextLines,
+          maxResults: options.maxResults,
+        },
+        { os, resolveBinary },
       );
-      return;
-    }
+    },
+  };
+}
 
-    const args = [
-      "--json",
-      "-i",
-      "-n",
-      "--context",
-      String(contextLines),
-      "--max-count",
-      String(maxResults),
-      "--",
-      query,
-      ".",
-    ];
+export async function spawnRipgrep(
+  options: SpawnRipgrepOptions,
+  deps: Partial<SearchServiceDeps> = {},
+): Promise<ContentSearchResult[]> {
+  const os = deps.os ?? new BunOsCommandRunner();
+  const resolveBinary = deps.resolveBinary ?? which;
 
-    const child = spawn(rgPath, args, { cwd: workspacePath });
-    const results: ContentSearchResult[] = [];
-    let buffer = "";
-    let hasError = false;
-    let errorMessage = "";
+  const rgPath = await resolveBinary("rg");
+  if (!rgPath) {
+    throw new SearchServiceError(
+      "ripgrep (rg) not found. Please install ripgrep: https://github.com/BurntSushi/ripgrep#installation",
+      "NOT_FOUND",
+    );
+  }
 
-    child.stdout.on("data", (data: Buffer) => {
-      buffer += data.toString();
-    });
+  const { workspacePath, query, contextLines = 2, maxResults = 100 } = options;
+  if (query.includes("\0")) {
+    throw new SearchServiceError("Invalid search query", "INVALID_REGEX");
+  }
 
-    child.stderr.on("data", (data: Buffer) => {
-      const text = data.toString();
-      if (text.includes("error parsing regex") || text.includes("parse error")) {
-        hasError = true;
-        errorMessage = text;
-        child.kill();
-      }
-    });
+  const args = [
+    "--json",
+    "-i",
+    "-n",
+    "--context",
+    String(contextLines),
+    "--max-count",
+    String(maxResults),
+    "--",
+    query,
+    ".",
+  ];
 
-    child.on("error", () => {
-      hasError = true;
-      reject(new SearchServiceError(
-        "Failed to execute ripgrep",
-        "EXECUTION_FAILED"
-      ));
-    });
-
-    child.on("close", (code) => {
-      if (hasError) {
-        if (errorMessage.includes("parsing regex") || errorMessage.includes("parse error")) {
-          reject(new SearchServiceError(
-            `Invalid regex: ${query}. Use escape for literals: \\. \\* \\+`,
-            "INVALID_REGEX"
-          ));
-        } else {
-          reject(new SearchServiceError(
-            "ripgrep execution failed",
-            "EXECUTION_FAILED"
-          ));
-        }
-        return;
-      }
-
-      const parsed = parseRipgrepOutput(buffer, contextLines, workspacePath);
-      resolve(parsed);
-    });
+  const { exitCode, stdout, stderr } = await os.run([rgPath, ...args], {
+    cwd: workspacePath,
   });
+
+  if (exitCode === 1 && stderr.trim().length === 0) {
+    return [];
+  }
+
+  if (exitCode !== 0) {
+    if (stderr.includes("error parsing regex") || stderr.includes("parse error")) {
+      throw new SearchServiceError(
+        `Invalid regex: ${query}. Use escape for literals: \\. \\* \\+`,
+        "INVALID_REGEX",
+      );
+    }
+    throw new SearchServiceError("ripgrep execution failed", "EXECUTION_FAILED");
+  }
+
+  return parseRipgrepOutput(stdout, contextLines, workspacePath);
 }
 
 function normalizeResultPath(pathText: string, workspacePath: string): string {

@@ -160,6 +160,80 @@ describe("GET /sessions/:id/search", () => {
     expect(body.results.length).toBeGreaterThan(0);
     expect(body.results[0].path).toBe("src/target.ts");
   });
+
+  it("uses injected search service dependency", async () => {
+    const customHome = join(
+      tmpdir(),
+      `expert-api-search-di-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
+    const expectedResult = {
+      path: "src/injected.ts",
+      line: 7,
+      column: 3,
+      text: "const injected = true;",
+      matchStart: 6,
+      matchEnd: 14,
+      before: [],
+      after: [],
+    };
+
+    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
+    const vcsModule = await import("../src/vcs/index.ts");
+
+    const searchCalls: Array<{ workspacePath: string; query: string }> = [];
+    const ctx = createMimoContext({
+      env: { MIMO_HOME: customHome, JWT_SECRET: "test-secret-key" },
+      services: {
+        sharedFossil: new DummySharedFossilServer(),
+        search: {
+          searchContent: async (workspacePath: string, query: string) => {
+            searchCalls.push({ workspacePath, query });
+            return [expectedResult];
+          },
+        },
+      },
+    });
+
+    vcsModule.vcs.cloneRepository = async () => ({ success: true });
+    vcsModule.vcs.importToFossil = async () => ({ success: true });
+    vcsModule.vcs.openFossilCheckout = async () => ({ success: true });
+    vcsModule.vcs.openFossil = async () => ({ success: true });
+    vcsModule.vcs.syncIgnoresToFossil = async () => ({ success: true });
+    vcsModule.vcs.createFossilUser = async () => ({ success: true });
+
+    const app = new Hono();
+    app.route("/sessions", createSessionsRoutes(ctx));
+
+    await ctx.repos.users.create("search-di-user", await bcrypt.hash("pass", 10));
+    const project = await ctx.repos.projects.create({
+      name: "Search DI Project",
+      repoUrl: "https://github.com/user/repo.git",
+      repoType: "git",
+      owner: "search-di-user",
+    });
+    const session = await ctx.repos.sessions.create({
+      name: "Search DI Session",
+      projectId: project.id,
+      owner: "search-di-user",
+      model: "claude-sonnet-4-6",
+      mode: "auto",
+    });
+    const token = await ctx.services.auth.generateToken("search-di-user");
+
+    const res = await app.request(`/sessions/${session.id}/search?q=injected`, {
+      headers: { Cookie: `token=${token}` },
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.results).toEqual([expectedResult]);
+    expect(searchCalls.length).toBe(1);
+    expect(searchCalls[0].workspacePath).toBe(session.agentWorkspacePath);
+    expect(searchCalls[0].query).toBe("injected");
+
+    rmSync(customHome, { recursive: true, force: true });
+  });
 });
 
 describe("POST /sessions/:id/files/write", () => {
