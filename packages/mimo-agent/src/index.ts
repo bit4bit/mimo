@@ -1280,7 +1280,7 @@ class MimoAgent {
       }
 
       const commitMessage = `agent-sync(${sessionId}): sync fossil changes ${new Date().toISOString()}`;
-      let commitResult = await runFossil(["commit", "-m", commitMessage]);
+      let commitResult = await runFossil(["commit", "-m", commitMessage, "--no-warnings"]);
       if (!commitResult.success) {
         const combined = `${commitResult.output}\n${commitResult.error}`;
         if (combined.includes("nothing has changed")) {
@@ -1309,7 +1309,7 @@ class MimoAgent {
           for (const file of binaryFiles) {
             runFossil(["forget", file]);
           }
-          commitResult = await runFossil(["commit", "-m", commitMessage]);
+          commitResult = await runFossil(["commit", "-m", commitMessage, "--no-warnings"]);
           const retryCombined = `${commitResult.output}\n${commitResult.error}`;
           if (
             !commitResult.success &&
@@ -1359,6 +1359,7 @@ class MimoAgent {
             "-m",
             commitMessage,
             "--allow-conflict",
+            "--no-warnings",
           ]);
           if (!commitResult.success) {
             this.send({
