@@ -1,7 +1,6 @@
 /** @jsx jsx */
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";
-import bcrypt from "bcrypt";
 import type { MimoContext } from "../context/mimo-context.js";
 import { LoginPage } from "../components/LoginPage.js";
 import { RegisterPage } from "../components/RegisterPage.js";
@@ -36,7 +35,7 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
       return c.html(<RegisterPage error="Username already exists" />, 409);
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await Bun.password.hash(password, { algorithm: "bcrypt", cost: 10 });
     await userRepository.create(username, passwordHash);
 
     return c.redirect("/auth/login");
@@ -62,7 +61,7 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
       return c.html(<LoginPage error="Invalid credentials" />, 401);
     }
 
-    const isValidPassword = await bcrypt.compare(
+    const isValidPassword = await Bun.password.verify(
       password,
       credentials.passwordHash,
     );

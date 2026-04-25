@@ -3,7 +3,6 @@ import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync } from "fs";
-import bcrypt from "bcrypt";
 
 let authRoutes: any;
 let authMiddleware: any;
@@ -70,7 +69,7 @@ describe("Authentication Integration Tests", () => {
 
       await userRepository.create(
         "dupeuser",
-        await bcrypt.hash("password1", 10),
+        await Bun.password.hash("password1", 10),
       );
 
       const formData = new URLSearchParams();
@@ -110,7 +109,7 @@ describe("Authentication Integration Tests", () => {
 
       await userRepository.create(
         "logintest",
-        await bcrypt.hash("testpass123", 10),
+        await Bun.password.hash("testpass123", 10),
       );
 
       const formData = new URLSearchParams();
@@ -138,7 +137,7 @@ describe("Authentication Integration Tests", () => {
 
       await userRepository.create(
         "validuser",
-        await bcrypt.hash("correctpass", 10),
+        await Bun.password.hash("correctpass", 10),
       );
 
       const formData = new URLSearchParams();

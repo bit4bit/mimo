@@ -12,7 +12,7 @@ import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync } from "fs";
-import bcrypt from "bcrypt";
+
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
 let testHome: string;
@@ -61,7 +61,7 @@ describe("Chat Threads API", () => {
     app.route("/projects/:projectId/sessions", sessionRoutes);
 
     // Seed: user, project, session
-    await userRepository.create("owner", await bcrypt.hash("pass", 10));
+    await userRepository.create("owner", await Bun.password.hash("pass", { algorithm: "bcrypt", cost: 10 }));
     token = await authService.generateToken("owner");
 
     const project = await projectRepository.create({

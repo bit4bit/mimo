@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, readFileSync, mkdirSync, writeFileSync } from "fs";
-import bcrypt from "bcrypt";
+
 import { load, dump } from "js-yaml";
 
 // Re-import modules after setting up environment
@@ -65,7 +65,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -96,7 +96,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -133,7 +133,7 @@ describe("Session Management Integration Tests", () => {
       // Create user and project
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -173,7 +173,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -212,7 +212,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -263,7 +263,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -310,7 +310,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -360,7 +360,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -405,7 +405,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -448,7 +448,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -518,7 +518,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -552,7 +552,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -592,7 +592,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -621,7 +621,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -661,7 +661,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -688,7 +688,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -732,7 +732,7 @@ describe("Session Management Integration Tests", () => {
     async function createUserAndProject(extra: Record<string, unknown> = {}) {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -879,7 +879,7 @@ describe("Session Management Integration Tests", () => {
     async function createUserAndProject(extra: Record<string, unknown> = {}) {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -1049,7 +1049,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -1087,7 +1087,7 @@ describe("Session Management Integration Tests", () => {
     it("should create then auto-delete expired inactive session via sweeper", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -1144,7 +1144,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -1181,7 +1181,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -1220,7 +1220,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -1290,7 +1290,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -1350,7 +1350,7 @@ describe("Session Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",

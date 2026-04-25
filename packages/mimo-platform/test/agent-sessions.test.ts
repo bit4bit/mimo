@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync } from "fs";
-import bcrypt from "bcrypt";
+
 import { Hono } from "hono";
 
 describe("Agent Sessions API Integration Tests", () => {

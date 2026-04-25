@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { join } from "path";
 import { tmpdir } from "os";
 import { rmSync } from "fs";
-import bcrypt from "bcrypt";
+
 
 describe("Auth routes with injected user repository", () => {
   let testHome: string;
@@ -21,7 +21,7 @@ describe("Auth routes with injected user repository", () => {
       await import("../src/context/mimo-context.ts");
     const { createAuthRoutes } = await import("../src/auth/routes.tsx");
 
-    const passwordHash = await bcrypt.hash("secret-pass", 10);
+    const passwordHash = await Bun.password.hash("secret-pass", { algorithm: "bcrypt", cost: 10 });
     const fakeUserRepo = {
       async getCredentials(username: string) {
         if (username !== "alice") {

@@ -42,8 +42,7 @@ describe("Chat History Persistence", () => {
     ChatMessage = chatModule.ChatMessage;
 
     // Create test user
-    const bcrypt = await import("bcrypt");
-    await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+    await userRepository.create("testuser", await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }));
     testUser = { username: "testuser" };
 
     // Create test project
