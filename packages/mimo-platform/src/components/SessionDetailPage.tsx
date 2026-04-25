@@ -10,6 +10,7 @@ import type { McpServer } from "../mcp-servers/types.js";
 import type { ChatThread } from "../sessions/repository.js";
 import type { SessionKeybindingsConfig, GlobalKeybindingsConfig } from "../config/service.js";
 import { FileFinderDialog } from "./FileFinderDialog.js";
+import { ContentFinderDialog } from "./ContentFinderDialog.js";
 
 interface Project {
   id: string;
@@ -387,6 +388,12 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           </span>
           <span class="session-shortcut-item">
             <span class="session-shortcut-key">
+              {toEmacsNotation("Alt+Shift+C")}
+            </span>
+            <span class="session-shortcut-desc">Find content</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
               {toEmacsNotation(
                 sessionKeybindings?.nextFile || "Mod+Alt+ArrowRight",
               )}
@@ -550,6 +557,9 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
 
       {/* File Finder Dialog */}
       <FileFinderDialog sessionId={session.id} />
+
+      {/* Content Finder Dialog */}
+      <ContentFinderDialog sessionId={session.id} />
 
       {/* Commit dialog */}
       <div id="commit-dialog" class="modal" style="display: none;">

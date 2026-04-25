@@ -26,6 +26,8 @@ import {
   type FileWatcherService,
 } from "../files/file-watcher-service.js";
 import { ExpertService, createExpertService } from "../files/expert-service.js";
+import { createSearchService } from "../files/search-service.js";
+import type { SearchService } from "../files/types.js";
 import { createFileService } from "../files/service.js";
 import type { FileService } from "../files/types.js";
 import { createOS } from "../os/node-adapter.js";
@@ -80,6 +82,7 @@ export interface MimoContext {
     sharedFossil: SharedFossilServer | DummySharedFossilServer | null;
     fileWatcher: FileWatcherService;
     expert: ExpertService;
+    search: SearchService;
     fileService: FileService;
   };
 }
@@ -289,6 +292,7 @@ export function createMimoContext(
     fileWatcher:
       overrides.services?.fileWatcher ?? createFileWatcherService(os),
     expert: expertService,
+    search: overrides.services?.search ?? createSearchService({ os }),
     fileService,
   };
 
