@@ -68,7 +68,11 @@ export const ImpactHistoryPage: FC<ImpactHistoryProps> = ({
               Project: {project.name}
             </p>
           </div>
-          <a href={`/projects/${project.id}`} class="btn-secondary" data-help-id="impact-history-page-a">
+          <a
+            href={`/projects/${project.id}`}
+            class="btn-secondary"
+            data-help-id="impact-history-page-a"
+          >
             Back to Project
           </a>
         </div>
@@ -107,7 +111,8 @@ export const ImpactHistoryPage: FC<ImpactHistoryProps> = ({
                             href={`/projects/${project.id}/sessions/${impact.sessionId}`}
                             target="_blank"
                             class="session-link"
-                           data-help-id="impact-history-page-session-link-a">
+                            data-help-id="impact-history-page-session-link-a"
+                          >
                             {impact.sessionName}
                           </a>
                         ) : (
@@ -123,7 +128,8 @@ export const ImpactHistoryPage: FC<ImpactHistoryProps> = ({
                           target="_blank"
                           class="commit-link"
                           title={impact.commitHash}
-                         data-help-id="impact-history-page-commit-link-a">
+                          data-help-id="impact-history-page-commit-link-a"
+                        >
                           {impact.commitHash.slice(0, 8)}...
                         </a>
                       </td>

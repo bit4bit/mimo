@@ -13,6 +13,7 @@ export interface Project {
   credentialId?: string;
   sourceBranch?: string;
   newBranch?: string;
+  agentSubpath?: string;
 }
 
 export interface PublicProject {
@@ -24,6 +25,7 @@ export interface PublicProject {
   createdAt: string;
   sourceBranch?: string;
   newBranch?: string;
+  agentSubpath?: string;
 }
 
 export interface ProjectData {
@@ -37,6 +39,7 @@ export interface ProjectData {
   credentialId?: string;
   sourceBranch?: string;
   newBranch?: string;
+  agentSubpath?: string;
 }
 
 export interface CreateProjectInput {
@@ -48,6 +51,7 @@ export interface CreateProjectInput {
   credentialId?: string;
   sourceBranch?: string;
   newBranch?: string;
+  agentSubpath?: string;
 }
 
 interface ProjectRepositoryDeps {
@@ -58,7 +62,9 @@ interface ProjectRepositoryDeps {
 export class ProjectRepository {
   private os: OS;
 
-  constructor(private deps: ProjectRepositoryDeps = {} as ProjectRepositoryDeps) {
+  constructor(
+    private deps: ProjectRepositoryDeps = {} as ProjectRepositoryDeps,
+  ) {
     this.os = deps.os;
   }
 
@@ -106,9 +112,12 @@ export class ProjectRepository {
       ...(input.credentialId && { credentialId: input.credentialId }),
       ...(input.sourceBranch && { sourceBranch: input.sourceBranch }),
       ...(input.newBranch && { newBranch: input.newBranch }),
+      ...(input.agentSubpath && { agentSubpath: input.agentSubpath }),
     };
 
-    this.os.fs.writeFile(this.getProjectFilePath(id), dump(projectData), { encoding: "utf-8" });
+    this.os.fs.writeFile(this.getProjectFilePath(id), dump(projectData), {
+      encoding: "utf-8",
+    });
 
     return {
       ...projectData,
@@ -137,12 +146,18 @@ export class ProjectRepository {
       return [];
     }
 
-    const entries = this.os.fs.readdir(projectsPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+    const entries = this.os.fs.readdir(projectsPath, {
+      withFileTypes: true,
+    }) as import("../os/types.js").DirEnt[];
     const projects: Project[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const projectFile = this.os.path.join(projectsPath, entry.name, "project.yaml");
+        const projectFile = this.os.path.join(
+          projectsPath,
+          entry.name,
+          "project.yaml",
+        );
         if (this.os.fs.exists(projectFile)) {
           const content = this.os.fs.readFile(projectFile, "utf-8");
           const data = load(content) as ProjectData;
@@ -165,12 +180,18 @@ export class ProjectRepository {
       return [];
     }
 
-    const entries = this.os.fs.readdir(projectsPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+    const entries = this.os.fs.readdir(projectsPath, {
+      withFileTypes: true,
+    }) as import("../os/types.js").DirEnt[];
     const projects: Project[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const projectFile = this.os.path.join(projectsPath, entry.name, "project.yaml");
+        const projectFile = this.os.path.join(
+          projectsPath,
+          entry.name,
+          "project.yaml",
+        );
         if (this.os.fs.exists(projectFile)) {
           const content = this.os.fs.readFile(projectFile, "utf-8");
           const data = load(content) as ProjectData;
@@ -265,7 +286,9 @@ export class ProjectRepository {
       updatedData.credentialId = project.credentialId;
     }
 
-    this.os.fs.writeFile(this.getProjectFilePath(id), dump(updatedData), { encoding: "utf-8" });
+    this.os.fs.writeFile(this.getProjectFilePath(id), dump(updatedData), {
+      encoding: "utf-8",
+    });
 
     return {
       ...updatedData,

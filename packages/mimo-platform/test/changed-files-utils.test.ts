@@ -9,9 +9,9 @@ function shortPath(path: string): string {
 }
 
 const FILE_STATUS_META = {
-  added:     { badge: "+", cssClass: "file-status-new",     color: "#51cf66" },
-  modified:  { badge: "~", cssClass: "file-status-changed",  color: "#74c0fc" },
-  deleted:   { badge: "-", cssClass: "file-status-deleted",  color: "#ff6b6b" },
+  added: { badge: "+", cssClass: "file-status-new", color: "#51cf66" },
+  modified: { badge: "~", cssClass: "file-status-changed", color: "#74c0fc" },
+  deleted: { badge: "-", cssClass: "file-status-deleted", color: "#ff6b6b" },
 };
 
 describe("shortPath", () => {
@@ -22,7 +22,9 @@ describe("shortPath", () => {
 
   it("truncates to last 2 segments when >2 segments", () => {
     expect(shortPath("a/b/c/file.txt")).toBe(".../c/file.txt");
-    expect(shortPath("packages/mimo-platform/src/file.ts")).toBe(".../src/file.ts");
+    expect(shortPath("packages/mimo-platform/src/file.ts")).toBe(
+      ".../src/file.ts",
+    );
   });
 
   it("handles paths with many segments", () => {

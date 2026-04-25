@@ -117,16 +117,26 @@ export function extractTargetDirectory(
     return dependencyPath;
   }
 
-  const sourceDir = os ? os.path.dirname(sourceFilePath) : sourceFilePath.split("/").slice(0, -1).join("/");
+  const sourceDir = os
+    ? os.path.dirname(sourceFilePath)
+    : sourceFilePath.split("/").slice(0, -1).join("/");
 
   if (dependencyPath.startsWith("./") || dependencyPath.startsWith("../")) {
     const resolved = normalizePath(
-      os ? os.path.join(sourceDir, dependencyPath) : `${sourceDir}/${dependencyPath}`.replace(/\/+/g, "/")
+      os
+        ? os.path.join(sourceDir, dependencyPath)
+        : `${sourceDir}/${dependencyPath}`.replace(/\/+/g, "/"),
     );
-    const extension = os ? os.path.extname(resolved) : resolved.split(".").pop() || "";
+    const extension = os
+      ? os.path.extname(resolved)
+      : resolved.split(".").pop() || "";
 
     if (extension) {
-      return normalizePath(os ? os.path.dirname(resolved) : resolved.split("/").slice(0, -1).join("/"));
+      return normalizePath(
+        os
+          ? os.path.dirname(resolved)
+          : resolved.split("/").slice(0, -1).join("/"),
+      );
     }
 
     const parts = dependencyPath.split("/");
@@ -134,7 +144,11 @@ export function extractTargetDirectory(
       return resolved;
     }
 
-    return normalizePath(os ? os.path.dirname(resolved) : resolved.split("/").slice(0, -1).join("/"));
+    return normalizePath(
+      os
+        ? os.path.dirname(resolved)
+        : resolved.split("/").slice(0, -1).join("/"),
+    );
   }
 
   return normalizePath(dependencyPath);
@@ -145,7 +159,9 @@ export function isExternalDependency(
   language: DependencyParserLanguage,
 ): boolean {
   if (language === "typescript") {
-    return !dependencyPath.startsWith("./") && !dependencyPath.startsWith("../");
+    return (
+      !dependencyPath.startsWith("./") && !dependencyPath.startsWith("../")
+    );
   }
 
   if (language === "elixir") {
@@ -203,8 +219,12 @@ export function compareDependencyGraphs(
     }
   }
 
-  added.sort((a, b) => `${a.source}|${a.target}`.localeCompare(`${b.source}|${b.target}`));
-  removed.sort((a, b) => `${a.source}|${a.target}`.localeCompare(`${b.source}|${b.target}`));
+  added.sort((a, b) =>
+    `${a.source}|${a.target}`.localeCompare(`${b.source}|${b.target}`),
+  );
+  removed.sort((a, b) =>
+    `${a.source}|${a.target}`.localeCompare(`${b.source}|${b.target}`),
+  );
 
   return { added, removed };
 }

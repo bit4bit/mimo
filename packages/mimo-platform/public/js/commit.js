@@ -317,7 +317,10 @@
           modified: { badge: "~", color: "#74c0fc" },
           deleted: { badge: "-", color: "#ff6b6b" },
         };
-        const meta = statusMeta[node.file.status] || { badge: "?", color: "#888" };
+        const meta = statusMeta[node.file.status] || {
+          badge: "?",
+          color: "#888",
+        };
         const statusBadge = document.createElement("span");
         statusBadge.className = `file-status file-status--${node.file.status}`;
         statusBadge.textContent = meta.badge;

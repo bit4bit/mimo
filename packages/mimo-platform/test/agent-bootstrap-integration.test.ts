@@ -62,7 +62,10 @@ describe("Agent Bootstrap Integration Tests", () => {
     // Create fresh SharedFossilServer instance with test-specific port and reposDir via constructor
     const reposDir = join(testHome, "session-fossils");
     const os = createOS({ ...process.env });
-    sharedFossilServer = new SharedFossilServer({ port: testPort, reposDir }, os);
+    sharedFossilServer = new SharedFossilServer(
+      { port: testPort, reposDir },
+      os,
+    );
   });
 
   afterEach(async () => {

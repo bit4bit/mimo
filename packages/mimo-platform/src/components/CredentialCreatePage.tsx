@@ -18,7 +18,13 @@ export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({
         <form method="post" action="/credentials" class="credential-form">
           <div class="form-group">
             <label htmlFor="type">Type</label>
-            <select id="type" name="type" required class="form-select" data-help-id="credential-create-page-type-select">
+            <select
+              id="type"
+              name="type"
+              required
+              class="form-select"
+              data-help-id="credential-create-page-type-select"
+            >
               <option value="">Select credential type...</option>
               <option value="https">HTTPS (Username + Password/Token)</option>
               <option value="ssh">SSH (Private Key)</option>
@@ -34,7 +40,8 @@ export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({
               placeholder="e.g., GitHub Work"
               required
               class="form-input"
-             data-help-id="credential-create-page-name-input" />
+              data-help-id="credential-create-page-name-input"
+            />
           </div>
 
           <div id="https-fields">
@@ -46,7 +53,8 @@ export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({
                 name="username"
                 placeholder="e.g., developer"
                 class="form-input"
-               data-help-id="credential-create-page-username-input" />
+                data-help-id="credential-create-page-username-input"
+              />
             </div>
 
             <div class="form-group">
@@ -57,7 +65,8 @@ export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({
                 name="password"
                 placeholder="Enter password or personal access token"
                 class="form-input"
-               data-help-id="credential-create-page-password-input" />
+                data-help-id="credential-create-page-password-input"
+              />
               <p class="form-help">
                 Use a personal access token for better security.
               </p>
@@ -73,7 +82,8 @@ export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({
                 placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"
                 rows={8}
                 class="form-textarea"
-               data-help-id="credential-create-page-private-key-textarea" />
+                data-help-id="credential-create-page-private-key-textarea"
+              />
               <p class="form-help">
                 Paste your SSH private key. Supported formats: OpenSSH, RSA,
                 ECDSA, Ed25519.
@@ -82,10 +92,18 @@ export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({
           </div>
 
           <div class="form-actions">
-            <button type="submit" class="btn" data-help-id="credential-create-page-button">
+            <button
+              type="submit"
+              class="btn"
+              data-help-id="credential-create-page-button"
+            >
               Create Credential
             </button>
-            <a href="/credentials" class="btn-secondary" data-help-id="credential-create-page-a">
+            <a
+              href="/credentials"
+              class="btn-secondary"
+              data-help-id="credential-create-page-a"
+            >
               Cancel
             </a>
           </div>

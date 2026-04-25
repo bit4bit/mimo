@@ -754,7 +754,9 @@ describe("Session Management Integration Tests", () => {
         capturedBranch = branch;
         return { success: true };
       };
-      mimoContext.services.vcs.createFossilUser = async () => ({ success: true });
+      mimoContext.services.vcs.createFossilUser = async () => ({
+        success: true,
+      });
 
       const { project, token } = await createUserAndProject({
         newBranch: "project-default",
@@ -786,7 +788,9 @@ describe("Session Management Integration Tests", () => {
         capturedBranch = branch;
         return { success: true };
       };
-      mimoContext.services.vcs.createFossilUser = async () => ({ success: true });
+      mimoContext.services.vcs.createFossilUser = async () => ({
+        success: true,
+      });
 
       const { project, token } = await createUserAndProject({
         newBranch: "project-default",
@@ -817,7 +821,9 @@ describe("Session Management Integration Tests", () => {
         createBranchCalled = true;
         return { success: true };
       };
-      mimoContext.services.vcs.createFossilUser = async () => ({ success: true });
+      mimoContext.services.vcs.createFossilUser = async () => ({
+        success: true,
+      });
 
       const { project, token } = await createUserAndProject();
 
@@ -846,7 +852,9 @@ describe("Session Management Integration Tests", () => {
         capturedBranch = branch;
         return { success: true };
       };
-      mimoContext.services.vcs.createFossilUser = async () => ({ success: true });
+      mimoContext.services.vcs.createFossilUser = async () => ({
+        success: true,
+      });
 
       const { project, token } = await createUserAndProject();
 
@@ -898,7 +906,9 @@ describe("Session Management Integration Tests", () => {
         createBranchCalled = true;
         return { success: true };
       };
-      mimoContext.services.vcs.createFossilUser = async () => ({ success: true });
+      mimoContext.services.vcs.createFossilUser = async () => ({
+        success: true,
+      });
 
       const { project, token } = await createUserAndProject({
         sourceBranch: "main",
@@ -927,7 +937,9 @@ describe("Session Management Integration Tests", () => {
       const app = new Hono();
       app.route("/projects/:projectId/sessions", sessionRoutes);
 
-      mimoContext.services.vcs.createFossilUser = async () => ({ success: true });
+      mimoContext.services.vcs.createFossilUser = async () => ({
+        success: true,
+      });
 
       const { project, token } = await createUserAndProject();
 
@@ -1005,7 +1017,9 @@ describe("Session Management Integration Tests", () => {
         success: false,
         error: "Remote branch feature/missing not found in upstream origin",
       });
-      mimoContext.services.vcs.createFossilUser = async () => ({ success: true });
+      mimoContext.services.vcs.createFossilUser = async () => ({
+        success: true,
+      });
 
       const { project, token } = await createUserAndProject();
 

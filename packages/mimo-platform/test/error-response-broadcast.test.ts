@@ -6,11 +6,14 @@ describe("error_response platform extraction", () => {
   it("extracts message from ACP error object", () => {
     const acpError = {
       code: -32603,
-      message: "Internal error: You've hit your limit · resets 11:50pm (Europe/Helsinki)",
+      message:
+        "Internal error: You've hit your limit · resets 11:50pm (Europe/Helsinki)",
     };
-    
+
     const message = acpError?.message || String(acpError);
-    expect(message).toBe("Internal error: You've hit your limit · resets 11:50pm (Europe/Helsinki)");
+    expect(message).toBe(
+      "Internal error: You've hit your limit · resets 11:50pm (Europe/Helsinki)",
+    );
   });
 
   it("handles Error instances", () => {

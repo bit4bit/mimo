@@ -35,7 +35,9 @@ function listSessionYamlPaths(projectsPath: string): string[] {
   return files;
 }
 
-export function syncSessionMcpTokens(mimoHome: string): SyncSessionMcpTokensResult {
+export function syncSessionMcpTokens(
+  mimoHome: string,
+): SyncSessionMcpTokensResult {
   const projectsPath = join(mimoHome, "projects");
   const sessionYamlPaths = listSessionYamlPaths(projectsPath);
 

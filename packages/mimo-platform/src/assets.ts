@@ -61,30 +61,32 @@ export function getMimeType(path: string): string {
  */
 export function getEmbeddedAssets(): Map<string, Blob> {
   const assets = new Map<string, Blob>();
-  
+
   for (const blob of embeddedFiles) {
     // blob.name is like "$bunfs/filename-hash.ext" or "path/filename-hash.ext"
     // We need to convert it back to the public URL path
     const fullName = blob.name;
-    
+
     // Remove hash from filename if present (e.g., "chat-a1b2c3d4.js" → "chat.js")
     // The hash is a 8-char hex string before the extension
     const nameWithoutHash = fullName.replace(/-[a-f0-9]{8,}\./, ".");
-    
+
     // Extract the URL path from the embedded path
     // e.g., "packages/mimo-platform/public/js/chat.js" → "/js/chat.js"
     let urlPath: string;
     if (nameWithoutHash.includes("/public/")) {
-      urlPath = nameWithoutHash.substring(nameWithoutHash.indexOf("/public/") + "/public".length);
+      urlPath = nameWithoutHash.substring(
+        nameWithoutHash.indexOf("/public/") + "/public".length,
+      );
     } else {
       // Fallback: use the basename
       const parts = nameWithoutHash.split("/");
       urlPath = "/" + parts[parts.length - 1];
     }
-    
+
     assets.set(urlPath, blob);
   }
-  
+
   return assets;
 }
 

@@ -455,7 +455,8 @@ export class VCS {
   ): Promise<VCSResult> {
     const parsePatterns = (filePath: string): string[] =>
       this.os.fs.exists(filePath)
-        ? this.os.fs.readFile(filePath, "utf8")
+        ? this.os.fs
+            .readFile(filePath, "utf8")
             .split("\n")
             .map((line: string) => line.trim())
             .filter((line: string) => line.length > 0 && !line.startsWith("#"))
@@ -468,7 +469,10 @@ export class VCS {
     ];
     const uniquePatterns = Array.from(new Set(patterns));
 
-    const fossilSettingsDir = this.os.path.join(agentWorkspacePath, ".fossil-settings");
+    const fossilSettingsDir = this.os.path.join(
+      agentWorkspacePath,
+      ".fossil-settings",
+    );
     if (!this.os.fs.exists(fossilSettingsDir)) {
       this.os.fs.mkdir(fossilSettingsDir, { recursive: true });
     }
@@ -1441,37 +1445,29 @@ export class VCS {
     upstreamDirName: string,
     agentDirName: string,
   ): string {
-    return (
-      patch
-        .replace(new RegExp(`^(diff --git a/)${upstreamDirName}/`, "gm"), "$1")
-        .replace(new RegExp(`^(diff --git a/)${agentDirName}/`, "gm"), "$1")
-        .replace(new RegExp(` b/${upstreamDirName}/`, "g"), " b/")
-        .replace(new RegExp(` b/${agentDirName}/`, "g"), " b/")
-        .replace(new RegExp(`^--- a/${upstreamDirName}/`, "gm"), "--- a/")
-        .replace(new RegExp(`^--- a/${agentDirName}/`, "gm"), "--- a/")
-        .replace(new RegExp(`^\\+\\+\\+ b/${upstreamDirName}/`, "gm"), "+++ b/")
-        .replace(new RegExp(`^\\+\\+\\+ b/${agentDirName}/`, "gm"), "+++ b/")
-        .replace(
-          new RegExp(`^rename from ${upstreamDirName}/`, "gm"),
-          "rename from ",
-        )
-        .replace(
-          new RegExp(`^rename from ${agentDirName}/`, "gm"),
-          "rename from ",
-        )
-        .replace(
-          new RegExp(`^rename to ${upstreamDirName}/`, "gm"),
-          "rename to ",
-        )
-        .replace(new RegExp(`^rename to ${agentDirName}/`, "gm"), "rename to ")
-        .replace(
-          new RegExp(`^copy from ${upstreamDirName}/`, "gm"),
-          "copy from ",
-        )
-        .replace(new RegExp(`^copy from ${agentDirName}/`, "gm"), "copy from ")
-        .replace(new RegExp(`^copy to ${upstreamDirName}/`, "gm"), "copy to ")
-        .replace(new RegExp(`^copy to ${agentDirName}/`, "gm"), "copy to ")
-    );
+    return patch
+      .replace(new RegExp(`^(diff --git a/)${upstreamDirName}/`, "gm"), "$1")
+      .replace(new RegExp(`^(diff --git a/)${agentDirName}/`, "gm"), "$1")
+      .replace(new RegExp(` b/${upstreamDirName}/`, "g"), " b/")
+      .replace(new RegExp(` b/${agentDirName}/`, "g"), " b/")
+      .replace(new RegExp(`^--- a/${upstreamDirName}/`, "gm"), "--- a/")
+      .replace(new RegExp(`^--- a/${agentDirName}/`, "gm"), "--- a/")
+      .replace(new RegExp(`^\\+\\+\\+ b/${upstreamDirName}/`, "gm"), "+++ b/")
+      .replace(new RegExp(`^\\+\\+\\+ b/${agentDirName}/`, "gm"), "+++ b/")
+      .replace(
+        new RegExp(`^rename from ${upstreamDirName}/`, "gm"),
+        "rename from ",
+      )
+      .replace(
+        new RegExp(`^rename from ${agentDirName}/`, "gm"),
+        "rename from ",
+      )
+      .replace(new RegExp(`^rename to ${upstreamDirName}/`, "gm"), "rename to ")
+      .replace(new RegExp(`^rename to ${agentDirName}/`, "gm"), "rename to ")
+      .replace(new RegExp(`^copy from ${upstreamDirName}/`, "gm"), "copy from ")
+      .replace(new RegExp(`^copy from ${agentDirName}/`, "gm"), "copy from ")
+      .replace(new RegExp(`^copy to ${upstreamDirName}/`, "gm"), "copy to ")
+      .replace(new RegExp(`^copy to ${agentDirName}/`, "gm"), "copy to ");
   }
 
   private filterVcsMetadata(patch: string): string {

@@ -253,17 +253,20 @@ export class ImpactCalculator {
           } else {
             linesRemoved += Math.abs(locDelta);
           }
-          const fileComplexityDelta = workspaceFile.complexity - upstreamFile.complexity;
+          const fileComplexityDelta =
+            workspaceFile.complexity - upstreamFile.complexity;
           cyclomaticDelta += fileComplexityDelta;
-          
+
           // Anomaly detection: single file delta > 500%
           if (upstreamFile.complexity > 0) {
-            const percentChange = Math.abs(fileComplexityDelta) / upstreamFile.complexity;
+            const percentChange =
+              Math.abs(fileComplexityDelta) / upstreamFile.complexity;
             if (percentChange > 5) {
-              logger.warn(`[impact:anomaly] detected: single_file_threshold path=${relPath} old=${upstreamFile.complexity} new=${workspaceFile.complexity} delta=${fileComplexityDelta}`);
+              logger.warn(
+                `[impact:anomaly] detected: single_file_threshold path=${relPath} old=${upstreamFile.complexity} new=${workspaceFile.complexity} delta=${fileComplexityDelta}`,
+              );
             }
           }
-          
         }
 
         // Language aggregation
@@ -327,9 +330,10 @@ export class ImpactCalculator {
     if (Math.abs(cyclomaticDelta) > 1000) {
       const upComplexity = upstreamMetrics?.complexity?.cyclomatic ?? 0;
       const wsComplexity = workspaceMetrics?.complexity?.cyclomatic ?? 0;
-      logger.warn(`[impact:anomaly] detected: total_threshold delta=${cyclomaticDelta} (upstream=${upComplexity} workspace=${wsComplexity})`);
+      logger.warn(
+        `[impact:anomaly] detected: total_threshold delta=${cyclomaticDelta} (upstream=${upComplexity} workspace=${wsComplexity})`,
+      );
     }
-
 
     // Add scc metrics for files
     const byFileWithDetails: FileImpactDetail[] = byFile.map((f) => {
@@ -429,8 +433,14 @@ export class ImpactCalculator {
           continue;
         }
 
-        if (changedFile.status === "added" || changedFile.status === "modified") {
-          const workspaceFilePath = this.os!.path.join(workspacePath, changedFile.path);
+        if (
+          changedFile.status === "added" ||
+          changedFile.status === "modified"
+        ) {
+          const workspaceFilePath = this.os!.path.join(
+            workspacePath,
+            changedFile.path,
+          );
           if (this.os!.fs.exists(workspaceFilePath)) {
             workspaceEdges.push(
               ...this.parseDependencyEdgesForFile(
@@ -442,8 +452,14 @@ export class ImpactCalculator {
           }
         }
 
-        if (changedFile.status === "deleted" || changedFile.status === "modified") {
-          const upstreamFilePath = this.os!.path.join(upstreamPath, changedFile.path);
+        if (
+          changedFile.status === "deleted" ||
+          changedFile.status === "modified"
+        ) {
+          const upstreamFilePath = this.os!.path.join(
+            upstreamPath,
+            changedFile.path,
+          );
           if (this.os!.fs.exists(upstreamFilePath)) {
             upstreamEdges.push(
               ...this.parseDependencyEdgesForFile(
@@ -486,7 +502,8 @@ export class ImpactCalculator {
     content: string,
     language: DependencyParserLanguage,
   ): DependencyEdgeInput[] {
-    const sourceDirectory = this.os!.path.dirname(filePath).replace(/\\/g, "/") || ".";
+    const sourceDirectory =
+      this.os!.path.dirname(filePath).replace(/\\/g, "/") || ".";
     let parsedDependencies: string[] = [];
 
     if (language === "typescript") {
@@ -502,7 +519,12 @@ export class ImpactCalculator {
       if (isExternalDependency(dependencyPath, language)) {
         continue;
       }
-      const target = extractTargetDirectory(filePath, dependencyPath, language, this.os);
+      const target = extractTargetDirectory(
+        filePath,
+        dependencyPath,
+        language,
+        this.os,
+      );
       if (!target || target === sourceDirectory) {
         continue;
       }
@@ -601,7 +623,10 @@ export class ImpactCalculator {
       return "→";
     };
 
-    const cyclomaticTrend = getTrend(current.complexity.cyclomatic, previous.complexity.cyclomatic);
+    const cyclomaticTrend = getTrend(
+      current.complexity.cyclomatic,
+      previous.complexity.cyclomatic,
+    );
 
     return {
       files: {

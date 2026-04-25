@@ -38,7 +38,9 @@ describe("session deletion revokes MCP token", () => {
 });
 
 describe("session deletion notifies agents", () => {
-  function makeUseCase(notified: Array<{ sessionId: string; agentId: string }>) {
+  function makeUseCase(
+    notified: Array<{ sessionId: string; agentId: string }>,
+  ) {
     return createSessionDeletionUseCase({
       sessionRepository: { delete: async () => {} },
       sessionStateService: { clearSessionState: () => {} },
@@ -81,7 +83,10 @@ describe("session deletion notifies agents", () => {
       ],
     });
 
-    expect(notified.map((n) => n.agentId).sort()).toEqual(["agent-2", "agent-3"]);
+    expect(notified.map((n) => n.agentId).sort()).toEqual([
+      "agent-2",
+      "agent-3",
+    ]);
   });
 
   it("deduplicates agents across session and threads", async () => {
@@ -98,7 +103,10 @@ describe("session deletion notifies agents", () => {
       ],
     });
 
-    expect(notified.map((n) => n.agentId).sort()).toEqual(["agent-1", "agent-2"]);
+    expect(notified.map((n) => n.agentId).sort()).toEqual([
+      "agent-1",
+      "agent-2",
+    ]);
   });
 
   it("does not notify when no agents are assigned", async () => {

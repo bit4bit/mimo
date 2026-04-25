@@ -170,7 +170,10 @@ export class FrameStateService {
 }
 
 // Factory function for creating FrameStateService with injected paths
-export function createFrameStateService(paths: MimoPaths, os: OS): FrameStateService {
+export function createFrameStateService(
+  paths: MimoPaths,
+  os: OS,
+): FrameStateService {
   return new FrameStateService(paths, os);
 }
 

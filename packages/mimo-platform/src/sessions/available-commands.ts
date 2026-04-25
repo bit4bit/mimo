@@ -4,9 +4,7 @@ export interface AvailableCommand {
   template?: string;
 }
 
-export function normalizeAvailableCommands(
-  input: unknown,
-): AvailableCommand[] {
+export function normalizeAvailableCommands(input: unknown): AvailableCommand[] {
   if (!Array.isArray(input)) {
     return [];
   }
@@ -51,7 +49,8 @@ export function filterAvailableCommands(
   }
 
   return commands.filter((command) => {
-    const haystack = `${command.name} ${command.description || ""}`.toLowerCase();
+    const haystack =
+      `${command.name} ${command.description || ""}`.toLowerCase();
     return haystack.includes(normalizedQuery);
   });
 }

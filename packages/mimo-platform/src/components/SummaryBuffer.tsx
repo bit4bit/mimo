@@ -35,10 +35,11 @@ const getThreadStateIcon = (state: string): string => {
   }
 };
 
-export const SummaryBuffer: FC<SummaryBufferProps> = ({ sessionId, threads = [] }) => {
-  const [analyzeThreadId, setAnalyzeThreadId] = useState(
-    threads[0]?.id || "",
-  );
+export const SummaryBuffer: FC<SummaryBufferProps> = ({
+  sessionId,
+  threads = [],
+}) => {
+  const [analyzeThreadId, setAnalyzeThreadId] = useState(threads[0]?.id || "");
   const [summarizeThreadId, setSummarizeThreadId] = useState(
     threads.find((t) => t.state === "active")?.id || "",
   );
@@ -53,9 +54,7 @@ export const SummaryBuffer: FC<SummaryBufferProps> = ({ sessionId, threads = [] 
         style="display: flex; gap: 8px; margin-bottom: 12px;"
       >
         <div style="flex: 1;">
-          <label
-            style="display: block; font-size: 10px; color: #888; margin-bottom: 4px;"
-          >
+          <label style="display: block; font-size: 10px; color: #888; margin-bottom: 4px;">
             Analyze
           </label>
           <select

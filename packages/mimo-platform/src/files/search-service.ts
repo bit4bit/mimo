@@ -11,7 +11,10 @@ interface SearchServiceDeps {
 }
 
 export class SearchServiceError extends Error {
-  constructor(message: string, public code: "NOT_FOUND" | "INVALID_REGEX" | "EXECUTION_FAILED") {
+  constructor(
+    message: string,
+    public code: "NOT_FOUND" | "INVALID_REGEX" | "EXECUTION_FAILED",
+  ) {
     super(message);
     this.name = "SearchServiceError";
   }
@@ -88,32 +91,46 @@ export async function spawnRipgrep(
 
   const os = deps.os;
   if (!os) {
-    throw new SearchServiceError("OS dependency is required", "EXECUTION_FAILED");
+    throw new SearchServiceError(
+      "OS dependency is required",
+      "EXECUTION_FAILED",
+    );
   }
 
-  const { success, output, error, exitCode } = await os.command.run([rgPath, ...args], {
-    cwd: workspacePath,
-  });
+  const { success, output, error, exitCode } = await os.command.run(
+    [rgPath, ...args],
+    {
+      cwd: workspacePath,
+    },
+  );
 
   if (exitCode === 1 && error.trim().length === 0) {
     return [];
   }
 
   if (!success) {
-    if (error.includes("error parsing regex") || error.includes("parse error")) {
+    if (
+      error.includes("error parsing regex") ||
+      error.includes("parse error")
+    ) {
       throw new SearchServiceError(
         `Invalid regex: ${query}. Use escape for literals: \\ \\* \\+`,
         "INVALID_REGEX",
       );
     }
-    throw new SearchServiceError("ripgrep execution failed", "EXECUTION_FAILED");
+    throw new SearchServiceError(
+      "ripgrep execution failed",
+      "EXECUTION_FAILED",
+    );
   }
 
   return parseRipgrepOutput(output, contextLines, workspacePath);
 }
 
 function normalizeResultPath(pathText: string, workspacePath: string): string {
-  const normalizedWorkspace = workspacePath.replace(/\\/g, "/").replace(/\/+$/, "");
+  const normalizedWorkspace = workspacePath
+    .replace(/\\/g, "/")
+    .replace(/\/+$/, "");
   let normalized = String(pathText || "").replace(/\\/g, "/");
   if (normalized.startsWith("./")) normalized = normalized.slice(2);
   if (normalized.startsWith(normalizedWorkspace + "/")) {
@@ -129,7 +146,10 @@ function parseRipgrepOutput(
 ): ContentSearchResult[] {
   const results: ContentSearchResult[] = [];
   const lines = output.split("\n").filter((line) => line.trim().length > 0);
-  const contextByFile = new Map<string, { before: string[]; after: string[] }>();
+  const contextByFile = new Map<
+    string,
+    { before: string[]; after: string[] }
+  >();
 
   for (const line of lines) {
     try {

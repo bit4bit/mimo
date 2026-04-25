@@ -78,7 +78,8 @@ export const SessionList: FC<SessionListProps> = ({
             placeholder="Filter sessions..."
             class="session-search-input"
             data-sl-search={id}
-           data-help-id="session-list-session-search-input-input" />
+            data-help-id="session-list-session-search-input-input"
+          />
         </div>
       )}
 
@@ -104,7 +105,8 @@ export const SessionList: FC<SessionListProps> = ({
                   <a
                     href={`/projects/${s.projectId}/sessions/${s.id}`}
                     class="session-name"
-                   data-help-id="session-list-session-name-a">
+                    data-help-id="session-list-session-name-a"
+                  >
                     {s.name}
                   </a>
                 </td>
@@ -134,13 +136,21 @@ export const SessionList: FC<SessionListProps> = ({
 
       {sorted.length > pageSize && (
         <div class="session-paginator" data-sl-pag={id}>
-          <button class="page-btn" data-sl-prev={id} data-help-id="session-list-page-btn-button">
+          <button
+            class="page-btn"
+            data-sl-prev={id}
+            data-help-id="session-list-page-btn-button"
+          >
             &lt; Prev
           </button>
           <span class="page-info" data-sl-info={id}>
             Page 1 of {pages}
           </span>
-          <button class="page-btn" data-sl-next={id} data-help-id="session-list-page-btn-button">
+          <button
+            class="page-btn"
+            data-sl-next={id}
+            data-help-id="session-list-page-btn-button"
+          >
             Next &gt;
           </button>
         </div>

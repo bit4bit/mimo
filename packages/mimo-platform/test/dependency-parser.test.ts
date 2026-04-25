@@ -42,7 +42,10 @@ import utils.helpers
 from services.api import client
 `;
 
-    expect(parsePythonImports(input)).toEqual(["utils.helpers", "services.api"]);
+    expect(parsePythonImports(input)).toEqual([
+      "utils.helpers",
+      "services.api",
+    ]);
   });
 
   it("parses Elixir alias/import/use/require statements", () => {

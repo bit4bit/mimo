@@ -1,5 +1,5 @@
-(function() {
-  'use strict';
+(function () {
+  "use strict";
 
   const SHOW_DELAY_MS = 500;
   const HIDE_DELAY_MS = 200;
@@ -7,13 +7,13 @@
 
   class MarkdownRenderer {
     render(content) {
-      throw new Error('Not implemented');
+      throw new Error("Not implemented");
     }
   }
 
   class MarkedRenderer extends MarkdownRenderer {
     render(content) {
-      if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+      if (typeof marked !== "undefined" && typeof marked.parse === "function") {
         return marked.parse(content);
       }
       return this.fallbackRender(content);
@@ -21,14 +21,17 @@
 
     fallbackRender(content) {
       let html = content
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        .replace(/`(.+?)`/g, '<code>$1</code>')
-        .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-        .replace(/\n/g, '<br>');
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*(.+?)\*/g, "<em>$1</em>")
+        .replace(/`(.+?)`/g, "<code>$1</code>")
+        .replace(
+          /\[(.+?)\]\((.+?)\)/g,
+          '<a href="$2" target="_blank" rel="noopener">$1</a>',
+        )
+        .replace(/\n/g, "<br>");
       return html;
     }
   }
@@ -36,23 +39,26 @@
   class LightweightRenderer extends MarkdownRenderer {
     render(content) {
       let html = content
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        .replace(/`(.+?)`/g, '<code>$1</code>')
-        .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-        .replace(/\n/g, '<br>');
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*(.+?)\*/g, "<em>$1</em>")
+        .replace(/`(.+?)`/g, "<code>$1</code>")
+        .replace(
+          /\[(.+?)\]\((.+?)\)/g,
+          '<a href="$2" target="_blank" rel="noopener">$1</a>',
+        )
+        .replace(/\n/g, "<br>");
       return html;
     }
   }
 
   function createMarkdownRenderer(type) {
     switch (type) {
-      case 'marked':
+      case "marked":
         return new MarkedRenderer();
-      case 'lightweight':
+      case "lightweight":
         return new LightweightRenderer();
       default:
         return new MarkedRenderer();
@@ -61,7 +67,7 @@
 
   class HelpTooltipManager {
     constructor() {
-      this.renderer = createMarkdownRenderer('marked');
+      this.renderer = createMarkdownRenderer("marked");
       this.helpContent = {};
       this.activeTooltip = null;
       this.showTimeout = null;
@@ -71,12 +77,12 @@
 
     async loadHelpContent() {
       try {
-        const response = await fetch('/api/help');
+        const response = await fetch("/api/help");
         if (response.ok) {
           this.helpContent = await response.json();
         }
       } catch (error) {
-        console.warn('[help-tooltip] Failed to load help content:', error);
+        console.warn("[help-tooltip] Failed to load help content:", error);
         this.helpContent = {};
       }
     }
@@ -93,22 +99,22 @@
 
       this.hideTooltip(true);
 
-      let tooltip = document.querySelector('.help-tooltip');
+      let tooltip = document.querySelector(".help-tooltip");
       if (!tooltip) {
-        tooltip = document.createElement('div');
-        tooltip.className = 'help-tooltip';
+        tooltip = document.createElement("div");
+        tooltip.className = "help-tooltip";
         document.body.appendChild(tooltip);
       }
 
-      const titleEl = document.createElement('div');
-      titleEl.className = 'help-tooltip-title';
-      titleEl.textContent = entry.title || '';
+      const titleEl = document.createElement("div");
+      titleEl.className = "help-tooltip-title";
+      titleEl.textContent = entry.title || "";
 
-      const contentEl = document.createElement('div');
-      contentEl.className = 'help-tooltip-content';
-      contentEl.innerHTML = this.renderer.render(entry.content || '');
+      const contentEl = document.createElement("div");
+      contentEl.className = "help-tooltip-content";
+      contentEl.innerHTML = this.renderer.render(entry.content || "");
 
-      tooltip.innerHTML = '';
+      tooltip.innerHTML = "";
       tooltip.appendChild(titleEl);
       tooltip.appendChild(contentEl);
 
@@ -116,7 +122,7 @@
       const tooltipRect = tooltip.getBoundingClientRect();
 
       let top = rect.top - tooltipRect.height - TOOLTIP_OFFSET;
-      let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+      let left = rect.left + rect.width / 2 - tooltipRect.width / 2;
 
       if (top < 10) {
         top = rect.bottom + TOOLTIP_OFFSET;
@@ -132,7 +138,7 @@
 
       tooltip.style.top = `${top + window.scrollY}px`;
       tooltip.style.left = `${left}px`;
-      tooltip.classList.add('visible');
+      tooltip.classList.add("visible");
 
       this.activeTooltip = tooltip;
       this.currentHelpId = helpId;
@@ -145,9 +151,9 @@
       }
 
       if (immediate) {
-        const tooltip = document.querySelector('.help-tooltip');
+        const tooltip = document.querySelector(".help-tooltip");
         if (tooltip) {
-          tooltip.classList.remove('visible');
+          tooltip.classList.remove("visible");
         }
         this.activeTooltip = null;
         this.currentHelpId = null;
@@ -155,9 +161,9 @@
       }
 
       this.hideTimeout = setTimeout(() => {
-        const tooltip = document.querySelector('.help-tooltip');
+        const tooltip = document.querySelector(".help-tooltip");
         if (tooltip) {
-          tooltip.classList.remove('visible');
+          tooltip.classList.remove("visible");
         }
         this.activeTooltip = null;
         this.currentHelpId = null;
@@ -165,10 +171,10 @@
     }
 
     handleMouseEnter(event) {
-      const target = event.target.closest('[data-help-id]');
+      const target = event.target.closest("[data-help-id]");
       if (!target) return;
 
-      const helpId = target.getAttribute('data-help-id');
+      const helpId = target.getAttribute("data-help-id");
       if (!helpId) return;
 
       if (this.showTimeout) {
@@ -182,7 +188,7 @@
     }
 
     handleMouseLeave(event) {
-      const target = event.target.closest('[data-help-id]');
+      const target = event.target.closest("[data-help-id]");
       if (!target) return;
 
       if (this.showTimeout) {
@@ -196,15 +202,23 @@
     init() {
       this.loadHelpContent();
 
-      document.addEventListener('mouseenter', this.handleMouseEnter.bind(this), true);
-      document.addEventListener('mouseleave', this.handleMouseLeave.bind(this), true);
+      document.addEventListener(
+        "mouseenter",
+        this.handleMouseEnter.bind(this),
+        true,
+      );
+      document.addEventListener(
+        "mouseleave",
+        this.handleMouseLeave.bind(this),
+        true,
+      );
     }
   }
 
   const tooltipManager = new HelpTooltipManager();
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
       tooltipManager.init();
     });
   } else {

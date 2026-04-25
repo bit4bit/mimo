@@ -1237,7 +1237,8 @@ function getFilteredCommands(query) {
   const normalized = (query || "").trim().toLowerCase();
   if (!normalized) return ChatState.availableCommands;
   return ChatState.availableCommands.filter((command) => {
-    const haystack = `${command.name} ${command.description || ""}`.toLowerCase();
+    const haystack =
+      `${command.name} ${command.description || ""}`.toLowerCase();
     return haystack.includes(normalized);
   });
 }
@@ -1323,7 +1324,9 @@ function ensureSelectedCommandVisible() {
   const picker = bubble.querySelector(".command-picker");
   if (!picker) return;
 
-  const selected = picker.querySelector('.command-picker-item[data-selected="true"]');
+  const selected = picker.querySelector(
+    '.command-picker-item[data-selected="true"]',
+  );
   if (!selected) return;
 
   selected.scrollIntoView({ block: "nearest" });
@@ -1379,7 +1382,9 @@ function insertSelectedCommand(command) {
         : replaced;
 
     const deduped = input.innerText.replace(
-      new RegExp(`^(\\s*)${escapeRegExp(slashInsertText)}\\s+${escapeRegExp(slashInsertText)}\\b`),
+      new RegExp(
+        `^(\\s*)${escapeRegExp(slashInsertText)}\\s+${escapeRegExp(slashInsertText)}\\b`,
+      ),
       `$1${slashInsertText}`,
     );
     input.innerText = deduped;
@@ -1437,7 +1442,9 @@ function handleCommandPickerKeydown(event) {
     ChatState.commandPicker.selectedIndex =
       (ChatState.commandPicker.selectedIndex + 1) % commands.length;
     const input = ChatState.editableBubble?.querySelector(".message-content");
-    updateCommandPicker(ChatState.commandPicker.slashMode ? extractSlashQuery(input) : "");
+    updateCommandPicker(
+      ChatState.commandPicker.slashMode ? extractSlashQuery(input) : "",
+    );
     return true;
   }
 
@@ -1447,7 +1454,9 @@ function handleCommandPickerKeydown(event) {
       (ChatState.commandPicker.selectedIndex - 1 + commands.length) %
       commands.length;
     const input = ChatState.editableBubble?.querySelector(".message-content");
-    updateCommandPicker(ChatState.commandPicker.slashMode ? extractSlashQuery(input) : "");
+    updateCommandPicker(
+      ChatState.commandPicker.slashMode ? extractSlashQuery(input) : "",
+    );
     return true;
   }
 
@@ -2290,8 +2299,15 @@ function finalizeMessageStream(duration) {
   ChatState.streaming.startTime = null;
 
   // Dispatch event for summary auto-refresh
-  const threadId = typeof ChatThreadsState !== "undefined" ? ChatThreadsState.activeThreadId : null;
-  window.dispatchEvent(new CustomEvent("mimo_message_finalized", { detail: { chatThreadId: threadId } }));
+  const threadId =
+    typeof ChatThreadsState !== "undefined"
+      ? ChatThreadsState.activeThreadId
+      : null;
+  window.dispatchEvent(
+    new CustomEvent("mimo_message_finalized", {
+      detail: { chatThreadId: threadId },
+    }),
+  );
 }
 
 // DOM: Insert thought section
@@ -2500,15 +2516,18 @@ function renderImpactMetrics(metrics, trends) {
   };
 
   // Compute complexity display with absolute values
-  const absComplexity = metrics.absoluteComplexity || { upstream: 0, workspace: 0 };
+  const absComplexity = metrics.absoluteComplexity || {
+    upstream: 0,
+    workspace: 0,
+  };
   const cyclomaticUp = absComplexity.upstream ?? 0;
   const cyclomaticWs = absComplexity.workspace ?? 0;
   const cyclomaticDelta = metrics.complexity?.cyclomatic ?? 0;
-  const cyclomaticDisplay = `${cyclomaticUp}→${cyclomaticWs}(${cyclomaticDelta >= 0 ? '+' : ''}${cyclomaticDelta})`;
+  const cyclomaticDisplay = `${cyclomaticUp}→${cyclomaticWs}(${cyclomaticDelta >= 0 ? "+" : ""}${cyclomaticDelta})`;
   const cognitiveUp = 0; // SCC doesn't provide cognitive complexity upstream
   const cognitiveWs = 0;
   const cognitiveDelta = metrics.complexity?.cognitive ?? 0;
-  const cognitiveDisplay = `${cognitiveUp}→${cognitiveWs}(${cognitiveDelta >= 0 ? '+' : ''}${cognitiveDelta})`;
+  const cognitiveDisplay = `${cognitiveUp}→${cognitiveWs}(${cognitiveDelta >= 0 ? "+" : ""}${cognitiveDelta})`;
 
   let duplicationHtml = "";
   if (metrics.duplication !== undefined) {
@@ -2619,21 +2638,31 @@ function renderImpactMetrics(metrics, trends) {
     title.textContent = "Changed Files";
     section.appendChild(title);
 
-    const sessionId = document.getElementById("impact-buffer")?.dataset.sessionId;
+    const sessionId =
+      document.getElementById("impact-buffer")?.dataset.sessionId;
     changedFiles.forEach((file) => {
       const row = renderChangedFileRow(file, {
         sessionId,
         sourceBufferId: "impact",
       });
       // Map classes to impact buffer classes for CSS compatibility
-      row.className = row.className.replace("changed-file-row", "impact-file-row");
+      row.className = row.className.replace(
+        "changed-file-row",
+        "impact-file-row",
+      );
       const status = row.querySelector(".changed-file-status");
       if (status) {
-        status.className = status.className.replace("changed-file-status", "impact-file-status");
+        status.className = status.className.replace(
+          "changed-file-status",
+          "impact-file-status",
+        );
       }
       const path = row.querySelector(".changed-file-path");
       if (path) {
-        path.className = path.className.replace("changed-file-path", "impact-file-path");
+        path.className = path.className.replace(
+          "changed-file-path",
+          "impact-file-path",
+        );
       }
       section.appendChild(row);
     });
@@ -2648,7 +2677,9 @@ function renderDependencyChanges(dependencies) {
   }
 
   const added = Array.isArray(dependencies.added) ? dependencies.added : [];
-  const removed = Array.isArray(dependencies.removed) ? dependencies.removed : [];
+  const removed = Array.isArray(dependencies.removed)
+    ? dependencies.removed
+    : [];
 
   if (added.length === 0 && removed.length === 0) {
     return `
@@ -2663,7 +2694,10 @@ function renderDependencyChanges(dependencies) {
       .map((change) => {
         const files = Array.isArray(change.files) ? change.files : [];
         const filesHtml = files
-          .map((file) => `<div class="impact-dependency-files">  └── ${file}</div>`)
+          .map(
+            (file) =>
+              `<div class="impact-dependency-files">  └── ${file}</div>`,
+          )
           .join("");
         return `
           <div class="impact-dependency-item">

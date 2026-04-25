@@ -91,7 +91,9 @@ export class ImpactRepository {
       return [];
     }
 
-    const files = (this.os.fs.readdir(impactDir) as string[]).filter((f) => f.endsWith(".yaml"));
+    const files = (this.os.fs.readdir(impactDir) as string[]).filter((f) =>
+      f.endsWith(".yaml"),
+    );
     const records: ImpactRecord[] = [];
 
     for (const file of files) {

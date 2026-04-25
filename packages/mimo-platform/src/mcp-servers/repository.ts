@@ -16,7 +16,9 @@ interface McpServerRepositoryDeps {
 export class McpServerRepository {
   private os: OS;
 
-  constructor(private deps: McpServerRepositoryDeps = {} as McpServerRepositoryDeps) {
+  constructor(
+    private deps: McpServerRepositoryDeps = {} as McpServerRepositoryDeps,
+  ) {
     this.os = deps.os;
   }
 
@@ -76,11 +78,9 @@ export class McpServerRepository {
       updatedAt: now,
     };
 
-    this.os.fs.writeFile(
-      this.getMcpServerConfigPath(id),
-      dump(mcpServerData),
-      { encoding: "utf-8" },
-    );
+    this.os.fs.writeFile(this.getMcpServerConfigPath(id), dump(mcpServerData), {
+      encoding: "utf-8",
+    });
 
     return {
       ...mcpServerData,
@@ -111,7 +111,9 @@ export class McpServerRepository {
       return [];
     }
 
-    const entries = this.os.fs.readdir(mcpServersPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+    const entries = this.os.fs.readdir(mcpServersPath, {
+      withFileTypes: true,
+    }) as import("../os/types.js").DirEnt[];
     const servers: McpServer[] = [];
 
     for (const entry of entries) {
@@ -156,7 +158,9 @@ export class McpServerRepository {
       updatedAt: new Date().toISOString(),
     };
 
-    this.os.fs.writeFile(this.getMcpServerConfigPath(id), dump(updatedData), { encoding: "utf-8" });
+    this.os.fs.writeFile(this.getMcpServerConfigPath(id), dump(updatedData), {
+      encoding: "utf-8",
+    });
 
     return {
       ...updatedData,

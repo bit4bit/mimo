@@ -108,10 +108,19 @@ export class FileSyncService {
         status = "new";
       } else {
         // Check if file exists in original repo
-        const originalPath = this.os.path.join(syncState!.upstreamPath, change.path);
-        const sessionPath = this.os.path.join(syncState!.agentWorkspacePath, change.path);
+        const originalPath = this.os.path.join(
+          syncState!.upstreamPath,
+          change.path,
+        );
+        const sessionPath = this.os.path.join(
+          syncState!.agentWorkspacePath,
+          change.path,
+        );
 
-        if (!this.os.fs.exists(originalPath) && this.os.fs.exists(sessionPath)) {
+        if (
+          !this.os.fs.exists(originalPath) &&
+          this.os.fs.exists(sessionPath)
+        ) {
           status = "new";
         }
       }
@@ -166,7 +175,10 @@ export class FileSyncService {
     }
 
     // Get checksums
-    const sessionPath = this.os.path.join(syncState.agentWorkspacePath, filePath);
+    const sessionPath = this.os.path.join(
+      syncState.agentWorkspacePath,
+      filePath,
+    );
 
     if (!this.os.fs.exists(sessionPath)) {
       // File was deleted in session but exists in original
@@ -210,8 +222,14 @@ export class FileSyncService {
         continue;
       }
 
-      const sessionPath = this.os.path.join(syncState.agentWorkspacePath, change.path);
-      const originalPath = this.os.path.join(syncState.upstreamPath, change.path);
+      const sessionPath = this.os.path.join(
+        syncState.agentWorkspacePath,
+        change.path,
+      );
+      const originalPath = this.os.path.join(
+        syncState.upstreamPath,
+        change.path,
+      );
 
       try {
         if (change.status === "deleted") {
@@ -267,7 +285,10 @@ export class FileSyncService {
       syncState.upstreamPath,
       syncState.upstreamPath,
       async (originalPath, relativePath) => {
-        const sessionPath = this.os.path.join(syncState.agentWorkspacePath, relativePath);
+        const sessionPath = this.os.path.join(
+          syncState.agentWorkspacePath,
+          relativePath,
+        );
 
         // Check if file exists in session
         if (!this.os.fs.exists(sessionPath)) {
@@ -350,7 +371,10 @@ export class FileSyncService {
       throw new Error(`Session ${sessionId} not initialized`);
     }
 
-    const sessionPath = this.os.path.join(syncState.agentWorkspacePath, filePath);
+    const sessionPath = this.os.path.join(
+      syncState.agentWorkspacePath,
+      filePath,
+    );
     const originalPath = this.os.path.join(syncState.upstreamPath, filePath);
 
     if (resolution === "session") {
@@ -455,7 +479,9 @@ export class FileSyncService {
   ): Promise<void> {
     if (!this.os.fs.exists(dirPath)) return;
 
-    const entries = this.os.fs.readdir(dirPath, { withFileTypes: true }) as Array<{ name: string; isDirectory(): boolean; isFile(): boolean }>;
+    const entries = this.os.fs.readdir(dirPath, {
+      withFileTypes: true,
+    }) as Array<{ name: string; isDirectory(): boolean; isFile(): boolean }>;
 
     for (const entry of entries) {
       const fullPath = this.os.path.join(dirPath, entry.name);
@@ -479,7 +505,10 @@ export class FileSyncService {
     const syncState = this.syncStates.get(sessionId);
     if (!syncState) return {};
 
-    const sessionPath = this.os.path.join(syncState.agentWorkspacePath, filePath);
+    const sessionPath = this.os.path.join(
+      syncState.agentWorkspacePath,
+      filePath,
+    );
 
     if (!this.os.fs.exists(sessionPath)) {
       return {};

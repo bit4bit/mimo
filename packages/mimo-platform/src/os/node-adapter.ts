@@ -31,14 +31,7 @@ import {
   type Dirent,
 } from "fs";
 import { homedir, tmpdir, platform, arch } from "os";
-import {
-  join,
-  dirname,
-  basename,
-  extname,
-  relative,
-  resolve,
-} from "path";
+import { join, dirname, basename, extname, relative, resolve } from "path";
 import type {
   CommandRunner,
   CommandResult,
@@ -57,7 +50,10 @@ const DEFAULT_TIMEOUT_MS = 30000;
 // ── Command Runner ────────────────────────────────────────────────────────
 
 class NodeCommandRunner implements CommandRunner {
-  async run(command: string[], options: RunOptions = {}): Promise<CommandResult> {
+  async run(
+    command: string[],
+    options: RunOptions = {},
+  ): Promise<CommandResult> {
     return new Promise((resolve, reject) => {
       const child = nodeSpawn(command[0], command.slice(1), {
         cwd: options.cwd,
@@ -150,20 +146,30 @@ class NodeCommandRunner implements CommandRunner {
   }
 
   private wrapChildProcess(child: ChildProcess): SpawnedProcess {
-    const wrapStream = (stream: NodeJS.ReadableStream | null): ReadableStream<Uint8Array> => {
+    const wrapStream = (
+      stream: NodeJS.ReadableStream | null,
+    ): ReadableStream<Uint8Array> => {
       if (!stream) {
-        return new ReadableStream({ start(controller) { controller.close(); } });
+        return new ReadableStream({
+          start(controller) {
+            controller.close();
+          },
+        });
       }
       return new ReadableStream({
         start(controller) {
-          stream.on("data", (chunk: Buffer) => controller.enqueue(new Uint8Array(chunk)));
+          stream.on("data", (chunk: Buffer) =>
+            controller.enqueue(new Uint8Array(chunk)),
+          );
           stream.on("end", () => controller.close());
           stream.on("error", (err) => controller.error(err));
         },
       });
     };
 
-    const wrapWritable = (stream: NodeJS.WritableStream | null): WritableStream<Uint8Array> => {
+    const wrapWritable = (
+      stream: NodeJS.WritableStream | null,
+    ): WritableStream<Uint8Array> => {
       if (!stream) {
         return new WritableStream();
       }
@@ -276,12 +282,20 @@ class NodeFileSystem implements FileSystem {
     };
   }
 
-  cp(src: string, dest: string, options?: { recursive?: boolean; preserveTimestamps?: boolean }): void {
+  cp(
+    src: string,
+    dest: string,
+    options?: { recursive?: boolean; preserveTimestamps?: boolean },
+  ): void {
     const { cpSync } = require("fs");
     cpSync(src, dest, options);
   }
 
-  watch(path: string, options?: { recursive?: boolean }, listener?: (eventType: string, filename: string | null) => void): { close(): void } {
+  watch(
+    path: string,
+    options?: { recursive?: boolean },
+    listener?: (eventType: string, filename: string | null) => void,
+  ): { close(): void } {
     return fsWatch(path, options, listener);
   }
 

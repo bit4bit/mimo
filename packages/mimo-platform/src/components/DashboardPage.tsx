@@ -76,14 +76,22 @@ export const DashboardPage: FC<DashboardProps> = ({
           <div class="dashboard-section">
             <div class="section-header">
               <h2>Projects</h2>
-              <a href="/projects/new" class="btn-small" data-help-id="dashboard-page-a">
+              <a
+                href="/projects/new"
+                class="btn-small"
+                data-help-id="dashboard-page-a"
+              >
                 + New Project
               </a>
             </div>
             {projects.length === 0 ? (
               <div class="empty-state">
                 <p>No projects yet.</p>
-                <a href="/projects/new" class="btn-primary" data-help-id="dashboard-page-a">
+                <a
+                  href="/projects/new"
+                  class="btn-primary"
+                  data-help-id="dashboard-page-a"
+                >
                   Create your first project
                 </a>
               </div>
@@ -91,7 +99,11 @@ export const DashboardPage: FC<DashboardProps> = ({
               <ul class="item-list">
                 {projects.slice(0, 5).map((project) => (
                   <li key={project.id}>
-                    <a href={`/projects/${project.id}`} class="item-link" data-help-id="dashboard-page-item-link-a">
+                    <a
+                      href={`/projects/${project.id}`}
+                      class="item-link"
+                      data-help-id="dashboard-page-item-link-a"
+                    >
                       <span class="item-name">{project.name}</span>
                       <span class="item-meta">
                         {project.isPublic ? "Public" : "Private"}
@@ -102,7 +114,11 @@ export const DashboardPage: FC<DashboardProps> = ({
               </ul>
             )}
             {projects.length > 5 && (
-              <a href="/projects" class="view-all" data-help-id="dashboard-page-view-all-a">
+              <a
+                href="/projects"
+                class="view-all"
+                data-help-id="dashboard-page-view-all-a"
+              >
                 View all {projects.length} projects
               </a>
             )}
@@ -111,14 +127,22 @@ export const DashboardPage: FC<DashboardProps> = ({
           <div class="dashboard-section">
             <div class="section-header">
               <h2>Agents</h2>
-              <a href="/agents/new" class="btn-small" data-help-id="dashboard-page-a">
+              <a
+                href="/agents/new"
+                class="btn-small"
+                data-help-id="dashboard-page-a"
+              >
                 + New Agent
               </a>
             </div>
             {agents.length === 0 ? (
               <div class="empty-state">
                 <p>No agents yet.</p>
-                <a href="/agents/new" class="btn-primary" data-help-id="dashboard-page-a">
+                <a
+                  href="/agents/new"
+                  class="btn-primary"
+                  data-help-id="dashboard-page-a"
+                >
                   Create your first agent
                 </a>
               </div>
@@ -126,7 +150,11 @@ export const DashboardPage: FC<DashboardProps> = ({
               <ul class="item-list">
                 {agents.slice(0, 5).map((agent) => (
                   <li key={agent.id}>
-                    <a href={`/agents/${agent.id}`} class="item-link" data-help-id="dashboard-page-item-link-a">
+                    <a
+                      href={`/agents/${agent.id}`}
+                      class="item-link"
+                      data-help-id="dashboard-page-item-link-a"
+                    >
                       <span class="item-name">{agent.name}</span>
                       <span class={`status-badge status-${agent.status}`}>
                         {agent.status === "online" ? "🟢" : "🔴"} {agent.status}
@@ -137,7 +165,11 @@ export const DashboardPage: FC<DashboardProps> = ({
               </ul>
             )}
             {agents.length > 5 && (
-              <a href="/agents" class="view-all" data-help-id="dashboard-page-view-all-a">
+              <a
+                href="/agents"
+                class="view-all"
+                data-help-id="dashboard-page-view-all-a"
+              >
                 View all {agents.length} agents
               </a>
             )}
@@ -146,7 +178,11 @@ export const DashboardPage: FC<DashboardProps> = ({
           <div class="dashboard-section">
             <div class="section-header">
               <h2>Recent Sessions</h2>
-              <a href="/projects" class="btn-small" data-help-id="dashboard-page-a">
+              <a
+                href="/projects"
+                class="btn-small"
+                data-help-id="dashboard-page-a"
+              >
                 Browse Projects
               </a>
             </div>
@@ -168,7 +204,8 @@ export const DashboardPage: FC<DashboardProps> = ({
                       <a
                         href={`/projects/${session.projectId}/sessions/${session.id}`}
                         class="item-link"
-                       data-help-id="dashboard-page-item-link-a">
+                        data-help-id="dashboard-page-item-link-a"
+                      >
                         <span class="item-name">{session.name}</span>
                         <span class="item-meta">
                           {project?.name || "Unknown"}

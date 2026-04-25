@@ -31,7 +31,8 @@ export function createSummaryRoutes(mimoContext: SummaryRoutesContext) {
 
   function stripThoughtProcess(content: string): string {
     // Remove <details><summary>Thought Process</summary>...</details> block
-    const thoughtRegex = /<details><summary>Thought Process<\/summary>[\s\S]*?<\/details>\s*\n?\n?/g;
+    const thoughtRegex =
+      /<details><summary>Thought Process<\/summary>[\s\S]*?<\/details>\s*\n?\n?/g;
     return content.replace(thoughtRegex, "").trim();
   }
 
@@ -40,9 +41,7 @@ export function createSummaryRoutes(mimoContext: SummaryRoutesContext) {
     threadId: string,
   ): { id: string; assignedAgentId?: string } | null {
     if (!session.chatThreads) return null;
-    return (
-      session.chatThreads.find((t: any) => t.id === threadId) || null
-    );
+    return session.chatThreads.find((t: any) => t.id === threadId) || null;
   }
 
   function getThreadAgentId(session: any, threadId: string): string | null {
@@ -59,7 +58,7 @@ export function createSummaryRoutes(mimoContext: SummaryRoutesContext) {
     console.log("SUMMARY REFRESH ENDPOINT HIT");
     const body = await c.req.parseBody();
     console.log("Body:", body);
-    
+
     const username = await getAuthUsername(c);
     console.log("Username:", username);
     if (!username) {
@@ -96,7 +95,10 @@ export function createSummaryRoutes(mimoContext: SummaryRoutesContext) {
     console.log("session.chatThreads:", session.chatThreads);
     if (!summarizeAgentId) {
       return c.json(
-        { error: "No agent assigned to summarize thread. Select a thread with an active agent." },
+        {
+          error:
+            "No agent assigned to summarize thread. Select a thread with an active agent.",
+        },
         400,
       );
     }
@@ -136,12 +138,9 @@ export function createSummaryRoutes(mimoContext: SummaryRoutesContext) {
     const ws = agentService.getAgentConnection(summarizeAgentId);
     console.log("WebSocket:", ws ? "found" : "not found");
     console.log("WebSocket readyState:", ws?.readyState);
-    
+
     if (!ws || ws.readyState !== 1) {
-      return c.json(
-        { error: "Agent connection lost" },
-        400,
-      );
+      return c.json({ error: "Agent connection lost" }, 400);
     }
 
     console.log("Sending user_message to agent...");

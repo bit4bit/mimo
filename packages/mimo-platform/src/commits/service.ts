@@ -6,10 +6,7 @@ import {
   applySelectedFiles,
   type FileChange,
 } from "./changed-files.js";
-import {
-  parsePatchPreview,
-  type DiffHunk,
-} from "./patch-preview.js";
+import { parsePatchPreview, type DiffHunk } from "./patch-preview.js";
 
 export interface CommitResult {
   success: boolean;
@@ -40,7 +37,12 @@ export interface PreviewFile extends FileChange {
 export interface CommitPreviewResult {
   success: boolean;
   preview?: {
-    summary: { added: number; modified: number; deleted: number; binary: number };
+    summary: {
+      added: number;
+      modified: number;
+      deleted: number;
+      binary: number;
+    };
     files: PreviewFile[];
   };
   error?: string;
@@ -131,7 +133,10 @@ export class CommitService {
     return {
       success: true,
       preview: {
-        summary: { ...detected.summary, binary: patchPreview?.summary.binary || 0 },
+        summary: {
+          ...detected.summary,
+          binary: patchPreview?.summary.binary || 0,
+        },
         files,
       },
     };
@@ -339,7 +344,8 @@ export class CommitService {
     commitMessage?: string,
   ): Promise<CommitAndPushResult> {
     // Generate default message if none provided
-    const message = commitMessage?.trim() || `Mimo commit at ${new Date().toISOString()}`;
+    const message =
+      commitMessage?.trim() || `Mimo commit at ${new Date().toISOString()}`;
     return this.commitAndPushSelective(
       sessionId,
       message,

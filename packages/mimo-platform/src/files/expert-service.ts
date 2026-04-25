@@ -43,7 +43,9 @@ export class ExpertService {
       throw new Error("Invalid path: must be within workspace");
     }
 
-    const fullPath = this.os.path.join(workspacePath, filePath).replace(/\\/g, "/");
+    const fullPath = this.os.path
+      .join(workspacePath, filePath)
+      .replace(/\\/g, "/");
     if (!this.os.fs.exists(fullPath)) {
       throw new Error(`File not found: ${filePath}`);
     }
@@ -61,7 +63,9 @@ export class ExpertService {
       throw new Error("Invalid path: must be within workspace");
     }
 
-    const fullPath = this.os.path.join(workspacePath, filePath).replace(/\\/g, "/");
+    const fullPath = this.os.path
+      .join(workspacePath, filePath)
+      .replace(/\\/g, "/");
     const dir = this.os.path.dirname(fullPath);
     if (!this.os.fs.exists(dir)) {
       throw new Error(`Directory not found: ${dir}`);
@@ -83,8 +87,12 @@ export class ExpertService {
       throw new Error("Invalid path: path traversal not allowed");
     }
 
-    const patchPath = this.os.path.join(".mimo-patches", originalPath).replace(/\\/g, "/");
-    const fullPatchPath = this.os.path.join(workspacePath, patchPath).replace(/\\/g, "/");
+    const patchPath = this.os.path
+      .join(".mimo-patches", originalPath)
+      .replace(/\\/g, "/");
+    const fullPatchPath = this.os.path
+      .join(workspacePath, patchPath)
+      .replace(/\\/g, "/");
 
     if (!this.os.fs.exists(fullPatchPath)) {
       throw new Error(`Patch file not found: ${patchPath}`);
@@ -112,8 +120,12 @@ export class ExpertService {
       throw new Error("Invalid path: path traversal not allowed");
     }
 
-    const patchPath = this.os.path.join(".mimo-patches", originalPath).replace(/\\/g, "/");
-    const fullPatchPath = this.os.path.join(workspacePath, patchPath).replace(/\\/g, "/");
+    const patchPath = this.os.path
+      .join(".mimo-patches", originalPath)
+      .replace(/\\/g, "/");
+    const fullPatchPath = this.os.path
+      .join(workspacePath, patchPath)
+      .replace(/\\/g, "/");
 
     // Create parent directories
     const dir = this.os.path.dirname(fullPatchPath);
@@ -134,7 +146,9 @@ export class ExpertService {
       throw new Error("Invalid patch path: must start with .mimo-patches/");
     }
 
-    const fullPatchPath = this.os.path.join(workspacePath, patchPath).replace(/\\/g, "/");
+    const fullPatchPath = this.os.path
+      .join(workspacePath, patchPath)
+      .replace(/\\/g, "/");
 
     if (this.os.fs.exists(fullPatchPath)) {
       this.os.fs.unlink(fullPatchPath);
@@ -147,7 +161,9 @@ export class ExpertService {
    * List all pending patch files in .mimo-patches/
    */
   async listPatchFiles(workspacePath: string): Promise<PatchInfo[]> {
-    const patchesDir = this.os.path.join(workspacePath, ".mimo-patches").replace(/\\/g, "/");
+    const patchesDir = this.os.path
+      .join(workspacePath, ".mimo-patches")
+      .replace(/\\/g, "/");
 
     if (!this.os.fs.exists(patchesDir)) {
       return [];
@@ -156,7 +172,9 @@ export class ExpertService {
     const patches: PatchInfo[] = [];
 
     const scanDir = (dir: string, prefix: string) => {
-      const entries = this.os.fs.readdir(dir, { withFileTypes: true }) as Array<{
+      const entries = this.os.fs.readdir(dir, {
+        withFileTypes: true,
+      }) as Array<{
         name: string;
         isDirectory(): boolean;
         isFile(): boolean;

@@ -69,12 +69,12 @@ document.addEventListener("DOMContentLoaded", function () {
   async function pollForSummary(sessId, summThreadId) {
     const maxAttempts = 60;
     let attempts = 0;
-    
+
     try {
       const response = await fetch(
         `/api/summary/latest?sessionId=${sessId}&summarizeThreadId=${summThreadId}`,
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         if (data.summary && data.summary.length > 0) {
@@ -133,26 +133,27 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!response.ok) {
         const errorData = await response.json();
         if (errorDiv) {
-          errorDiv.textContent = errorData.error || "Failed to generate summary";
+          errorDiv.textContent =
+            errorData.error || "Failed to generate summary";
           errorDiv.style.display = "block";
         }
         btn.disabled = false;
         btn.textContent = "Refresh";
         return;
       }
-      
+
       if (statusDiv) statusDiv.style.display = "none";
-      
+
       const summary = await pollForSummary(sessionId, summarizeThreadId);
-      
+
       if (summary && summaryContentDiv) {
         summaryContentDiv.textContent = summary;
         summaryContentDiv.style.display = "block";
         if (statusDiv) statusDiv.style.display = "none";
       } else if (statusDiv) {
-        statusDiv.textContent = "Summary request sent. Check the chat thread for the result.";
+        statusDiv.textContent =
+          "Summary request sent. Check the chat thread for the result.";
       }
-
     } catch (err) {
       if (errorDiv) {
         errorDiv.textContent = "Failed to generate summary";

@@ -200,18 +200,10 @@ export class SccService {
       const ext = platform.os === "Windows" ? ".zip" : ".tar.gz";
       const downloadPath = this.os.path.join(binDir, `scc${ext}`);
 
-
       // Download using curl
-      await this.os.command.run([
-        "curl",
-        "-L",
-        "-o",
-        downloadPath,
-        url,
-      ], {
+      await this.os.command.run(["curl", "-L", "-o", downloadPath, url], {
         timeoutMs: 120000,
       });
-
 
       // Extract
       if (platform.os === "Windows") {
@@ -221,13 +213,7 @@ export class SccService {
           `Expand-Archive -Path '${downloadPath}' -DestinationPath '${binDir}' -Force`,
         ]);
       } else {
-        await this.os.command.run([
-          "tar",
-          "-xzf",
-          downloadPath,
-          "-C",
-          binDir,
-        ]);
+        await this.os.command.run(["tar", "-xzf", downloadPath, "-C", binDir]);
       }
 
       // Make executable
@@ -332,7 +318,9 @@ export class SccService {
         // Validate complexity is non-negative
         const fileComplexity = file.Complexity || 0;
         if (fileComplexity < 0) {
-          logger.warn(`[scc:parse:warn] negative_complexity path=${file.Filename} value=${fileComplexity}`);
+          logger.warn(
+            `[scc:parse:warn] negative_complexity path=${file.Filename} value=${fileComplexity}`,
+          );
         }
         const validatedComplexity = Math.max(0, fileComplexity);
 
@@ -427,7 +415,10 @@ export class SccService {
         label: ".fossil-settings/ignore-glob",
       },
       { path: this.os.path.join(directory, ".gitignore"), label: ".gitignore" },
-      { path: this.os.path.join(directory, ".mimoignore"), label: ".mimoignore" },
+      {
+        path: this.os.path.join(directory, ".mimoignore"),
+        label: ".mimoignore",
+      },
     ];
 
     // Build composite content
@@ -486,7 +477,10 @@ export class SccService {
         try {
           this.os.fs.mkdir(cacheDir, { recursive: true });
         } catch (mkdirError) {
-          logger.error(`[scc] Failed to create cache directory: ${cacheDir}`, mkdirError);
+          logger.error(
+            `[scc] Failed to create cache directory: ${cacheDir}`,
+            mkdirError,
+          );
           return;
         }
       }
@@ -503,7 +497,7 @@ export class SccService {
 
       // Atomic write: write to temp file, then rename
       const tempPath = `${this.cacheFilePath}.tmp`;
-      
+
       // Remove any existing temp file first
       if (this.os.fs.exists(tempPath)) {
         try {
@@ -512,11 +506,14 @@ export class SccService {
           // Ignore cleanup errors
         }
       }
-      
+
       try {
         this.os.fs.writeFile(tempPath, jsonData, "utf-8");
       } catch (writeError) {
-        logger.error(`[scc] Failed to write cache temp file: ${tempPath}`, writeError);
+        logger.error(
+          `[scc] Failed to write cache temp file: ${tempPath}`,
+          writeError,
+        );
         return;
       }
 
@@ -524,7 +521,10 @@ export class SccService {
       try {
         this.os.fs.rename(tempPath, this.cacheFilePath);
       } catch (renameError) {
-        logger.error(`[scc] Failed to rename cache file: ${tempPath} → ${this.cacheFilePath}`, renameError);
+        logger.error(
+          `[scc] Failed to rename cache file: ${tempPath} → ${this.cacheFilePath}`,
+          renameError,
+        );
         // Clean up temp file if rename failed
         try {
           if (this.os.fs.exists(tempPath)) {

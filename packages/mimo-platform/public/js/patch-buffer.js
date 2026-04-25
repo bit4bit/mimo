@@ -499,7 +499,14 @@
 
   // ── Public API ───────────────────────────────────────────────────────────────
 
-  function addPatch({ sessionId, originalPath, patchPath, sourceBufferId, originalEndpoint, readOnly }) {
+  function addPatch({
+    sessionId,
+    originalPath,
+    patchPath,
+    sourceBufferId,
+    originalEndpoint,
+    readOnly,
+  }) {
     // Initialize session ID on first call
     if (!PatchBufferState.getSessionId()) {
       PatchBufferState.setSessionId(sessionId);

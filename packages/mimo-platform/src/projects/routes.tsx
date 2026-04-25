@@ -37,14 +37,17 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
 
     let selectedProject = null;
     let selectedCredential: Credential | null = null;
-    let selectedProjectSessions: Awaited<ReturnType<typeof sessionRepository.listByProject>> =
-      [];
+    let selectedProjectSessions: Awaited<
+      ReturnType<typeof sessionRepository.listByProject>
+    > = [];
 
     if (selectedId) {
       const candidate = await projectRepository.findById(selectedId);
       if (candidate && candidate.owner === user.username) {
         selectedProject = candidate;
-        selectedProjectSessions = await sessionRepository.listByProject(candidate.id);
+        selectedProjectSessions = await sessionRepository.listByProject(
+          candidate.id,
+        );
         if (candidate.credentialId) {
           selectedCredential = await credentialRepository.findById(
             candidate.credentialId,
@@ -95,6 +98,7 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
     const credentialId = body.credentialId as string | undefined;
     const sourceBranch = body.sourceBranch as string | undefined;
     const newBranch = body.newBranch as string | undefined;
+    const agentSubpath = body.agentSubpath as string | undefined;
     const user = c.get("user") as { username: string };
 
     if (!name || !repoUrl) {
@@ -196,6 +200,7 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
         credentialId: credentialId || undefined,
         sourceBranch: sourceBranch || undefined,
         newBranch: newBranch || undefined,
+        agentSubpath: agentSubpath?.trim() || undefined,
       });
 
       return c.redirect(`/projects/${project.id}`, 302);

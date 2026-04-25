@@ -31,12 +31,7 @@ describe("API Auth Boundary Tests", () => {
 
     app = new Hono();
 
-    const PUBLIC_PATHS = [
-      "/",
-      "/health",
-      "/api/projects/public",
-      "/api/help",
-    ];
+    const PUBLIC_PATHS = ["/", "/health", "/api/projects/public", "/api/help"];
     const PUBLIC_PATH_PREFIXES = [
       "/auth/",
       "/js/",

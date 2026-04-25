@@ -8,7 +8,10 @@ import {
 import type { FrameState } from "../sessions/frame-state.js";
 import type { McpServer } from "../mcp-servers/types.js";
 import type { ChatThread } from "../sessions/repository.js";
-import type { SessionKeybindingsConfig, GlobalKeybindingsConfig } from "../config/service.js";
+import type {
+  SessionKeybindingsConfig,
+  GlobalKeybindingsConfig,
+} from "../config/service.js";
 import { FileFinderDialog } from "./FileFinderDialog.js";
 import { ContentFinderDialog } from "./ContentFinderDialog.js";
 
@@ -265,23 +268,35 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             title="Restore right frame"
             aria-label="Restore right frame"
             aria-expanded={frameState.rightFrame.isCollapsed ? "false" : "true"}
-           data-help-id="session-detail-page-right-frame-restore-btn-button">
+            data-help-id="session-detail-page-right-frame-restore-btn-button"
+          >
             &lt;&lt;
           </button>
         </div>
 
         <div style="padding: 15px; border-top: 1px solid #444; display: flex; justify-content: space-between; align-items: center;">
           <div style="display: flex; gap: 10px;">
-            <button type="button" id="commit-btn" class="btn-primary" data-help-id="session-detail-page-commit-btn-button">
+            <button
+              type="button"
+              id="commit-btn"
+              class="btn-primary"
+              data-help-id="session-detail-page-commit-btn-button"
+            >
               Commit
             </button>
-            <button type="button" id="sync-now-btn" class="btn-secondary" data-help-id="session-detail-page-sync-now-btn-button">
+            <button
+              type="button"
+              id="sync-now-btn"
+              class="btn-secondary"
+              data-help-id="session-detail-page-sync-now-btn-button"
+            >
               Sync Now
             </button>
             <a
               href={`/projects/${project.id}/sessions/${session.id}/settings`}
               class="btn-secondary"
-             data-help-id="session-detail-page-a">
+              data-help-id="session-detail-page-a"
+            >
               Settings
             </a>
           </div>
@@ -302,7 +317,11 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 style="display: inline;"
                 onsubmit={`return confirm('Close session "${session.name}"? It will become read-only.')`}
               >
-                <button type="submit" class="btn-secondary" data-help-id="session-detail-page-button">
+                <button
+                  type="submit"
+                  class="btn-secondary"
+                  data-help-id="session-detail-page-button"
+                >
                   Close Session
                 </button>
               </form>
@@ -313,7 +332,12 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 action={`/projects/${project.id}/sessions/${session.id}/delete`}
                 style="display: inline;"
               >
-                <button type="submit" class="btn-danger" data-help-id="session-detail-page-button" onclick="return confirm('Delete this session? This cannot be undone.')">
+                <button
+                  type="submit"
+                  class="btn-danger"
+                  data-help-id="session-detail-page-button"
+                  onclick="return confirm('Delete this session? This cannot be undone.')"
+                >
                   Delete Session
                 </button>
               </form>
@@ -526,8 +550,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           <span class="session-shortcut-item">
             <span class="session-shortcut-key">
               {toEmacsNotation(
-                globalKeybindings?.previousThread ||
-                  "Control+Shift+ArrowLeft",
+                globalKeybindings?.previousThread || "Control+Shift+ArrowLeft",
               )}
             </span>
             <span class="session-shortcut-desc">Prev thread (G)</span>
@@ -568,21 +591,35 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           <div class="commit-preview-container">
             <div class="commit-status-filters">
               <label class="status-filter">
-                <input type="checkbox" id="filter-added" checked  data-help-id="session-detail-page-filter-added-input" />
+                <input
+                  type="checkbox"
+                  id="filter-added"
+                  checked
+                  data-help-id="session-detail-page-filter-added-input"
+                />
                 <span class="status-badge status-added">Added</span>
                 <span class="status-count">
                   (<span id="count-added">0</span>)
                 </span>
               </label>
               <label class="status-filter">
-                <input type="checkbox" id="filter-modified" checked  data-help-id="session-detail-page-filter-modified-input" />
+                <input
+                  type="checkbox"
+                  id="filter-modified"
+                  checked
+                  data-help-id="session-detail-page-filter-modified-input"
+                />
                 <span class="status-badge status-modified">Modified</span>
                 <span class="status-count">
                   (<span id="count-modified">0</span>)
                 </span>
               </label>
               <label class="status-filter">
-                <input type="checkbox" id="filter-deleted"  data-help-id="session-detail-page-filter-deleted-input" />
+                <input
+                  type="checkbox"
+                  id="filter-deleted"
+                  data-help-id="session-detail-page-filter-deleted-input"
+                />
                 <span class="status-badge status-deleted">Deleted</span>
                 <span class="status-count">
                   (<span id="count-deleted">0</span>)
@@ -603,11 +640,17 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               rows={3}
               placeholder="Enter commit message..."
               minlength="1"
-             data-help-id="session-detail-page-commit-message-textarea"></textarea>
+              data-help-id="session-detail-page-commit-message-textarea"
+            ></textarea>
             <div id="commit-error" class="commit-error"></div>
           </div>
           <div class="commit-actions">
-            <button type="button" id="commit-cancel" class="btn-secondary" data-help-id="session-detail-page-commit-cancel-button">
+            <button
+              type="button"
+              id="commit-cancel"
+              class="btn-secondary"
+              data-help-id="session-detail-page-commit-cancel-button"
+            >
               Cancel
             </button>
             <button
@@ -615,7 +658,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               id="commit-confirm"
               class="btn-primary"
               disabled
-             data-help-id="session-detail-page-commit-confirm-button">
+              data-help-id="session-detail-page-commit-confirm-button"
+            >
               Commit &amp; Push
             </button>
           </div>
@@ -646,7 +690,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 type="button"
                 id="clone-workspace-close"
                 class="btn-secondary"
-               data-help-id="session-detail-page-clone-workspace-close-button">
+                data-help-id="session-detail-page-clone-workspace-close-button"
+              >
                 Close
               </button>
             </div>

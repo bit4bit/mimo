@@ -152,7 +152,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     const body = await c.req.parseBody({ all: true });
     const name = body.name as string;
     const projectId = (body.projectId as string) || getProjectId(c);
-    const agentSubpath = (body.agentSubpath as string) || null;
+    const agentSubpathRaw = (body.agentSubpath as string) || null;
     const branchName = (body.branchName as string) || null;
     const sessionTtlDaysRaw = (body.sessionTtlDays as string) || "180";
     const sessionTtlDays = parseInt(sessionTtlDaysRaw, 10);
@@ -195,6 +195,11 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       return c.text("Project not found", 404);
     }
 
+    const effectiveSubpath =
+      (agentSubpathRaw?.trim() || undefined) ??
+      project.agentSubpath ??
+      undefined;
+
     if (branchMode === "sync" && !branchName) {
       return c.text(
         "Branch name is required when syncing an existing branch",
@@ -235,7 +240,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       name: name as string,
       projectId: projectId as string,
       owner: username,
-      agentSubpath: agentSubpath || undefined,
+      agentSubpath: effectiveSubpath,
       mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
       sessionTtlDays,
       priority,

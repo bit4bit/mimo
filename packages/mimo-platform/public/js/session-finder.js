@@ -53,12 +53,12 @@
       "control+shift+`": "Backquote",
       "control+shift+#": "Equal", // Spanish/Latin keyboards
     };
-    
+
     const codeKey = kb.toLowerCase();
     if (codeForKey[codeKey]) {
       return e.code === codeForKey[codeKey];
     }
-    
+
     // Fallback to key matching
     return e.key.toLowerCase() === requiredKey;
   }
@@ -188,7 +188,7 @@
   function handleGlobalKeydown(e) {
     const targetKb = getKeybinding();
     const match = matchesKeybinding(e, targetKb);
-    
+
     if (match) {
       e.preventDefault();
       if (isDialogOpen()) {
@@ -198,7 +198,7 @@
       }
       return;
     }
-    
+
     if (isDialogOpen() && e.key === "Tab") {
       return;
     }
@@ -216,7 +216,10 @@
     if (e.key === "Tab") {
       e.preventDefault();
       e.stopPropagation();
-      console.log("[session-finder] Tab pressed, results:", currentResults.length);
+      console.log(
+        "[session-finder] Tab pressed, results:",
+        currentResults.length,
+      );
       if (currentResults.length > 0) {
         if (e.shiftKey) {
           highlightedIndex =

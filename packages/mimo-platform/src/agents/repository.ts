@@ -101,7 +101,9 @@ export class AgentRepository {
       updatedAt: now,
     };
 
-    this.os.fs.writeFile(this.getAgentFilePath(id), dump(agentData), { encoding: "utf-8" });
+    this.os.fs.writeFile(this.getAgentFilePath(id), dump(agentData), {
+      encoding: "utf-8",
+    });
 
     return {
       ...agentData,
@@ -142,12 +144,18 @@ export class AgentRepository {
       return [];
     }
 
-    const entries = this.os.fs.readdir(agentsPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+    const entries = this.os.fs.readdir(agentsPath, {
+      withFileTypes: true,
+    }) as import("../os/types.js").DirEnt[];
     const agents: Agent[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const agentFile = this.os.path.join(agentsPath, entry.name, "agent.yaml");
+        const agentFile = this.os.path.join(
+          agentsPath,
+          entry.name,
+          "agent.yaml",
+        );
         if (this.os.fs.exists(agentFile)) {
           const content = this.os.fs.readFile(agentFile, "utf-8");
           const data = load(content) as AgentData;
@@ -177,12 +185,18 @@ export class AgentRepository {
       return [];
     }
 
-    const entries = this.os.fs.readdir(agentsPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+    const entries = this.os.fs.readdir(agentsPath, {
+      withFileTypes: true,
+    }) as import("../os/types.js").DirEnt[];
     const agents: Agent[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const agentFile = this.os.path.join(agentsPath, entry.name, "agent.yaml");
+        const agentFile = this.os.path.join(
+          agentsPath,
+          entry.name,
+          "agent.yaml",
+        );
         if (this.os.fs.exists(agentFile)) {
           const content = this.os.fs.readFile(agentFile, "utf-8");
           const data = load(content) as AgentData;
@@ -317,7 +331,9 @@ export class AgentRepository {
   private deleteDirectoryRecursive(dirPath: string): void {
     if (!this.os.fs.exists(dirPath)) return;
 
-    const entries = this.os.fs.readdir(dirPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+    const entries = this.os.fs.readdir(dirPath, {
+      withFileTypes: true,
+    }) as import("../os/types.js").DirEnt[];
 
     for (const entry of entries) {
       const entryPath = this.os.path.join(dirPath, entry.name);

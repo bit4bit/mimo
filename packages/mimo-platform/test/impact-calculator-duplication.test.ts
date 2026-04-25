@@ -56,7 +56,11 @@ describe("ImpactCalculator duplication integration", () => {
     writeFileSync(join(workspaceDir, "module-a.ts"), BLOCK_A + "\n");
     writeFileSync(join(workspaceDir, "module-b.ts"), BLOCK_B + "\n");
 
-    const calc = new ImpactCalculator(sccService, jscpdService, createOS({ ...process.env }));
+    const calc = new ImpactCalculator(
+      sccService,
+      jscpdService,
+      createOS({ ...process.env }),
+    );
     const { metrics } = await calc.calculateImpact(
       "session-1",
       upstreamDir,
@@ -84,7 +88,11 @@ describe("ImpactCalculator duplication integration", () => {
       `export const x = 1;\nexport const y = 2;\n`,
     );
 
-    const calc = new ImpactCalculator(sccService, jscpdService, createOS({ ...process.env }));
+    const calc = new ImpactCalculator(
+      sccService,
+      jscpdService,
+      createOS({ ...process.env }),
+    );
     const { metrics } = await calc.calculateImpact(
       "session-2",
       upstreamDir,
@@ -110,7 +118,11 @@ describe("ImpactCalculator duplication integration", () => {
     writeFileSync(join(workspaceDir, "file-a.ts"), BLOCK_A + "\n");
     writeFileSync(join(workspaceDir, "file-b.ts"), BLOCK_B + "\n");
 
-    const calc = new ImpactCalculator(sccService, jscpdService, createOS({ ...process.env }));
+    const calc = new ImpactCalculator(
+      sccService,
+      jscpdService,
+      createOS({ ...process.env }),
+    );
     const { metrics } = await calc.calculateImpact(
       "session-3",
       upstreamDir,
@@ -135,7 +147,11 @@ describe("ImpactCalculator duplication integration", () => {
     writeFileSync(join(workspaceDir, "comp-a.ts"), BLOCK_A + "\n");
     writeFileSync(join(workspaceDir, "comp-b.ts"), BLOCK_B + "\n");
 
-    const calc = new ImpactCalculator(sccService, jscpdService, createOS({ ...process.env }));
+    const calc = new ImpactCalculator(
+      sccService,
+      jscpdService,
+      createOS({ ...process.env }),
+    );
     const { metrics } = await calc.calculateImpact(
       "session-4",
       upstreamDir,
@@ -158,7 +174,11 @@ describe("ImpactCalculator duplication integration", () => {
     const sccService = new SccService(os, sccBin, join(tmpdir(), "scc-cache"));
     const jscpdService = new JscpdService(os, jscpdBin);
 
-    const calc = new ImpactCalculator(sccService, jscpdService, createOS({ ...process.env }));
+    const calc = new ImpactCalculator(
+      sccService,
+      jscpdService,
+      createOS({ ...process.env }),
+    );
     const { metrics } = await calc.calculateImpact(
       "session-5",
       upstreamDir,
