@@ -21,6 +21,24 @@ import {
 import type { IAcpProvider } from "./acp/index.js";
 import type { AcpClientCallbacks } from "./acp/index.js";
 import WebSocket from "ws";
+
+// ── Dependency Injection Types ───────────────────────────────────────────
+
+export interface MimoAgentDeps {
+  os: OS;
+  config: AgentConfig;
+  sessionManager: SessionManager;
+  lifecycleManager: SessionLifecycleManager;
+  provider: IAcpProvider;
+}
+
+export interface AgentConfig {
+  token: string;
+  platform: string;
+  workDir: string;
+  provider: "opencode" | "claude";
+}
+
 // Convert Node.js streams to Web Streams API
 function toWebWritable(nodeWritable: Writable): WritableStream<Uint8Array> {
   return Writable.toWeb(nodeWritable) as WritableStream<Uint8Array>;
@@ -34,7 +52,6 @@ function toWebReadable(nodeReadable: Readable): ReadableStream<Uint8Array> {
 function acpKey(sessionId: string, chatThreadId: string): string {
   return `${sessionId}:${chatThreadId}`;
 }
-
 
 class MimoAgent {
   private ws: WebSocket | null = null;
@@ -62,178 +79,16 @@ class MimoAgent {
 
   private static readonly CAPABILITY_PROBE_SESSION_ID = "capability-probe";
 
-  constructor() {
-    this.os = createOS({ ...process.env });
-    this.config = this.parseArgs();
-    this.sessionManager = new SessionManager(this.config.workDir, {
-      onFileChange: (sessionId, changes) => {
-        this.send({
-          type: "file_changed",
-          sessionId,
-          files: changes,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onSessionError: (sessionId, error) => {
-        this.send({
-          type: "session_error",
-          sessionId,
-          error,
-          timestamp: new Date().toISOString(),
-        });
-      },
-    }, this.os);
-
-    // Initialize lifecycle manager with thread-aware callbacks (tasks 4.5–4.7)
-    this.lifecycleManager = new SessionLifecycleManager({
-      onStatusChange: (sessionId, chatThreadId, status) => {
-        this.send({
-          type: "acp_status",
-          sessionId,
-          chatThreadId,
-          status,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onCacheState: (sessionId, chatThreadId, state) => {
-        this.cachedAcpStates.set(acpKey(sessionId, chatThreadId), state);
-      },
-      onGetCachedState: (sessionId, chatThreadId) => {
-        return this.cachedAcpStates.get(acpKey(sessionId, chatThreadId));
-      },
-      onSpawnAcp: async (sessionId, chatThreadId, cachedState) => {
-        const session = this.sessionManager.getSession(sessionId);
-        if (!session) {
-          throw new Error(`Session ${sessionId} not found`);
-        }
-        return this.respawnAcpProcess(sessionId, chatThreadId, cachedState);
-      },
-      onTerminateThread: async (sessionId, chatThreadId) => {
-        const key = acpKey(sessionId, chatThreadId);
-        // Cache the ACP state BEFORE closing
-        const acpClient = this.acpClients.get(key);
-        if (acpClient) {
-          this.cachedAcpStates.set(key, {
-            acpSessionId: acpClient.acpSessionId,
-            modelState: acpClient.modelState,
-            modeState: acpClient.modeState,
-          });
-        }
-
-        // Close the ACP client gracefully
-        await this.closeAcpClientByKey(key);
-      },
-    });
-
-    switch (this.config.provider) {
-      case "claude":
-        this.provider = new ClaudeAgentProvider();
-        break;
-      case "opencode":
-      default:
-        this.provider = new OpencodeProvider();
-        break;
-    }
-  }
-
-  private parseArgs(): AgentConfig {
-    const args = process.argv.slice(2);
-    const config: Partial<AgentConfig> = {};
-
-    for (let i = 0; i < args.length; i++) {
-      const arg = args[i];
-      if (arg === "--token" && i + 1 < args.length) {
-        config.token = args[++i];
-      } else if (arg === "--platform" && i + 1 < args.length) {
-        config.platform = args[++i];
-      } else if (arg === "--workdir" && i + 1 < args.length) {
-        config.workDir = args[++i];
-      } else if (arg === "--provider" && i + 1 < args.length) {
-        config.provider = args[++i] as AgentConfig["provider"];
-      }
-    }
-
-    if (!config.token) {
-      throw new Error("Missing required argument: --token");
-    }
-    if (!config.platform) {
-      throw new Error("Missing required argument: --platform");
-    }
-
-    if (!config.workDir) {
-      config.workDir = this.os.path.join(this.os.path.homeDir(), ".mimo-agent");
-    }
-
-    // Ensure workDir exists
-    if (!this.os.fs.exists(config.workDir)) {
-      this.os.fs.mkdir(config.workDir, { recursive: true });
-      logger.debug(`[mimo-agent] Created workDir: ${config.workDir}`);
-    }
-
-    const validProviders = new Set<AgentConfig["provider"]>([
-      "opencode",
-      "claude",
-    ]);
-
-    // Provider is now required
-    if (!config.provider) {
-      logger.error(
-        `[mimo-agent] Missing required argument: --provider. Valid values: ${Array.from(validProviders).join(", ")}`,
-      );
-      process.exit(1);
-    }
-
-    if (!validProviders.has(config.provider as AgentConfig["provider"])) {
-      logger.error(
-        `[mimo-agent] Unknown provider: "${config.provider}". Valid values: ${Array.from(validProviders).join(", ")}`,
-      );
-      process.exit(1);
-    }
-
-    // Validate provider matches token
-    this.validateProviderWithToken(config.token, config.provider);
-
-    return config as AgentConfig;
-  }
-
-  private validateProviderWithToken(
-    token: string,
-    declaredProvider: string,
-  ): void {
-    try {
-      // Decode JWT payload without verification to extract provider claim
-      const payload = decodeJwt(token);
-      const tokenProvider = payload.provider as string | undefined;
-
-      if (!tokenProvider) {
-        // Backward compatibility: legacy tokens don't have provider claim
-        logger.warn(
-          `[mimo-agent] Using legacy token, defaulting provider to 'opencode'. Consider recreating this agent.`,
-        );
-        // Treat missing provider as "opencode" for backward compatibility
-        if (declaredProvider !== "opencode") {
-          logger.error(
-            `[mimo-agent] Provider mismatch: agent declares '${declaredProvider}' but legacy token requires 'opencode'. Recreate the agent or use --provider opencode`,
-          );
-          process.exit(1);
-        }
-        return;
-      }
-
-      if (tokenProvider !== declaredProvider) {
-        logger.error(
-          `[mimo-agent] Provider mismatch: agent declares '${declaredProvider}' but token requires '${tokenProvider}'. Use --provider ${tokenProvider}`,
-        );
-        process.exit(1);
-      }
-
-      // Provider matches - validation passed
-    } catch (error) {
-      logger.error(
-        `[mimo-agent] Failed to decode token: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      process.exit(1);
-    }
+  /**
+   * Constructor receives all dependencies explicitly.
+   * No hidden globals, no singletons, no internal construction.
+   */
+  constructor(deps: MimoAgentDeps) {
+    this.os = deps.os;
+    this.config = deps.config;
+    this.sessionManager = deps.sessionManager;
+    this.lifecycleManager = deps.lifecycleManager;
+    this.provider = deps.provider;
   }
 
   async start(): Promise<void> {
@@ -2411,7 +2266,231 @@ class MimoAgent {
   }
 }
 
-const agent = new MimoAgent();
+// ── Factory Function ────────────────────────────────────────────────────
+
+/**
+ * Factory function that constructs all dependencies and creates Agent.
+ * This is the ONLY place where dependencies are constructed.
+ * All dependencies are created here and injected into MimoAgent.
+ */
+export function createMimoAgent(): MimoAgent {
+  // Read environment at system boundary (index.ts level)
+  const env = { ...process.env };
+  
+  // Create OS with injected environment
+  const os = createOS(env);
+  
+  // Parse config from command line args
+  const config = parseAgentConfig(process.argv.slice(2), os);
+  
+  // Create SessionManager with callbacks
+  // Callbacks capture 'this' via closure, so we need to bind them after Agent creation
+  const sessionManagerCallbacks: SessionCallbacks = {
+    onFileChange: () => {}, // Will be rebound after Agent creation
+    onSessionError: () => {}, // Will be rebound after Agent creation
+  };
+  
+  const sessionManager = new SessionManager(config.workDir, sessionManagerCallbacks, os);
+  
+  // Create LifecycleManager (callbacks will be set after Agent creation)
+  const lifecycleCallbacks: SessionLifecycleCallbacks = {
+    onStatusChange: () => {},
+    onCacheState: () => {},
+    onGetCachedState: () => undefined,
+    onSpawnAcp: async () => { throw new Error("Not initialized"); },
+    onTerminateThread: async () => {},
+  };
+  
+  const lifecycleManager = new SessionLifecycleManager(lifecycleCallbacks);
+  
+  // Create ACP Provider
+  const provider = config.provider === "claude"
+    ? new ClaudeAgentProvider()
+    : new OpencodeProvider();
+  
+  // Create Agent with all dependencies injected
+  const deps: MimoAgentDeps = {
+    os,
+    config,
+    sessionManager,
+    lifecycleManager,
+    provider,
+  };
+  
+  const agent = new MimoAgent(deps);
+  
+  // Rebind callbacks to use agent's send method
+  sessionManagerCallbacks.onFileChange = (sessionId: string, changes: any[]) => {
+    agent["send"]({
+      type: "file_changed",
+      sessionId,
+      files: changes,
+      timestamp: new Date().toISOString(),
+    });
+  };
+  
+  sessionManagerCallbacks.onSessionError = (sessionId: string, error: string) => {
+    agent["send"]({
+      type: "session_error",
+      sessionId,
+      error,
+      timestamp: new Date().toISOString(),
+    });
+  };
+  
+  // Rebind lifecycle callbacks
+  lifecycleCallbacks.onStatusChange = (sessionId: string, chatThreadId: string, status: string) => {
+    agent["send"]({
+      type: "acp_status",
+      sessionId,
+      chatThreadId,
+      status,
+      timestamp: new Date().toISOString(),
+    });
+  };
+  
+  lifecycleCallbacks.onCacheState = (sessionId: string, chatThreadId: string, state: any) => {
+    (agent as any).cachedAcpStates.set(acpKey(sessionId, chatThreadId), state);
+  };
+  
+  lifecycleCallbacks.onGetCachedState = (sessionId: string, chatThreadId: string) => {
+    return (agent as any).cachedAcpStates.get(acpKey(sessionId, chatThreadId));
+  };
+  
+  lifecycleCallbacks.onSpawnAcp = async (sessionId: string, chatThreadId: string, cachedState: any) => {
+    const session = sessionManager.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+    return (agent as any).respawnAcpProcess(sessionId, chatThreadId, cachedState);
+  };
+  
+  lifecycleCallbacks.onTerminateThread = async (sessionId: string, chatThreadId: string) => {
+    const key = acpKey(sessionId, chatThreadId);
+    const acpClient = (agent as any).acpClients.get(key);
+    if (acpClient) {
+      (agent as any).cachedAcpStates.set(key, {
+        acpSessionId: acpClient.acpSessionId,
+        modelState: acpClient.modelState,
+        modeState: acpClient.modeState,
+      });
+    }
+    await (agent as any).closeAcpClientByKey(key);
+  };
+  
+  return agent;
+}
+
+/**
+ * Parse command line arguments into AgentConfig.
+ * Must be called at system boundary (index.ts level).
+ */
+function parseAgentConfig(args: string[], os: OS): AgentConfig {
+  const config: Partial<AgentConfig> = {};
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--token" && i + 1 < args.length) {
+      config.token = args[++i];
+    } else if (arg === "--platform" && i + 1 < args.length) {
+      config.platform = args[++i];
+    } else if (arg === "--workdir" && i + 1 < args.length) {
+      config.workDir = args[++i];
+    } else if (arg === "--provider" && i + 1 < args.length) {
+      config.provider = args[++i] as AgentConfig["provider"];
+    }
+  }
+
+  if (!config.token) {
+    throw new Error("Missing required argument: --token");
+  }
+  if (!config.platform) {
+    throw new Error("Missing required argument: --platform");
+  }
+
+  if (!config.workDir) {
+    config.workDir = os.path.join(os.path.homeDir(), ".mimo-agent");
+  }
+
+  // Ensure workDir exists
+  if (!os.fs.exists(config.workDir)) {
+    os.fs.mkdir(config.workDir, { recursive: true });
+    logger.debug(`[mimo-agent] Created workDir: ${config.workDir}`);
+  }
+
+  const validProviders = new Set<AgentConfig["provider"]>([
+    "opencode",
+    "claude",
+  ]);
+
+  // Provider is now required
+  if (!config.provider) {
+    logger.error(
+      `[mimo-agent] Missing required argument: --provider. Valid values: ${Array.from(validProviders).join(", ")}`,
+    );
+    process.exit(1);
+  }
+
+  if (!validProviders.has(config.provider as AgentConfig["provider"])) {
+    logger.error(
+      `[mimo-agent] Unknown provider: "${config.provider}". Valid values: ${Array.from(validProviders).join(", ")}`,
+    );
+    process.exit(1);
+  }
+
+  // Validate provider matches token
+  validateProviderWithToken(config.token, config.provider);
+
+  return config as AgentConfig;
+}
+
+/**
+ * Validate that provider matches token.
+ * Must be called at system boundary.
+ */
+function validateProviderWithToken(
+  token: string,
+  declaredProvider: string,
+): void {
+  try {
+    // Decode JWT payload without verification to extract provider claim
+    const payload = decodeJwt(token);
+    const tokenProvider = payload.provider as string | undefined;
+
+    if (!tokenProvider) {
+      // Backward compatibility: legacy tokens don't have provider claim
+      logger.warn(
+        `[mimo-agent] Using legacy token, defaulting provider to 'opencode'. Consider recreating this agent.`,
+      );
+      // Treat missing provider as "opencode" for backward compatibility
+      if (declaredProvider !== "opencode") {
+        logger.error(
+          `[mimo-agent] Provider mismatch: agent declares '${declaredProvider}' but legacy token requires 'opencode'. Recreate the agent or use --provider opencode`,
+        );
+        process.exit(1);
+      }
+      return;
+    }
+
+    if (tokenProvider !== declaredProvider) {
+      logger.error(
+        `[mimo-agent] Provider mismatch: agent declares '${declaredProvider}' but token requires '${tokenProvider}'. Use --provider ${tokenProvider}`,
+      );
+      process.exit(1);
+    }
+
+    // Provider matches - validation passed
+  } catch (error) {
+    logger.error(
+      `[mimo-agent] Failed to decode token: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    process.exit(1);
+  }
+}
+
+// ── Main Entry Point ───────────────────────────────────────────────────
+
+const agent = createMimoAgent();
 agent.start().catch((error) => {
   logger.error("[mimo-agent] Failed to start:", error.message);
   process.exit(1);

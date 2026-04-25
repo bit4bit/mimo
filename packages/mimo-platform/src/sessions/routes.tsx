@@ -777,8 +777,6 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 
     try {
       const impactCalculator = mimoContext.services.impactCalculator;
-      const { vcs } = await import("../vcs/index.js");
-
       // Sync agent-workspace with repo.fossil before calculating impact
       const fossilPath = sessionRepository.getFossilPath(sessionId);
       const { existsSync } = await import("fs");
