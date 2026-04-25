@@ -292,7 +292,7 @@ export function createMimoContext(
     fileWatcher:
       overrides.services?.fileWatcher ?? createFileWatcherService(os),
     expert: expertService,
-    search: overrides.services?.search ?? createSearchService(),
+    search: overrides.services?.search ?? createSearchService({ os }),
     fileService,
   };
 

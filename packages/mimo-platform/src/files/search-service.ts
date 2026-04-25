@@ -1,42 +1,12 @@
 import { which } from "bun";
 import type { ContentSearchResult } from "./types.js";
 import type { SearchOptions, SearchService } from "./types.js";
-
-export interface CommandResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
-export interface OsCommandRunner {
-  run(command: string[], options?: { cwd?: string }): Promise<CommandResult>;
-}
-
-export class BunOsCommandRunner implements OsCommandRunner {
-  async run(
-    command: string[],
-    options?: { cwd?: string },
-  ): Promise<CommandResult> {
-    const proc = Bun.spawn(command, {
-      cwd: options?.cwd,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-
-    const [exitCode, stdout, stderr] = await Promise.all([
-      proc.exited,
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-    ]);
-
-    return { exitCode, stdout, stderr };
-  }
-}
+import type { OS } from "../os/types.js";
 
 export type ResolveBinary = (name: string) => Promise<string | undefined>;
 
 interface SearchServiceDeps {
-  os: OsCommandRunner;
+  os: OS;
   resolveBinary: ResolveBinary;
 }
 
@@ -62,7 +32,7 @@ export interface SpawnRipgrepOptions {
 export function createSearchService(
   deps: Partial<SearchServiceDeps> = {},
 ): SearchService {
-  const os = deps.os ?? new BunOsCommandRunner();
+  const os = deps.os;
   const resolveBinary = deps.resolveBinary ?? which;
 
   return {
@@ -88,7 +58,6 @@ export async function spawnRipgrep(
   options: SpawnRipgrepOptions,
   deps: Partial<SearchServiceDeps> = {},
 ): Promise<ContentSearchResult[]> {
-  const os = deps.os ?? new BunOsCommandRunner();
   const resolveBinary = deps.resolveBinary ?? which;
 
   const rgPath = await resolveBinary("rg");
@@ -117,25 +86,30 @@ export async function spawnRipgrep(
     ".",
   ];
 
-  const { exitCode, stdout, stderr } = await os.run([rgPath, ...args], {
+  const os = deps.os;
+  if (!os) {
+    throw new SearchServiceError("OS dependency is required", "EXECUTION_FAILED");
+  }
+
+  const { success, output, error, exitCode } = await os.command.run([rgPath, ...args], {
     cwd: workspacePath,
   });
 
-  if (exitCode === 1 && stderr.trim().length === 0) {
+  if (exitCode === 1 && error.trim().length === 0) {
     return [];
   }
 
-  if (exitCode !== 0) {
-    if (stderr.includes("error parsing regex") || stderr.includes("parse error")) {
+  if (!success) {
+    if (error.includes("error parsing regex") || error.includes("parse error")) {
       throw new SearchServiceError(
-        `Invalid regex: ${query}. Use escape for literals: \\. \\* \\+`,
+        `Invalid regex: ${query}. Use escape for literals: \\ \\* \\+`,
         "INVALID_REGEX",
       );
     }
     throw new SearchServiceError("ripgrep execution failed", "EXECUTION_FAILED");
   }
 
-  return parseRipgrepOutput(stdout, contextLines, workspacePath);
+  return parseRipgrepOutput(output, contextLines, workspacePath);
 }
 
 function normalizeResultPath(pathText: string, workspacePath: string): string {

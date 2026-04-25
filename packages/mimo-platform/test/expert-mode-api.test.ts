@@ -178,7 +178,6 @@ describe("GET /sessions/:id/search", () => {
 
     const { createMimoContext } = await import("../src/context/mimo-context.ts");
     const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
-    const vcsModule = await import("../src/vcs/index.ts");
 
     const searchCalls: Array<{ workspacePath: string; query: string }> = [];
     const ctx = createMimoContext({
@@ -194,12 +193,12 @@ describe("GET /sessions/:id/search", () => {
       },
     });
 
-    vcsModule.vcs.cloneRepository = async () => ({ success: true });
-    vcsModule.vcs.importToFossil = async () => ({ success: true });
-    vcsModule.vcs.openFossilCheckout = async () => ({ success: true });
-    vcsModule.vcs.openFossil = async () => ({ success: true });
-    vcsModule.vcs.syncIgnoresToFossil = async () => ({ success: true });
-    vcsModule.vcs.createFossilUser = async () => ({ success: true });
+    ctx.services.vcs.cloneRepository = async () => ({ success: true });
+    ctx.services.vcs.importToFossil = async () => ({ success: true });
+    ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
+    ctx.services.vcs.openFossil = async () => ({ success: true });
+    ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });
+    ctx.services.vcs.createFossilUser = async () => ({ success: true });
 
     const app = new Hono();
     app.route("/sessions", createSessionsRoutes(ctx));
