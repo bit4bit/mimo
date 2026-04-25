@@ -11,6 +11,7 @@ import { logger } from "../logger.js";
 import type { MimoContext } from "../context/mimo-context.js";
 import { createFileService, findFiles } from "../files/service.js";
 import { detectLanguage, escapeHtml } from "../files/syntax-highlighter.js";
+import { spawnRipgrep, checkRipgrepAvailable, SearchServiceError } from "../files/search-service.js";
 import { canDeleteSessionNow } from "./session-retention.js";
 import { createSessionDeletionUseCase } from "./session-deletion.js";
 import { VCS_INTERNALS } from "../vcs/index.js";
@@ -1548,6 +1549,47 @@ files.set(relPath, { checksum, size: stats.size });
       lineCount,
       content: escapeHtml(raw),
     });
+  });
+
+  // GET /sessions/:id/search?q=...&context=...
+  router.get("/:id/search", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+    const sessionId = c.req.param("id");
+    const query = c.req.query("q");
+    const contextLines = parseInt(c.req.query("context") ?? "2", 10);
+
+    if (!query) return c.json({ error: "q query param required" }, 400);
+
+    const session = await sessionRepository.findById(sessionId);
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
+
+    const workspacePath = session.agentWorkspacePath;
+
+    try {
+      const results = await spawnRipgrep({
+        workspacePath,
+        query,
+        contextLines,
+        maxResults: 100,
+      });
+
+      const uniqueFiles = new Set(results.map((r) => r.path)).size;
+
+      return c.json({
+        results,
+        total: results.length,
+        uniqueFiles,
+        truncated: results.length >= 100,
+      });
+    } catch (err: any) {
+      if (err instanceof SearchServiceError) {
+        return c.json({ error: err.message, code: err.code }, 400);
+      }
+      logger.error("[search] error:", err);
+      return c.json({ error: "Search failed" }, 500);
+    }
   });
 
   // ---------------------------------------------------------------------------

@@ -1355,6 +1355,221 @@
     if (file) selectFile(file);
   }
 
+  // ── Content Finder ─────────────────────────────────────────────────────────────
+
+  let contentSearchResults = [];
+  let contentSelectedIndex = 0;
+  let contentFinderLoaded = false;
+  let contentSearchController = null;
+  let contentSearchTimeout = null;
+  let contentLastCompletedQuery = "";
+
+  function isContentFinderOpen() {
+    const dialog = document.getElementById("content-finder-dialog");
+    return dialog && dialog.style.display !== "none";
+  }
+
+  function openContentFinder() {
+    const dialog = document.getElementById("content-finder-dialog");
+    if (!dialog) return false;
+
+    dialog.style.display = "flex";
+    const input = document.getElementById("content-finder-input");
+    if (input) {
+      input.value = "";
+      input.focus();
+    }
+
+    const statusEl = document.getElementById("content-finder-status");
+    if (statusEl) statusEl.textContent = "Press Enter to search...";
+
+    const resultsEl = document.getElementById("content-finder-results");
+    if (resultsEl) {
+      resultsEl.innerHTML = '<div style="color: #888; font-size: 12px; padding: 8px 0;">Press Enter to search...</div>';
+    }
+
+    contentSearchResults = [];
+    contentSelectedIndex = 0;
+    contentLastCompletedQuery = "";
+    contentFinderLoaded = true;
+
+    return true;
+  }
+
+  function closeContentFinder() {
+    const dialog = document.getElementById("content-finder-dialog");
+    if (!dialog) return false;
+
+    if (contentSearchController) {
+      contentSearchController.abort();
+      contentSearchController = null;
+    }
+    if (contentSearchTimeout) {
+      clearTimeout(contentSearchTimeout);
+      contentSearchTimeout = null;
+    }
+
+    dialog.style.display = "none";
+    return true;
+  }
+
+  function performContentSearch(query) {
+    const sessionId = getSessionId();
+    if (!sessionId) return;
+    const normalizedQuery = String(query || "").trim();
+    if (!normalizedQuery) return;
+
+    if (contentSearchController) {
+      contentSearchController.abort();
+    }
+    contentSearchController = new AbortController();
+    const currentController = contentSearchController;
+
+    const statusEl = document.getElementById("content-finder-status");
+    if (statusEl) statusEl.textContent = "Searching...";
+
+    const resultsEl = document.getElementById("content-finder-results");
+    if (resultsEl) {
+      resultsEl.innerHTML = '<div style="color: #888; font-size: 12px; padding: 8px 0;">Searching...</div>';
+    }
+
+    const url = "/sessions/" + sessionId + "/search?q=" + encodeURIComponent(normalizedQuery) + "&context=2";
+
+    fetch(url, { signal: contentSearchController.signal })
+      .then(function (r) {
+        if (!r.ok) throw new Error("search failed");
+        return r.json();
+      })
+      .then(function (data) {
+        if (data.error) throw new Error(data.error);
+        contentLastCompletedQuery = normalizedQuery;
+        contentSearchResults = data.results || [];
+        contentSelectedIndex = 0;
+
+        if (contentSearchResults.length === 0) {
+          if (statusEl) statusEl.textContent = "No results found.";
+          if (resultsEl) {
+            resultsEl.innerHTML = '<div style="color: #888; font-size: 12px; padding: 8px 0;">No results found.</div>';
+          }
+          return;
+        }
+
+        const uniqueFiles = new Set(contentSearchResults.map(function (r) { return r.path; })).size;
+        const truncatedText = data.truncated ? " (results truncated)" : "";
+        if (statusEl) {
+          statusEl.textContent = contentSearchResults.length + " matches in " + uniqueFiles + " files" + truncatedText;
+        }
+
+        renderContentResults(contentSearchResults);
+      })
+      .catch(function (err) {
+        if (err.name === "AbortError") return;
+        if (statusEl) statusEl.textContent = "Error: " + err.message;
+        if (resultsEl) {
+          resultsEl.innerHTML =
+            '<div style="color: #ff6b6b; font-size: 12px; padding: 8px 0;">Error: ' +
+            escapeHtml(err.message) +
+            '</div>';
+        }
+      })
+      .finally(function () {
+        if (contentSearchController === currentController) {
+          contentSearchController = null;
+        }
+      });
+  }
+
+  function renderContentResults(results) {
+    const resultsEl = document.getElementById("content-finder-results");
+    if (!resultsEl) return;
+
+    if (!results.length) {
+      resultsEl.innerHTML = '<div style="color: #888; font-size: 12px; padding: 8px 0;">No results found.</div>';
+      return;
+    }
+
+    const MAX = 50;
+    const shown = results.slice(0, MAX);
+    resultsEl.innerHTML = shown
+      .map(function (r, i) {
+        const active = i === contentSelectedIndex;
+        const path = r.path + ":" + r.line;
+        const text = r.text.trim();
+
+        let html = '<div class="content-finder-result" data-index="' + i + '" style="padding: 6px 10px; cursor: pointer; font-family: monospace; font-size: 12px; background: ' + (active ? "#3a3a5a" : "transparent") + "; color: " + (active ? "#d4d4d4" : "#aaa") + ';">';
+        html +=
+          '<div style="color: ' +
+          (active ? "#9b9bbb" : "#888") +
+          '; font-size: 11px; margin-bottom: 2px;">' +
+          escapeHtml(path) +
+          '</div>';
+        html +=
+          '<div style="white-space: pre-wrap; word-break: break-all;">' +
+          escapeHtml(text) +
+          '</div>';
+        html += "</div>";
+        return html;
+      })
+      .join("");
+
+    // Wire clicks
+    Array.prototype.forEach.call(resultsEl.children, function (el) {
+      el.addEventListener("click", function () {
+        const idx = parseInt(el.getAttribute("data-index"), 10);
+        contentSelectedIndex = idx;
+        renderContentResults(contentSearchResults);
+        confirmContentSelection();
+      });
+      el.addEventListener("mouseenter", function () {
+        const idx = parseInt(el.getAttribute("data-index"), 10);
+        contentSelectedIndex = idx;
+        renderContentResults(contentSearchResults);
+      });
+    });
+
+    // Scroll into view
+    const active = resultsEl.querySelector('[data-index="' + contentSelectedIndex + '"]');
+    if (active) active.scrollIntoView({ block: "nearest" });
+  }
+
+  function navigateContentResults(dir) {
+    if (!contentSearchResults.length) return;
+    if (dir === "down") {
+      contentSelectedIndex = (contentSelectedIndex + 1) % contentSearchResults.length;
+    } else {
+      contentSelectedIndex = (contentSelectedIndex - 1 + contentSearchResults.length) % contentSearchResults.length;
+    }
+    renderContentResults(contentSearchResults);
+  }
+
+  function confirmContentSelection() {
+    const result = contentSearchResults[contentSelectedIndex];
+    if (!result) return;
+
+    const sessionId = getSessionId();
+    if (!sessionId) return;
+
+    const path = result.path;
+    fetchAndAddFile(sessionId, path, function () {
+      EditBufferState.setActive(path, sessionId);
+      renderEditBuffer();
+
+      var filesTab = document.querySelector(
+        '.frame-tab[data-frame-id="left"][data-buffer-id="edit"]',
+      );
+      if (filesTab) filesTab.click();
+
+      const contentEl = document.getElementById("edit-buffer-content");
+      if (contentEl) {
+        const lineHeight = 20;
+        contentEl.scrollTop = Math.max(0, (Number(result.line) - 1) * lineHeight);
+        contentEl.focus();
+      }
+
+      closeContentFinder();
+    });
+  }
+
   function fetchAndAddFile(sessionId, path, callback) {
     fetch(
       "/sessions/" +
@@ -1790,6 +2005,9 @@
       openFileFinder: openFileFinder,
       closeFileFinder: closeFileFinder,
       isFileFinderOpen: isFileFinderOpen,
+      openContentFinder: openContentFinder,
+      closeContentFinder: closeContentFinder,
+      isContentFinderOpen: isContentFinderOpen,
       closeCurrentFile: closeCurrentFile,
       switchFile: switchFile,
       scrollContent: scrollContent,
@@ -1870,11 +2088,77 @@
       });
     }
 
+    // Wire content finder input
+    const contentInput = document.getElementById("content-finder-input");
+    if (contentInput) {
+      contentInput.addEventListener("input", function () {
+        const query = String(contentInput.value || "").trim();
+
+        if (contentSearchTimeout) {
+          clearTimeout(contentSearchTimeout);
+        }
+
+        if (!query) {
+          const resultsEl = document.getElementById("content-finder-results");
+          const statusEl = document.getElementById("content-finder-status");
+          contentSearchResults = [];
+          contentSelectedIndex = 0;
+          contentLastCompletedQuery = "";
+          if (statusEl) statusEl.textContent = "Type to search...";
+          if (resultsEl) {
+            resultsEl.innerHTML =
+              '<div style="color: #888; font-size: 12px; padding: 8px 0;">Type to search...</div>';
+          }
+          return;
+        }
+
+        contentSearchTimeout = setTimeout(function () {
+          performContentSearch(query);
+        }, 300);
+      });
+
+      contentInput.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          navigateContentResults("down");
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          navigateContentResults("up");
+        } else if (e.key === "Enter") {
+          const query = String(contentInput.value || "").trim();
+          if (!query) return;
+          e.preventDefault();
+
+          if (contentSearchTimeout) {
+            clearTimeout(contentSearchTimeout);
+            contentSearchTimeout = null;
+          }
+
+          if (query !== contentLastCompletedQuery) {
+            performContentSearch(query);
+          } else if (contentSearchResults.length > 0) {
+            confirmContentSelection();
+          }
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          closeContentFinder();
+        }
+      });
+    }
+
     // Close dialog when clicking outside modal content
     const dialog = document.getElementById("file-finder-dialog");
     if (dialog) {
       dialog.addEventListener("mousedown", function (e) {
         if (e.target === dialog) closeFileFinder();
+      });
+    }
+
+    // Close content finder when clicking outside modal content
+    const contentDialog = document.getElementById("content-finder-dialog");
+    if (contentDialog) {
+      contentDialog.addEventListener("mousedown", function (e) {
+        if (e.target === contentDialog) closeContentFinder();
       });
     }
 

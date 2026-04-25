@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
 import { mkdirSync, writeFileSync, readFileSync, rmSync } from "fs";
+import { which } from "bun";
 import bcrypt from "bcrypt";
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
@@ -119,6 +120,45 @@ describe("GET /sessions/:id/files/content", () => {
     );
 
     expect(res.status).toBe(401);
+  });
+});
+
+describe("GET /sessions/:id/search", () => {
+  beforeEach(setup);
+
+  afterEach(() => {
+    rmSync(testHome, { recursive: true, force: true });
+  });
+
+  it("returns search results with workspace-relative paths", async () => {
+    const app = new Hono();
+    app.route("/sessions", sessionRoutes);
+
+    const { session, token } = await createUserAndSession("search-user");
+    mkdirSync(join(session.agentWorkspacePath, "src"), { recursive: true });
+    writeFileSync(
+      join(session.agentWorkspacePath, "src", "target.ts"),
+      "export function findMe() { return 42; }\n",
+      "utf-8",
+    );
+
+    const res = await app.request(
+      `/sessions/${session.id}/search?q=findMe&context=2`,
+      { headers: { Cookie: `token=${token}` } },
+    );
+    const body = await res.json();
+
+    const rgPath = await which("rg");
+    if (!rgPath) {
+      expect(res.status).toBe(400);
+      expect(body.code).toBe("NOT_FOUND");
+      return;
+    }
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(body.results)).toBe(true);
+    expect(body.results.length).toBeGreaterThan(0);
+    expect(body.results[0].path).toBe("src/target.ts");
   });
 });
 

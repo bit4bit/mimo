@@ -38,6 +38,7 @@
     shortcutsHelp: "Mod+Shift+/",
     closeModal: "Escape",
     openFileFinder: "Mod+Shift+F",
+    openContentFinder: "Alt+Shift+C",
     closeFile: "Alt+Shift+W",
     reloadFile: "Alt+Shift+R",
     nextFile: "Mod+Alt+ArrowRight",
@@ -263,8 +264,12 @@
     if (!parsed.requiresAlt && event.altKey) {
       return false;
     }
-    // Reject if Shift is pressed but not required (prevents misfires)
-    if (!parsed.requiresShift && event.shiftKey) {
+    // Special case: Alt+Shift+C is needed for content finder
+    // Don't reject when Alt+Shift+C is pressed
+    if (parsed.requiresAlt && parsed.requiresShift && (parsed.key === "C" || parsed.key === "KEYC")) {
+      // This combo is valid, continue
+    } else if (!parsed.requiresShift && event.shiftKey) {
+      // Reject other Shift combos (prevents misfires)
       return false;
     }
     // Reject if Ctrl is pressed but neither Ctrl nor Mod is required
@@ -498,6 +503,13 @@
         handled = window.EditBuffer.isFileFinderOpen()
           ? window.EditBuffer.closeFileFinder()
           : window.EditBuffer.openFileFinder();
+      }
+    } else if (bindingMatches(event, keybindings.openContentFinder)) {
+      // Content finder works globally, not dependent on active buffer
+      if (window.EditBuffer) {
+        handled = window.EditBuffer.isContentFinderOpen()
+          ? window.EditBuffer.closeContentFinder()
+          : window.EditBuffer.openContentFinder();
       }
     } else if (
       isEscapeKey(event) &&
