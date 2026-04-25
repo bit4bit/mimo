@@ -1,14 +1,4 @@
-import { join } from "path";
-import { homedir } from "os";
-import {
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
-  readdirSync,
-  rmdirSync,
-  unlinkSync,
-} from "fs";
+import type { OS } from "../os/types.js";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
 
@@ -61,11 +51,16 @@ export interface CreateProjectInput {
 }
 
 interface ProjectRepositoryDeps {
+  os: OS;
   projectsPath?: string;
 }
 
 export class ProjectRepository {
-  constructor(private deps: ProjectRepositoryDeps = {}) {}
+  private os: OS;
+
+  constructor(private deps: ProjectRepositoryDeps = {} as ProjectRepositoryDeps) {
+    this.os = deps.os;
+  }
 
   private getProjectsPath(): string {
     if (!this.deps.projectsPath) {
@@ -77,11 +72,11 @@ export class ProjectRepository {
   }
 
   private getProjectPath(id: string): string {
-    return join(this.getProjectsPath(), id);
+    return this.os.path.join(this.getProjectsPath(), id);
   }
 
   private getProjectFilePath(id: string): string {
-    return join(this.getProjectPath(id), "project.yaml");
+    return this.os.path.join(this.getProjectPath(id), "project.yaml");
   }
 
   private generateId(): string {
@@ -96,8 +91,8 @@ export class ProjectRepository {
     const id = this.generateId();
     const projectPath = this.getProjectPath(id);
 
-    if (!existsSync(projectPath)) {
-      mkdirSync(projectPath, { recursive: true });
+    if (!this.os.fs.exists(projectPath)) {
+      this.os.fs.mkdir(projectPath, { recursive: true });
     }
 
     const projectData: ProjectData = {
@@ -113,7 +108,7 @@ export class ProjectRepository {
       ...(input.newBranch && { newBranch: input.newBranch }),
     };
 
-    writeFileSync(this.getProjectFilePath(id), dump(projectData), "utf-8");
+    this.os.fs.writeFile(this.getProjectFilePath(id), dump(projectData), { encoding: "utf-8" });
 
     return {
       ...projectData,
@@ -123,11 +118,11 @@ export class ProjectRepository {
 
   async findById(id: string): Promise<Project | null> {
     const filePath = this.getProjectFilePath(id);
-    if (!existsSync(filePath)) {
+    if (!this.os.fs.exists(filePath)) {
       return null;
     }
 
-    const content = readFileSync(filePath, "utf-8");
+    const content = this.os.fs.readFile(filePath, "utf-8");
     const data = load(content) as ProjectData;
 
     return {
@@ -138,18 +133,18 @@ export class ProjectRepository {
 
   async listByOwner(owner: string): Promise<Project[]> {
     const projectsPath = this.getProjectsPath();
-    if (!existsSync(projectsPath)) {
+    if (!this.os.fs.exists(projectsPath)) {
       return [];
     }
 
-    const entries = readdirSync(projectsPath, { withFileTypes: true });
+    const entries = this.os.fs.readdir(projectsPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
     const projects: Project[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const projectFile = join(projectsPath, entry.name, "project.yaml");
-        if (existsSync(projectFile)) {
-          const content = readFileSync(projectFile, "utf-8");
+        const projectFile = this.os.path.join(projectsPath, entry.name, "project.yaml");
+        if (this.os.fs.exists(projectFile)) {
+          const content = this.os.fs.readFile(projectFile, "utf-8");
           const data = load(content) as ProjectData;
           if (data.owner === owner) {
             projects.push({
@@ -166,18 +161,18 @@ export class ProjectRepository {
 
   async listAll(): Promise<Project[]> {
     const projectsPath = this.getProjectsPath();
-    if (!existsSync(projectsPath)) {
+    if (!this.os.fs.exists(projectsPath)) {
       return [];
     }
 
-    const entries = readdirSync(projectsPath, { withFileTypes: true });
+    const entries = this.os.fs.readdir(projectsPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
     const projects: Project[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const projectFile = join(projectsPath, entry.name, "project.yaml");
-        if (existsSync(projectFile)) {
-          const content = readFileSync(projectFile, "utf-8");
+        const projectFile = this.os.path.join(projectsPath, entry.name, "project.yaml");
+        if (this.os.fs.exists(projectFile)) {
+          const content = this.os.fs.readFile(projectFile, "utf-8");
           const data = load(content) as ProjectData;
           projects.push({
             ...data,
@@ -205,29 +200,29 @@ export class ProjectRepository {
   async delete(id: string): Promise<void> {
     const projectPath = this.getProjectPath(id);
 
-    if (existsSync(projectPath)) {
+    if (this.os.fs.exists(projectPath)) {
       // Delete project.yaml first
       const projectFile = this.getProjectFilePath(id);
-      if (existsSync(projectFile)) {
-        unlinkSync(projectFile);
+      if (this.os.fs.exists(projectFile)) {
+        this.os.fs.unlink(projectFile);
       }
 
       // Delete any other files in the directory
-      const entries = readdirSync(projectPath);
+      const entries = this.os.fs.readdir(projectPath) as string[];
       for (const entry of entries) {
-        const entryPath = join(projectPath, entry);
-        if (existsSync(entryPath)) {
-          unlinkSync(entryPath);
+        const entryPath = this.os.path.join(projectPath, entry);
+        if (this.os.fs.exists(entryPath)) {
+          this.os.fs.unlink(entryPath);
         }
       }
 
       // Delete the directory
-      rmdirSync(projectPath);
+      this.os.fs.rm(projectPath);
     }
   }
 
   async exists(id: string): Promise<boolean> {
-    return existsSync(this.getProjectFilePath(id));
+    return this.os.fs.exists(this.getProjectFilePath(id));
   }
 
   async update(
@@ -270,7 +265,7 @@ export class ProjectRepository {
       updatedData.credentialId = project.credentialId;
     }
 
-    writeFileSync(this.getProjectFilePath(id), dump(updatedData), "utf-8");
+    this.os.fs.writeFile(this.getProjectFilePath(id), dump(updatedData), { encoding: "utf-8" });
 
     return {
       ...updatedData,

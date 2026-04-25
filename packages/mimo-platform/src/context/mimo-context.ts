@@ -1,6 +1,3 @@
-import { mkdirSync } from "fs";
-import { join } from "path";
-import { homedir } from "os";
 import { AgentRepository } from "../agents/repository.js";
 import { SessionRepository } from "../sessions/repository.js";
 import { AgentService } from "../agents/service.js";
@@ -20,7 +17,7 @@ import { AutoCommitService } from "../auto-commit/service.js";
 import { McpServerService } from "../mcp-servers/service.js";
 import { ConfigService } from "../config/service.js";
 import { ImpactCalculator } from "../impact/calculator.js";
-import { vcs } from "../vcs/index.js";
+import { VCS } from "../vcs/index.js";
 import { sessionStateService } from "../sessions/state.js";
 import { SharedFossilServer } from "../vcs/shared-fossil-server.js";
 import type { SharedFossilServerConfig } from "../vcs/shared-fossil-server.js";
@@ -29,6 +26,9 @@ import {
   type FileWatcherService,
 } from "../files/file-watcher-service.js";
 import { ExpertService, createExpertService } from "../files/expert-service.js";
+import { createFileService } from "../files/service.js";
+import { createOS } from "../os/node-adapter.js";
+import type { OS } from "../os/types.js";
 
 export interface MimoEnv {
   PORT: number;
@@ -74,7 +74,7 @@ export interface MimoContext {
     mcpServer: McpServerService;
     config: ConfigService;
     impactCalculator: ImpactCalculator;
-    vcs: typeof vcs;
+    vcs: VCS;
     sessionState: typeof sessionStateService;
     sharedFossil: SharedFossilServer | DummySharedFossilServer | null;
     fileWatcher: FileWatcherService;
@@ -88,31 +88,31 @@ type CreateMimoContextOverrides = {
   services?: Partial<MimoContext["services"]>;
 };
 
-function resolvePaths(mimoHome: string): MimoPaths {
+function resolvePaths(mimoHome: string, os: OS): MimoPaths {
   return {
     root: mimoHome,
     data: mimoHome,
-    users: join(mimoHome, "users"),
-    projects: join(mimoHome, "projects"),
-    agents: join(mimoHome, "agents"),
-    mcpServers: join(mimoHome, "mcp-servers"),
-    config: join(mimoHome, "config.yaml"),
+    users: os.path.join(mimoHome, "users"),
+    projects: os.path.join(mimoHome, "projects"),
+    agents: os.path.join(mimoHome, "agents"),
+    mcpServers: os.path.join(mimoHome, "mcp-servers"),
+    config: os.path.join(mimoHome, "config.yaml"),
   };
 }
 
-function ensurePaths(paths: MimoPaths): void {
-  mkdirSync(paths.root, { recursive: true });
-  mkdirSync(paths.users, { recursive: true });
-  mkdirSync(paths.projects, { recursive: true });
-  mkdirSync(paths.agents, { recursive: true });
-  mkdirSync(paths.mcpServers, { recursive: true });
+function ensurePaths(paths: MimoPaths, os: OS): void {
+  os.fs.mkdir(paths.root, { recursive: true });
+  os.fs.mkdir(paths.users, { recursive: true });
+  os.fs.mkdir(paths.projects, { recursive: true });
+  os.fs.mkdir(paths.agents, { recursive: true });
+  os.fs.mkdir(paths.mcpServers, { recursive: true });
 }
 
 /**
  * Factory function to create a SharedFossilServer with configuration from MimoEnv.
  * Port is required - throws error if not provided.
  */
-export function createSharedFossilServer(env: MimoEnv): SharedFossilServer {
+export function createSharedFossilServer(env: MimoEnv, os: OS): SharedFossilServer {
   const port = env.MIMO_SHARED_FOSSIL_SERVER_PORT;
   if (port === undefined) {
     throw new Error(
@@ -125,13 +125,20 @@ export function createSharedFossilServer(env: MimoEnv): SharedFossilServer {
     reposDir: env.FOSSIL_REPOS_DIR,
   };
 
-  return new SharedFossilServer(config);
+  return new SharedFossilServer(config, os);
 }
 
 export function createMimoContext(
   overrides: CreateMimoContextOverrides = {},
 ): MimoContext {
-  const mimoHome = overrides.env?.MIMO_HOME ?? join(homedir(), ".mimo");
+  // Create OS abstraction with injected environment values
+  const os: OS = createOS({
+    PATH: process.env.PATH,
+    HOME: process.env.HOME,
+    ...process.env,
+  });
+
+  const mimoHome = overrides.env?.MIMO_HOME ?? os.path.join(os.path.homeDir(), ".mimo");
   const port = overrides.env?.PORT ?? 3000;
   const env: MimoEnv = {
     PORT: port,
@@ -140,34 +147,41 @@ export function createMimoContext(
       overrides.env?.JWT_SECRET ?? "your-secret-key-change-in-production",
     MIMO_HOME: mimoHome,
     FOSSIL_REPOS_DIR:
-      overrides.env?.FOSSIL_REPOS_DIR ?? join(mimoHome, "session-fossils"),
+      overrides.env?.FOSSIL_REPOS_DIR ?? os.path.join(mimoHome, "session-fossils"),
     MIMO_SHARED_FOSSIL_SERVER_PORT:
       overrides.env?.MIMO_SHARED_FOSSIL_SERVER_PORT,
   };
 
-  const paths = resolvePaths(env.MIMO_HOME);
-  ensurePaths(paths);
+  const paths = resolvePaths(env.MIMO_HOME, os);
+  ensurePaths(paths, os);
+
+  // Create VCS with injected OS
+  const vcs = overrides.services?.vcs ?? new VCS({ os });
 
   const repos: MimoContext["repos"] = {
     users:
       overrides.repos?.users ??
       new UserRepository({
         usersPath: paths.users,
+        os,
       }),
     projects:
       overrides.repos?.projects ??
       new ProjectRepository({
         projectsPath: paths.projects,
+        os,
       }),
     agents:
       overrides.repos?.agents ??
       new AgentRepository({
         agentsPath: paths.agents,
+        os,
       }),
     mcpServers:
       overrides.repos?.mcpServers ??
       new McpServerRepository({
         mcpServersPath: paths.mcpServers,
+        os,
       }),
     sessions:
       overrides.repos?.sessions ??
@@ -177,25 +191,26 @@ export function createMimoContext(
           data: paths.data,
         },
         fossilReposDir: env.FOSSIL_REPOS_DIR,
+        os,
       }),
     credentials:
       overrides.repos?.credentials ??
-      new CredentialRepository({ usersPath: paths.users }),
+      new CredentialRepository({ usersPath: paths.users, os }),
     impacts:
       overrides.repos?.impacts ??
-      new ImpactRepository({ projectsPath: paths.projects }),
+      new ImpactRepository({ projectsPath: paths.projects, os }),
   };
 
   // Create shared scc and jscpd service instances to be passed to ImpactCalculator
   const sccService =
     overrides.services?.scc ??
-    new SccService(join(paths.root, "bin", "scc"), join(paths.root, "cache"));
-  const jscpdService = overrides.services?.jscpd ?? new JscpdService();
+    new SccService(os, os.path.join(paths.root, "bin", "scc"), os.path.join(paths.root, "cache"));
+  const jscpdService = overrides.services?.jscpd ?? new JscpdService(os);
 
   // Create shared impactCalculator instance with injected services
   const impactCalculator =
     overrides.services?.impactCalculator ??
-    new ImpactCalculator(sccService, jscpdService);
+    new ImpactCalculator(sccService, jscpdService, os);
 
   // sharedFossil must be explicitly injected - no auto-instantiation
   const sharedFossilServer =
@@ -203,21 +218,18 @@ export function createMimoContext(
       ? overrides.services.sharedFossil!
       : null;
 
-  const fileService = overrides.services?.fileService ?? {
-    listFiles: async () => [] as any[],
-    readFile: async () => "",
-  };
+  const fileService = overrides.services?.fileService ?? createFileService(os);
 
   const expertService =
-    overrides.services?.expert ?? createExpertService(fileService as any);
+    overrides.services?.expert ?? createExpertService(os);
 
   const services: MimoContext["services"] = {
     auth: overrides.services?.auth ?? new JwtService(env.JWT_SECRET),
     agents:
       overrides.services?.agents ??
       new AgentService(repos.agents, env.JWT_SECRET),
-    chat: overrides.services?.chat ?? new ChatService(paths),
-    frameState: overrides.services?.frameState ?? new FrameStateService(paths),
+    chat: overrides.services?.chat ?? new ChatService(paths, os),
+    frameState: overrides.services?.frameState ?? new FrameStateService(paths, os),
     scc: sccService,
     jscpd: jscpdService,
     commits:
@@ -228,12 +240,14 @@ export function createMimoContext(
         impactRepository: repos.impacts,
         impactCalculator,
         vcs,
+        os,
       }),
     fileSync:
       overrides.services?.fileSync ??
       new FileSyncService({
         sessionRepository: repos.sessions,
         sccService,
+        os,
       }),
     autoCommit:
       overrides.services?.autoCommit ??
@@ -246,18 +260,19 @@ export function createMimoContext(
             impactRepository: repos.impacts,
             impactCalculator,
             vcs,
+            os,
           }),
         sessionRepository: repos.sessions,
         impactCalculator,
       }),
     mcpServer:
       overrides.services?.mcpServer ?? new McpServerService(repos.mcpServers),
-    config: overrides.services?.config ?? new ConfigService(paths.config),
+    config: overrides.services?.config ?? new ConfigService(os, paths.config),
     impactCalculator,
-    vcs: vcs,
+    vcs,
     sessionState: sessionStateService,
     sharedFossil: sharedFossilServer,
-    fileWatcher: overrides.services?.fileWatcher ?? createFileWatcherService(),
+    fileWatcher: overrides.services?.fileWatcher ?? createFileWatcherService(os),
     expert: expertService,
   };
 

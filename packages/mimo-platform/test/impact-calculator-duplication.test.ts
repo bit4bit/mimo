@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync, writeFileSync } from "fs";
+import { createOS } from "../src/os/node-adapter.js";
 
 const BLOCK_A = `function processItems(items: string[]): string[] {
   const result: string[] = [];
@@ -48,13 +49,14 @@ describe("ImpactCalculator duplication integration", () => {
 
     const sccBin = join(process.cwd(), "bin/scc");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
-    const sccService = new SccService(sccBin, join(tmpdir(), "scc-cache"));
-    const jscpdService = new JscpdService(jscpdBin);
+    const os = createOS({ ...process.env });
+    const sccService = new SccService(os, sccBin, join(tmpdir(), "scc-cache"));
+    const jscpdService = new JscpdService(os, jscpdBin);
 
     writeFileSync(join(workspaceDir, "module-a.ts"), BLOCK_A + "\n");
     writeFileSync(join(workspaceDir, "module-b.ts"), BLOCK_B + "\n");
 
-    const calc = new ImpactCalculator(sccService, jscpdService);
+    const calc = new ImpactCalculator(sccService, jscpdService, createOS({ ...process.env }));
     const { metrics } = await calc.calculateImpact(
       "session-1",
       upstreamDir,
@@ -73,15 +75,16 @@ describe("ImpactCalculator duplication integration", () => {
 
     const sccBin = join(process.cwd(), "bin/scc");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
-    const sccService = new SccService(sccBin, join(tmpdir(), "scc-cache"));
-    const jscpdService = new JscpdService(jscpdBin);
+    const os = createOS({ ...process.env });
+    const sccService = new SccService(os, sccBin, join(tmpdir(), "scc-cache"));
+    const jscpdService = new JscpdService(os, jscpdBin);
 
     writeFileSync(
       join(workspaceDir, "unique.ts"),
       `export const x = 1;\nexport const y = 2;\n`,
     );
 
-    const calc = new ImpactCalculator(sccService, jscpdService);
+    const calc = new ImpactCalculator(sccService, jscpdService, createOS({ ...process.env }));
     const { metrics } = await calc.calculateImpact(
       "session-2",
       upstreamDir,
@@ -100,13 +103,14 @@ describe("ImpactCalculator duplication integration", () => {
 
     const sccBin = join(process.cwd(), "bin/scc");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
-    const sccService = new SccService(sccBin, join(tmpdir(), "scc-cache"));
-    const jscpdService = new JscpdService(jscpdBin);
+    const os = createOS({ ...process.env });
+    const sccService = new SccService(os, sccBin, join(tmpdir(), "scc-cache"));
+    const jscpdService = new JscpdService(os, jscpdBin);
 
     writeFileSync(join(workspaceDir, "file-a.ts"), BLOCK_A + "\n");
     writeFileSync(join(workspaceDir, "file-b.ts"), BLOCK_B + "\n");
 
-    const calc = new ImpactCalculator(sccService, jscpdService);
+    const calc = new ImpactCalculator(sccService, jscpdService, createOS({ ...process.env }));
     const { metrics } = await calc.calculateImpact(
       "session-3",
       upstreamDir,
@@ -124,13 +128,14 @@ describe("ImpactCalculator duplication integration", () => {
 
     const sccBin = join(process.cwd(), "bin/scc");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
-    const sccService = new SccService(sccBin, join(tmpdir(), "scc-cache"));
-    const jscpdService = new JscpdService(jscpdBin);
+    const os = createOS({ ...process.env });
+    const sccService = new SccService(os, sccBin, join(tmpdir(), "scc-cache"));
+    const jscpdService = new JscpdService(os, jscpdBin);
 
     writeFileSync(join(workspaceDir, "comp-a.ts"), BLOCK_A + "\n");
     writeFileSync(join(workspaceDir, "comp-b.ts"), BLOCK_B + "\n");
 
-    const calc = new ImpactCalculator(sccService, jscpdService);
+    const calc = new ImpactCalculator(sccService, jscpdService, createOS({ ...process.env }));
     const { metrics } = await calc.calculateImpact(
       "session-4",
       upstreamDir,
@@ -149,10 +154,11 @@ describe("ImpactCalculator duplication integration", () => {
 
     const sccBin = join(process.cwd(), "bin/scc");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
-    const sccService = new SccService(sccBin, join(tmpdir(), "scc-cache"));
-    const jscpdService = new JscpdService(jscpdBin);
+    const os = createOS({ ...process.env });
+    const sccService = new SccService(os, sccBin, join(tmpdir(), "scc-cache"));
+    const jscpdService = new JscpdService(os, jscpdBin);
 
-    const calc = new ImpactCalculator(sccService, jscpdService);
+    const calc = new ImpactCalculator(sccService, jscpdService, createOS({ ...process.env }));
     const { metrics } = await calc.calculateImpact(
       "session-5",
       upstreamDir,

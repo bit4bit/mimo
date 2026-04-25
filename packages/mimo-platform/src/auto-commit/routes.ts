@@ -2,11 +2,10 @@
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";
 import { randomUUID } from "crypto";
-import { existsSync } from "fs";
-import { join } from "path";
 import { authMiddleware } from "../auth/middleware.js";
+import type { OS } from "../os/types.js";
 import type { AutoCommitService } from "./service.js";
-import { vcs } from "../vcs/index.js";
+import type { VCS } from "../vcs/index.js";
 
 type PendingAgentSync = {
   resolve: (value: {
@@ -47,6 +46,8 @@ export interface AutoCommitRouterContext {
   sccService: {
     invalidateCache: (path: string) => void;
   };
+  vcs: VCS;
+  os: OS;
 }
 
 export function resolveAgentSyncNowResult(result: {
@@ -171,13 +172,13 @@ export async function syncSessionViaAssignedAgent(
     if (agentResult.success) {
       if (!agentResult.noChanges) {
         const fossilPath = context.sessionRepository.getFossilPath(sessionId);
-        const checkoutMarkerPath = join(
+        const checkoutMarkerPath = context.os.path.join(
           session.agentWorkspacePath,
           ".fslckout",
         );
 
-        if (!existsSync(checkoutMarkerPath)) {
-          const openResult = await vcs.openFossil(
+        if (!context.os.fs.exists(checkoutMarkerPath)) {
+          const openResult = await context.vcs.openFossil(
             fossilPath,
             session.agentWorkspacePath,
           );
@@ -188,7 +189,7 @@ export async function syncSessionViaAssignedAgent(
           }
         }
 
-        const upResult = await vcs.fossilUp(session.agentWorkspacePath);
+        const upResult = await context.vcs.fossilUp(session.agentWorkspacePath);
         if (!upResult.success) {
           throw new Error(
             upResult.error ||

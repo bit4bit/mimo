@@ -1,5 +1,6 @@
-import { vcs } from "../vcs/index.js";
 import { logger } from "../logger.js";
+import type { VCS } from "../vcs/index.js";
+import type { OS } from "../os/types.js";
 import {
   detectChangedFiles,
   applySelectedFiles,
@@ -50,11 +51,12 @@ export interface SelectiveCommitResult extends CommitAndPushResult {
 }
 
 export interface CommitServiceDeps {
-  sessionRepository: typeof sessionRepository;
-  projectRepository: typeof projectRepository;
-  impactRepository: typeof impactRepository;
-  impactCalculator: typeof impactCalculator;
-  vcs: typeof vcs;
+  sessionRepository: any;
+  projectRepository: any;
+  impactRepository: any;
+  impactCalculator: any;
+  vcs: VCS;
+  os: OS;
 }
 
 export class CommitService {
@@ -85,6 +87,7 @@ export class CommitService {
 
     // Detect changed files (accurate file list)
     const detected = await detectChangedFiles(
+      this.deps.os,
       session.upstreamPath,
       session.agentWorkspacePath,
     );
@@ -179,6 +182,7 @@ export class CommitService {
 
     // Detect changed files
     const changes = await detectChangedFiles(
+      this.deps.os,
       session.upstreamPath,
       session.agentWorkspacePath,
     );
@@ -242,6 +246,7 @@ export class CommitService {
 
     // Apply selected files
     const applyResult = applySelectedFiles(
+      this.deps.os,
       session.upstreamPath,
       session.agentWorkspacePath,
       pathsToApply,

@@ -3,6 +3,7 @@ import { tmpdir } from "os";
 import { join, relative } from "path";
 import { rmSync, mkdirSync, existsSync, writeFileSync } from "fs";
 import { execSync } from "child_process";
+import { createOS } from "../src/os/node-adapter.js";
 import {
   SharedFossilServer,
   normalizeSessionIdForFossil,
@@ -60,7 +61,8 @@ describe("Agent Bootstrap Integration Tests", () => {
 
     // Create fresh SharedFossilServer instance with test-specific port and reposDir via constructor
     const reposDir = join(testHome, "session-fossils");
-    sharedFossilServer = new SharedFossilServer({ port: testPort, reposDir });
+    const os = createOS({ ...process.env });
+    sharedFossilServer = new SharedFossilServer({ port: testPort, reposDir }, os);
   });
 
   afterEach(async () => {

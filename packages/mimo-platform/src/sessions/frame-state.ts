@@ -1,12 +1,5 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-} from "fs";
-import { join } from "path";
 import type { MimoPaths } from "../context/mimo-context.js";
+import type { OS } from "../os/types.js";
 
 export interface FrameState {
   leftFrame: {
@@ -85,35 +78,37 @@ export function updateFrameState(
 // FrameStateService for path-dependent operations
 export class FrameStateService {
   private paths: MimoPaths;
+  private os: OS;
 
-  constructor(paths: MimoPaths) {
+  constructor(paths: MimoPaths, os: OS) {
     this.paths = paths;
+    this.os = os;
   }
 
   private findSessionDir(sessionId: string): string | null {
-    if (!existsSync(this.paths.projects)) {
+    if (!this.os.fs.exists(this.paths.projects)) {
       return null;
     }
 
-    const projectEntries = readdirSync(this.paths.projects, {
+    const projectEntries = this.os.fs.readdir(this.paths.projects, {
       withFileTypes: true,
-    });
+    }) as Array<{ name: string; isDirectory(): boolean }>;
     for (const projectEntry of projectEntries) {
       if (!projectEntry.isDirectory()) {
         continue;
       }
 
-      const sessionsDir = join(
+      const sessionsDir = this.os.path.join(
         this.paths.projects,
         projectEntry.name,
         "sessions",
       );
-      if (!existsSync(sessionsDir)) {
+      if (!this.os.fs.exists(sessionsDir)) {
         continue;
       }
 
-      const sessionDir = join(sessionsDir, sessionId);
-      if (existsSync(sessionDir)) {
+      const sessionDir = this.os.path.join(sessionsDir, sessionId);
+      if (this.os.fs.exists(sessionDir)) {
         return sessionDir;
       }
     }
@@ -127,12 +122,12 @@ export class FrameStateService {
       return "";
     }
 
-    const notesPath = join(sessionDir, "notes.txt");
-    if (!existsSync(notesPath)) {
+    const notesPath = this.os.path.join(sessionDir, "notes.txt");
+    if (!this.os.fs.exists(notesPath)) {
       return "";
     }
 
-    return readFileSync(notesPath, "utf-8");
+    return this.os.fs.readFile(notesPath, "utf-8");
   }
 
   saveNotes(sessionId: string, content: string): void {
@@ -141,42 +136,42 @@ export class FrameStateService {
       throw new Error(`Session ${sessionId} not found`);
     }
 
-    if (!existsSync(sessionDir)) {
-      mkdirSync(sessionDir, { recursive: true });
+    if (!this.os.fs.exists(sessionDir)) {
+      this.os.fs.mkdir(sessionDir, { recursive: true });
     }
 
-    const notesPath = join(sessionDir, "notes.txt");
-    writeFileSync(notesPath, content, "utf-8");
+    const notesPath = this.os.path.join(sessionDir, "notes.txt");
+    this.os.fs.writeFile(notesPath, content, "utf-8");
   }
 
   loadProjectNotes(projectId: string): string {
-    const projectPath = join(this.paths.projects, projectId);
-    if (!existsSync(projectPath)) {
+    const projectPath = this.os.path.join(this.paths.projects, projectId);
+    if (!this.os.fs.exists(projectPath)) {
       return "";
     }
 
-    const notesPath = join(projectPath, "notes.txt");
-    if (!existsSync(notesPath)) {
+    const notesPath = this.os.path.join(projectPath, "notes.txt");
+    if (!this.os.fs.exists(notesPath)) {
       return "";
     }
 
-    return readFileSync(notesPath, "utf-8");
+    return this.os.fs.readFile(notesPath, "utf-8");
   }
 
   saveProjectNotes(projectId: string, content: string): void {
-    const projectPath = join(this.paths.projects, projectId);
-    if (!existsSync(projectPath)) {
-      mkdirSync(projectPath, { recursive: true });
+    const projectPath = this.os.path.join(this.paths.projects, projectId);
+    if (!this.os.fs.exists(projectPath)) {
+      this.os.fs.mkdir(projectPath, { recursive: true });
     }
 
-    const notesPath = join(projectPath, "notes.txt");
-    writeFileSync(notesPath, content, "utf-8");
+    const notesPath = this.os.path.join(projectPath, "notes.txt");
+    this.os.fs.writeFile(notesPath, content, "utf-8");
   }
 }
 
 // Factory function for creating FrameStateService with injected paths
-export function createFrameStateService(paths: MimoPaths): FrameStateService {
-  return new FrameStateService(paths);
+export function createFrameStateService(paths: MimoPaths, os: OS): FrameStateService {
+  return new FrameStateService(paths, os);
 }
 
 // Legacy function exports - will be removed once all consumers use FrameStateService

@@ -1,8 +1,6 @@
 import { createHash } from "crypto";
-import { readFileSync, existsSync } from "fs";
-import { resolve } from "path";
 import chokidar from "chokidar";
-
+import type { OS } from "../os/types.js";
 import { logger } from "../logger";
 
 export interface FileWatcherService {
@@ -57,7 +55,7 @@ interface WatchedFile {
   callback: (event: WatchEvent) => void;
 }
 
-export function createFileWatcherService(): FileWatcherService {
+export function createFileWatcherService(os: OS): FileWatcherService {
   // Map of sessionId -> Map of filePath -> WatchedFile
   const watches = new Map<string, Map<string, WatchedFile>>();
 
@@ -123,7 +121,7 @@ export function createFileWatcherService(): FileWatcherService {
   }
 
   function handleFileChange(filePath: string) {
-    const resolvedPath = resolve(filePath);
+    const resolvedPath = os.path.resolve(filePath);
 
     if (isPatchFile(resolvedPath)) return;
 
@@ -181,7 +179,7 @@ export function createFileWatcherService(): FileWatcherService {
   }
 
   async function handleFileDelete(filePath: string) {
-    const resolvedPath = resolve(filePath);
+    const resolvedPath = os.path.resolve(filePath);
 
     // Filter out patch files
     if (isPatchFile(resolvedPath)) return;
@@ -211,12 +209,12 @@ export function createFileWatcherService(): FileWatcherService {
   }
 
   async function computeChecksum(filePath: string): Promise<string> {
-    const resolvedPath = resolve(filePath);
-    if (!existsSync(resolvedPath)) {
+    const resolvedPath = os.path.resolve(filePath);
+    if (!os.fs.exists(resolvedPath)) {
       throw new Error(`File not found: ${filePath}`);
     }
 
-    const content = readFileSync(resolvedPath);
+    const content = os.fs.readFile(resolvedPath);
     return createHash("md5").update(content).digest("hex");
   }
 
@@ -226,7 +224,7 @@ export function createFileWatcherService(): FileWatcherService {
     currentChecksum: string,
     callback: (event: WatchEvent) => void,
   ): Promise<void> {
-    const resolvedPath = resolve(filePath);
+    const resolvedPath = os.path.resolve(filePath);
     logger.debug(`[FileWatcher] watchFile called for session ${sessionId}`);
     logger.debug(`[FileWatcher] filePath: ${filePath}`);
     logger.debug(`[FileWatcher] resolvedPath: ${resolvedPath}`);
@@ -270,7 +268,7 @@ export function createFileWatcherService(): FileWatcherService {
   }
 
   function unwatchFile(sessionId: string, filePath: string): void {
-    const resolvedPath = resolve(filePath);
+    const resolvedPath = os.path.resolve(filePath);
     const sessionWatches = watches.get(sessionId);
     if (sessionWatches) {
       sessionWatches.delete(resolvedPath);
@@ -309,7 +307,7 @@ export function createFileWatcherService(): FileWatcherService {
   }
 
   function isWatching(sessionId: string, filePath: string): boolean {
-    const resolvedPath = resolve(filePath);
+    const resolvedPath = os.path.resolve(filePath);
     const sessionWatches = watches.get(sessionId);
     return sessionWatches?.has(resolvedPath) ?? false;
   }

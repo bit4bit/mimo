@@ -1,12 +1,4 @@
-import { join } from "path";
-import { homedir } from "os";
-import {
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
-  readdirSync,
-} from "fs";
+import type { OS } from "../os/types.js";
 import YAML from "yaml";
 import { logger } from "../logger.js";
 
@@ -43,14 +35,19 @@ export interface ImpactRecord {
 }
 
 interface ImpactRepositoryDeps {
+  os: OS;
   projectsPath: string;
 }
 
 export class ImpactRepository {
-  constructor(private deps: ImpactRepositoryDeps) {}
+  private os: OS;
+
+  constructor(private deps: ImpactRepositoryDeps) {
+    this.os = deps.os;
+  }
 
   private getImpactDir(projectId: string): string {
-    return join(this.deps.projectsPath, projectId, "impacts");
+    return this.os.path.join(this.deps.projectsPath, projectId, "impacts");
   }
 
   private getImpactPath(
@@ -58,7 +55,7 @@ export class ImpactRepository {
     sessionId: string,
     commitHash: string,
   ): string {
-    return join(
+    return this.os.path.join(
       this.getImpactDir(projectId),
       `${sessionId}-${commitHash}.yaml`,
     );
@@ -66,8 +63,8 @@ export class ImpactRepository {
 
   ensureImpactDir(projectId: string): void {
     const impactDir = this.getImpactDir(projectId);
-    if (!existsSync(impactDir)) {
-      mkdirSync(impactDir, { recursive: true });
+    if (!this.os.fs.exists(impactDir)) {
+      this.os.fs.mkdir(impactDir, { recursive: true });
     }
   }
 
@@ -84,23 +81,23 @@ export class ImpactRepository {
       commitDate: record.commitDate.toISOString(),
     });
 
-    writeFileSync(filePath, yamlContent, "utf-8");
+    this.os.fs.writeFile(filePath, yamlContent, { encoding: "utf-8" });
   }
 
   findByProject(projectId: string): ImpactRecord[] {
     const impactDir = this.getImpactDir(projectId);
 
-    if (!existsSync(impactDir)) {
+    if (!this.os.fs.exists(impactDir)) {
       return [];
     }
 
-    const files = readdirSync(impactDir).filter((f) => f.endsWith(".yaml"));
+    const files = (this.os.fs.readdir(impactDir) as string[]).filter((f) => f.endsWith(".yaml"));
     const records: ImpactRecord[] = [];
 
     for (const file of files) {
-      const filePath = join(impactDir, file);
+      const filePath = this.os.path.join(impactDir, file);
       try {
-        const content = readFileSync(filePath, "utf-8");
+        const content = this.os.fs.readFile(filePath, "utf-8");
         const data = YAML.parse(content);
         records.push({
           ...data,
@@ -133,9 +130,8 @@ export class ImpactRepository {
 
   delete(projectId: string, sessionId: string, commitHash: string): void {
     const filePath = this.getImpactPath(projectId, sessionId, commitHash);
-    if (existsSync(filePath)) {
-      const fs = require("fs");
-      fs.unlinkSync(filePath);
+    if (this.os.fs.exists(filePath)) {
+      this.os.fs.unlink(filePath);
     }
   }
 }

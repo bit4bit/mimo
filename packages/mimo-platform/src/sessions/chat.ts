@@ -1,6 +1,5 @@
-import { join } from "path";
-import { existsSync, mkdirSync, appendFileSync, readFileSync } from "fs";
 import type { MimoPaths } from "../context/mimo-context.js";
+import type { OS } from "../os/types.js";
 
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
@@ -15,9 +14,11 @@ export class ChatService {
   private lastAgentActivity: Map<string, number> = new Map();
   private readonly AGENT_TIMEOUT_MS = 300000; // 5 minutes
   private paths: MimoPaths;
+  private os: OS;
 
-  constructor(paths: MimoPaths) {
+  constructor(paths: MimoPaths, os: OS) {
     this.paths = paths;
+    this.os = os;
   }
 
   private getChatPath(sessionId: string, chatThreadId?: string): string {
@@ -27,35 +28,34 @@ export class ChatService {
       throw new Error(`Session ${sessionId} not found`);
     }
 
-    const threadsDir = join(sessionDir, "chat-threads");
-    if (!existsSync(threadsDir)) {
-      mkdirSync(threadsDir, { recursive: true });
+    const threadsDir = this.os.path.join(sessionDir, "chat-threads");
+    if (!this.os.fs.exists(threadsDir)) {
+      this.os.fs.mkdir(threadsDir, { recursive: true });
     }
 
     const effectiveThreadId = chatThreadId || "__session__";
-    return join(threadsDir, `${effectiveThreadId}.jsonl`);
+    return this.os.path.join(threadsDir, `${effectiveThreadId}.jsonl`);
   }
 
   private findSessionDir(sessionId: string): string | null {
-    if (!existsSync(this.paths.projects)) {
+    if (!this.os.fs.exists(this.paths.projects)) {
       return null;
     }
 
-    const { readdirSync } = require("fs");
-    const projectEntries = readdirSync(this.paths.projects, {
+    const projectEntries = this.os.fs.readdir(this.paths.projects, {
       withFileTypes: true,
-    });
+    }) as Array<{ name: string; isDirectory(): boolean }>;
 
     for (const projectEntry of projectEntries) {
       if (projectEntry.isDirectory()) {
-        const sessionsDir = join(
+        const sessionsDir = this.os.path.join(
           this.paths.projects,
           projectEntry.name,
           "sessions",
         );
-        if (existsSync(sessionsDir)) {
-          const sessionDir = join(sessionsDir, sessionId);
-          if (existsSync(sessionDir)) {
+        if (this.os.fs.exists(sessionsDir)) {
+          const sessionDir = this.os.path.join(sessionsDir, sessionId);
+          if (this.os.fs.exists(sessionDir)) {
             return sessionDir;
           }
         }
@@ -72,7 +72,7 @@ export class ChatService {
   ): Promise<void> {
     const chatPath = this.getChatPath(sessionId, chatThreadId);
     const line = JSON.stringify(message) + "\n";
-    appendFileSync(chatPath, line, "utf-8");
+    this.os.fs.appendFile(chatPath, line, "utf-8");
   }
 
   async loadHistory(
@@ -81,11 +81,11 @@ export class ChatService {
   ): Promise<ChatMessage[]> {
     try {
       const threadPath = this.getChatPath(sessionId, chatThreadId);
-      if (!existsSync(threadPath)) {
+      if (!this.os.fs.exists(threadPath)) {
         return [];
       }
 
-      const content = readFileSync(threadPath, "utf-8");
+      const content = this.os.fs.readFile(threadPath, "utf-8");
       const lines = content
         .trim()
         .split("\n")
@@ -104,14 +104,13 @@ export class ChatService {
   ): Promise<void> {
     const chatPath = this.getChatPath(sessionId, chatThreadId);
     const lines = messages.map((msg) => JSON.stringify(msg)).join("\n") + "\n";
-    appendFileSync(chatPath, lines, "utf-8");
+    this.os.fs.appendFile(chatPath, lines, "utf-8");
   }
 
   async clearHistory(sessionId: string, chatThreadId?: string): Promise<void> {
     const chatPath = this.getChatPath(sessionId, chatThreadId);
-    if (existsSync(chatPath)) {
-      const { unlinkSync } = require("fs");
-      unlinkSync(chatPath);
+    if (this.os.fs.exists(chatPath)) {
+      this.os.fs.unlink(chatPath);
     }
   }
 
@@ -141,6 +140,6 @@ export class ChatService {
 }
 
 // Factory function for creating ChatService with injected paths
-export function createChatService(paths: MimoPaths): ChatService {
-  return new ChatService(paths);
+export function createChatService(paths: MimoPaths, os: OS): ChatService {
+  return new ChatService(paths, os);
 }

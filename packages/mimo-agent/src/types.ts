@@ -1,6 +1,3 @@
-import { ChildProcess } from "child_process";
-import { watch } from "fs";
-
 export interface AgentConfig {
   token: string;
   platform: string;
@@ -55,8 +52,8 @@ export interface SessionInfo {
   fossilPassword?: string;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
-  acpProcess: ChildProcess | null;
-  fileWatcher: ReturnType<typeof watch> | null;
+  acpProcess: { kill(signal?: string): void; exited: Promise<number>; killed?: boolean } | null;
+  fileWatcher: { close(): void } | null;
   currentThoughtBuffer?: string;
   modelState?: ModelState;
   modeState?: ModeState;

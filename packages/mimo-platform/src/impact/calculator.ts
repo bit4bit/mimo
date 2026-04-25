@@ -1,7 +1,6 @@
-import { join, extname, dirname } from "path";
-import { existsSync, readFileSync } from "fs";
 import type { SccService, SccMetrics, SccFileMetrics } from "./scc-service.js";
 import type { JscpdService, Clone } from "./jscpd-service.js";
+import type { OS } from "../os/types.js";
 import { logger } from "../logger.js";
 import { detectChangedFiles } from "../files/changed-files.js";
 import {
@@ -88,13 +87,16 @@ export class ImpactCalculator {
   private previousStates: Map<string, PreviousState> = new Map();
   private customSccService: SccService | undefined;
   private customJscpdService: JscpdService | undefined;
+  private os: OS | undefined;
 
   constructor(
     customSccService?: SccService,
     customJscpdService?: JscpdService,
+    os?: OS,
   ) {
     this.customSccService = customSccService;
     this.customJscpdService = customJscpdService;
+    this.os = os;
   }
 
   private async getSccService(): Promise<SccService> {
@@ -159,6 +161,7 @@ export class ImpactCalculator {
 
     // Detect changed files using shared logic
     const changedFilesResult = await detectChangedFiles(
+      this.os!,
       upstreamPath,
       agentWorkspacePath,
     );
@@ -329,8 +332,8 @@ export class ImpactCalculator {
     // Calculate duplication for changed files
     const changedFilePaths = byFile
       .filter((f) => f.status === "new" || f.status === "changed")
-      .map((f) => join(agentWorkspacePath, f.path))
-      .filter((p) => existsSync(p));
+      .map((f) => this.os!.path.join(agentWorkspacePath, f.path))
+      .filter((p) => this.os!.fs.exists(p));
 
     const duplication = await this.calculateDuplication(
       changedFilePaths,
@@ -400,12 +403,12 @@ export class ImpactCalculator {
         }
 
         if (changedFile.status === "added" || changedFile.status === "modified") {
-          const workspaceFilePath = join(workspacePath, changedFile.path);
-          if (existsSync(workspaceFilePath)) {
+          const workspaceFilePath = this.os!.path.join(workspacePath, changedFile.path);
+          if (this.os!.fs.exists(workspaceFilePath)) {
             workspaceEdges.push(
               ...this.parseDependencyEdgesForFile(
                 changedFile.path,
-                readFileSync(workspaceFilePath, "utf8"),
+                this.os!.fs.readFile(workspaceFilePath, "utf8"),
                 language,
               ),
             );
@@ -413,12 +416,12 @@ export class ImpactCalculator {
         }
 
         if (changedFile.status === "deleted" || changedFile.status === "modified") {
-          const upstreamFilePath = join(upstreamPath, changedFile.path);
-          if (existsSync(upstreamFilePath)) {
+          const upstreamFilePath = this.os!.path.join(upstreamPath, changedFile.path);
+          if (this.os!.fs.exists(upstreamFilePath)) {
             upstreamEdges.push(
               ...this.parseDependencyEdgesForFile(
                 changedFile.path,
-                readFileSync(upstreamFilePath, "utf8"),
+                this.os!.fs.readFile(upstreamFilePath, "utf8"),
                 language,
               ),
             );
@@ -438,7 +441,7 @@ export class ImpactCalculator {
   private getDependencyLanguage(
     filePath: string,
   ): DependencyParserLanguage | undefined {
-    const extension = extname(filePath).toLowerCase();
+    const extension = this.os!.path.extname(filePath).toLowerCase();
     if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(extension)) {
       return "typescript";
     }
@@ -456,7 +459,7 @@ export class ImpactCalculator {
     content: string,
     language: DependencyParserLanguage,
   ): DependencyEdgeInput[] {
-    const sourceDirectory = dirname(filePath).replace(/\\/g, "/") || ".";
+    const sourceDirectory = this.os!.path.dirname(filePath).replace(/\\/g, "/") || ".";
     let parsedDependencies: string[] = [];
 
     if (language === "typescript") {
@@ -472,7 +475,7 @@ export class ImpactCalculator {
       if (isExternalDependency(dependencyPath, language)) {
         continue;
       }
-      const target = extractTargetDirectory(filePath, dependencyPath, language);
+      const target = extractTargetDirectory(filePath, dependencyPath, language, this.os);
       if (!target || target === sourceDirectory) {
         continue;
       }

@@ -27,8 +27,7 @@ describe("Dev workspace user migration", () => {
     sessionRepository = ctx.repos.sessions;
     projectRepository = ctx.repos.projects;
     userRepository = ctx.repos.users;
-    const vcsModule = await import("../src/vcs/index.ts");
-    vcs = vcsModule.vcs;
+    vcs = ctx.services.vcs;
     vcs.createFossilUser = async () => ({ success: true });
   });
 

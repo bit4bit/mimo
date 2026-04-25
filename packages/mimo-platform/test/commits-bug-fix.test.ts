@@ -39,19 +39,17 @@ describe("Commit Service Bug Fix - Untracked Files Preservation", () => {
     });
 
     it("should have VCS service with required methods", async () => {
-      const { VCS, vcs } = await import("../src/vcs/index.ts");
+      const { VCS } = await import("../src/vcs/index.ts");
 
-      // Verify VCS class and singleton exist
+      // Verify VCS class exists
       expect(VCS).toBeDefined();
-      expect(vcs).toBeDefined();
-      expect(typeof vcs.createFossilRepo).toBe("function");
-      expect(typeof vcs.openFossil).toBe("function");
-      expect(typeof vcs.commitUpstream).toBe("function");
+      expect(ctx.services.vcs).toBeDefined();
+      expect(typeof ctx.services.vcs.createFossilRepo).toBe("function");
+      expect(typeof ctx.services.vcs.openFossil).toBe("function");
+      expect(typeof ctx.services.vcs.commitUpstream).toBe("function");
     });
 
     it("should create repositories and sessions correctly", async () => {
-      const { vcs } = await import("../src/vcs/index.ts");
-
       // Use repositories from mimoContext
       const sessionRepo = ctx.repos.sessions;
       const projectRepo = ctx.repos.projects;

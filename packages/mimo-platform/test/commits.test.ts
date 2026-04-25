@@ -3,12 +3,14 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, mkdirSync, writeFileSync, unlinkSync, readdirSync, readFileSync } from "fs";
 import { execSync } from "child_process";
+import { createOS } from "../src/os/node-adapter.js";
 
 describe("Commit Service Tests", () => {
   let testHome: string;
   let ctx: any;
   let CommitService: any;
   let VCS: any;
+  let os: any;
 
   beforeEach(async () => {
     testHome = join(
@@ -23,10 +25,13 @@ describe("Commit Service Tests", () => {
     mkdirSync(testHome, { recursive: true });
     mkdirSync(join(testHome, "projects"), { recursive: true });
 
+    os = createOS({ ...process.env });
+
     const { createMimoContext } =
       await import("../src/context/mimo-context.ts");
     ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+      os,
     });
 
     // Use services from mimoContext
@@ -38,7 +43,7 @@ describe("Commit Service Tests", () => {
 
   describe("Commit and Push Flow", () => {
     it("should successfully complete 4-step commit flow for Git project", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionRepo = ctx.repos.sessions;
       const projectRepo = ctx.repos.projects;
 
@@ -89,7 +94,7 @@ describe("Commit Service Tests", () => {
     }, 30000);
 
     it("should push to newBranch when project has newBranch configured", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionRepo = ctx.repos.sessions;
       const projectRepo = ctx.repos.projects;
 
@@ -190,7 +195,7 @@ describe("Commit Service Tests", () => {
     });
 
     it("should report no changes when agent-workspace is empty", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionRepo = ctx.repos.sessions;
       const projectRepo = ctx.repos.projects;
 
@@ -234,7 +239,7 @@ describe("Commit Service Tests", () => {
     }, 30000);
 
     it("should use user-provided commit message in upstream repository", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionRepo = ctx.repos.sessions;
       const projectRepo = ctx.repos.projects;
 
@@ -288,7 +293,7 @@ describe("Commit Service Tests", () => {
 
   describe("5. Commit Preview and Selective Apply", () => {
     it("should return correct flat file list and statuses from preview endpoint", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionRepo = ctx.repos.sessions;
       const projectRepo = ctx.repos.projects;
 
@@ -355,7 +360,7 @@ describe("Commit Service Tests", () => {
     }, 30000);
 
     it("should include hunks for modified files in preview", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionRepo = ctx.repos.sessions;
       const projectRepo = ctx.repos.projects;
 
@@ -442,7 +447,7 @@ describe("Commit Service Tests", () => {
     });
 
     it("should validate that selected paths exist in preview set", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionRepo = ctx.repos.sessions;
       const projectRepo = ctx.repos.projects;
 
@@ -491,7 +496,7 @@ describe("Commit Service Tests", () => {
     }, 30000);
 
     it("should apply selective commit with only chosen files", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionRepo = ctx.repos.sessions;
       const projectRepo = ctx.repos.projects;
 
@@ -544,7 +549,7 @@ describe("Commit Service Tests", () => {
     }, 30000);
 
     it("should store patch with actual diff before applying files", async () => {
-      const vcs = new VCS();
+      const vcs = new VCS({ os });
       const sessionRepo = ctx.repos.sessions;
       const projectRepo = ctx.repos.projects;
 
