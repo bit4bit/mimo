@@ -313,7 +313,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 action={`/projects/${project.id}/sessions/${session.id}/delete`}
                 style="display: inline;"
               >
-                <button type="submit" class="btn-danger" data-help-id="session-detail-page-button">
+                <button type="submit" class="btn-danger" data-help-id="session-detail-page-button" onclick="return confirm('Delete this session? This cannot be undone.')">
                   Delete Session
                 </button>
               </form>

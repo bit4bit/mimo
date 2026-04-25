@@ -1895,7 +1895,7 @@ class MimoAgent {
     }
   }
 
-  private handleSessionEnded(message: any): void {
+  private async handleSessionEnded(message: any): Promise<void> {
     const sessionId = message.sessionId;
     if (!sessionId) {
       logger.debug("[mimo-agent] No sessionId in session_ended");
@@ -1913,8 +1913,8 @@ class MimoAgent {
 
     this.sessionAvailableCommands.delete(sessionId);
 
-    // Terminate session - handles process, watcher, timers
-    this.sessionManager.terminateSession(sessionId);
+    // Terminate session - handles process, watcher, timers, fossil close, folder cleanup
+    await this.sessionManager.terminateSession(sessionId);
   }
 
   private async handleThreadDeleted(message: any): Promise<void> {
