@@ -4,7 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { mkdirSync, writeFileSync } from "fs";
 import { dump } from "js-yaml";
-import bcrypt from "bcrypt";
+
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
 let sessionRoutes: any;
@@ -45,7 +45,7 @@ describe("Session Priority", () => {
   });
 
   async function createUser(username = "testuser") {
-    await userRepository.create(username, await bcrypt.hash("testpass", 10));
+    await userRepository.create(username, await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }));
     return authService.generateToken(username);
   }
 

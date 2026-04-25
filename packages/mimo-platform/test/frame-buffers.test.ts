@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, writeFileSync } from "fs";
-import bcrypt from "bcrypt";
+
 
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
@@ -55,7 +55,7 @@ describe("Frame buffers integration", () => {
     app.route("/projects", projectsRoutes);
     app.route("/sessions", sessionRoutes);
 
-    await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+    await userRepository.create("testuser", await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }));
     const project = await projectRepository.create({
       name: "Test Project",
       repoUrl: "https://github.com/user/repo.git",

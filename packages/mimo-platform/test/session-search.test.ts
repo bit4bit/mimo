@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "bun:test";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
-import bcrypt from "bcrypt";
+
 
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
@@ -59,7 +59,7 @@ describe("Session Search API", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -96,7 +96,7 @@ describe("Session Search API", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project1 = await projectRepository.create({
         name: "Frontend App",
@@ -139,7 +139,7 @@ describe("Session Search API", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -176,8 +176,8 @@ describe("Session Search API", () => {
       const app = new Hono();
       app.route("/sessions", sessionRoutes);
 
-      await userRepository.create("user1", await bcrypt.hash("password", 10));
-      await userRepository.create("user2", await bcrypt.hash("password", 10));
+      await userRepository.create("user1", await Bun.password.hash("password", { algorithm: "bcrypt", cost: 10 }));
+      await userRepository.create("user2", await Bun.password.hash("password", { algorithm: "bcrypt", cost: 10 }));
 
       const project = await projectRepository.create({
         name: "Test Project",
@@ -214,7 +214,7 @@ describe("Session Search API", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",
@@ -247,7 +247,7 @@ describe("Session Search API", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
         name: "Test Project",

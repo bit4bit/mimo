@@ -4,7 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { mkdirSync, writeFileSync, readFileSync, rmSync } from "fs";
 import { which } from "bun";
-import bcrypt from "bcrypt";
+
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
 let sessionRoutes: any;
@@ -43,7 +43,7 @@ async function setup() {
 }
 
 async function createUserAndSession(username: string) {
-  await userRepository.create(username, await bcrypt.hash("pass", 10));
+  await userRepository.create(username, await Bun.password.hash("pass", { algorithm: "bcrypt", cost: 10 }));
 
   const project = await projectRepository.create({
     name: "Test Project",
@@ -206,7 +206,7 @@ describe("GET /sessions/:id/search", () => {
 
     await ctx.repos.users.create(
       "search-di-user",
-      await bcrypt.hash("pass", 10),
+      await Bun.password.hash("pass", { algorithm: "bcrypt", cost: 10 }),
     );
     const project = await ctx.repos.projects.create({
       name: "Search DI Project",

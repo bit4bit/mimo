@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync } from "fs";
-import bcrypt from "bcrypt";
+
 
 // Re-import modules after setting up environment
 let projectRoutes: any;
@@ -48,7 +48,7 @@ describe("Project Management Integration Tests", () => {
       // Create and authenticate user first
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -100,7 +100,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -126,7 +126,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -155,7 +155,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -193,7 +193,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -238,7 +238,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -260,7 +260,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -288,7 +288,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -308,7 +308,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -345,7 +345,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -370,7 +370,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -404,7 +404,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -437,7 +437,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -471,7 +471,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -505,7 +505,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -631,7 +631,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -666,7 +666,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -701,7 +701,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -737,7 +737,7 @@ describe("Project Management Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");

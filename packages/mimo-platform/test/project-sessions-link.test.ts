@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync } from "fs";
-import bcrypt from "bcrypt";
+
 
 let app: any;
 let projectRepository: any;
@@ -44,7 +44,7 @@ describe("Project Sessions Link Integration Tests", () => {
     it("should show sessions list when a project is selected", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -82,7 +82,7 @@ describe("Project Sessions Link Integration Tests", () => {
     it("should show empty session state when no sessions exist", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -106,7 +106,7 @@ describe("Project Sessions Link Integration Tests", () => {
     it("should show New Session button", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -131,7 +131,7 @@ describe("Project Sessions Link Integration Tests", () => {
     it("should show session links to session detail", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");
@@ -161,7 +161,7 @@ describe("Project Sessions Link Integration Tests", () => {
     it("should order sessions by recency when priorities are equal", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const { generateToken } = await import("../src/auth/jwt.ts");
       const token = await generateToken("testuser");

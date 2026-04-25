@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync } from "fs";
-import bcrypt from "bcrypt";
+
 
 describe("Agent Capabilities", () => {
   let testHome: string;
@@ -40,7 +40,7 @@ describe("Agent Capabilities", () => {
     const { createAgentsRoutes } = await import("../src/agents/routes.tsx");
     agentRoutes = createAgentsRoutes(ctx);
 
-    await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+    await userRepository.create("testuser", await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }));
     authToken = await ctx.services.auth.generateToken("testuser");
   });
 

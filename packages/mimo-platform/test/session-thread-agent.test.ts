@@ -3,7 +3,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync } from "fs";
 import { Hono } from "hono";
-import bcrypt from "bcrypt";
+
 
 describe("Session findByThreadAgentId", () => {
   let testHome: string;
@@ -142,7 +142,7 @@ describe("Session creation without agent assignment", () => {
     sessionRepository = ctx.repos.sessions;
     projectRepository = ctx.repos.projects;
 
-    await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+    await userRepository.create("testuser", await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }));
     token = await ctx.services.auth.generateToken("testuser");
   });
 

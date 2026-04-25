@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync } from "fs";
-import bcrypt from "bcrypt";
+
 
 let agentRoutes: any;
 let agentRepository: any;
@@ -39,7 +39,7 @@ describe("Agent Lifecycle Integration Tests", () => {
     it("should create agent record with JWT token", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
 
       const agent = await agentService.createAgent({
@@ -59,7 +59,7 @@ describe("Agent Lifecycle Integration Tests", () => {
     it("should reject agent creation without provider", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
 
       expect(async () => {
@@ -75,7 +75,7 @@ describe("Agent Lifecycle Integration Tests", () => {
     it("should reject empty name", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
 
       expect(async () => {
@@ -90,7 +90,7 @@ describe("Agent Lifecycle Integration Tests", () => {
     it("should reject whitespace-only name", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
 
       expect(async () => {
@@ -105,7 +105,7 @@ describe("Agent Lifecycle Integration Tests", () => {
     it("should reject name longer than 64 characters", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
 
       expect(async () => {
@@ -120,7 +120,7 @@ describe("Agent Lifecycle Integration Tests", () => {
     it("should verify agent JWT token includes provider", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
 
       const agent = await agentRepository.create({
@@ -141,7 +141,7 @@ describe("Agent Lifecycle Integration Tests", () => {
     it("should verify agent JWT token", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
 
       const agent = await agentRepository.create({
@@ -168,7 +168,7 @@ describe("Agent Lifecycle Integration Tests", () => {
     it("should update agent status to online on connect", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
 
       const agent = await agentRepository.create({
@@ -185,7 +185,7 @@ describe("Agent Lifecycle Integration Tests", () => {
     it("should update agent status to offline on disconnect", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
 
       const agent = await agentRepository.create({
@@ -202,8 +202,8 @@ describe("Agent Lifecycle Integration Tests", () => {
     });
 
     it("should list agents by owner", async () => {
-      await userRepository.create("user1", await bcrypt.hash("pass1", 10));
-      await userRepository.create("user2", await bcrypt.hash("pass2", 10));
+      await userRepository.create("user1", await Bun.password.hash("pass1", { algorithm: "bcrypt", cost: 10 }));
+      await userRepository.create("user2", await Bun.password.hash("pass2", { algorithm: "bcrypt", cost: 10 }));
 
       await agentRepository.create({
         name: "User1 Agent",
@@ -224,7 +224,7 @@ describe("Agent Lifecycle Integration Tests", () => {
     it("should list agents by status", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
 
       await agentRepository.create({
@@ -247,7 +247,7 @@ describe("Agent Lifecycle Integration Tests", () => {
     it("should delete agent", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
 
       const agent = await agentRepository.create({
@@ -326,7 +326,7 @@ describe("Agent Lifecycle Integration Tests", () => {
     it("should clear capabilities on refresh", async () => {
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
 
       const agent = await agentRepository.create({
@@ -375,7 +375,7 @@ describe("Agent Lifecycle Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
 
       const token = await ctx.services.auth.generateToken("testuser");
@@ -400,7 +400,7 @@ describe("Agent Lifecycle Integration Tests", () => {
 
       await userRepository.create(
         "testuser",
-        await bcrypt.hash("testpass", 10),
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
 
       const agent = await agentRepository.create({

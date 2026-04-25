@@ -31,8 +31,7 @@ describe("Chat Streaming State on Reconnect", () => {
     sessionRepository = ctx.repos.sessions;
     projectRepository = ctx.repos.projects;
 
-    const bcrypt = await import("bcrypt");
-    await ctx.repos.users.create("testuser", await bcrypt.hash("testpass", 10));
+    await ctx.repos.users.create("testuser", await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }));
 
     const project = await projectRepository.create({
       name: "Test Project",
