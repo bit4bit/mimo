@@ -50,6 +50,10 @@ export interface ImpactMetrics {
     cognitive: number;
     estimatedMinutes: number;
   };
+  absoluteComplexity: {
+    upstream: number;
+    workspace: number;
+  };
   byLanguage: LanguageImpact[];
   byFile: FileImpactDetail[];
   duplication?: DuplicationMetrics;
@@ -144,7 +148,6 @@ export class ImpactCalculator {
 
     try {
       upstreamMetrics = await sccService.runScc(upstreamPath, forceRefresh);
-      logger.debug(`[impact] Upstream scc metrics:`, upstreamMetrics);
     } catch (error) {
       logger.error(`[impact] Failed to get upstream metrics:`, error);
     }
@@ -154,7 +157,6 @@ export class ImpactCalculator {
         agentWorkspacePath,
         forceRefresh,
       );
-      logger.debug(`[impact] Workspace scc metrics:`, workspaceMetrics);
     } catch (error) {
       logger.error(`[impact] Failed to get workspace metrics:`, error);
     }
@@ -251,7 +253,17 @@ export class ImpactCalculator {
           } else {
             linesRemoved += Math.abs(locDelta);
           }
-          cyclomaticDelta += workspaceFile.complexity - upstreamFile.complexity;
+          const fileComplexityDelta = workspaceFile.complexity - upstreamFile.complexity;
+          cyclomaticDelta += fileComplexityDelta;
+          
+          // Anomaly detection: single file delta > 500%
+          if (upstreamFile.complexity > 0) {
+            const percentChange = Math.abs(fileComplexityDelta) / upstreamFile.complexity;
+            if (percentChange > 5) {
+              logger.warn(`[impact:anomaly] detected: single_file_threshold path=${relPath} old=${upstreamFile.complexity} new=${workspaceFile.complexity} delta=${fileComplexityDelta}`);
+            }
+          }
+          
         }
 
         // Language aggregation
@@ -311,6 +323,14 @@ export class ImpactCalculator {
       }
     }
 
+    // Anomaly detection: total delta > 1000 complexity points
+    if (Math.abs(cyclomaticDelta) > 1000) {
+      const upComplexity = upstreamMetrics?.complexity?.cyclomatic ?? 0;
+      const wsComplexity = workspaceMetrics?.complexity?.cyclomatic ?? 0;
+      logger.warn(`[impact:anomaly] detected: total_threshold delta=${cyclomaticDelta} (upstream=${upComplexity} workspace=${wsComplexity})`);
+    }
+
+
     // Add scc metrics for files
     const byFileWithDetails: FileImpactDetail[] = byFile.map((f) => {
       // Find matching scc data if available
@@ -347,6 +367,9 @@ export class ImpactCalculator {
       agentWorkspacePath,
     );
 
+    const upstreamComplexity = upstreamMetrics?.complexity?.cyclomatic ?? 0;
+    const workspaceComplexity = workspaceMetrics?.complexity?.cyclomatic ?? 0;
+
     const metrics: ImpactMetrics = {
       files,
       linesOfCode: {
@@ -358,6 +381,10 @@ export class ImpactCalculator {
         cyclomatic: cyclomaticDelta,
         cognitive: cognitiveDelta,
         estimatedMinutes: Math.max(0, Math.ceil(estimatedMinutes)),
+      },
+      absoluteComplexity: {
+        upstream: upstreamComplexity,
+        workspace: workspaceComplexity,
       },
       byLanguage: Array.from(languageMap.values()),
       byFile: byFileWithDetails,
@@ -574,6 +601,8 @@ export class ImpactCalculator {
       return "→";
     };
 
+    const cyclomaticTrend = getTrend(current.complexity.cyclomatic, previous.complexity.cyclomatic);
+
     return {
       files: {
         new: getTrend(current.files.new, previous.fileCounts.new),
@@ -586,10 +615,7 @@ export class ImpactCalculator {
         net: getTrend(current.linesOfCode.net, previous.loc.net),
       },
       complexity: {
-        cyclomatic: getTrend(
-          current.complexity.cyclomatic,
-          previous.complexity.cyclomatic,
-        ),
+        cyclomatic: cyclomaticTrend,
         cognitive: getTrend(
           current.complexity.cognitive,
           previous.complexity.cognitive,
