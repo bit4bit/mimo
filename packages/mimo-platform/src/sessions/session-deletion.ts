@@ -26,7 +26,7 @@ interface McpTokenStoreLike {
 
 export interface SessionDeletionLike {
   deleteSessionByRecord(
-    session: Pick<Session, "id" | "projectId" | "assignedAgentId"> & {
+    session: Pick<Session, "id" | "projectId" | "assignedAgentId" | "chatThreads"> & {
       mcpToken?: string;
     },
   ): Promise<void>;
@@ -46,7 +46,7 @@ export function createSessionDeletionUseCase(
 ): SessionDeletionLike {
   return {
     async deleteSessionByRecord(
-      session: Pick<Session, "id" | "projectId" | "assignedAgentId"> & {
+      session: Pick<Session, "id" | "projectId" | "assignedAgentId" | "chatThreads"> & {
         mcpToken?: string;
       },
     ): Promise<void> {
@@ -58,11 +58,13 @@ export function createSessionDeletionUseCase(
       await deps.fileSyncService.cleanupSession(session.id);
       deps.impactCalculator.clearState(session.id);
 
-      if (session.assignedAgentId) {
-        await deps.agentService.notifySessionEnded(
-          session.id,
-          session.assignedAgentId,
-        );
+      const agentIds = new Set<string>();
+      if (session.assignedAgentId) agentIds.add(session.assignedAgentId);
+      for (const thread of session.chatThreads ?? []) {
+        if (thread.assignedAgentId) agentIds.add(thread.assignedAgentId);
+      }
+      for (const agentId of agentIds) {
+        await deps.agentService.notifySessionEnded(session.id, agentId);
       }
     },
   };

@@ -176,9 +176,28 @@ export class SessionManager {
     this.callbacks.onFileChange(sessionId, Array.from(uniqueChanges.values()));
   }
 
-  terminateSession(sessionId: string): void {
+  async terminateSession(sessionId: string): Promise<void> {
     this.stopSession(sessionId);
     this.sessions.delete(sessionId);
+
+    const checkoutPath = this.os.path.join(this.workDir, sessionId);
+    const repoPath = this.os.path.join(this.workDir, `${sessionId}.fossil`);
+
+    if (this.os.fs.exists(checkoutPath)) {
+      logger.debug(`[mimo-agent] Closing fossil repo for session: ${sessionId}`);
+      try {
+        await this.os.command.run(["fossil", "close"], { cwd: checkoutPath, timeoutMs: 10000 });
+      } catch {
+        // Ignore — checkout may already be closed or not a fossil repo
+      }
+      logger.debug(`[mimo-agent] Deleting session folder: ${checkoutPath}`);
+      this.os.fs.rm(checkoutPath, { recursive: true, force: true });
+    }
+
+    if (this.os.fs.exists(repoPath)) {
+      logger.debug(`[mimo-agent] Deleting fossil repo file: ${repoPath}`);
+      this.os.fs.unlink(repoPath);
+    }
   }
 
   stopSession(sessionId: string): void {
@@ -214,9 +233,9 @@ export class SessionManager {
     }
   }
 
-  terminateAll(): void {
-    for (const sessionId of this.sessions.keys()) {
-      this.terminateSession(sessionId);
+  async terminateAll(): Promise<void> {
+    for (const sessionId of Array.from(this.sessions.keys())) {
+      await this.terminateSession(sessionId);
     }
   }
 }
