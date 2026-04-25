@@ -29,6 +29,7 @@ Download pre-built binaries from the [releases page](https://github.com/bit4bit/
 
 - [Fossil](https://fossil-scm.org) 2.27+
 - Git (for Git repository support)
+- [ripgrep (rg)](https://github.com/BurntSushi/ripgrep) (required for content search in EditBuffer)
 
 ### Quick Start
 
