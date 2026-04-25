@@ -5,12 +5,12 @@
 
 const FILE_STATUS_META = {
   // Commit preview statuses
-  added:     { badge: "+", cssClass: "file-status-new",     color: "#51cf66" },
-  modified:  { badge: "~", cssClass: "file-status-changed",  color: "#74c0fc" },
-  deleted:   { badge: "-", cssClass: "file-status-deleted",  color: "#ff6b6b" },
+  added: { badge: "+", cssClass: "file-status-new", color: "#51cf66" },
+  modified: { badge: "~", cssClass: "file-status-changed", color: "#74c0fc" },
+  deleted: { badge: "-", cssClass: "file-status-deleted", color: "#ff6b6b" },
   // Impact buffer statuses
-  new:       { badge: "+", cssClass: "file-status-new",     color: "#51cf66" },
-  changed:   { badge: "~", cssClass: "file-status-changed",  color: "#74c0fc" },
+  new: { badge: "+", cssClass: "file-status-new", color: "#51cf66" },
+  changed: { badge: "~", cssClass: "file-status-changed", color: "#74c0fc" },
 };
 
 function shortPath(path) {
@@ -23,8 +23,17 @@ function shortPath(path) {
  * Dependencies injected: no global state, no side effects outside element creation.
  */
 function renderChangedFileRow(file, options = {}) {
-  const { showCheckbox = false, checked = false, onChange = null, sessionId = null } = options;
-  const meta = FILE_STATUS_META[file.status] || { badge: "?", cssClass: "", color: "#888" };
+  const {
+    showCheckbox = false,
+    checked = false,
+    onChange = null,
+    sessionId = null,
+  } = options;
+  const meta = FILE_STATUS_META[file.status] || {
+    badge: "?",
+    cssClass: "",
+    color: "#888",
+  };
   const isDeleted = file.status === "deleted";
   const isNew = file.status === "added" || file.status === "new";
   const isModified = file.status === "modified" || file.status === "changed";

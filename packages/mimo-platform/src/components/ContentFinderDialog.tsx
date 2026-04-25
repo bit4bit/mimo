@@ -4,7 +4,9 @@ interface ContentFinderDialogProps {
   sessionId: string;
 }
 
-export const ContentFinderDialog: FC<ContentFinderDialogProps> = ({ sessionId }) => {
+export const ContentFinderDialog: FC<ContentFinderDialogProps> = ({
+  sessionId,
+}) => {
   return (
     <div
       id="content-finder-dialog"
@@ -35,7 +37,7 @@ export const ContentFinderDialog: FC<ContentFinderDialogProps> = ({ sessionId })
             outline: none;
             box-sizing: border-box;
           "
-         />
+        />
         <div
           id="content-finder-results"
           style="margin-top: 8px; max-height: 400px; overflow-y: auto;"
@@ -47,8 +49,7 @@ export const ContentFinderDialog: FC<ContentFinderDialogProps> = ({ sessionId })
         <div
           id="content-finder-status"
           style="font-size: 11px; color: #666; padding-top: 8px; border-top: 1px solid #444; margin-top: 8px;"
-        >
-        </div>
+        ></div>
       </div>
     </div>
   );

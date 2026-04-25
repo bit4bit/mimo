@@ -11,6 +11,6 @@ describe("EditBuffer MCP open_file handler", () => {
 
     expect(source.includes("open_file_in_editbuffer")).toBe(true);
     expect(source.includes("fetchAndAddFile(sessionId, data.path")).toBe(true);
-    expect(source.includes("data-buffer-id=\"edit\"")).toBe(true);
+    expect(source.includes('data-buffer-id="edit"')).toBe(true);
   });
 });

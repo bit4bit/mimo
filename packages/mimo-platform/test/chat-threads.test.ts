@@ -438,7 +438,8 @@ describe("Chat Threads API", () => {
     it("4.4 session_ready includes platform MCP server config", async () => {
       const sentMessages: any[] = [];
       const originalIsOnline = agentService.isAgentOnline.bind(agentService);
-      const originalGetConnection = agentService.getAgentConnection.bind(agentService);
+      const originalGetConnection =
+        agentService.getAgentConnection.bind(agentService);
 
       agentService.isAgentOnline = () => true;
       agentService.getAgentConnection = () => ({
@@ -490,7 +491,8 @@ describe("Chat Threads API", () => {
     it("4.5 repeated session_ready payloads keep the same mcpToken", async () => {
       const sentMessages: any[] = [];
       const originalIsOnline = agentService.isAgentOnline.bind(agentService);
-      const originalGetConnection = agentService.getAgentConnection.bind(agentService);
+      const originalGetConnection =
+        agentService.getAgentConnection.bind(agentService);
 
       agentService.isAgentOnline = () => true;
       agentService.getAgentConnection = () => ({

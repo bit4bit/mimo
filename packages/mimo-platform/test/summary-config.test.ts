@@ -11,10 +11,7 @@ describe("sanitizeSummaryConfig", () => {
     try {
       const mimoDir = join(tempDir, ".mimo");
       mkdirSync(mimoDir, { recursive: true });
-      writeFileSync(
-        join(mimoDir, "config.yaml"),
-        "theme: dark\n",
-      );
+      writeFileSync(join(mimoDir, "config.yaml"), "theme: dark\n");
 
       const isolatedConfigService = new ConfigService(
         createOS({ ...process.env }),
@@ -57,7 +54,7 @@ describe("sanitizeSummaryConfig", () => {
       mkdirSync(mimoDir, { recursive: true });
       writeFileSync(
         join(mimoDir, "config.yaml"),
-        "theme: dark\nsummary:\n  prompt: \"\"",
+        'theme: dark\nsummary:\n  prompt: ""',
       );
 
       const isolatedConfigService = new ConfigService(

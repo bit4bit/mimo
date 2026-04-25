@@ -52,7 +52,11 @@ export const ConfigEditorPage: FC<ConfigEditorProps> = ({
 
             <div class="form-group">
               <label>Theme</label>
-              <select name="theme" value={config.theme} data-help-id="config-editor-page-theme-select">
+              <select
+                name="theme"
+                value={config.theme}
+                data-help-id="config-editor-page-theme-select"
+              >
                 <option value="dark">Dark</option>
                 <option value="light">Light</option>
               </select>
@@ -66,7 +70,8 @@ export const ConfigEditorPage: FC<ConfigEditorProps> = ({
                 min="8"
                 max="32"
                 value={config.fontSize}
-               data-help-id="config-editor-page-font-size-input" />
+                data-help-id="config-editor-page-font-size-input"
+              />
             </div>
 
             <div class="form-group">
@@ -76,15 +81,24 @@ export const ConfigEditorPage: FC<ConfigEditorProps> = ({
                 name="fontFamily"
                 value={config.fontFamily}
                 placeholder="monospace"
-               data-help-id="config-editor-page-font-family-input" />
+                data-help-id="config-editor-page-font-family-input"
+              />
             </div>
           </div>
 
           <div class="form-actions">
-            <button type="reset" class="btn-secondary" data-help-id="config-editor-page-button">
+            <button
+              type="reset"
+              class="btn-secondary"
+              data-help-id="config-editor-page-button"
+            >
               Reset to Defaults
             </button>
-            <button type="submit" class="btn-primary" data-help-id="config-editor-page-button">
+            <button
+              type="submit"
+              class="btn-primary"
+              data-help-id="config-editor-page-button"
+            >
               Save Configuration
             </button>
           </div>

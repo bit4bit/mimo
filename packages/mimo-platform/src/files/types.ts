@@ -37,6 +37,6 @@ export interface SearchService {
   searchContent: (
     workspacePath: string,
     query: string,
-    options: SearchOptions
+    options: SearchOptions,
   ) => Promise<ContentSearchResult[]>;
 }

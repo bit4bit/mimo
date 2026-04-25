@@ -250,7 +250,7 @@ export class SharedFossilServer {
     // Check if process started successfully
     // We can't check pid on SpawnedProcess, so we just wait and check if it exits
     let started = true;
-    
+
     // Set up process exit handler
     const exitPromise = new Promise<number>((resolve) => {
       this.process!.exited.then((code) => {
@@ -271,14 +271,14 @@ export class SharedFossilServer {
     clearTimeout(timeout);
 
     if (exitCode !== -1) {
-      logger.error(`[SharedFossilServer] Server exited immediately with code ${exitCode}`);
+      logger.error(
+        `[SharedFossilServer] Server exited immediately with code ${exitCode}`,
+      );
       this.process = null;
       return false;
     }
 
-    logger.debug(
-      `[SharedFossilServer] Server started on port ${this.port}`,
-    );
+    logger.debug(`[SharedFossilServer] Server started on port ${this.port}`);
 
     // Set up process event handlers via the exited promise
     this.process.exited.then((code) => {

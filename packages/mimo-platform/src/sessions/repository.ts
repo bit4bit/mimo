@@ -164,23 +164,40 @@ export class SessionRepository {
   }
 
   private getSessionPath(projectId: string, sessionId: string): string {
-    return this.os.path.join(this.getProjectsPath(), projectId, "sessions", sessionId);
+    return this.os.path.join(
+      this.getProjectsPath(),
+      projectId,
+      "sessions",
+      sessionId,
+    );
   }
 
   private getSessionFilePath(projectId: string, sessionId: string): string {
-    return this.os.path.join(this.getSessionPath(projectId, sessionId), "session.yaml");
+    return this.os.path.join(
+      this.getSessionPath(projectId, sessionId),
+      "session.yaml",
+    );
   }
 
   private getUpstreamPath(projectId: string, sessionId: string): string {
-    return this.os.path.join(this.getSessionPath(projectId, sessionId), "upstream");
+    return this.os.path.join(
+      this.getSessionPath(projectId, sessionId),
+      "upstream",
+    );
   }
 
   private getAgentWorkspacePath(projectId: string, sessionId: string): string {
-    return this.os.path.join(this.getSessionPath(projectId, sessionId), "agent-workspace");
+    return this.os.path.join(
+      this.getSessionPath(projectId, sessionId),
+      "agent-workspace",
+    );
   }
 
   private getPatchesPath(projectId: string, sessionId: string): string {
-    return this.os.path.join(this.getSessionPath(projectId, sessionId), "patches");
+    return this.os.path.join(
+      this.getSessionPath(projectId, sessionId),
+      "patches",
+    );
   }
 
   /**
@@ -204,7 +221,10 @@ export class SessionRepository {
    */
   getFossilPath(sessionId: string): string {
     const normalizedId = normalizeSessionIdForFossil(sessionId);
-    return this.os.path.join(this.getFossilReposDir(), `${normalizedId}.fossil`);
+    return this.os.path.join(
+      this.getFossilReposDir(),
+      `${normalizedId}.fossil`,
+    );
   }
 
   private generateId(): string {
@@ -311,13 +331,23 @@ export class SessionRepository {
       return null;
     }
 
-    const projectEntries = this.os.fs.readdir(Paths.projects, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+    const projectEntries = this.os.fs.readdir(Paths.projects, {
+      withFileTypes: true,
+    }) as import("../os/types.js").DirEnt[];
 
     for (const projectEntry of projectEntries) {
       if (projectEntry.isDirectory()) {
-        const sessionsDir = this.os.path.join(Paths.projects, projectEntry.name, "sessions");
+        const sessionsDir = this.os.path.join(
+          Paths.projects,
+          projectEntry.name,
+          "sessions",
+        );
         if (this.os.fs.exists(sessionsDir)) {
-          const sessionFile = this.os.path.join(sessionsDir, sessionId, "session.yaml");
+          const sessionFile = this.os.path.join(
+            sessionsDir,
+            sessionId,
+            "session.yaml",
+          );
           if (this.os.fs.exists(sessionFile)) {
             const content = this.os.fs.readFile(sessionFile, "utf-8");
             const data = load(content) as SessionData;
@@ -392,17 +422,27 @@ export class SessionRepository {
   }
 
   async listByProject(projectId: string): Promise<Session[]> {
-    const sessionsDir = this.os.path.join(this.getProjectsPath(), projectId, "sessions");
+    const sessionsDir = this.os.path.join(
+      this.getProjectsPath(),
+      projectId,
+      "sessions",
+    );
     if (!this.os.fs.exists(sessionsDir)) {
       return [];
     }
 
-    const entries = this.os.fs.readdir(sessionsDir, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+    const entries = this.os.fs.readdir(sessionsDir, {
+      withFileTypes: true,
+    }) as import("../os/types.js").DirEnt[];
     const sessions: Session[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const sessionFile = this.os.path.join(sessionsDir, entry.name, "session.yaml");
+        const sessionFile = this.os.path.join(
+          sessionsDir,
+          entry.name,
+          "session.yaml",
+        );
         if (this.os.fs.exists(sessionFile)) {
           const content = this.os.fs.readFile(sessionFile, "utf-8");
           const data = load(content) as SessionData;
@@ -443,7 +483,9 @@ export class SessionRepository {
       return [];
     }
 
-    const projectEntries = this.os.fs.readdir(projectsPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+    const projectEntries = this.os.fs.readdir(projectsPath, {
+      withFileTypes: true,
+    }) as import("../os/types.js").DirEnt[];
     const sessions: Session[] = [];
 
     for (const projectEntry of projectEntries) {
@@ -464,17 +506,29 @@ export class SessionRepository {
       return [];
     }
 
-    const projectEntries = this.os.fs.readdir(Paths.projects, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+    const projectEntries = this.os.fs.readdir(Paths.projects, {
+      withFileTypes: true,
+    }) as import("../os/types.js").DirEnt[];
     const sessions: Session[] = [];
 
     for (const projectEntry of projectEntries) {
       if (projectEntry.isDirectory()) {
-        const sessionsDir = this.os.path.join(Paths.projects, projectEntry.name, "sessions");
+        const sessionsDir = this.os.path.join(
+          Paths.projects,
+          projectEntry.name,
+          "sessions",
+        );
         if (this.os.fs.exists(sessionsDir)) {
-          const entries = this.os.fs.readdir(sessionsDir, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+          const entries = this.os.fs.readdir(sessionsDir, {
+            withFileTypes: true,
+          }) as import("../os/types.js").DirEnt[];
           for (const entry of entries) {
             if (entry.isDirectory()) {
-              const sessionFile = this.os.path.join(sessionsDir, entry.name, "session.yaml");
+              const sessionFile = this.os.path.join(
+                sessionsDir,
+                entry.name,
+                "session.yaml",
+              );
               if (this.os.fs.exists(sessionFile)) {
                 const content = this.os.fs.readFile(sessionFile, "utf-8");
                 const data = load(content) as SessionData;
@@ -518,18 +572,30 @@ export class SessionRepository {
     const projectsPath = this.getProjectsPath();
     if (!this.os.fs.exists(projectsPath)) return [];
 
-    const projectEntries = this.os.fs.readdir(projectsPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+    const projectEntries = this.os.fs.readdir(projectsPath, {
+      withFileTypes: true,
+    }) as import("../os/types.js").DirEnt[];
     const sessions: Session[] = [];
 
     for (const projectEntry of projectEntries) {
       if (!projectEntry.isDirectory()) continue;
-      const sessionsDir = this.os.path.join(projectsPath, projectEntry.name, "sessions");
+      const sessionsDir = this.os.path.join(
+        projectsPath,
+        projectEntry.name,
+        "sessions",
+      );
       if (!this.os.fs.exists(sessionsDir)) continue;
 
-      const entries = this.os.fs.readdir(sessionsDir, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+      const entries = this.os.fs.readdir(sessionsDir, {
+        withFileTypes: true,
+      }) as import("../os/types.js").DirEnt[];
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
-        const sessionFile = this.os.path.join(sessionsDir, entry.name, "session.yaml");
+        const sessionFile = this.os.path.join(
+          sessionsDir,
+          entry.name,
+          "session.yaml",
+        );
         if (!this.os.fs.exists(sessionFile)) continue;
 
         const content = this.os.fs.readFile(sessionFile, "utf-8");
@@ -679,7 +745,9 @@ export class SessionRepository {
   private deleteDirectoryRecursive(dirPath: string): void {
     if (!this.os.fs.exists(dirPath)) return;
 
-    const entries = this.os.fs.readdir(dirPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+    const entries = this.os.fs.readdir(dirPath, {
+      withFileTypes: true,
+    }) as import("../os/types.js").DirEnt[];
 
     for (const entry of entries) {
       const entryPath = this.os.path.join(dirPath, entry.name);

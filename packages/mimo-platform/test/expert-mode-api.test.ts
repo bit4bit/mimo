@@ -176,7 +176,8 @@ describe("GET /sessions/:id/search", () => {
       after: [],
     };
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
 
     const searchCalls: Array<{ workspacePath: string; query: string }> = [];
@@ -203,7 +204,10 @@ describe("GET /sessions/:id/search", () => {
     const app = new Hono();
     app.route("/sessions", createSessionsRoutes(ctx));
 
-    await ctx.repos.users.create("search-di-user", await bcrypt.hash("pass", 10));
+    await ctx.repos.users.create(
+      "search-di-user",
+      await bcrypt.hash("pass", 10),
+    );
     const project = await ctx.repos.projects.create({
       name: "Search DI Project",
       repoUrl: "https://github.com/user/repo.git",

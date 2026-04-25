@@ -1,7 +1,15 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
-import { rmSync, existsSync, mkdirSync, writeFileSync, unlinkSync, readdirSync, readFileSync } from "fs";
+import {
+  rmSync,
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  unlinkSync,
+  readdirSync,
+  readFileSync,
+} from "fs";
 import { execSync } from "child_process";
 import { createOS } from "../src/os/node-adapter.js";
 

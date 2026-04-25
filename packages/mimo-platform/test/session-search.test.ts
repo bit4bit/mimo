@@ -21,7 +21,8 @@ describe("Session Search API", () => {
       `mimo-session-search-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     );
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       services: { sharedFossil: new DummySharedFossilServer() },
@@ -175,14 +176,8 @@ describe("Session Search API", () => {
       const app = new Hono();
       app.route("/sessions", sessionRoutes);
 
-      await userRepository.create(
-        "user1",
-        await bcrypt.hash("password", 10),
-      );
-      await userRepository.create(
-        "user2",
-        await bcrypt.hash("password", 10),
-      );
+      await userRepository.create("user1", await bcrypt.hash("password", 10));
+      await userRepository.create("user2", await bcrypt.hash("password", 10));
 
       const project = await projectRepository.create({
         name: "Test Project",

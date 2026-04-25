@@ -51,10 +51,13 @@ describe("SharedFossilServer Integration Tests", () => {
 
     // Create fresh instance with test-specific port via constructor injection
     const os = createOS({ ...process.env });
-    const sharedServer = new SharedFossilServer({
-      port: testPort,
-      reposDir: join(testHome, "session-fossils"),
-    }, os);
+    const sharedServer = new SharedFossilServer(
+      {
+        port: testPort,
+        reposDir: join(testHome, "session-fossils"),
+      },
+      os,
+    );
     const testServer = { sharedServer, testHome, testPort };
     sharedServers.push(testServer);
     return testServer;
@@ -189,10 +192,13 @@ describe("SharedFossilServer Integration Tests", () => {
     it("should use port passed via constructor", () => {
       const testReposDir = join(tmpdir(), `mimo-test-repos-${Date.now()}`);
       const os = createOS({ ...process.env });
-      const freshServer = new SharedFossilServer({
-        port: 19000,
-        reposDir: testReposDir,
-      }, os);
+      const freshServer = new SharedFossilServer(
+        {
+          port: 19000,
+          reposDir: testReposDir,
+        },
+        os,
+      );
 
       expect(freshServer.getPort()).toBe(19000);
     });
@@ -205,10 +211,13 @@ describe("SharedFossilServer Integration Tests", () => {
       // The server should use the provided reposDir directly
       // and NOT fall back to process.env.MIMO_HOME
       const os = createOS({ ...process.env });
-      const server = new SharedFossilServer({
-        port: 19001,
-        reposDir: customReposDir,
-      }, os);
+      const server = new SharedFossilServer(
+        {
+          port: 19001,
+          reposDir: customReposDir,
+        },
+        os,
+      );
 
       expect(server.getReposDir()).toBe(customReposDir);
     });

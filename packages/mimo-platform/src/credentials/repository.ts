@@ -74,7 +74,10 @@ export class CredentialRepository {
   }
 
   private getCredentialFilePath(username: string, id: string): string {
-    return this.os.path.join(this.getCredentialsDirPath(username), `${id}.yaml`);
+    return this.os.path.join(
+      this.getCredentialsDirPath(username),
+      `${id}.yaml`,
+    );
   }
 
   private generateId(): string {
@@ -169,7 +172,9 @@ export class CredentialRepository {
       return [];
     }
 
-    const entries = this.os.fs.readdir(credentialsDir, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+    const entries = this.os.fs.readdir(credentialsDir, {
+      withFileTypes: true,
+    }) as import("../os/types.js").DirEnt[];
     const credentials: Credential[] = [];
 
     for (const entry of entries) {
@@ -247,4 +252,7 @@ export class CredentialRepository {
 // Legacy singleton export - requires paths to be injected via constructor
 // This will fail at runtime if not initialized with proper paths
 // Use createMimoContext() instead for proper initialization
-export const credentialRepository = new CredentialRepository({ os: null as any, usersPath: "" });
+export const credentialRepository = new CredentialRepository({
+  os: null as any,
+  usersPath: "",
+});

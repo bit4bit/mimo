@@ -15,7 +15,13 @@ import { join, relative } from "path";
 import { readFileSync, readdirSync, statSync, writeFileSync } from "fs";
 import { homedir } from "os";
 
-const INTERACTIVE_TAGS = new Set(["a", "button", "input", "select", "textarea"]);
+const INTERACTIVE_TAGS = new Set([
+  "a",
+  "button",
+  "input",
+  "select",
+  "textarea",
+]);
 const SKIP_ATTRS = new Set(["type", "disabled", "readonly", "placeholder"]);
 
 interface HelpIdEntry {
@@ -40,7 +46,11 @@ function findJsxFiles(dir: string): string[] {
   const entries = readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const fullPath = join(dir, entry.name);
-    if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules") {
+    if (
+      entry.isDirectory() &&
+      !entry.name.startsWith(".") &&
+      entry.name !== "node_modules"
+    ) {
       files.push(...findJsxFiles(fullPath));
     } else if (entry.name.endsWith(".tsx") || entry.name.endsWith(".jsx")) {
       files.push(fullPath);
@@ -64,9 +74,9 @@ function extractComponentName(filePath: string): string {
 }
 
 function extractContext(attrs: string[]): string {
-  const idAttr = attrs.find(a => a.startsWith("id="));
-  const classAttr = attrs.find(a => a.startsWith("class="));
-  const nameAttr = attrs.find(a => a.startsWith("name="));
+  const idAttr = attrs.find((a) => a.startsWith("id="));
+  const classAttr = attrs.find((a) => a.startsWith("class="));
+  const nameAttr = attrs.find((a) => a.startsWith("name="));
 
   if (idAttr) {
     const match = idAttr.match(/id="([^"]+)"/);
@@ -75,7 +85,9 @@ function extractContext(attrs: string[]): string {
   if (classAttr) {
     const match = classAttr.match(/class="([^"]+)"/);
     if (match) {
-      const classes = match[1].split(" ").filter(c => !c.startsWith("btn") && !c.startsWith("data-table"));
+      const classes = match[1]
+        .split(" ")
+        .filter((c) => !c.startsWith("btn") && !c.startsWith("data-table"));
       if (classes.length > 0) return classes[0];
     }
   }
@@ -131,11 +143,18 @@ function parseJsxFile(content: string, filePath: string): ParseResult {
 }
 
 function generateYamlSkeleton(entries: HelpIdEntry[]): string {
-  const lines = ["# Help content for MIMO platform", "# Add descriptions for each help entry", "", ""];
+  const lines = [
+    "# Help content for MIMO platform",
+    "# Add descriptions for each help entry",
+    "",
+    "",
+  ];
 
   for (const entry of entries) {
     lines.push(`${entry.id}:`);
-    lines.push(`  title: "${entry.tag.charAt(0).toUpperCase() + entry.tag.slice(1)} - ${entry.component}"`);
+    lines.push(
+      `  title: "${entry.tag.charAt(0).toUpperCase() + entry.tag.slice(1)} - ${entry.component}"`,
+    );
     lines.push(`  content: |`);
     lines.push(`    Add description for this ${entry.tag} element.`);
     lines.push("");
@@ -160,7 +179,8 @@ function main() {
   console.log(`Found ${jsxFiles.length} JSX files`);
 
   const allEntries: HelpIdEntry[] = [];
-  const results: { file: string; entries: HelpIdEntry[]; modified: string }[] = [];
+  const results: { file: string; entries: HelpIdEntry[]; modified: string }[] =
+    [];
 
   for (const file of jsxFiles) {
     try {
@@ -171,7 +191,9 @@ function main() {
         results.push({ file, entries, modified });
         allEntries.push(...entries);
         if (verbose) {
-          console.log(`  ${relative(process.cwd(), file)}: ${entries.length} entries`);
+          console.log(
+            `  ${relative(process.cwd(), file)}: ${entries.length} entries`,
+          );
         }
       }
     } catch (error) {

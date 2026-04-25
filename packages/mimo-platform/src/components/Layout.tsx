@@ -1,6 +1,9 @@
 import type { FC } from "hono/jsx";
 import { raw } from "hono/html";
-import type { SessionKeybindingsConfig, GlobalKeybindingsConfig } from "../config/service.js";
+import type {
+  SessionKeybindingsConfig,
+  GlobalKeybindingsConfig,
+} from "../config/service.js";
 import { SessionFinderDialog } from "./SessionFinderDialog.js";
 
 interface LayoutProps {
@@ -84,12 +87,12 @@ export const Layout: FC<LayoutProps> = ({
           {sessionId && <script src="/js/notes.js" defer></script>}
           {sessionId && <script src="/js/edit-buffer.js" defer></script>}
           {sessionId && <script src="/js/summary-buffer.js" defer></script>}
-          {sessionId && <script src="/js/session-keybindings.js" defer></script>}
+          {sessionId && (
+            <script src="/js/session-keybindings.js" defer></script>
+          )}
           <script src="/vendor/marked.min.js" defer></script>
           <script src="/js/help-tooltip.js" defer></script>
-          {showSessionFinder && (
-            <script src="/js/session-finder.js"></script>
-          )}
+          {showSessionFinder && <script src="/js/session-finder.js"></script>}
           <style>{`
            * { margin: 0; padding: 0; box-sizing: border-box; }
            html, body { 
@@ -502,11 +505,18 @@ export const Layout: FC<LayoutProps> = ({
           <nav class="top-nav">
             <div class="nav-brand">
               {backUrl && (
-                <a href={backUrl} style="margin-right: 8px;" title="Back" data-help-id="layout-a">
+                <a
+                  href={backUrl}
+                  style="margin-right: 8px;"
+                  title="Back"
+                  data-help-id="layout-a"
+                >
                   &lt;
                 </a>
               )}
-              <a href="/dashboard" data-help-id="layout-a">MIMO</a>
+              <a href="/dashboard" data-help-id="layout-a">
+                MIMO
+              </a>
               {(sessionName || projectName) && (
                 <span style="margin-left: 10px; color: #888;">
                   {sessionName && (
@@ -520,7 +530,11 @@ export const Layout: FC<LayoutProps> = ({
                   {projectName && (
                     <span>
                       {sessionName ? " | " : "| "}
-                      <a href={`/projects/${projectId}`} style="color: #888;" data-help-id="layout-a">
+                      <a
+                        href={`/projects/${projectId}`}
+                        style="color: #888;"
+                        data-help-id="layout-a"
+                      >
                         {projectName}
                       </a>
                       {fossilUrl && (
@@ -529,14 +543,19 @@ export const Layout: FC<LayoutProps> = ({
                           target="_blank"
                           title="View Fossil Repository"
                           style="margin-left: 4px;"
-                         data-help-id="layout-a">
+                          data-help-id="layout-a"
+                        >
                           🌿
                         </a>
                       )}
                       {agentId && agentName && (
                         <span style="margin-left: 4px;">
                           |{" "}
-                          <a href={`/agents/${agentId}`} style="color: #888;" data-help-id="layout-a">
+                          <a
+                            href={`/agents/${agentId}`}
+                            style="color: #888;"
+                            data-help-id="layout-a"
+                          >
                             {agentName}
                           </a>
                         </span>
@@ -548,12 +567,24 @@ export const Layout: FC<LayoutProps> = ({
               )}
             </div>
             <div class="nav-links">
-              <a href="/dashboard" data-help-id="layout-a">Dashboard</a>
-              <a href="/projects" data-help-id="layout-a">Projects</a>
-              <a href="/mcp-servers" data-help-id="layout-a">MCP Servers</a>
-              <a href="/credentials" data-help-id="layout-a">Credentials</a>
-              <a href="/agents" data-help-id="layout-a">Agents</a>
-              <a href="/auth/logout" data-help-id="layout-a">Logout</a>
+              <a href="/dashboard" data-help-id="layout-a">
+                Dashboard
+              </a>
+              <a href="/projects" data-help-id="layout-a">
+                Projects
+              </a>
+              <a href="/mcp-servers" data-help-id="layout-a">
+                MCP Servers
+              </a>
+              <a href="/credentials" data-help-id="layout-a">
+                Credentials
+              </a>
+              <a href="/agents" data-help-id="layout-a">
+                Agents
+              </a>
+              <a href="/auth/logout" data-help-id="layout-a">
+                Logout
+              </a>
             </div>
           </nav>
           <main style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto;">

@@ -62,8 +62,14 @@ export function divide(x: number, y: number): number {
     );
 
     // Copy to workspace
-    writeFileSync(join(workspaceDir, "main.ts"), readFileSync(join(upstreamDir, "main.ts")));
-    writeFileSync(join(workspaceDir, "utils.ts"), readFileSync(join(upstreamDir, "utils.ts")));
+    writeFileSync(
+      join(workspaceDir, "main.ts"),
+      readFileSync(join(upstreamDir, "main.ts")),
+    );
+    writeFileSync(
+      join(workspaceDir, "utils.ts"),
+      readFileSync(join(upstreamDir, "utils.ts")),
+    );
   });
 
   afterEach(() => {
@@ -97,7 +103,7 @@ export function divide(x: number, y: number): number {
     for (let i = 0; i < 5; i++) {
       sccService.clearCache(upstreamDir);
       sccService.clearCache(workspaceDir);
-      
+
       const result = await calculator.calculateImpact(
         "test-session",
         upstreamDir,
@@ -107,12 +113,15 @@ export function divide(x: number, y: number): number {
     }
 
     // All results should have identical cyclomatic delta (no changes)
-    const cyclomaticDeltas = results.map(r => r.metrics.complexity.cyclomatic);
-    
+    const cyclomaticDeltas = results.map(
+      (r) => r.metrics.complexity.cyclomatic,
+    );
+
     // Check all values are within ±5% of mean
-    const mean = cyclomaticDeltas.reduce((a, b) => a + b, 0) / cyclomaticDeltas.length;
+    const mean =
+      cyclomaticDeltas.reduce((a, b) => a + b, 0) / cyclomaticDeltas.length;
     const maxVariance = mean * 0.05;
-    
+
     for (let i = 0; i < cyclomaticDeltas.length; i++) {
       const variance = Math.abs(cyclomaticDeltas[i] - mean);
       expect(variance).toBeLessThanOrEqual(maxVariance);
@@ -233,7 +242,9 @@ console.log(add(1, 2));
     );
 
     // Should detect the new file
-    expect(result2.metrics.files.new).toBeGreaterThan(result1.metrics.files.new);
+    expect(result2.metrics.files.new).toBeGreaterThan(
+      result1.metrics.files.new,
+    );
 
     console.log("✓ Force refresh bypasses cache correctly");
   });
@@ -265,7 +276,9 @@ console.log(add(1, 2));
     // Create a file with high complexity
     writeFileSync(
       join(upstreamDir, "complex.ts"),
-      Array.from({ length: 100 }, (_, i) => `
+      Array.from(
+        { length: 100 },
+        (_, i) => `
 function func${i}(a: number, b: number): number {
   if (a > 0) {
     if (b > 0) {
@@ -275,11 +288,15 @@ function func${i}(a: number, b: number): number {
   }
   return b;
 }
-`).join("\n"),
+`,
+      ).join("\n"),
     );
 
     // Copy to workspace
-    writeFileSync(join(workspaceDir, "complex.ts"), readFileSync(join(upstreamDir, "complex.ts")));
+    writeFileSync(
+      join(workspaceDir, "complex.ts"),
+      readFileSync(join(upstreamDir, "complex.ts")),
+    );
 
     const result = await calculator.calculateImpact(
       "test-session",

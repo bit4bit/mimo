@@ -56,11 +56,9 @@ export class UserRepository {
       createdAt: new Date().toISOString(),
     };
 
-    this.os.fs.writeFile(
-      this.getCredentialsPath(username),
-      dump(credentials),
-      { encoding: "utf-8" },
-    );
+    this.os.fs.writeFile(this.getCredentialsPath(username), dump(credentials), {
+      encoding: "utf-8",
+    });
 
     return {
       username,
@@ -84,12 +82,18 @@ export class UserRepository {
       return [];
     }
 
-    const entries = this.os.fs.readdir(usersPath, { withFileTypes: true }) as import("../os/types.js").DirEnt[];
+    const entries = this.os.fs.readdir(usersPath, {
+      withFileTypes: true,
+    }) as import("../os/types.js").DirEnt[];
     const users: User[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const credentialsPath = this.os.path.join(usersPath, entry.name, "credentials.yaml");
+        const credentialsPath = this.os.path.join(
+          usersPath,
+          entry.name,
+          "credentials.yaml",
+        );
         if (this.os.fs.exists(credentialsPath)) {
           const content = this.os.fs.readFile(credentialsPath, "utf-8");
           const creds = load(content) as UserCredentials;
@@ -108,4 +112,7 @@ export class UserRepository {
 // Legacy singleton export - requires paths to be injected via constructor
 // This will fail at runtime if not initialized with proper paths
 // Use createMimoContext() instead for proper initialization
-export const userRepository = new UserRepository({ os: null as any, usersPath: "" });
+export const userRepository = new UserRepository({
+  os: null as any,
+  usersPath: "",
+});

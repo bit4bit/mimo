@@ -1385,7 +1385,8 @@
 
     const resultsEl = document.getElementById("content-finder-results");
     if (resultsEl) {
-      resultsEl.innerHTML = '<div style="color: #888; font-size: 12px; padding: 8px 0;">Press Enter to search...</div>';
+      resultsEl.innerHTML =
+        '<div style="color: #888; font-size: 12px; padding: 8px 0;">Press Enter to search...</div>';
     }
 
     contentSearchResults = [];
@@ -1430,10 +1431,16 @@
 
     const resultsEl = document.getElementById("content-finder-results");
     if (resultsEl) {
-      resultsEl.innerHTML = '<div style="color: #888; font-size: 12px; padding: 8px 0;">Searching...</div>';
+      resultsEl.innerHTML =
+        '<div style="color: #888; font-size: 12px; padding: 8px 0;">Searching...</div>';
     }
 
-    const url = "/sessions/" + sessionId + "/search?q=" + encodeURIComponent(normalizedQuery) + "&context=2";
+    const url =
+      "/sessions/" +
+      sessionId +
+      "/search?q=" +
+      encodeURIComponent(normalizedQuery) +
+      "&context=2";
 
     fetch(url, { signal: contentSearchController.signal })
       .then(function (r) {
@@ -1449,15 +1456,25 @@
         if (contentSearchResults.length === 0) {
           if (statusEl) statusEl.textContent = "No results found.";
           if (resultsEl) {
-            resultsEl.innerHTML = '<div style="color: #888; font-size: 12px; padding: 8px 0;">No results found.</div>';
+            resultsEl.innerHTML =
+              '<div style="color: #888; font-size: 12px; padding: 8px 0;">No results found.</div>';
           }
           return;
         }
 
-        const uniqueFiles = new Set(contentSearchResults.map(function (r) { return r.path; })).size;
+        const uniqueFiles = new Set(
+          contentSearchResults.map(function (r) {
+            return r.path;
+          }),
+        ).size;
         const truncatedText = data.truncated ? " (results truncated)" : "";
         if (statusEl) {
-          statusEl.textContent = contentSearchResults.length + " matches in " + uniqueFiles + " files" + truncatedText;
+          statusEl.textContent =
+            contentSearchResults.length +
+            " matches in " +
+            uniqueFiles +
+            " files" +
+            truncatedText;
         }
 
         renderContentResults(contentSearchResults);
@@ -1469,7 +1486,7 @@
           resultsEl.innerHTML =
             '<div style="color: #ff6b6b; font-size: 12px; padding: 8px 0;">Error: ' +
             escapeHtml(err.message) +
-            '</div>';
+            "</div>";
         }
       })
       .finally(function () {
@@ -1484,7 +1501,8 @@
     if (!resultsEl) return;
 
     if (!results.length) {
-      resultsEl.innerHTML = '<div style="color: #888; font-size: 12px; padding: 8px 0;">No results found.</div>';
+      resultsEl.innerHTML =
+        '<div style="color: #888; font-size: 12px; padding: 8px 0;">No results found.</div>';
       return;
     }
 
@@ -1496,17 +1514,24 @@
         const path = r.path + ":" + r.line;
         const text = r.text.trim();
 
-        let html = '<div class="content-finder-result" data-index="' + i + '" style="padding: 6px 10px; cursor: pointer; font-family: monospace; font-size: 12px; background: ' + (active ? "#3a3a5a" : "transparent") + "; color: " + (active ? "#d4d4d4" : "#aaa") + ';">';
+        let html =
+          '<div class="content-finder-result" data-index="' +
+          i +
+          '" style="padding: 6px 10px; cursor: pointer; font-family: monospace; font-size: 12px; background: ' +
+          (active ? "#3a3a5a" : "transparent") +
+          "; color: " +
+          (active ? "#d4d4d4" : "#aaa") +
+          ';">';
         html +=
           '<div style="color: ' +
           (active ? "#9b9bbb" : "#888") +
           '; font-size: 11px; margin-bottom: 2px;">' +
           escapeHtml(path) +
-          '</div>';
+          "</div>";
         html +=
           '<div style="white-space: pre-wrap; word-break: break-all;">' +
           escapeHtml(text) +
-          '</div>';
+          "</div>";
         html += "</div>";
         return html;
       })
@@ -1528,16 +1553,21 @@
     });
 
     // Scroll into view
-    const active = resultsEl.querySelector('[data-index="' + contentSelectedIndex + '"]');
+    const active = resultsEl.querySelector(
+      '[data-index="' + contentSelectedIndex + '"]',
+    );
     if (active) active.scrollIntoView({ block: "nearest" });
   }
 
   function navigateContentResults(dir) {
     if (!contentSearchResults.length) return;
     if (dir === "down") {
-      contentSelectedIndex = (contentSelectedIndex + 1) % contentSearchResults.length;
+      contentSelectedIndex =
+        (contentSelectedIndex + 1) % contentSearchResults.length;
     } else {
-      contentSelectedIndex = (contentSelectedIndex - 1 + contentSearchResults.length) % contentSearchResults.length;
+      contentSelectedIndex =
+        (contentSelectedIndex - 1 + contentSearchResults.length) %
+        contentSearchResults.length;
     }
     renderContentResults(contentSearchResults);
   }
@@ -1562,7 +1592,10 @@
       const contentEl = document.getElementById("edit-buffer-content");
       if (contentEl) {
         const lineHeight = 20;
-        contentEl.scrollTop = Math.max(0, (Number(result.line) - 1) * lineHeight);
+        contentEl.scrollTop = Math.max(
+          0,
+          (Number(result.line) - 1) * lineHeight,
+        );
         contentEl.focus();
       }
 

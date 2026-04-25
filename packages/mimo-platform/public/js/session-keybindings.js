@@ -266,7 +266,11 @@
     }
     // Special case: Alt+Shift+C is needed for content finder
     // Don't reject when Alt+Shift+C is pressed
-    if (parsed.requiresAlt && parsed.requiresShift && (parsed.key === "C" || parsed.key === "KEYC")) {
+    if (
+      parsed.requiresAlt &&
+      parsed.requiresShift &&
+      (parsed.key === "C" || parsed.key === "KEYC")
+    ) {
       // This combo is valid, continue
     } else if (!parsed.requiresShift && event.shiftKey) {
       // Reject other Shift combos (prevents misfires)

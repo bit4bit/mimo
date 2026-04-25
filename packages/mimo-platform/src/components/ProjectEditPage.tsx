@@ -31,7 +31,13 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({
         <form method="POST" action={`/projects/${project.id}/edit`}>
           <div class="form-group">
             <label>Project Name</label>
-            <input type="text" name="name" required value={project.name}  data-help-id="project-edit-page-name-input" />
+            <input
+              type="text"
+              name="name"
+              required
+              value={project.name}
+              data-help-id="project-edit-page-name-input"
+            />
           </div>
 
           <div class="form-group">
@@ -43,7 +49,8 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({
               rows="3"
               placeholder="Describe your project..."
               style="background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%;"
-             data-help-id="project-edit-page-description-textarea">
+              data-help-id="project-edit-page-description-textarea"
+            >
               {project.description || ""}
             </textarea>
           </div>
@@ -55,7 +62,8 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({
               name="repoUrl"
               required
               value={project.repoUrl}
-             data-help-id="project-edit-page-repo-url-input" />
+              data-help-id="project-edit-page-repo-url-input"
+            />
             <small>
               Git or Fossil repository URL. Supports HTTPS and SSH formats.
             </small>
@@ -63,7 +71,10 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({
 
           <div class="form-group">
             <label>Repository Type</label>
-            <select name="repoType" data-help-id="project-edit-page-repo-type-select">
+            <select
+              name="repoType"
+              data-help-id="project-edit-page-repo-type-select"
+            >
               <option value="git" selected={project.repoType === "git"}>
                 Git
               </option>
@@ -75,7 +86,11 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({
 
           <div class="form-group">
             <label>Credential (optional)</label>
-            <select name="credentialId" id="credentialSelect" data-help-id="project-edit-page-credential-select-select">
+            <select
+              name="credentialId"
+              id="credentialSelect"
+              data-help-id="project-edit-page-credential-select-select"
+            >
               <option value="" selected={!project.credentialId}>
                 None (public repository)
               </option>
@@ -97,10 +112,18 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({
           </div>
 
           <div class="actions">
-            <button type="submit" class="btn" data-help-id="project-edit-page-button">
+            <button
+              type="submit"
+              class="btn"
+              data-help-id="project-edit-page-button"
+            >
               Save Changes
             </button>
-            <a href={`/projects/${project.id}`} class="btn-secondary" data-help-id="project-edit-page-a">
+            <a
+              href={`/projects/${project.id}`}
+              class="btn-secondary"
+              data-help-id="project-edit-page-a"
+            >
               Cancel
             </a>
           </div>

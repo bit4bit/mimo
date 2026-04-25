@@ -19,7 +19,9 @@ describe("MockFileSystem", () => {
     });
 
     expect(os.fs.exists("/project/src/index.ts")).toBe(true);
-    expect(os.fs.readFile("/project/src/index.ts")).toBe("console.log('hello');");
+    expect(os.fs.readFile("/project/src/index.ts")).toBe(
+      "console.log('hello');",
+    );
     expect(os.fs.exists("/project/missing.txt")).toBe(false);
   });
 
@@ -52,7 +54,12 @@ describe("MockCommandRunner", () => {
       if (args[1] === "status") {
         return { success: true, output: "M file.txt", error: "", exitCode: 0 };
       }
-      return { success: false, output: "", error: "unknown command", exitCode: 1 };
+      return {
+        success: false,
+        output: "",
+        error: "unknown command",
+        exitCode: 1,
+      };
     });
 
     const result = await os.command.run(["git", "status"]);

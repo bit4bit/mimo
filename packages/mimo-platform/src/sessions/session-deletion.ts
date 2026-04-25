@@ -26,7 +26,10 @@ interface McpTokenStoreLike {
 
 export interface SessionDeletionLike {
   deleteSessionByRecord(
-    session: Pick<Session, "id" | "projectId" | "assignedAgentId" | "chatThreads"> & {
+    session: Pick<
+      Session,
+      "id" | "projectId" | "assignedAgentId" | "chatThreads"
+    > & {
       mcpToken?: string;
     },
   ): Promise<void>;
@@ -46,7 +49,10 @@ export function createSessionDeletionUseCase(
 ): SessionDeletionLike {
   return {
     async deleteSessionByRecord(
-      session: Pick<Session, "id" | "projectId" | "assignedAgentId" | "chatThreads"> & {
+      session: Pick<
+        Session,
+        "id" | "projectId" | "assignedAgentId" | "chatThreads"
+      > & {
         mcpToken?: string;
       },
     ): Promise<void> {

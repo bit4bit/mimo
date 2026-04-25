@@ -122,7 +122,9 @@ export class JscpdService {
       ...filePaths,
     ];
 
-    const child = this.os.command.spawn([this.jscpdPath, ...args], { timeoutMs: 30000 });
+    const child = this.os.command.spawn([this.jscpdPath, ...args], {
+      timeoutMs: 30000,
+    });
 
     let stderr = "";
     const stderrReader = child.stderr.getReader();
@@ -200,7 +202,10 @@ export class JscpdService {
   async buildIgnoreFile(directory: string): Promise<string> {
     const sources = [
       { path: this.os.path.join(directory, ".gitignore"), label: ".gitignore" },
-      { path: this.os.path.join(directory, ".mimoignore"), label: ".mimoignore" },
+      {
+        path: this.os.path.join(directory, ".mimoignore"),
+        label: ".mimoignore",
+      },
     ];
 
     const lines: string[] = [

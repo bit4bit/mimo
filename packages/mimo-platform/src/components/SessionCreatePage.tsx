@@ -5,6 +5,7 @@ interface Project {
   id: string;
   name: string;
   newBranch?: string;
+  agentSubpath?: string;
 }
 
 interface McpServer {
@@ -39,12 +40,16 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
               name="name"
               required
               placeholder="Feature implementation"
-             data-help-id="session-create-page-session-name-input-input" />
+              data-help-id="session-create-page-session-name-input-input"
+            />
           </div>
 
           <div class="form-group">
             <label>Priority</label>
-            <select name="priority" data-help-id="session-create-page-priority-select">
+            <select
+              name="priority"
+              data-help-id="session-create-page-priority-select"
+            >
               <option value="high">High</option>
               <option value="medium" selected>
                 Medium
@@ -66,7 +71,11 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
 
           <div class="form-group">
             <label>Session TTL (days)</label>
-            <select name="sessionTtlDays" required data-help-id="session-create-page-session-ttl-days-select">
+            <select
+              name="sessionTtlDays"
+              required
+              data-help-id="session-create-page-session-ttl-days-select"
+            >
               <option value="30">30 days</option>
               <option value="90">90 days</option>
               <option value="180" selected>
@@ -86,10 +95,14 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
               type="text"
               name="agentSubpath"
               placeholder="packages/backend"
-             data-help-id="session-create-page-agent-subpath-input" />
+              value={project.agentSubpath ?? ""}
+              data-help-id="session-create-page-agent-subpath-input"
+            />
             <p style="color: #888; font-size: 12px; margin-top: 5px;">
               Relative path within the repository where the agent will start.
-              Useful for monorepos.
+              {project.agentSubpath
+                ? ` Currently defaults to: ${project.agentSubpath}`
+                : " Useful for monorepos."}
             </p>
           </div>
 
@@ -100,7 +113,8 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
               id="branch-name-input"
               name="branchName"
               placeholder="auto: uses session name"
-             data-help-id="session-create-page-branch-name-input-input" />
+              data-help-id="session-create-page-branch-name-input-input"
+            />
             <p style="color: #888; font-size: 12px; margin-top: 5px;">
               Defaults to the session name (slugified). Edit to override, or
               clear to use the project default
@@ -115,7 +129,8 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
                   value="new"
                   checked
                   style="margin-right: 6px;"
-                 data-help-id="session-create-page-branch-mode-input" />
+                  data-help-id="session-create-page-branch-mode-input"
+                />
                 Create new branch
                 <span style="color: #888; font-size: 12px; margin-left: 4px;">
                   — clone project default, create this branch locally
@@ -127,7 +142,8 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
                   name="branchMode"
                   value="sync"
                   style="margin-right: 6px;"
-                 data-help-id="session-create-page-branch-mode-input" />
+                  data-help-id="session-create-page-branch-mode-input"
+                />
                 Sync existing branch
                 <span style="color: #888; font-size: 12px; margin-left: 4px;">
                   — branch already exists on remote; clone it directly
@@ -142,7 +158,9 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
               {mcpServers.length === 0 ? (
                 <p style="color: #888; font-size: 12px; margin: 0;">
                   No MCP servers configured.{" "}
-                  <a href="/mcp-servers" data-help-id="session-create-page-a">Configure MCP servers</a>
+                  <a href="/mcp-servers" data-help-id="session-create-page-a">
+                    Configure MCP servers
+                  </a>
                 </p>
               ) : (
                 mcpServers.map((server) => (
@@ -159,7 +177,8 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
                       name="mcpServerIds"
                       value={server.id}
                       style={{ marginRight: "8px" }}
-                     data-help-id="session-create-page-mcp-server-ids-input" />
+                      data-help-id="session-create-page-mcp-server-ids-input"
+                    />
                     <strong>{server.name}</strong>
                     {server.description && (
                       <span style="color: #888; font-size: 12px; margin-left: 8px;">
@@ -177,10 +196,18 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
           </div>
 
           <div class="actions">
-            <button type="submit" class="btn" data-help-id="session-create-page-button">
+            <button
+              type="submit"
+              class="btn"
+              data-help-id="session-create-page-button"
+            >
               Create Session
             </button>
-            <a href={`/projects/${project.id}/sessions`} class="btn-secondary" data-help-id="session-create-page-a">
+            <a
+              href={`/projects/${project.id}/sessions`}
+              class="btn-secondary"
+              data-help-id="session-create-page-a"
+            >
               Cancel
             </a>
           </div>

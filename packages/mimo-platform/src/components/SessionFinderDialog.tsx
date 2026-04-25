@@ -30,7 +30,8 @@ export const SessionFinderDialog: FC = () => {
             outline: none;
             box-sizing: border-box;
           "
-         data-help-id="session-finder-dialog-session-finder-input-input" />
+          data-help-id="session-finder-dialog-session-finder-input-input"
+        />
         <div
           id="session-finder-results"
           style="margin-top: 8px; max-height: 320px; overflow-y: auto;"

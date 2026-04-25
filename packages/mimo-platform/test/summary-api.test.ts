@@ -34,7 +34,9 @@ describe("POST /sessions/:id/summary/refresh", () => {
     // Simulate the validation logic
     const summarizeAgentId = "agent-123";
     const isConnected = (ws: any) => ws !== undefined && ws.readyState === 1;
-    const result = isConnected(agentService.getAgentConnection(summarizeAgentId));
+    const result = isConnected(
+      agentService.getAgentConnection(summarizeAgentId),
+    );
 
     expect(result).toBe(false);
   });

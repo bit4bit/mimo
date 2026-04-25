@@ -46,6 +46,8 @@ describe("Projects nested sessions with mimoContext", () => {
     });
 
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe(`/projects?selected=${project.id}`);
+    expect(res.headers.get("location")).toBe(
+      `/projects?selected=${project.id}`,
+    );
   });
 });

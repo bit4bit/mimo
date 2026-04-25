@@ -86,7 +86,8 @@ export const DataTable: FC<DataTableProps<any>> = ({
             placeholder="Filter..."
             class="data-table-search-input"
             data-dt-search={id}
-           data-help-id="data-table-input" />
+            data-help-id="data-table-input"
+          />
         </div>
       )}
 
@@ -121,13 +122,21 @@ export const DataTable: FC<DataTableProps<any>> = ({
 
       {sorted.length > pageSize && (
         <div class="data-table-paginator" data-dt-pag={id}>
-          <button class="page-btn" data-dt-prev={id} data-help-id="data-table-page-btn-button">
+          <button
+            class="page-btn"
+            data-dt-prev={id}
+            data-help-id="data-table-page-btn-button"
+          >
             &lt; Prev
           </button>
           <span class="page-info" data-dt-info={id}>
             Page 1 of {pages}
           </span>
-          <button class="page-btn" data-dt-next={id} data-help-id="data-table-page-btn-button">
+          <button
+            class="page-btn"
+            data-dt-next={id}
+            data-help-id="data-table-page-btn-button"
+          >
             Next &gt;
           </button>
         </div>

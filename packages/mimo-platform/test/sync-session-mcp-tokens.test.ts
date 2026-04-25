@@ -16,7 +16,8 @@ describe("sync-session-mcp-tokens script", () => {
       `mimo-sync-mcp-tokens-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     );
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key" },
       services: { sharedFossil: new DummySharedFossilServer() },

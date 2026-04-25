@@ -464,6 +464,166 @@ describe("Project Management Integration Tests", () => {
     });
   });
 
+  describe("Project agentSubpath", () => {
+    it("should create project with agentSubpath", async () => {
+      const app = new Hono();
+      app.route("/projects", projectRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const { generateToken } = await import("../src/auth/jwt.ts");
+      const token = await generateToken("testuser");
+
+      const formData = new URLSearchParams();
+      formData.append("name", "Project with Agent Subpath");
+      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoType", "git");
+      formData.append("agentSubpath", "packages/backend");
+
+      const res = await app.request("/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: formData.toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const projects = await projectRepository.listAll();
+      expect(projects.length).toBe(1);
+      expect(projects[0].name).toBe("Project with Agent Subpath");
+      expect(projects[0].agentSubpath).toBe("packages/backend");
+    });
+
+    it("should create project without agentSubpath (backwards compatible)", async () => {
+      const app = new Hono();
+      app.route("/projects", projectRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await bcrypt.hash("testpass", 10),
+      );
+      const { generateToken } = await import("../src/auth/jwt.ts");
+      const token = await generateToken("testuser");
+
+      const formData = new URLSearchParams();
+      formData.append("name", "Project Without Agent Subpath");
+      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoType", "git");
+
+      const res = await app.request("/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: formData.toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const projects = await projectRepository.listAll();
+      expect(projects.length).toBe(1);
+      expect(projects[0].name).toBe("Project Without Agent Subpath");
+      expect(projects[0].agentSubpath).toBeUndefined();
+    });
+
+    it("should retrieve project with agentSubpath", async () => {
+      const created = await projectRepository.create({
+        name: "Agent Subpath Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        agentSubpath: "packages/api",
+      });
+
+      const found = await projectRepository.findById(created.id);
+      expect(found).not.toBeNull();
+      expect(found!.agentSubpath).toBe("packages/api");
+    });
+
+    it("should list projects with agentSubpath", async () => {
+      await projectRepository.create({
+        name: "List Agent Subpath Project 1",
+        repoUrl: "https://github.com/user/repo1.git",
+        repoType: "git",
+        owner: "testuser",
+        agentSubpath: "packages/web",
+      });
+
+      await projectRepository.create({
+        name: "List Agent Subpath Project 2",
+        repoUrl: "https://github.com/user/repo2.git",
+        repoType: "git",
+        owner: "testuser",
+        agentSubpath: "packages/cli",
+      });
+
+      const projects = await projectRepository.listByOwner("testuser");
+      expect(projects.length).toBe(2);
+      expect(
+        projects.find((p) => p.name === "List Agent Subpath Project 1")
+          ?.agentSubpath,
+      ).toBe("packages/web");
+      expect(
+        projects.find((p) => p.name === "List Agent Subpath Project 2")
+          ?.agentSubpath,
+      ).toBe("packages/cli");
+    });
+
+    it("should store agentSubpath on session when provided explicitly", async () => {
+      const project = await projectRepository.create({
+        name: "Project for Session Test",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Session With Explicit Subpath",
+        projectId: project.id,
+        owner: "testuser",
+        agentSubpath: "packages/api",
+      });
+
+      expect(session.agentSubpath).toBe("packages/api");
+    });
+
+    it("should resolve effective agentSubpath following the design spec", async () => {
+      const project = await projectRepository.create({
+        name: "Project for Resolution Test",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        agentSubpath: "packages/backend",
+      });
+
+      const testResolution = (
+        agentSubpathRaw: string | undefined,
+        projectAgentSubpath: string | undefined,
+      ): string | undefined => {
+        return (
+          (agentSubpathRaw?.trim() || undefined) ??
+          projectAgentSubpath ??
+          undefined
+        );
+      };
+
+      expect(testResolution(undefined, project.agentSubpath)).toBe(
+        "packages/backend",
+      );
+      expect(testResolution("packages/api", project.agentSubpath)).toBe(
+        "packages/api",
+      );
+      expect(testResolution("", project.agentSubpath)).toBe("packages/backend");
+      expect(testResolution(undefined, undefined)).toBe(undefined);
+    });
+  });
+
   describe("Project Branch Fields", () => {
     it("should create project with sourceBranch only", async () => {
       const app = new Hono();
