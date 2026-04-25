@@ -292,21 +292,19 @@ app.route("/dashboard", createDashboardRoutes(mimoContext));
 
 // Landing page (public)
 app.get("/", async (c) => {
-  const publicProjects = await mimoContext.repos.projects.listAllPublic();
   const user = c.get("user") as { username: string } | undefined;
-  const isAuthenticated = !!user;
-  const username = user?.username;
+  if (user) return c.redirect("/dashboard");
 
-  // If authenticated, redirect to dashboard
-  if (isAuthenticated) {
-    return c.redirect("/dashboard");
-  }
+  const projects = await mimoContext.repos.projects.listAllPublic();
+  const sessions = await mimoContext.repos.sessions.listAll();
+  const threadCount = sessions.reduce((n, s) => n + s.chatThreads.length, 0);
 
   return c.html(
     <LandingPage
-      projects={publicProjects}
-      isAuthenticated={isAuthenticated}
-      username={username}
+      projectCount={projects.length}
+      sessionCount={sessions.length}
+      threadCount={threadCount}
+      isAuthenticated={false}
     />,
   );
 });
