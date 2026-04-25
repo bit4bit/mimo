@@ -88,6 +88,7 @@ type CreateMimoContextOverrides = {
   env?: Partial<MimoEnv>;
   repos?: Partial<MimoContext["repos"]>;
   services?: Partial<MimoContext["services"]>;
+  os?: OS;
 };
 
 function resolvePaths(mimoHome: string, os: OS): MimoPaths {
@@ -136,12 +137,14 @@ export function createSharedFossilServer(
 export function createMimoContext(
   overrides: CreateMimoContextOverrides = {},
 ): MimoContext {
-  // Create OS abstraction with injected environment values
-  const os: OS = createOS({
-    PATH: process.env.PATH,
-    HOME: process.env.HOME,
-    ...process.env,
-  });
+  // Use injected OS if provided, otherwise create new one
+  const os: OS =
+    overrides.os ??
+    createOS({
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+      ...process.env,
+    });
 
   const mimoHome =
     overrides.env?.MIMO_HOME ?? os.path.join(os.path.homeDir(), ".mimo");

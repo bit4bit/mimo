@@ -88,6 +88,7 @@ const mimoContext = createMimoContext({
   services: {
     sharedFossil: sharedFossilServer,
   },
+  os,
 });
 
 mimoContext.services.scc.configure({ mimoHome });
