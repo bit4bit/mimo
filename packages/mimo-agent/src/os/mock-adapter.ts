@@ -203,7 +203,7 @@ export class MockFileSystem implements FileSystem {
 
   watch(
     _path: string,
-    _options?: { recursive?: boolean },
+    _options?: { recursive?: boolean; ignored?: (path: string) => boolean },
     _listener?: (eventType: string, filename: string | null) => void,
   ): FileWatcher {
     return {

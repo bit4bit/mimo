@@ -5,6 +5,8 @@ import {
   ModeState,
   McpServerConfig,
 } from "./types";
+import ignore from "ignore";
+import { relative } from "path";
 import { logger } from "./logger.js";
 import type { OS } from "./os/types.js";
 
@@ -110,30 +112,40 @@ export class SessionManager {
   ): Promise<void> {
     logger.debug(`[mimo-agent] Starting file watcher for session ${sessionId}`);
 
+    const VCS_INTERNALS = new Set([
+      ".fossil",
+      ".fslckout",
+      ".fossil-settings",
+      ".git",
+    ]);
+    const ig = ignore();
+    ig.add(["node_modules", "__pycache__", "*.tmp", "*~"]);
+
+    for (const fileName of [".gitignore", ".mimoignore"]) {
+      const ignorePath = this.os.path.join(checkoutPath, fileName);
+      if (this.os.fs.exists(ignorePath)) {
+        ig.add(this.os.fs.readFile(ignorePath));
+      }
+    }
+
+    const ignored = (watchPath: string): boolean => {
+      const relativePath = relative(checkoutPath, watchPath).replaceAll("\\", "/");
+      if (relativePath === "." || relativePath.length === 0) {
+        return false;
+      }
+      const firstSegment = relativePath.split("/")[0];
+      if (VCS_INTERNALS.has(firstSegment)) {
+        return true;
+      }
+      return ig.ignores(relativePath);
+    };
+
     return new Promise((resolve) => {
       const watcher = this.os.fs.watch(
         checkoutPath,
-        { recursive: true },
+        { recursive: true, ignored },
         (eventType: string, filename: string | null) => {
           if (!filename) return;
-
-          // Skip VCS internals and common ignore patterns
-          const VCS_INTERNALS = new Set([
-            ".fossil",
-            ".fslckout",
-            ".fossil-settings",
-            ".git",
-          ]);
-          const firstSegment = filename.split("/")[0];
-          if (
-            VCS_INTERNALS.has(firstSegment) ||
-            filename.includes("node_modules") ||
-            filename.includes("__pycache__") ||
-            filename.endsWith(".tmp") ||
-            filename.endsWith("~")
-          ) {
-            return;
-          }
 
           // Detect file creation vs deletion for rename events
           // Node.js fs.watch reports both as 'rename' event type

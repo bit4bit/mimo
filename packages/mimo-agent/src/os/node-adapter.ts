@@ -286,12 +286,13 @@ class NodeFileSystem implements FileSystem {
 
   watch(
     watchPath: string,
-    options?: { recursive?: boolean },
+    options?: { recursive?: boolean; ignored?: (path: string) => boolean },
     listener?: (eventType: string, filename: string | null) => void,
   ): FileWatcher {
     const watcher = chokidar.watch(watchPath, {
       persistent: true,
       depth: options?.recursive ? undefined : 0,
+      ignored: options?.ignored,
       ignoreInitial: true,
       usePolling: true,
       interval: 100,

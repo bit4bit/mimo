@@ -90,7 +90,7 @@ export interface FileSystem {
   rename(oldPath: string, newPath: string): void;
   watch(
     path: string,
-    options?: { recursive?: boolean },
+    options?: { recursive?: boolean; ignored?: (path: string) => boolean },
     listener?: (eventType: string, filename: string | null) => void,
   ): FileWatcher;
   rm(path: string, options?: { recursive?: boolean; force?: boolean }): void;
