@@ -451,6 +451,34 @@ rm ~/.mimo/config.yaml
 
 ---
 
+### Impact Metrics Validation Warning
+
+**Symptom**: Impact refresh returns inconsistent numbers or logs `impact:validation` warnings.
+
+**What it means**:
+- The server detected invariant mismatch in computed metrics.
+- Typical checks are:
+  - `complexity.cyclomatic == workspace - upstream`
+  - `linesOfCode.net == added - removed`
+
+**Quick checks**:
+```bash
+# Run targeted impact reliability tests
+cd packages/mimo-platform
+bun test test/impact-refresh-stability.test.ts
+bun test test/impact-validation.test.ts
+
+# Run impact-focused suite
+bun test test/impact.test.ts
+```
+
+**Operational guidance**:
+- Treat warning results as diagnostic output, not authoritative metrics.
+- Re-run refresh after workspace sync settles.
+- Check for generated/runtime file churn under `.mimo/` and related internal files.
+
+---
+
 ## Getting Help
 
 ### Gather Information

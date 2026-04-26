@@ -3,6 +3,7 @@ import type { JscpdService, Clone } from "./jscpd-service.js";
 import type { OS } from "../os/types.js";
 import { logger } from "../logger.js";
 import { detectChangedFiles } from "../files/changed-files.js";
+import { shouldIncludeImpactPath } from "../files/impact-file-policy.js";
 import {
   buildDependencyGraph,
   compareDependencyGraphs,
@@ -58,6 +59,19 @@ export interface ImpactMetrics {
   byFile: FileImpactDetail[];
   duplication?: DuplicationMetrics;
   dependencies?: DependencyChanges;
+  validation?: ImpactValidation;
+  runMetadata?: ImpactRunMetadata;
+}
+
+export interface ImpactValidation {
+  status: "ok" | "warning";
+  errors: string[];
+}
+
+export interface ImpactRunMetadata {
+  runId: string;
+  calculatedAt: string;
+  sessionId: string;
 }
 
 export interface LanguageImpact {
@@ -166,6 +180,7 @@ export class ImpactCalculator {
       this.os!,
       upstreamPath,
       agentWorkspacePath,
+      { fileFilter: shouldIncludeImpactPath },
     );
 
     // Calculate file counts
@@ -394,7 +409,21 @@ export class ImpactCalculator {
       byFile: byFileWithDetails,
       duplication,
       dependencies,
+      validation: { status: "ok", errors: [] },
+      runMetadata: {
+        runId: this.createRunId(),
+        calculatedAt: new Date().toISOString(),
+        sessionId,
+      },
     };
+
+    const validation = validateImpactMetrics(metrics);
+    metrics.validation = validation;
+    if (validation.status === "warning") {
+      logger.warn(
+        `[impact:validation] status=warning errors=${validation.errors.join("|")}`,
+      );
+    }
 
     // Calculate trends
     const trends = this.calculateTrends(sessionId, metrics);
@@ -649,6 +678,10 @@ export class ImpactCalculator {
     };
   }
 
+  private createRunId(): string {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
   clearState(sessionId?: string): void {
     if (sessionId) {
       this.previousStates.delete(sessionId);
@@ -668,3 +701,28 @@ export function getImpactCalculator(): ImpactCalculator {
 }
 
 export const impactCalculator = getImpactCalculator();
+
+export function validateImpactMetrics(metrics: ImpactMetrics): ImpactValidation {
+  const errors: string[] = [];
+
+  const expectedCyclomaticDelta =
+    metrics.absoluteComplexity.workspace - metrics.absoluteComplexity.upstream;
+  if (metrics.complexity.cyclomatic !== expectedCyclomaticDelta) {
+    errors.push(
+      `complexity_delta_mismatch expected=${expectedCyclomaticDelta} actual=${metrics.complexity.cyclomatic}`,
+    );
+  }
+
+  const expectedNet = metrics.linesOfCode.added - metrics.linesOfCode.removed;
+  if (metrics.linesOfCode.net !== expectedNet) {
+    errors.push(
+      `loc_net_mismatch expected=${expectedNet} actual=${metrics.linesOfCode.net}`,
+    );
+  }
+
+  if (errors.length > 0) {
+    return { status: "warning", errors };
+  }
+
+  return { status: "ok", errors: [] };
+}
