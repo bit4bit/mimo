@@ -30,10 +30,10 @@ describe("OS FileSystem - BDD Coverage", () => {
     it("should read file contents", async () => {
       const tmpFile = `/tmp/os-test-${Date.now()}.txt`;
       os.fs.writeFile(tmpFile, "hello world");
-      
+
       const content = os.fs.readFile(tmpFile);
       expect(content).toBe("hello world");
-      
+
       os.fs.unlink(tmpFile);
     });
 
@@ -136,11 +136,11 @@ describe("OS FileSystem - BDD Coverage", () => {
       os.fs.mkdir(tmpDir);
       os.fs.writeFile(`${tmpDir}/a.txt`, "a");
       os.fs.writeFile(`${tmpDir}/b.txt`, "b");
-      
+
       const entries = os.fs.readdir(tmpDir) as string[];
       expect(entries).toContain("a.txt");
       expect(entries).toContain("b.txt");
-      
+
       os.fs.rm(tmpDir, { recursive: true });
     });
   });
@@ -149,12 +149,12 @@ describe("OS FileSystem - BDD Coverage", () => {
     it("should return file stats", () => {
       const tmpFile = `/tmp/os-stat-${Date.now()}.txt`;
       os.fs.writeFile(tmpFile, "content");
-      
+
       const stats = os.fs.stat(tmpFile);
       expect(stats.isFile()).toBe(true);
       expect(stats.isDirectory()).toBe(false);
       expect(stats.size).toBeGreaterThan(0);
-      
+
       os.fs.unlink(tmpFile);
     });
   });
@@ -163,11 +163,11 @@ describe("OS FileSystem - BDD Coverage", () => {
     it("should return symlink stats", () => {
       const tmpFile = `/tmp/os-lstat-${Date.now()}.txt`;
       os.fs.writeFile(tmpFile, "content");
-      
+
       const stats = os.fs.lstat(tmpFile);
       expect(stats.isFile()).toBe(true);
       expect(stats.isSymbolicLink()).toBe(false);
-      
+
       os.fs.unlink(tmpFile);
     });
   });
@@ -176,13 +176,13 @@ describe("OS FileSystem - BDD Coverage", () => {
     it("should copy directories recursively", () => {
       const srcDir = `/tmp/os-cp-src-${Date.now()}`;
       const destDir = `/tmp/os-cp-dest-${Date.now()}`;
-      
+
       os.fs.mkdir(srcDir, { recursive: true });
       os.fs.writeFile(`${srcDir}/file.txt`, "content");
-      
+
       os.fs.cp(srcDir, destDir, { recursive: true });
       expect(os.fs.exists(`${destDir}/file.txt`)).toBe(true);
-      
+
       os.fs.rm(srcDir, { recursive: true });
       os.fs.rm(destDir, { recursive: true });
     });
@@ -226,7 +226,9 @@ describe("OS CommandRunner - BDD Coverage", () => {
     });
 
     it("should accept timeout option", async () => {
-      const result = await os.command.run(["sleep", "0.01"], { timeoutMs: 1000 });
+      const result = await os.command.run(["sleep", "0.01"], {
+        timeoutMs: 1000,
+      });
       expect(result.success).toBe(true);
     });
   });

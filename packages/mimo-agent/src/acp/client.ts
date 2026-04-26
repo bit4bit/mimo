@@ -307,7 +307,8 @@ export class AcpClient {
         break;
 
       case "available_commands_update":
-        this.session.availableCommands = this.normalizeAvailableCommands(update);
+        this.session.availableCommands =
+          this.normalizeAvailableCommands(update);
         this.callbacks.onAvailableCommandsUpdate(
           this.sessionId,
           this.session.availableCommands,

@@ -356,7 +356,11 @@ class MimoAgent {
     agentWorkspaceUser?: string,
     agentWorkspacePassword?: string,
   ): Promise<void> {
-    const repoPath = this.os.path.join(checkoutPath, "..", `${sessionId}.fossil`);
+    const repoPath = this.os.path.join(
+      checkoutPath,
+      "..",
+      `${sessionId}.fossil`,
+    );
 
     if (this.os.fs.exists(repoPath)) {
       logger.debug(`[mimo-agent]   Fossil repo exists, opening`);
@@ -391,7 +395,13 @@ class MimoAgent {
         // Ensure local password matches server password
         try {
           await this.os.command.run(
-            ["fossil", "user", "password", agentWorkspaceUser, agentWorkspacePassword],
+            [
+              "fossil",
+              "user",
+              "password",
+              agentWorkspaceUser,
+              agentWorkspacePassword,
+            ],
             { cwd: checkoutPath, timeoutMs: 30000 },
           );
           logger.debug(`[mimo-agent]   Updated local user password`);
@@ -409,13 +419,19 @@ class MimoAgent {
           } catch {
             // Remote may not exist, ignore
           }
-          await this.os.command.run(["fossil", "remote", "add", "server", remoteUrl], {
+          await this.os.command.run(
+            ["fossil", "remote", "add", "server", remoteUrl],
+            {
+              cwd: checkoutPath,
+              timeoutMs: 30000,
+            },
+          );
+          logger.debug(`[mimo-agent]   Updated remote 'server'`);
+          // Do a sync using the named remote to verify credentials work
+          await this.os.command.run(["fossil", "sync", "server"], {
             cwd: checkoutPath,
             timeoutMs: 30000,
           });
-          logger.debug(`[mimo-agent]   Updated remote 'server'`);
-          // Do a sync using the named remote to verify credentials work
-          await this.os.command.run(["fossil", "sync", "server"], { cwd: checkoutPath, timeoutMs: 30000 });
           logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
         } catch {
           // Ignore error
@@ -424,7 +440,10 @@ class MimoAgent {
     } else if (this.os.fs.exists(this.os.path.join(checkoutPath, ".fossil"))) {
       logger.debug(`[mimo-agent]   Checkout exists, ensuring open`);
       try {
-        await this.os.command.run(["fossil", "open"], { cwd: checkoutPath, timeoutMs: 30000 });
+        await this.os.command.run(["fossil", "open"], {
+          cwd: checkoutPath,
+          timeoutMs: 30000,
+        });
       } catch {
         // Already open or error, continue
       }
@@ -448,7 +467,13 @@ class MimoAgent {
         // Ensure local password matches server password
         try {
           await this.os.command.run(
-            ["fossil", "user", "password", agentWorkspaceUser, agentWorkspacePassword],
+            [
+              "fossil",
+              "user",
+              "password",
+              agentWorkspaceUser,
+              agentWorkspacePassword,
+            ],
             { cwd: checkoutPath, timeoutMs: 30000 },
           );
           logger.debug(`[mimo-agent]   Updated local user password`);
@@ -466,13 +491,19 @@ class MimoAgent {
           } catch {
             // Remote may not exist, ignore
           }
-          await this.os.command.run(["fossil", "remote", "add", "server", remoteUrl], {
+          await this.os.command.run(
+            ["fossil", "remote", "add", "server", remoteUrl],
+            {
+              cwd: checkoutPath,
+              timeoutMs: 30000,
+            },
+          );
+          logger.debug(`[mimo-agent]   Updated remote 'server'`);
+          // Do a sync using the named remote to verify credentials work
+          await this.os.command.run(["fossil", "sync", "server"], {
             cwd: checkoutPath,
             timeoutMs: 30000,
           });
-          logger.debug(`[mimo-agent]   Updated remote 'server'`);
-          // Do a sync using the named remote to verify credentials work
-          await this.os.command.run(["fossil", "sync", "server"], { cwd: checkoutPath, timeoutMs: 30000 });
           logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
         } catch {
           // Ignore error
@@ -491,7 +522,9 @@ class MimoAgent {
           `[mimo-agent]   Using authenticated URL: ${url.protocol}//${url.username}:****@${url.host}/`,
         );
       }
-      await this.os.command.run(["fossil", "clone", cloneUrl, repoPath], { timeoutMs: 30000 });
+      await this.os.command.run(["fossil", "clone", cloneUrl, repoPath], {
+        timeoutMs: 30000,
+      });
       if (!this.os.fs.exists(checkoutPath)) {
         this.os.fs.mkdir(checkoutPath, { recursive: true });
       }
@@ -508,16 +541,28 @@ class MimoAgent {
       // Set local password to match server password (fossil creates local admin with random password)
       if (agentWorkspaceUser && agentWorkspacePassword) {
         await this.os.command.run(
-          ["fossil", "user", "password", agentWorkspaceUser, agentWorkspacePassword],
+          [
+            "fossil",
+            "user",
+            "password",
+            agentWorkspaceUser,
+            agentWorkspacePassword,
+          ],
           { cwd: checkoutPath, timeoutMs: 30000 },
         );
         // Add a named remote "server" with credentials embedded
-        await this.os.command.run(["fossil", "remote", "add", "server", cloneUrl], {
+        await this.os.command.run(
+          ["fossil", "remote", "add", "server", cloneUrl],
+          {
+            cwd: checkoutPath,
+            timeoutMs: 30000,
+          },
+        );
+        // Do an initial sync using the named remote with credentials
+        await this.os.command.run(["fossil", "sync", "server"], {
           cwd: checkoutPath,
           timeoutMs: 30000,
         });
-        // Do an initial sync using the named remote with credentials
-        await this.os.command.run(["fossil", "sync", "server"], { cwd: checkoutPath, timeoutMs: 30000 });
       }
     }
   }
@@ -2273,38 +2318,45 @@ class MimoAgent {
 export function createMimoAgent(): MimoAgent {
   // Read environment at system boundary (index.ts level)
   const env = { ...process.env };
-  
+
   // Create OS with injected environment
   const os = createOS(env);
-  
+
   // Parse config from command line args
   const config = parseAgentConfig(process.argv.slice(2), os);
-  
+
   // Create SessionManager with callbacks
   // Callbacks capture 'this' via closure, so we need to bind them after Agent creation
   const sessionManagerCallbacks: SessionCallbacks = {
     onFileChange: () => {}, // Will be rebound after Agent creation
     onSessionError: () => {}, // Will be rebound after Agent creation
   };
-  
-  const sessionManager = new SessionManager(config.workDir, sessionManagerCallbacks, os);
-  
+
+  const sessionManager = new SessionManager(
+    config.workDir,
+    sessionManagerCallbacks,
+    os,
+  );
+
   // Create LifecycleManager (callbacks will be set after Agent creation)
   const lifecycleCallbacks: SessionLifecycleCallbacks = {
     onStatusChange: () => {},
     onCacheState: () => {},
     onGetCachedState: () => undefined,
-    onSpawnAcp: async () => { throw new Error("Not initialized"); },
+    onSpawnAcp: async () => {
+      throw new Error("Not initialized");
+    },
     onTerminateThread: async () => {},
   };
-  
+
   const lifecycleManager = new SessionLifecycleManager(lifecycleCallbacks);
-  
+
   // Create ACP Provider
-  const provider = config.provider === "claude"
-    ? new ClaudeAgentProvider()
-    : new OpencodeProvider();
-  
+  const provider =
+    config.provider === "claude"
+      ? new ClaudeAgentProvider()
+      : new OpencodeProvider();
+
   // Create Agent with all dependencies injected
   const deps: MimoAgentDeps = {
     os,
@@ -2313,11 +2365,14 @@ export function createMimoAgent(): MimoAgent {
     lifecycleManager,
     provider,
   };
-  
+
   const agent = new MimoAgent(deps);
-  
+
   // Rebind callbacks to use agent's send method
-  sessionManagerCallbacks.onFileChange = (sessionId: string, changes: any[]) => {
+  sessionManagerCallbacks.onFileChange = (
+    sessionId: string,
+    changes: any[],
+  ) => {
     agent["send"]({
       type: "file_changed",
       sessionId,
@@ -2325,8 +2380,11 @@ export function createMimoAgent(): MimoAgent {
       timestamp: new Date().toISOString(),
     });
   };
-  
-  sessionManagerCallbacks.onSessionError = (sessionId: string, error: string) => {
+
+  sessionManagerCallbacks.onSessionError = (
+    sessionId: string,
+    error: string,
+  ) => {
     agent["send"]({
       type: "session_error",
       sessionId,
@@ -2334,9 +2392,13 @@ export function createMimoAgent(): MimoAgent {
       timestamp: new Date().toISOString(),
     });
   };
-  
+
   // Rebind lifecycle callbacks
-  lifecycleCallbacks.onStatusChange = (sessionId: string, chatThreadId: string, status: string) => {
+  lifecycleCallbacks.onStatusChange = (
+    sessionId: string,
+    chatThreadId: string,
+    status: string,
+  ) => {
     agent["send"]({
       type: "acp_status",
       sessionId,
@@ -2345,24 +2407,42 @@ export function createMimoAgent(): MimoAgent {
       timestamp: new Date().toISOString(),
     });
   };
-  
-  lifecycleCallbacks.onCacheState = (sessionId: string, chatThreadId: string, state: any) => {
+
+  lifecycleCallbacks.onCacheState = (
+    sessionId: string,
+    chatThreadId: string,
+    state: any,
+  ) => {
     (agent as any).cachedAcpStates.set(acpKey(sessionId, chatThreadId), state);
   };
-  
-  lifecycleCallbacks.onGetCachedState = (sessionId: string, chatThreadId: string) => {
+
+  lifecycleCallbacks.onGetCachedState = (
+    sessionId: string,
+    chatThreadId: string,
+  ) => {
     return (agent as any).cachedAcpStates.get(acpKey(sessionId, chatThreadId));
   };
-  
-  lifecycleCallbacks.onSpawnAcp = async (sessionId: string, chatThreadId: string, cachedState: any) => {
+
+  lifecycleCallbacks.onSpawnAcp = async (
+    sessionId: string,
+    chatThreadId: string,
+    cachedState: any,
+  ) => {
     const session = sessionManager.getSession(sessionId);
     if (!session) {
       throw new Error(`Session ${sessionId} not found`);
     }
-    return (agent as any).respawnAcpProcess(sessionId, chatThreadId, cachedState);
+    return (agent as any).respawnAcpProcess(
+      sessionId,
+      chatThreadId,
+      cachedState,
+    );
   };
-  
-  lifecycleCallbacks.onTerminateThread = async (sessionId: string, chatThreadId: string) => {
+
+  lifecycleCallbacks.onTerminateThread = async (
+    sessionId: string,
+    chatThreadId: string,
+  ) => {
     const key = acpKey(sessionId, chatThreadId);
     const acpClient = (agent as any).acpClients.get(key);
     if (acpClient) {
@@ -2374,7 +2454,7 @@ export function createMimoAgent(): MimoAgent {
     }
     await (agent as any).closeAcpClientByKey(key);
   };
-  
+
   return agent;
 }
 
