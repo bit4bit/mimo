@@ -8,59 +8,49 @@
 //   const assets = getEmbeddedAssets(); // Helper below
 
 // JavaScript files
-import "../public/js/chat.js" with { type: "file" };
-import "../public/js/chat-threads.js" with { type: "file" };
-import "../public/js/chat-token-utils.js" with { type: "file" };
-import "../public/js/commit.js" with { type: "file" };
-import "../public/js/diff.js" with { type: "file" };
-import "../public/js/edit-buffer.js" with { type: "file" };
-import "../public/js/expert-utils.js" with { type: "file" };
-import "../public/js/help-tooltip.js" with { type: "file" };
-import "../public/js/notes.js" with { type: "file" };
-import "../public/js/patch-buffer.js" with { type: "file" };
-import "../public/js/session-clone.js" with { type: "file" };
-import "../public/js/session-finder.js" with { type: "file" };
-import "../public/js/session-keybindings.js" with { type: "file" };
-import "../public/js/summary-buffer.js" with { type: "file" };
-import "../public/js/utils.js" with { type: "file" };
+import chatJs from "../public/js/chat.js" with { type: "file" };
+import chatThreadsJs from "../public/js/chat-threads.js" with { type: "file" };
+import chatTokenUtilsJs from "../public/js/chat-token-utils.js" with { type: "file" };
+import commitJs from "../public/js/commit.js" with { type: "file" };
+import diffJs from "../public/js/diff.js" with { type: "file" };
+import editBufferJs from "../public/js/edit-buffer.js" with { type: "file" };
+import expertUtilsJs from "../public/js/expert-utils.js" with { type: "file" };
+import helpTooltipJs from "../public/js/help-tooltip.js" with { type: "file" };
+import notesJs from "../public/js/notes.js" with { type: "file" };
+import patchBufferJs from "../public/js/patch-buffer.js" with { type: "file" };
+import sessionCloneJs from "../public/js/session-clone.js" with { type: "file" };
+import sessionFinderJs from "../public/js/session-finder.js" with { type: "file" };
+import sessionKeybindingsJs from "../public/js/session-keybindings.js" with { type: "file" };
+import summaryBufferJs from "../public/js/summary-buffer.js" with { type: "file" };
+import utilsJs from "../public/js/utils.js" with { type: "file" };
 
 // Vendor files
-import "../public/vendor/highlight/atom-one-dark.min.css" with { type: "file" };
-import "../public/vendor/highlight/elixir.min.js" with { type: "file" };
-import "../public/vendor/highlight/highlight.min.js" with { type: "file" };
-import "../public/vendor/marked.min.js" with { type: "file" };
+import highlightCss from "../public/vendor/highlight/atom-one-dark.min.css" with { type: "file" };
+import highlightElixirJs from "../public/vendor/highlight/elixir.min.js" with { type: "file" };
+import highlightJs from "../public/vendor/highlight/highlight.min.js" with { type: "file" };
+import markedJs from "../public/vendor/marked.min.js" with { type: "file" };
 
-// Re-export embeddedFiles from bun
-export { embeddedFiles } from "bun";
-
-const EMBEDDED_ASSET_URLS = [
-  "/js/chat.js",
-  "/js/chat-threads.js",
-  "/js/chat-token-utils.js",
-  "/js/commit.js",
-  "/js/diff.js",
-  "/js/edit-buffer.js",
-  "/js/expert-utils.js",
-  "/js/help-tooltip.js",
-  "/js/notes.js",
-  "/js/patch-buffer.js",
-  "/js/session-clone.js",
-  "/js/session-finder.js",
-  "/js/session-keybindings.js",
-  "/js/summary-buffer.js",
-  "/js/utils.js",
-  "/vendor/highlight/atom-one-dark.min.css",
-  "/vendor/highlight/elixir.min.js",
-  "/vendor/highlight/highlight.min.js",
-  "/vendor/marked.min.js",
-] as const;
-
-const EMBEDDED_ASSET_URLS_BY_FILENAME = new Map(
-  EMBEDDED_ASSET_URLS.map((urlPath) => {
-    const fileName = urlPath.split("/").pop();
-    return [fileName || "", urlPath];
-  }),
-);
+const EMBEDDED_ASSET_PATHS: Record<string, string> = {
+  "/js/chat.js": chatJs,
+  "/js/chat-threads.js": chatThreadsJs,
+  "/js/chat-token-utils.js": chatTokenUtilsJs,
+  "/js/commit.js": commitJs,
+  "/js/diff.js": diffJs,
+  "/js/edit-buffer.js": editBufferJs,
+  "/js/expert-utils.js": expertUtilsJs,
+  "/js/help-tooltip.js": helpTooltipJs,
+  "/js/notes.js": notesJs,
+  "/js/patch-buffer.js": patchBufferJs,
+  "/js/session-clone.js": sessionCloneJs,
+  "/js/session-finder.js": sessionFinderJs,
+  "/js/session-keybindings.js": sessionKeybindingsJs,
+  "/js/summary-buffer.js": summaryBufferJs,
+  "/js/utils.js": utilsJs,
+  "/vendor/highlight/atom-one-dark.min.css": highlightCss,
+  "/vendor/highlight/elixir.min.js": highlightElixirJs,
+  "/vendor/highlight/highlight.min.js": highlightJs,
+  "/vendor/marked.min.js": markedJs,
+};
 
 /**
  * Helper to get MIME type from file extension
@@ -92,32 +82,10 @@ export function getMimeType(path: string): string {
  */
 export function getEmbeddedAssets(): Map<string, Blob> {
   const assets = new Map<string, Blob>();
-
-  for (const blob of embeddedFiles) {
-    const resolvedUrl = resolveEmbeddedAssetUrl(blob.name);
-    if (resolvedUrl) {
-      assets.set(resolvedUrl, blob);
-    }
+  for (const [urlPath, path] of Object.entries(EMBEDDED_ASSET_PATHS)) {
+    assets.set(urlPath, Bun.file(path));
   }
-
   return assets;
-}
-
-export function resolveEmbeddedAssetUrl(fullName: string): string | null {
-  const nameWithoutHash = fullName.replace(/-[a-z0-9]{8,}\./i, ".");
-
-  if (nameWithoutHash.includes("/public/")) {
-    return nameWithoutHash.substring(
-      nameWithoutHash.indexOf("/public/") + "/public".length,
-    );
-  }
-
-  const fileName = nameWithoutHash.split("/").pop();
-  if (!fileName) {
-    return null;
-  }
-
-  return EMBEDDED_ASSET_URLS_BY_FILENAME.get(fileName) || null;
 }
 
 /**
