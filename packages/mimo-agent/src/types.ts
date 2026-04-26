@@ -53,7 +53,7 @@ export interface SessionInfo {
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   acpProcess: import("./acp/types").AcpProcessHandle | null;
-  fileWatcher: { close(): void } | null;
+  fileWatcher: import("./os/types").FileWatcher | null;
   currentThoughtBuffer?: string;
   modelState?: ModelState;
   modeState?: ModeState;

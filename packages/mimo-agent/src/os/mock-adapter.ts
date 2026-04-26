@@ -11,6 +11,7 @@ import type {
   RunOptions,
   SpawnedProcess,
   FileSystem,
+  FileWatcher,
   Environment,
   PathResolver,
   OS,
@@ -22,7 +23,10 @@ import type {
 
 // ── Mock Command Runner ───────────────────────────────────────────────────
 
-type CommandHandler = (command: string[], options: RunOptions) => CommandResult | Promise<CommandResult>;
+type CommandHandler = (
+  command: string[],
+  options: RunOptions,
+) => CommandResult | Promise<CommandResult>;
 
 export class MockCommandRunner implements CommandRunner {
   private handlers = new Map<string, CommandHandler>();
@@ -50,10 +54,15 @@ export class MockCommandRunner implements CommandRunner {
     this.spawnHandlers.set(bin, process);
   }
 
-  async run(command: string[], options: RunOptions = {}): Promise<CommandResult> {
+  async run(
+    command: string[],
+    options: RunOptions = {},
+  ): Promise<CommandResult> {
     const handler = this.handlers.get(command[0]) ?? this.defaultHandler;
     if (!handler) {
-      throw new Error(`No mock handler registered for command: ${command.join(" ")}`);
+      throw new Error(
+        `No mock handler registered for command: ${command.join(" ")}`,
+      );
     }
     const result = handler(command, options);
     return result instanceof Promise ? result : Promise.resolve(result);
@@ -62,11 +71,15 @@ export class MockCommandRunner implements CommandRunner {
   runSync(command: string[], options: RunOptions = {}): CommandResult {
     const handler = this.handlers.get(command[0]) ?? this.defaultHandler;
     if (!handler) {
-      throw new Error(`No mock handler registered for command: ${command.join(" ")}`);
+      throw new Error(
+        `No mock handler registered for command: ${command.join(" ")}`,
+      );
     }
     const result = handler(command, options);
     if (result instanceof Promise) {
-      throw new Error("Mock runSync handler returned a Promise. Use run() for async handlers.");
+      throw new Error(
+        "Mock runSync handler returned a Promise. Use run() for async handlers.",
+      );
     }
     return result;
   }
@@ -118,7 +131,9 @@ export class MockFileSystem implements FileSystem {
     return node;
   }
 
-  private getParent(path: string): { parent: Map<string, MockNode>; name: string } | undefined {
+  private getParent(
+    path: string,
+  ): { parent: Map<string, MockNode>; name: string } | undefined {
     const parts = this.parsePath(path);
     const name = parts.pop()!;
     let current = this.root;
@@ -186,10 +201,15 @@ export class MockFileSystem implements FileSystem {
     this.writeFile(dest, content);
   }
 
-  watch(_path: string, _options?: { recursive?: boolean }, _listener?: (eventType: string, filename: string | null) => void): { close(): void } {
+  watch(
+    _path: string,
+    _options?: { recursive?: boolean },
+    _listener?: (eventType: string, filename: string | null) => void,
+  ): FileWatcher {
     return {
-      close() {
-        // Mock watcher - no-op
+      close() {},
+      on(event: "error" | "ready", handler: any) {
+        if (event === "ready") Promise.resolve().then(handler);
       },
     };
   }

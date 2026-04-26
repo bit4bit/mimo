@@ -73,6 +73,12 @@ export interface DirEnt {
   isFile(): boolean;
 }
 
+export interface FileWatcher {
+  close(): void;
+  on(event: "error", handler: (err: NodeJS.ErrnoException) => void): void;
+  on(event: "ready", handler: () => void): void;
+}
+
 export interface FileSystem {
   exists(path: string): boolean;
   readFile(path: string, encoding?: BufferEncoding): string;
@@ -82,12 +88,29 @@ export interface FileSystem {
   copyFile(src: string, dest: string): void;
   chmod(path: string, mode: number): void;
   rename(oldPath: string, newPath: string): void;
-  watch(path: string, options?: { recursive?: boolean }, listener?: (eventType: string, filename: string | null) => void): { close(): void };
+  watch(
+    path: string,
+    options?: { recursive?: boolean },
+    listener?: (eventType: string, filename: string | null) => void,
+  ): FileWatcher;
   rm(path: string, options?: { recursive?: boolean; force?: boolean }): void;
   readdir(path: string, options?: ReadDirOptions): string[] | DirEnt[];
-  stat(path: string): { isDirectory(): boolean; isFile(): boolean; size: number };
-  lstat(path: string): { isDirectory(): boolean; isFile(): boolean; isSymbolicLink(): boolean; size: number };
-  cp(src: string, dest: string, options?: { recursive?: boolean; preserveTimestamps?: boolean }): void;
+  stat(path: string): {
+    isDirectory(): boolean;
+    isFile(): boolean;
+    size: number;
+  };
+  lstat(path: string): {
+    isDirectory(): boolean;
+    isFile(): boolean;
+    isSymbolicLink(): boolean;
+    size: number;
+  };
+  cp(
+    src: string,
+    dest: string,
+    options?: { recursive?: boolean; preserveTimestamps?: boolean },
+  ): void;
   utimes(path: string, atime: Date | number, mtime: Date | number): void;
   realpath(path: string): string;
   mkdtemp(prefix: string): string;

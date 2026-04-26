@@ -65,8 +65,8 @@ export class SessionManager {
 
     this.sessions.set(sessionId, sessionInfo);
 
-    // Start file watcher
-    this.startFileWatcher(sessionId, checkoutPath);
+    // Start file watcher and wait until it is ready before returning
+    await this.startFileWatcher(sessionId, checkoutPath);
 
     return sessionInfo;
   }
@@ -104,60 +104,81 @@ export class SessionManager {
     }
   }
 
-  private startFileWatcher(sessionId: string, checkoutPath: string): void {
+  private startFileWatcher(
+    sessionId: string,
+    checkoutPath: string,
+  ): Promise<void> {
     logger.debug(`[mimo-agent] Starting file watcher for session ${sessionId}`);
 
-    const watcher = this.os.fs.watch(
-      checkoutPath,
-      { recursive: true },
-      (eventType: string, filename: string | null) => {
-        if (!filename) return;
+    return new Promise((resolve) => {
+      const watcher = this.os.fs.watch(
+        checkoutPath,
+        { recursive: true },
+        (eventType: string, filename: string | null) => {
+          if (!filename) return;
 
-        // Skip VCS internals and common ignore patterns
-        const VCS_INTERNALS = new Set([".fossil", ".fslckout", ".fossil-settings", ".git"]);
-        const firstSegment = filename.split("/")[0];
-        if (
-          VCS_INTERNALS.has(firstSegment) ||
-          filename.includes("node_modules") ||
-          filename.includes("__pycache__") ||
-          filename.endsWith(".tmp") ||
-          filename.endsWith("~")
-        ) {
-          return;
-        }
+          // Skip VCS internals and common ignore patterns
+          const VCS_INTERNALS = new Set([
+            ".fossil",
+            ".fslckout",
+            ".fossil-settings",
+            ".git",
+          ]);
+          const firstSegment = filename.split("/")[0];
+          if (
+            VCS_INTERNALS.has(firstSegment) ||
+            filename.includes("node_modules") ||
+            filename.includes("__pycache__") ||
+            filename.endsWith(".tmp") ||
+            filename.endsWith("~")
+          ) {
+            return;
+          }
 
-        // Detect file creation vs deletion for rename events
-        // Node.js fs.watch reports both as 'rename' event type
-        const srcPath = this.os.path.join(checkoutPath, filename);
-        const isRenameEvent = eventType === "rename";
-        const fileExists = this.os.fs.exists(srcPath);
+          // Detect file creation vs deletion for rename events
+          // Node.js fs.watch reports both as 'rename' event type
+          const srcPath = this.os.path.join(checkoutPath, filename);
+          const isRenameEvent = eventType === "rename";
+          const fileExists = this.os.fs.exists(srcPath);
 
-        const change: FileChange = {
-          path: filename,
-          isNew: isRenameEvent && fileExists, // New file: rename event + file exists
-          deleted: isRenameEvent && !fileExists, // Deleted: rename event + file missing
-        };
+          const change: FileChange = {
+            path: filename,
+            isNew: isRenameEvent && fileExists, // New file: rename event + file exists
+            deleted: isRenameEvent && !fileExists, // Deleted: rename event + file missing
+          };
 
-        const changes = this.pendingChanges.get(sessionId) || [];
-        changes.push(change);
-        this.pendingChanges.set(sessionId, changes);
+          const changes = this.pendingChanges.get(sessionId) || [];
+          changes.push(change);
+          this.pendingChanges.set(sessionId, changes);
 
-        const existingTimeout = this.changeTimeouts.get(sessionId);
-        if (existingTimeout) {
-          clearTimeout(existingTimeout);
-        }
+          const existingTimeout = this.changeTimeouts.get(sessionId);
+          if (existingTimeout) {
+            clearTimeout(existingTimeout);
+          }
 
-        const timeout = setTimeout(() => {
-          this.flushPendingChanges(sessionId);
-        }, 500);
-        this.changeTimeouts.set(sessionId, timeout);
-      },
-    );
+          const timeout = setTimeout(() => {
+            this.flushPendingChanges(sessionId);
+          }, 500);
+          this.changeTimeouts.set(sessionId, timeout);
+        },
+      );
 
-    const session = this.sessions.get(sessionId);
-    if (session) {
-      session.fileWatcher = watcher;
-    }
+      watcher.on("error", (err: NodeJS.ErrnoException) => {
+        logger.error(
+          `[mimo-agent] File watcher failed for session ${sessionId} (${checkoutPath}): ${err.message}`,
+        );
+        this.stopSession(sessionId);
+        this.sessions.delete(sessionId);
+        throw err;
+      });
+
+      watcher.on("ready", resolve);
+
+      const session = this.sessions.get(sessionId);
+      if (session) {
+        session.fileWatcher = watcher;
+      }
+    }); // end Promise
   }
 
   private flushPendingChanges(sessionId: string): void {
@@ -184,9 +205,14 @@ export class SessionManager {
     const repoPath = this.os.path.join(this.workDir, `${sessionId}.fossil`);
 
     if (this.os.fs.exists(checkoutPath)) {
-      logger.debug(`[mimo-agent] Closing fossil repo for session: ${sessionId}`);
+      logger.debug(
+        `[mimo-agent] Closing fossil repo for session: ${sessionId}`,
+      );
       try {
-        await this.os.command.run(["fossil", "close"], { cwd: checkoutPath, timeoutMs: 10000 });
+        await this.os.command.run(["fossil", "close"], {
+          cwd: checkoutPath,
+          timeoutMs: 10000,
+        });
       } catch {
         // Ignore — checkout may already be closed or not a fossil repo
       }

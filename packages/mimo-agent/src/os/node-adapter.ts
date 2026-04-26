@@ -25,23 +25,18 @@ import {
   utimesSync,
   realpathSync,
   mkdtempSync,
-  watch as fsWatch,
   type Dirent,
 } from "fs";
+import chokidar from "chokidar";
 import { homedir, tmpdir } from "os";
-import {
-  join,
-  dirname,
-  basename,
-  relative,
-  resolve,
-} from "path";
+import { join, dirname, basename, relative, resolve } from "path";
 import type {
   CommandRunner,
   CommandResult,
   RunOptions,
   SpawnedProcess,
   FileSystem,
+  FileWatcher,
   Environment,
   PathResolver,
   OS,
@@ -54,7 +49,10 @@ const DEFAULT_TIMEOUT_MS = 30000;
 // ── Command Runner ────────────────────────────────────────────────────────
 
 class NodeCommandRunner implements CommandRunner {
-  async run(command: string[], options: RunOptions = {}): Promise<CommandResult> {
+  async run(
+    command: string[],
+    options: RunOptions = {},
+  ): Promise<CommandResult> {
     return new Promise((resolve, reject) => {
       const child = nodeSpawn(command[0], command.slice(1), {
         cwd: options.cwd,
@@ -147,20 +145,30 @@ class NodeCommandRunner implements CommandRunner {
   }
 
   private wrapChildProcess(child: ChildProcess): SpawnedProcess {
-    const wrapStream = (stream: NodeJS.ReadableStream | null): ReadableStream<Uint8Array> => {
+    const wrapStream = (
+      stream: NodeJS.ReadableStream | null,
+    ): ReadableStream<Uint8Array> => {
       if (!stream) {
-        return new ReadableStream({ start(controller) { controller.close(); } });
+        return new ReadableStream({
+          start(controller) {
+            controller.close();
+          },
+        });
       }
       return new ReadableStream({
         start(controller) {
-          stream.on("data", (chunk: Buffer) => controller.enqueue(new Uint8Array(chunk)));
+          stream.on("data", (chunk: Buffer) =>
+            controller.enqueue(new Uint8Array(chunk)),
+          );
           stream.on("end", () => controller.close());
           stream.on("error", (err) => controller.error(err));
         },
       });
     };
 
-    const wrapWritable = (stream: NodeJS.WritableStream | null): WritableStream<Uint8Array> => {
+    const wrapWritable = (
+      stream: NodeJS.WritableStream | null,
+    ): WritableStream<Uint8Array> => {
       if (!stream) {
         return new WritableStream();
       }
@@ -235,7 +243,9 @@ class NodeFileSystem implements FileSystem {
   }
 
   readdir(path: string, options?: ReadDirOptions): string[] | DirEnt[] {
-    const entries = options ? readdirSync(path, options as any) : readdirSync(path);
+    const entries = options
+      ? readdirSync(path, options as any)
+      : readdirSync(path);
     if (options?.withFileTypes) {
       return (entries as unknown as Dirent[]).map((e) => ({
         name: e.name,
@@ -265,13 +275,47 @@ class NodeFileSystem implements FileSystem {
     };
   }
 
-  cp(src: string, dest: string, options?: { recursive?: boolean; preserveTimestamps?: boolean }): void {
+  cp(
+    src: string,
+    dest: string,
+    options?: { recursive?: boolean; preserveTimestamps?: boolean },
+  ): void {
     const { cpSync } = require("fs");
     cpSync(src, dest, options);
   }
 
-  watch(path: string, options?: { recursive?: boolean }, listener?: (eventType: string, filename: string | null) => void): { close(): void } {
-    return fsWatch(path, options, listener);
+  watch(
+    watchPath: string,
+    options?: { recursive?: boolean },
+    listener?: (eventType: string, filename: string | null) => void,
+  ): FileWatcher {
+    const watcher = chokidar.watch(watchPath, {
+      persistent: true,
+      depth: options?.recursive ? undefined : 0,
+      ignoreInitial: true,
+      usePolling: true,
+      interval: 100,
+    });
+
+    if (listener) {
+      const rel = (abs: string) => relative(watchPath, abs);
+      watcher.on("add", (abs) => listener("rename", rel(abs)));
+      watcher.on("change", (abs) => listener("change", rel(abs)));
+      watcher.on("unlink", (abs) => listener("rename", rel(abs)));
+      watcher.on("addDir", (abs) => {
+        if (abs !== watchPath) listener("rename", rel(abs));
+      });
+      watcher.on("unlinkDir", (abs) => listener("rename", rel(abs)));
+    }
+
+    return {
+      close() {
+        watcher.close();
+      },
+      on(event: "error" | "ready", handler: any) {
+        watcher.on(event, handler);
+      },
+    };
   }
 
   utimes(path: string, atime: Date | number, mtime: Date | number): void {
