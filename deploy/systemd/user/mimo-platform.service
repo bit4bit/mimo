@@ -1,0 +1,14 @@
+[Unit]
+Description=MIMO Platform (user service)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/mimo/mimo-platform.env
+ExecStart=%h/.local/bin/mimo-platform
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

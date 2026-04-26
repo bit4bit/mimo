@@ -55,6 +55,23 @@ chmod +x mimo-agent
 ./mimo-agent --token <AGENT_JWT> --platform ws://localhost:3000/ws/agent --provider opencode
 ```
 
+## Run with systemd (non-root user)
+
+Use the split installer scripts:
+
+```bash
+./scripts/install-user-platform.sh --download
+./scripts/install-user-agent.sh --download --provider opencode --token <AGENT_JWT>
+```
+
+If `--token` is omitted, the agent installer asks interactively.
+
+```bash
+systemctl --user restart mimo-agent@opencode.service
+```
+
+Full details: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+
 ## Usage
 
 1. **Register/Login** at `http://localhost:3000`

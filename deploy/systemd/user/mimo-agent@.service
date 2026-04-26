@@ -1,0 +1,14 @@
+[Unit]
+Description=MIMO Agent (%i provider)
+Wants=network-online.target mimo-platform.service
+After=network-online.target mimo-platform.service
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/mimo/mimo-agent.env
+ExecStart=%h/.local/bin/mimo-agent --token ${MIMO_AGENT_TOKEN} --platform ${MIMO_AGENT_PLATFORM} --provider %i
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
