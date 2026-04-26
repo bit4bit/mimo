@@ -1,58 +1,36 @@
 import { IAcpProvider, AcpProcessHandle, NewSessionResponse } from "../types";
 import { ModelState, ModeState } from "../../types";
-import * as acp from "@agentclientprotocol/sdk";
-import { ClaudeAcpAgent } from "@agentclientprotocol/claude-agent-acp";
+import { spawn } from "child_process";
+import { Writable, Readable } from "node:stream";
+
+const CLAUDE_ACP_COMMAND = "claude-agent-acp";
 
 export class ClaudeAgentProvider implements IAcpProvider {
   readonly name = "claude";
 
-  spawn(_cwd: string): {
+  constructor(private readonly spawnProcess: typeof spawn = spawn) {}
+
+  spawn(cwd: string): {
     process: AcpProcessHandle;
     input: WritableStream<Uint8Array>;
     output: ReadableStream<Uint8Array>;
   } {
-    // Two in-memory pipes connect the client and agent sides without a subprocess.
-    // clientToAgent: client writes outgoing messages → agent reads them
-    // agentToClient: agent writes outgoing messages → client reads them
-    const clientToAgent = new TransformStream<Uint8Array, Uint8Array>();
-    const agentToClient = new TransformStream<Uint8Array, Uint8Array>();
+    const executable = Bun.which(CLAUDE_ACP_COMMAND);
+    if (!executable) {
+      throw new Error(
+        `[mimo-agent] Required executable '${CLAUDE_ACP_COMMAND}' not found on PATH`,
+      );
+    }
 
-    const agentStream = acp.ndJsonStream(
-      agentToClient.writable,
-      clientToAgent.readable,
-    );
-    const agentConnection = new acp.AgentSideConnection(
-      (conn) => new ClaudeAcpAgent(conn),
-      agentStream,
-    );
-
-    let killed = false;
-    const closeCallbacks: Array<(code: number | null) => void> = [];
-    const errorCallbacks: Array<(err: Error) => void> = [];
-
-    agentConnection.closed
-      .then(() => closeCallbacks.forEach((cb) => cb(0)))
-      .catch((err) => errorCallbacks.forEach((cb) => cb(err)));
-
-    const process: AcpProcessHandle = {
-      get killed() {
-        return killed;
-      },
-      kill() {
-        if (killed) return;
-        killed = true;
-        agentToClient.writable.close().catch(() => {});
-      },
-      on(event: "close" | "error", cb: any) {
-        if (event === "close") closeCallbacks.push(cb);
-        else if (event === "error") errorCallbacks.push(cb);
-      },
-    };
+    const proc = this.spawnProcess(executable, [], {
+      cwd,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
 
     return {
-      process,
-      input: clientToAgent.writable,
-      output: agentToClient.readable,
+      process: proc as unknown as AcpProcessHandle,
+      input: Writable.toWeb(proc.stdin!) as WritableStream<Uint8Array>,
+      output: Readable.toWeb(proc.stdout!) as ReadableStream<Uint8Array>,
     };
   }
 

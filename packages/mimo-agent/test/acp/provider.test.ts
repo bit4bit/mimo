@@ -1,7 +1,8 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, mock } from "bun:test";
 import { OpencodeProvider } from "../../src/acp/providers/opencode";
 import { ClaudeAgentProvider } from "../../src/acp/providers/claude-agent";
 import { NewSessionResponse } from "../../src/acp/types";
+import { Writable, Readable } from "node:stream";
 
 describe("OpencodeProvider", () => {
   const provider = new OpencodeProvider();
@@ -173,13 +174,34 @@ describe("ClaudeAgentProvider", () => {
   });
 
   describe("spawn", () => {
-    it("should return Web streams and process handle without spawning a subprocess", () => {
-      const result = provider.spawn("/tmp");
+    it("should spawn claude-agent-acp with provided cwd", () => {
+      const mockProcess = {
+        stdin: new Writable(),
+        stdout: new Readable({ read() {} }),
+        stderr: new Readable({ read() {} }),
+        kill: () => {},
+        on: () => {},
+      };
+      const mockSpawn = mock(() => mockProcess);
+      const claudeProvider = new ClaudeAgentProvider(mockSpawn as any);
+
+      const result = claudeProvider.spawn("/tmp");
+
       expect(result.input).toBeInstanceOf(WritableStream);
       expect(result.output).toBeInstanceOf(ReadableStream);
       expect(typeof result.process.kill).toBe("function");
       expect(typeof result.process.on).toBe("function");
-      result.process.kill();
+
+      expect(mockSpawn).toHaveBeenCalled();
+      const [command, args, options] = mockSpawn.mock.calls[0];
+      expect(typeof command).toBe("string");
+      expect(command.length).toBeGreaterThan(0);
+      expect(args).toEqual([]);
+      expect(options).toEqual({
+        cwd: "/tmp",
+        stdio: ["pipe", "pipe", "pipe"],
+      });
     });
+
   });
 });
