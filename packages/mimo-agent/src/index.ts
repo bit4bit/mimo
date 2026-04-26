@@ -1315,7 +1315,7 @@ class MimoAgent {
       }
 
       const commitMessage = `agent-sync(${sessionId}): sync fossil changes ${new Date().toISOString()}`;
-      let commitResult = await runFossil(["commit", "-m", commitMessage]);
+      let commitResult = await runFossil(["commit", "--nosign", "--no-warnings", "--ignore-oversize", "--ignore-clock-skew", "--allow-conflict", "-m", commitMessage]);
       if (!commitResult.success) {
         const combined = `${commitResult.output}\n${commitResult.error}`;
         if (combined.includes("nothing has changed")) {
