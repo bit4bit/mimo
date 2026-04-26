@@ -15,6 +15,7 @@ import "../public/js/commit.js" with { type: "file" };
 import "../public/js/diff.js" with { type: "file" };
 import "../public/js/edit-buffer.js" with { type: "file" };
 import "../public/js/expert-utils.js" with { type: "file" };
+import "../public/js/help-tooltip.js" with { type: "file" };
 import "../public/js/notes.js" with { type: "file" };
 import "../public/js/patch-buffer.js" with { type: "file" };
 import "../public/js/session-clone.js" with { type: "file" };
@@ -31,6 +32,35 @@ import "../public/vendor/marked.min.js" with { type: "file" };
 
 // Re-export embeddedFiles from bun
 export { embeddedFiles } from "bun";
+
+const EMBEDDED_ASSET_URLS = [
+  "/js/chat.js",
+  "/js/chat-threads.js",
+  "/js/chat-token-utils.js",
+  "/js/commit.js",
+  "/js/diff.js",
+  "/js/edit-buffer.js",
+  "/js/expert-utils.js",
+  "/js/help-tooltip.js",
+  "/js/notes.js",
+  "/js/patch-buffer.js",
+  "/js/session-clone.js",
+  "/js/session-finder.js",
+  "/js/session-keybindings.js",
+  "/js/summary-buffer.js",
+  "/js/utils.js",
+  "/vendor/highlight/atom-one-dark.min.css",
+  "/vendor/highlight/elixir.min.js",
+  "/vendor/highlight/highlight.min.js",
+  "/vendor/marked.min.js",
+] as const;
+
+const EMBEDDED_ASSET_URLS_BY_FILENAME = new Map(
+  EMBEDDED_ASSET_URLS.map((urlPath) => {
+    const fileName = urlPath.split("/").pop();
+    return [fileName || "", urlPath];
+  }),
+);
 
 /**
  * Helper to get MIME type from file extension
@@ -64,31 +94,30 @@ export function getEmbeddedAssets(): Map<string, Blob> {
   const assets = new Map<string, Blob>();
 
   for (const blob of embeddedFiles) {
-    // blob.name is like "$bunfs/filename-hash.ext" or "path/filename-hash.ext"
-    // We need to convert it back to the public URL path
-    const fullName = blob.name;
-
-    // Remove hash from filename if present (e.g., "chat-a1b2c3d4.js" → "chat.js")
-    // The hash is a 8-char hex string before the extension
-    const nameWithoutHash = fullName.replace(/-[a-f0-9]{8,}\./, ".");
-
-    // Extract the URL path from the embedded path
-    // e.g., "packages/mimo-platform/public/js/chat.js" → "/js/chat.js"
-    let urlPath: string;
-    if (nameWithoutHash.includes("/public/")) {
-      urlPath = nameWithoutHash.substring(
-        nameWithoutHash.indexOf("/public/") + "/public".length,
-      );
-    } else {
-      // Fallback: use the basename
-      const parts = nameWithoutHash.split("/");
-      urlPath = "/" + parts[parts.length - 1];
+    const resolvedUrl = resolveEmbeddedAssetUrl(blob.name);
+    if (resolvedUrl) {
+      assets.set(resolvedUrl, blob);
     }
-
-    assets.set(urlPath, blob);
   }
 
   return assets;
+}
+
+export function resolveEmbeddedAssetUrl(fullName: string): string | null {
+  const nameWithoutHash = fullName.replace(/-[a-f0-9]{8,}\./, ".");
+
+  if (nameWithoutHash.includes("/public/")) {
+    return nameWithoutHash.substring(
+      nameWithoutHash.indexOf("/public/") + "/public".length,
+    );
+  }
+
+  const fileName = nameWithoutHash.split("/").pop();
+  if (!fileName) {
+    return null;
+  }
+
+  return EMBEDDED_ASSET_URLS_BY_FILENAME.get(fileName) || null;
 }
 
 /**
