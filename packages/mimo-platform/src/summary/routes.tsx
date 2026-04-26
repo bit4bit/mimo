@@ -132,7 +132,7 @@ export function createSummaryRoutes(mimoContext: SummaryRoutesContext) {
 
     console.log("History text length:", historyText.length);
 
-    const fullPrompt = `${summaryPrompt}\n\n${historyText}`;
+    const fullPrompt = summaryPrompt.replace("{history}", historyText);
     console.log("Full prompt:", fullPrompt.substring(0, 200), "...");
 
     const ws = agentService.getAgentConnection(summarizeAgentId);
