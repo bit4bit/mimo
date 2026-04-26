@@ -27,6 +27,7 @@ import "../public/js/utils.js" with { type: "file" };
 import "../public/vendor/highlight/atom-one-dark.min.css" with { type: "file" };
 import "../public/vendor/highlight/elixir.min.js" with { type: "file" };
 import "../public/vendor/highlight/highlight.min.js" with { type: "file" };
+import "../public/vendor/marked.min.js" with { type: "file" };
 
 // Re-export embeddedFiles from bun
 export { embeddedFiles } from "bun";

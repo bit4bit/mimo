@@ -40,7 +40,7 @@ import type { OS } from "./os/types.js";
 
 // Asset embedding support for compiled executable
 // @ts-ignore - Module only exists after embedding
-import { getEmbeddedAssets, getMimeType, isCompiled } from "./assets.js";
+import { getEmbeddedAssets, getMimeType } from "./assets.js";
 
 const app = new Hono();
 const _port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -114,8 +114,9 @@ const mimoServer = createMimoServer();
 let embeddedAssets: Map<string, Blob> | null = null;
 
 try {
-  if (isCompiled()) {
-    embeddedAssets = getEmbeddedAssets();
+  const assets = getEmbeddedAssets();
+  if (assets.size > 0) {
+    embeddedAssets = assets;
     logger.debug("Using embedded assets for static file serving");
   }
 } catch {
