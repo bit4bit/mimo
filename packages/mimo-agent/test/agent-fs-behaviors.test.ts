@@ -1,6 +1,6 @@
 /**
  * Agent Filesystem Behavior Tests
- * 
+ *
  * BDD-style tests documenting filesystem behaviors from index.ts perspective.
  * These behaviors must be preserved when migrating sync → async.
  */
@@ -12,170 +12,154 @@ describe("Agent Filesystem Behaviors", () => {
   let os: OS;
   let testDir: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     os = createOS({ ...process.env });
-    testDir = os.fs.mkdtemp("/tmp/agent-test-");
+    testDir = await os.fs.mkdtemp("/tmp/agent-test-");
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     try {
-      os.fs.rm(testDir, { recursive: true, force: true });
+      await os.fs.rm(testDir, { recursive: true, force: true });
     } catch {}
   });
 
   describe("Workspace Initialization", () => {
-    it("should create workDir if it does not exist (B1)", () => {
+    it("should create workDir if it does not exist (B1)", async () => {
       const workDir = `${testDir}/workspace`;
-      
-      // Behavior from index.ts:168-169
-      if (!os.fs.exists(workDir)) {
-        os.fs.mkdir(workDir, { recursive: true });
+
+      if (!await os.fs.exists(workDir)) {
+        await os.fs.mkdir(workDir, { recursive: true });
       }
-      
-      expect(os.fs.exists(workDir)).toBe(true);
-      expect(os.fs.stat(workDir).isDirectory()).toBe(true);
+
+      expect(await os.fs.exists(workDir)).toBe(true);
+      expect((await os.fs.stat(workDir)).isDirectory()).toBe(true);
     });
 
-    it("should not fail if workDir already exists (B2)", () => {
+    it("should not fail if workDir already exists (B2)", async () => {
       const workDir = `${testDir}/workspace`;
-      os.fs.mkdir(workDir);
-      
-      // Should be idempotent
-      if (!os.fs.exists(workDir)) {
-        os.fs.mkdir(workDir, { recursive: true });
+      await os.fs.mkdir(workDir);
+
+      if (!await os.fs.exists(workDir)) {
+        await os.fs.mkdir(workDir, { recursive: true });
       }
-      
-      expect(os.fs.exists(workDir)).toBe(true);
+
+      expect(await os.fs.exists(workDir)).toBe(true);
     });
   });
 
   describe("Fossil Repository Setup", () => {
-    it("should check if repoPath exists before opening (B3)", () => {
+    it("should check if repoPath exists before opening (B3)", async () => {
       const sessionId = "test-session";
       const checkoutPath = `${testDir}/checkout`;
       const repoPath = `${checkoutPath}/../${sessionId}.fossil`;
-      
-      // Behavior from index.ts:516
-      const repoExists = os.fs.exists(repoPath);
+
+      const repoExists = await os.fs.exists(repoPath);
       expect(repoExists).toBe(false);
-      
-      // Create repo
-      os.fs.mkdir(checkoutPath, { recursive: true });
-      os.fs.writeFile(repoPath, "fossil-data");
-      
-      const repoExistsAfter = os.fs.exists(repoPath);
+
+      await os.fs.mkdir(checkoutPath, { recursive: true });
+      await os.fs.writeFile(repoPath, "fossil-data");
+
+      const repoExistsAfter = await os.fs.exists(repoPath);
       expect(repoExistsAfter).toBe(true);
     });
 
-    it("should create checkoutPath if missing when repo exists (B4)", () => {
+    it("should create checkoutPath if missing when repo exists (B4)", async () => {
       const checkoutPath = `${testDir}/checkout`;
-      
-      // Behavior from index.ts:518-519
-      if (!os.fs.exists(checkoutPath)) {
-        os.fs.mkdir(checkoutPath, { recursive: true });
+
+      if (!await os.fs.exists(checkoutPath)) {
+        await os.fs.mkdir(checkoutPath, { recursive: true });
       }
-      
-      expect(os.fs.exists(checkoutPath)).toBe(true);
+
+      expect(await os.fs.exists(checkoutPath)).toBe(true);
     });
 
-    it("should detect existing .fossil directory in checkout (B5)", () => {
+    it("should detect existing .fossil directory in checkout (B5)", async () => {
       const checkoutPath = `${testDir}/checkout`;
-      os.fs.mkdir(checkoutPath, { recursive: true });
-      os.fs.mkdir(`${checkoutPath}/.fossil`);
-      
-      // Behavior from index.ts:579
-      const hasFossilDir = os.fs.exists(os.path.join(checkoutPath, ".fossil"));
+      await os.fs.mkdir(checkoutPath, { recursive: true });
+      await os.fs.mkdir(`${checkoutPath}/.fossil`);
+
+      const hasFossilDir = await os.fs.exists(os.path.join(checkoutPath, ".fossil"));
       expect(hasFossilDir).toBe(true);
     });
   });
 
   describe("Expert File Operations", () => {
-    it("should verify source file exists before copying (B6)", () => {
+    it("should verify source file exists before copying (B6)", async () => {
       const srcPath = `${testDir}/source.txt`;
       const dstPath = `${testDir}/dest.txt`;
-      
-      // Behavior from index.ts:2097
-      expect(os.fs.exists(srcPath)).toBe(false);
-      
-      // Create and verify
-      os.fs.writeFile(srcPath, "content");
-      expect(os.fs.exists(srcPath)).toBe(true);
-      
-      // Copy
-      os.fs.copyFile(srcPath, dstPath);
-      expect(os.fs.exists(dstPath)).toBe(true);
-      expect(os.fs.readFile(dstPath)).toBe("content");
+
+      expect(await os.fs.exists(srcPath)).toBe(false);
+
+      await os.fs.writeFile(srcPath, "content");
+      expect(await os.fs.exists(srcPath)).toBe(true);
+
+      await os.fs.copyFile(srcPath, dstPath);
+      expect(await os.fs.exists(dstPath)).toBe(true);
+      expect(await os.fs.readFile(dstPath)).toBe("content");
     });
 
-    it("should move file from source to destination (B7)", () => {
+    it("should move file from source to destination (B7)", async () => {
       const srcPath = `${testDir}/temp/source.txt`;
       const dstPath = `${testDir}/final/dest.txt`;
-      
-      // Setup
-      os.fs.mkdir(`${testDir}/temp`, { recursive: true });
-      os.fs.mkdir(`${testDir}/final`, { recursive: true });
-      os.fs.writeFile(srcPath, "content");
-      
-      // Behavior from index.ts:2138-2140
-      if (os.fs.exists(srcPath)) {
-        os.fs.copyFile(srcPath, dstPath);
-        os.fs.unlink(srcPath);
+
+      await os.fs.mkdir(`${testDir}/temp`, { recursive: true });
+      await os.fs.mkdir(`${testDir}/final`, { recursive: true });
+      await os.fs.writeFile(srcPath, "content");
+
+      if (await os.fs.exists(srcPath)) {
+        await os.fs.copyFile(srcPath, dstPath);
+        await os.fs.unlink(srcPath);
       }
-      
-      expect(os.fs.exists(dstPath)).toBe(true);
-      expect(os.fs.exists(srcPath)).toBe(false);
-      expect(os.fs.readFile(dstPath)).toBe("content");
+
+      expect(await os.fs.exists(dstPath)).toBe(true);
+      expect(await os.fs.exists(srcPath)).toBe(false);
+      expect(await os.fs.readFile(dstPath)).toBe("content");
     });
 
-    it("should clean up temporary files (B8)", () => {
+    it("should clean up temporary files (B8)", async () => {
       const tmpPath = `${testDir}/temp.txt`;
-      os.fs.writeFile(tmpPath, "temp-data");
-      
-      // Behavior from index.ts:2160-2161
-      if (os.fs.exists(tmpPath)) {
-        os.fs.unlink(tmpPath);
+      await os.fs.writeFile(tmpPath, "temp-data");
+
+      if (await os.fs.exists(tmpPath)) {
+        await os.fs.unlink(tmpPath);
       }
-      
-      expect(os.fs.exists(tmpPath)).toBe(false);
+
+      expect(await os.fs.exists(tmpPath)).toBe(false);
     });
 
-    it("should read file content for expert fetch (B9)", () => {
+    it("should read file content for expert fetch (B9)", async () => {
       const tmpPath = `${testDir}/temp.txt`;
-      os.fs.writeFile(tmpPath, "file-content", { encoding: "utf-8" });
-      
-      // Behavior from index.ts:2179-2191
-      expect(os.fs.exists(tmpPath)).toBe(true);
-      const content = os.fs.readFile(tmpPath, "utf-8");
-      
+      await os.fs.writeFile(tmpPath, "file-content", { encoding: "utf-8" });
+
+      expect(await os.fs.exists(tmpPath)).toBe(true);
+      const content = await os.fs.readFile(tmpPath, "utf-8");
+
       expect(content).toBe("file-content");
     });
 
-    it("should write file with parent directory creation (B10)", () => {
+    it("should write file with parent directory creation (B10)", async () => {
       const deepPath = `${testDir}/a/b/c/deep.txt`;
       const content = "deep-content";
-      
-      // Behavior from index.ts:2230-2235
+
       const dir = os.path.dirname(deepPath);
-      if (!os.fs.exists(dir)) {
-        os.fs.mkdir(dir, { recursive: true });
+      if (!await os.fs.exists(dir)) {
+        await os.fs.mkdir(dir, { recursive: true });
       }
-      os.fs.writeFile(deepPath, content, { encoding: "utf-8" });
-      
-      expect(os.fs.exists(deepPath)).toBe(true);
-      expect(os.fs.readFile(deepPath, "utf-8")).toBe(content);
+      await os.fs.writeFile(deepPath, content, { encoding: "utf-8" });
+
+      expect(await os.fs.exists(deepPath)).toBe(true);
+      expect(await os.fs.readFile(deepPath, "utf-8")).toBe(content);
     });
   });
 
   describe("Path Resolution", () => {
-    it("should resolve relative paths from checkout (B11)", () => {
+    it("should resolve relative paths from checkout (B11)", async () => {
       const checkoutPath = `${testDir}/checkout`;
-      os.fs.mkdir(checkoutPath, { recursive: true });
-      
-      // Behavior from index.ts:514
+      await os.fs.mkdir(checkoutPath, { recursive: true });
+
       const sessionId = "session-123";
       const repoPath = os.path.join(checkoutPath, "..", `${sessionId}.fossil`);
-      
-      // Normalize to verify
+
       const normalized = os.path.resolve(repoPath);
       expect(normalized).toContain(sessionId);
       expect(normalized).toContain(".fossil");
@@ -184,132 +168,122 @@ describe("Agent Filesystem Behaviors", () => {
     it("should handle join for nested paths (B12)", () => {
       const base = testDir;
       const nested = os.path.join(base, "src", "components", "Button.tsx");
-      
+
       expect(nested).toBe(`${base}/src/components/Button.tsx`);
     });
   });
 
   describe("Error Handling Behaviors", () => {
-    it("should handle missing source gracefully (B13)", () => {
+    it("should handle missing source gracefully (B13)", async () => {
       const missingPath = `${testDir}/missing.txt`;
       const dstPath = `${testDir}/dest.txt`;
-      
-      // Should not throw, just skip
-      if (os.fs.exists(missingPath)) {
-        os.fs.copyFile(missingPath, dstPath);
+
+      if (await os.fs.exists(missingPath)) {
+        await os.fs.copyFile(missingPath, dstPath);
       }
-      
-      expect(os.fs.exists(dstPath)).toBe(false);
+
+      expect(await os.fs.exists(dstPath)).toBe(false);
     });
 
-    it("should detect file vs directory (B14)", () => {
+    it("should detect file vs directory (B14)", async () => {
       const filePath = `${testDir}/file.txt`;
       const dirPath = `${testDir}/dir`;
-      
-      os.fs.writeFile(filePath, "content");
-      os.fs.mkdir(dirPath);
-      
-      expect(os.fs.stat(filePath).isFile()).toBe(true);
-      expect(os.fs.stat(filePath).isDirectory()).toBe(false);
-      expect(os.fs.stat(dirPath).isDirectory()).toBe(true);
-      expect(os.fs.stat(dirPath).isFile()).toBe(false);
+
+      await os.fs.writeFile(filePath, "content");
+      await os.fs.mkdir(dirPath);
+
+      expect((await os.fs.stat(filePath)).isFile()).toBe(true);
+      expect((await os.fs.stat(filePath)).isDirectory()).toBe(false);
+      expect((await os.fs.stat(dirPath)).isDirectory()).toBe(true);
+      expect((await os.fs.stat(dirPath)).isFile()).toBe(false);
     });
   });
 
   describe("Session Checkout Behaviors", () => {
-    it("should create missing checkout dir during clone (B15)", () => {
+    it("should create missing checkout dir during clone (B15)", async () => {
       const checkoutPath = `${testDir}/new-checkout`;
-      
-      // Behavior from index.ts:650-651
-      if (!os.fs.exists(checkoutPath)) {
-        os.fs.mkdir(checkoutPath, { recursive: true });
+
+      if (!await os.fs.exists(checkoutPath)) {
+        await os.fs.mkdir(checkoutPath, { recursive: true });
       }
-      
-      expect(os.fs.exists(checkoutPath)).toBe(true);
+
+      expect(await os.fs.exists(checkoutPath)).toBe(true);
     });
   });
 });
 
-describe("Async Migration Contract", () => {
-  /**
-   * These tests define the contract that async fs must maintain.
-   * When migrating sync -> async, these behaviors MUST be preserved.
-   */
-  let os: OS;
-  
-  beforeEach(() => {
-    os = createOS({ ...process.env });
-  });
+  describe("Async Migration Contract", () => {
+    let os: OS;
 
-  describe("Contract C1: Idempotent Directory Creation", () => {
-    it("mkdir recursive should not fail if dir exists", async () => {
-      const dir = `/tmp/async-contract-${Date.now()}`;
-      
-      // First call
-      os.fs.mkdir(dir, { recursive: true });
-      
-      // Second call - should not fail (simulating async behavior)
-      expect(() => os.fs.mkdir(dir, { recursive: true })).not.toThrow();
-      
-      os.fs.rm(dir, { recursive: true });
+    beforeEach(() => {
+      os = createOS({ ...process.env });
     });
-  });
 
-  describe("Contract C2: Atomic Move Operation", () => {
-    it("copy+unlink should be treated as atomic move", () => {
-      const src = `/tmp/atomic-src-${Date.now()}.txt`;
-      const dst = `/tmp/atomic-dst-${Date.now()}.txt`;
-      
-      os.fs.writeFile(src, "move-me");
-      
-      // Current behavior: copy then unlink
-      os.fs.copyFile(src, dst);
-      os.fs.unlink(src);
-      
-      // Contract: dst exists, src does not
-      expect(os.fs.exists(dst)).toBe(true);
-      expect(os.fs.exists(src)).toBe(false);
-      expect(os.fs.readFile(dst)).toBe("move-me");
-    });
-  });
+    describe("Contract C1: Idempotent Directory Creation", () => {
+      it("mkdir recursive should not fail if dir exists", async () => {
+        const dir = `/tmp/async-contract-${Date.now()}`;
 
-  describe("Contract C3: Path Existence Check", () => {
-    it("exists should return boolean, not throw", () => {
-      const existing = `/tmp`;
-      const nonExisting = `/tmp/this-does-not-exist-${Date.now()}`;
-      
-      expect(() => os.fs.exists(existing)).not.toThrow();
-      expect(() => os.fs.exists(nonExisting)).not.toThrow();
-      
-      expect(os.fs.exists(existing)).toBe(true);
-      expect(os.fs.exists(nonExisting)).toBe(false);
-    });
-  });
+        await os.fs.mkdir(dir, { recursive: true });
 
-  describe("Contract C4: Directory Recursive Deletion", () => {
-    it("rm recursive should delete nested files and dirs", () => {
-      const base = `/tmp/rm-recursive-${Date.now()}`;
-      os.fs.mkdir(base, { recursive: true });
-      os.fs.writeFile(`${base}/a.txt`, "a");
-      os.fs.mkdir(`${base}/subdir`);
-      os.fs.writeFile(`${base}/subdir/b.txt`, "b");
-      
-      os.fs.rm(base, { recursive: true });
-      
-      expect(os.fs.exists(base)).toBe(false);
-    });
-  });
+        expect(() => os.fs.mkdir(dir, { recursive: true })).not.toThrow();
 
-  describe("Contract C5: File Content Integrity", () => {
-    it("readFile after writeFile should return original content", () => {
-      const path = `/tmp/content-${Date.now()}.txt`;
-      const content = "Hello, World!\nLine 2\n";
-      
-      os.fs.writeFile(path, content);
-      const read = os.fs.readFile(path);
-      
-      expect(read).toBe(content);
-      os.fs.unlink(path);
+        await os.fs.rm(dir, { recursive: true });
+      });
     });
-  });
+
+    describe("Contract C2: Atomic Move Operation", () => {
+      it("copy+unlink should be treated as atomic move", async () => {
+        const src = `/tmp/atomic-src-${Date.now()}.txt`;
+        const dst = `/tmp/atomic-dst-${Date.now()}.txt`;
+
+        await os.fs.writeFile(src, "move-me");
+
+        await os.fs.copyFile(src, dst);
+        await os.fs.unlink(src);
+
+        expect(await os.fs.exists(dst)).toBe(true);
+        expect(await os.fs.exists(src)).toBe(false);
+        expect(await os.fs.readFile(dst)).toBe("move-me");
+      });
+    });
+
+    describe("Contract C3: Path Existence Check", () => {
+      it("exists should return boolean, not throw", async () => {
+        const existing = `/tmp`;
+        const nonExisting = `/tmp/this-does-not-exist-${Date.now()}`;
+
+        expect(() => os.fs.exists(existing)).not.toThrow();
+        expect(() => os.fs.exists(nonExisting)).not.toThrow();
+
+        expect(await os.fs.exists(existing)).toBe(true);
+        expect(await os.fs.exists(nonExisting)).toBe(false);
+      });
+    });
+
+    describe("Contract C4: Directory Recursive Deletion", () => {
+      it("rm recursive should delete nested files and dirs", async () => {
+        const base = `/tmp/rm-recursive-${Date.now()}`;
+        await os.fs.mkdir(base, { recursive: true });
+        await os.fs.writeFile(`${base}/a.txt`, "a");
+        await os.fs.mkdir(`${base}/subdir`);
+        await os.fs.writeFile(`${base}/subdir/b.txt`, "b");
+
+        await os.fs.rm(base, { recursive: true });
+
+        expect(await os.fs.exists(base)).toBe(false);
+      });
+    });
+
+    describe("Contract C5: File Content Integrity", () => {
+      it("readFile after writeFile should return original content", async () => {
+        const path = `/tmp/content-${Date.now()}.txt`;
+        const content = "Hello, World!\nLine 2\n";
+
+        await os.fs.writeFile(path, content);
+        const read = await os.fs.readFile(path);
+
+        expect(read).toBe(content);
+        await os.fs.unlink(path);
+      });
+});
 });

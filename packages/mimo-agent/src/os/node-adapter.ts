@@ -4,27 +4,9 @@
  * All dependencies are explicit. Environment values are injected via constructor,
  * NOT read from process.env. This keeps the boundary clean.
  */
+import { spawn as nodeSpawn, type ChildProcess } from "child_process";
 import {
-  spawn as nodeSpawn,
-  spawnSync as nodeSpawnSync,
-  type ChildProcess,
-} from "child_process";
-import {
-  existsSync,
-  readFileSync,
-  writeFileSync,
-  mkdirSync,
-  unlinkSync,
-  copyFileSync,
-  chmodSync,
-  renameSync,
-  rmSync,
-  readdirSync,
-  statSync,
-  lstatSync,
-  utimesSync,
-  realpathSync,
-  mkdtempSync,
+  promises as fs,
   type Dirent,
 } from "fs";
 import chokidar from "chokidar";
@@ -97,36 +79,6 @@ class NodeCommandRunner implements CommandRunner {
         reject(err);
       });
     });
-  }
-
-  runSync(command: string[], options: RunOptions = {}): CommandResult {
-    const result = nodeSpawnSync(command[0], command.slice(1), {
-      cwd: options.cwd,
-      env: options.env,
-      encoding: "utf8",
-      timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-      input: options.stdin,
-    });
-
-    if (result.error) {
-      const err = result.error as Error & { code?: string };
-      return {
-        success: false,
-        output: (result.stdout || "").trim(),
-        error:
-          err.code === "ETIMEDOUT"
-            ? `${command.join(" ")} timed out`
-            : err.message,
-        exitCode: -1,
-      };
-    }
-
-    return {
-      success: result.status === 0,
-      output: (result.stdout || "").trim(),
-      error: (result.stderr || "").trim(),
-      exitCode: result.status ?? -1,
-    };
   }
 
   spawn(command: string[], options: RunOptions = {}): SpawnedProcess {
@@ -206,46 +158,51 @@ class NodeCommandRunner implements CommandRunner {
 // ── File System ───────────────────────────────────────────────────────────
 
 class NodeFileSystem implements FileSystem {
-  exists(path: string): boolean {
-    return existsSync(path);
+  async exists(path: string): Promise<boolean> {
+    try {
+      await fs.access(path);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
-  readFile(path: string, encoding: BufferEncoding = "utf8"): string {
-    return readFileSync(path, encoding);
+  async readFile(path: string, encoding: BufferEncoding = "utf8"): Promise<string> {
+    return fs.readFile(path, encoding);
   }
 
-  writeFile(path: string, content: string, options = {}): void {
-    writeFileSync(path, content, options);
+  async writeFile(path: string, content: string, options = {}): Promise<void> {
+    await fs.writeFile(path, content, options);
   }
 
-  mkdir(path: string, options = {}): void {
-    mkdirSync(path, options);
+  async mkdir(path: string, options = {}): Promise<void> {
+    await fs.mkdir(path, options);
   }
 
-  unlink(path: string): void {
-    unlinkSync(path);
+  async unlink(path: string): Promise<void> {
+    await fs.unlink(path);
   }
 
-  copyFile(src: string, dest: string): void {
-    copyFileSync(src, dest);
+  async copyFile(src: string, dest: string): Promise<void> {
+    await fs.copyFile(src, dest);
   }
 
-  chmod(path: string, mode: number): void {
-    chmodSync(path, mode);
+  async chmod(path: string, mode: number): Promise<void> {
+    await fs.chmod(path, mode);
   }
 
-  rename(oldPath: string, newPath: string): void {
-    renameSync(oldPath, newPath);
+  async rename(oldPath: string, newPath: string): Promise<void> {
+    await fs.rename(oldPath, newPath);
   }
 
-  rm(path: string, options = {}): void {
-    rmSync(path, options);
+  async rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void> {
+    await fs.rm(path, options as any);
   }
 
-  readdir(path: string, options?: ReadDirOptions): string[] | DirEnt[] {
+  async readdir(path: string, options?: ReadDirOptions): Promise<string[] | DirEnt[]> {
     const entries = options
-      ? readdirSync(path, options as any)
-      : readdirSync(path);
+      ? await fs.readdir(path, options as any)
+      : await fs.readdir(path);
     if (options?.withFileTypes) {
       return (entries as unknown as Dirent[]).map((e) => ({
         name: e.name,
@@ -256,8 +213,8 @@ class NodeFileSystem implements FileSystem {
     return entries as string[];
   }
 
-  stat(path: string) {
-    const s = statSync(path);
+  async stat(path: string) {
+    const s = await fs.stat(path);
     return {
       isDirectory: () => s.isDirectory(),
       isFile: () => s.isFile(),
@@ -265,8 +222,8 @@ class NodeFileSystem implements FileSystem {
     };
   }
 
-  lstat(path: string) {
-    const s = lstatSync(path);
+  async lstat(path: string) {
+    const s = await fs.lstat(path);
     return {
       isDirectory: () => s.isDirectory(),
       isFile: () => s.isFile(),
@@ -275,13 +232,12 @@ class NodeFileSystem implements FileSystem {
     };
   }
 
-  cp(
+  async cp(
     src: string,
     dest: string,
     options?: { recursive?: boolean; preserveTimestamps?: boolean },
-  ): void {
-    const { cpSync } = require("fs");
-    cpSync(src, dest, options);
+  ): Promise<void> {
+    await fs.cp(src, dest, options);
   }
 
   watch(
@@ -319,16 +275,16 @@ class NodeFileSystem implements FileSystem {
     };
   }
 
-  utimes(path: string, atime: Date | number, mtime: Date | number): void {
-    utimesSync(path, atime, mtime);
+  async utimes(path: string, atime: Date | number, mtime: Date | number): Promise<void> {
+    await fs.utimes(path, atime, mtime);
   }
 
-  realpath(path: string): string {
-    return realpathSync(path);
+  async realpath(path: string): Promise<string> {
+    return fs.realpath(path);
   }
 
-  mkdtemp(prefix: string): string {
-    return mkdtempSync(prefix);
+  async mkdtemp(prefix: string): Promise<string> {
+    return fs.mkdtemp(prefix);
   }
 }
 

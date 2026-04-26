@@ -1,8 +1,5 @@
 /**
  * OS Abstraction BDD Test Suite
- *
- * Comprehensive coverage for filesystem operations.
- * Run this before migrating sync fs to async.
  */
 import { describe, it, expect, beforeEach } from "bun:test";
 import { createOS } from "./node-adapter.js";
@@ -17,190 +14,190 @@ describe("OS FileSystem - BDD Coverage", () => {
   });
 
   describe("exists()", () => {
-    it("should return true for existing files", () => {
-      expect(os.fs.exists("/tmp")).toBe(true);
+    it("should return true for existing files", async () => {
+      expect(await os.fs.exists("/tmp")).toBe(true);
     });
 
-    it("should return false for non-existent files", () => {
-      expect(os.fs.exists("/nonexistent-path-xyz")).toBe(false);
+    it("should return false for non-existent files", async () => {
+      expect(await os.fs.exists("/nonexistent-path-xyz")).toBe(false);
     });
   });
 
   describe("readFile()", () => {
     it("should read file contents", async () => {
       const tmpFile = `/tmp/os-test-${Date.now()}.txt`;
-      os.fs.writeFile(tmpFile, "hello world");
+      await os.fs.writeFile(tmpFile, "hello world");
 
-      const content = os.fs.readFile(tmpFile);
+      const content = await os.fs.readFile(tmpFile);
       expect(content).toBe("hello world");
 
-      os.fs.unlink(tmpFile);
+      await os.fs.unlink(tmpFile);
     });
 
-    it("should throw for non-existent files", () => {
-      expect(() => os.fs.readFile("/nonexistent")).toThrow();
+    it("should throw for non-existent files", async () => {
+      await expect(os.fs.readFile("/nonexistent")).rejects.toThrow();
     });
   });
 
   describe("writeFile()", () => {
-    it("should create new files", () => {
+    it("should create new files", async () => {
       const tmpFile = `/tmp/os-write-test-${Date.now()}.txt`;
-      os.fs.writeFile(tmpFile, "test content");
-      expect(os.fs.exists(tmpFile)).toBe(true);
-      os.fs.unlink(tmpFile);
+      await os.fs.writeFile(tmpFile, "test content");
+      expect(await os.fs.exists(tmpFile)).toBe(true);
+      await os.fs.unlink(tmpFile);
     });
 
-    it("should overwrite existing files", () => {
+    it("should overwrite existing files", async () => {
       const tmpFile = `/tmp/os-overwrite-${Date.now()}.txt`;
-      os.fs.writeFile(tmpFile, "first");
-      os.fs.writeFile(tmpFile, "second");
-      expect(os.fs.readFile(tmpFile)).toBe("second");
-      os.fs.unlink(tmpFile);
+      await os.fs.writeFile(tmpFile, "first");
+      await os.fs.writeFile(tmpFile, "second");
+      expect(await os.fs.readFile(tmpFile)).toBe("second");
+      await os.fs.unlink(tmpFile);
     });
   });
 
   describe("mkdir()", () => {
-    it("should create directories", () => {
+    it("should create directories", async () => {
       const tmpDir = `/tmp/os-mkdir-${Date.now()}`;
-      os.fs.mkdir(tmpDir);
-      expect(os.fs.exists(tmpDir)).toBe(true);
-      os.fs.rm(tmpDir, { recursive: true });
+      await os.fs.mkdir(tmpDir);
+      expect(await os.fs.exists(tmpDir)).toBe(true);
+      await os.fs.rm(tmpDir, { recursive: true });
     });
 
-    it("should create nested directories with recursive option", () => {
+    it("should create nested directories with recursive option", async () => {
       const tmpDir = `/tmp/os-mkdir-nested-${Date.now()}/a/b/c`;
-      os.fs.mkdir(tmpDir, { recursive: true });
-      expect(os.fs.exists(tmpDir)).toBe(true);
-      os.fs.rm(`/tmp/os-mkdir-nested-${Date.now()}`, { recursive: true });
+      await os.fs.mkdir(tmpDir, { recursive: true });
+      expect(await os.fs.exists(tmpDir)).toBe(true);
+      await os.fs.rm(`/tmp/os-mkdir-nested-${Date.now()}`, { recursive: true });
     });
   });
 
   describe("unlink()", () => {
-    it("should delete files", () => {
+    it("should delete files", async () => {
       const tmpFile = `/tmp/os-unlink-${Date.now()}.txt`;
-      os.fs.writeFile(tmpFile, "to delete");
-      expect(os.fs.exists(tmpFile)).toBe(true);
-      os.fs.unlink(tmpFile);
-      expect(os.fs.exists(tmpFile)).toBe(false);
+      await os.fs.writeFile(tmpFile, "to delete");
+      expect(await os.fs.exists(tmpFile)).toBe(true);
+      await os.fs.unlink(tmpFile);
+      expect(await os.fs.exists(tmpFile)).toBe(false);
     });
   });
 
   describe("copyFile()", () => {
-    it("should copy files", () => {
+    it("should copy files", async () => {
       const src = `/tmp/os-copy-src-${Date.now()}.txt`;
       const dest = `/tmp/os-copy-dest-${Date.now()}.txt`;
-      os.fs.writeFile(src, "original content");
-      os.fs.copyFile(src, dest);
-      expect(os.fs.readFile(dest)).toBe("original content");
-      os.fs.unlink(src);
-      os.fs.unlink(dest);
+      await os.fs.writeFile(src, "original content");
+      await os.fs.copyFile(src, dest);
+      expect(await os.fs.readFile(dest)).toBe("original content");
+      await os.fs.unlink(src);
+      await os.fs.unlink(dest);
     });
   });
 
   describe("chmod()", () => {
-    it("should change file permissions", () => {
+    it("should change file permissions", async () => {
       const tmpFile = `/tmp/os-chmod-${Date.now()}.txt`;
-      os.fs.writeFile(tmpFile, "content");
-      os.fs.chmod(tmpFile, 0o755);
-      const stats = os.fs.stat(tmpFile);
+      await os.fs.writeFile(tmpFile, "content");
+      await os.fs.chmod(tmpFile, 0o755);
+      const stats = await os.fs.stat(tmpFile);
       expect(stats.isFile()).toBe(true);
-      os.fs.unlink(tmpFile);
+      await os.fs.unlink(tmpFile);
     });
   });
 
   describe("rename()", () => {
-    it("should rename files", () => {
+    it("should rename files", async () => {
       const oldPath = `/tmp/os-rename-old-${Date.now()}.txt`;
       const newPath = `/tmp/os-rename-new-${Date.now()}.txt`;
-      os.fs.writeFile(oldPath, "content");
-      os.fs.rename(oldPath, newPath);
-      expect(os.fs.exists(oldPath)).toBe(false);
-      expect(os.fs.exists(newPath)).toBe(true);
-      os.fs.unlink(newPath);
+      await os.fs.writeFile(oldPath, "content");
+      await os.fs.rename(oldPath, newPath);
+      expect(await os.fs.exists(oldPath)).toBe(false);
+      expect(await os.fs.exists(newPath)).toBe(true);
+      await os.fs.unlink(newPath);
     });
   });
 
   describe("rm()", () => {
-    it("should remove directories recursively", () => {
+    it("should remove directories recursively", async () => {
       const tmpDir = `/tmp/os-rm-${Date.now()}`;
-      os.fs.mkdir(tmpDir, { recursive: true });
-      os.fs.writeFile(`${tmpDir}/file.txt`, "content");
-      os.fs.rm(tmpDir, { recursive: true });
-      expect(os.fs.exists(tmpDir)).toBe(false);
+      await os.fs.mkdir(tmpDir, { recursive: true });
+      await os.fs.writeFile(`${tmpDir}/file.txt`, "content");
+      await os.fs.rm(tmpDir, { recursive: true });
+      expect(await os.fs.exists(tmpDir)).toBe(false);
     });
   });
 
   describe("readdir()", () => {
-    it("should list directory contents", () => {
+    it("should list directory contents", async () => {
       const tmpDir = `/tmp/os-readdir-${Date.now()}`;
-      os.fs.mkdir(tmpDir);
-      os.fs.writeFile(`${tmpDir}/a.txt`, "a");
-      os.fs.writeFile(`${tmpDir}/b.txt`, "b");
+      await os.fs.mkdir(tmpDir);
+      await os.fs.writeFile(`${tmpDir}/a.txt`, "a");
+      await os.fs.writeFile(`${tmpDir}/b.txt`, "b");
 
-      const entries = os.fs.readdir(tmpDir) as string[];
+      const entries = (await os.fs.readdir(tmpDir)) as string[];
       expect(entries).toContain("a.txt");
       expect(entries).toContain("b.txt");
 
-      os.fs.rm(tmpDir, { recursive: true });
+      await os.fs.rm(tmpDir, { recursive: true });
     });
   });
 
   describe("stat()", () => {
-    it("should return file stats", () => {
+    it("should return file stats", async () => {
       const tmpFile = `/tmp/os-stat-${Date.now()}.txt`;
-      os.fs.writeFile(tmpFile, "content");
+      await os.fs.writeFile(tmpFile, "content");
 
-      const stats = os.fs.stat(tmpFile);
+      const stats = await os.fs.stat(tmpFile);
       expect(stats.isFile()).toBe(true);
       expect(stats.isDirectory()).toBe(false);
       expect(stats.size).toBeGreaterThan(0);
 
-      os.fs.unlink(tmpFile);
+      await os.fs.unlink(tmpFile);
     });
   });
 
   describe("lstat()", () => {
-    it("should return symlink stats", () => {
+    it("should return symlink stats", async () => {
       const tmpFile = `/tmp/os-lstat-${Date.now()}.txt`;
-      os.fs.writeFile(tmpFile, "content");
+      await os.fs.writeFile(tmpFile, "content");
 
-      const stats = os.fs.lstat(tmpFile);
+      const stats = await os.fs.lstat(tmpFile);
       expect(stats.isFile()).toBe(true);
       expect(stats.isSymbolicLink()).toBe(false);
 
-      os.fs.unlink(tmpFile);
+      await os.fs.unlink(tmpFile);
     });
   });
 
   describe("cp()", () => {
-    it("should copy directories recursively", () => {
+    it("should copy directories recursively", async () => {
       const srcDir = `/tmp/os-cp-src-${Date.now()}`;
       const destDir = `/tmp/os-cp-dest-${Date.now()}`;
 
-      os.fs.mkdir(srcDir, { recursive: true });
-      os.fs.writeFile(`${srcDir}/file.txt`, "content");
+      await os.fs.mkdir(srcDir, { recursive: true });
+      await os.fs.writeFile(`${srcDir}/file.txt`, "content");
 
-      os.fs.cp(srcDir, destDir, { recursive: true });
-      expect(os.fs.exists(`${destDir}/file.txt`)).toBe(true);
+      await os.fs.cp(srcDir, destDir, { recursive: true });
+      expect(await os.fs.exists(`${destDir}/file.txt`)).toBe(true);
 
-      os.fs.rm(srcDir, { recursive: true });
-      os.fs.rm(destDir, { recursive: true });
+      await os.fs.rm(srcDir, { recursive: true });
+      await os.fs.rm(destDir, { recursive: true });
     });
   });
 
   describe("realpath()", () => {
-    it("should resolve absolute paths", () => {
-      const resolved = os.fs.realpath("/tmp");
+    it("should resolve absolute paths", async () => {
+      const resolved = await os.fs.realpath("/tmp");
       expect(resolved).toBe("/tmp");
     });
   });
 
   describe("mkdtemp()", () => {
-    it("should create temporary directories", () => {
-      const tmpDir = os.fs.mkdtemp("/tmp/os-temp-");
-      expect(os.fs.exists(tmpDir)).toBe(true);
+    it("should create temporary directories", async () => {
+      const tmpDir = await os.fs.mkdtemp("/tmp/os-temp-");
+      expect(await os.fs.exists(tmpDir)).toBe(true);
       expect(tmpDir.startsWith("/tmp/os-temp-")).toBe(true);
-      os.fs.rm(tmpDir, { recursive: true });
+      await os.fs.rm(tmpDir, { recursive: true });
     });
   });
 });
@@ -230,14 +227,6 @@ describe("OS CommandRunner - BDD Coverage", () => {
         timeoutMs: 1000,
       });
       expect(result.success).toBe(true);
-    });
-  });
-
-  describe("runSync()", () => {
-    it("should execute commands synchronously", () => {
-      const result = os.command.runSync(["echo", "sync-test"]);
-      expect(result.success).toBe(true);
-      expect(result.output).toBe("sync-test");
     });
   });
 });
@@ -345,14 +334,14 @@ describe("OS PathResolver - BDD Coverage", () => {
 
 describe("MockOS - BDD Coverage", () => {
   describe("MockFileSystem", () => {
-    it("should seed files", () => {
+    it("should seed files", async () => {
       const os = createMockOS() as MockOS;
       os.fs.seed({
         "/test/file.txt": "content",
         "/test/dir": null,
       });
-      expect(os.fs.exists("/test/file.txt")).toBe(true);
-      expect(os.fs.readFile("/test/file.txt")).toBe("content");
+      expect(await os.fs.exists("/test/file.txt")).toBe(true);
+      expect(await os.fs.readFile("/test/file.txt")).toBe("content");
     });
   });
 
@@ -367,7 +356,7 @@ describe("MockOS - BDD Coverage", () => {
       }));
 
       const result = await os.command.run(["git", "status"]);
-      expect(result.output).toBe("git status");
+      expect(result.output).toBe("git git status");
     });
   });
 

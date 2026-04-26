@@ -35,20 +35,8 @@ export interface SpawnedProcess {
 }
 
 export interface CommandRunner {
-  /**
-   * Execute a command asynchronously. Returns stdout/stderr as strings.
-   */
   run(command: string[], options?: RunOptions): Promise<CommandResult>;
 
-  /**
-   * Synchronous variant for legacy code paths.
-   * Prefer `run()` for new code.
-   */
-  runSync(command: string[], options?: RunOptions): CommandResult;
-
-  /**
-   * Spawn a long-running process with streaming I/O.
-   */
   spawn(command: string[], options?: RunOptions): SpawnedProcess;
 }
 
@@ -80,40 +68,40 @@ export interface FileWatcher {
 }
 
 export interface FileSystem {
-  exists(path: string): boolean;
-  readFile(path: string, encoding?: BufferEncoding): string;
-  writeFile(path: string, content: string, options?: WriteFileOptions): void;
-  mkdir(path: string, options?: MkdirOptions): void;
-  unlink(path: string): void;
-  copyFile(src: string, dest: string): void;
-  chmod(path: string, mode: number): void;
-  rename(oldPath: string, newPath: string): void;
+  exists(path: string): Promise<boolean>;
+  readFile(path: string, encoding?: BufferEncoding): Promise<string>;
+  writeFile(path: string, content: string, options?: WriteFileOptions): Promise<void>;
+  mkdir(path: string, options?: MkdirOptions): Promise<void>;
+  unlink(path: string): Promise<void>;
+  copyFile(src: string, dest: string): Promise<void>;
+  chmod(path: string, mode: number): Promise<void>;
+  rename(oldPath: string, newPath: string): Promise<void>;
   watch(
     path: string,
     options?: { recursive?: boolean; ignored?: (path: string) => boolean },
     listener?: (eventType: string, filename: string | null) => void,
   ): FileWatcher;
-  rm(path: string, options?: { recursive?: boolean; force?: boolean }): void;
-  readdir(path: string, options?: ReadDirOptions): string[] | DirEnt[];
-  stat(path: string): {
+  rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
+  readdir(path: string, options?: ReadDirOptions): Promise<string[] | DirEnt[]>;
+  stat(path: string): Promise<{
     isDirectory(): boolean;
     isFile(): boolean;
     size: number;
-  };
-  lstat(path: string): {
+  }>;
+  lstat(path: string): Promise<{
     isDirectory(): boolean;
     isFile(): boolean;
     isSymbolicLink(): boolean;
     size: number;
-  };
+  }>;
   cp(
     src: string,
     dest: string,
     options?: { recursive?: boolean; preserveTimestamps?: boolean },
-  ): void;
-  utimes(path: string, atime: Date | number, mtime: Date | number): void;
-  realpath(path: string): string;
-  mkdtemp(prefix: string): string;
+  ): Promise<void>;
+  utimes(path: string, atime: Date | number, mtime: Date | number): Promise<void>;
+  realpath(path: string): Promise<string>;
+  mkdtemp(prefix: string): Promise<string>;
 }
 
 // ── Environment ───────────────────────────────────────────────────────────
