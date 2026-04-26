@@ -49,6 +49,8 @@ describe("Session Management Integration Tests", () => {
     // Mock VCS methods to avoid actual git/fossil operations in these tests
     ctx.services.vcs.cloneRepository = async () => ({ success: true });
     ctx.services.vcs.importToFossil = async () => ({ success: true });
+    ctx.services.vcs.createBranch = async () => ({ success: true });
+    ctx.services.vcs.setFossilProjectName = async () => ({ success: true });
     ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
     ctx.services.vcs.openFossil = async () => ({ success: true });
     ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });
