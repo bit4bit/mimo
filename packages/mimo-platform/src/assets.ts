@@ -104,7 +104,7 @@ export function getEmbeddedAssets(): Map<string, Blob> {
 }
 
 export function resolveEmbeddedAssetUrl(fullName: string): string | null {
-  const nameWithoutHash = fullName.replace(/-[a-f0-9]{8,}\./, ".");
+  const nameWithoutHash = fullName.replace(/-[a-z0-9]{8,}\./i, ".");
 
   if (nameWithoutHash.includes("/public/")) {
     return nameWithoutHash.substring(
