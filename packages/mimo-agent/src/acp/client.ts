@@ -1,4 +1,5 @@
 import { ModelState, ModeState, McpServerConfig } from "../types";
+import { IAcpProvider, NewSessionResponse } from "./types";
 import { logger } from "../logger.js";
 import * as acp from "@agentclientprotocol/sdk";
 export interface AcpClientCallbacks {
@@ -78,21 +79,21 @@ export class AcpClient {
     this.callbacks = callbacks;
   }
 
-  get acpSessionId(): string | undefined {
+  async getAcpSessionId(): Promise<string | undefined> {
     return this.session?.acpSessionId;
   }
 
-  get modelState(): ModelState | undefined {
+  async getModelState(): Promise<ModelState | undefined> {
     return this.session?.modelState;
   }
 
-  get modeState(): ModeState | undefined {
+  async getModeState(): Promise<ModeState | undefined> {
     return this.session?.modeState;
   }
 
-  get availableCommands():
-    | Array<{ name: string; description?: string; template?: string }>
-    | undefined {
+  async getAvailableCommands(): Promise<
+    Array<{ name: string; description?: string; template?: string }> | undefined
+  > {
     return this.session?.availableCommands;
   }
 
@@ -364,7 +365,7 @@ export class AcpClient {
               : undefined,
         };
       })
-      .filter(Boolean);
+      .filter((cmd): cmd is NonNullable<typeof cmd> => cmd !== null);
   }
 
   async prompt(content: string): Promise<acp.PromptResponse> {

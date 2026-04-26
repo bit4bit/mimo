@@ -30,7 +30,7 @@ export class ClaudeAgentProvider implements IAcpProvider {
     return {
       process: proc as unknown as AcpProcessHandle,
       input: Writable.toWeb(proc.stdin!) as WritableStream<Uint8Array>,
-      output: Readable.toWeb(proc.stdout!) as ReadableStream<Uint8Array>,
+      output: Readable.toWeb(proc.stdout!) as unknown as ReadableStream<Uint8Array>,
     };
   }
 

@@ -51,8 +51,8 @@ export class SessionManager {
 
     // Clone/checkout logic handled by platform via fossil server
     // Just ensure the checkout directory exists
-    if (!this.os.fs.exists(checkoutPath)) {
-      this.os.fs.mkdir(checkoutPath, { recursive: true });
+    if (!await this.os.fs.exists(checkoutPath)) {
+      await this.os.fs.mkdir(checkoutPath, { recursive: true });
     }
 
     const sessionInfo: SessionInfo = {
@@ -106,7 +106,7 @@ export class SessionManager {
     }
   }
 
-  private startFileWatcher(
+  private async startFileWatcher(
     sessionId: string,
     checkoutPath: string,
   ): Promise<void> {
@@ -123,8 +123,8 @@ export class SessionManager {
 
     for (const fileName of [".gitignore", ".mimoignore"]) {
       const ignorePath = this.os.path.join(checkoutPath, fileName);
-      if (this.os.fs.exists(ignorePath)) {
-        ig.add(this.os.fs.readFile(ignorePath));
+      if (await this.os.fs.exists(ignorePath)) {
+        ig.add(await this.os.fs.readFile(ignorePath));
       }
     }
 
@@ -147,31 +147,36 @@ export class SessionManager {
         (eventType: string, filename: string | null) => {
           if (!filename) return;
 
-          // Detect file creation vs deletion for rename events
-          // Node.js fs.watch reports both as 'rename' event type
           const srcPath = this.os.path.join(checkoutPath, filename);
           const isRenameEvent = eventType === "rename";
-          const fileExists = this.os.fs.exists(srcPath);
 
-          const change: FileChange = {
-            path: filename,
-            isNew: isRenameEvent && fileExists, // New file: rename event + file exists
-            deleted: isRenameEvent && !fileExists, // Deleted: rename event + file missing
-          };
+          (async () => {
+            try {
+              const fileExists = await this.os.fs.exists(srcPath);
 
-          const changes = this.pendingChanges.get(sessionId) || [];
-          changes.push(change);
-          this.pendingChanges.set(sessionId, changes);
+              const change: FileChange = {
+                path: filename,
+                isNew: isRenameEvent && fileExists,
+                deleted: isRenameEvent && !fileExists,
+              };
 
-          const existingTimeout = this.changeTimeouts.get(sessionId);
-          if (existingTimeout) {
-            clearTimeout(existingTimeout);
-          }
+              const changes = this.pendingChanges.get(sessionId) || [];
+              changes.push(change);
+              this.pendingChanges.set(sessionId, changes);
 
-          const timeout = setTimeout(() => {
-            this.flushPendingChanges(sessionId);
-          }, 500);
-          this.changeTimeouts.set(sessionId, timeout);
+              const existingTimeout = this.changeTimeouts.get(sessionId);
+              if (existingTimeout) {
+                clearTimeout(existingTimeout);
+              }
+
+              const timeout = setTimeout(() => {
+                this.flushPendingChanges(sessionId);
+              }, 500);
+              this.changeTimeouts.set(sessionId, timeout);
+            } catch (err) {
+              logger.error(`[mimo-agent] File watcher error:`, err);
+            }
+          })();
         },
       );
 
@@ -216,7 +221,7 @@ export class SessionManager {
     const checkoutPath = this.os.path.join(this.workDir, sessionId);
     const repoPath = this.os.path.join(this.workDir, `${sessionId}.fossil`);
 
-    if (this.os.fs.exists(checkoutPath)) {
+    if (await this.os.fs.exists(checkoutPath)) {
       logger.debug(
         `[mimo-agent] Closing fossil repo for session: ${sessionId}`,
       );
@@ -229,12 +234,12 @@ export class SessionManager {
         // Ignore — checkout may already be closed or not a fossil repo
       }
       logger.debug(`[mimo-agent] Deleting session folder: ${checkoutPath}`);
-      this.os.fs.rm(checkoutPath, { recursive: true, force: true });
+      await this.os.fs.rm(checkoutPath, { recursive: true, force: true });
     }
 
-    if (this.os.fs.exists(repoPath)) {
+    if (await this.os.fs.exists(repoPath)) {
       logger.debug(`[mimo-agent] Deleting fossil repo file: ${repoPath}`);
-      this.os.fs.unlink(repoPath);
+      await this.os.fs.unlink(repoPath);
     }
   }
 

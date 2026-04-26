@@ -59,7 +59,7 @@ class MimoAgent {
   // keyed by acpKey(sessionId, chatThreadId)
   private cachedAcpStates: Map<string, CachedAcpState> = new Map();
   // Store thread-specific model/mode from platform (keyed by acpKey)
-  private threadConfigs: Map<string, { model?: string; mode?: string }> =
+  private threadConfigs: Map<string, { model?: string; mode?: string; acpSessionId?: string }> =
     new Map();
   // Latest command inventory per session (thread fallback)
   private sessionAvailableCommands: Map<
@@ -362,10 +362,10 @@ class MimoAgent {
       `${sessionId}.fossil`,
     );
 
-    if (this.os.fs.exists(repoPath)) {
+    if (await this.os.fs.exists(repoPath)) {
       logger.debug(`[mimo-agent]   Fossil repo exists, opening`);
-      if (!this.os.fs.exists(checkoutPath)) {
-        this.os.fs.mkdir(checkoutPath, { recursive: true });
+      if (!await this.os.fs.exists(checkoutPath)) {
+        await this.os.fs.mkdir(checkoutPath, { recursive: true });
       }
       try {
         await this.os.command.run(["fossil", "open", repoPath], {
@@ -437,7 +437,7 @@ class MimoAgent {
           // Ignore error
         }
       }
-    } else if (this.os.fs.exists(this.os.path.join(checkoutPath, ".fossil"))) {
+    } else if (await this.os.fs.exists(this.os.path.join(checkoutPath, ".fossil"))) {
       logger.debug(`[mimo-agent]   Checkout exists, ensuring open`);
       try {
         await this.os.command.run(["fossil", "open"], {
@@ -525,8 +525,8 @@ class MimoAgent {
       await this.os.command.run(["fossil", "clone", cloneUrl, repoPath], {
         timeoutMs: 30000,
       });
-      if (!this.os.fs.exists(checkoutPath)) {
-        this.os.fs.mkdir(checkoutPath, { recursive: true });
+      if (!await this.os.fs.exists(checkoutPath)) {
+        await this.os.fs.mkdir(checkoutPath, { recursive: true });
       }
       // Open without sync first, then set remote with credentials
       await this.os.command.run(["fossil", "open", "--nosync", repoPath], {
@@ -756,7 +756,9 @@ class MimoAgent {
         this.acpClients.set(key, acpClient);
 
         // Restore model/mode from persisted session state if available
-        if (sessionInfo.modelState && acpClient.modelState) {
+        const modelState = await acpClient.getModelState();
+        const modeState = await acpClient.getModeState();
+        if (sessionInfo.modelState && modelState) {
           try {
             await acpClient.setModel(sessionInfo.modelState.currentModelId);
             logger.debug(
@@ -770,7 +772,7 @@ class MimoAgent {
           }
         }
 
-        if (sessionInfo.modeState && acpClient.modeState) {
+        if (sessionInfo.modeState && modeState) {
           try {
             await acpClient.setMode(sessionInfo.modeState.currentModeId);
             logger.debug(
@@ -787,8 +789,8 @@ class MimoAgent {
         // Update session state with actual ACP values
         this.sessionManager.setSessionState(
           session.sessionId,
-          acpClient.modelState,
-          acpClient.modeState,
+          modelState,
+          modeState,
         );
 
         // Send session initialized
@@ -796,8 +798,8 @@ class MimoAgent {
           type: "session_initialized",
           sessionId: session.sessionId,
           chatThreadId,
-          modelState: acpClient.modelState,
-          modeState: acpClient.modeState,
+          modelState: modelState,
+          modeState: modeState,
           timestamp: new Date().toISOString(),
         });
 
@@ -1014,9 +1016,11 @@ class MimoAgent {
 
       // Restore per-thread model/mode from cache (task 4.3) or use thread config from platform
       const threadConfig = this.threadConfigs.get(key);
+      const modelState = await acpClient.getModelState();
+      const modeState = await acpClient.getModeState();
 
       // Restore model from cache OR thread config
-      if (cachedState?.modelState && acpClient.modelState) {
+      if (cachedState?.modelState && modelState) {
         try {
           await acpClient.setModel(cachedState.modelState.currentModelId);
           logger.debug(
@@ -1028,15 +1032,14 @@ class MimoAgent {
             err,
           );
         }
-      } else if (threadConfig?.model && acpClient.modelState) {
+      } else if (threadConfig?.model && modelState) {
         // First spawn: use model from thread config
         try {
           await acpClient.setModel(threadConfig.model);
           logger.debug(
             `[mimo-agent] Set model from thread config for ${sessionId}/${chatThreadId}: ${threadConfig.model}`,
           );
-          // Update client state to reflect the applied model
-          acpClient.modelState.currentModelId = threadConfig.model;
+          modelState.currentModelId = threadConfig.model;
         } catch (err) {
           logger.warn(
             `[mimo-agent] Failed to set model from thread config for ${sessionId}/${chatThreadId}:`,
@@ -1046,7 +1049,7 @@ class MimoAgent {
       }
 
       // Restore mode from cache OR thread config
-      if (cachedState?.modeState && acpClient.modeState) {
+      if (cachedState?.modeState && modeState) {
         try {
           await acpClient.setMode(cachedState.modeState.currentModeId);
           logger.debug(
@@ -1058,15 +1061,14 @@ class MimoAgent {
             err,
           );
         }
-      } else if (threadConfig?.mode && acpClient.modeState) {
+      } else if (threadConfig?.mode && modeState) {
         // First spawn: use mode from thread config
         try {
           await acpClient.setMode(threadConfig.mode);
           logger.debug(
             `[mimo-agent] Set mode from thread config for ${sessionId}/${chatThreadId}: ${threadConfig.mode}`,
           );
-          // Update client state to reflect the applied mode
-          acpClient.modeState.currentModeId = threadConfig.mode;
+          modeState.currentModeId = threadConfig.mode;
         } catch (err) {
           logger.warn(
             `[mimo-agent] Failed to set mode from thread config for ${sessionId}/${chatThreadId}:`,
@@ -1080,16 +1082,16 @@ class MimoAgent {
 
       this.sessionManager.setSessionState(
         sessionId,
-        acpClient.modelState,
-        acpClient.modeState,
+        modelState,
+        modeState,
       );
 
       this.send({
         type: "session_initialized",
         sessionId,
         chatThreadId,
-        modelState: acpClient.modelState,
-        modeState: acpClient.modeState,
+        modelState: modelState,
+        modeState: modeState,
         timestamp: new Date().toISOString(),
       });
 
@@ -1551,7 +1553,7 @@ class MimoAgent {
     }
 
     // Normal active thread flow
-    let acpClient = this.acpClients.get(key);
+    let acpClient: AcpClient | null | undefined = this.acpClients.get(key);
     if (!acpClient) {
       acpClient = await this.ensureThreadRuntime(sessionId, chatThreadId);
     }
@@ -1622,7 +1624,7 @@ class MimoAgent {
     chatThreadId: string,
     content: string,
   ): Promise<void> {
-    const normalizedContent = this.normalizeCommandPrompt(
+    const normalizedContent = await this.normalizeCommandPrompt(
       content,
       acpClient,
       sessionId,
@@ -1654,11 +1656,11 @@ class MimoAgent {
     }
   }
 
-  private normalizeCommandPrompt(
+  private async normalizeCommandPrompt(
     content: string,
     acpClient: AcpClient,
     sessionId: string,
-  ): string {
+  ): Promise<string> {
     const trimmed = (content || "").trim();
     if (!trimmed.startsWith("/")) {
       return content;
@@ -1670,18 +1672,18 @@ class MimoAgent {
       return content;
     }
 
-    const availableCommands =
-      acpClient.availableCommands && acpClient.availableCommands.length > 0
-        ? acpClient.availableCommands
-        : this.sessionAvailableCommands.get(sessionId) || [];
-    const hasExactSlash = availableCommands.some(
+    const availableCommands = await acpClient.getAvailableCommands();
+    const cmds = availableCommands && availableCommands.length > 0
+      ? availableCommands
+      : this.sessionAvailableCommands.get(sessionId) || [];
+    const hasExactSlash = cmds.some(
       (command) => String(command.name || "").trim() === firstToken,
     );
     if (hasExactSlash) {
       return content;
     }
 
-    const hasBare = availableCommands.some(
+    const hasBare = cmds.some(
       (command) => String(command.name || "").trim() === commandToken,
     );
     if (!hasBare) {
@@ -1717,12 +1719,13 @@ class MimoAgent {
 
     try {
       await acpClient.setModel(modelId);
+      const modelState = await acpClient.getModelState();
 
       this.send({
         type: "model_state",
         sessionId,
         chatThreadId,
-        modelState: acpClient.modelState,
+        modelState,
         timestamp: new Date().toISOString(),
       });
 
@@ -1764,12 +1767,13 @@ class MimoAgent {
 
     try {
       await acpClient.setMode(modeId);
+      const modeState = await acpClient.getModeState();
 
       this.send({
         type: "mode_state",
         sessionId,
         chatThreadId,
-        modeState: acpClient.modeState,
+        modeState,
         timestamp: new Date().toISOString(),
       });
 
@@ -1822,16 +1826,19 @@ class MimoAgent {
       return;
     }
 
+    const modelState = await acpClient.getModelState();
+    const modeState = await acpClient.getModeState();
+
     this.send({
       type: "session_initialized",
       sessionId,
       chatThreadId,
-      modelState: acpClient.modelState,
-      modeState: acpClient.modeState,
+      modelState,
+      modeState,
       timestamp: new Date().toISOString(),
     });
 
-    const stateCommands = acpClient.availableCommands || [];
+    const stateCommands = await acpClient.getAvailableCommands() || [];
     if (stateCommands.length > 0) {
       this.send({
         type: "available_commands_update",
@@ -1989,7 +1996,7 @@ class MimoAgent {
     const srcFullPath = this.os.path.join(checkoutPath, originalPath);
     const tmpFullPath = this.os.path.join(checkoutPath, tempPath);
 
-    if (!this.os.fs.exists(srcFullPath)) {
+    if (!await this.os.fs.exists(srcFullPath)) {
       logger.debug(
         `[mimo-agent] expert_copy_file: source not found: ${srcFullPath}`,
       );
@@ -2003,7 +2010,7 @@ class MimoAgent {
     }
 
     try {
-      this.os.fs.copyFile(srcFullPath, tmpFullPath);
+      await this.os.fs.copyFile(srcFullPath, tmpFullPath);
       logger.debug(
         `[mimo-agent] expert_copy_file: ${srcFullPath} -> ${tmpFullPath}`,
       );
@@ -2012,7 +2019,6 @@ class MimoAgent {
       this.send({
         type: "error_response",
         sessionId,
-        chatThreadId,
         error: err,
         timestamp: new Date().toISOString(),
       });
@@ -2031,9 +2037,9 @@ class MimoAgent {
     const dstFullPath = this.os.path.join(checkoutPath, originalPath);
 
     try {
-      if (this.os.fs.exists(srcFullPath)) {
-        this.os.fs.copyFile(srcFullPath, dstFullPath);
-        this.os.fs.unlink(srcFullPath);
+      if (await this.os.fs.exists(srcFullPath)) {
+        await this.os.fs.copyFile(srcFullPath, dstFullPath);
+        await this.os.fs.unlink(srcFullPath);
         logger.debug(
           `[mimo-agent] expert_apply_file: ${tempPath} -> ${originalPath}, temp deleted`,
         );
@@ -2053,8 +2059,8 @@ class MimoAgent {
     const tmpFullPath = this.os.path.join(session.checkoutPath, tempPath);
 
     try {
-      if (this.os.fs.exists(tmpFullPath)) {
-        this.os.fs.unlink(tmpFullPath);
+      if (await this.os.fs.exists(tmpFullPath)) {
+        await this.os.fs.unlink(tmpFullPath);
         logger.debug(`[mimo-agent] expert_delete_file: ${tempPath} deleted`);
       }
     } catch (err) {
@@ -2072,7 +2078,7 @@ class MimoAgent {
     const tmpFullPath = this.os.path.join(session.checkoutPath, tempPath);
 
     try {
-      if (!this.os.fs.exists(tmpFullPath)) {
+      if (!await this.os.fs.exists(tmpFullPath)) {
         this.send({
           type: "expert_temp_content",
           sessionId,
@@ -2084,7 +2090,7 @@ class MimoAgent {
         return;
       }
 
-      const content = this.os.fs.readFile(tmpFullPath, "utf-8");
+      const content = await this.os.fs.readFile(tmpFullPath, "utf-8");
       this.send({
         type: "expert_temp_content",
         sessionId,
@@ -2123,12 +2129,12 @@ class MimoAgent {
 
     try {
       // Ensure parent directory exists
-      if (!this.os.fs.exists(dir)) {
-        this.os.fs.mkdir(dir, { recursive: true });
+      if (!await this.os.fs.exists(dir)) {
+        await this.os.fs.mkdir(dir, { recursive: true });
       }
 
       // Write file content
-      this.os.fs.writeFile(fullPath, content, { encoding: "utf-8" });
+      await this.os.fs.writeFile(fullPath, content, { encoding: "utf-8" });
       logger.debug(`[mimo-agent] write_file: ${fullPath} written`);
 
       this.send({
@@ -2148,7 +2154,6 @@ class MimoAgent {
       this.send({
         type: "error_response",
         sessionId,
-        chatThreadId,
         error: err,
         timestamp: new Date().toISOString(),
       });
@@ -2213,7 +2218,9 @@ class MimoAgent {
       onAvailableCommandsUpdate: () => {},
       onToolCall: () => {},
       onToolCallUpdate: () => {},
-      onPermissionRequest: async () => ({ outcome: "allow" }),
+      onPermissionRequest: async () => ({
+        outcome: { outcome: "selected" as const, optionId: "allow" },
+      }),
     };
   }
 
@@ -2233,8 +2240,8 @@ class MimoAgent {
         spawnResult.output,
       );
 
-      const modelState = acpClient.modelState;
-      const modeState = acpClient.modeState;
+      const modelState = await acpClient.getModelState();
+      const modeState = await acpClient.getModeState();
       const availableModels = modelState?.availableModels ?? [];
       const availableModes = modeState?.availableModes ?? [];
       const defaultModelId =
@@ -2446,10 +2453,13 @@ export function createMimoAgent(): MimoAgent {
     const key = acpKey(sessionId, chatThreadId);
     const acpClient = (agent as any).acpClients.get(key);
     if (acpClient) {
+      const acpSessionId = await acpClient.getAcpSessionId();
+      const modelState = await acpClient.getModelState();
+      const modeState = await acpClient.getModeState();
       (agent as any).cachedAcpStates.set(key, {
-        acpSessionId: acpClient.acpSessionId,
-        modelState: acpClient.modelState,
-        modeState: acpClient.modeState,
+        acpSessionId,
+        modelState,
+        modeState,
       });
     }
     await (agent as any).closeAcpClientByKey(key);

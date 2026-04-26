@@ -68,22 +68,6 @@ export class MockCommandRunner implements CommandRunner {
     return result instanceof Promise ? result : Promise.resolve(result);
   }
 
-  runSync(command: string[], options: RunOptions = {}): CommandResult {
-    const handler = this.handlers.get(command[0]) ?? this.defaultHandler;
-    if (!handler) {
-      throw new Error(
-        `No mock handler registered for command: ${command.join(" ")}`,
-      );
-    }
-    const result = handler(command, options);
-    if (result instanceof Promise) {
-      throw new Error(
-        "Mock runSync handler returned a Promise. Use run() for async handlers.",
-      );
-    }
-    return result;
-  }
-
   spawn(command: string[], _options: RunOptions = {}): SpawnedProcess {
     const process = this.spawnHandlers.get(command[0]);
     if (!process) {
@@ -145,18 +129,18 @@ export class MockFileSystem implements FileSystem {
     return { parent: current, name };
   }
 
-  exists(path: string): boolean {
+  async exists(path: string): Promise<boolean> {
     return this.getNode(path) !== undefined;
   }
 
-  readFile(path: string, _encoding?: BufferEncoding): string {
+  async readFile(path: string, _encoding?: BufferEncoding): Promise<string> {
     const node = this.getNode(path);
     if (!node) throw new Error(`ENOENT: ${path}`);
     if (node.type !== "file") throw new Error(`EISDIR: ${path}`);
     return node.content ?? "";
   }
 
-  writeFile(path: string, content: string, options?: WriteFileOptions): void {
+  async writeFile(path: string, content: string, options?: WriteFileOptions): Promise<void> {
     const parentInfo = this.getParent(path);
     if (!parentInfo) throw new Error(`ENOENT: ${path}`);
     const { parent, name } = parentInfo;
@@ -167,7 +151,7 @@ export class MockFileSystem implements FileSystem {
     });
   }
 
-  mkdir(path: string, options?: MkdirOptions): void {
+  async mkdir(path: string, options?: MkdirOptions): Promise<void> {
     const parts = this.parsePath(path);
     let current = this.root;
     for (const part of parts) {
@@ -186,7 +170,7 @@ export class MockFileSystem implements FileSystem {
     }
   }
 
-  unlink(path: string): void {
+  async unlink(path: string): Promise<void> {
     const parentInfo = this.getParent(path);
     if (!parentInfo) throw new Error(`ENOENT: ${path}`);
     const { parent, name } = parentInfo;
@@ -196,9 +180,9 @@ export class MockFileSystem implements FileSystem {
     parent.delete(name);
   }
 
-  copyFile(src: string, dest: string): void {
-    const content = this.readFile(src);
-    this.writeFile(dest, content);
+  async copyFile(src: string, dest: string): Promise<void> {
+    const content = await this.readFile(src);
+    await this.writeFile(dest, content);
   }
 
   watch(
@@ -214,20 +198,20 @@ export class MockFileSystem implements FileSystem {
     };
   }
 
-  chmod(path: string, mode: number): void {
+  async chmod(path: string, mode: number): Promise<void> {
     const node = this.getNode(path);
     if (!node) throw new Error(`ENOENT: ${path}`);
     node.mode = mode;
   }
 
-  rename(oldPath: string, newPath: string): void {
+  async rename(oldPath: string, newPath: string): Promise<void> {
     const node = this.getNode(oldPath);
     if (!node) throw new Error(`ENOENT: ${oldPath}`);
-    this.writeFile(newPath, node.content ?? "");
-    this.unlink(oldPath);
+    await this.writeFile(newPath, node.content ?? "");
+    await this.unlink(oldPath);
   }
 
-  rm(path: string, options?: { recursive?: boolean; force?: boolean }): void {
+  async rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void> {
     const node = this.getNode(path);
     if (!node) {
       if (options?.force) return;
@@ -241,7 +225,7 @@ export class MockFileSystem implements FileSystem {
     parentInfo.parent.delete(parentInfo.name);
   }
 
-  readdir(path: string, options?: ReadDirOptions): string[] | DirEnt[] {
+  async readdir(path: string, options?: ReadDirOptions): Promise<string[] | DirEnt[]> {
     const node = this.getNode(path);
     if (!node) throw new Error(`ENOENT: ${path}`);
     if (node.type !== "dir") throw new Error(`ENOTDIR: ${path}`);
@@ -256,7 +240,7 @@ export class MockFileSystem implements FileSystem {
     return entries.map(([name]) => name);
   }
 
-  stat(path: string) {
+  async stat(path: string) {
     const node = this.getNode(path);
     if (!node) throw new Error(`ENOENT: ${path}`);
     return {
@@ -266,46 +250,45 @@ export class MockFileSystem implements FileSystem {
     };
   }
 
-  lstat(path: string) {
-    const s = this.stat(path);
+  async lstat(path: string) {
+    const s = await this.stat(path);
     return {
       ...s,
       isSymbolicLink: () => false,
     };
   }
 
-  cp(src: string, dest: string, options?: { recursive?: boolean }): void {
+  async cp(src: string, dest: string, options?: { recursive?: boolean }): Promise<void> {
     const srcNode = this.getNode(src);
     if (!srcNode) throw new Error(`ENOENT: ${src}`);
     if (srcNode.type === "dir" && !options?.recursive) {
       throw new Error(`EISDIR: ${src}`);
     }
     if (srcNode.type === "dir") {
-      this.mkdir(dest, { recursive: true });
-      const entries = this.readdir(src) as string[];
+      await this.mkdir(dest, { recursive: true });
+      const entries = await this.readdir(src) as string[];
       for (const entry of entries) {
-        this.cp(`${src}/${entry}`, `${dest}/${entry}`, { recursive: true });
+        await this.cp(`${src}/${entry}`, `${dest}/${entry}`, { recursive: true });
       }
     } else {
-      this.writeFile(dest, srcNode.content ?? "");
+      await this.writeFile(dest, srcNode.content ?? "");
     }
   }
 
-  utimes(path: string, atime: Date | number, mtime: Date | number): void {
+  async utimes(path: string, atime: Date | number, mtime: Date | number): Promise<void> {
     const node = this.getNode(path);
     if (!node) throw new Error(`ENOENT: ${path}`);
     node.atime = atime instanceof Date ? atime : new Date(atime);
     node.mtime = mtime instanceof Date ? mtime : new Date(mtime);
   }
 
-  realpath(path: string): string {
-    // Mock: just return the path as-is (no symlinks in mock)
+  async realpath(path: string): Promise<string> {
     return path;
   }
 
-  mkdtemp(prefix: string): string {
+  async mkdtemp(prefix: string): Promise<string> {
     const dirName = `${prefix}${Date.now()}`;
-    this.mkdir(dirName, { recursive: true });
+    await this.mkdir(dirName, { recursive: true });
     return dirName;
   }
 
