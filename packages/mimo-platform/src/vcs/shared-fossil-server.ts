@@ -1,6 +1,7 @@
 import { createConnection } from "net";
 import type { OS } from "../os/types.js";
 import { logger } from "../logger.js";
+import { DEFAULT_MIMO_HOST } from "../context/mimo-context.js";
 
 /**
  * Normalizes a session ID to be a valid filename for Fossil URLs.
@@ -21,13 +22,16 @@ export function normalizeSessionIdForFossil(sessionId: string): string {
 export class DummySharedFossilServer {
   private readonly _port: number;
   private readonly _reposDir: string;
+  private readonly _host: string;
 
   constructor(
     port: number = 8000,
     reposDir: string = "/tmp/dummy-fossil-repos",
+    host: string = DEFAULT_MIMO_HOST,
   ) {
     this._port = port;
     this._reposDir = reposDir;
+    this._host = host;
   }
 
   async start(): Promise<boolean> {
@@ -44,7 +48,7 @@ export class DummySharedFossilServer {
 
   getUrl(sessionId: string): string {
     const normalizedId = normalizeSessionIdForFossil(sessionId);
-    return `http://localhost:${this._port}/${normalizedId}/`;
+    return `http://${this._host}:${this._port}/${normalizedId}/`;
   }
 
   getFossilPath(sessionId: string): string {
@@ -73,6 +77,8 @@ export interface SharedFossilServerConfig {
   port: number;
   /** Directory to store fossil repositories. Required - must be provided via dependency injection. */
   reposDir: string;
+  /** Hostname to use in generated URLs. Defaults to localhost. */
+  host?: string;
 }
 
 /**
@@ -92,6 +98,7 @@ export interface SharedFossilServerConfig {
 export class SharedFossilServer {
   private process: ReturnType<OS["command"]["spawn"]> | null = null;
   private readonly _port: number;
+  private readonly _host: string;
   private _reposDir: string;
   private watchdogTimer: ReturnType<typeof setTimeout> | null = null;
   private restartDelayMs: number = 2000;
@@ -120,6 +127,7 @@ export class SharedFossilServer {
       );
     }
     this._port = config.port;
+    this._host = config.host ?? DEFAULT_MIMO_HOST;
     this._reposDir = config.reposDir;
     this.os = os;
     this.ensureReposDir();
@@ -367,7 +375,7 @@ export class SharedFossilServer {
    */
   getUrl(sessionId: string): string {
     const normalizedId = normalizeSessionIdForFossil(sessionId);
-    return `http://localhost:${this.port}/${normalizedId}/`;
+    return `http://${this._host}:${this.port}/${normalizedId}/`;
   }
 
   /**
