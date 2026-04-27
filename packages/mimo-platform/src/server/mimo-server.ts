@@ -27,6 +27,7 @@ export type MimoServerSetup = {
     server: any,
   ) => Response | Promise<Response | undefined> | undefined;
   port: number;
+  host: string;
   websocket: any;
 };
 
@@ -58,7 +59,8 @@ export class MimoServer {
       websocket: this.setupConfig.websocket,
     });
 
-    this.deps.logger.log(`Server running at http://localhost:${server.port}`);
+    const host = this.setupConfig.host ?? "localhost";
+    this.deps.logger.log(`Server running at http://${host}:${server.port}`);
 
     this.deps.schedule(async () => {
       const success = await this.deps.ensureSharedFossilRunning();

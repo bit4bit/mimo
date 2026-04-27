@@ -41,9 +41,12 @@ const DEFAULT_FOSSIL_IGNORE_PATTERNS = [
   ".svn/**",
 ];
 
+import { DEFAULT_MIMO_HOST } from "../context/mimo-context.js";
+
 export interface VCSConfig {
   os: OS;
   timeoutMs?: number;
+  host?: string;
 }
 
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -96,10 +99,12 @@ export async function scanDirectory(
 export class VCS {
   private readonly os: OS;
   private readonly timeoutMs: number;
+  private readonly host: string;
 
   constructor(config: VCSConfig) {
     this.os = config.os;
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.host = config.host ?? DEFAULT_MIMO_HOST;
   }
 
   // ── Core command execution ──────────────────────────────────────────────
@@ -370,7 +375,7 @@ export class VCS {
     setupPassword: string,
   ): Promise<VCSResult> {
     const normalizedId = sessionId.replace(/-/g, "_");
-    const url = `http://${encodeURIComponent(setupUser)}:${encodeURIComponent(setupPassword)}@localhost:${port}/${normalizedId}`;
+    const url = `http://${encodeURIComponent(setupUser)}:${encodeURIComponent(setupPassword)}@${this.host}:${port}/${normalizedId}`;
 
     const result = await this.execCommand([
       "fossil",
@@ -386,7 +391,7 @@ export class VCS {
 
     try {
       const response = await fetch(
-        `http://localhost:${port}/${normalizedId}/json/user/new`,
+        `http://${this.host}:${port}/${normalizedId}/json/user/new`,
         {
           method: "POST",
           headers: {

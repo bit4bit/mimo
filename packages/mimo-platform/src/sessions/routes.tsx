@@ -17,6 +17,7 @@ import { createSessionDeletionUseCase } from "./session-deletion.js";
 import { VCS_INTERNALS } from "../vcs/index.js";
 import { mcpTokenStore } from "../mcp/token-store.js";
 import { createPlatformMcpServerConfig } from "../mcp/platform-config.js";
+import { DEFAULT_MIMO_HOST } from "../context/mimo-context.js";
 
 type SessionsRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
 
@@ -34,7 +35,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
   const sessionStateService = mimoContext.services.sessionState;
   const sharedFossilServer = mimoContext.services.sharedFossil;
   const vcs = mimoContext.services.vcs;
-  const platformUrl = mimoContext.env?.PLATFORM_URL ?? "http://localhost:3000";
+  const platformUrl = mimoContext.env?.PLATFORM_URL ?? `http://${mimoContext.env?.MIMO_HOST ?? DEFAULT_MIMO_HOST}:3000`;
   const fileService = mimoContext.services.fileService;
   const searchService = mimoContext.services.search;
   const expertService = mimoContext.services.expert;

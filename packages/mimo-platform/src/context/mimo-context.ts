@@ -33,6 +33,8 @@ import type { FileService } from "../files/types.js";
 import { createOS } from "../os/node-adapter.js";
 import type { OS } from "../os/types.js";
 
+export const DEFAULT_MIMO_HOST = "localhost";
+
 export interface MimoEnv {
   PORT: number;
   PLATFORM_URL: string;
@@ -40,6 +42,7 @@ export interface MimoEnv {
   MIMO_HOME: string;
   FOSSIL_REPOS_DIR: string;
   MIMO_SHARED_FOSSIL_SERVER_PORT: number | undefined;
+  MIMO_HOST: string;
 }
 
 export interface MimoPaths {
@@ -132,6 +135,7 @@ export function createSharedFossilServer(
   const config: SharedFossilServerConfig = {
     port,
     reposDir: env.FOSSIL_REPOS_DIR,
+    host: env.MIMO_HOST,
   };
 
   return new SharedFossilServer(config, os);
@@ -150,11 +154,12 @@ export function createMimoContext(
     });
 
   const mimoHome =
-    overrides.env?.MIMO_HOME ?? os.path.join(os.path.homeDir(), ".mimo");
+    overrides.env?.MIMO_HOME ?? os.path.join(os.homeDir(), ".mimo");
   const port = overrides.env?.PORT ?? 3000;
+  const host = overrides.env?.MIMO_HOST ?? DEFAULT_MIMO_HOST;
   const env: MimoEnv = {
     PORT: port,
-    PLATFORM_URL: overrides.env?.PLATFORM_URL ?? `http://localhost:${port}`,
+    PLATFORM_URL: overrides.env?.PLATFORM_URL ?? `http://${host}:${port}`,
     JWT_SECRET:
       overrides.env?.JWT_SECRET ?? "your-secret-key-change-in-production",
     MIMO_HOME: mimoHome,
@@ -163,13 +168,14 @@ export function createMimoContext(
       os.path.join(mimoHome, "session-fossils"),
     MIMO_SHARED_FOSSIL_SERVER_PORT:
       overrides.env?.MIMO_SHARED_FOSSIL_SERVER_PORT,
+    MIMO_HOST: host,
   };
 
   const paths = resolvePaths(env.MIMO_HOME, os);
   ensurePaths(paths, os);
 
   // Create VCS with injected OS
-  const vcs = overrides.services?.vcs ?? new VCS({ os });
+  const vcs = overrides.services?.vcs ?? new VCS({ os, host: env.MIMO_HOST });
 
   const repos: MimoContext["repos"] = {
     users:

@@ -28,6 +28,7 @@ import { MimoServer } from "./server/mimo-server.js";
 import {
   createMimoContext,
   createSharedFossilServer,
+  DEFAULT_MIMO_HOST,
 } from "./context/mimo-context.js";
 import { logger } from "./logger.js";
 import { join } from "path";
@@ -58,10 +59,11 @@ const os: OS = createOS({
 });
 
 // Create shared fossil server explicitly before context (dependency injection)
+const _host = process.env.MIMO_HOST ?? DEFAULT_MIMO_HOST;
 const sharedFossilServer = createSharedFossilServer(
   {
     PORT: _port,
-    PLATFORM_URL: process.env.PLATFORM_URL ?? `http://localhost:${_port}`,
+    PLATFORM_URL: process.env.PLATFORM_URL ?? `http://${_host}:${_port}`,
     JWT_SECRET:
       process.env.JWT_SECRET ?? "your-secret-key-change-in-production",
     MIMO_HOME: mimoHome,
@@ -69,6 +71,7 @@ const sharedFossilServer = createSharedFossilServer(
     MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
       ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
       : 8000, // Default port for production
+    MIMO_HOST: _host,
   },
   os,
 );
@@ -76,7 +79,7 @@ const sharedFossilServer = createSharedFossilServer(
 const mimoContext = createMimoContext({
   env: {
     PORT: _port,
-    PLATFORM_URL: process.env.PLATFORM_URL ?? `http://localhost:${_port}`,
+    PLATFORM_URL: process.env.PLATFORM_URL ?? `http://${_host}:${_port}`,
     JWT_SECRET:
       process.env.JWT_SECRET ?? "your-secret-key-change-in-production",
     MIMO_HOME: mimoHome,
@@ -84,6 +87,7 @@ const mimoContext = createMimoContext({
     MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
       ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
       : 8000, // Provide default port for production
+    MIMO_HOST: _host,
   },
   services: {
     sharedFossil: sharedFossilServer,
@@ -388,6 +392,7 @@ app.notFound((c) => {
 });
 
 mimoServer.setup({
+  host: _host,
   async fetch(req: Request, server: any) {
     const url = new URL(req.url);
 
