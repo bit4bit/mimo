@@ -1215,6 +1215,215 @@ describe("Session Management Integration Tests", () => {
     });
   });
 
+  describe("Session Close Reason", () => {
+    it("should render close page with form", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Session To Close",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/close`,
+        {
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("Close Session");
+      expect(html).toContain("Session To Close");
+      expect(html).toContain('name="closeReason"');
+      expect(html).toContain('action="/sessions/');
+      expect(html).toContain("ctrlKey");
+      expect(html).toContain("metaKey");
+    });
+
+    it("should close session with reason", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Session To Close",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/close`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Cookie: `token=${token}`,
+          },
+          body: new URLSearchParams({
+            closeReason: "Completed successfully",
+          }).toString(),
+        },
+      );
+
+      expect(res.status).toBe(302);
+
+      const updated = await sessionRepository.findById(session.id);
+      expect(updated?.status).toBe("closed");
+      expect(updated?.closeReason).toBe("Completed successfully");
+    });
+
+    it("should close session without reason", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Session To Close",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/close`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Cookie: `token=${token}`,
+          },
+          body: new URLSearchParams({}).toString(),
+        },
+      );
+
+      expect(res.status).toBe(302);
+
+      const updated = await sessionRepository.findById(session.id);
+      expect(updated?.status).toBe("closed");
+      expect(updated?.closeReason).toBeUndefined();
+    });
+
+    it("should redirect to referer on cancel", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Session To Close",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      // First, visit the close page from the session detail page
+      const closePageRes = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/close`,
+        {
+          headers: {
+            Cookie: `token=${token}`,
+            Referer: `/projects/${project.id}/sessions/${session.id}`,
+          },
+        },
+      );
+
+      expect(closePageRes.status).toBe(200);
+      const html = await closePageRes.text();
+
+      // The cancel link should redirect back to the referer
+      expect(html).toContain(`/projects/${project.id}/sessions/${session.id}`);
+    });
+
+    it("should display close reason on session detail page", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Closed Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      await sessionRepository.update(session.id, {
+        status: "closed",
+        closeReason: "Refactored auth module",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}`,
+        {
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("Refactored auth module");
+    });
+  });
+
   describe("Session Settings - Creation Metadata Display", () => {
     it("should show all creation fields with persisted values on settings page", async () => {
       const app = new Hono();

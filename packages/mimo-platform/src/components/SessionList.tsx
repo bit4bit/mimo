@@ -7,6 +7,7 @@ export interface SessionListItem {
   createdAt: Date | string;
   projectId: string;
   priority: "high" | "medium" | "low";
+  closeReason?: string;
 }
 
 interface SessionListProps {
@@ -123,7 +124,14 @@ export const SessionList: FC<SessionListProps> = ({
                   </span>
                 </td>
                 <td>
-                  <span class={`session-status ${s.status}`}>{s.status}</span>
+                  <div>
+                    <span class={`session-status ${s.status}`}>{s.status}</span>
+                    {s.status === "closed" && s.closeReason && (
+                      <div style="font-size: 11px; color: #888; margin-top: 2px;">
+                        {s.closeReason}
+                      </div>
+                    )}
+                  </div>
                 </td>
                 <td class="session-time" title={fmtDate(s.createdAt)}>
                   {relTime(s.createdAt)}

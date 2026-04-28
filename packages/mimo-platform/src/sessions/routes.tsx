@@ -5,6 +5,7 @@ import { getCookie } from "hono/cookie";
 import crypto from "crypto";
 import { SessionDetailPage } from "../components/SessionDetailPage.js";
 import { SessionCreatePage } from "../components/SessionCreatePage.js";
+import { Layout } from "../components/Layout.js";
 import type { Context } from "hono";
 import { normalizeFrameState, updateFrameState } from "./frame-state.js";
 import { logger } from "../logger.js";
@@ -35,7 +36,9 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
   const sessionStateService = mimoContext.services.sessionState;
   const sharedFossilServer = mimoContext.services.sharedFossil;
   const vcs = mimoContext.services.vcs;
-  const platformUrl = mimoContext.env?.PLATFORM_URL ?? `http://${mimoContext.env?.MIMO_HOST ?? DEFAULT_MIMO_HOST}:3000`;
+  const platformUrl =
+    mimoContext.env?.PLATFORM_URL ??
+    `http://${mimoContext.env?.MIMO_HOST ?? DEFAULT_MIMO_HOST}:3000`;
   const fileService = mimoContext.services.fileService;
   const searchService = mimoContext.services.search;
   const expertService = mimoContext.services.expert;
@@ -667,6 +670,82 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
     return c.json({ success: cancelled });
   });
 
+  // GET /sessions/:id/close - Render close session form
+  router.get("/:id/close", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) {
+      return c.redirect("/auth/login");
+    }
+
+    const sessionId = c.req.param("id");
+    const session = await sessionRepository.findById(sessionId);
+
+    if (!session || session.owner !== username) {
+      return c.text("Session not found", 404);
+    }
+
+    const referer =
+      c.req.header("Referer") ||
+      `/projects/${session.projectId}/sessions/${sessionId}`;
+
+    return c.html(
+      <Layout title={`Close Session - ${session.name}`}>
+        <div class="container">
+          <h1>Close Session</h1>
+          <p>
+            You are about to close <strong>{session.name}</strong>. Once closed,
+            the session will become read-only.
+          </p>
+          <form
+            method="POST"
+            action={`/sessions/${sessionId}/close`}
+            style="margin-top: 20px;"
+          >
+            <div style="margin-bottom: 16px;">
+              <label
+                for="closeReason"
+                style="display: block; margin-bottom: 8px; font-weight: 500;"
+              >
+                Reason for closing (optional)
+              </label>
+              <textarea
+                id="closeReason"
+                name="closeReason"
+                rows={3}
+                style="width: 100%; max-width: 500px; padding: 8px; border: 1px solid #444; background: #1a1a1a; color: #e0e0e0; border-radius: 4px; font-family: inherit;"
+                placeholder="e.g., Completed successfully, Refactored auth module..."
+              />
+            </div>
+            <div style="display: flex; gap: 12px;">
+              <button type="submit" class="btn-secondary">
+                Close Session
+              </button>
+              <a
+                href={referer}
+                class="btn-secondary"
+                style="text-decoration: none;"
+              >
+                Cancel
+              </a>
+            </div>
+          </form>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                document.addEventListener('keydown', function(e) {
+                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    document.querySelector('form').submit();
+                  }
+                });
+              `,
+            }}
+          />
+        </div>
+      </Layout>,
+    );
+  });
+
   // POST /sessions/:id/close - Close session (readonly, no more interactions)
   router.post("/:id/close", async (c: Context) => {
     const username = await getAuthUsername(c);
@@ -681,7 +760,13 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
       return c.text("Session not found", 404);
     }
 
-    await sessionRepository.update(sessionId, { status: "closed" });
+    const body = await c.req.parseBody();
+    const closeReason = (body.closeReason as string) || undefined;
+
+    await sessionRepository.update(sessionId, {
+      status: "closed",
+      ...(closeReason && { closeReason }),
+    });
 
     return c.redirect(`/projects/${session.projectId}/sessions/${sessionId}`);
   });

@@ -69,6 +69,7 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
           createdAt: s.createdAt,
           priority: s.priority,
           sessionTtlDays: s.sessionTtlDays,
+          closeReason: s.closeReason,
         }))}
         selectedCredential={
           selectedCredential

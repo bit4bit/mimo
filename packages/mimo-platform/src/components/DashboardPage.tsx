@@ -25,6 +25,7 @@ interface Session {
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
   createdAt: Date;
+  closeReason?: string;
 }
 
 interface DashboardProps {
@@ -209,6 +210,12 @@ export const DashboardPage: FC<DashboardProps> = ({
                         <span class="item-name">{session.name}</span>
                         <span class="item-meta">
                           {project?.name || "Unknown"}
+                          {session.status === "closed" &&
+                            session.closeReason && (
+                              <span style="margin-left: 8px; color: #888;">
+                                ({session.closeReason})
+                              </span>
+                            )}
                         </span>
                       </a>
                     </li>
