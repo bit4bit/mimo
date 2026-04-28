@@ -67,6 +67,7 @@ export interface Session {
   chatThreads: ChatThread[];
   activeChatThreadId: string | null;
   mcpToken: string;
+  closeReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -104,6 +105,7 @@ export interface SessionData {
   chatThreads?: ChatThread[];
   activeChatThreadId?: string | null;
   mcpToken?: string;
+  closeReason?: string;
   createdAt: string;
   updatedAt: string;
 }

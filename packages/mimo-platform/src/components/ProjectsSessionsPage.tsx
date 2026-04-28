@@ -18,6 +18,7 @@ interface Session {
   createdAt: Date;
   priority: "high" | "medium" | "low";
   sessionTtlDays: number;
+  closeReason?: string;
 }
 
 interface SelectedCredential {
@@ -111,6 +112,18 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
       ),
     },
     {
+      key: "closeReason",
+      label: "Close Reason",
+      render: (session) =>
+        session.status === "closed" && session.closeReason ? (
+          <span style="color: #888; font-size: 13px;">
+            {session.closeReason}
+          </span>
+        ) : (
+          <span style="color: #555; font-size: 13px;">—</span>
+        ),
+    },
+    {
       key: "createdAt",
       label: "Created",
       render: (session) => (
@@ -138,20 +151,14 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
       render: (session) => (
         <div style="display: flex; gap: 6px;">
           {session.status !== "closed" && (
-            <form
-              method="POST"
-              action={`/projects/${selectedProject?.id}/sessions/${session.id}/close`}
-              style="display: inline;"
-              onsubmit={`return confirm('Close session "${session.name}"? It will become read-only.')`}
+            <a
+              href={`/projects/${selectedProject?.id}/sessions/${session.id}/close`}
+              class="btn-secondary btn-sm"
+              data-help-id="projects-sessions-page-button"
+              style="text-decoration: none;"
             >
-              <button
-                type="submit"
-                class="btn-secondary btn-sm"
-                data-help-id="projects-sessions-page-button"
-              >
-                Close
-              </button>
-            </form>
+              Close
+            </a>
           )}
           <form
             method="POST"

@@ -33,6 +33,7 @@ interface Session {
   lastSyncError?: string;
   createdAt: Date;
   lastActivityAt: string | null;
+  closeReason?: string;
 }
 
 interface ChatMessage {
@@ -204,6 +205,11 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       showSessionFinder={true}
     >
       <div class="session-container">
+        {session.status === "closed" && session.closeReason && (
+          <div style="background: #5a2d2d; color: #ff6b6b; padding: 8px 16px; font-size: 13px; border-bottom: 1px solid #444;">
+            <strong>Closed:</strong> {session.closeReason}
+          </div>
+        )}
         <div
           class={`buffers-container ${frameState.rightFrame.isCollapsed ? "right-frame-collapsed" : ""}`}
         >
@@ -311,20 +317,14 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           </div>
           <div style="display: flex; gap: 8px;">
             {session.status !== "closed" && (
-              <form
-                method="POST"
-                action={`/projects/${project.id}/sessions/${session.id}/close`}
-                style="display: inline;"
-                onsubmit={`return confirm('Close session "${session.name}"? It will become read-only.')`}
+              <a
+                href={`/projects/${project.id}/sessions/${session.id}/close`}
+                class="btn-secondary"
+                data-help-id="session-detail-page-button"
+                style="text-decoration: none;"
               >
-                <button
-                  type="submit"
-                  class="btn-secondary"
-                  data-help-id="session-detail-page-button"
-                >
-                  Close Session
-                </button>
-              </form>
+                Close Session
+              </a>
             )}
             {canDelete && (
               <form
