@@ -146,12 +146,24 @@ function renderMessage(message) {
     header.appendChild(meta);
   }
 
+  // Toggle button for assistant messages (before copy button)
+  if (message.role === "assistant") {
+    const toggleBtn = document.createElement("button");
+    toggleBtn.className = "view-toggle-btn active";
+    toggleBtn.textContent = "👁";
+    toggleBtn.title = "Toggle decorated/plain view";
+    toggleBtn.style.marginLeft = "auto";
+    header.appendChild(toggleBtn);
+    copyBtn.style.marginLeft = "5px";
+    div.dataset.viewMode = "decorated";
+  }
+
   header.appendChild(copyBtn);
 
   const content = document.createElement("div");
   content.className = "message-content";
   if (message.role === "assistant") {
-    renderAgentMessageContent(message.content, content);
+    renderDecoratedContent(message.content, content);
   } else if (message.role === "user") {
     renderUserMessageContent(message.content, content);
   } else {
@@ -276,13 +288,22 @@ function renderStreamingMessage() {
   cancelBtn.style.borderRadius = "3px";
   cancelBtn.style.cursor = "pointer";
 
+  const toggleBtn = document.createElement("button");
+  toggleBtn.className = "view-toggle-btn active";
+  toggleBtn.textContent = "👁";
+  toggleBtn.title = "Toggle decorated/plain view";
+  toggleBtn.style.marginLeft = "auto";
+
   const copyBtn = document.createElement("button");
   copyBtn.className = "copy-btn";
   copyBtn.textContent = "📋";
   copyBtn.style.marginLeft = "5px";
 
+  div.dataset.viewMode = "decorated";
+
   header.appendChild(agentLabel);
   header.appendChild(cancelBtn);
+  header.appendChild(toggleBtn);
   header.appendChild(copyBtn);
 
   const content = document.createElement("div");
@@ -421,6 +442,159 @@ function renderAgentMessageContent(text, container) {
       });
     }
     container.appendChild(div);
+  }
+}
+
+function renderPlainContent(text, container) {
+  container.textContent = "";
+  const lines = String(text || "").split("\n");
+  for (const line of lines) {
+    const div = document.createElement("div");
+    if (line === "") {
+      div.appendChild(document.createElement("br"));
+    } else {
+      div.textContent = line;
+    }
+    container.appendChild(div);
+  }
+}
+
+// escapeHtml and decorateInlineMarkup are loaded from chat-decorated-utils.js
+
+function renderDecoratedContent(text, container) {
+  container.textContent = "";
+  container.dataset.rawText = String(text || "");
+
+  const lines = String(text || "").split("\n");
+  let inFence = false;
+  let fenceDiv = null;
+
+  for (const line of lines) {
+    // Fenced code block detection
+    if (/^```/.test(line)) {
+      if (!inFence) {
+        inFence = true;
+        fenceDiv = document.createElement("div");
+        fenceDiv.className = "decorated-fence";
+        const fenceLine = document.createElement("div");
+        fenceLine.textContent = line;
+        fenceDiv.appendChild(fenceLine);
+        container.appendChild(fenceDiv);
+        continue;
+      } else {
+        // Closing fence
+        const fenceLine = document.createElement("div");
+        fenceLine.textContent = line;
+        fenceDiv.appendChild(fenceLine);
+        inFence = false;
+        fenceDiv = null;
+        continue;
+      }
+    }
+
+    if (inFence) {
+      const fenceLine = document.createElement("div");
+      fenceLine.textContent = line;
+      fenceDiv.appendChild(fenceLine);
+      continue;
+    }
+
+    // Normal line: apply inline decorations
+    const div = document.createElement("div");
+    if (line === "") {
+      div.appendChild(document.createElement("br"));
+    } else {
+      const escaped = escapeHtml(line);
+      const decorated = decorateInlineMarkup(escaped);
+      // If no HTML was added, use text with file-ref detection
+      if (decorated === escaped) {
+        // No decoration applied — use file-ref detection
+        renderLineWithFileRefs(line, div);
+      } else {
+        div.innerHTML = decorated;
+        // Apply file-ref detection to text nodes within decorated output
+        applyFileRefsToTextNodes(div);
+      }
+    }
+    container.appendChild(div);
+  }
+}
+
+function renderLineWithFileRefs(line, container) {
+  const chunks = line.split(/(\s+)/);
+  chunks.forEach((chunk) => {
+    if (!chunk) return;
+    if (/^\s+$/.test(chunk)) {
+      container.appendChild(document.createTextNode(chunk));
+      return;
+    }
+    const { prefix, core, suffix } = splitTokenAffixes(chunk);
+    const withoutLineRef = stripLineReference(core);
+    const normalizedQuery = normalizeFileQuery(withoutLineRef);
+    if (
+      !normalizedQuery ||
+      !isLikelyFileToken(withoutLineRef, FILE_EXTENSIONS)
+    ) {
+      container.appendChild(document.createTextNode(chunk));
+      return;
+    }
+    if (prefix) container.appendChild(document.createTextNode(prefix));
+    const fileRefBtn = document.createElement("button");
+    fileRefBtn.type = "button";
+    fileRefBtn.className = "chat-file-ref";
+    fileRefBtn.textContent = core;
+    fileRefBtn.setAttribute("data-file-query", normalizedQuery);
+    fileRefBtn.title = `Open file finder for ${normalizedQuery}`;
+    container.appendChild(fileRefBtn);
+    if (suffix) container.appendChild(document.createTextNode(suffix));
+  });
+}
+
+function applyFileRefsToTextNodes(container) {
+  const walker = document.createTreeWalker(
+    container,
+    NodeFilter.SHOW_TEXT,
+    null,
+  );
+  const textNodes = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+  for (const textNode of textNodes) {
+    const text = textNode.textContent;
+    if (!text || !text.trim()) continue;
+    const frag = document.createDocumentFragment();
+    let hasFileRef = false;
+    const chunks = text.split(/(\s+)/);
+    chunks.forEach((chunk) => {
+      if (!chunk) return;
+      if (/^\s+$/.test(chunk)) {
+        frag.appendChild(document.createTextNode(chunk));
+        return;
+      }
+      const { prefix, core, suffix } = splitTokenAffixes(chunk);
+      const withoutLineRef = stripLineReference(core);
+      const normalizedQuery = normalizeFileQuery(withoutLineRef);
+      if (
+        !normalizedQuery ||
+        !isLikelyFileToken(withoutLineRef, FILE_EXTENSIONS)
+      ) {
+        frag.appendChild(document.createTextNode(chunk));
+        return;
+      }
+      hasFileRef = true;
+      if (prefix) frag.appendChild(document.createTextNode(prefix));
+      const fileRefBtn = document.createElement("button");
+      fileRefBtn.type = "button";
+      fileRefBtn.className = "chat-file-ref";
+      fileRefBtn.textContent = core;
+      fileRefBtn.setAttribute("data-file-query", normalizedQuery);
+      fileRefBtn.title = `Open file finder for ${normalizedQuery}`;
+      frag.appendChild(fileRefBtn);
+      if (suffix) frag.appendChild(document.createTextNode(suffix));
+    });
+    if (hasFileRef) {
+      textNode.parentNode.replaceChild(frag, textNode);
+    }
   }
 }
 
@@ -1989,6 +2163,25 @@ function insertMessage(message) {
     navigator.clipboard.writeText(extractMessageText(el));
   });
 
+  // Attach toggle handler for assistant messages
+  const toggleBtn = el.querySelector(".view-toggle-btn");
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", () => {
+      const contentEl = el.querySelector(".message-content");
+      if (!contentEl) return;
+      const rawText = contentEl.dataset.rawText || "";
+      if (el.dataset.viewMode === "decorated") {
+        el.dataset.viewMode = "plain";
+        toggleBtn.classList.remove("active");
+        renderPlainContent(rawText, contentEl);
+      } else {
+        el.dataset.viewMode = "decorated";
+        toggleBtn.classList.add("active");
+        renderDecoratedContent(rawText, contentEl);
+      }
+    });
+  }
+
   // Remove "no messages" placeholder if exists
   const placeholder = container.querySelector(".no-messages");
   if (placeholder) placeholder.remove();
@@ -2169,6 +2362,25 @@ function insertStreamingMessage() {
     navigator.clipboard.writeText(extractMessageText(el));
   });
 
+  // Attach toggle handler for streaming messages
+  const toggleBtn = el.querySelector(".view-toggle-btn");
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", () => {
+      const responseEl = el.querySelector(".message-response");
+      if (!responseEl) return;
+      const rawText = responseEl.textContent || "";
+      if (el.dataset.viewMode === "decorated") {
+        el.dataset.viewMode = "plain";
+        toggleBtn.classList.remove("active");
+        renderPlainContent(rawText, responseEl);
+      } else {
+        el.dataset.viewMode = "decorated";
+        toggleBtn.classList.add("active");
+        renderDecoratedContent(rawText, responseEl);
+      }
+    });
+  }
+
   container.appendChild(el);
   ChatState.streaming.messageElement = el;
   ChatState.streaming.content = "";
@@ -2264,7 +2476,12 @@ function finalizeMessageStream(duration) {
     const cursor = responseContent.querySelector(".typing-cursor");
     if (cursor) cursor.remove();
     const accumulated = responseContent.textContent;
-    renderAgentMessageContent(accumulated, responseContent);
+    const viewMode = ChatState.streaming.messageElement.dataset.viewMode;
+    if (viewMode === "plain") {
+      renderPlainContent(accumulated, responseContent);
+    } else {
+      renderDecoratedContent(accumulated, responseContent);
+    }
   }
 
   const cancelBtn = ChatState.streaming.messageElement.querySelector(

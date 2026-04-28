@@ -79,6 +79,7 @@ export const Layout: FC<LayoutProps> = ({
           {sessionId && <script src="/js/expert-utils.js" defer></script>}
           {sessionId && <script src="/js/patch-buffer.js" defer></script>}
           {sessionId && <script src="/js/chat-token-utils.js" defer></script>}
+          {sessionId && <script src="/js/chat-decorated-utils.js" defer></script>}
           {sessionId && <script src="/js/utils.js" defer></script>}
           {sessionId && <script src="/js/chat.js" defer></script>}
           {sessionId && <script src="/js/chat-threads.js" defer></script>}
