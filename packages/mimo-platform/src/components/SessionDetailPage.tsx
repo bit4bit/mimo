@@ -985,6 +985,51 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           white-space: pre-wrap;
           word-break: break-word;
         }
+        .view-toggle-btn {
+          background: none;
+          border: 1px solid #555;
+          color: #888;
+          font-size: 11px;
+          padding: 1px 6px;
+          border-radius: 3px;
+          cursor: pointer;
+          transition: color 0.15s, border-color 0.15s;
+        }
+        .view-toggle-btn:hover {
+          color: #d4d4d4;
+          border-color: #888;
+        }
+        .view-toggle-btn.active {
+          color: #bbb;
+          border-color: #777;
+        }
+        .decorated-bold {
+          font-weight: bold;
+        }
+        .decorated-italic {
+          font-style: italic;
+        }
+        .decorated-code {
+          font-family: monospace;
+          background: #383838;
+          padding: 1px 4px;
+          border-radius: 3px;
+        }
+        .decorated-fence {
+          background: #1e1e1e;
+          border: 1px solid #444;
+          border-radius: 4px;
+          padding: 8px;
+          margin: 4px 0;
+          font-family: monospace;
+          white-space: pre;
+          overflow-x: auto;
+        }
+        .decorated-link {
+          color: #74c0fc;
+          text-decoration: underline;
+          cursor: pointer;
+        }
         .chat-file-ref {
           background: transparent;
           border: 1px solid #4f667f;
