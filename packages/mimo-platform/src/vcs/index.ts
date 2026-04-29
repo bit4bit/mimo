@@ -46,10 +46,12 @@ import { DEFAULT_MIMO_HOST } from "../context/mimo-context.js";
 export interface VCSConfig {
   os: OS;
   timeoutMs?: number;
+  cloneTimeoutMs?: number;
   host?: string;
 }
 
 const DEFAULT_TIMEOUT_MS = 30000;
+const DEFAULT_CLONE_TIMEOUT_MS = 10 * 60 * 1000;
 
 const withTimeout = <T>(
   promise: Promise<T>,
@@ -99,11 +101,13 @@ export async function scanDirectory(
 export class VCS {
   private readonly os: OS;
   private readonly timeoutMs: number;
+  private readonly cloneTimeoutMs: number;
   private readonly host: string;
 
   constructor(config: VCSConfig) {
     this.os = config.os;
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.cloneTimeoutMs = config.cloneTimeoutMs ?? DEFAULT_CLONE_TIMEOUT_MS;
     this.host = config.host ?? DEFAULT_MIMO_HOST;
   }
 
@@ -113,11 +117,12 @@ export class VCS {
     command: string[],
     cwd?: string,
     env?: Record<string, string>,
+    timeoutMs?: number,
   ): Promise<{ success: boolean; output: string; error: string }> {
     const result = await this.os.command.run(command, {
       cwd,
       env: env ? { ...this.os.env.getAll(), ...env } : undefined,
-      timeoutMs: this.timeoutMs,
+      timeoutMs: timeoutMs ?? this.timeoutMs,
     });
 
     return {
@@ -557,6 +562,8 @@ export class VCS {
     const result = await this.execCommand(
       ["fossil", "import", "--git", url, fossilPath],
       workDir,
+      undefined,
+      this.cloneTimeoutMs,
     );
 
     if (result.success) {
@@ -578,12 +585,12 @@ export class VCS {
       // Directory might already exist
     }
 
-    const result = await this.execCommand([
-      "fossil",
-      "clone",
-      sourcePath,
-      `${targetDir}/.fossil`,
-    ]);
+    const result = await this.execCommand(
+      ["fossil", "clone", sourcePath, `${targetDir}/.fossil`],
+      undefined,
+      undefined,
+      this.cloneTimeoutMs,
+    );
 
     if (result.success) {
       const openResult = await this.openFossil(
@@ -686,7 +693,12 @@ export class VCS {
         const cloneArgs = sourceBranch
           ? ["git", "clone", "--branch", sourceBranch, url, targetDir]
           : ["git", "clone", url, targetDir];
-        const result = await this.execCommand(cloneArgs, targetDir, env);
+        const result = await this.execCommand(
+          cloneArgs,
+          targetDir,
+          env,
+          this.cloneTimeoutMs,
+        );
 
         if (
           !result.success &&
@@ -716,6 +728,7 @@ export class VCS {
           ["git", "clone", url, "."],
           targetDir,
           env,
+          this.cloneTimeoutMs,
         );
 
         if (
@@ -754,6 +767,8 @@ export class VCS {
       const result = await this.execCommand(
         ["fossil", "clone", url, `${targetDir}/.fossil`],
         targetDir,
+        undefined,
+        this.cloneTimeoutMs,
       );
 
       if (!result.success && this.isAuthError(result.error, "https")) {
@@ -817,6 +832,8 @@ export class VCS {
       const openResult = await this.execCommand(
         ["fossil", "open", fossilPath, "--nested", "--force"],
         upstreamPath,
+        undefined,
+        this.cloneTimeoutMs,
       );
       if (!openResult.success) {
         return {
@@ -828,6 +845,8 @@ export class VCS {
       const addResult = await this.execCommand(
         ["fossil", "addremove", "--dotfiles"],
         upstreamPath,
+        undefined,
+        this.cloneTimeoutMs,
       );
       if (!addResult.success) {
         return {
@@ -839,6 +858,8 @@ export class VCS {
       const commitResult = await this.execCommand(
         ["fossil", "commit", "-m", "Initial import", "--no-warnings"],
         upstreamPath,
+        undefined,
+        this.cloneTimeoutMs,
       );
 
       return {
@@ -850,6 +871,8 @@ export class VCS {
       const result = await this.execCommand(
         ["fossil", "clone", `${upstreamPath}/.fossil`, fossilPath],
         upstreamPath,
+        undefined,
+        this.cloneTimeoutMs,
       );
 
       return {

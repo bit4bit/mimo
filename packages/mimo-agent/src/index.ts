@@ -43,6 +43,8 @@ function acpKey(sessionId: string, chatThreadId: string): string {
   return `${sessionId}:${chatThreadId}`;
 }
 
+const CLONE_TIMEOUT_MS = 10 * 60 * 1000;
+
 export class MimoAgent {
   private ws: WebSocket | null = null;
   private config: AgentConfig;
@@ -59,8 +61,10 @@ export class MimoAgent {
   // keyed by acpKey(sessionId, chatThreadId)
   private cachedAcpStates: Map<string, CachedAcpState> = new Map();
   // Store thread-specific model/mode from platform (keyed by acpKey)
-  private threadConfigs: Map<string, { model?: string; mode?: string; acpSessionId?: string }> =
-    new Map();
+  private threadConfigs: Map<
+    string,
+    { model?: string; mode?: string; acpSessionId?: string }
+  > = new Map();
   // Latest command inventory per session (thread fallback)
   private sessionAvailableCommands: Map<
     string,
@@ -364,7 +368,7 @@ export class MimoAgent {
 
     if (await this.os.fs.exists(repoPath)) {
       logger.debug(`[mimo-agent]   Fossil repo exists, opening`);
-      if (!await this.os.fs.exists(checkoutPath)) {
+      if (!(await this.os.fs.exists(checkoutPath))) {
         await this.os.fs.mkdir(checkoutPath, { recursive: true });
       }
       try {
@@ -430,14 +434,16 @@ export class MimoAgent {
           // Do a sync using the named remote to verify credentials work
           await this.os.command.run(["fossil", "sync", "server"], {
             cwd: checkoutPath,
-            timeoutMs: 30000,
+            timeoutMs: CLONE_TIMEOUT_MS,
           });
           logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
         } catch {
           // Ignore error
         }
       }
-    } else if (await this.os.fs.exists(this.os.path.join(checkoutPath, ".fossil"))) {
+    } else if (
+      await this.os.fs.exists(this.os.path.join(checkoutPath, ".fossil"))
+    ) {
       logger.debug(`[mimo-agent]   Checkout exists, ensuring open`);
       try {
         await this.os.command.run(["fossil", "open"], {
@@ -502,7 +508,7 @@ export class MimoAgent {
           // Do a sync using the named remote to verify credentials work
           await this.os.command.run(["fossil", "sync", "server"], {
             cwd: checkoutPath,
-            timeoutMs: 30000,
+            timeoutMs: CLONE_TIMEOUT_MS,
           });
           logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
         } catch {
@@ -523,9 +529,9 @@ export class MimoAgent {
         );
       }
       await this.os.command.run(["fossil", "clone", cloneUrl, repoPath], {
-        timeoutMs: 30000,
+        timeoutMs: CLONE_TIMEOUT_MS,
       });
-      if (!await this.os.fs.exists(checkoutPath)) {
+      if (!(await this.os.fs.exists(checkoutPath))) {
         await this.os.fs.mkdir(checkoutPath, { recursive: true });
       }
       // Open without sync first, then set remote with credentials
@@ -561,7 +567,7 @@ export class MimoAgent {
         // Do an initial sync using the named remote with credentials
         await this.os.command.run(["fossil", "sync", "server"], {
           cwd: checkoutPath,
-          timeoutMs: 30000,
+          timeoutMs: CLONE_TIMEOUT_MS,
         });
       }
     }
@@ -983,11 +989,7 @@ export class MimoAgent {
       // Clear thread config after first use
       this.threadConfigs.delete(key);
 
-      this.sessionManager.setSessionState(
-        sessionId,
-        modelState,
-        modeState,
-      );
+      this.sessionManager.setSessionState(sessionId, modelState, modeState);
 
       this.send({
         type: "session_initialized",
@@ -1220,7 +1222,16 @@ export class MimoAgent {
       }
 
       const commitMessage = `agent-sync(${sessionId}): sync fossil changes ${new Date().toISOString()}`;
-      let commitResult = await runFossil(["commit", "--nosign", "--no-warnings", "--ignore-oversize", "--ignore-clock-skew", "--allow-conflict", "-m", commitMessage]);
+      let commitResult = await runFossil([
+        "commit",
+        "--nosign",
+        "--no-warnings",
+        "--ignore-oversize",
+        "--ignore-clock-skew",
+        "--allow-conflict",
+        "-m",
+        commitMessage,
+      ]);
       if (!commitResult.success) {
         const combined = `${commitResult.output}\n${commitResult.error}`;
         if (combined.includes("nothing has changed")) {
@@ -1523,7 +1534,11 @@ export class MimoAgent {
     }
 
     this.lifecycleManager.initializeThread(sessionId, chatThreadId, 600000);
-    this.lifecycleManager.setThreadState(sessionId, chatThreadId, "initializing");
+    this.lifecycleManager.setThreadState(
+      sessionId,
+      chatThreadId,
+      "initializing",
+    );
 
     try {
       // Thread runtime recovery requires thread-level acpSessionId
@@ -1614,9 +1629,10 @@ export class MimoAgent {
     }
 
     const availableCommands = await acpClient.getAvailableCommands();
-    const cmds = availableCommands && availableCommands.length > 0
-      ? availableCommands
-      : this.sessionAvailableCommands.get(sessionId) || [];
+    const cmds =
+      availableCommands && availableCommands.length > 0
+        ? availableCommands
+        : this.sessionAvailableCommands.get(sessionId) || [];
     const hasExactSlash = cmds.some(
       (command) => String(command.name || "").trim() === firstToken,
     );
@@ -1762,7 +1778,11 @@ export class MimoAgent {
       chatThreadId,
     );
     if (!existingClient && threadState !== "initializing") {
-      this.lifecycleManager.setThreadState(sessionId, chatThreadId, "initializing");
+      this.lifecycleManager.setThreadState(
+        sessionId,
+        chatThreadId,
+        "initializing",
+      );
       void this.ensureThreadRuntime(sessionId, chatThreadId);
     }
 
@@ -1784,7 +1804,7 @@ export class MimoAgent {
       timestamp: new Date().toISOString(),
     });
 
-    const stateCommands = await acpClient.getAvailableCommands() || [];
+    const stateCommands = (await acpClient.getAvailableCommands()) || [];
     if (stateCommands.length > 0) {
       this.send({
         type: "available_commands_update",
@@ -1942,7 +1962,7 @@ export class MimoAgent {
     const srcFullPath = this.os.path.join(checkoutPath, originalPath);
     const tmpFullPath = this.os.path.join(checkoutPath, tempPath);
 
-    if (!await this.os.fs.exists(srcFullPath)) {
+    if (!(await this.os.fs.exists(srcFullPath))) {
       logger.debug(
         `[mimo-agent] expert_copy_file: source not found: ${srcFullPath}`,
       );
@@ -2024,7 +2044,7 @@ export class MimoAgent {
     const tmpFullPath = this.os.path.join(session.checkoutPath, tempPath);
 
     try {
-      if (!await this.os.fs.exists(tmpFullPath)) {
+      if (!(await this.os.fs.exists(tmpFullPath))) {
         this.send({
           type: "expert_temp_content",
           sessionId,
@@ -2075,7 +2095,7 @@ export class MimoAgent {
 
     try {
       // Ensure parent directory exists
-      if (!await this.os.fs.exists(dir)) {
+      if (!(await this.os.fs.exists(dir))) {
         await this.os.fs.mkdir(dir, { recursive: true });
       }
 
