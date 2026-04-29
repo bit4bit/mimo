@@ -4,7 +4,6 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync } from "fs";
 
-
 describe("Agent Capabilities", () => {
   let testHome: string;
   let agentRepository: any;
@@ -40,7 +39,10 @@ describe("Agent Capabilities", () => {
     const { createAgentsRoutes } = await import("../src/agents/routes.tsx");
     agentRoutes = createAgentsRoutes(ctx);
 
-    await userRepository.create("testuser", await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }));
+    await userRepository.create(
+      "testuser",
+      await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+    );
     authToken = await ctx.services.auth.generateToken("testuser");
   });
 

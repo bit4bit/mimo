@@ -702,7 +702,9 @@ export function getImpactCalculator(): ImpactCalculator {
 
 export const impactCalculator = getImpactCalculator();
 
-export function validateImpactMetrics(metrics: ImpactMetrics): ImpactValidation {
+export function validateImpactMetrics(
+  metrics: ImpactMetrics,
+): ImpactValidation {
   const errors: string[] = [];
 
   const expectedCyclomaticDelta =

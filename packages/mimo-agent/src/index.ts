@@ -52,6 +52,14 @@ export class MimoAgent {
   private os: OS;
   // keyed by acpKey(sessionId, chatThreadId) — task 4.1
   private acpClients: Map<string, AcpClient> = new Map();
+  // Dedup concurrent ensureThreadRuntime calls for the same thread.
+  private inFlightThreadSpawns: Map<string, Promise<AcpClient | null>> =
+    new Map();
+  // Tracks per-session setupCheckout + createSession in flight from
+  // handleSessionReady. user_message / request_state arriving for a session
+  // mid-bootstrap can `await` this instead of failing fast with
+  // "No ACP connection for session" while fossil clone/open is still running.
+  private pendingSessionReady: Map<string, Promise<void>> = new Map();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
@@ -257,9 +265,23 @@ export class MimoAgent {
         modelState,
         modeState,
         agentSubpath,
+        branch,
         mcpServers,
         chatThreads,
       } = session;
+
+      // Register a per-session bootstrap promise so user_message /
+      // request_state arriving mid-clone can await readiness instead of
+      // erroring with "No ACP connection".
+      let resolveBootstrap!: () => void;
+      let rejectBootstrap!: (err: unknown) => void;
+      const bootstrap = new Promise<void>((resolve, reject) => {
+        resolveBootstrap = resolve;
+        rejectBootstrap = reject;
+      });
+      // Ignore unhandled rejection — awaiters attach handlers when interested.
+      bootstrap.catch(() => {});
+      this.pendingSessionReady.set(sessionId, bootstrap);
 
       try {
         const checkoutPath = this.os.path.join(this.config.workDir, sessionId);
@@ -277,6 +299,7 @@ export class MimoAgent {
           fossilUrl,
           agentWorkspaceUser,
           agentWorkspacePassword,
+          branch ?? undefined,
         );
 
         // Create session with credentials
@@ -285,6 +308,7 @@ export class MimoAgent {
           fossilUrl,
           agentWorkspaceUser,
           agentWorkspacePassword,
+          branch ?? undefined,
         );
 
         // Store cached model/mode so it can be restored after ACP initialization
@@ -332,6 +356,7 @@ export class MimoAgent {
 
         sessionIds.push(sessionId);
         logger.debug(`[mimo-agent] Session ${sessionId} ready`);
+        resolveBootstrap();
       } catch (error) {
         logger.error(
           `[mimo-agent] Failed to setup session ${sessionId}:`,
@@ -343,6 +368,9 @@ export class MimoAgent {
           error: error instanceof Error ? error.message : String(error),
           timestamp: new Date().toISOString(),
         });
+        rejectBootstrap(error);
+      } finally {
+        this.pendingSessionReady.delete(sessionId);
       }
     }
 
@@ -359,6 +387,7 @@ export class MimoAgent {
     fossilUrl: string,
     agentWorkspaceUser?: string,
     agentWorkspacePassword?: string,
+    branch?: string,
   ): Promise<void> {
     const repoPath = this.os.path.join(
       checkoutPath,
@@ -366,19 +395,42 @@ export class MimoAgent {
       `${sessionId}.fossil`,
     );
 
+    // When the fossil import committed only on a named branch (no trunk
+    // content), we must align the working tree with that branch — otherwise
+    // `fossil open` defaults to an empty trunk and ACP starts in an empty cwd.
+    const ensureBranchCheckout = async () => {
+      if (!branch) return;
+      try {
+        await this.os.command.run(["fossil", "checkout", branch], {
+          cwd: checkoutPath,
+          timeoutMs: 30000,
+        });
+        logger.debug(`[mimo-agent]   Checked out branch '${branch}'`);
+      } catch (err) {
+        logger.warn(
+          `[mimo-agent]   Failed to checkout branch '${branch}':`,
+          err,
+        );
+      }
+    };
+
     if (await this.os.fs.exists(repoPath)) {
       logger.debug(`[mimo-agent]   Fossil repo exists, opening`);
       if (!(await this.os.fs.exists(checkoutPath))) {
         await this.os.fs.mkdir(checkoutPath, { recursive: true });
       }
       try {
-        await this.os.command.run(["fossil", "open", repoPath], {
+        const openArgs = branch
+          ? ["fossil", "open", repoPath, branch]
+          : ["fossil", "open", repoPath];
+        await this.os.command.run(openArgs, {
           cwd: checkoutPath,
           timeoutMs: 30000,
         });
       } catch {
         // Already open or error, continue
       }
+      await ensureBranchCheckout();
       // Update remote URL to new port/credentials
       if (agentWorkspaceUser && agentWorkspacePassword) {
         const url = new URL(fossilUrl);
@@ -453,6 +505,7 @@ export class MimoAgent {
       } catch {
         // Already open or error, continue
       }
+      await ensureBranchCheckout();
       // Update remote URL to new port/credentials
       if (agentWorkspaceUser && agentWorkspacePassword) {
         const url = new URL(fossilUrl);
@@ -528,17 +581,38 @@ export class MimoAgent {
           `[mimo-agent]   Using authenticated URL: ${url.protocol}//${url.username}:****@${url.host}/`,
         );
       }
-      await this.os.command.run(["fossil", "clone", cloneUrl, repoPath], {
-        timeoutMs: CLONE_TIMEOUT_MS,
-      });
+      const cloneResult = await this.os.command.run(
+        ["fossil", "clone", cloneUrl, repoPath],
+        { timeoutMs: CLONE_TIMEOUT_MS },
+      );
+      if (!cloneResult.success) {
+        throw new Error(
+          `fossil clone failed: ${cloneResult.error || cloneResult.output}`,
+        );
+      }
       if (!(await this.os.fs.exists(checkoutPath))) {
         await this.os.fs.mkdir(checkoutPath, { recursive: true });
       }
-      // Open without sync first, then set remote with credentials
-      await this.os.command.run(["fossil", "open", "--nosync", repoPath], {
+      // Open without sync first, then set remote with credentials.
+      // Open onto the import branch when one is provided, since the platform's
+      // git→fossil import commits the initial state on a named branch and
+      // leaves trunk empty.
+      const openArgs = branch
+        ? ["fossil", "open", "--nosync", repoPath, branch]
+        : ["fossil", "open", "--nosync", repoPath];
+      const openResult = await this.os.command.run(openArgs, {
         cwd: checkoutPath,
         timeoutMs: 30000,
       });
+      if (!openResult.success) {
+        // Common silent-failure case: a stray .fslckout in an ancestor of
+        // checkoutPath causes fossil to refuse the open with "there is already
+        // an open tree". Surfacing it here turns an empty-checkout mystery
+        // into a clear error in the session_error message.
+        throw new Error(
+          `fossil open failed in ${checkoutPath}: ${openResult.error || openResult.output}`,
+        );
+      }
       // Set remote URL with credentials for future syncs
       await this.os.command.run(["fossil", "remote-url", cloneUrl], {
         cwd: checkoutPath,
@@ -756,7 +830,22 @@ export class MimoAgent {
       ? this.os.path.join(sessionInfo.checkoutPath, session.agentSubpath)
       : sessionInfo.checkoutPath;
 
-    const spawnResult = this.provider.spawn(acpCwd);
+    let spawnResult: Awaited<ReturnType<typeof this.provider.spawn>>;
+    try {
+      spawnResult = await this.provider.spawn(acpCwd);
+    } catch (err) {
+      logger.error(
+        `[mimo-agent] Failed to spawn ACP for ${session.sessionId}/${chatThreadId}:`,
+        err,
+      );
+      this.send({
+        type: "session_error",
+        sessionId: session.sessionId,
+        error: `Failed to spawn ACP: ${err instanceof Error ? err.message : String(err)}`,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
     const process = spawnResult.process;
     this.sessionManager.setSessionAcpProcess(session.sessionId, process);
 
@@ -898,7 +987,16 @@ export class MimoAgent {
       ? this.os.path.join(sessionInfo.checkoutPath, sessionInfo.agentSubpath)
       : sessionInfo.checkoutPath;
 
-    const spawnResult = this.provider.spawn(acpCwd);
+    let spawnResult: Awaited<ReturnType<typeof this.provider.spawn>>;
+    try {
+      spawnResult = await this.provider.spawn(acpCwd);
+    } catch (err) {
+      logger.error(
+        `[mimo-agent] Failed to spawn ACP for ${sessionId}/${chatThreadId}:`,
+        err,
+      );
+      return null;
+    }
     const process = spawnResult.process;
     this.sessionManager.setSessionAcpProcess(sessionId, process);
 
@@ -1527,7 +1625,64 @@ export class MimoAgent {
     const existing = this.acpClients.get(key);
     if (existing) return existing;
 
-    const session = this.sessionManager.getSession(sessionId);
+    const inFlight = this.inFlightThreadSpawns.get(key);
+    if (inFlight) return inFlight;
+
+    const promise = this.doSpawnThreadRuntime(sessionId, chatThreadId).finally(
+      () => {
+        this.inFlightThreadSpawns.delete(key);
+      },
+    );
+    this.inFlightThreadSpawns.set(key, promise);
+    return promise;
+  }
+
+  // Wait for handleSessionReady to finish bootstrapping `sessionId` if it is
+  // currently in flight. Returns the SessionInfo once available, or undefined
+  // if no bootstrap is pending and the session never arrived.
+  private async awaitSessionReady(
+    sessionId: string,
+    timeoutMs = 30000,
+  ): Promise<ReturnType<SessionManager["getSession"]>> {
+    const existing = this.sessionManager.getSession(sessionId);
+    if (existing) return existing;
+
+    const pending = this.pendingSessionReady.get(sessionId);
+    if (!pending) return undefined;
+
+    logger.debug(
+      `[mimo-agent] Waiting for session_ready bootstrap of ${sessionId} (timeout ${timeoutMs}ms)`,
+    );
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        pending,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`session_ready timeout for ${sessionId}`)),
+            timeoutMs,
+          );
+        }),
+      ]);
+    } catch (err) {
+      logger.warn(
+        `[mimo-agent] awaitSessionReady for ${sessionId} returned without success:`,
+        err instanceof Error ? err.message : err,
+      );
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+
+    return this.sessionManager.getSession(sessionId);
+  }
+
+  private async doSpawnThreadRuntime(
+    sessionId: string,
+    chatThreadId: string,
+  ): Promise<AcpClient | null> {
+    const key = acpKey(sessionId, chatThreadId);
+
+    const session = await this.awaitSessionReady(sessionId);
     if (!session) {
       logger.debug(`[mimo-agent] Unknown session ${sessionId}`);
       return null;
@@ -1559,10 +1714,13 @@ export class MimoAgent {
         chatThreadId,
         acpSessionIdToUse ? { acpSessionId: acpSessionIdToUse } : undefined,
       );
-      if (acpClient) {
-        this.lifecycleManager.setThreadState(sessionId, chatThreadId, "active");
-        await this.lifecycleManager.drainQueue(sessionId, chatThreadId);
+      if (!acpClient) {
+        this.lifecycleManager.endThread(sessionId, chatThreadId);
+        return null;
       }
+
+      this.lifecycleManager.setThreadState(sessionId, chatThreadId, "active");
+      await this.lifecycleManager.drainQueue(sessionId, chatThreadId);
       return acpClient;
     } catch (err) {
       this.lifecycleManager.endThread(sessionId, chatThreadId);
@@ -1773,16 +1931,7 @@ export class MimoAgent {
     }
 
     const existingClient = this.acpClients.get(key);
-    const threadState = this.lifecycleManager.getThreadState(
-      sessionId,
-      chatThreadId,
-    );
-    if (!existingClient && threadState !== "initializing") {
-      this.lifecycleManager.setThreadState(
-        sessionId,
-        chatThreadId,
-        "initializing",
-      );
+    if (!existingClient) {
       void this.ensureThreadRuntime(sessionId, chatThreadId);
     }
 
@@ -2191,7 +2340,7 @@ export class MimoAgent {
   }
 
   private async advertiseCapabilities(): Promise<void> {
-    const spawnResult = this.provider.spawn(this.config.workDir);
+    const spawnResult = await this.provider.spawn(this.config.workDir);
     const probeProcess = spawnResult.process;
     const acpClient = new AcpClient(
       this.provider,

@@ -1,16 +1,23 @@
 import { IAcpProvider, AcpProcessHandle, NewSessionResponse } from "../types";
 import { ModelState, ModeState } from "../../types";
 import { spawn } from "child_process";
+import { existsSync } from "node:fs";
 import { Writable, Readable } from "node:stream";
 
 export class OpencodeProvider implements IAcpProvider {
   readonly name = "opencode";
 
-  spawn(cwd: string): {
+  async spawn(cwd: string): Promise<{
     process: AcpProcessHandle;
     input: WritableStream<Uint8Array>;
     output: ReadableStream<Uint8Array>;
-  } {
+  }> {
+    if (!existsSync(cwd)) {
+      throw new Error(
+        `[mimo-agent] ACP working directory does not exist: ${cwd}`,
+      );
+    }
+
     const proc = spawn("opencode", ["acp"], {
       cwd,
       stdio: ["pipe", "pipe", "pipe"],

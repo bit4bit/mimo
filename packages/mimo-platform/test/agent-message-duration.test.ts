@@ -29,7 +29,10 @@ describe("Agent Message Duration", () => {
     sessionRepository = ctx.repos.sessions;
     projectRepository = ctx.repos.projects;
 
-    await ctx.repos.users.create("testuser", await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }));
+    await ctx.repos.users.create(
+      "testuser",
+      await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+    );
 
     const project = await projectRepository.create({
       name: "Test Project",

@@ -1073,7 +1073,6 @@ async function handleChatMessage(ws, data) {
           return;
         }
 
-        // Find assigned agent
         const cancelSession = await sessionRepository.findById(cancelSessionId);
         const cancelThreadId =
           data.chatThreadId || cancelSession?.activeChatThreadId;
@@ -1083,11 +1082,11 @@ async function handleChatMessage(ws, data) {
           );
           break;
         }
+
         const cancelAgentId = resolveAgentId(cancelSession, cancelThreadId);
         if (cancelAgentId) {
           const cancelAgentWs = agentService.getAgentConnection(cancelAgentId);
           if (cancelAgentWs && cancelAgentWs.readyState === 1) {
-            // Forward cancel request to agent
             cancelAgentWs.send(
               JSON.stringify({
                 type: "cancel_request",
@@ -1102,41 +1101,13 @@ async function handleChatMessage(ws, data) {
           }
         }
 
-        pipeline.clearBuffers(cancelSessionId, cancelThreadId);
+        // Persist the server's authoritative buffered partial as a cancelled
+        // assistant message. This replaces the older two-message protocol where
+        // the client also sent its own copy of the partial content.
+        await pipeline.flushAsCancelled(cancelSessionId, cancelThreadId, {
+          activeChatThreadId: cancelSession?.activeChatThreadId ?? undefined,
+        });
         pipeline.deleteExpertPending(cancelSessionId, cancelThreadId);
-      }
-      break;
-
-    case "cancelled_message":
-      {
-        // Save cancelled/partial assistant message to history
-        const cancelledSessionId = data.sessionId;
-        if (!cancelledSessionId) {
-          logger.debug("No sessionId in cancelled_message");
-          return;
-        }
-
-        const cancelledSession =
-          await sessionRepository.findById(cancelledSessionId);
-        const cancelledThreadId =
-          data.chatThreadId || cancelledSession?.activeChatThreadId;
-
-        // Save the cancelled message with metadata indicating it was cancelled
-        if (cancelledThreadId) {
-          await mimoContext.services.chat.saveMessage(
-            cancelledSessionId,
-            {
-              role: "assistant",
-              content: data.content || "",
-              timestamp: data.timestamp || new Date().toISOString(),
-              metadata: { cancelled: true },
-            },
-            cancelledThreadId,
-          );
-          logger.debug(
-            `Saved cancelled message for session ${cancelledSessionId}/${cancelledThreadId}`,
-          );
-        }
       }
       break;
 

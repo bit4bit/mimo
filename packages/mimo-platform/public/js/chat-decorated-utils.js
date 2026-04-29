@@ -92,7 +92,11 @@ function buildDecoratedLines(text) {
       if (fenceLines[j] === "") {
         result.push({ type: "empty" });
       } else {
-        result.push({ type: "plain", text: fenceLines[j], html: escapeHtml(fenceLines[j]) });
+        result.push({
+          type: "plain",
+          text: fenceLines[j],
+          html: escapeHtml(fenceLines[j]),
+        });
       }
     }
   }

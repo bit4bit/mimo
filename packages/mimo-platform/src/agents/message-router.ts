@@ -175,8 +175,34 @@ export class AgentMessageRouter {
       case "error_response":
         await this.handleErrorResponse(data);
         break;
+      case "acp_cancelled":
+        this.handleAcpCancelled(data);
+        break;
       default:
         logger.debug("[agent] Unknown message type:", data.type);
+    }
+  }
+
+  private handleAcpCancelled(data: any): void {
+    const sessionId = data.sessionId;
+    if (!sessionId) {
+      logger.debug("No sessionId in acp_cancelled");
+      return;
+    }
+    const subscribers = this.deps.chatSessions.get(sessionId);
+    if (subscribers) {
+      subscribers.forEach((client: any) => {
+        if (client.readyState === 1) {
+          client.send(
+            JSON.stringify({
+              type: "acp_cancelled",
+              sessionId,
+              chatThreadId: data.chatThreadId,
+              timestamp: new Date().toISOString(),
+            }),
+          );
+        }
+      });
     }
   }
 
@@ -320,6 +346,7 @@ export class AgentMessageRouter {
             modelState: sessionWithCreds?.modelState ?? null,
             modeState: sessionWithCreds?.modeState ?? null,
             agentSubpath: sessionWithCreds?.agentSubpath ?? null,
+            branch: sessionWithCreds?.branch ?? null,
             mcpServers: mcpServers.length > 0 ? mcpServers : undefined,
             chatThreads: threadBootstrap,
             activeChatThreadId: sessionWithCreds?.activeChatThreadId ?? null,

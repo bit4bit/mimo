@@ -42,12 +42,16 @@ export class SessionManager {
     fossilUrl: string,
     fossilUser?: string,
     fossilPassword?: string,
+    branch?: string,
   ): Promise<SessionInfo> {
     const checkoutPath = this.os.path.join(this.workDir, sessionId);
 
     logger.debug(`[mimo-agent] Creating session ${sessionId}`);
     logger.debug(`[mimo-agent]   Fossil URL: ${fossilUrl}`);
     logger.debug(`[mimo-agent]   Checkout: ${checkoutPath}`);
+    if (branch) {
+      logger.debug(`[mimo-agent]   Branch: ${branch}`);
+    }
 
     // Clone/checkout logic handled by platform via fossil server
     // Just ensure the checkout directory exists
@@ -63,6 +67,7 @@ export class SessionManager {
       fossilPassword,
       acpProcess: null,
       fileWatcher: null,
+      ...(branch ? { branch } : {}),
     };
 
     this.sessions.set(sessionId, sessionInfo);

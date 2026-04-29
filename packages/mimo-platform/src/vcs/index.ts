@@ -277,6 +277,30 @@ export class VCS {
     };
   }
 
+  async getCurrentBranch(
+    repoType: "git" | "fossil",
+    workDir: string,
+  ): Promise<{ success: boolean; branch?: string; error?: string }> {
+    if (repoType === "git") {
+      const result = await this.execCommand(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        workDir,
+      );
+      if (!result.success) {
+        return { success: false, error: result.error || undefined };
+      }
+      return { success: true, branch: result.output.trim() };
+    }
+    const result = await this.execCommand(
+      ["fossil", "branch", "current"],
+      workDir,
+    );
+    if (!result.success) {
+      return { success: false, error: result.error || undefined };
+    }
+    return { success: true, branch: result.output.trim() };
+  }
+
   async createBranch(
     branchName: string,
     repoType: "git" | "fossil",
@@ -447,11 +471,15 @@ export class VCS {
     };
   }
 
-  async openFossil(repoPath: string, workDir: string): Promise<VCSResult> {
-    const result = await this.execCommand(
-      ["fossil", "open", repoPath],
-      workDir,
-    );
+  async openFossil(
+    repoPath: string,
+    workDir: string,
+    branchName?: string,
+  ): Promise<VCSResult> {
+    const args = branchName
+      ? ["fossil", "open", repoPath, branchName]
+      : ["fossil", "open", repoPath];
+    const result = await this.execCommand(args, workDir);
     return {
       success: result.success,
       output: result.output,
@@ -724,34 +752,20 @@ export class VCS {
           };
         }
 
-        const result2 = await this.execCommand(
-          ["git", "clone", url, "."],
-          targetDir,
-          env,
-          this.cloneTimeoutMs,
-        );
-
-        if (
-          !result2.success &&
-          this.isAuthError(
-            result2.error,
-            credential?.type === "ssh" ? "ssh" : "https",
-          )
-        ) {
+        if (sourceBranch) {
           return {
             success: false,
-            output: result2.output,
+            output: result.output,
             error:
-              credential?.type === "ssh"
-                ? "SSH authentication failed. Please check your private key and repository access."
-                : "Authentication failed. Please check your credentials and repository access.",
+              result.error ||
+              `Failed to clone branch '${sourceBranch}' — does it exist on the remote?`,
           };
         }
 
         return {
-          success: result2.success,
-          output: result2.output,
-          error: result2.error || undefined,
+          success: false,
+          output: result.output,
+          error: result.error || undefined,
         };
       } finally {
         if (sshKeyPath) {
@@ -819,6 +833,7 @@ export class VCS {
     upstreamPath: string,
     repoType: "git" | "fossil",
     fossilPath: string,
+    branchName?: string,
   ): Promise<VCSResult> {
     if (repoType === "git") {
       const initResult = await this.execCommand(["fossil", "init", fossilPath]);
@@ -855,8 +870,20 @@ export class VCS {
         };
       }
 
+      // When branchName is set, commit on a named branch so the fossil repo
+      // mirrors the upstream git branch instead of landing on trunk.
+      const commitArgs = [
+        "fossil",
+        "commit",
+        "-m",
+        "Initial import",
+        "--no-warnings",
+      ];
+      if (branchName) {
+        commitArgs.push("--branch", branchName);
+      }
       const commitResult = await this.execCommand(
-        ["fossil", "commit", "-m", "Initial import", "--no-warnings"],
+        commitArgs,
         upstreamPath,
         undefined,
         this.cloneTimeoutMs,

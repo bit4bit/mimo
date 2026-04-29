@@ -271,12 +271,52 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         return c.text(`Failed to clone repository: ${cloneResult.error}`, 500);
       }
 
-      // Step 2: Import to fossil proxy (repo.fossil)
+      // Step 2: Resolve the desired branch and align upstream BEFORE importing
+      // to fossil — so the fossil import lands on the same branch instead of
+      // on `trunk`, keeping the agent-workspace consistent with upstream.
+      let desiredBranch: string | null;
+      if (branchMode === "sync") {
+        // clone --branch should have left upstream HEAD on branchName.
+        // Verify before persisting so we never record a branch that doesn't
+        // match the working tree (which would later cause a new branch to be
+        // created on push).
+        const headResult = await vcs.getCurrentBranch(
+          project.repoType,
+          session.upstreamPath,
+        );
+        if (!headResult.success || headResult.branch !== branchName) {
+          await sessionRepository.delete(projectId, session.id);
+          return c.text(
+            `Sync failed: expected branch '${branchName}' but checkout is on '${headResult.branch ?? "unknown"}'. Verify the branch exists on the remote.`,
+            500,
+          );
+        }
+        desiredBranch = branchName!;
+      } else {
+        desiredBranch = branchName || project.newBranch || null;
+        if (desiredBranch) {
+          const branchResult = await vcs.createBranch(
+            desiredBranch,
+            project.repoType,
+            session.upstreamPath,
+          );
+          if (!branchResult.success) {
+            await sessionRepository.delete(projectId, session.id);
+            return c.text(
+              `Failed to create branch '${desiredBranch}': ${branchResult.error}`,
+              500,
+            );
+          }
+        }
+      }
+
+      // Step 3: Import to fossil proxy (repo.fossil) on the desired branch.
       const fossilPath = sessionRepository.getFossilPath(session.id);
       const importResult = await vcs.importToFossil(
         session.upstreamPath,
         project.repoType,
         fossilPath,
+        desiredBranch ?? undefined,
       );
 
       if (!importResult.success) {
@@ -296,32 +336,8 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         );
       }
 
-      // Step 3: Resolve branch based on mode.
-      // - "new": clone default sourceBranch, then create branch locally
-      //   (session override takes priority over project default).
-      // - "sync": clone --branch already put us on the target branch; just persist.
-      if (branchMode === "new") {
-        const effectiveBranch = branchName || project.newBranch || null;
-        if (effectiveBranch) {
-          const branchResult = await vcs.createBranch(
-            effectiveBranch,
-            project.repoType,
-            session.upstreamPath,
-          );
-          if (!branchResult.success) {
-            await sessionRepository.delete(projectId, session.id);
-            return c.text(
-              `Failed to create branch '${effectiveBranch}': ${branchResult.error}`,
-              500,
-            );
-          }
-          await sessionRepository.update(session.id, {
-            branch: effectiveBranch,
-          });
-        }
-      } else {
-        // sync mode: branchName is already checked out via clone --branch
-        await sessionRepository.update(session.id, { branch: branchName! });
+      if (desiredBranch) {
+        await sessionRepository.update(session.id, { branch: desiredBranch });
       }
 
       // Step 4: Create fossil user for agent access
@@ -352,10 +368,12 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         agentWorkspacePassword,
       });
 
-      // Step 5: Open fossil checkout in agent-workspace
+      // Step 5: Open fossil checkout in agent-workspace on the same branch as
+      // upstream (otherwise `fossil open` would default to trunk).
       const openResult = await vcs.openFossil(
         fossilPath,
         session.agentWorkspacePath,
+        desiredBranch ?? undefined,
       );
       if (!openResult.success) {
         logger.error(
@@ -1445,6 +1463,7 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
                 agentWorkspacePassword:
                   sessionWithCreds?.agentWorkspacePassword,
                 agentSubpath: sessionWithCreds?.agentSubpath ?? null,
+                branch: sessionWithCreds?.branch ?? null,
                 chatThreads: [
                   {
                     chatThreadId: thread.id,

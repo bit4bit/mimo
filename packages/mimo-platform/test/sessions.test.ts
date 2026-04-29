@@ -55,6 +55,12 @@ describe("Session Management Integration Tests", () => {
     ctx.services.vcs.openFossil = async () => ({ success: true });
     ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });
     ctx.services.vcs.createFossilUser = async () => ({ success: true });
+    // Default sync-mode HEAD check passes — individual tests override to
+    // exercise the mismatch path.
+    ctx.services.vcs.getCurrentBranch = async (
+      _repoType: "git" | "fossil",
+      _workDir: string,
+    ) => ({ success: true, branch: "__sync_head__" });
 
     const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
     sessionRoutes = createSessionsRoutes(ctx);
@@ -911,6 +917,10 @@ describe("Session Management Integration Tests", () => {
       mimoContext.services.vcs.createFossilUser = async () => ({
         success: true,
       });
+      mimoContext.services.vcs.getCurrentBranch = async () => ({
+        success: true,
+        branch: "feature/existing",
+      });
 
       const { project, token } = await createUserAndProject({
         sourceBranch: "main",
@@ -942,6 +952,10 @@ describe("Session Management Integration Tests", () => {
       mimoContext.services.vcs.createFossilUser = async () => ({
         success: true,
       });
+      mimoContext.services.vcs.getCurrentBranch = async () => ({
+        success: true,
+        branch: "feature/pushback",
+      });
 
       const { project, token } = await createUserAndProject();
 
@@ -962,6 +976,41 @@ describe("Session Management Integration Tests", () => {
       const sessionId = (res.headers.get("location") || "").split("/").pop()!;
       const session = await sessionRepository.findById(sessionId);
       expect(session?.branch).toBe("feature/pushback");
+    });
+
+    it("fails sync when checkout HEAD does not match requested branch", async () => {
+      const app = new Hono();
+      app.route("/projects/:projectId/sessions", sessionRoutes);
+
+      // Simulate cloneRepository succeeding (e.g., a buggy fallback) but
+      // leaving HEAD on a different branch than the user requested.
+      mimoContext.services.vcs.cloneRepository = async () => ({
+        success: true,
+      });
+      mimoContext.services.vcs.getCurrentBranch = async () => ({
+        success: true,
+        branch: "main",
+      });
+
+      const { project, token } = await createUserAndProject();
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "Mismatched Sync",
+          branchName: "feature/does-not-exist",
+          branchMode: "sync",
+        }).toString(),
+      });
+
+      expect(res.status).toBe(500);
+      const body = await res.text();
+      expect(body).toContain("feature/does-not-exist");
+      expect(body).toContain("main");
     });
 
     it("returns 400 when sync mode has empty branchName", async () => {

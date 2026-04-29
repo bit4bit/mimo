@@ -3,7 +3,6 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync } from "fs";
 
-
 let userRepository: any;
 
 describe("User Repository Integration Test", () => {
@@ -28,7 +27,10 @@ describe("User Repository Integration Test", () => {
   });
 
   test("should create a new user", async () => {
-    const passwordHash = await Bun.password.hash("secret123", { algorithm: "bcrypt", cost: 10 });
+    const passwordHash = await Bun.password.hash("secret123", {
+      algorithm: "bcrypt",
+      cost: 10,
+    });
     const user = await userRepository.create("alice", passwordHash);
 
     expect(user.username).toBe("alice");
@@ -36,7 +38,10 @@ describe("User Repository Integration Test", () => {
   });
 
   test("should check if user exists", async () => {
-    const passwordHash = await Bun.password.hash("secret123", { algorithm: "bcrypt", cost: 10 });
+    const passwordHash = await Bun.password.hash("secret123", {
+      algorithm: "bcrypt",
+      cost: 10,
+    });
     await userRepository.create("alice", passwordHash);
 
     expect(await userRepository.exists("alice")).toBe(true);
@@ -44,7 +49,10 @@ describe("User Repository Integration Test", () => {
   });
 
   test("should throw error when creating duplicate user", async () => {
-    const passwordHash = await Bun.password.hash("secret123", { algorithm: "bcrypt", cost: 10 });
+    const passwordHash = await Bun.password.hash("secret123", {
+      algorithm: "bcrypt",
+      cost: 10,
+    });
     await userRepository.create("alice", passwordHash);
 
     expect(userRepository.create("alice", passwordHash)).rejects.toThrow(
@@ -53,7 +61,10 @@ describe("User Repository Integration Test", () => {
   });
 
   test("should get user credentials", async () => {
-    const passwordHash = await Bun.password.hash("secret123", { algorithm: "bcrypt", cost: 10 });
+    const passwordHash = await Bun.password.hash("secret123", {
+      algorithm: "bcrypt",
+      cost: 10,
+    });
     await userRepository.create("alice", passwordHash);
 
     const creds = await userRepository.getCredentials("alice");
@@ -68,8 +79,14 @@ describe("User Repository Integration Test", () => {
   });
 
   test("should list all users", async () => {
-    const hash1 = await Bun.password.hash("secret123", { algorithm: "bcrypt", cost: 10 });
-    const hash2 = await Bun.password.hash("secret456", { algorithm: "bcrypt", cost: 10 });
+    const hash1 = await Bun.password.hash("secret123", {
+      algorithm: "bcrypt",
+      cost: 10,
+    });
+    const hash2 = await Bun.password.hash("secret456", {
+      algorithm: "bcrypt",
+      cost: 10,
+    });
     await userRepository.create("alice", hash1);
     await userRepository.create("bob", hash2);
 

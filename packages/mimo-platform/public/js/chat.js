@@ -1870,9 +1870,6 @@ async function sendMessageHttp(content) {
 function cancelStreaming() {
   clearStreamingTimeout();
 
-  // Get the partial content before finalizing
-  const partialContent = ChatState.streaming.content || "";
-  const thoughtContent = ChatState.streaming.thoughtContent || "";
   const activeThreadId =
     typeof ChatThreadsState !== "undefined" && ChatThreadsState
       ? ChatThreadsState.activeThreadId
@@ -1887,29 +1884,9 @@ function cancelStreaming() {
     const payload = {
       type: "cancel_request",
       sessionId: ChatState.sessionId,
+      chatThreadId: activeThreadId,
     };
-    if (activeThreadId) {
-      payload.chatThreadId = activeThreadId;
-    }
     ChatState.socket.send(JSON.stringify(payload));
-
-    // Build full content including thoughts (same format as normal save)
-    let fullContent = partialContent;
-    if (thoughtContent) {
-      fullContent = `<details><summary>Thought Process</summary>${thoughtContent}</details>\n\n${partialContent}`;
-    }
-
-    // Send the cancelled message to be saved to history
-    const cancelledPayload = {
-      type: "cancelled_message",
-      sessionId: ChatState.sessionId,
-      content: fullContent,
-      timestamp: new Date().toISOString(),
-    };
-    if (activeThreadId) {
-      cancelledPayload.chatThreadId = activeThreadId;
-    }
-    ChatState.socket.send(JSON.stringify(cancelledPayload));
   }
 
   // Convert streaming message to a static message showing partial content

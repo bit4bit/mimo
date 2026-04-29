@@ -59,6 +59,7 @@ export interface SessionInfo {
   modeState?: ModeState;
   mcpServers?: McpServerConfig[];
   agentSubpath?: string;
+  branch?: string;
 }
 
 export interface FileChange {

@@ -16,7 +16,10 @@ export type CommandList = Array<{
   template?: string;
 }>;
 
-type BroadcastFn = (sessionId: string, message: Record<string, unknown>) => void;
+type BroadcastFn = (
+  sessionId: string,
+  message: Record<string, unknown>,
+) => void;
 
 interface ChatServiceLike {
   saveMessage(
@@ -37,11 +40,46 @@ export class ChatStreamingPipeline {
   private messageStartTimes = new Map<string, number>();
   private availableCommandsBuffers = new Map<string, CommandList>();
   private expertPending = new Map<string, ExpertPendingEntry>();
+  private cancelledKeys = new Set<string>();
 
   constructor(
     private chat: ChatServiceLike,
     private broadcast: BroadcastFn,
   ) {}
+
+  private buildAndClearAssistantContent(key: string): string | null {
+    const messageContent = this.streamingBuffers.get(key);
+    const thoughtContent = this.thoughtBuffers.get(key);
+
+    if (!messageContent && !thoughtContent) {
+      return null;
+    }
+
+    let fullContent = messageContent || "";
+
+    if (thoughtContent) {
+      const toolCallsMap = this.toolCallBuffers.get(key);
+      let toolsData = "";
+      if (toolCallsMap && toolCallsMap.size > 0) {
+        const tools: any[] = [];
+        for (const [, toolCall] of toolCallsMap) {
+          tools.push({
+            title: toolCall.toolTitle,
+            kind: toolCall.toolKind,
+            status: toolCall.toolStatus,
+            input: toolCall.toolInput,
+          });
+        }
+        toolsData = "\n<tools>" + JSON.stringify(tools) + "</tools>";
+        this.toolCallBuffers.delete(key);
+      }
+      fullContent = `<details><summary>Thought Process</summary>${thoughtContent}${toolsData}</details>\n\n${fullContent}`;
+      this.thoughtBuffers.delete(key);
+    }
+
+    this.streamingBuffers.delete(key);
+    return fullContent;
+  }
 
   handleThoughtStart(sessionId: string, threadId: string): void {
     const key = streamKey(sessionId, threadId);
@@ -54,7 +92,11 @@ export class ChatStreamingPipeline {
     });
   }
 
-  handleThoughtChunk(sessionId: string, threadId: string, content: string): void {
+  handleThoughtChunk(
+    sessionId: string,
+    threadId: string,
+    content: string,
+  ): void {
     const key = streamKey(sessionId, threadId);
     const current = this.thoughtBuffers.get(key) || "";
     this.thoughtBuffers.set(key, current + content);
@@ -74,7 +116,11 @@ export class ChatStreamingPipeline {
     });
   }
 
-  handleMessageChunk(sessionId: string, threadId: string, content: string): void {
+  handleMessageChunk(
+    sessionId: string,
+    threadId: string,
+    content: string,
+  ): void {
     const key = streamKey(sessionId, threadId);
     if (!this.messageStartTimes.has(key)) {
       this.messageStartTimes.set(key, Date.now());
@@ -89,14 +135,18 @@ export class ChatStreamingPipeline {
     });
   }
 
-  handleToolCall(sessionId: string, threadId: string, tool: {
-    toolCallId: string;
-    toolTitle: string;
-    toolKind: string;
-    toolInput: unknown;
-    toolStatus: string;
-    timestamp: string;
-  }): void {
+  handleToolCall(
+    sessionId: string,
+    threadId: string,
+    tool: {
+      toolCallId: string;
+      toolTitle: string;
+      toolKind: string;
+      toolInput: unknown;
+      toolStatus: string;
+      timestamp: string;
+    },
+  ): void {
     const key = streamKey(sessionId, threadId);
     if (!this.toolCallBuffers.has(key)) {
       this.toolCallBuffers.set(key, new Map());
@@ -114,12 +164,16 @@ export class ChatStreamingPipeline {
     });
   }
 
-  handleToolCallUpdate(sessionId: string, threadId: string, update: {
-    toolCallId: string;
-    toolStatus: string;
-    toolOutput?: unknown;
-    timestamp: string;
-  }): void {
+  handleToolCallUpdate(
+    sessionId: string,
+    threadId: string,
+    update: {
+      toolCallId: string;
+      toolStatus: string;
+      toolOutput?: unknown;
+      timestamp: string;
+    },
+  ): void {
     const key = streamKey(sessionId, threadId);
     const toolCallsMap = this.toolCallBuffers.get(key);
     if (toolCallsMap && toolCallsMap.has(update.toolCallId)) {
@@ -159,49 +213,32 @@ export class ChatStreamingPipeline {
       this.messageStartTimes.delete(key);
     }
 
-    const messageContent = this.streamingBuffers.get(key);
-    const thoughtContent = this.thoughtBuffers.get(key);
-
-    const hasBufferedOutput = Boolean(messageContent || thoughtContent);
-
-    if (hasBufferedOutput) {
-      const historyThreadId = threadId || session.activeChatThreadId;
-      let fullContent = messageContent || "";
-
-      if (thoughtContent) {
-        const toolCallsMap = this.toolCallBuffers.get(key);
-        let toolsData = "";
-        if (toolCallsMap && toolCallsMap.size > 0) {
-          const tools: any[] = [];
-          for (const [, toolCall] of toolCallsMap) {
-            tools.push({
-              title: toolCall.toolTitle,
-              kind: toolCall.toolKind,
-              status: toolCall.toolStatus,
-              input: toolCall.toolInput,
-            });
-          }
-          toolsData = "\n<tools>" + JSON.stringify(tools) + "</tools>";
-          this.toolCallBuffers.delete(key);
-        }
-        fullContent = `<details><summary>Thought Process</summary>${thoughtContent}${toolsData}</details>\n\n${fullContent}`;
-        this.thoughtBuffers.delete(key);
-      }
-
-      if (historyThreadId) {
-        await this.chat.saveMessage(
-          sessionId,
-          {
-            role: "assistant",
-            content: fullContent,
-            timestamp: new Date().toISOString(),
-            ...(duration !== undefined ? { metadata: { duration, durationMs } } : {}),
-          },
-          historyThreadId,
-        );
-      }
-
+    // If this turn was already flushed as cancelled, don't double-save —
+    // just drain any late-arrived buffers and broadcast the usage event.
+    if (this.cancelledKeys.has(key)) {
+      this.cancelledKeys.delete(key);
       this.streamingBuffers.delete(key);
+      this.thoughtBuffers.delete(key);
+      this.toolCallBuffers.delete(key);
+    } else {
+      const fullContent = this.buildAndClearAssistantContent(key);
+      if (fullContent !== null) {
+        const historyThreadId = threadId || session.activeChatThreadId;
+        if (historyThreadId) {
+          await this.chat.saveMessage(
+            sessionId,
+            {
+              role: "assistant",
+              content: fullContent,
+              timestamp: new Date().toISOString(),
+              ...(duration !== undefined
+                ? { metadata: { duration, durationMs } }
+                : {}),
+            },
+            historyThreadId,
+          );
+        }
+      }
     }
 
     this.broadcast(sessionId, {
@@ -223,6 +260,36 @@ export class ChatStreamingPipeline {
     }
   }
 
+  async flushAsCancelled(
+    sessionId: string,
+    threadId: string,
+    session: { activeChatThreadId?: string },
+  ): Promise<void> {
+    const key = streamKey(sessionId, threadId);
+    this.messageStartTimes.delete(key);
+
+    const fullContent = this.buildAndClearAssistantContent(key);
+    if (fullContent !== null) {
+      const historyThreadId = threadId || session.activeChatThreadId;
+      if (historyThreadId) {
+        await this.chat.saveMessage(
+          sessionId,
+          {
+            role: "assistant",
+            content: fullContent,
+            timestamp: new Date().toISOString(),
+            metadata: { cancelled: true },
+          },
+          historyThreadId,
+        );
+      }
+    }
+
+    // Mark this key so a trailing usage_update from the agent doesn't
+    // double-save the same (or partially-overlapping) content.
+    this.cancelledKeys.add(key);
+  }
+
   handleAvailableCommandsUpdate(
     sessionId: string,
     threadId: string,
@@ -230,7 +297,11 @@ export class ChatStreamingPipeline {
   ): void {
     const key = streamKey(sessionId, threadId);
     const existing = this.availableCommandsBuffers.get(key);
-    if (commands.length === 0 && Array.isArray(existing) && existing.length > 0) {
+    if (
+      commands.length === 0 &&
+      Array.isArray(existing) &&
+      existing.length > 0
+    ) {
       return;
     }
     this.availableCommandsBuffers.set(key, commands);
@@ -245,7 +316,10 @@ export class ChatStreamingPipeline {
     });
   }
 
-  getStreamingSnapshot(sessionId: string, threadId?: string): StreamingSnapshot {
+  getStreamingSnapshot(
+    sessionId: string,
+    threadId?: string,
+  ): StreamingSnapshot {
     const key = streamKey(sessionId, threadId);
     return {
       thoughtContent: this.thoughtBuffers.get(key) || "",
@@ -253,7 +327,10 @@ export class ChatStreamingPipeline {
     };
   }
 
-  getAvailableCommands(sessionId: string, threadId?: string): CommandList | undefined {
+  getAvailableCommands(
+    sessionId: string,
+    threadId?: string,
+  ): CommandList | undefined {
     const key = streamKey(sessionId, threadId);
     return (
       this.availableCommandsBuffers.get(key) ||
@@ -267,13 +344,21 @@ export class ChatStreamingPipeline {
     this.thoughtBuffers.delete(key);
     this.toolCallBuffers.delete(key);
     this.messageStartTimes.delete(key);
+    this.cancelledKeys.delete(key);
   }
 
-  setExpertPending(sessionId: string, threadId: string, entry: ExpertPendingEntry): void {
+  setExpertPending(
+    sessionId: string,
+    threadId: string,
+    entry: ExpertPendingEntry,
+  ): void {
     this.expertPending.set(streamKey(sessionId, threadId), entry);
   }
 
-  getExpertPending(sessionId: string, threadId: string): ExpertPendingEntry | undefined {
+  getExpertPending(
+    sessionId: string,
+    threadId: string,
+  ): ExpertPendingEntry | undefined {
     return this.expertPending.get(streamKey(sessionId, threadId));
   }
 

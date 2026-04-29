@@ -1,6 +1,7 @@
 import { IAcpProvider, AcpProcessHandle, NewSessionResponse } from "../types";
 import { ModelState, ModeState } from "../../types";
 import { spawn } from "child_process";
+import { existsSync } from "node:fs";
 import { Writable, Readable } from "node:stream";
 
 const CLAUDE_ACP_COMMAND = "claude-agent-acp";
@@ -10,15 +11,21 @@ export class ClaudeAgentProvider implements IAcpProvider {
 
   constructor(private readonly spawnProcess: typeof spawn = spawn) {}
 
-  spawn(cwd: string): {
+  async spawn(cwd: string): Promise<{
     process: AcpProcessHandle;
     input: WritableStream<Uint8Array>;
     output: ReadableStream<Uint8Array>;
-  } {
+  }> {
     const executable = Bun.which(CLAUDE_ACP_COMMAND);
     if (!executable) {
       throw new Error(
         `[mimo-agent] Required executable '${CLAUDE_ACP_COMMAND}' not found on PATH`,
+      );
+    }
+
+    if (!existsSync(cwd)) {
+      throw new Error(
+        `[mimo-agent] ACP working directory does not exist: ${cwd}`,
       );
     }
 

@@ -4,7 +4,6 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync } from "fs";
 
-
 let agentRoutes: any;
 let agentRepository: any;
 let agentService: any;
@@ -202,8 +201,14 @@ describe("Agent Lifecycle Integration Tests", () => {
     });
 
     it("should list agents by owner", async () => {
-      await userRepository.create("user1", await Bun.password.hash("pass1", { algorithm: "bcrypt", cost: 10 }));
-      await userRepository.create("user2", await Bun.password.hash("pass2", { algorithm: "bcrypt", cost: 10 }));
+      await userRepository.create(
+        "user1",
+        await Bun.password.hash("pass1", { algorithm: "bcrypt", cost: 10 }),
+      );
+      await userRepository.create(
+        "user2",
+        await Bun.password.hash("pass2", { algorithm: "bcrypt", cost: 10 }),
+      );
 
       await agentRepository.create({
         name: "User1 Agent",

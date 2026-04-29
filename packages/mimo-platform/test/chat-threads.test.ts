@@ -61,7 +61,10 @@ describe("Chat Threads API", () => {
     app.route("/projects/:projectId/sessions", sessionRoutes);
 
     // Seed: user, project, session
-    await userRepository.create("owner", await Bun.password.hash("pass", { algorithm: "bcrypt", cost: 10 }));
+    await userRepository.create(
+      "owner",
+      await Bun.password.hash("pass", { algorithm: "bcrypt", cost: 10 }),
+    );
     token = await authService.generateToken("owner");
 
     const project = await projectRepository.create({

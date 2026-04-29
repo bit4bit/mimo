@@ -4,7 +4,6 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync } from "fs";
 
-
 let app: any;
 let projectRepository: any;
 let sessionRepository: any;

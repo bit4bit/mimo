@@ -272,7 +272,6 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
     let spawnCount = 0;
 
     const { deps, acpClients, lifecycleStates } = buildMockDeps({
-      // lifecycle manager tracks state so the guard works
       getThreadState: (s: string, t: string) =>
         lifecycleStates.get(`${s}:${t}`) ?? "active",
       setThreadState: (s: string, t: string, state: string) =>
@@ -283,7 +282,8 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
     (agent as any).ws = { send: () => {}, readyState: 1 };
     (agent as any).acpClients = acpClients;
 
-    (agent as any).ensureThreadRuntime = async (_s: string, _t: string) => {
+    // Mock the inner helper so the in-flight dedup wrapper still runs.
+    (agent as any).doSpawnThreadRuntime = async (_s: string, _t: string) => {
       spawnCount++;
       await new Promise((r) => setTimeout(r, 300)); // slow spawn in-flight
       return null;
@@ -304,5 +304,272 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
     await new Promise((r) => setTimeout(r, 30));
 
     expect(spawnCount).toBe(1); // only one spawn, not two
+  });
+
+  // Regression: when session_ready carries a `branch`, setupCheckout must open
+  // fossil on that branch — otherwise fossil falls back to the (often empty)
+  // trunk and ACP starts in a working tree with no files.
+  it("handleSessionReady opens fossil on the named branch when one is provided", async () => {
+    const { MimoAgent } = await import("../src/index.js");
+    const { deps } = buildMockDeps();
+
+    type Cmd = string[];
+    const commandsRun: Cmd[] = [];
+    deps.os.command.run = (async (args: Cmd) => {
+      commandsRun.push(args);
+      return { success: true, output: "" };
+    }) as any;
+
+    // Simulate a fresh session: neither the .fossil file nor a prior checkout
+    // exists, forcing the clone branch of setupCheckout.
+    deps.os.fs.exists = (async () => false) as any;
+    deps.os.fs.mkdir = (async () => {}) as any;
+
+    const agent = new MimoAgent(deps);
+    (agent as any).ws = { send: () => {}, readyState: 1 };
+
+    await (agent as any).handleSessionReady({
+      type: "session_ready",
+      platformUrl: "http://test",
+      sessions: [
+        {
+          sessionId: "s-branch",
+          fossilUrl: "http://localhost:8000/",
+          agentWorkspaceUser: "dev",
+          agentWorkspacePassword: "pw",
+          agentSubpath: null,
+          branch: "feature/test",
+          chatThreads: [],
+        },
+      ],
+    });
+
+    const openCmd = commandsRun.find(
+      (c) => c[0] === "fossil" && c[1] === "open",
+    );
+    expect(openCmd).toBeDefined();
+    // Expected: fossil open --nosync <repoPath> feature/test
+    expect(openCmd!).toContain("--nosync");
+    expect(openCmd!).toContain("feature/test");
+  });
+
+  // Regression: a stray `.fslckout` in an ancestor of the per-session checkout
+  // makes `fossil open` print "there is already an open tree" and exit 1.
+  // Previously setupCheckout ignored os.command.run.success, so the empty
+  // checkout dir was silently propagated and only surfaced later as the much
+  // less helpful "ACP working directory does not exist" error.
+  it("handleSessionReady surfaces a session_error when fossil open fails", async () => {
+    const { MimoAgent } = await import("../src/index.js");
+    const { deps } = buildMockDeps();
+
+    deps.os.command.run = (async (args: string[]) => {
+      // Clone succeeds; open fails like fossil does when an ancestor dir is
+      // already an open tree.
+      if (args[0] === "fossil" && args[1] === "open") {
+        return {
+          success: false,
+          output: "",
+          error: "there is already an open tree at /Users/x/.mimo-agent/",
+          exitCode: 1,
+        };
+      }
+      return { success: true, output: "", error: "", exitCode: 0 };
+    }) as any;
+    deps.os.fs.exists = (async () => false) as any;
+    deps.os.fs.mkdir = (async () => {}) as any;
+
+    const sentMessages: any[] = [];
+    const agent = new MimoAgent(deps);
+    (agent as any).ws = {
+      send: (raw: string) => sentMessages.push(JSON.parse(raw)),
+      readyState: 1,
+    };
+
+    await (agent as any).handleSessionReady({
+      type: "session_ready",
+      platformUrl: "http://test",
+      sessions: [
+        {
+          sessionId: "s-poisoned",
+          fossilUrl: "http://localhost:8000/",
+          agentWorkspaceUser: "dev",
+          agentWorkspacePassword: "pw",
+          agentSubpath: null,
+          branch: "CP-1784",
+          chatThreads: [],
+        },
+      ],
+    });
+
+    const sessionError = sentMessages.find((m) => m.type === "session_error");
+    expect(sessionError).toBeDefined();
+    expect(sessionError.sessionId).toBe("s-poisoned");
+    expect(sessionError.error).toContain("fossil open failed");
+    expect(sessionError.error).toContain("already an open tree");
+  });
+
+  it("handleSessionReady falls back to branchless fossil open when no branch is provided", async () => {
+    const { MimoAgent } = await import("../src/index.js");
+    const { deps } = buildMockDeps();
+
+    const commandsRun: string[][] = [];
+    deps.os.command.run = (async (args: string[]) => {
+      commandsRun.push(args);
+      return { success: true, output: "" };
+    }) as any;
+    deps.os.fs.exists = (async () => false) as any;
+    deps.os.fs.mkdir = (async () => {}) as any;
+
+    const agent = new MimoAgent(deps);
+    (agent as any).ws = { send: () => {}, readyState: 1 };
+
+    await (agent as any).handleSessionReady({
+      type: "session_ready",
+      platformUrl: "http://test",
+      sessions: [
+        {
+          sessionId: "s-no-branch",
+          fossilUrl: "http://localhost:8000/",
+          agentWorkspaceUser: "dev",
+          agentWorkspacePassword: "pw",
+          agentSubpath: null,
+          branch: null,
+          chatThreads: [],
+        },
+      ],
+    });
+
+    const openCmd = commandsRun.find(
+      (c) => c[0] === "fossil" && c[1] === "open",
+    );
+    expect(openCmd).toBeDefined();
+    // No branch arg should be appended.
+    expect(openCmd!.length).toBe(4); // fossil, open, --nosync, repoPath
+  });
+
+  // Regression: a user_message arriving while session_ready is still in flight
+  // (e.g., fossil clone running) must wait for the bootstrap to finish, not
+  // emit "Error: No ACP connection for session: ..." immediately.
+  it("user_message arriving mid-bootstrap waits for session_ready instead of erroring", async () => {
+    const { MimoAgent } = await import("../src/index.js");
+    const { deps } = buildMockDeps();
+
+    let registeredSession: any = null;
+    deps.sessionManager.getSession = ((id: string) =>
+      registeredSession && registeredSession.sessionId === id
+        ? registeredSession
+        : undefined) as any;
+    deps.sessionManager.createSession = (async (
+      sessionId: string,
+      fossilUrl: string,
+    ) => {
+      registeredSession = {
+        sessionId,
+        checkoutPath: "/tmp/work/" + sessionId,
+        fossilUrl,
+        acpProcess: null,
+      };
+      return registeredSession;
+    }) as any;
+
+    // Make setupCheckout's fossil work take ~150ms so user_message races it.
+    deps.os.fs.exists = (async () => false) as any;
+    deps.os.fs.mkdir = (async () => {}) as any;
+    deps.os.command.run = (async (args: string[]) => {
+      if (args[0] === "fossil" && (args[1] === "clone" || args[1] === "open")) {
+        await new Promise((r) => setTimeout(r, 75));
+      }
+      return { success: true, output: "", error: "", exitCode: 0 };
+    }) as any;
+
+    const sentMessages: any[] = [];
+    const agent = new MimoAgent(deps);
+    (agent as any).ws = {
+      send: (raw: string) => sentMessages.push(JSON.parse(raw)),
+      readyState: 1,
+    };
+
+    // Force ensureThreadRuntime to succeed once a session is registered, so
+    // we exercise the awaitSessionReady → spawn-success path rather than the
+    // ACP machinery. Stub sendPrompt so the post-spawn flow doesn't trip on
+    // the bare AcpClient mock.
+    (agent as any).respawnAcpProcess = async (s: string) =>
+      registeredSession && registeredSession.sessionId === s
+        ? ({} as any)
+        : null;
+    (agent as any).sendPrompt = async () => {};
+
+    // Kick off session_ready (slow) and user_message in parallel, with the
+    // user_message starting before session_ready has finished cloning.
+    const sessionReadyPromise = (agent as any).handleSessionReady({
+      type: "session_ready",
+      platformUrl: "http://test",
+      sessions: [
+        {
+          sessionId: "s-race",
+          fossilUrl: "http://localhost:8000/",
+          agentWorkspaceUser: "dev",
+          agentWorkspacePassword: "pw",
+          agentSubpath: null,
+          branch: null,
+          chatThreads: [],
+        },
+      ],
+    });
+
+    // Yield once so handleSessionReady has registered pendingSessionReady.
+    await Promise.resolve();
+
+    const userMessagePromise = (agent as any).handleUserMessage({
+      type: "user_message",
+      sessionId: "s-race",
+      chatThreadId: "t-race",
+      content: "hello",
+    });
+
+    await Promise.all([sessionReadyPromise, userMessagePromise]);
+
+    const errorResp = sentMessages.find(
+      (m) =>
+        m.type === "error_response" &&
+        typeof m.error === "string" &&
+        m.error.includes("No ACP connection"),
+    );
+    expect(errorResp).toBeUndefined();
+  });
+
+  // Regression: request_state arriving before the session exists must not
+  // leave the thread stuck in "initializing". The real bug we hit:
+  // handleRequestState pre-set state to "initializing" before calling
+  // ensureThreadRuntime; if the session was missing, the state stayed
+  // "initializing" forever and any later user_message queued indefinitely.
+  it("request_state for unknown session does not leave thread in initializing", async () => {
+    const { MimoAgent } = await import("../src/index.js");
+
+    const { deps, acpClients, lifecycleStates } = buildMockDeps({
+      getThreadState: (s: string, t: string) =>
+        lifecycleStates.get(`${s}:${t}`) ?? "active",
+      setThreadState: (s: string, t: string, state: string) =>
+        lifecycleStates.set(`${s}:${t}`, state),
+    });
+
+    // Session does not yet exist when request_state arrives.
+    deps.sessionManager.getSession = (() => undefined) as any;
+
+    const agent = new MimoAgent(deps);
+    (agent as any).ws = { send: () => {}, readyState: 1 };
+    (agent as any).acpClients = acpClients;
+
+    await (agent as any).handleRequestState({
+      type: "request_state",
+      sessionId: "s1",
+      chatThreadId: "t1",
+    });
+    // Give the void'd ensureThreadRuntime time to settle.
+    await new Promise((r) => setTimeout(r, 20));
+
+    // Thread state must NOT be stuck in "initializing" — otherwise a later
+    // user_message would queue forever.
+    expect(lifecycleStates.get("s1:t1") ?? "active").not.toBe("initializing");
   });
 });

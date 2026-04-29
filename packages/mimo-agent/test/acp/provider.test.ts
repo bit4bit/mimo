@@ -174,7 +174,7 @@ describe("ClaudeAgentProvider", () => {
   });
 
   describe("spawn", () => {
-    it("should spawn claude-agent-acp with provided cwd", () => {
+    it("should spawn claude-agent-acp with provided cwd", async () => {
       const mockProcess = {
         stdin: new Writable(),
         stdout: new Readable({ read() {} }),
@@ -185,7 +185,7 @@ describe("ClaudeAgentProvider", () => {
       const mockSpawn = mock(() => mockProcess);
       const claudeProvider = new ClaudeAgentProvider(mockSpawn as any);
 
-      const result = claudeProvider.spawn("/tmp");
+      const result = await claudeProvider.spawn("/tmp");
 
       expect(result.input).toBeInstanceOf(WritableStream);
       expect(result.output).toBeInstanceOf(ReadableStream);
@@ -201,6 +201,16 @@ describe("ClaudeAgentProvider", () => {
         cwd: "/tmp",
         stdio: ["pipe", "pipe", "pipe"],
       });
+    });
+
+    it("should reject if cwd does not exist", async () => {
+      const mockSpawn = mock(() => ({}) as any);
+      const claudeProvider = new ClaudeAgentProvider(mockSpawn as any);
+
+      await expect(
+        claudeProvider.spawn("/tmp/does-not-exist-xyz-mimo"),
+      ).rejects.toThrow(/working directory does not exist/);
+      expect(mockSpawn).not.toHaveBeenCalled();
     });
 
   });

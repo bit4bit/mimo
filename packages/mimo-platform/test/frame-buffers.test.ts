@@ -4,7 +4,6 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, writeFileSync } from "fs";
 
-
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
 let sessionRoutes: any;
@@ -55,7 +54,10 @@ describe("Frame buffers integration", () => {
     app.route("/projects", projectsRoutes);
     app.route("/sessions", sessionRoutes);
 
-    await userRepository.create("testuser", await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }));
+    await userRepository.create(
+      "testuser",
+      await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+    );
     const project = await projectRepository.create({
       name: "Test Project",
       repoUrl: "https://github.com/user/repo.git",

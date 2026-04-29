@@ -3,7 +3,6 @@ import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
 
-
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
 let sessionRoutes: any;
@@ -176,8 +175,14 @@ describe("Session Search API", () => {
       const app = new Hono();
       app.route("/sessions", sessionRoutes);
 
-      await userRepository.create("user1", await Bun.password.hash("password", { algorithm: "bcrypt", cost: 10 }));
-      await userRepository.create("user2", await Bun.password.hash("password", { algorithm: "bcrypt", cost: 10 }));
+      await userRepository.create(
+        "user1",
+        await Bun.password.hash("password", { algorithm: "bcrypt", cost: 10 }),
+      );
+      await userRepository.create(
+        "user2",
+        await Bun.password.hash("password", { algorithm: "bcrypt", cost: 10 }),
+      );
 
       const project = await projectRepository.create({
         name: "Test Project",

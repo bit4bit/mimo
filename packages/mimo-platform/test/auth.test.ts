@@ -109,7 +109,10 @@ describe("Authentication Integration Tests", () => {
 
       await userRepository.create(
         "logintest",
-        await Bun.password.hash("testpass123", { algorithm: "bcrypt", cost: 10 }),
+        await Bun.password.hash("testpass123", {
+          algorithm: "bcrypt",
+          cost: 10,
+        }),
       );
 
       const formData = new URLSearchParams();
@@ -137,7 +140,10 @@ describe("Authentication Integration Tests", () => {
 
       await userRepository.create(
         "validuser",
-        await Bun.password.hash("correctpass", { algorithm: "bcrypt", cost: 10 }),
+        await Bun.password.hash("correctpass", {
+          algorithm: "bcrypt",
+          cost: 10,
+        }),
       );
 
       const formData = new URLSearchParams();

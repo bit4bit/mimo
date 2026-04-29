@@ -45,7 +45,10 @@ describe("Session Priority", () => {
   });
 
   async function createUser(username = "testuser") {
-    await userRepository.create(username, await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }));
+    await userRepository.create(
+      username,
+      await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+    );
     return authService.generateToken(username);
   }
 

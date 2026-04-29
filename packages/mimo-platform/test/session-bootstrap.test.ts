@@ -111,6 +111,47 @@ describe("Session Bootstrap Integration Tests", () => {
       expect(existsSync(join(agentWorkspacePath, "README.md"))).toBe(true);
     }, 15000);
 
+    it("should put fossil import on the requested branch and open it in agent-workspace", async () => {
+      const vcs = new VCS({ os: createOS({ ...process.env }) });
+      const upstreamPath = join(testHome, "branch-mirror-upstream");
+      const fossilPath = join(testHome, "branch-mirror.fossil");
+      const agentWorkspacePath = join(testHome, "branch-mirror-agent");
+
+      // Build an upstream git repo on a non-default branch, the way
+      // sessions/routes.tsx does it for "new"-mode session creation.
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init -q", { cwd: upstreamPath });
+      execSync('git config user.email "t@t"', { cwd: upstreamPath });
+      execSync('git config user.name "t"', { cwd: upstreamPath });
+      writeFileSync(join(upstreamPath, "a.txt"), "a");
+      execSync("git add .", { cwd: upstreamPath });
+      execSync('git commit -qm "initial"', { cwd: upstreamPath });
+      execSync("git checkout -qB feature/foo", { cwd: upstreamPath });
+
+      const importResult = await vcs.importToFossil(
+        upstreamPath,
+        "git",
+        fossilPath,
+        "feature/foo",
+      );
+      expect(importResult.success).toBe(true);
+
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      const openResult = await vcs.openFossil(
+        fossilPath,
+        agentWorkspacePath,
+        "feature/foo",
+      );
+      expect(openResult.success).toBe(true);
+
+      const currentBranch = execSync("fossil branch current", {
+        cwd: agentWorkspacePath,
+        encoding: "utf8",
+      }).trim();
+      expect(currentBranch).toBe("feature/foo");
+      expect(existsSync(join(agentWorkspacePath, "a.txt"))).toBe(true);
+    }, 15000);
+
     it("should fail on invalid Git URL", async () => {
       const vcs = new VCS({ os: createOS({ ...process.env }) });
       const upstreamPath = join(testHome, "invalid-url");

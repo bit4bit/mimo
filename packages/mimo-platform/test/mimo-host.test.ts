@@ -61,9 +61,8 @@ describe("MIMO_HOST environment variable", () => {
   });
 
   test("should use MIMO_HOST in SharedFossilServer URL", async () => {
-    const { SharedFossilServer } = await import(
-      "../src/vcs/shared-fossil-server.js"
-    );
+    const { SharedFossilServer } =
+      await import("../src/vcs/shared-fossil-server.js");
     const { createOS } = await import("../src/os/node-adapter.js");
     const os = createOS({ PATH: process.env.PATH, HOME: process.env.HOME });
 
@@ -81,9 +80,8 @@ describe("MIMO_HOST environment variable", () => {
   });
 
   test("should default SharedFossilServer host to localhost", async () => {
-    const { SharedFossilServer } = await import(
-      "../src/vcs/shared-fossil-server.js"
-    );
+    const { SharedFossilServer } =
+      await import("../src/vcs/shared-fossil-server.js");
     const { createOS } = await import("../src/os/node-adapter.js");
     const os = createOS({ PATH: process.env.PATH, HOME: process.env.HOME });
 

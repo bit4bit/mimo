@@ -35,7 +35,10 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
       return c.html(<RegisterPage error="Username already exists" />, 409);
     }
 
-    const passwordHash = await Bun.password.hash(password, { algorithm: "bcrypt", cost: 10 });
+    const passwordHash = await Bun.password.hash(password, {
+      algorithm: "bcrypt",
+      cost: 10,
+    });
     await userRepository.create(username, passwordHash);
 
     return c.redirect("/auth/login");

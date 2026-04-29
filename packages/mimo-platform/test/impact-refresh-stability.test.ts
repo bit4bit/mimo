@@ -81,7 +81,8 @@ describe("Impact refresh stability", () => {
     upstreamDir = join(testHome, "upstream");
     workspaceDir = join(testHome, "workspace");
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
@@ -116,8 +117,14 @@ describe("Impact refresh stability", () => {
 `,
     );
 
-    writeFileSync(join(workspaceDir, "main.ts"), readFileSync(join(upstreamDir, "main.ts"), "utf8"));
-    writeFileSync(join(workspaceDir, "util.ts"), readFileSync(join(upstreamDir, "util.ts"), "utf8"));
+    writeFileSync(
+      join(workspaceDir, "main.ts"),
+      readFileSync(join(upstreamDir, "main.ts"), "utf8"),
+    );
+    writeFileSync(
+      join(workspaceDir, "util.ts"),
+      readFileSync(join(upstreamDir, "util.ts"), "utf8"),
+    );
   });
 
   afterEach(() => {
@@ -147,7 +154,11 @@ describe("Impact refresh stability", () => {
       return;
     }
 
-    const calculator = new ImpactCalculator(sccService, jscpdDisabled as any, os);
+    const calculator = new ImpactCalculator(
+      sccService,
+      jscpdDisabled as any,
+      os,
+    );
     const runs: NormalizedMetrics[] = [];
 
     for (let i = 0; i < 10; i++) {
@@ -199,7 +210,11 @@ describe("Impact refresh stability", () => {
       return;
     }
 
-    const calculator = new ImpactCalculator(sccService, jscpdDisabled as any, os);
+    const calculator = new ImpactCalculator(
+      sccService,
+      jscpdDisabled as any,
+      os,
+    );
 
     for (let i = 0; i < 10; i++) {
       const { metrics } = await calculator.calculateImpact(
@@ -210,7 +225,8 @@ describe("Impact refresh stability", () => {
       );
 
       expect(metrics.complexity.cyclomatic).toBe(
-        metrics.absoluteComplexity.workspace - metrics.absoluteComplexity.upstream,
+        metrics.absoluteComplexity.workspace -
+          metrics.absoluteComplexity.upstream,
       );
     }
   });
@@ -237,7 +253,11 @@ describe("Impact refresh stability", () => {
     const runtimeDir = join(workspaceDir, ".mimo", "runtime");
     mkdirSync(runtimeDir, { recursive: true });
 
-    const calculator = new ImpactCalculator(sccService, jscpdDisabled as any, os);
+    const calculator = new ImpactCalculator(
+      sccService,
+      jscpdDisabled as any,
+      os,
+    );
 
     const before = await calculator.calculateImpact(
       "refresh-stability-runtime-churn",
@@ -261,7 +281,8 @@ describe("Impact refresh stability", () => {
     const changed =
       before.metrics.files.new !== after.metrics.files.new ||
       before.metrics.linesOfCode.added !== after.metrics.linesOfCode.added ||
-      before.metrics.complexity.cyclomatic !== after.metrics.complexity.cyclomatic;
+      before.metrics.complexity.cyclomatic !==
+        after.metrics.complexity.cyclomatic;
 
     expect(changed).toBe(false);
   });

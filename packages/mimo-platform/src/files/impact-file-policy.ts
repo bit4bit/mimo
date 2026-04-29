@@ -1,10 +1,6 @@
 const NORMALIZE_SEP = /\\/g;
 
-export const IMPACT_EXCLUDED_PATH_PREFIXES = [
-  ".mimo/",
-  ".fossil/",
-  ".git/",
-];
+export const IMPACT_EXCLUDED_PATH_PREFIXES = [".mimo/", ".fossil/", ".git/"];
 
 export const IMPACT_EXCLUDED_PATHS = [
   ".mimo",

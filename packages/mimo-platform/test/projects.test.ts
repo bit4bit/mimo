@@ -4,7 +4,6 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync } from "fs";
 
-
 // Re-import modules after setting up environment
 let projectRoutes: any;
 let projectRepository: any;

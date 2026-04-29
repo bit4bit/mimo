@@ -43,7 +43,10 @@ async function setup() {
 }
 
 async function createUserAndSession(username: string) {
-  await userRepository.create(username, await Bun.password.hash("pass", { algorithm: "bcrypt", cost: 10 }));
+  await userRepository.create(
+    username,
+    await Bun.password.hash("pass", { algorithm: "bcrypt", cost: 10 }),
+  );
 
   const project = await projectRepository.create({
     name: "Test Project",

@@ -95,9 +95,7 @@ describe("decorateInlineMarkup — code spans", () => {
 
 describe("decorateInlineMarkup — links", () => {
   it("wraps [text](url) in <a> with full syntax visible", () => {
-    const result = decorateInlineMarkup(
-      "see [docs](https://example.com) here",
-    );
+    const result = decorateInlineMarkup("see [docs](https://example.com) here");
     expect(result).toContain(
       '<a class="decorated-link" href="https://example.com" target="_blank" rel="noopener">[docs](https://example.com)</a>',
     );

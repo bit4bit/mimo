@@ -55,11 +55,11 @@ export interface IAcpProvider {
   /**
    * Spawn the ACP process or start an in-process agent
    */
-  spawn(cwd: string): {
+  spawn(cwd: string): Promise<{
     process: AcpProcessHandle;
     input: WritableStream<Uint8Array>;
     output: ReadableStream<Uint8Array>;
-  };
+  }>;
 
   /**
    * Extract model/mode state from session response

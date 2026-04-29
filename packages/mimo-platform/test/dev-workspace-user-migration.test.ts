@@ -32,7 +32,10 @@ describe("Dev workspace user migration", () => {
   });
 
   it("backfills missing dev credentials and reports updated sessions", async () => {
-    await userRepository.create("alice", await Bun.password.hash("pw", { algorithm: "bcrypt", cost: 10 }));
+    await userRepository.create(
+      "alice",
+      await Bun.password.hash("pw", { algorithm: "bcrypt", cost: 10 }),
+    );
     const project = await projectRepository.create({
       name: "Project",
       repoUrl: "https://example.com/repo.git",
@@ -60,7 +63,10 @@ describe("Dev workspace user migration", () => {
   });
 
   it("is idempotent and skips already configured dev credentials", async () => {
-    await userRepository.create("alice", await Bun.password.hash("pw", { algorithm: "bcrypt", cost: 10 }));
+    await userRepository.create(
+      "alice",
+      await Bun.password.hash("pw", { algorithm: "bcrypt", cost: 10 }),
+    );
     const project = await projectRepository.create({
       name: "Project",
       repoUrl: "https://example.com/repo.git",

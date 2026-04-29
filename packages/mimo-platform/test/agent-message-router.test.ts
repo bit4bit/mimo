@@ -25,7 +25,10 @@ function makeMocks() {
     handleToolCallUpdate: mock(() => {}),
     handleUsageUpdate: mock(async () => {}),
     handleAvailableCommandsUpdate: mock(() => {}),
-    getStreamingSnapshot: mock(() => ({ thoughtContent: "", messageContent: "" })),
+    getStreamingSnapshot: mock(() => ({
+      thoughtContent: "",
+      messageContent: "",
+    })),
     getAvailableCommands: mock(() => undefined),
     clearBuffers: mock(() => {}),
     setExpertPending: mock(() => {}),
@@ -89,8 +92,14 @@ function makeMocks() {
     services: {
       chat: chat,
       agents: agentService,
-      fileSync: { handleFileChanges: mock(async () => {}), initializeSession: mock(async () => {}) },
-      fileWatcher: { watchFile: mock(async () => {}), unwatchFile: mock(() => {}) },
+      fileSync: {
+        handleFileChanges: mock(async () => {}),
+        initializeSession: mock(async () => {}),
+      },
+      fileWatcher: {
+        watchFile: mock(async () => {}),
+        unwatchFile: mock(() => {}),
+      },
       autoCommit: { triggerAutoCommit: mock(async () => ({ success: true })) },
       scc: { isStale: mock(() => false) },
       vcs: { fossilUp: mock(async () => ({ success: true })) },
@@ -156,7 +165,10 @@ describe("AgentMessageRouter", () => {
         sessionId: "sess-1",
         chatThreadId: "thread-1",
       });
-      expect(deps.pipeline.handleThoughtStart).toHaveBeenCalledWith("sess-1", "thread-1");
+      expect(deps.pipeline.handleThoughtStart).toHaveBeenCalledWith(
+        "sess-1",
+        "thread-1",
+      );
     });
   });
 
@@ -173,12 +185,16 @@ describe("AgentMessageRouter", () => {
 
       const router = makeRouter(deps);
 
-      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
-        type: "usage_update",
-        sessionId: "sess-1",
-        chatThreadId: "thread-1",
-        usage: { inputTokens: 100 },
-      });
+      await router.handle(
+        "agent-1",
+        { data: { agentId: "agent-1" } },
+        {
+          type: "usage_update",
+          sessionId: "sess-1",
+          chatThreadId: "thread-1",
+          usage: { inputTokens: 100 },
+        },
+      );
 
       expect(deps.pipeline.handleUsageUpdate).toHaveBeenCalledWith(
         "sess-1",
@@ -187,7 +203,10 @@ describe("AgentMessageRouter", () => {
         expect.any(Object),
       );
       // Auto-sync should be called for non-expert usage
-      expect(deps.triggerAutoSync).toHaveBeenCalledWith("sess-1", "usage_update");
+      expect(deps.triggerAutoSync).toHaveBeenCalledWith(
+        "sess-1",
+        "usage_update",
+      );
     });
   });
 
@@ -197,19 +216,26 @@ describe("AgentMessageRouter", () => {
       const deps = makeMocks();
       const router = makeRouter(deps);
 
-      const modelState = { currentModelId: "claude-sonnet-4", availableModels: [] };
+      const modelState = {
+        currentModelId: "claude-sonnet-4",
+        availableModels: [],
+      };
       const modeState = { currentModeId: "expert", availableModes: [] };
 
       // Setup chat session with UI client
       const mockWs = { readyState: 1, send: mock(() => {}) };
       deps.chatSessions.set("sess-1", new Set([mockWs]));
 
-      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
-        type: "session_initialized",
-        sessionId: "sess-1",
-        modelState,
-        modeState,
-      });
+      await router.handle(
+        "agent-1",
+        { data: { agentId: "agent-1" } },
+        {
+          type: "session_initialized",
+          sessionId: "sess-1",
+          modelState,
+          modeState,
+        },
+      );
 
       // Should persist to repository
       expect(deps.sessionRepository.update).toHaveBeenCalledWith("sess-1", {
@@ -236,22 +262,32 @@ describe("AgentMessageRouter", () => {
       // Make triggerAutoSync hang to simulate in-flight
       let resolveSync: () => void = () => {};
       deps.triggerAutoSync = mock(async () => {
-        await new Promise<void>((resolve) => { resolveSync = resolve; });
+        await new Promise<void>((resolve) => {
+          resolveSync = resolve;
+        });
       });
 
       // Start first sync
-      const promise1 = router.handle("agent-1", { data: { agentId: "agent-1" } }, {
-        type: "thought_end",
-        sessionId: "sess-1",
-        chatThreadId: "thread-1",
-      });
+      const promise1 = router.handle(
+        "agent-1",
+        { data: { agentId: "agent-1" } },
+        {
+          type: "thought_end",
+          sessionId: "sess-1",
+          chatThreadId: "thread-1",
+        },
+      );
 
       // Try second sync immediately
-      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
-        type: "thought_end",
-        sessionId: "sess-1",
-        chatThreadId: "thread-1",
-      });
+      await router.handle(
+        "agent-1",
+        { data: { agentId: "agent-1" } },
+        {
+          type: "thought_end",
+          sessionId: "sess-1",
+          chatThreadId: "thread-1",
+        },
+      );
 
       // At this point, triggerAutoSync should only be called once (the second is deduplicated)
       // We can't easily assert this without knowing the internal state, but we can check
@@ -273,17 +309,25 @@ describe("AgentMessageRouter", () => {
       const mockWs = { readyState: 1, send: mock(() => {}) };
       deps.chatSessions.set("sess-1", new Set([mockWs]));
 
-      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
-        type: "permission_request",
-        sessionId: "sess-1",
-        requestId: "req-123",
-        toolCall: { toolTitle: "Bash" },
-        options: [{ id: "allow", label: "Allow" }],
-      });
+      await router.handle(
+        "agent-1",
+        { data: { agentId: "agent-1" } },
+        {
+          type: "permission_request",
+          sessionId: "sess-1",
+          requestId: "req-123",
+          toolCall: { toolTitle: "Bash" },
+          options: [{ id: "allow", label: "Allow" }],
+        },
+      );
 
       // Should broadcast to UI clients
-      const sentMessages = (mockWs.send as any).mock.calls.map((c: any[]) => JSON.parse(c[0]));
-      const permRequest = sentMessages.find((m: any) => m.type === "permission_request");
+      const sentMessages = (mockWs.send as any).mock.calls.map((c: any[]) =>
+        JSON.parse(c[0]),
+      );
+      const permRequest = sentMessages.find(
+        (m: any) => m.type === "permission_request",
+      );
       expect(permRequest).toBeDefined();
       expect(permRequest.requestId).toBe("req-123");
 
@@ -321,16 +365,114 @@ describe("AgentMessageRouter", () => {
       });
 
       // Should send permission_response back to agent
-      const agentMessages = (agentWs.send as any).mock.calls.map((c: any[]) => JSON.parse(c[0]));
-      const permResponse = agentMessages.find((m: any) => m.type === "permission_response");
+      const agentMessages = (agentWs.send as any).mock.calls.map((c: any[]) =>
+        JSON.parse(c[0]),
+      );
+      const permResponse = agentMessages.find(
+        (m: any) => m.type === "permission_response",
+      );
       expect(permResponse).toBeDefined();
-      expect(permResponse.outcome).toEqual({ outcome: "selected", optionId: "allow" });
+      expect(permResponse.outcome).toEqual({
+        outcome: "selected",
+        optionId: "allow",
+      });
 
       // Should broadcast permission_resolved to UI
-      const uiMessages = (uiWs.send as any).mock.calls.map((c: any[]) => JSON.parse(c[0]));
-      const permResolved = uiMessages.find((m: any) => m.type === "permission_resolved");
+      const uiMessages = (uiWs.send as any).mock.calls.map((c: any[]) =>
+        JSON.parse(c[0]),
+      );
+      const permResolved = uiMessages.find(
+        (m: any) => m.type === "permission_resolved",
+      );
       expect(permResolved).toBeDefined();
       expect(permResolved.requestId).toBe("req-456");
+    });
+  });
+
+  describe("agent_ready bootstrap session_ready", () => {
+    it("includes session.branch so the agent can open fossil on the right branch", async () => {
+      expect(AgentMessageRouter).not.toBeNull();
+      const deps = makeMocks();
+
+      const session = {
+        id: "sess-1",
+        name: "feature session",
+        status: "active",
+        upstreamPath: "/fake/upstream",
+        agentWorkspacePath: "/fake/agent-workspace",
+        branch: "feature/test",
+        agentSubpath: null,
+        agentWorkspaceUser: "dev",
+        agentWorkspacePassword: "pw",
+        modelState: null,
+        modeState: null,
+        chatThreads: [],
+        activeChatThreadId: null,
+        mcpServerIds: [],
+      };
+
+      deps.sessionRepository.findByAssignedAgentId = mock(async () => [session]);
+      deps.sessionRepository.findByThreadAgentId = mock(async () => []);
+      deps.sessionRepository.findById = mock(async (id: string) =>
+        id === "sess-1" ? session : null,
+      );
+
+      const router = makeRouter(deps);
+      const agentWs = { readyState: 1, send: mock(() => {}) };
+
+      await router.handle("agent-1", agentWs, {
+        type: "agent_ready",
+        agentId: "agent-1",
+        workdir: "/fake/workdir",
+      });
+
+      const sent = (agentWs.send as any).mock.calls
+        .map((c: any[]) => JSON.parse(c[0]))
+        .find((m: any) => m.type === "session_ready");
+      expect(sent).toBeDefined();
+      expect(sent.sessions).toHaveLength(1);
+      expect(sent.sessions[0].sessionId).toBe("sess-1");
+      expect(sent.sessions[0].branch).toBe("feature/test");
+    });
+
+    it("forwards null branch when the session has none (default-branch session)", async () => {
+      expect(AgentMessageRouter).not.toBeNull();
+      const deps = makeMocks();
+
+      const session = {
+        id: "sess-2",
+        name: "default-branch session",
+        status: "active",
+        upstreamPath: "/fake/upstream",
+        agentWorkspacePath: "/fake/agent-workspace",
+        agentSubpath: null,
+        agentWorkspaceUser: "dev",
+        agentWorkspacePassword: "pw",
+        modelState: null,
+        modeState: null,
+        chatThreads: [],
+        activeChatThreadId: null,
+        mcpServerIds: [],
+      };
+
+      deps.sessionRepository.findByAssignedAgentId = mock(async () => [session]);
+      deps.sessionRepository.findByThreadAgentId = mock(async () => []);
+      deps.sessionRepository.findById = mock(async () => session);
+
+      const router = makeRouter(deps);
+      const agentWs = { readyState: 1, send: mock(() => {}) };
+
+      await router.handle("agent-1", agentWs, {
+        type: "agent_ready",
+        agentId: "agent-1",
+        workdir: "/fake/workdir",
+      });
+
+      const sent = (agentWs.send as any).mock.calls
+        .map((c: any[]) => JSON.parse(c[0]))
+        .find((m: any) => m.type === "session_ready");
+      expect(sent).toBeDefined();
+      expect(sent.sessions[0].branch).toBeNull();
     });
   });
 
@@ -342,12 +484,16 @@ describe("AgentMessageRouter", () => {
 
       // Send 5 rapid thought_chunk messages
       for (let i = 0; i < 5; i++) {
-        await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
-          type: "thought_chunk",
-          sessionId: "sess-1",
-          chatThreadId: "thread-1",
-          content: "thinking",
-        });
+        await router.handle(
+          "agent-1",
+          { data: { agentId: "agent-1" } },
+          {
+            type: "thought_chunk",
+            sessionId: "sess-1",
+            chatThreadId: "thread-1",
+            content: "thinking",
+          },
+        );
       }
 
       // Should have called touchSessionActivity at most once (debounced)
