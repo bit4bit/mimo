@@ -36,8 +36,10 @@ import { homedir } from "os";
 import { createSessionDeletionUseCase } from "./sessions/session-deletion.js";
 import { sweepExpiredInactiveSessions } from "./sessions/session-retention-sweeper.js";
 import { normalizeAvailableCommands } from "./sessions/available-commands.js";
+import { ChatStreamingPipeline } from "./sessions/streaming-pipeline.js";
 import { createOS } from "./os/node-adapter.js";
 import type { OS } from "./os/types.js";
+import { AgentMessageRouter } from "./agents/message-router.js";
 
 // Asset embedding support for compiled executable
 // @ts-ignore - Module only exists after embedding
@@ -180,33 +182,73 @@ app.use("*", async (c, next) => {
 
 // Track active chat sessions
 const chatSessions = new Map<string, Set<SessionWsClient>>();
-const calculatingSessions = new Set<string>();
 
 // Track file watching WebSocket connections per session
 const fileWatchSessions = new Map<string, Set<any>>();
 
-// Track streaming message and thought buffers per session
-const streamingBuffers = new Map<string, string>();
-const thoughtBuffers = new Map<string, string>();
-const toolCallBuffers = new Map<string, Map<string, any>>();
-const availableCommandsBuffers = new Map<
-  string,
-  Array<{ name: string; description?: string; template?: string }>
->();
-const messageStartTimes = new Map<string, number>();
-const autoSyncInFlight = new Set<string>();
-const pendingActivityTouches = new Map<string, NodeJS.Timeout>();
-const ACTIVITY_TOUCH_DEBOUNCE_MS = 30_000;
+const pipeline = new ChatStreamingPipeline(
+  mimoContext.services.chat,
+  (sessionId, message) => broadcastToSession(chatSessions, sessionId, message),
+);
 
-// Track pending expert mode instructions
-const expertPending = new Map<
-  string,
-  { chatThreadId: string; originalPath: string }
->();
-
-function streamKey(sessionId: string, chatThreadId?: string): string {
-  return `${sessionId}:${chatThreadId || "__no-thread__"}`;
-}
+// Agent message router - handles all agent WebSocket messages
+const agentRouter = new AgentMessageRouter({
+  pipeline,
+  sessionRepository,
+  agentRepository,
+  agentService,
+  chatSessions,
+  broadcast: (sessionId, message) => broadcastToSession(chatSessions, sessionId, message),
+  triggerAutoSync: async (sessionId, reason) => {
+    if (agentRouter["autoSyncInFlight"].has(sessionId)) {
+      logger.debug(`[auto-commit] Skipping ${reason} sync for ${sessionId} (in-flight)`);
+      return;
+    }
+    agentRouter["autoSyncInFlight"].add(sessionId);
+    try {
+      const result = await syncSessionViaAssignedAgent(sessionId, {
+        autoCommitService: mimoContext.services.autoCommit,
+        sessionRepository,
+        agentService,
+        sccService: mimoContext.services.scc,
+        vcs: mimoContext.services.vcs,
+        os,
+      });
+      const subscribers = chatSessions.get(sessionId);
+      if (subscribers) {
+        subscribers.forEach((client) => {
+          if (client.readyState === 1) {
+            client.send(
+              JSON.stringify({
+                type: "sync_status",
+                sessionId,
+                success: result.success,
+                message: result.message,
+                error: result.error,
+                status: result.syncStatus,
+                reason,
+                timestamp: new Date().toISOString(),
+              }),
+            );
+          }
+        });
+      }
+    } catch (error) {
+      logger.error(`[auto-commit] Failed on ${reason}:`, error);
+    } finally {
+      agentRouter["autoSyncInFlight"].delete(sessionId);
+    }
+  },
+  sessionStateService,
+  chat: mimoContext.services.chat,
+  sharedFossilServer,
+  mimoContext,
+  platformUrl: PLATFORM_URL,
+  autoCommitService: mimoContext.services.autoCommit,
+  sccService: mimoContext.services.scc,
+  vcs: mimoContext.services.vcs,
+  os,
+});
 
 function generateToolCallsHtml(toolCallsMap: Map<string, any>): string {
   const iconMap: Record<string, string> = {
@@ -261,12 +303,6 @@ function generateToolCallsHtml(toolCallsMap: Map<string, any>): string {
 
   return toolRows.join("\n");
 }
-
-// Track pending permission requests: requestId → { agentWs, sessionId }
-const pendingPermissions = new Map<
-  string,
-  { agentWs: any; sessionId: string }
->();
 
 async function broadcastImpactStale(sessionId: string): Promise<void> {
   try {
@@ -619,29 +655,23 @@ mimoServer.setup({
         );
 
         // Send current streaming state if agent is actively responding and alive
-        const activeStreamKey = streamKey(sessionId, activeThreadId);
-        const thoughtContent = thoughtBuffers.get(activeStreamKey);
-        const messageContent = streamingBuffers.get(activeStreamKey);
-
-        // Only send streaming state if agent is actually alive
+        const openSnap = pipeline.getStreamingSnapshot(sessionId, activeThreadId);
         if (
-          (thoughtContent || messageContent) &&
+          (openSnap.thoughtContent || openSnap.messageContent) &&
           mimoContext.services.chat.isAgentAlive(sessionId)
         ) {
           ws.send(
             JSON.stringify({
               type: "streaming_state",
               chatThreadId: activeThreadId,
-              thoughtContent: thoughtContent || "",
-              messageContent: messageContent || "",
+              thoughtContent: openSnap.thoughtContent,
+              messageContent: openSnap.messageContent,
               timestamp: new Date().toISOString(),
             }),
           );
         }
 
-        const openCommands =
-          availableCommandsBuffers.get(activeStreamKey) ||
-          availableCommandsBuffers.get(streamKey(sessionId));
+        const openCommands = pipeline.getAvailableCommands(sessionId, activeThreadId);
         if (openCommands && openCommands.length > 0) {
           ws.send(
             JSON.stringify({
@@ -704,20 +734,7 @@ mimoServer.setup({
             chatSessions.delete(sessionId);
 
             // Auto-reject any pending permission requests for this session
-            for (const [requestId, pending] of pendingPermissions) {
-              if (pending.sessionId === sessionId) {
-                pendingPermissions.delete(requestId);
-                if (pending.agentWs.readyState === 1) {
-                  pending.agentWs.send(
-                    JSON.stringify({
-                      type: "permission_response",
-                      requestId,
-                      outcome: { outcome: "cancelled" },
-                    }),
-                  );
-                }
-              }
-            }
+            agentRouter.autoRejectPendingPermissionsForSession(sessionId, null);
           }
         }
         logger.debug(`Chat client disconnected from session ${sessionId}`);
@@ -771,1191 +788,8 @@ setInterval(() => {
   });
 }, SESSION_RETENTION_SWEEP_INTERVAL_MS);
 
-const SESSION_ACTIVITY_EVENT_TYPES = new Set([
-  "thought_start",
-  "thought_chunk",
-  "thought_end",
-  "message_chunk",
-  "usage_update",
-]);
-
-function touchSessionActivity(sessionId: string): void {
-  if (pendingActivityTouches.has(sessionId)) return;
-
-  const timer = setTimeout(async () => {
-    pendingActivityTouches.delete(sessionId);
-    try {
-      await sessionRepository.touchSessionActivity(sessionId);
-    } catch (error) {
-      logger.error("[activity] failed to touch session activity", {
-        sessionId,
-        error,
-      });
-    }
-  }, ACTIVITY_TOUCH_DEBOUNCE_MS);
-
-  pendingActivityTouches.set(sessionId, timer);
-}
-
-// Handle agent messages
-async function triggerAutoSync(
-  sessionId: string,
-  reason: "thought_end" | "usage_update" | "expert_diff_ready",
-): Promise<void> {
-  if (autoSyncInFlight.has(sessionId)) {
-    logger.debug(
-      `[auto-commit] Skipping ${reason} sync for ${sessionId} (in-flight)`,
-    );
-    return;
-  }
-
-  autoSyncInFlight.add(sessionId);
-
-  try {
-    const result = await syncSessionViaAssignedAgent(sessionId, {
-      autoCommitService: mimoContext.services.autoCommit,
-      sessionRepository: mimoContext.repos.sessions,
-      agentService: mimoContext.services.agents,
-      sccService: mimoContext.services.scc,
-      vcs: mimoContext.services.vcs,
-      os: os,
-    });
-    const status = result.syncStatus;
-    const syncSubscribers = chatSessions.get(sessionId);
-    if (!syncSubscribers) {
-      return;
-    }
-
-    syncSubscribers.forEach((client) => {
-      if (client.readyState === 1) {
-        client.send(
-          JSON.stringify({
-            type: "sync_status",
-            sessionId,
-            success: result.success,
-            message: result.message,
-            error: result.error,
-            status,
-            reason,
-            timestamp: new Date().toISOString(),
-          }),
-        );
-      }
-    });
-  } catch (error) {
-    logger.error(`[auto-commit] Failed on ${reason}:`, error);
-  } finally {
-    autoSyncInFlight.delete(sessionId);
-  }
-}
-
 async function handleAgentMessage(ws, data) {
-  logger.debug("[agent] Received message:", data.type, data);
-  process.stdout?.write?.(""); // Flush stdout
-
-  if (
-    data.sessionId &&
-    typeof data.sessionId === "string" &&
-    SESSION_ACTIVITY_EVENT_TYPES.has(data.type)
-  ) {
-    touchSessionActivity(data.sessionId);
-  }
-
-  switch (data.type) {
-    case "ping":
-      ws.send(JSON.stringify({ type: "pong" }));
-      break;
-    case "agent_capabilities":
-      {
-        const capAgentId = ws.data.agentId;
-        if (
-          capAgentId &&
-          data.availableModels &&
-          data.availableModes &&
-          data.defaultModelId &&
-          data.defaultModeId
-        ) {
-          await agentRepository.updateCapabilities(capAgentId, {
-            availableModels: data.availableModels,
-            defaultModelId: data.defaultModelId,
-            availableModes: data.availableModes,
-            defaultModeId: data.defaultModeId,
-          });
-          logger.debug(
-            `[agent] Stored capabilities for agent ${capAgentId}: ${data.defaultModelId} / ${data.defaultModeId}`,
-          );
-        }
-      }
-      break;
-    case "agent_ready":
-      logger.debug(
-        "[agent] Agent ready:",
-        data.agentId,
-        "workdir:",
-        data.workdir,
-      );
-      process.stdout?.write?.(""); // Flush stdout
-
-      // Store workdir for relative path computation
-      const agentId = ws.data.agentId;
-      if (data.workdir) {
-        agentService.handleAgentConnect(agentId, ws, data.workdir);
-      }
-
-      // Find sessions via session-level assignment or thread-level assignment
-      const [sessionLevelSessions, threadLevelSessions] = await Promise.all([
-        sessionRepository.findByAssignedAgentId(agentId),
-        sessionRepository.findByThreadAgentId(agentId),
-      ]);
-      const seenIds = new Set<string>();
-      const sessions = [...sessionLevelSessions, ...threadLevelSessions].filter(
-        (s) => {
-          if (seenIds.has(s.id)) return false;
-          seenIds.add(s.id);
-          return true;
-        },
-      );
-      logger.debug(
-        "[agent] Found",
-        sessions.length,
-        "sessions assigned to agent",
-        agentId,
-      );
-      process.stdout?.write?.(""); // Flush stdout
-
-      if (sessions.length > 0) {
-        const sessionsReady = [];
-        const workdir = agentService.getAgentWorkdir(agentId);
-        logger.debug("[agent] Workdir:", workdir);
-        process.stdout?.write?.(""); // Flush stdout
-
-        // Use shared fossil server - no per-session server to start
-        for (const session of sessions) {
-          const sessionId = session.id;
-          logger.debug(
-            "[agent] Session:",
-            sessionId,
-            "status:",
-            session.status,
-          );
-          process.stdout?.write?.(""); // Flush stdout
-
-          if (session.status === "active") {
-            const fossilPath = sessionRepository.getFossilPath(sessionId);
-            const fossilUrl = sharedFossilServer.getUrl(sessionId);
-            logger.debug(
-              "[agent] Using shared fossil server for session:",
-              sessionId,
-              "fossil:",
-              fossilPath,
-              "url:",
-              fossilUrl,
-            );
-            process.stdout?.write?.(""); // Flush stdout
-
-            // Get session with credentials
-            const sessionWithCreds =
-              await sessionRepository.findById(sessionId);
-
-            // Resolve MCP servers attached to this session
-            let mcpServers: any[] = [];
-            if (
-              sessionWithCreds?.mcpServerIds &&
-              sessionWithCreds.mcpServerIds.length > 0
-            ) {
-              try {
-                mcpServers =
-                  await mimoContext.services.mcpServer.resolveMcpServers(
-                    sessionWithCreds.mcpServerIds,
-                  );
-              } catch (err) {
-                logger.error(
-                  `[agent] Failed to resolve MCP servers for session ${sessionId}:`,
-                  err,
-                );
-              }
-            }
-
-            if (sessionWithCreds?.mcpToken) {
-              mcpServers.push(
-                createPlatformMcpServerConfig(
-                  PLATFORM_URL,
-                  sessionWithCreds.mcpToken,
-                ),
-              );
-            }
-
-            // Build thread bootstrap metadata — only threads assigned to this agent
-            const allThreads = sessionWithCreds?.chatThreads ?? [];
-            const agentThreads = allThreads.filter(
-              (t: any) => t.assignedAgentId === agentId || !t.assignedAgentId,
-            );
-            const threadBootstrap = agentThreads.map((thread: any) => ({
-              chatThreadId: thread.id,
-              name: thread.name,
-              model: thread.model,
-              mode: thread.mode,
-              acpSessionId: thread.acpSessionId,
-              state: thread.state,
-            }));
-
-            sessionsReady.push({
-              sessionId,
-              name: session.name,
-              upstreamPath: session.upstreamPath,
-              agentWorkspacePath: session.agentWorkspacePath,
-              fossilUrl,
-              agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
-              agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
-              modelState: sessionWithCreds?.modelState ?? null,
-              modeState: sessionWithCreds?.modeState ?? null,
-              agentSubpath: sessionWithCreds?.agentSubpath ?? null,
-              mcpServers: mcpServers.length > 0 ? mcpServers : undefined,
-              chatThreads: threadBootstrap,
-              activeChatThreadId: sessionWithCreds?.activeChatThreadId ?? null,
-            });
-          }
-        }
-
-        // Send session_ready message to agent
-        if (sessionsReady.length > 0) {
-          const message = {
-            type: "session_ready",
-            platformUrl: PLATFORM_URL,
-            sessions: sessionsReady,
-          };
-          logger.debug(
-            "[agent] Sending session_ready:",
-            JSON.stringify(message),
-          );
-          process.stdout?.write?.(""); // Flush stdout
-          ws.send(JSON.stringify(message));
-        } else {
-          logger.debug("[agent] No sessions ready to send");
-        }
-      } else {
-        logger.debug("[agent] No sessions assigned to agent");
-      }
-      break;
-    case "thought_start":
-      {
-        const startSessionId = data.sessionId;
-        const startThreadId = data.chatThreadId;
-        if (!startSessionId) {
-          logger.debug("No sessionId in thought_start");
-          return;
-        }
-
-        const startStreamKey = streamKey(startSessionId, startThreadId);
-
-        // Track agent activity so isAgentAlive() stays true between chunk phases
-        mimoContext.services.chat.updateAgentActivity(startSessionId);
-
-        // Record message start time for duration tracking
-        messageStartTimes.set(startStreamKey, Date.now());
-
-        // Start new thought buffer
-        thoughtBuffers.set(startStreamKey, "");
-
-        // Forward to clients
-        const subscribers = chatSessions.get(startSessionId);
-        if (subscribers) {
-          subscribers.forEach((client) => {
-            if (client.readyState === 1) {
-              client.send(
-                JSON.stringify({
-                  type: data.type,
-                  chatThreadId: startThreadId,
-                  timestamp: new Date().toISOString(),
-                }),
-              );
-            }
-          });
-        }
-      }
-      break;
-
-    case "thought_chunk":
-      {
-        const chunkSessionId = data.sessionId;
-        const chunkThreadId = data.chatThreadId;
-        if (!chunkSessionId) {
-          logger.debug("No sessionId in thought_chunk");
-          return;
-        }
-
-        const chunkStreamKey = streamKey(chunkSessionId, chunkThreadId);
-
-        // Track agent activity for health monitoring
-        mimoContext.services.chat.updateAgentActivity(chunkSessionId);
-
-        // Accumulate thought chunks
-        const currentThoughtBuffer = thoughtBuffers.get(chunkStreamKey) || "";
-        thoughtBuffers.set(
-          chunkStreamKey,
-          currentThoughtBuffer + (data.content || ""),
-        );
-
-        // Forward to clients
-        const thoughtChunkSubscribers = chatSessions.get(chunkSessionId);
-        if (thoughtChunkSubscribers) {
-          thoughtChunkSubscribers.forEach((client) => {
-            if (client.readyState === 1) {
-              client.send(
-                JSON.stringify({
-                  type: data.type,
-                  chatThreadId: chunkThreadId,
-                  content: data.content,
-                  timestamp: new Date().toISOString(),
-                }),
-              );
-            }
-          });
-        }
-      }
-      break;
-
-    case "thought_end":
-      {
-        const endSessionId = data.sessionId;
-        const endThreadId = data.chatThreadId;
-        if (!endSessionId) {
-          logger.debug("No sessionId in thought_end");
-          return;
-        }
-
-        // Forward to clients
-        const endSubscribers = chatSessions.get(endSessionId);
-        if (endSubscribers) {
-          endSubscribers.forEach((client) => {
-            if (client.readyState === 1) {
-              client.send(
-                JSON.stringify({
-                  type: data.type,
-                  chatThreadId: endThreadId,
-                  timestamp: new Date().toISOString(),
-                }),
-              );
-            }
-          });
-        }
-
-        void triggerAutoSync(endSessionId, "thought_end");
-      }
-      break;
-
-    case "message_chunk":
-      {
-        const msgSessionId = data.sessionId;
-        const msgThreadId = data.chatThreadId;
-        if (!msgSessionId) {
-          logger.debug("No sessionId in message_chunk");
-          return;
-        }
-
-        const msgStreamKey = streamKey(msgSessionId, msgThreadId);
-
-        // Track agent activity for health monitoring
-        mimoContext.services.chat.updateAgentActivity(msgSessionId);
-
-        // Fallback: record start time if thought_start never fired
-        if (!messageStartTimes.has(msgStreamKey)) {
-          messageStartTimes.set(msgStreamKey, Date.now());
-        }
-
-        // Accumulate message chunks
-        const currentBuffer = streamingBuffers.get(msgStreamKey) || "";
-        streamingBuffers.set(
-          msgStreamKey,
-          currentBuffer + (data.content || ""),
-        );
-
-        // Forward to clients
-        const msgSubscribers = chatSessions.get(msgSessionId);
-        if (msgSubscribers) {
-          msgSubscribers.forEach((client) => {
-            if (client.readyState === 1) {
-              client.send(
-                JSON.stringify({
-                  type: data.type,
-                  chatThreadId: msgThreadId,
-                  content: data.content,
-                  timestamp: new Date().toISOString(),
-                }),
-              );
-            }
-          });
-        }
-      }
-      break;
-
-    case "usage_update":
-      {
-        const usageSessionId = data.sessionId;
-        const usageThreadId = data.chatThreadId;
-        if (!usageSessionId) {
-          logger.debug("No sessionId in usage_update");
-          return;
-        }
-
-        const usageStreamKey = streamKey(usageSessionId, usageThreadId);
-
-        // Compute duration from tracked start time
-        const startMs = messageStartTimes.get(usageStreamKey);
-        let duration: string | undefined;
-        let durationMs: number | undefined;
-        if (startMs !== undefined) {
-          durationMs = Date.now() - startMs;
-          const mins = Math.floor(durationMs / 60000);
-          const secs = Math.floor((durationMs % 60000) / 1000);
-          duration = `${mins}m${secs}s`;
-          messageStartTimes.delete(usageStreamKey);
-        }
-
-        // Get accumulated message and thoughts
-        const messageContent = streamingBuffers.get(usageStreamKey);
-        const thoughtContent = thoughtBuffers.get(usageStreamKey);
-
-        const hasBufferedAssistantOutput = Boolean(
-          messageContent || thoughtContent,
-        );
-
-        if (hasBufferedAssistantOutput) {
-          // Get the active thread ID for this session
-          const usageSession = await sessionRepository.findById(usageSessionId);
-          const historyThreadId =
-            data.chatThreadId || usageSession?.activeChatThreadId;
-
-          // Save assistant response with optional thoughts
-          let fullContent = messageContent || "";
-
-          // Prepend thoughts if present
-          if (thoughtContent) {
-            // Append tool calls inside thought section as structured data
-            const toolCallsMap = toolCallBuffers.get(usageStreamKey);
-            let toolsData = "";
-            if (toolCallsMap && toolCallsMap.size > 0) {
-              const tools: any[] = [];
-              for (const [, toolCall] of toolCallsMap) {
-                tools.push({
-                  title: toolCall.toolTitle,
-                  kind: toolCall.toolKind,
-                  status: toolCall.toolStatus,
-                  input: toolCall.toolInput,
-                });
-              }
-              toolsData = "\n<tools>" + JSON.stringify(tools) + "</tools>";
-              toolCallBuffers.delete(usageStreamKey);
-            }
-            fullContent = `<details><summary>Thought Process</summary>${thoughtContent}${toolsData}</details>\n\n${fullContent}`;
-            thoughtBuffers.delete(usageStreamKey);
-          }
-
-          if (historyThreadId) {
-            await mimoContext.services.chat.saveMessage(
-              usageSessionId,
-              {
-                role: "assistant",
-                content: fullContent,
-                timestamp: new Date().toISOString(),
-                ...(duration !== undefined
-                  ? { metadata: { duration, durationMs } }
-                  : {}),
-              },
-              historyThreadId,
-            );
-          }
-
-          // Clear buffer
-          streamingBuffers.delete(usageStreamKey);
-        }
-
-        // Forward usage update to clients
-        const usageSubscribers = chatSessions.get(usageSessionId);
-        if (usageSubscribers) {
-          usageSubscribers.forEach((client) => {
-            if (client.readyState === 1) {
-              client.send(
-                JSON.stringify({
-                  type: data.type,
-                  chatThreadId: usageThreadId,
-                  usage: data.usage,
-                  timestamp: new Date().toISOString(),
-                  ...(duration !== undefined ? { duration, durationMs } : {}),
-                }),
-              );
-            }
-          });
-        }
-
-        // Check if there's a pending expert instruction for this thread
-        const expertKey = streamKey(usageSessionId, usageThreadId);
-        const pendingExpert = expertPending.get(expertKey);
-        if (pendingExpert) {
-          // Notify client that expert response is ready
-          const diffSubscribers = chatSessions.get(usageSessionId);
-          if (diffSubscribers) {
-            diffSubscribers.forEach((client) => {
-              if (client.readyState === 1) {
-                client.send(
-                  JSON.stringify({
-                    type: "expert_diff_ready",
-                    chatThreadId: usageThreadId,
-                    originalPath: pendingExpert.originalPath,
-                  }),
-                );
-              }
-            });
-          }
-          expertPending.delete(expertKey);
-        } else {
-          void triggerAutoSync(usageSessionId, "usage_update");
-        }
-      }
-      break;
-
-    case "tool_call":
-      {
-        const toolSessionId = data.sessionId;
-        const toolThreadId = data.chatThreadId;
-        if (!toolSessionId) {
-          logger.debug("No sessionId in tool_call");
-          return;
-        }
-
-        mimoContext.services.chat.updateAgentActivity(toolSessionId);
-
-        // Track tool call in buffer
-        const toolStreamKey = streamKey(toolSessionId, toolThreadId);
-        if (!toolCallBuffers.has(toolStreamKey)) {
-          toolCallBuffers.set(toolStreamKey, new Map());
-        }
-        toolCallBuffers.get(toolStreamKey)!.set(data.toolCallId, {
-          toolCallId: data.toolCallId,
-          toolTitle: data.toolTitle,
-          toolKind: data.toolKind,
-          toolInput: data.toolInput,
-          toolStatus: data.toolStatus,
-          timestamp: data.timestamp,
-        });
-
-        // Forward to clients
-        const toolSubscribers = chatSessions.get(toolSessionId);
-        if (toolSubscribers) {
-          toolSubscribers.forEach((client) => {
-            if (client.readyState === 1) {
-              client.send(
-                JSON.stringify({
-                  type: data.type,
-                  chatThreadId: toolThreadId,
-                  toolCallId: data.toolCallId,
-                  toolTitle: data.toolTitle,
-                  toolKind: data.toolKind,
-                  toolInput: data.toolInput,
-                  toolStatus: data.toolStatus,
-                  timestamp: new Date().toISOString(),
-                }),
-              );
-            }
-          });
-        }
-      }
-      break;
-
-    case "tool_call_update":
-      {
-        const updateSessionId = data.sessionId;
-        const updateThreadId = data.chatThreadId;
-        if (!updateSessionId) {
-          logger.debug("No sessionId in tool_call_update");
-          return;
-        }
-
-        mimoContext.services.chat.updateAgentActivity(updateSessionId);
-
-        // Update tool call in buffer
-        const updateStreamKey = streamKey(updateSessionId, updateThreadId);
-        const toolCallsMap = toolCallBuffers.get(updateStreamKey);
-        if (toolCallsMap && toolCallsMap.has(data.toolCallId)) {
-          const toolCall = toolCallsMap.get(data.toolCallId)!;
-          toolCall.toolStatus = data.toolStatus;
-          if (data.toolOutput) {
-            toolCall.toolOutput = data.toolOutput;
-          }
-          toolCall.timestamp = data.timestamp;
-        }
-
-        const updateSubscribers = chatSessions.get(updateSessionId);
-        if (updateSubscribers) {
-          updateSubscribers.forEach((client) => {
-            if (client.readyState === 1) {
-              client.send(
-                JSON.stringify({
-                  type: data.type,
-                  chatThreadId: updateThreadId,
-                  toolCallId: data.toolCallId,
-                  toolStatus: data.toolStatus,
-                  toolOutput: data.toolOutput,
-                  timestamp: new Date().toISOString(),
-                }),
-              );
-            }
-          });
-        }
-      }
-      break;
-
-    case "acp_response":
-      // Legacy: Handle simple ACP response and broadcast to chat
-      // Agent must specify which session this is for
-      const acpSessionId = data.sessionId;
-      if (!acpSessionId) {
-        logger.debug("No sessionId in acp_response");
-        return;
-      }
-
-      // Broadcast to all chat clients in session
-      const acpSubscribers = chatSessions.get(acpSessionId);
-      if (acpSubscribers) {
-        acpSubscribers.forEach((client) => {
-          if (client.readyState === 1) {
-            // WebSocket.OPEN
-            client.send(
-              JSON.stringify({
-                type: "message",
-                role: "assistant",
-                chatThreadId: data.chatThreadId,
-                content: data.content,
-                timestamp: new Date().toISOString(),
-              }),
-            );
-          }
-        });
-      }
-
-      // Get active thread ID and save with thread context
-      const acpSessionRecord = await sessionRepository.findById(acpSessionId);
-      const acpThreadId =
-        data.chatThreadId || acpSessionRecord?.activeChatThreadId;
-
-      if (acpThreadId) {
-        await mimoContext.services.chat.saveMessage(
-          acpSessionId,
-          {
-            role: "assistant",
-            content: data.content,
-            timestamp: new Date().toISOString(),
-          },
-          acpThreadId,
-        );
-      }
-      break;
-    case "available_commands_update": {
-      const commandsSessionId = data.sessionId;
-      const commandsThreadId = data.chatThreadId;
-      if (!commandsSessionId) {
-        logger.debug("No sessionId in available_commands_update");
-        return;
-      }
-
-      const commands = normalizeAvailableCommands(data.commands);
-      const commandsStreamKey = streamKey(commandsSessionId, commandsThreadId);
-      const existingCommands = availableCommandsBuffers.get(commandsStreamKey);
-      if (
-        commands.length === 0 &&
-        Array.isArray(existingCommands) &&
-        existingCommands.length > 0
-      ) {
-        return;
-      }
-
-      availableCommandsBuffers.set(commandsStreamKey, commands);
-      if (commands.length > 0) {
-        const sessionFallbackKey = streamKey(commandsSessionId);
-        availableCommandsBuffers.set(sessionFallbackKey, commands);
-      }
-
-      const commandSubscribers = chatSessions.get(commandsSessionId);
-      if (commandSubscribers) {
-        commandSubscribers.forEach((client) => {
-          if (client.readyState === 1) {
-            client.send(
-              JSON.stringify({
-                type: "available_commands_update",
-                chatThreadId: commandsThreadId,
-                commands,
-                timestamp: new Date().toISOString(),
-              }),
-            );
-          }
-        });
-      }
-      break;
-    }
-    case "file_changed":
-      logger.debug("File changed:", data.files);
-
-      const fileSessionId = data.sessionId;
-      if (!fileSessionId) {
-        logger.debug("No sessionId in file_changed");
-        return;
-      }
-
-      const fileSession = await sessionRepository.findById(fileSessionId);
-      if (!fileSession) {
-        logger.debug(`[file_changed] Session not found: ${fileSessionId}`);
-        return;
-      }
-
-      const fossilUpResult = await mimoContext.services.vcs.fossilUp(
-        fileSession.agentWorkspacePath,
-      );
-      if (!fossilUpResult.success) {
-        logger.error(
-          `[file_changed] fossil up failed for session ${fileSessionId}: ${fossilUpResult.error || "unknown error"}`,
-        );
-      }
-
-      const changes = data.files.map((file) => ({
-        path: file.path,
-        isNew: file.isNew,
-        deleted: file.deleted,
-      }));
-
-      await mimoContext.services.fileSync.initializeSession(
-        fileSessionId,
-        "",
-        "",
-      );
-      await mimoContext.services.fileSync.handleFileChanges(
-        fileSessionId,
-        changes,
-      );
-
-      break;
-    case "session_error":
-      logger.debug("[agent] Session error:", data.sessionId, data.error);
-      break;
-    case "agent_sessions_ready":
-      logger.debug("[agent] Agent sessions ready:", data.sessionIds);
-      break;
-    case "acp_thread_created":
-      {
-        const { sessionId, acpSessionId, wasReset, resetReason } = data;
-        const createdThreadId = data.chatThreadId;
-        logger.debug("[agent] ACP session created:", {
-          sessionId,
-          chatThreadId: createdThreadId,
-          acpSessionId,
-          wasReset,
-          resetReason,
-        });
-
-        if (sessionId && acpSessionId && createdThreadId) {
-          await sessionRepository.updateChatThread(sessionId, createdThreadId, {
-            acpSessionId,
-          });
-          logger.debug(
-            `[agent] Updated thread ${createdThreadId} acpSessionId to ${acpSessionId}`,
-          );
-
-          if (wasReset) {
-            const timestamp = new Date().toISOString();
-            const reasonText = resetReason ? ` (${resetReason})` : "";
-            const systemMessage = `Session reset at ${timestamp}${reasonText}`;
-            // Get active thread and save system message to current thread
-            const resetSession = await sessionRepository.findById(sessionId);
-            const resetThreadId =
-              createdThreadId || resetSession?.activeChatThreadId;
-            if (resetThreadId) {
-              await mimoContext.services.chat.saveMessage(
-                sessionId,
-                {
-                  role: "system",
-                  content: systemMessage,
-                  timestamp,
-                },
-                resetThreadId,
-              );
-            }
-          }
-        }
-      }
-      break;
-
-    case "acp_thread_cleared":
-      {
-        const { sessionId, acpSessionId } = data;
-        const clearedThreadId = data.chatThreadId;
-        logger.debug("[agent] ACP session cleared:", {
-          sessionId,
-          chatThreadId: clearedThreadId,
-          acpSessionId,
-        });
-
-        if (sessionId && acpSessionId && clearedThreadId) {
-          await sessionRepository.updateChatThread(sessionId, clearedThreadId, {
-            acpSessionId,
-          });
-          logger.debug(
-            `[agent] Updated thread ${clearedThreadId} acpSessionId to ${acpSessionId} after clear`,
-          );
-
-          // Add system message to chat history
-          const timestamp = new Date().toISOString();
-          const clearedSession = await sessionRepository.findById(sessionId);
-          const historyThreadId =
-            clearedThreadId || clearedSession?.activeChatThreadId;
-          if (historyThreadId) {
-            await mimoContext.services.chat.saveMessage(
-              sessionId,
-              {
-                role: "system",
-                content: "Thread context cleared",
-                timestamp,
-              },
-              historyThreadId,
-            );
-          }
-
-          // Broadcast to all UI clients
-          const clearedSubscribers = chatSessions.get(sessionId);
-          if (clearedSubscribers) {
-            clearedSubscribers.forEach((client: WebSocket) => {
-              if (client.readyState === 1) {
-                client.send(
-                  JSON.stringify({
-                    type: "session_cleared",
-                    sessionId,
-                    chatThreadId: historyThreadId,
-                    timestamp,
-                  }),
-                );
-              }
-            });
-          }
-        }
-      }
-      break;
-
-    case "clear_session_error":
-      {
-        const { sessionId, error } = data;
-        const errorThreadId = data.chatThreadId;
-        logger.debug("[agent] Clear session error:", {
-          sessionId,
-          chatThreadId: errorThreadId,
-          error,
-        });
-
-        if (sessionId) {
-          // Broadcast error to all UI clients
-          const errorSubscribers = chatSessions.get(sessionId);
-          if (errorSubscribers) {
-            errorSubscribers.forEach((client: WebSocket) => {
-              if (client.readyState === 1) {
-                client.send(
-                  JSON.stringify({
-                    type: "clear_session_error",
-                    sessionId,
-                    chatThreadId: errorThreadId,
-                    error,
-                    timestamp: new Date().toISOString(),
-                  }),
-                );
-              }
-            });
-          }
-        }
-      }
-      break;
-    case "session_initialized":
-      // Store model/mode state from agent
-      if (data.sessionId) {
-        if (data.modelState) {
-          sessionStateService.setModelState(data.sessionId, data.modelState);
-          await sessionRepository.update(data.sessionId, {
-            modelState: data.modelState,
-          });
-          logger.debug(
-            `[agent] Session ${data.sessionId} model state:`,
-            data.modelState.currentModelId,
-          );
-          // Also update the active thread's model to match the initial value
-          const session = await sessionRepository.findById(data.sessionId);
-          if (session?.activeChatThreadId) {
-            const thread = session.chatThreads.find(
-              (t) => t.id === session.activeChatThreadId,
-            );
-            // Only update if thread has empty model (fresh session initialization)
-            if (thread && (!thread.model || thread.model === "")) {
-              await sessionRepository.updateChatThread(
-                data.sessionId,
-                session.activeChatThreadId,
-                { model: data.modelState.currentModelId },
-              );
-              logger.debug(
-                `[agent] Updated thread ${session.activeChatThreadId} model to ${data.modelState.currentModelId}`,
-              );
-            }
-          }
-        }
-        if (data.modeState) {
-          sessionStateService.setModeState(data.sessionId, data.modeState);
-          await sessionRepository.update(data.sessionId, {
-            modeState: data.modeState,
-          });
-          logger.debug(
-            `[agent] Session ${data.sessionId} mode state:`,
-            data.modeState.currentModeId,
-          );
-          // Also update the active thread's mode to match the initial value
-          const session = await sessionRepository.findById(data.sessionId);
-          if (session?.activeChatThreadId) {
-            const thread = session.chatThreads.find(
-              (t) => t.id === session.activeChatThreadId,
-            );
-            // Only update if thread has empty mode (fresh session initialization)
-            if (thread && (!thread.mode || thread.mode === "")) {
-              await sessionRepository.updateChatThread(
-                data.sessionId,
-                session.activeChatThreadId,
-                { mode: data.modeState.currentModeId },
-              );
-              logger.debug(
-                `[agent] Updated thread ${session.activeChatThreadId} mode to ${data.modeState.currentModeId}`,
-              );
-            }
-          }
-        }
-
-        // Re-cache capabilities from session_initialized payload
-        const initAgentId = ws.data.agentId;
-        if (
-          initAgentId &&
-          data.modelState?.availableModels &&
-          data.modeState?.availableModes
-        ) {
-          await agentRepository.updateCapabilities(initAgentId, {
-            availableModels: data.modelState.availableModels,
-            defaultModelId: data.modelState.currentModelId,
-            availableModes: data.modeState.availableModes,
-            defaultModeId: data.modeState.currentModeId,
-          });
-        }
-
-        // Broadcast to chat clients
-        const initSubscribers = chatSessions.get(data.sessionId);
-        if (initSubscribers) {
-          const initMessage: any = {
-            type: "session_initialized",
-            sessionId: data.sessionId,
-            chatThreadId: data.chatThreadId,
-            timestamp: new Date().toISOString(),
-          };
-          if (data.modelState) {
-            initMessage.modelState = data.modelState;
-          }
-          if (data.modeState) {
-            initMessage.modeState = data.modeState;
-          }
-
-          initSubscribers.forEach((client: WebSocket) => {
-            if (client.readyState === 1) {
-              client.send(JSON.stringify(initMessage));
-            }
-          });
-        }
-      }
-      break;
-    case "model_state":
-      // Update and broadcast model state
-      if (data.sessionId && data.modelState) {
-        sessionStateService.setModelState(data.sessionId, data.modelState);
-        await sessionRepository.update(data.sessionId, {
-          modelState: data.modelState,
-        });
-
-        const modelSubscribers = chatSessions.get(data.sessionId);
-        if (modelSubscribers) {
-          modelSubscribers.forEach((client: WebSocket) => {
-            if (client.readyState === 1) {
-              client.send(
-                JSON.stringify({
-                  type: "model_state",
-                  sessionId: data.sessionId,
-                  chatThreadId: data.chatThreadId,
-                  modelState: data.modelState,
-                  timestamp: new Date().toISOString(),
-                }),
-              );
-            }
-          });
-        }
-      }
-      break;
-    case "mode_state":
-      // Update and broadcast mode state
-      if (data.sessionId && data.modeState) {
-        sessionStateService.setModeState(data.sessionId, data.modeState);
-        await sessionRepository.update(data.sessionId, {
-          modeState: data.modeState,
-        });
-
-        const modeSubscribers = chatSessions.get(data.sessionId);
-        if (modeSubscribers) {
-          modeSubscribers.forEach((client: WebSocket) => {
-            if (client.readyState === 1) {
-              client.send(
-                JSON.stringify({
-                  type: "mode_state",
-                  sessionId: data.sessionId,
-                  chatThreadId: data.chatThreadId,
-                  modeState: data.modeState,
-                  timestamp: new Date().toISOString(),
-                }),
-              );
-            }
-          });
-        }
-      }
-      break;
-    case "acp_status":
-      {
-        const { sessionId, status } = data;
-        logger.debug("[agent] ACP status update:", { sessionId, status });
-
-        if (sessionId) {
-          // Update session acpStatus in repository
-          await sessionRepository.update(sessionId, { acpStatus: status });
-
-          // Broadcast to all UI clients for this session
-          const statusSubscribers = chatSessions.get(sessionId);
-          if (statusSubscribers) {
-            const statusMessage: any = {
-              type: "acp_status",
-              sessionId,
-              status,
-              timestamp: new Date().toISOString(),
-            };
-
-            // Include reset info if present
-            if (data.wasReset) {
-              statusMessage.wasReset = true;
-              statusMessage.resetReason = data.resetReason;
-              statusMessage.message = data.message || "Session reset";
-            }
-
-            statusSubscribers.forEach((client: WebSocket) => {
-              if (client.readyState === 1) {
-                client.send(JSON.stringify(statusMessage));
-              }
-            });
-          }
-        }
-      }
-      break;
-    case "prompt_received":
-      {
-        const prSubscribers = chatSessions.get(data.sessionId);
-        if (prSubscribers) {
-          prSubscribers.forEach((client: WebSocket) => {
-            if (client.readyState === 1) {
-              client.send(
-                JSON.stringify({
-                  type: "prompt_received",
-                  sessionId: data.sessionId,
-                  chatThreadId: data.chatThreadId,
-                  timestamp: new Date().toISOString(),
-                }),
-              );
-            }
-          });
-        }
-      }
-      break;
-    case "sync_now_result":
-      {
-        const resolved = resolveAgentSyncNowResult(data);
-        if (!resolved) {
-          logger.debug(
-            "[agent] No pending sync request for result:",
-            data.requestId,
-          );
-        }
-      }
-      break;
-    case "permission_request":
-      {
-        const { sessionId: permSessionId, requestId, toolCall, options } = data;
-        if (!permSessionId || !requestId) break;
-
-        // Store requestId → agentWs so we can route the response back
-        pendingPermissions.set(requestId, {
-          agentWs: ws,
-          sessionId: permSessionId,
-        });
-
-        // Broadcast to all chat clients for this session
-        const permSubscribers = chatSessions.get(permSessionId);
-        if (permSubscribers) {
-          permSubscribers.forEach((client: WebSocket) => {
-            if (client.readyState === 1) {
-              client.send(
-                JSON.stringify({
-                  type: "permission_request",
-                  requestId,
-                  toolCall,
-                  options,
-                  timestamp: new Date().toISOString(),
-                }),
-              );
-            }
-          });
-        }
-      }
-      break;
-
-    case "error_response":
-      {
-        const errorSessionId = data.sessionId;
-        const errorThreadId = data.chatThreadId;
-        const rawError = data.error;
-
-        // Extract error message from error object
-        const errorMessage = rawError?.message || String(rawError);
-
-        if (errorSessionId && errorMessage) {
-          const timestamp = new Date().toISOString();
-          // Save error as system message in chat history
-          const errorSession = await sessionRepository.findById(errorSessionId);
-          const historyThreadId =
-            errorThreadId || errorSession?.activeChatThreadId;
-          if (historyThreadId) {
-            await mimoContext.services.chat.saveMessage(
-              errorSessionId,
-              {
-                role: "system",
-                content: errorMessage,
-                timestamp,
-              },
-              historyThreadId,
-            );
-          }
-          // Broadcast error to all UI clients
-          broadcastToSession(chatSessions, errorSessionId, {
-            type: "error",
-            chatThreadId: historyThreadId,
-            message: errorMessage,
-            timestamp,
-          });
-        }
-      }
-      break;
-
-    default:
-      logger.debug("[agent] Unknown message type:", data.type);
-  }
+  return agentRouter.handle(ws.data?.agentId ?? "unknown", ws, data);
 }
 
 function resolveAgentId(
@@ -1999,7 +833,7 @@ async function handleChatMessage(ws, data) {
         },
         userThreadId,
       );
-      await touchSessionActivity(sessionId);
+      await sessionRepository.touchSessionActivity(sessionId);
 
       // Broadcast to all clients in session
       const subscribers = chatSessions.get(sessionId);
@@ -2051,8 +885,7 @@ async function handleChatMessage(ws, data) {
           break;
         }
 
-        // Track pending expert instruction for this thread
-        expertPending.set(`${sessionId}:${expertThreadId}`, {
+        pipeline.setExpertPending(sessionId, expertThreadId, {
           chatThreadId: expertThreadId,
           originalPath,
         });
@@ -2131,30 +964,23 @@ async function handleChatMessage(ws, data) {
 
       // Also restore in-progress streaming output for the requested thread.
       // This is needed when switching threads mid-generation.
-      const stateStreamKey = streamKey(sessionId, stateThreadId);
-      const stateThoughtContent = thoughtBuffers.get(stateStreamKey);
-      const stateMessageContent = streamingBuffers.get(stateStreamKey);
+      const stateSnap = pipeline.getStreamingSnapshot(sessionId, stateThreadId);
       if (
-        (stateThoughtContent || stateMessageContent) &&
+        (stateSnap.thoughtContent || stateSnap.messageContent) &&
         mimoContext.services.chat.isAgentAlive(sessionId)
       ) {
         ws.send(
           JSON.stringify({
             type: "streaming_state",
             chatThreadId: stateThreadId,
-            thoughtContent: stateThoughtContent || "",
-            messageContent: stateMessageContent || "",
+            thoughtContent: stateSnap.thoughtContent,
+            messageContent: stateSnap.messageContent,
             timestamp: new Date().toISOString(),
           }),
         );
       }
 
-      const stateAvailableCommands =
-        availableCommandsBuffers.get(stateStreamKey);
-      const stateFallbackCommands = availableCommandsBuffers.get(
-        streamKey(sessionId),
-      );
-      const replayCommands = stateAvailableCommands || stateFallbackCommands;
+      const replayCommands = pipeline.getAvailableCommands(sessionId, stateThreadId);
       if (replayCommands) {
         ws.send(
           JSON.stringify({
@@ -2264,13 +1090,8 @@ async function handleChatMessage(ws, data) {
           }
         }
 
-        // Clear buffers for this thread
-        const cancelStreamKey = streamKey(cancelSessionId, cancelThreadId);
-        streamingBuffers.delete(cancelStreamKey);
-        thoughtBuffers.delete(cancelStreamKey);
-
-        // Clear any pending expert instruction for this thread
-        expertPending.delete(cancelStreamKey);
+        pipeline.clearBuffers(cancelSessionId, cancelThreadId);
+        pipeline.deleteExpertPending(cancelSessionId, cancelThreadId);
       }
       break;
 

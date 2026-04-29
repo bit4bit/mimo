@@ -43,7 +43,7 @@ function acpKey(sessionId: string, chatThreadId: string): string {
   return `${sessionId}:${chatThreadId}`;
 }
 
-class MimoAgent {
+export class MimoAgent {
   private ws: WebSocket | null = null;
   private config: AgentConfig;
   private sessionManager: SessionManager;
@@ -590,6 +590,140 @@ class MimoAgent {
     }
   }
 
+  /**
+   * Factory method to build ACP client callbacks.
+   * Centralizes callback logic and ensures consistent idle-timer resets
+   * and WebSocket message emission across all spawn paths.
+   */
+  private buildAcpCallbacks(
+    sessionId: string,
+    chatThreadId: string,
+  ): AcpClientCallbacks {
+    return {
+      onThoughtStart: (sid) => {
+        this.lifecycleManager.recordActivity(sid, chatThreadId);
+        this.send({
+          type: "thought_start",
+          sessionId: sid,
+          chatThreadId,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onThoughtChunk: (sid, content) => {
+        this.lifecycleManager.recordActivity(sid, chatThreadId);
+        this.send({
+          type: "thought_chunk",
+          sessionId: sid,
+          chatThreadId,
+          content,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onThoughtEnd: (sid) => {
+        this.send({
+          type: "thought_end",
+          sessionId: sid,
+          chatThreadId,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onMessageChunk: (sid, content) => {
+        this.lifecycleManager.recordActivity(sid, chatThreadId);
+        this.send({
+          type: "message_chunk",
+          sessionId: sid,
+          chatThreadId,
+          content,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onUsageUpdate: (sid, usage) => {
+        this.send({
+          type: "usage_update",
+          sessionId: sid,
+          chatThreadId,
+          usage,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onGenericUpdate: (sid, content) => {
+        this.send({
+          type: "acp_response",
+          sessionId: sid,
+          chatThreadId,
+          content,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onAvailableCommandsUpdate: (sid, commands) => {
+        if (commands.length > 0) {
+          this.sessionAvailableCommands.set(sid, commands);
+        }
+        this.send({
+          type: "available_commands_update",
+          sessionId: sid,
+          chatThreadId,
+          commands,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onToolCall: (sid, tool) => {
+        this.lifecycleManager.recordActivity(sid, chatThreadId);
+        let inputStr: string | undefined;
+        if (tool.rawInput) {
+          inputStr = JSON.stringify(tool.rawInput);
+          if (inputStr.length > 200) {
+            inputStr = inputStr.slice(0, 200) + "...";
+          }
+        }
+        this.send({
+          type: "tool_call",
+          sessionId: sid,
+          chatThreadId,
+          toolCallId: tool.toolCallId,
+          toolTitle: tool.title,
+          toolKind: tool.kind,
+          toolInput: inputStr,
+          toolStatus: tool.status,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onToolCallUpdate: (sid, update) => {
+        this.lifecycleManager.recordActivity(sid, chatThreadId);
+        let outputStr: string | undefined;
+        if (update.rawOutput) {
+          outputStr = String(update.rawOutput);
+          if (outputStr.length > 500) {
+            outputStr = outputStr.slice(0, 500) + "...";
+          }
+        }
+        this.send({
+          type: "tool_call_update",
+          sessionId: sid,
+          chatThreadId,
+          toolCallId: update.toolCallId,
+          toolStatus: update.status,
+          toolOutput: outputStr,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      onPermissionRequest: (sid, requestId, params) => {
+        return new Promise((resolve) => {
+          this.pendingPermissions.set(requestId, resolve);
+          this.send({
+            type: "permission_request",
+            sessionId: sid,
+            chatThreadId,
+            requestId,
+            toolCall: params.toolCall,
+            options: params.options,
+            timestamp: new Date().toISOString(),
+          });
+        });
+      },
+    };
+  }
+
   // task 4.2: spawn ACP per thread using shared checkout path
   private async spawnAcpProcess(
     session: any,
@@ -620,125 +754,12 @@ class MimoAgent {
     const process = spawnResult.process;
     this.sessionManager.setSessionAcpProcess(session.sessionId, process);
 
-    // Create ACP client — all events include chatThreadId (task 5.2)
-    const acpClient = new AcpClient(this.provider, session.sessionId, {
-      onThoughtStart: (sessionId) => {
-        this.send({
-          type: "thought_start",
-          sessionId,
-          chatThreadId,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onThoughtChunk: (sessionId, content) => {
-        this.send({
-          type: "thought_chunk",
-          sessionId,
-          chatThreadId,
-          content,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onThoughtEnd: (sessionId) => {
-        this.send({
-          type: "thought_end",
-          sessionId,
-          chatThreadId,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onMessageChunk: (sessionId, content) => {
-        this.send({
-          type: "message_chunk",
-          sessionId,
-          chatThreadId,
-          content,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onUsageUpdate: (sessionId, usage) => {
-        this.send({
-          type: "usage_update",
-          sessionId,
-          chatThreadId,
-          usage,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onGenericUpdate: (sessionId, content) => {
-        this.send({
-          type: "acp_response",
-          sessionId,
-          chatThreadId,
-          content,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onAvailableCommandsUpdate: (sessionId, commands) => {
-        if (commands.length > 0) {
-          this.sessionAvailableCommands.set(sessionId, commands);
-        }
-        this.send({
-          type: "available_commands_update",
-          sessionId,
-          chatThreadId,
-          commands,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onToolCall: (sessionId, tool) => {
-        let inputStr: string | undefined;
-        if (tool.rawInput) {
-          inputStr = JSON.stringify(tool.rawInput);
-          if (inputStr.length > 200) {
-            inputStr = inputStr.slice(0, 200) + "...";
-          }
-        }
-        this.send({
-          type: "tool_call",
-          sessionId,
-          chatThreadId,
-          toolCallId: tool.toolCallId,
-          toolTitle: tool.title,
-          toolKind: tool.kind,
-          toolInput: inputStr,
-          toolStatus: tool.status,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onToolCallUpdate: (sessionId, update) => {
-        let outputStr: string | undefined;
-        if (update.rawOutput) {
-          outputStr = String(update.rawOutput);
-          if (outputStr.length > 500) {
-            outputStr = outputStr.slice(0, 500) + "...";
-          }
-        }
-        this.send({
-          type: "tool_call_update",
-          sessionId,
-          chatThreadId,
-          toolCallId: update.toolCallId,
-          toolStatus: update.status,
-          toolOutput: outputStr,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onPermissionRequest: (sessionId, requestId, params) => {
-        return new Promise((resolve) => {
-          this.pendingPermissions.set(requestId, resolve);
-          this.send({
-            type: "permission_request",
-            sessionId,
-            chatThreadId,
-            requestId,
-            toolCall: params.toolCall,
-            options: params.options,
-            timestamp: new Date().toISOString(),
-          });
-        });
-      },
-    });
+    // Create ACP client using the factory method — ensures consistent idle-timer resets
+    const acpClient = new AcpClient(
+      this.provider,
+      session.sessionId,
+      this.buildAcpCallbacks(session.sessionId, chatThreadId),
+    );
 
     // Initialize ACP client with MCP servers
     acpClient
@@ -875,130 +896,12 @@ class MimoAgent {
     const process = spawnResult.process;
     this.sessionManager.setSessionAcpProcess(sessionId, process);
 
-    // Create ACP client with chatThreadId in all events (task 5.2)
-    const acpClient = new AcpClient(this.provider, sessionId, {
-      onThoughtStart: (sid) => {
-        this.lifecycleManager.recordActivity(sid, chatThreadId);
-        this.send({
-          type: "thought_start",
-          sessionId: sid,
-          chatThreadId,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onThoughtChunk: (sid, content) => {
-        this.lifecycleManager.recordActivity(sid, chatThreadId);
-        this.send({
-          type: "thought_chunk",
-          sessionId: sid,
-          chatThreadId,
-          content,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onThoughtEnd: (sid) => {
-        this.send({
-          type: "thought_end",
-          sessionId: sid,
-          chatThreadId,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onMessageChunk: (sid, content) => {
-        this.lifecycleManager.recordActivity(sid, chatThreadId);
-        this.send({
-          type: "message_chunk",
-          sessionId: sid,
-          chatThreadId,
-          content,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onUsageUpdate: (sid, usage) => {
-        this.send({
-          type: "usage_update",
-          sessionId: sid,
-          chatThreadId,
-          usage,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onGenericUpdate: (sid, content) => {
-        this.send({
-          type: "acp_response",
-          sessionId: sid,
-          chatThreadId,
-          content,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onAvailableCommandsUpdate: (sid, commands) => {
-        if (commands.length > 0) {
-          this.sessionAvailableCommands.set(sid, commands);
-        }
-        this.send({
-          type: "available_commands_update",
-          sessionId: sid,
-          chatThreadId,
-          commands,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onToolCall: (sid, tool) => {
-        this.lifecycleManager.recordActivity(sid, chatThreadId);
-        let inputStr: string | undefined;
-        if (tool.rawInput) {
-          inputStr = JSON.stringify(tool.rawInput);
-          if (inputStr.length > 200) {
-            inputStr = inputStr.slice(0, 200) + "...";
-          }
-        }
-        this.send({
-          type: "tool_call",
-          sessionId: sid,
-          chatThreadId,
-          toolCallId: tool.toolCallId,
-          toolTitle: tool.title,
-          toolKind: tool.kind,
-          toolInput: inputStr,
-          toolStatus: tool.status,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onToolCallUpdate: (sid, update) => {
-        this.lifecycleManager.recordActivity(sid, chatThreadId);
-        let outputStr: string | undefined;
-        if (update.rawOutput) {
-          outputStr = String(update.rawOutput);
-          if (outputStr.length > 500) {
-            outputStr = outputStr.slice(0, 500) + "...";
-          }
-        }
-        this.send({
-          type: "tool_call_update",
-          sessionId: sid,
-          chatThreadId,
-          toolCallId: update.toolCallId,
-          toolStatus: update.status,
-          toolOutput: outputStr,
-          timestamp: new Date().toISOString(),
-        });
-      },
-      onPermissionRequest: (sid, requestId, params) => {
-        return new Promise((resolve) => {
-          this.pendingPermissions.set(requestId, resolve);
-          this.send({
-            type: "permission_request",
-            sessionId: sid,
-            chatThreadId,
-            requestId,
-            toolCall: params.toolCall,
-            options: params.options,
-            timestamp: new Date().toISOString(),
-          });
-        });
-      },
-    });
+    // Create ACP client using the factory method — ensures consistent idle-timer resets
+    const acpClient = new AcpClient(
+      this.provider,
+      sessionId,
+      this.buildAcpCallbacks(sessionId, chatThreadId),
+    );
 
     try {
       const result = await acpClient.initialize(
@@ -1552,6 +1455,37 @@ class MimoAgent {
       return;
     }
 
+    if (threadState === "initializing") {
+      logger.debug(
+        `[mimo-agent] Thread ${chatThreadId} is initializing, queuing prompt...`,
+      );
+      try {
+        await this.lifecycleManager.queueThreadPrompt(
+          sessionId,
+          chatThreadId,
+          content,
+        );
+        const acpClient = this.acpClients.get(key);
+        if (!acpClient) {
+          throw new Error("ACP client not available after initialization");
+        }
+        await this.sendPrompt(acpClient, sessionId, chatThreadId, content);
+      } catch (err) {
+        logger.error(
+          `[mimo-agent] Failed to queue prompt for initializing thread ${chatThreadId}:`,
+          err,
+        );
+        this.send({
+          type: "error_response",
+          sessionId,
+          chatThreadId,
+          error: err,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return;
+    }
+
     // Normal active thread flow
     let acpClient: AcpClient | null | undefined = this.acpClients.get(key);
     if (!acpClient) {
@@ -1589,6 +1523,7 @@ class MimoAgent {
     }
 
     this.lifecycleManager.initializeThread(sessionId, chatThreadId, 600000);
+    this.lifecycleManager.setThreadState(sessionId, chatThreadId, "initializing");
 
     try {
       // Thread runtime recovery requires thread-level acpSessionId
@@ -1604,12 +1539,18 @@ class MimoAgent {
         );
       }
 
-      return await this.respawnAcpProcess(
+      const acpClient = await this.respawnAcpProcess(
         sessionId,
         chatThreadId,
         acpSessionIdToUse ? { acpSessionId: acpSessionIdToUse } : undefined,
       );
+      if (acpClient) {
+        this.lifecycleManager.setThreadState(sessionId, chatThreadId, "active");
+        await this.lifecycleManager.drainQueue(sessionId, chatThreadId);
+      }
+      return acpClient;
     } catch (err) {
+      this.lifecycleManager.endThread(sessionId, chatThreadId);
       logger.error(
         `[mimo-agent] Failed to ensure ACP runtime for ${sessionId}/${chatThreadId}:`,
         err,
@@ -1815,14 +1756,19 @@ class MimoAgent {
       );
     }
 
-    const acpClient =
-      this.acpClients.get(key) ??
-      (await this.ensureThreadRuntime(sessionId, chatThreadId));
+    const existingClient = this.acpClients.get(key);
+    const threadState = this.lifecycleManager.getThreadState(
+      sessionId,
+      chatThreadId,
+    );
+    if (!existingClient && threadState !== "initializing") {
+      this.lifecycleManager.setThreadState(sessionId, chatThreadId, "initializing");
+      void this.ensureThreadRuntime(sessionId, chatThreadId);
+    }
+
+    const acpClient = this.acpClients.get(key);
 
     if (!acpClient) {
-      logger.debug(
-        `[mimo-agent] Unknown session ${sessionId} in request_state`,
-      );
       return;
     }
 
@@ -2577,8 +2523,11 @@ function validateProviderWithToken(
 
 // ── Main Entry Point ───────────────────────────────────────────────────
 
-const agent = createMimoAgent();
-agent.start().catch((error) => {
-  logger.error("[mimo-agent] Failed to start:", error.message);
-  process.exit(1);
-});
+// Only auto-start when this file is the main module (not in tests)
+if (import.meta.main) {
+  const agent = createMimoAgent();
+  agent.start().catch((error) => {
+    logger.error("[mimo-agent] Failed to start:", error.message);
+    process.exit(1);
+  });
+}

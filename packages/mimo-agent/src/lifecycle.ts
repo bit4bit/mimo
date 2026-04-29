@@ -1,7 +1,7 @@
 import { AcpClient } from "./acp/index.js";
 import type { ModelState, ModeState } from "./types.js";
 
-export type AcpSessionState = "active" | "parked" | "waking";
+export type AcpSessionState = "active" | "parked" | "waking" | "initializing";
 
 export interface CachedAcpState {
   acpSessionId?: string;
@@ -121,7 +121,7 @@ export class SessionLifecycleManager {
    * Queue a prompt for a specific thread.
    * - active  → record activity and resolve immediately
    * - parked  → wake only this thread, queue the prompt
-   * - waking  → add to queue
+   * - waking/initializing  → add to queue
    */
   async queueThreadPrompt(
     sessionId: string,
@@ -139,7 +139,7 @@ export class SessionLifecycleManager {
       return this.wakeThreadAndQueuePrompt(sessionId, chatThreadId, content);
     }
 
-    if (state === "waking") {
+    if (state === "waking" || state === "initializing") {
       return this.addToQueue(sessionId, chatThreadId, content);
     }
 
@@ -166,6 +166,11 @@ export class SessionLifecycleManager {
         this.endSession(sessionId);
       }
     }
+  }
+
+  /** Resolve queued prompts for a thread once ACP is ready. */
+  async drainQueue(sessionId: string, chatThreadId: string): Promise<void> {
+    await this.processQueue(sessionId, chatThreadId);
   }
 
   /** Clean up all threads for a session and cancel the idle timer. */
@@ -241,7 +246,7 @@ export class SessionLifecycleManager {
     }
   }
 
-  private setThreadState(
+  setThreadState(
     sessionId: string,
     chatThreadId: string,
     state: AcpSessionState,
