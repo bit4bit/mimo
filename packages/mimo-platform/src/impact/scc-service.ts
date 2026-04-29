@@ -287,7 +287,7 @@ export class SccService {
 
     try {
       const output: SccJsonOutput = JSON.parse(stdout);
-      const metrics = this.parseSccOutput(output);
+      const metrics = this.parseSccOutput(directory, output);
 
       // Update smart cache with new results
       await this.updateCache(directory, metrics);
@@ -299,7 +299,7 @@ export class SccService {
     }
   }
 
-  private parseSccOutput(output: SccJsonOutput): SccMetrics {
+  private parseSccOutput(directory: string, output: SccJsonOutput): SccMetrics {
     // SCC returns an array of language groups, each containing files
     const languageGroups = Array.isArray(output) ? output : [];
 
@@ -318,9 +318,21 @@ export class SccService {
       for (const file of files) {
         // Validate complexity is non-negative
         const fileComplexity = file.Complexity || 0;
+
+        // SCC Location may be absolute or relative; normalize to relative
+        let filePath = file.Location || file.Filename || "";
+        const normalizedDir = directory.replace(/\\/g, "/");
+        const normalizedLoc = filePath.replace(/\\/g, "/");
+        if (
+          normalizedLoc.startsWith(normalizedDir + "/") ||
+          normalizedLoc.startsWith(normalizedDir + "\\")
+        ) {
+          filePath = normalizedLoc.slice(normalizedDir.length + 1);
+        }
+
         if (fileComplexity < 0) {
           logger.warn(
-            `[scc:parse:warn] negative_complexity path=${file.Filename} value=${fileComplexity}`,
+            `[scc:parse:warn] negative_complexity path=${filePath} value=${fileComplexity}`,
           );
         }
         const validatedComplexity = Math.max(0, fileComplexity);
@@ -352,7 +364,7 @@ export class SccService {
         }
 
         fileMetrics.push({
-          path: file.Filename,
+          path: filePath,
           language: lang,
           lines: file.Lines,
           code: file.Code,
