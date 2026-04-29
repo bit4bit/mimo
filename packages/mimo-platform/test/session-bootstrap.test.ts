@@ -111,7 +111,7 @@ describe("Session Bootstrap Integration Tests", () => {
       expect(existsSync(join(agentWorkspacePath, "README.md"))).toBe(true);
     }, 15000);
 
-    it("should put fossil import on the requested branch and open it in agent-workspace", async () => {
+    it("should put fossil import on trunk and open agent-workspace on trunk", async () => {
       const vcs = new VCS({ os: createOS({ ...process.env }) });
       const upstreamPath = join(testHome, "branch-mirror-upstream");
       const fossilPath = join(testHome, "branch-mirror.fossil");
@@ -128,11 +128,12 @@ describe("Session Bootstrap Integration Tests", () => {
       execSync('git commit -qm "initial"', { cwd: upstreamPath });
       execSync("git checkout -qB feature/foo", { cwd: upstreamPath });
 
+      // Import without branch name — content should land on trunk so that
+      // agent-workspace and mimo-agent checkout work with a clean main branch.
       const importResult = await vcs.importToFossil(
         upstreamPath,
         "git",
         fossilPath,
-        "feature/foo",
       );
       expect(importResult.success).toBe(true);
 
@@ -140,7 +141,6 @@ describe("Session Bootstrap Integration Tests", () => {
       const openResult = await vcs.openFossil(
         fossilPath,
         agentWorkspacePath,
-        "feature/foo",
       );
       expect(openResult.success).toBe(true);
 
@@ -148,7 +148,7 @@ describe("Session Bootstrap Integration Tests", () => {
         cwd: agentWorkspacePath,
         encoding: "utf8",
       }).trim();
-      expect(currentBranch).toBe("feature/foo");
+      expect(currentBranch).toBe("trunk");
       expect(existsSync(join(agentWorkspacePath, "a.txt"))).toBe(true);
     }, 15000);
 

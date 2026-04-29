@@ -186,6 +186,9 @@ const chatSessions = new Map<string, Set<SessionWsClient>>();
 // Track file watching WebSocket connections per session
 const fileWatchSessions = new Map<string, Set<any>>();
 
+// Track sessions currently calculating impact to prevent duplicate calculations
+const calculatingSessions = new Set<string>();
+
 const pipeline = new ChatStreamingPipeline(
   mimoContext.services.chat,
   (sessionId, message) => broadcastToSession(chatSessions, sessionId, message),

@@ -18,7 +18,8 @@
     "@types/bun": "latest",
     "@types/chokidar": "^2.1.7",
     "@types/js-yaml": "^4.0.9",
-    "prettier": "^3.8.2"
+    "prettier": "^3.8.2",
+    "typescript": "^6.0.3"
   },
   "peerDependencies": {
     "typescript": "^5"
