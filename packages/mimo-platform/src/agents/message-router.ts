@@ -987,7 +987,11 @@ export class AgentMessageRouter {
     const threadId = data.chatThreadId;
     const rawError = data.error;
 
-    const errorMessage = rawError?.message || String(rawError);
+    const errorMessage =
+      typeof rawError === "string"
+        ? rawError
+        : rawError?.message ||
+          (rawError ? JSON.stringify(rawError) : "Unknown error");
 
     if (sessionId && errorMessage) {
       const timestamp = new Date().toISOString();

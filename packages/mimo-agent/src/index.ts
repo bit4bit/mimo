@@ -1525,7 +1525,7 @@ export class MimoAgent {
           type: "error_response",
           sessionId,
           chatThreadId,
-          error: err,
+          error: err instanceof Error ? err.message : String(err),
           timestamp: new Date().toISOString(),
         });
       }
@@ -1557,7 +1557,7 @@ export class MimoAgent {
           type: "error_response",
           sessionId,
           chatThreadId,
-          error: err,
+          error: err instanceof Error ? err.message : String(err),
           timestamp: new Date().toISOString(),
         });
       }
@@ -1588,7 +1588,7 @@ export class MimoAgent {
           type: "error_response",
           sessionId,
           chatThreadId,
-          error: err,
+          error: err instanceof Error ? err.message : String(err),
           timestamp: new Date().toISOString(),
         });
       }
@@ -1764,7 +1764,7 @@ export class MimoAgent {
         type: "error_response",
         sessionId,
         chatThreadId,
-        error: err,
+        error: err instanceof Error ? err.message : String(err),
         timestamp: new Date().toISOString(),
       });
     }
@@ -1851,7 +1851,7 @@ export class MimoAgent {
         type: "error_response",
         sessionId,
         chatThreadId,
-        error: err,
+        error: err instanceof Error ? err.message : String(err),
         timestamp: new Date().toISOString(),
       });
     }
@@ -1899,7 +1899,7 @@ export class MimoAgent {
         type: "error_response",
         sessionId,
         chatThreadId,
-        error: err,
+        error: err instanceof Error ? err.message : String(err),
         timestamp: new Date().toISOString(),
       });
     }
@@ -2134,7 +2134,7 @@ export class MimoAgent {
       this.send({
         type: "error_response",
         sessionId,
-        error: err,
+        error: err instanceof Error ? err.message : String(err),
         timestamp: new Date().toISOString(),
       });
     }
@@ -2220,7 +2220,7 @@ export class MimoAgent {
         sessionId,
         tempPath,
         content: "",
-        error: err,
+        error: err instanceof Error ? err.message : String(err),
         timestamp: new Date().toISOString(),
       });
     }
@@ -2269,7 +2269,7 @@ export class MimoAgent {
       this.send({
         type: "error_response",
         sessionId,
-        error: err,
+        error: err instanceof Error ? err.message : String(err),
         timestamp: new Date().toISOString(),
       });
     }
