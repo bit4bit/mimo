@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -8,6 +8,7 @@ import { load, dump } from "js-yaml";
 
 // Re-import modules after setting up environment
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
+import { resetGlobalState } from "./test-helpers.js";
 
 let sessionRoutes: any;
 let sessionRepository: any;
@@ -64,6 +65,15 @@ describe("Session Management Integration Tests", () => {
 
     const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
     sessionRoutes = createSessionsRoutes(ctx);
+  });
+
+  afterEach(async () => {
+    await resetGlobalState();
+    try {
+      rmSync(testHome, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
   });
 
   describe("Session Creation with ACP Session Parking", () => {

@@ -3,6 +3,20 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync, writeFileSync, existsSync } from "fs";
 import { createOS } from "../src/os/node-adapter.js";
+import { cleanupTestDir } from "./test-helpers.js";
+
+// Helper to create a no-op JscpdService for tests that don't test duplication
+function createDummyJscpdService() {
+  return {
+    isInstalled: () => true,
+    runOnFiles: async () => ({
+      duplicatedLines: 0,
+      duplicatedTokens: 0,
+      percentage: 0,
+      clones: [],
+    }),
+  } as any;
+}
 
 describe("Impact Calculation Reliability", () => {
   let testHome: string;
@@ -73,9 +87,7 @@ export function divide(x: number, y: number): number {
   });
 
   afterEach(() => {
-    try {
-      rmSync(testHome, { recursive: true, force: true });
-    } catch {}
+    cleanupTestDir(testHome);
   });
 
   it("calculates consistent complexity across multiple runs", async () => {
@@ -96,7 +108,7 @@ export function divide(x: number, y: number): number {
       return;
     }
 
-    const calculator = new ImpactCalculator(sccService, undefined, os);
+    const calculator = new ImpactCalculator(sccService, createDummyJscpdService(), os);
 
     // Run impact calculation 5 times
     const results = [];
@@ -150,7 +162,7 @@ export function divide(x: number, y: number): number {
       return;
     }
 
-    const calculator = new ImpactCalculator(sccService, undefined, os);
+    const calculator = new ImpactCalculator(sccService, createDummyJscpdService(), os);
 
     // Clear caches
     sccService.clearCache(upstreamDir);
@@ -215,7 +227,7 @@ console.log(add(1, 2));
       return;
     }
 
-    const calculator = new ImpactCalculator(sccService, undefined, os);
+    const calculator = new ImpactCalculator(sccService, createDummyJscpdService(), os);
 
     // Initial calculation with caching
     const result1 = await calculator.calculateImpact(
@@ -267,7 +279,7 @@ console.log(add(1, 2));
       return;
     }
 
-    const calculator = new ImpactCalculator(sccService, undefined, os);
+    const calculator = new ImpactCalculator(sccService, createDummyJscpdService(), os);
 
     // Clear caches
     sccService.clearCache(upstreamDir);

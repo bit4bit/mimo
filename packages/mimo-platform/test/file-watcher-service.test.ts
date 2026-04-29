@@ -7,6 +7,7 @@ import {
   type FileWatcherService,
 } from "../src/files/file-watcher-service";
 import { createOS } from "../src/os/node-adapter.js";
+import { waitFor, waitForEvent } from "./test-helpers.js";
 
 describe("FileWatcherService", () => {
   let tempDir: string;
@@ -99,25 +100,14 @@ describe("FileWatcherService", () => {
         },
       );
 
-      // Wait longer for watcher to be fully ready
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Give chokidar time to set up watchers
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       // Modify the file
       writeFileSync(filePath, "Modified content");
 
-      // Wait for event with timeout
-      await Promise.race([
-        eventPromise,
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Timeout waiting for event")),
-            3000,
-          ),
-        ),
-      ]).catch(() => {}); // Don't fail on timeout, just continue
-
-      // Wait for any debounced events
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      // Wait for event with explicit timeout
+      await waitForEvent(eventPromise, { timeout: 3000 });
 
       expect(receivedEvents.length).toBeGreaterThan(0);
       expect(receivedEvents[0].type).toBe("file_outdated");
@@ -134,14 +124,11 @@ describe("FileWatcherService", () => {
         receivedEvents.push(event);
       });
 
-      // Wait for watcher to be ready
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
       // Write same content (should not trigger change)
       writeFileSync(filePath, "Same content");
 
-      // Wait
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      // Wait briefly for any events to propagate
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Should not have received outdated event for same content
       const outdatedEvents = receivedEvents.filter(
@@ -209,32 +196,22 @@ describe("FileWatcherService", () => {
         }
       });
 
-      // Wait for watcher to be ready
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      // Give chokidar time to set up watchers
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       // Delete the file
       rmSync(filePath);
 
-      // Wait for event with timeout - note: chokidar may not always emit unlink on some systems
-      await Promise.race([
-        eventPromise,
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Timeout waiting for event")),
-            2000,
-          ),
-        ),
-      ]).catch(() => {}); // Don't fail on timeout
+      // Wait for event with explicit timeout
+      try {
+        await waitForEvent(eventPromise, { timeout: 2000 });
+      } catch {
+        // File deletion detection may vary by platform/chokidar configuration
+      }
 
-      // Wait for any events
-      await new Promise((resolve) => setTimeout(resolve, 600));
-
-      // Note: File deletion detection may vary by platform/chokidar configuration
-      // The test documents the expected behavior
       const deletedEvents = receivedEvents.filter(
         (e) => e.type === "file_deleted",
       );
-      // Skip assertion as chokidar unlink behavior varies - just document the test
       if (deletedEvents.length > 0) {
         expect(deletedEvents[0].path).toBe(filePath);
       }
@@ -274,25 +251,21 @@ describe("FileWatcherService", () => {
         }
       });
 
-      // Wait for watchers to be ready
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Give chokidar time to set up watchers
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       // Modify the file
       writeFileSync(filePath, "Modified");
 
-      // Wait for both events with timeout
-      await Promise.race([
-        Promise.all([promiseA, promiseB]),
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Timeout waiting for events")),
-            3000,
-          ),
-        ),
-      ]).catch(() => {});
-
-      // Wait for change to be detected
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      // Wait for both events with explicit timeout
+      try {
+        await Promise.all([
+          waitForEvent(promiseA, { timeout: 3000 }),
+          waitForEvent(promiseB, { timeout: 3000 }),
+        ]);
+      } catch {
+        // At least one watcher may not fire on all platforms
+      }
 
       // Both sessions should receive the event
       expect(eventsA.length).toBeGreaterThan(0);

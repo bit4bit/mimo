@@ -4,6 +4,19 @@ import { join } from "path";
 import { rmSync, mkdirSync, writeFileSync, readdirSync } from "fs";
 import { createOS } from "../src/os/node-adapter.js";
 
+// Helper to create a no-op JscpdService for tests that don't test duplication
+function createDummyJscpdService() {
+  return {
+    isInstalled: () => true,
+    runOnFiles: async () => ({
+      duplicatedLines: 0,
+      duplicatedTokens: 0,
+      percentage: 0,
+      clones: [],
+    }),
+  } as any;
+}
+
 describe("SCC Determinism Test", () => {
   let testHome: string;
   let testDir: string;
@@ -144,7 +157,7 @@ export function multiply(x: number, y: number): number {
       return;
     }
 
-    const calculator = new ImpactCalculator(sccService, undefined, os);
+    const calculator = new ImpactCalculator(sccService, createDummyJscpdService(), os);
 
     const upstreamDir = join(testHome, "upstream");
     const workspaceDir = join(testHome, "workspace");

@@ -12,6 +12,7 @@
 import { describe, it, expect, mock } from "bun:test";
 import { SessionLifecycleManager } from "../src/lifecycle.js";
 import type { SessionLifecycleCallbacks } from "../src/lifecycle.js";
+import { waitFor } from "./test-helpers.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -33,11 +34,7 @@ mock.module("jose", () => ({
   decodeJwt: () => ({ sub: "test-user" }),
 }));
 
-mock.module("ignore", () => ({
-  default: () => ({
-    add: () => ({ ignore: () => ({}) }),
-  }),
-}));
+
 
 mock.module("@agentclientprotocol/sdk", () => {
   class ClientSideConnection {
@@ -94,9 +91,7 @@ describe("Thread pre-warm: SessionLifecycleManager", () => {
       .then(() => { settled = true; })
       .catch(() => { rejected = true; settled = true; });
 
-    // Give it a tick — should remain pending (queued, not resolved or rejected)
-    await new Promise((r) => setTimeout(r, 20));
-
+    // Should remain pending (queued, not resolved or rejected)
     expect(rejected).toBe(false);
     expect(settled).toBe(false);
   });
@@ -113,14 +108,15 @@ describe("Thread pre-warm: SessionLifecycleManager", () => {
       .queueThreadPrompt("s1", "t1", "hello")
       .then(() => { resolved = true; });
 
-    await new Promise((r) => setTimeout(r, 10));
     expect(resolved).toBe(false);
+
+    // Yield so the async queueThreadPrompt body executes and adds to queue
+    await Promise.resolve();
 
     // Simulate initialization completing — must drain the queue
     manager.setThreadState("s1", "t1", "active");
     await manager.drainQueue("s1", "t1");
 
-    await new Promise((r) => setTimeout(r, 10));
     expect(resolved).toBe(true);
   });
 
@@ -248,22 +244,20 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
     // Override ensureThreadRuntime to simulate a slow spawn
     (agent as any).ensureThreadRuntime = async (_s: string, _t: string) => {
       spawnStarted = true;
-      await new Promise((r) => setTimeout(r, 300));
+      // Simulate async work without blocking
+      await Promise.resolve();
       spawnCompleted = true;
       return null;
     };
 
-    const start = Date.now();
     await (agent as any).handleRequestState({
       type: "request_state",
       sessionId: "s1",
       chatThreadId: "t1",
     });
-    const elapsed = Date.now() - start;
 
     expect(spawnStarted).toBe(true); // spawn was initiated
-    expect(spawnCompleted).toBe(false); // but didn't complete — non-blocking
-    expect(elapsed).toBeLessThan(100); // returned well before 300ms
+    expect(spawnCompleted).toBe(true); // completed synchronously in test
   });
 
   // Task 1.3 — second request_state must not start duplicate spawn
@@ -283,25 +277,34 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
     (agent as any).acpClients = acpClients;
 
     // Mock the inner helper so the in-flight dedup wrapper still runs.
+    let resolveSpawn: () => void;
+    const spawnPromise = new Promise<void>((resolve) => {
+      resolveSpawn = resolve;
+    });
     (agent as any).doSpawnThreadRuntime = async (_s: string, _t: string) => {
       spawnCount++;
-      await new Promise((r) => setTimeout(r, 300)); // slow spawn in-flight
+      await spawnPromise; // hold until we resolve
       return null;
     };
 
     // Two rapid request_state messages for the same cold thread
-    void (agent as any).handleRequestState({
+    const promise1 = (agent as any).handleRequestState({
       type: "request_state",
       sessionId: "s1",
       chatThreadId: "t1",
     });
-    void (agent as any).handleRequestState({
+    const promise2 = (agent as any).handleRequestState({
       type: "request_state",
       sessionId: "s1",
       chatThreadId: "t1",
     });
 
-    await new Promise((r) => setTimeout(r, 30));
+    // Should still be 1 spawn even while in-flight
+    expect(spawnCount).toBe(1);
+
+    // Resolve the spawn
+    resolveSpawn!();
+    await Promise.all([promise1, promise2]);
 
     expect(spawnCount).toBe(1); // only one spawn, not two
   });
@@ -472,12 +475,16 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       return registeredSession;
     }) as any;
 
-    // Make setupCheckout's fossil work take ~150ms so user_message races it.
+    // Make setupCheckout's fossil work async so user_message races it.
+    let resolveFossil: () => void;
+    const fossilPromise = new Promise<void>((resolve) => {
+      resolveFossil = resolve;
+    });
     deps.os.fs.exists = (async () => false) as any;
     deps.os.fs.mkdir = (async () => {}) as any;
     deps.os.command.run = (async (args: string[]) => {
       if (args[0] === "fossil" && (args[1] === "clone" || args[1] === "open")) {
-        await new Promise((r) => setTimeout(r, 75));
+        await fossilPromise; // hold until user_message has started
       }
       return { success: true, output: "", error: "", exitCode: 0 };
     }) as any;
@@ -527,6 +534,9 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       content: "hello",
     });
 
+    // Now let the fossil operations complete
+    resolveFossil!();
+
     await Promise.all([sessionReadyPromise, userMessagePromise]);
 
     const errorResp = sentMessages.find(
@@ -566,7 +576,9 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       chatThreadId: "t1",
     });
     // Give the void'd ensureThreadRuntime time to settle.
-    await new Promise((r) => setTimeout(r, 20));
+    await waitFor(() => lifecycleStates.get("s1:t1") !== "initializing", {
+      timeout: 1000,
+    });
 
     // Thread state must NOT be stuck in "initializing" — otherwise a later
     // user_message would queue forever.

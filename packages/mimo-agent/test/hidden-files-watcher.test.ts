@@ -29,6 +29,7 @@ describe("SessionManager file watcher — hidden files", () => {
   });
 
   afterEach(() => {
+    manager.stopAllSessions();
     rmSync(workDir, { recursive: true, force: true });
   });
 
