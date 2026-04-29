@@ -8,6 +8,7 @@ import {
   SharedFossilServer,
   normalizeSessionIdForFossil,
 } from "../src/vcs/shared-fossil-server.js";
+import { findAvailablePort } from "./test-helpers.js";
 
 describe("Agent Bootstrap Integration Tests", () => {
   let testHome: string;
@@ -21,8 +22,8 @@ describe("Agent Bootstrap Integration Tests", () => {
   let testPort: number;
 
   beforeEach(async () => {
-    // Use a unique port for each test to avoid conflicts
-    testPort = 38000 + Math.floor(Math.random() * 1000);
+    // Use an OS-assigned ephemeral port to avoid collisions
+    testPort = await findAvailablePort();
 
     testHome = join(
       tmpdir(),

@@ -1,9 +1,7 @@
-"use strict";
+// TypeScript copy of public/js/chat-decorated-utils.js for testing
+// This avoids ESM/CJS module conflicts when importing the original .js file
 
-// Pure decoration utility functions shared between chat.js (browser) and tests (Bun).
-// No DOM or window dependencies.
-
-function escapeHtml(text) {
+export function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -11,22 +9,22 @@ function escapeHtml(text) {
     .replace(/"/g, "&quot;");
 }
 
-function decorateInlineMarkup(escapedLine) {
-  var protected_ = [];
-  function protect(html) {
-    var placeholder = "\x00P" + protected_.length + "\x00";
+export function decorateInlineMarkup(escapedLine: string): string {
+  const protected_: string[] = [];
+  function protect(html: string): string {
+    const placeholder = "\x00P" + protected_.length + "\x00";
     protected_.push(html);
     return placeholder;
   }
   // 1. Code spans: `...` → <code> (protect content from further processing)
-  var result = escapedLine.replace(/`([^`]+)`/g, function (match, inner) {
+  let result = escapedLine.replace(/`([^`]+)`/g, (match, inner) => {
     return protect('<code class="decorated-code">`' + inner + "`</code>");
   });
   // 2. Bold: **...** or __...__
-  result = result.replace(/\*\*([^*]+)\*\*/g, function (match, inner) {
+  result = result.replace(/\*\*([^*]+)\*\*/g, (match, inner) => {
     return protect('<b class="decorated-bold">**' + inner + "**</b>");
   });
-  result = result.replace(/__([^_]+)__/g, function (match, inner) {
+  result = result.replace(/__([^_]+)__/g, (match, inner) => {
     return protect('<b class="decorated-bold">__' + inner + "__</b>");
   });
   // 3. Italic: *...* or _..._
@@ -44,20 +42,28 @@ function decorateInlineMarkup(escapedLine) {
     '<a class="decorated-link" href="$2" target="_blank" rel="noopener">[$1]($2)</a>',
   );
   // Restore all protected spans
-  for (var i = 0; i < protected_.length; i++) {
+  for (let i = 0; i < protected_.length; i++) {
     result = result.replace("\x00P" + i + "\x00", protected_[i]);
   }
   return result;
 }
 
-function buildDecoratedLines(text) {
-  var lines = String(text || "").split("\n");
-  var result = [];
-  var inFence = false;
-  var fenceLines = [];
+export interface DecoratedLine {
+  type: string;
+  lines?: string[];
+  level?: number;
+  text?: string;
+  html?: string;
+}
 
-  for (var idx = 0; idx < lines.length; idx++) {
-    var line = lines[idx];
+export function buildDecoratedLines(text: string): DecoratedLine[] {
+  const lines = String(text || "").split("\n");
+  const result: DecoratedLine[] = [];
+  let inFence = false;
+  let fenceLines: string[] = [];
+
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx];
     if (/^```/.test(line)) {
       if (!inFence) {
         inFence = true;
@@ -74,9 +80,9 @@ function buildDecoratedLines(text) {
       fenceLines.push(line);
       continue;
     }
-    var headingMatch = line.match(/^(#{1,6})\s+(\S.*)$/);
+    const headingMatch = line.match(/^(#{1,6})\s+(\S.*)$/);
     if (headingMatch) {
-      var level = headingMatch[1].length;
+      const level = headingMatch[1].length;
       result.push({
         type: "heading",
         level: level,
@@ -88,8 +94,8 @@ function buildDecoratedLines(text) {
     if (line === "") {
       result.push({ type: "empty" });
     } else {
-      var escaped = escapeHtml(line);
-      var decorated = decorateInlineMarkup(escaped);
+      const escaped = escapeHtml(line);
+      const decorated = decorateInlineMarkup(escaped);
       result.push({
         type: decorated === escaped ? "plain" : "decorated",
         text: line,
@@ -99,7 +105,7 @@ function buildDecoratedLines(text) {
   }
   // If fence was never closed, emit remaining lines as plain
   if (inFence) {
-    for (var j = 0; j < fenceLines.length; j++) {
+    for (let j = 0; j < fenceLines.length; j++) {
       if (fenceLines[j] === "") {
         result.push({ type: "empty" });
       } else {
@@ -113,5 +119,3 @@ function buildDecoratedLines(text) {
   }
   return result;
 }
-
-export { escapeHtml, decorateInlineMarkup, buildDecoratedLines };

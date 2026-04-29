@@ -16,13 +16,14 @@ import {
   SharedFossilServer,
   normalizeSessionIdForFossil,
 } from "../src/vcs/shared-fossil-server.js";
+import { findAvailablePort } from "./test-helpers.js";
 
 describe("SharedFossilServer Integration Tests", () => {
   let sharedServers: any = [];
 
   async function aSharedFossilServer() {
-    // Use a unique port for each test to avoid conflicts
-    const testPort = 18000 + Math.floor(Math.random() * 7001);
+    // Use an OS-assigned ephemeral port to avoid collisions
+    const testPort = await findAvailablePort();
 
     const testHome = join(
       tmpdir(),

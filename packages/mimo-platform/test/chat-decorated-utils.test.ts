@@ -1,10 +1,9 @@
 import { describe, it, expect } from "bun:test";
-
-const {
+import {
   escapeHtml,
   decorateInlineMarkup,
   buildDecoratedLines,
-} = require("../public/js/chat-decorated-utils.js");
+} from "./chat-decorated-utils.js";
 
 // --- escapeHtml ---
 

@@ -55,4 +55,11 @@ export const sessionStateService = {
     sessionModeStates.delete(sessionId);
     sessionFossilPorts.delete(sessionId);
   },
+
+  // Reset all state (for testing)
+  reset(): void {
+    sessionModelStates.clear();
+    sessionModeStates.clear();
+    sessionFossilPorts.clear();
+  },
 };

@@ -11,12 +11,6 @@ mock.module("jose", () => ({
   decodeJwt: () => ({ sub: "test-user" }),
 }));
 
-mock.module("ignore", () => ({
-  default: () => ({
-    add: () => ({ ignore: () => ({}) }),
-  }),
-}));
-
 mock.module("@agentclientprotocol/sdk", () => {
   class ClientSideConnection {
     closed = Promise.resolve();

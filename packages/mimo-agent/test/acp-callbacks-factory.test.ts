@@ -11,13 +11,6 @@ mock.module("jose", () => ({
   decodeJwt: () => ({ sub: "test-user" }),
 }));
 
-// Mock ignore module (used by session.ts)
-mock.module("ignore", () => ({
-  default: () => ({
-    add: () => ({ ignore: () => ({}) }),
-  }),
-}));
-
 // Mock the ACP SDK
 mock.module("@agentclientprotocol/sdk", () => {
   class ClientSideConnection {
