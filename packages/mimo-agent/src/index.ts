@@ -292,14 +292,15 @@ export class MimoAgent {
 
         logger.debug(`[mimo-agent] Using fossil URL: ${fossilUrl}`);
 
-        // Setup checkout directory with credentials
+        // Setup checkout directory with credentials.
+        // The branch session is only for upstream; mimo-agent checkout should
+        // work with a clean trunk.
         await this.setupCheckout(
           sessionId,
           checkoutPath,
           fossilUrl,
           agentWorkspaceUser,
           agentWorkspacePassword,
-          branch ?? undefined,
         );
 
         // Create session with credentials
@@ -395,9 +396,9 @@ export class MimoAgent {
       `${sessionId}.fossil`,
     );
 
-    // When the fossil import committed only on a named branch (no trunk
-    // content), we must align the working tree with that branch — otherwise
-    // `fossil open` defaults to an empty trunk and ACP starts in an empty cwd.
+    // The branch session is only for upstream; mimo-agent checkout should
+    // work with a clean trunk. Fossil import always commits to trunk, so
+    // `fossil open` without a branch arg will open trunk with full content.
     const ensureBranchCheckout = async () => {
       if (!branch) return;
       try {
@@ -594,9 +595,8 @@ export class MimoAgent {
         await this.os.fs.mkdir(checkoutPath, { recursive: true });
       }
       // Open without sync first, then set remote with credentials.
-      // Open onto the import branch when one is provided, since the platform's
-      // git→fossil import commits the initial state on a named branch and
-      // leaves trunk empty.
+      // The branch session is only for upstream; mimo-agent checkout should
+      // work with a clean trunk. Fossil import always commits to trunk.
       const openArgs = branch
         ? ["fossil", "open", "--nosync", repoPath, branch]
         : ["fossil", "open", "--nosync", repoPath];

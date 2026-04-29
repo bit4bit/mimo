@@ -306,10 +306,10 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
     expect(spawnCount).toBe(1); // only one spawn, not two
   });
 
-  // Regression: when session_ready carries a `branch`, setupCheckout must open
-  // fossil on that branch — otherwise fossil falls back to the (often empty)
-  // trunk and ACP starts in a working tree with no files.
-  it("handleSessionReady opens fossil on the named branch when one is provided", async () => {
+  // The branch session is only for upstream; mimo-agent checkout should work
+  // with a clean trunk. Even when session_ready carries a `branch`,
+  // setupCheckout must open fossil without the branch arg.
+  it("handleSessionReady opens fossil on trunk even when a branch is provided", async () => {
     const { MimoAgent } = await import("../src/index.js");
     const { deps } = buildMockDeps();
 
@@ -348,9 +348,9 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       (c) => c[0] === "fossil" && c[1] === "open",
     );
     expect(openCmd).toBeDefined();
-    // Expected: fossil open --nosync <repoPath> feature/test
+    // Expected: fossil open --nosync <repoPath> (no branch arg)
     expect(openCmd!).toContain("--nosync");
-    expect(openCmd!).toContain("feature/test");
+    expect(openCmd!).not.toContain("feature/test");
   });
 
   // Regression: a stray `.fslckout` in an ancestor of the per-session checkout

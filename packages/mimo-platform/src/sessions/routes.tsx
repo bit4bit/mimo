@@ -271,9 +271,10 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         return c.text(`Failed to clone repository: ${cloneResult.error}`, 500);
       }
 
-      // Step 2: Resolve the desired branch and align upstream BEFORE importing
-      // to fossil — so the fossil import lands on the same branch instead of
-      // on `trunk`, keeping the agent-workspace consistent with upstream.
+      // Step 2: Resolve the desired branch and align upstream.
+      // The branch session is only for upstream; fossil import always lands
+      // on trunk so that agent-workspace and mimo-agent checkout work with a
+      // clean main branch.
       let desiredBranch: string | null;
       if (branchMode === "sync") {
         // clone --branch should have left upstream HEAD on branchName.
@@ -310,13 +311,14 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         }
       }
 
-      // Step 3: Import to fossil proxy (repo.fossil) on the desired branch.
+      // Step 3: Import to fossil proxy (repo.fossil) on trunk.
+      // The branch session is only for upstream; agent-workspace and
+      // mimo-agent checkout should work with a clean trunk.
       const fossilPath = sessionRepository.getFossilPath(session.id);
       const importResult = await vcs.importToFossil(
         session.upstreamPath,
         project.repoType,
         fossilPath,
-        desiredBranch ?? undefined,
       );
 
       if (!importResult.success) {
@@ -368,12 +370,12 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
         agentWorkspacePassword,
       });
 
-      // Step 5: Open fossil checkout in agent-workspace on the same branch as
-      // upstream (otherwise `fossil open` would default to trunk).
+      // Step 5: Open fossil checkout in agent-workspace on trunk.
+      // The branch session is only for upstream; agent-workspace should work
+      // with a clean trunk.
       const openResult = await vcs.openFossil(
         fossilPath,
         session.agentWorkspacePath,
-        desiredBranch ?? undefined,
       );
       if (!openResult.success) {
         logger.error(
