@@ -160,6 +160,69 @@ describe("buildDecoratedLines — decorated content", () => {
   });
 });
 
+describe("buildDecoratedLines — heading tokens", () => {
+  it("detects a level-1 heading", () => {
+    const lines = buildDecoratedLines("# Introduction");
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toEqual({
+      type: "heading",
+      level: 1,
+      text: "# Introduction",
+      html: "# Introduction",
+    });
+  });
+
+  it("maps ## through ###### to levels 2 through 6", () => {
+    const lines = buildDecoratedLines(
+      ["## Two", "### Three", "#### Four", "##### Five", "###### Six"].join(
+        "\n",
+      ),
+    );
+    expect(lines.map((line: { type: string; level?: number }) => line.type)).toEqual(
+      ["heading", "heading", "heading", "heading", "heading"],
+    );
+    expect(
+      lines.map((line: { level?: number }) => line.level),
+    ).toEqual([2, 3, 4, 5, 6]);
+  });
+
+  it("does not treat #hashtag as a heading", () => {
+    const lines = buildDecoratedLines("#hashtag");
+    expect(lines).toHaveLength(1);
+    expect(lines[0].type).not.toBe("heading");
+  });
+
+  it("does not treat a bare # as a heading", () => {
+    const lines = buildDecoratedLines("#");
+    expect(lines).toHaveLength(1);
+    expect(lines[0].type).not.toBe("heading");
+  });
+
+  it("decorates inline bold inside heading html", () => {
+    const lines = buildDecoratedLines("## **Bold**");
+    expect(lines).toHaveLength(1);
+    expect(lines[0].type).toBe("heading");
+    expect(lines[0].html).toContain(
+      '<b class="decorated-bold">**Bold**</b>',
+    );
+  });
+
+  it("decorates inline code spans inside heading html", () => {
+    const lines = buildDecoratedLines("### `code`");
+    expect(lines).toHaveLength(1);
+    expect(lines[0].type).toBe("heading");
+    expect(lines[0].html).toContain('<code class="decorated-code">`code`</code>');
+  });
+
+  it("escapes heading html to prevent script injection", () => {
+    const lines = buildDecoratedLines("# <script>alert(1)</script>");
+    expect(lines).toHaveLength(1);
+    expect(lines[0].type).toBe("heading");
+    expect(lines[0].html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(lines[0].html).not.toContain("<script>");
+  });
+});
+
 describe("buildDecoratedLines — fenced code blocks", () => {
   it("groups fenced block lines into a single fence descriptor", () => {
     const text = "```js\nconst x = 1;\n```";

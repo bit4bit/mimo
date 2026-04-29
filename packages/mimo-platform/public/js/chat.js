@@ -465,56 +465,44 @@ function renderDecoratedContent(text, container) {
   container.textContent = "";
   container.dataset.rawText = String(text || "");
 
-  const lines = String(text || "").split("\n");
-  let inFence = false;
-  let fenceDiv = null;
-
-  for (const line of lines) {
-    // Fenced code block detection
-    if (/^```/.test(line)) {
-      if (!inFence) {
-        inFence = true;
-        fenceDiv = document.createElement("div");
-        fenceDiv.className = "decorated-fence";
+  const tokens = buildDecoratedLines(text);
+  for (const token of tokens) {
+    if (token.type === "fence") {
+      const fenceDiv = document.createElement("div");
+      fenceDiv.className = "decorated-fence";
+      for (const fenceLineText of token.lines) {
         const fenceLine = document.createElement("div");
-        fenceLine.textContent = line;
+        fenceLine.textContent = fenceLineText;
         fenceDiv.appendChild(fenceLine);
-        container.appendChild(fenceDiv);
-        continue;
-      } else {
-        // Closing fence
-        const fenceLine = document.createElement("div");
-        fenceLine.textContent = line;
-        fenceDiv.appendChild(fenceLine);
-        inFence = false;
-        fenceDiv = null;
-        continue;
       }
-    }
-
-    if (inFence) {
-      const fenceLine = document.createElement("div");
-      fenceLine.textContent = line;
-      fenceDiv.appendChild(fenceLine);
+      container.appendChild(fenceDiv);
       continue;
     }
 
-    // Normal line: apply inline decorations
-    const div = document.createElement("div");
-    if (line === "") {
-      div.appendChild(document.createElement("br"));
-    } else {
-      const escaped = escapeHtml(line);
-      const decorated = decorateInlineMarkup(escaped);
-      // If no HTML was added, use text with file-ref detection
-      if (decorated === escaped) {
-        // No decoration applied — use file-ref detection
-        renderLineWithFileRefs(line, div);
-      } else {
-        div.innerHTML = decorated;
-        // Apply file-ref detection to text nodes within decorated output
-        applyFileRefsToTextNodes(div);
+    if (token.type === "heading") {
+      const htmlLevel = Math.min((token.level || 1) + 1, 6);
+      const heading = document.createElement("h" + htmlLevel);
+      heading.classList.add("decorated-heading");
+      if (token.level >= 1 && token.level <= 5) {
+        heading.classList.add(`decorated-heading-${token.level}`);
       }
+      heading.innerHTML = token.html || "";
+      container.appendChild(heading);
+      continue;
+    }
+
+    const div = document.createElement("div");
+    if (token.type === "empty") {
+      div.appendChild(document.createElement("br"));
+      container.appendChild(div);
+      continue;
+    }
+
+    if (token.type === "plain") {
+      renderLineWithFileRefs(token.text || "", div);
+    } else {
+      div.innerHTML = token.html || "";
+      applyFileRefsToTextNodes(div);
     }
     container.appendChild(div);
   }
