@@ -1,8 +1,16 @@
 import { describe, it, expect } from "bun:test";
 import { broadcastToSession } from "../src/ws/session-broadcast";
 
-// Platform extraction logic - assumes error is always an object
+// Platform extraction logic - matches message-router.ts handleErrorResponse
+function extractMessage(rawError: any): string {
+  return typeof rawError === "string"
+    ? rawError
+    : rawError?.message ||
+      (rawError ? JSON.stringify(rawError) : "Unknown error");
+}
+
 describe("error_response platform extraction", () => {
+
   it("extracts message from ACP error object", () => {
     const acpError = {
       code: -32603,
@@ -10,22 +18,28 @@ describe("error_response platform extraction", () => {
         "Internal error: You've hit your limit · resets 11:50pm (Europe/Helsinki)",
     };
 
-    const message = acpError?.message || String(acpError);
-    expect(message).toBe(
+    expect(extractMessage(acpError)).toBe(
       "Internal error: You've hit your limit · resets 11:50pm (Europe/Helsinki)",
     );
   });
 
   it("handles Error instances", () => {
     const err = new Error("Standard error");
-    const message = err?.message || String(err);
-    expect(message).toBe("Standard error");
+    expect(extractMessage(err)).toBe("Standard error");
   });
 
   it("handles objects without message property", () => {
     const err = { code: 500, details: "Server error" };
-    const message = err?.message || String(err);
-    expect(message).toBe("[object Object]");
+    expect(extractMessage(err)).toBe('{"code":500,"details":"Server error"}');
+  });
+
+  it("handles string errors", () => {
+    expect(extractMessage("Connection failed")).toBe("Connection failed");
+  });
+
+  it("handles null/undefined errors", () => {
+    expect(extractMessage(null)).toBe("Unknown error");
+    expect(extractMessage(undefined)).toBe("Unknown error");
   });
 });
 
@@ -55,7 +69,7 @@ describe("error_response broadcast", () => {
       message: "Internal error: You've hit your limit",
     };
 
-    const errorMessage = rawError?.message || String(rawError);
+    const errorMessage = extractMessage(rawError);
 
     broadcastToSession(chatSessions, "session-1", {
       type: "error",
