@@ -198,10 +198,13 @@ const agentRouter = new AgentMessageRouter({
   agentRepository,
   agentService,
   chatSessions,
-  broadcast: (sessionId, message) => broadcastToSession(chatSessions, sessionId, message),
+  broadcast: (sessionId, message) =>
+    broadcastToSession(chatSessions, sessionId, message),
   triggerAutoSync: async (sessionId, reason) => {
     if (agentRouter["autoSyncInFlight"].has(sessionId)) {
-      logger.debug(`[auto-commit] Skipping ${reason} sync for ${sessionId} (in-flight)`);
+      logger.debug(
+        `[auto-commit] Skipping ${reason} sync for ${sessionId} (in-flight)`,
+      );
       return;
     }
     agentRouter["autoSyncInFlight"].add(sessionId);
@@ -655,7 +658,10 @@ mimoServer.setup({
         );
 
         // Send current streaming state if agent is actively responding and alive
-        const openSnap = pipeline.getStreamingSnapshot(sessionId, activeThreadId);
+        const openSnap = pipeline.getStreamingSnapshot(
+          sessionId,
+          activeThreadId,
+        );
         if (
           (openSnap.thoughtContent || openSnap.messageContent) &&
           mimoContext.services.chat.isAgentAlive(sessionId)
@@ -671,7 +677,10 @@ mimoServer.setup({
           );
         }
 
-        const openCommands = pipeline.getAvailableCommands(sessionId, activeThreadId);
+        const openCommands = pipeline.getAvailableCommands(
+          sessionId,
+          activeThreadId,
+        );
         if (openCommands && openCommands.length > 0) {
           ws.send(
             JSON.stringify({
@@ -980,7 +989,10 @@ async function handleChatMessage(ws, data) {
         );
       }
 
-      const replayCommands = pipeline.getAvailableCommands(sessionId, stateThreadId);
+      const replayCommands = pipeline.getAvailableCommands(
+        sessionId,
+        stateThreadId,
+      );
       if (replayCommands) {
         ws.send(
           JSON.stringify({
@@ -1233,36 +1245,7 @@ async function handleChatMessage(ws, data) {
     case "permission_response":
       {
         const { requestId, optionId } = data;
-        const pending = pendingPermissions.get(requestId);
-        if (!pending) break;
-
-        pendingPermissions.delete(requestId);
-
-        // Route response back to agent
-        if (pending.agentWs.readyState === 1) {
-          pending.agentWs.send(
-            JSON.stringify({
-              type: "permission_response",
-              requestId,
-              outcome: { outcome: "selected", optionId },
-            }),
-          );
-        }
-
-        // Broadcast resolution to all chat clients so other tabs dismiss the card
-        const resolveSubscribers = chatSessions.get(pending.sessionId);
-        if (resolveSubscribers) {
-          resolveSubscribers.forEach((client: WebSocket) => {
-            if (client.readyState === 1) {
-              client.send(
-                JSON.stringify({
-                  type: "permission_resolved",
-                  requestId,
-                }),
-              );
-            }
-          });
-        }
+        await agentRouter.routePermissionResponse(requestId, optionId);
       }
       break;
 

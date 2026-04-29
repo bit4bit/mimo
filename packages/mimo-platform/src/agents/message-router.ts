@@ -27,10 +27,15 @@ export interface SCCServiceLike {
 }
 
 export interface VcsServiceLike {
-  fossilUp: (workspacePath: string) => Promise<{ success: boolean; error?: string }>;
+  fossilUp: (
+    workspacePath: string,
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
-export type AutoSyncReason = "thought_end" | "usage_update" | "expert_diff_ready";
+export type AutoSyncReason =
+  | "thought_end"
+  | "usage_update"
+  | "expert_diff_ready";
 
 export interface AgentMessageRouterDeps {
   pipeline: ChatStreamingPipeline;
@@ -55,9 +60,15 @@ export interface AgentMessageRouterDeps {
 }
 
 export class AgentMessageRouter {
-  private pendingPermissions = new Map<string, { agentWs: any; sessionId: string }>();
+  private pendingPermissions = new Map<
+    string,
+    { agentWs: any; sessionId: string }
+  >();
   private autoSyncInFlight = new Set<string>();
-  private pendingActivityTouches = new Map<string, ReturnType<typeof setTimeout>>();
+  private pendingActivityTouches = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
   private calculatingSessions = new Set<string>();
   private readonly ACTIVITY_TOUCH_DEBOUNCE_MS = 30_000;
   private readonly SESSION_ACTIVITY_EVENT_TYPES = new Set([
@@ -169,7 +180,10 @@ export class AgentMessageRouter {
     }
   }
 
-  private async handleAgentCapabilities(agentId: string, data: any): Promise<void> {
+  private async handleAgentCapabilities(
+    agentId: string,
+    data: any,
+  ): Promise<void> {
     if (
       agentId &&
       data.availableModels &&
@@ -189,8 +203,17 @@ export class AgentMessageRouter {
     }
   }
 
-  private async handleAgentReady(agentId: string, ws: any, data: any): Promise<void> {
-    logger.debug("[agent] Agent ready:", data.agentId, "workdir:", data.workdir);
+  private async handleAgentReady(
+    agentId: string,
+    ws: any,
+    data: any,
+  ): Promise<void> {
+    logger.debug(
+      "[agent] Agent ready:",
+      data.agentId,
+      "workdir:",
+      data.workdir,
+    );
     process.stdout?.write?.("");
 
     if (data.workdir) {
@@ -210,7 +233,12 @@ export class AgentMessageRouter {
       },
     );
 
-    logger.debug("[agent] Found", sessions.length, "sessions assigned to agent", agentId);
+    logger.debug(
+      "[agent] Found",
+      sessions.length,
+      "sessions assigned to agent",
+      agentId,
+    );
     process.stdout?.write?.("");
 
     if (sessions.length > 0) {
@@ -225,7 +253,8 @@ export class AgentMessageRouter {
         process.stdout?.write?.("");
 
         if (session.status === "active") {
-          const fossilPath = this.deps.sessionRepository.getFossilPath(sessionId);
+          const fossilPath =
+            this.deps.sessionRepository.getFossilPath(sessionId);
           const fossilUrl = this.deps.sharedFossilServer.getUrl(sessionId);
           logger.debug(
             "[agent] Using shared fossil server for session:",
@@ -237,7 +266,8 @@ export class AgentMessageRouter {
           );
           process.stdout?.write?.("");
 
-          const sessionWithCreds = await this.deps.sessionRepository.findById(sessionId);
+          const sessionWithCreds =
+            await this.deps.sessionRepository.findById(sessionId);
 
           let mcpServers: any[] = [];
           if (
@@ -333,7 +363,11 @@ export class AgentMessageRouter {
       return;
     }
     this.deps.chat.updateAgentActivity(sessionId);
-    this.deps.pipeline.handleThoughtChunk(sessionId, threadId, data.content || "");
+    this.deps.pipeline.handleThoughtChunk(
+      sessionId,
+      threadId,
+      data.content || "",
+    );
   }
 
   private handleThoughtEnd(data: any): void {
@@ -355,7 +389,11 @@ export class AgentMessageRouter {
       return;
     }
     this.deps.chat.updateAgentActivity(sessionId);
-    this.deps.pipeline.handleMessageChunk(sessionId, threadId, data.content || "");
+    this.deps.pipeline.handleMessageChunk(
+      sessionId,
+      threadId,
+      data.content || "",
+    );
   }
 
   private async handleUsageUpdate(data: any): Promise<void> {
@@ -366,9 +404,17 @@ export class AgentMessageRouter {
       return;
     }
     const session = await this.deps.sessionRepository.findById(sessionId);
-    const hadExpertPending = !!this.deps.pipeline.getExpertPending(sessionId, threadId);
+    const hadExpertPending = !!this.deps.pipeline.getExpertPending(
+      sessionId,
+      threadId,
+    );
     const sessionObj = session ? session : { activeChatThreadId: undefined };
-    await this.deps.pipeline.handleUsageUpdate(sessionId, threadId, data.usage ?? {}, sessionObj);
+    await this.deps.pipeline.handleUsageUpdate(
+      sessionId,
+      threadId,
+      data.usage ?? {},
+      sessionObj,
+    );
     if (!hadExpertPending) {
       void this.deps.triggerAutoSync(sessionId, "usage_update");
     }
@@ -456,7 +502,11 @@ export class AgentMessageRouter {
       return;
     }
     const commands = normalizeAvailableCommands(data.commands);
-    this.deps.pipeline.handleAvailableCommandsUpdate(sessionId, threadId, commands);
+    this.deps.pipeline.handleAvailableCommandsUpdate(
+      sessionId,
+      threadId,
+      commands,
+    );
   }
 
   private async handleFileChanged(data: any): Promise<void> {
@@ -474,7 +524,9 @@ export class AgentMessageRouter {
       return;
     }
 
-    const fossilUpResult = await this.deps.vcs.fossilUp(session.agentWorkspacePath);
+    const fossilUpResult = await this.deps.vcs.fossilUp(
+      session.agentWorkspacePath,
+    );
     if (!fossilUpResult.success) {
       logger.error(
         `[file_changed] fossil up failed for session ${sessionId}: ${fossilUpResult.error || "unknown error"}`,
@@ -487,8 +539,15 @@ export class AgentMessageRouter {
       deleted: file.deleted,
     }));
 
-    await this.deps.mimoContext.services.fileSync.initializeSession(sessionId, "", "");
-    await this.deps.mimoContext.services.fileSync.handleFileChanges(sessionId, changes);
+    await this.deps.mimoContext.services.fileSync.initializeSession(
+      sessionId,
+      "",
+      "",
+    );
+    await this.deps.mimoContext.services.fileSync.handleFileChanges(
+      sessionId,
+      changes,
+    );
   }
 
   private handleSessionError(data: any): void {
@@ -514,7 +573,9 @@ export class AgentMessageRouter {
       await this.deps.sessionRepository.updateChatThread(sessionId, threadId, {
         acpSessionId,
       });
-      logger.debug(`[agent] Updated thread ${threadId} acpSessionId to ${acpSessionId}`);
+      logger.debug(
+        `[agent] Updated thread ${threadId} acpSessionId to ${acpSessionId}`,
+      );
 
       if (wasReset) {
         const timestamp = new Date().toISOString();
@@ -550,7 +611,9 @@ export class AgentMessageRouter {
       await this.deps.sessionRepository.updateChatThread(sessionId, threadId, {
         acpSessionId,
       });
-      logger.debug(`[agent] Updated thread ${threadId} acpSessionId to ${acpSessionId} after clear`);
+      logger.debug(
+        `[agent] Updated thread ${threadId} acpSessionId to ${acpSessionId} after clear`,
+      );
 
       const timestamp = new Date().toISOString();
       const session = await this.deps.sessionRepository.findById(sessionId);
@@ -618,7 +681,10 @@ export class AgentMessageRouter {
     if (!data.sessionId) return;
 
     if (data.modelState) {
-      this.deps.sessionStateService.setModelState(data.sessionId, data.modelState);
+      this.deps.sessionStateService.setModelState(
+        data.sessionId,
+        data.modelState,
+      );
       await this.deps.sessionRepository.update(data.sessionId, {
         modelState: data.modelState,
       });
@@ -627,7 +693,9 @@ export class AgentMessageRouter {
         data.modelState.currentModelId,
       );
 
-      const session = await this.deps.sessionRepository.findById(data.sessionId);
+      const session = await this.deps.sessionRepository.findById(
+        data.sessionId,
+      );
       if (session?.activeChatThreadId) {
         const thread = session.chatThreads.find(
           (t: any) => t.id === session.activeChatThreadId,
@@ -646,7 +714,10 @@ export class AgentMessageRouter {
     }
 
     if (data.modeState) {
-      this.deps.sessionStateService.setModeState(data.sessionId, data.modeState);
+      this.deps.sessionStateService.setModeState(
+        data.sessionId,
+        data.modeState,
+      );
       await this.deps.sessionRepository.update(data.sessionId, {
         modeState: data.modeState,
       });
@@ -655,7 +726,9 @@ export class AgentMessageRouter {
         data.modeState.currentModeId,
       );
 
-      const session = await this.deps.sessionRepository.findById(data.sessionId);
+      const session = await this.deps.sessionRepository.findById(
+        data.sessionId,
+      );
       if (session?.activeChatThreadId) {
         const thread = session.chatThreads.find(
           (t: any) => t.id === session.activeChatThreadId,
@@ -706,7 +779,10 @@ export class AgentMessageRouter {
 
   private async handleModelState(data: any): Promise<void> {
     if (data.sessionId && data.modelState) {
-      this.deps.sessionStateService.setModelState(data.sessionId, data.modelState);
+      this.deps.sessionStateService.setModelState(
+        data.sessionId,
+        data.modelState,
+      );
       await this.deps.sessionRepository.update(data.sessionId, {
         modelState: data.modelState,
       });
@@ -732,7 +808,10 @@ export class AgentMessageRouter {
 
   private async handleModeState(data: any): Promise<void> {
     if (data.sessionId && data.modeState) {
-      this.deps.sessionStateService.setModeState(data.sessionId, data.modeState);
+      this.deps.sessionStateService.setModeState(
+        data.sessionId,
+        data.modeState,
+      );
       await this.deps.sessionRepository.update(data.sessionId, {
         modeState: data.modeState,
       });
@@ -761,7 +840,9 @@ export class AgentMessageRouter {
     logger.debug("[agent] ACP status update:", { sessionId, status });
 
     if (sessionId) {
-      await this.deps.sessionRepository.update(sessionId, { acpStatus: status });
+      await this.deps.sessionRepository.update(sessionId, {
+        acpStatus: status,
+      });
 
       const subscribers = this.deps.chatSessions.get(sessionId);
       if (subscribers) {
@@ -808,7 +889,10 @@ export class AgentMessageRouter {
   private handleSyncNowResult(data: any): void {
     const resolved = resolveAgentSyncNowResult(data);
     if (!resolved) {
-      logger.debug("[agent] No pending sync request for result:", data.requestId);
+      logger.debug(
+        "[agent] No pending sync request for result:",
+        data.requestId,
+      );
     }
   }
 
@@ -920,8 +1004,19 @@ export class AgentMessageRouter {
     this.pendingActivityTouches.set(sessionId, timer);
   }
 
+  // For use by index.tsx when a chat client sends a permission_response
+  async routePermissionResponse(
+    requestId: string,
+    optionId: string,
+  ): Promise<void> {
+    await this.handlePermissionResponse({ requestId, optionId });
+  }
+
   // For use by index.tsx to clean up when UI clients disconnect
-  autoRejectPendingPermissionsForSession(sessionId: string, agentWs: any): void {
+  autoRejectPendingPermissionsForSession(
+    sessionId: string,
+    agentWs: any,
+  ): void {
     for (const [requestId, pending] of this.pendingPermissions) {
       if (pending.sessionId === sessionId) {
         this.pendingPermissions.delete(requestId);
