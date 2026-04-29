@@ -76,7 +76,7 @@ export function createMcpRoutes(mimoContext: McpRoutesContext) {
           {
             name: "open_file",
             description:
-              "Open a file in the platform editor (EditBuffer) for the current session",
+              "Open a file in the platform editor (EditBuffer) for the current session. Optionally scrolls to a specific line.",
             inputSchema: {
               type: "object",
               properties: {
@@ -84,6 +84,12 @@ export function createMcpRoutes(mimoContext: McpRoutesContext) {
                   type: "string",
                   description:
                     "Relative path to the file within the session workspace",
+                },
+                line: {
+                  type: "integer",
+                  minimum: 1,
+                  description:
+                    "Optional 1-based line to center in the editor view after opening",
                 },
               },
               required: ["path"],
@@ -146,19 +152,31 @@ export function createMcpRoutes(mimoContext: McpRoutesContext) {
         return respondResult({ success: false, error: "File not found" });
       }
 
-      broadcastToSession(mimoContext.chatSessions, sessionId, {
+      const rawLine = args?.line;
+      const validLine =
+        Number.isInteger(rawLine) && (rawLine as number) >= 1
+          ? (rawLine as number)
+          : undefined;
+
+      const broadcastPayload: {
+        type: string;
+        sessionId: string;
+        path: string;
+        line?: number;
+      } = {
         type: "open_file_in_editbuffer",
         sessionId,
         path: filePath,
-      });
+      };
+      if (validLine !== undefined) {
+        broadcastPayload.line = validLine;
+      }
+
+      broadcastToSession(mimoContext.chatSessions, sessionId, broadcastPayload);
       const fileWatchSubscribers =
         mimoContext.fileWatchSessions?.get(sessionId);
       if (fileWatchSubscribers) {
-        const payload = JSON.stringify({
-          type: "open_file_in_editbuffer",
-          sessionId,
-          path: filePath,
-        });
+        const payload = JSON.stringify(broadcastPayload);
         fileWatchSubscribers.forEach((client) => {
           if (client.readyState === 1) {
             client.send(payload);
@@ -168,6 +186,7 @@ export function createMcpRoutes(mimoContext: McpRoutesContext) {
       logger.debug("[mcp] open_file broadcast sent", {
         sessionId,
         path: filePath,
+        line: validLine,
       });
 
       return respondResult({ success: true, path: filePath });

@@ -1970,6 +1970,16 @@
               if (editTab) editTab.click();
               var contentEl = document.getElementById("edit-buffer-content");
               if (contentEl) contentEl.focus();
+              if (Number.isInteger(data.line) && data.line >= 1) {
+                var targetRow = document.querySelector(
+                  '#edit-buffer-lines-body tr[data-line-number="' +
+                    data.line +
+                    '"]',
+                );
+                if (targetRow) {
+                  targetRow.scrollIntoView({ block: "center" });
+                }
+              }
             });
           }
         } else if (data.type === "error") {

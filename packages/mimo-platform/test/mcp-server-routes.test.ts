@@ -17,6 +17,7 @@ describe("Platform MCP HTTP endpoint", () => {
   let workspacePath: string;
   let app: Hono;
   let sentMessages: string[];
+  let fileWatchSentMessages: string[];
   const sessionId = "session-mcp-1";
   const otherSessionId = "session-mcp-2";
   const token = "mcp-token-abc";
@@ -30,15 +31,25 @@ describe("Platform MCP HTTP endpoint", () => {
     );
 
     sentMessages = [];
+    fileWatchSentMessages = [];
     const wsClient = {
       readyState: 1,
       send: (msg: string) => sentMessages.push(msg),
+    };
+    const fileWatchClient = {
+      readyState: 1,
+      send: (msg: string) => fileWatchSentMessages.push(msg),
     };
     const chatSessions = new Map<
       string,
       Set<{ readyState: number; send: (msg: string) => void }>
     >();
     chatSessions.set(sessionId, new Set([wsClient]));
+    const fileWatchSessions = new Map<
+      string,
+      Set<{ readyState: number; send: (msg: string) => void }>
+    >();
+    fileWatchSessions.set(sessionId, new Set([fileWatchClient]));
 
     mcpTokenStore.register(token, sessionId);
     mcpTokenStore.register("mcp-token-other", otherSessionId);
@@ -60,6 +71,7 @@ describe("Platform MCP HTTP endpoint", () => {
       "/api/mimo-mcp",
       createMcpRoutes({
         chatSessions,
+        fileWatchSessions,
         getSessionWorkspace: async (requestedSessionId: string) =>
           requestedSessionId === sessionId ? workspacePath : null,
         fileService,
@@ -178,5 +190,168 @@ describe("Platform MCP HTTP endpoint", () => {
 
     expect(res.status).toBe(401);
     expect(sentMessages.length).toBe(0);
+  });
+
+  it("1.1 tools/list advertises optional line argument for open_file", async () => {
+    const res = await app.request("http://localhost/api/mimo-mcp", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ method: "tools/list" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const openFile = body.result.tools.find((t: any) => t.name === "open_file");
+    expect(openFile).toBeDefined();
+    expect(openFile.inputSchema.properties.line).toEqual({
+      type: "integer",
+      minimum: 1,
+      description:
+        "Optional 1-based line to center in the editor view after opening",
+    });
+    expect(openFile.inputSchema.required).toEqual(["path"]);
+  });
+
+  it("1.3 tools/call open_file with valid line broadcasts line on chat WS", async () => {
+    const res = await app.request("http://localhost/api/mimo-mcp", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        method: "tools/call",
+        params: {
+          name: "open_file",
+          arguments: { path: "src/hello.ts", line: 138 },
+        },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result.success).toBe(true);
+    expect(body.result.path).toBe("src/hello.ts");
+    expect(sentMessages.length).toBe(1);
+    const payload = JSON.parse(sentMessages[0]);
+    expect(payload).toEqual({
+      type: "open_file_in_editbuffer",
+      sessionId,
+      path: "src/hello.ts",
+      line: 138,
+    });
+  });
+
+  it("1.4 tools/call open_file with valid line also broadcasts on fileWatchSessions", async () => {
+    const res = await app.request("http://localhost/api/mimo-mcp", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        method: "tools/call",
+        params: {
+          name: "open_file",
+          arguments: { path: "src/hello.ts", line: 138 },
+        },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(fileWatchSentMessages.length).toBe(1);
+    const payload = JSON.parse(fileWatchSentMessages[0]);
+    expect(payload).toEqual({
+      type: "open_file_in_editbuffer",
+      sessionId,
+      path: "src/hello.ts",
+      line: 138,
+    });
+  });
+
+  it("1.6 tools/call open_file without line omits line in broadcast", async () => {
+    const res = await app.request("http://localhost/api/mimo-mcp", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        method: "tools/call",
+        params: {
+          name: "open_file",
+          arguments: { path: "src/hello.ts" },
+        },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result).toEqual({ success: true, path: "src/hello.ts" });
+    expect(sentMessages.length).toBe(1);
+    const chatPayload = JSON.parse(sentMessages[0]);
+    expect("line" in chatPayload).toBe(false);
+    expect(fileWatchSentMessages.length).toBe(1);
+    const watchPayload = JSON.parse(fileWatchSentMessages[0]);
+    expect("line" in watchPayload).toBe(false);
+  });
+
+  for (const invalidLine of [0, -3, 1.5, "abc", null]) {
+    it(`1.7 tools/call open_file with invalid line=${JSON.stringify(invalidLine)} drops line and succeeds`, async () => {
+      const res = await app.request("http://localhost/api/mimo-mcp", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          method: "tools/call",
+          params: {
+            name: "open_file",
+            arguments: { path: "src/hello.ts", line: invalidLine },
+          },
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.result).toEqual({ success: true, path: "src/hello.ts" });
+      expect(sentMessages.length).toBe(1);
+      const chatPayload = JSON.parse(sentMessages[0]);
+      expect("line" in chatPayload).toBe(false);
+      expect(fileWatchSentMessages.length).toBe(1);
+      const watchPayload = JSON.parse(fileWatchSentMessages[0]);
+      expect("line" in watchPayload).toBe(false);
+    });
+  }
+
+  it("1.8 line greater than file's line count is still broadcast (no server-side line-count check)", async () => {
+    const res = await app.request("http://localhost/api/mimo-mcp", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        method: "tools/call",
+        params: {
+          name: "open_file",
+          arguments: { path: "src/hello.ts", line: 999999 },
+        },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result).toEqual({ success: true, path: "src/hello.ts" });
+    expect(sentMessages.length).toBe(1);
+    const payload = JSON.parse(sentMessages[0]);
+    expect(payload.line).toBe(999999);
+    expect(fileWatchSentMessages.length).toBe(1);
+    const watchPayload = JSON.parse(fileWatchSentMessages[0]);
+    expect(watchPayload.line).toBe(999999);
   });
 });
