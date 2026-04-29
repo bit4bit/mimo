@@ -74,6 +74,17 @@ function buildDecoratedLines(text) {
       fenceLines.push(line);
       continue;
     }
+    var headingMatch = line.match(/^(#{1,6})\s+(\S.*)$/);
+    if (headingMatch) {
+      var level = headingMatch[1].length;
+      result.push({
+        type: "heading",
+        level: level,
+        text: line,
+        html: decorateInlineMarkup(escapeHtml(line)),
+      });
+      continue;
+    }
     if (line === "") {
       result.push({ type: "empty" });
     } else {

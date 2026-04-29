@@ -1030,6 +1030,26 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           text-decoration: underline;
           cursor: pointer;
         }
+        .decorated-heading {
+          font-weight: bold;
+          margin: 0.5em 0 0.25em;
+          line-height: 1.3;
+        }
+        .decorated-heading-1 {
+          font-size: 1.5em;
+        }
+        .decorated-heading-2 {
+          font-size: 1.3em;
+        }
+        .decorated-heading-3 {
+          font-size: 1.15em;
+        }
+        .decorated-heading-4 {
+          font-size: 1.05em;
+        }
+        .decorated-heading-5 {
+          font-size: 1em;
+        }
         .chat-file-ref {
           background: transparent;
           border: 1px solid #4f667f;
