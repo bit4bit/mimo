@@ -367,7 +367,16 @@ app.get("/api/projects/public", async (c) => {
 app.route("/projects", createProjectsRoutes(mimoContext));
 
 // Session routes (protected)
-app.route("/sessions", createSessionsRoutes(mimoContext));
+app.route(
+  "/sessions",
+  createSessionsRoutes(mimoContext, {
+    impactBackground: {
+      calculatingSessions,
+      broadcast: (sessionId, message) =>
+        broadcastToSession(chatSessions, sessionId, message),
+    },
+  }),
+);
 
 // Summary API routes
 app.route("/api/summary", createSummaryRoutes(mimoContext));
@@ -1050,7 +1059,11 @@ async function handleChatMessage(ws, data) {
       break;
 
     case "refresh_impact":
-      await handleRefreshImpact({
+      // Fire-and-forget: handleRefreshImpact already broadcasts impact_calculating
+      // / impact_updated / impact_error via WebSocket on its own. Awaiting here
+      // would serialize subsequent messages on this socket (Bun awaits each
+      // message handler per connection), freezing send_message and other UI.
+      void handleRefreshImpact({
         sessionId,
         calculatingSessions,
         sendToRequester: (message) => ws.send(JSON.stringify(message)),
@@ -1065,6 +1078,8 @@ async function handleChatMessage(ws, data) {
             workspacePath,
             forceRefresh,
           ),
+      }).catch((err) => {
+        logger.error("[impact] refresh_impact handler failed:", err);
       });
       break;
 

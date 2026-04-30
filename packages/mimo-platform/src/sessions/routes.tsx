@@ -19,10 +19,23 @@ import { VCS_INTERNALS } from "../vcs/index.js";
 import { mcpTokenStore } from "../mcp/token-store.js";
 import { createPlatformMcpServerConfig } from "../mcp/platform-config.js";
 import { DEFAULT_MIMO_HOST } from "../context/mimo-context.js";
+import { handleRefreshImpact } from "../impact/refresh-handler.js";
 
 type SessionsRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
 
-export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
+interface ImpactBackgroundDeps {
+  calculatingSessions: Set<string>;
+  broadcast: (sessionId: string, message: Record<string, unknown>) => void;
+}
+
+interface SessionsRoutesDeps {
+  impactBackground?: ImpactBackgroundDeps;
+}
+
+export function createSessionsRoutes(
+  mimoContext: SessionsRoutesContext,
+  deps: SessionsRoutesDeps = {},
+) {
   const router = new Hono();
   const authService = mimoContext.services.auth;
   const agentService = mimoContext.services.agents;
@@ -884,6 +897,74 @@ export function createSessionsRoutes(mimoContext: SessionsRoutesContext) {
 
     if (!session || session.owner !== username) {
       return c.json({ error: "Session not found" }, 404);
+    }
+
+    // When the impact background runner is wired up (production path), respond
+    // immediately and run fossilUp + recompute off the request. The result and
+    // any errors reach the client via the existing impact_calculating /
+    // impact_updated / impact_error WebSocket broadcasts. This keeps the Bun
+    // event loop free for interactive HTTP/WS requests (send_message, create
+    // chat thread) right after page load.
+    if (deps.impactBackground) {
+      const { calculatingSessions, broadcast } = deps.impactBackground;
+      const sccInstalled = mimoContext.services.scc.isInstalled();
+
+      void (async () => {
+        try {
+          const fossilPath = sessionRepository.getFossilPath(sessionId);
+          const { existsSync } = await import("fs");
+          const { join } = await import("path");
+          const fslckoutPath = join(session.agentWorkspacePath, ".fslckout");
+
+          if (existsSync(fossilPath)) {
+            if (!existsSync(fslckoutPath)) {
+              logger.debug(
+                `[impact] Initializing fossil checkout in agent-workspace...`,
+              );
+              await vcs.openFossil(fossilPath, session.agentWorkspacePath);
+            }
+            logger.debug(
+              `[impact] Syncing agent-workspace with repo.fossil...`,
+            );
+            await vcs.fossilUp(session.agentWorkspacePath);
+          }
+
+          await handleRefreshImpact({
+            sessionId,
+            calculatingSessions,
+            sendToRequester: () => {
+              // No requester: this is an HTTP-triggered background run. The
+              // client receives results via the broadcast below.
+            },
+            broadcast,
+            findSessionById: (targetSessionId) =>
+              sessionRepository.findById(targetSessionId),
+            calculateImpact: (sid, upstreamPath, workspacePath, forceRefresh) =>
+              mimoContext.services.impactCalculator.calculateImpact(
+                sid,
+                upstreamPath,
+                workspacePath,
+                forceRefresh,
+              ),
+          });
+        } catch (error) {
+          logger.error(
+            `[impact] Background impact recompute failed for ${sessionId}:`,
+            error,
+          );
+          broadcast(sessionId, {
+            type: "impact_error",
+            sessionId,
+            error: error instanceof Error ? error.message : String(error),
+            timestamp: new Date().toISOString(),
+          });
+        }
+      })();
+
+      return c.json({
+        calculating: true,
+        sccInstalled,
+      });
     }
 
     try {
