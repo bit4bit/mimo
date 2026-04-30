@@ -1,9 +1,17 @@
 import { describe, it, expect } from "bun:test";
-import {
-  escapeHtml,
-  decorateInlineMarkup,
-  buildDecoratedLines,
-} from "./chat-decorated-utils.js";
+import { readFileSync } from "fs";
+import { join } from "path";
+
+const utilsPath = join(import.meta.dir, "../../../public/js/chat-decorated-utils.js");
+const utilsCode = readFileSync(utilsPath, "utf-8");
+
+const sandbox: any = {};
+const wrappedCode = `(function (window) {\n${utilsCode}\n})(sandbox);`;
+
+// eslint-disable-next-line @typescript-eslint/no-implied-eval
+eval(wrappedCode);
+
+const { escapeHtml, decorateInlineMarkup, buildDecoratedLines } = sandbox;
 
 // --- escapeHtml ---
 

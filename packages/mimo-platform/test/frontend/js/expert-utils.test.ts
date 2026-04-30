@@ -2,7 +2,7 @@ import { describe, it, expect } from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";
 
-const expertUtilsPath = join(import.meta.dir, "../public/js/expert-utils.js");
+const expertUtilsPath = join(import.meta.dir, "../../../public/js/expert-utils.js");
 const expertUtilsCode = readFileSync(expertUtilsPath, "utf-8");
 
 const sandbox: any = {};
