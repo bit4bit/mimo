@@ -1,6 +1,21 @@
 import { describe, it, expect } from "bun:test";
+import { readFileSync } from "fs";
+import { join } from "path";
 
-const MIMO_DIFF = require("../public/js/diff.js");
+const diffPath = join(import.meta.dir, "../../../public/js/diff.js");
+const diffCode = readFileSync(diffPath, "utf-8");
+
+// Provide a mock module object so the IIFE assigns exports
+const mockModule = { exports: {} };
+const wrappedCode = diffCode.replace(
+  /\(function \(\) \{/,
+  "(function (module) {",
+).replace(/\}\)\(\);/, "})(mockModule);");
+
+// eslint-disable-next-line @typescript-eslint/no-implied-eval
+eval(wrappedCode);
+
+const MIMO_DIFF = mockModule.exports;
 
 describe("computeDiff", () => {
   it("returns identical panes when content is the same", () => {
@@ -10,10 +25,10 @@ describe("computeDiff", () => {
     expect(result.original.lines).toHaveLength(3);
     expect(result.modified.lines).toHaveLength(3);
 
-    result.original.lines.forEach((line) => {
+    result.original.lines.forEach((line: any) => {
       expect(line.type).toBe("unchanged");
     });
-    result.modified.lines.forEach((line) => {
+    result.modified.lines.forEach((line: any) => {
       expect(line.type).toBe("unchanged");
     });
   });
@@ -27,7 +42,7 @@ describe("computeDiff", () => {
     expect(result.original.lines).toHaveLength(2);
     expect(result.modified.lines).toHaveLength(3);
 
-    const addedLine = result.modified.lines.find((l) => l.type === "added");
+    const addedLine = result.modified.lines.find((l: any) => l.type === "added");
     expect(addedLine).toBeDefined();
     expect(addedLine?.content).toBe("line3");
   });
@@ -38,7 +53,7 @@ describe("computeDiff", () => {
 
     const result = MIMO_DIFF.computeDiff(original, modified);
 
-    const removedLine = result.original.lines.find((l) => l.type === "removed");
+    const removedLine = result.original.lines.find((l: any) => l.type === "removed");
     expect(removedLine).toBeDefined();
     expect(removedLine?.content).toBe("line2");
   });
@@ -51,7 +66,7 @@ describe("computeDiff", () => {
 
     expect(result.original.lines).toHaveLength(0);
     expect(result.modified.lines).toHaveLength(2);
-    result.modified.lines.forEach((line) => {
+    result.modified.lines.forEach((line: any) => {
       expect(line.type).toBe("added");
     });
   });
@@ -64,7 +79,7 @@ describe("computeDiff", () => {
 
     expect(result.original.lines).toHaveLength(2);
     expect(result.modified.lines).toHaveLength(0);
-    result.original.lines.forEach((line) => {
+    result.original.lines.forEach((line: any) => {
       expect(line.type).toBe("removed");
     });
   });
@@ -102,7 +117,7 @@ describe("computeDiff", () => {
 
     const result = MIMO_DIFF.computeDiff(original, modified);
 
-    const allContent = result.original.lines.map((l) => l.content).join("\n");
+    const allContent = result.original.lines.map((l: any) => l.content).join("\n");
     expect(allContent).toContain("line1");
     expect(allContent).toContain("line2");
     expect(allContent).toContain("line3");
