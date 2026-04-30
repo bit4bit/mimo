@@ -114,4 +114,8 @@ function buildDecoratedLines(text) {
   return result;
 }
 
-export { escapeHtml, decorateInlineMarkup, buildDecoratedLines };
+if (typeof window !== "undefined") {
+  window.escapeHtml = escapeHtml;
+  window.decorateInlineMarkup = decorateInlineMarkup;
+  window.buildDecoratedLines = buildDecoratedLines;
+}
