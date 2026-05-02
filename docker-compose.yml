@@ -42,7 +42,6 @@ services:
 
   agent-opencode:
     image: mimo:local
-    user: "${UID}:${GID}"
     working_dir: /app/packages/mimo-agent
     mem_limit: 4g
     memswap_limit: 4g
