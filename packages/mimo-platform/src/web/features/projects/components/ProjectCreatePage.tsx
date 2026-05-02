@@ -5,11 +5,13 @@ import type { Credential } from "../../../../domain/credentials/repository";
 interface ProjectCreateProps {
   error?: string;
   credentials?: Credential[];
+  defaultInstructions?: string;
 }
 
 export const ProjectCreatePage: FC<ProjectCreateProps> = ({
   error,
   credentials = [],
+  defaultInstructions = "Before performing any task, try to locate and read the file `AGENTS.md` if not found inform the user and continue.",
 }) => {
   return (
     <Layout title="Create Project">
@@ -38,6 +40,20 @@ export const ProjectCreatePage: FC<ProjectCreateProps> = ({
               style="background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%;"
               data-help-id="project-create-page-description-textarea"
             ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Instructions (optional)</label>
+            <textarea
+              name="instructions"
+              rows="4"
+              placeholder="Behavior instructions for the AI agent (e.g., You are a Python expert. Focus on clean code.)"
+              style="background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%;"
+              data-help-id="project-create-page-instructions-textarea"
+            >{defaultInstructions}</textarea>
+            <small class="form-help">
+              These instructions will be used as a default for all sessions and threads in this project. Can be overridden at the session or thread level.
+            </small>
           </div>
 
           <div class="form-group">

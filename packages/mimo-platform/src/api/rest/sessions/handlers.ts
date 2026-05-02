@@ -244,6 +244,7 @@ export async function createSessionHandler(
       mcpServerIds: body.mcpServerIds,
       sessionTtlDays: body.sessionTtlDays,
       priority: body.priority,
+      ...(body.instructions !== undefined && { instructions: body.instructions }),
     });
 
     return c.json(
@@ -335,6 +336,7 @@ export async function updateSessionHandler(
     if (body.frameState !== undefined) updates.frameState = body.frameState;
     if (body.status !== undefined) updates.status = body.status;
     if (body.closeReason !== undefined) updates.closeReason = body.closeReason;
+    if (body.instructions !== undefined) updates.instructions = body.instructions;
 
     const updated = await mimoContext.repos.sessions.update(id, updates);
 
@@ -634,6 +636,16 @@ export async function addChatThreadHandler(
     return c.json(errorResponse("assignedAgentId is required", 400), 400);
   }
 
+  // Resolve instructions: thread > session > project
+  let instructions: string | undefined = body.instructions;
+  if (!instructions) {
+    instructions = session.instructions;
+    if (!instructions) {
+      const project = await mimoContext.repos.projects.findById(session.projectId);
+      instructions = project?.instructions;
+    }
+  }
+
   const thread = await mimoContext.repos.sessions.addChatThread(sessionId, {
     name: body.name,
     model: body.model,
@@ -641,7 +653,21 @@ export async function addChatThreadHandler(
     acpSessionId: body.acpSessionId || null,
     assignedAgentId: body.assignedAgentId,
     state: body.state || "active",
+    ...(instructions !== undefined && { instructions }),
   });
+
+  // Save instructions as system message in chat history
+  if (instructions) {
+    await mimoContext.services.chat.saveMessage(
+      sessionId,
+      {
+        role: "system",
+        content: instructions,
+        timestamp: new Date().toISOString(),
+      },
+      thread.id,
+    );
+  }
 
   // Update session activity
   await mimoContext.repos.sessions.touchSessionActivity(sessionId);
@@ -686,7 +712,7 @@ export async function updateChatThreadHandler(
   const updates: Partial<
     Pick<
       import("../../../domain/sessions/repository.js").ChatThread,
-      "name" | "model" | "mode" | "acpSessionId" | "state"
+      "name" | "model" | "mode" | "acpSessionId" | "state" | "instructions"
     >
   > = {};
   if (body.name !== undefined) updates.name = body.name;
@@ -694,6 +720,7 @@ export async function updateChatThreadHandler(
   if (body.mode !== undefined) updates.mode = body.mode;
   if (body.acpSessionId !== undefined) updates.acpSessionId = body.acpSessionId;
   if (body.state !== undefined) updates.state = body.state;
+  if (body.instructions !== undefined) updates.instructions = body.instructions;
 
   const updated = await mimoContext.repos.sessions.updateChatThread(
     sessionId,

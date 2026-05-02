@@ -29,6 +29,7 @@ export interface ChatThread {
   acpSessionId: string | null;
   assignedAgentId: string | null;
   state: "active" | "parked" | "waking" | "disconnected";
+  instructions?: string;
   createdAt: string;
 }
 
@@ -67,6 +68,7 @@ export interface Session {
   chatThreads: ChatThread[];
   activeChatThreadId: string | null;
   mcpToken: string;
+  instructions?: string;
   closeReason?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -106,6 +108,7 @@ export interface SessionData {
   activeChatThreadId?: string | null;
   mcpToken?: string;
   closeReason?: string;
+  instructions?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -120,6 +123,7 @@ export interface CreateSessionInput {
   mcpServerIds?: string[];
   sessionTtlDays?: number;
   priority?: SessionPriority;
+  instructions?: string;
 }
 
 export interface UpdateSessionConfigInput {
@@ -307,6 +311,7 @@ export class SessionRepository {
       updatedAt: now,
       ...(input.agentSubpath && { agentSubpath: input.agentSubpath }),
       ...(input.branchName && { branch: input.branchName }),
+      ...(input.instructions && { instructions: input.instructions }),
     };
 
     this.os.fs.writeFile(
@@ -685,7 +690,7 @@ export class SessionRepository {
     sessionId: string,
     threadId: string,
     updates: Partial<
-      Pick<ChatThread, "name" | "model" | "mode" | "acpSessionId" | "state">
+      Pick<ChatThread, "name" | "model" | "mode" | "acpSessionId" | "state" | "instructions">
     >,
   ): Promise<ChatThread | null> {
     const session = await this.findById(sessionId);

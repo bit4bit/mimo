@@ -47,6 +47,8 @@ export interface SessionResponse {
   activeChatThreadId?: string | null;
   // Frame state
   frameState?: import("../../../domain/sessions/frame-state.js").FrameState;
+  // Instructions
+  instructions?: string;
 }
 
 /**
@@ -60,6 +62,7 @@ export interface ChatThreadResponse {
   acpSessionId: string | null;
   assignedAgentId: string | null;
   state: "active" | "parked" | "waking" | "disconnected";
+  instructions?: string;
   createdAt: string;
 }
 
@@ -86,6 +89,7 @@ export interface CreateSessionRequest {
   mcpServerIds?: string[];
   sessionTtlDays?: number;
   priority?: SessionPriority;
+  instructions?: string;
 }
 
 /**
@@ -102,6 +106,7 @@ export interface UpdateSessionRequest {
   frameState?: import("../../../domain/sessions/frame-state.js").FrameState;
   status?: "active" | "paused" | "closed";
   closeReason?: string;
+  instructions?: string;
 }
 
 /**
@@ -181,6 +186,8 @@ export function toSessionResponse(session: Session): SessionResponse {
     activeChatThreadId: session.activeChatThreadId ?? null,
     // Frame state
     ...(session.frameState && { frameState: session.frameState }),
+    // Instructions
+    ...(session.instructions && { instructions: session.instructions }),
   };
 }
 
@@ -196,6 +203,7 @@ export function toChatThreadResponse(thread: ChatThread): ChatThreadResponse {
     acpSessionId: thread.acpSessionId,
     assignedAgentId: thread.assignedAgentId,
     state: thread.state,
+    ...(thread.instructions && { instructions: thread.instructions }),
     createdAt: thread.createdAt,
   };
 }

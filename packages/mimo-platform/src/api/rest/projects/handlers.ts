@@ -143,6 +143,7 @@ export async function createProjectHandler(
       sourceBranch: body.sourceBranch,
       newBranch: body.newBranch,
       agentSubpath: body.agentSubpath?.trim() || undefined,
+      ...(body.instructions !== undefined && { instructions: body.instructions }),
     });
 
     return c.json(
@@ -236,6 +237,7 @@ export async function updateProjectHandler(
       repoType: body.repoType,
       description: body.description,
       credentialId: body.credentialId,
+      ...(body.instructions !== undefined && { instructions: body.instructions }),
     });
 
     return c.json(

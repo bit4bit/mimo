@@ -180,6 +180,10 @@ export class MimoAgent {
         this.handleUserMessage(message);
         break;
 
+      case "initial_prompt":
+        this.handleInitialPrompt(message);
+        break;
+
       case "set_model":
         this.handleSetModel(message);
         break;
@@ -1614,6 +1618,41 @@ export class MimoAgent {
     }
 
     this.lifecycleManager.recordActivity(sessionId, chatThreadId);
+    await this.sendPrompt(acpClient, sessionId, chatThreadId, content);
+  }
+
+  private async handleInitialPrompt(message: any): Promise<void> {
+    const sessionId = message.sessionId;
+    const content = message.content;
+    const chatThreadId: string = message.chatThreadId;
+
+    if (!sessionId) {
+      logger.debug("[mimo-agent] No sessionId in initial_prompt");
+      return;
+    }
+    if (!chatThreadId) {
+      logger.debug("[mimo-agent] No chatThreadId in initial_prompt");
+      return;
+    }
+    if (!content) {
+      logger.debug("[mimo-agent] No content in initial_prompt");
+      return;
+    }
+
+    const key = acpKey(sessionId, chatThreadId);
+
+    // Wait for thread runtime to be ready
+    let acpClient: AcpClient | null | undefined = this.acpClients.get(key);
+    if (!acpClient) {
+      acpClient = await this.ensureThreadRuntime(sessionId, chatThreadId);
+    }
+    if (!acpClient) {
+      logger.debug(
+        `[mimo-agent] No ACP client for ${sessionId}/${chatThreadId}`,
+      );
+      return;
+    }
+
     await this.sendPrompt(acpClient, sessionId, chatThreadId, content);
   }
 

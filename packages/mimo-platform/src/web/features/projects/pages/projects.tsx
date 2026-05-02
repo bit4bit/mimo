@@ -116,7 +116,8 @@ export function createProjectsRoutes(
   projects.get("/new", auth, async (c) => {
     const user = c.get("user") as { username: string };
     const credentials = await credentialRepository.findByOwner(user.username);
-    return c.html(<ProjectCreatePage credentials={credentials} />);
+    const defaultInstructions = mimoContext.services.config.get("defaultProjectInstructions") as string;
+    return c.html(<ProjectCreatePage credentials={credentials} defaultInstructions={defaultInstructions} />);
   });
 
   // Create project (POST /projects)
@@ -130,6 +131,7 @@ export function createProjectsRoutes(
     const sourceBranch = body.sourceBranch as string | undefined;
     const newBranch = body.newBranch as string | undefined;
     const agentSubpath = body.agentSubpath as string | undefined;
+    const instructions = body.instructions as string | undefined;
     const user = c.get("user") as { username: string };
 
     // Pre-validate before calling internal API
@@ -139,6 +141,7 @@ export function createProjectsRoutes(
         <ProjectCreatePage
           credentials={credentials}
           error="Name and repository URL are required"
+          defaultInstructions={instructions}
         />,
         400,
       );
@@ -156,6 +159,7 @@ export function createProjectsRoutes(
           <ProjectCreatePage
             credentials={credentials}
             error="Invalid repository URL"
+            defaultInstructions={instructions}
           />,
           400,
         );
@@ -169,6 +173,7 @@ export function createProjectsRoutes(
         <ProjectCreatePage
           credentials={credentials}
           error="Repository type must be 'git' or 'fossil'"
+          defaultInstructions={instructions}
         />,
         400,
       );
@@ -181,6 +186,7 @@ export function createProjectsRoutes(
         <ProjectCreatePage
           credentials={credentials}
           error="Description must be 500 characters or less"
+          defaultInstructions={instructions}
         />,
         400,
       );
@@ -200,6 +206,7 @@ export function createProjectsRoutes(
           <ProjectCreatePage
             credentials={credentials}
             error="Selected credential not found"
+            defaultInstructions={instructions}
           />,
           400,
         );
@@ -214,6 +221,7 @@ export function createProjectsRoutes(
           <ProjectCreatePage
             credentials={credentials}
             error={`Credential type does not match repository URL type. Expected ${expectedType.toUpperCase()} but got ${credential.type.toUpperCase()}`}
+            defaultInstructions={instructions}
           />,
           400,
         );
@@ -231,12 +239,13 @@ export function createProjectsRoutes(
       sourceBranch,
       newBranch,
       agentSubpath,
+      ...(instructions && { instructions }),
     });
 
     if (!result.success) {
       const credentials = await credentialRepository.findByOwner(user.username);
       return c.html(
-        <ProjectCreatePage credentials={credentials} error={result.error} />,
+        <ProjectCreatePage credentials={credentials} error={result.error} defaultInstructions={instructions} />,
         result.status >= 400 && result.status < 500 ? result.status : 500,
       );
     }
@@ -312,6 +321,7 @@ export function createProjectsRoutes(
     const repoType = (body.repoType as string) || "git";
     const description = body.description as string | undefined;
     const credentialId = body.credentialId as string | undefined;
+    const instructions = body.instructions as string | undefined;
 
     // Pre-validation
     if (!name || !repoUrl) {
@@ -416,6 +426,7 @@ export function createProjectsRoutes(
         repoType,
         description,
         credentialId,
+        ...(instructions !== undefined && { instructions }),
       },
     );
 
