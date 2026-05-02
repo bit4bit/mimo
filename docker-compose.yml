@@ -28,7 +28,6 @@ services:
     volumes:
       - mimo-home-platform:/home/app
       - ~/.mimo:/home/app/.mimo
-      - ~/.ssh-mimo:/home/app/.ssh:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 10s
