@@ -10,7 +10,6 @@ BIN_DIR="${MIMO_BIN_DIR:-$HOME/.local/bin}"
 
 FORCE=0
 START=1
-DOWNLOAD=0
 
 timestamp() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { printf '[%s] %s\n' "$(timestamp)" "$*"; }
@@ -22,10 +21,9 @@ usage() {
 Install mimo-platform as a systemd user service.
 
 Usage:
-  ./scripts/install-user-platform.sh [--download] [--force] [--no-start] [--bin-dir <path>]
+  ./scripts/install-user-platform.sh [--force] [--no-start] [--bin-dir <path>]
 
 Options:
-  --download  Download release binary to ~/.local/bin.
   --force     Overwrite existing ~/.config/mimo/mimo-platform.env.
   --no-start  Do not enable/start the service.
   --bin-dir   Install/read binary from custom directory.
@@ -39,36 +37,29 @@ ensure_writable_dir() {
   [[ -w "$dir" ]] || die "Directory is not writable: $dir"
 }
 
-download_binary() {
-  local url="$1"
-  local target="$2"
-  local tmp
-  tmp="$(mktemp "${target}.tmp.XXXXXX")"
-  if ! curl -fL --progress-bar -o "$tmp" "$url"; then
-    rm -f "$tmp"
-    die "Download failed for $url (check permissions and free disk space)"
-  fi
-  chmod +x "$tmp"
-  mv "$tmp" "$target"
-}
-
-install_local_binary() {
+compile_binary() {
   local target="$1"
-  shift
-  local src
-  for src in "$@"; do
-    if [[ -x "$src" ]]; then
-      cp "$src" "$target"
-      chmod +x "$target"
-      return 0
-    fi
-  done
-  return 1
+  local bun_target
+  local package_dir="$ROOT_DIR/packages/mimo-platform"
+
+  case "$(uname -m)" in
+    x86_64) bun_target="bun-linux-x64" ;;
+    *) die "Unsupported architecture for local build: $(uname -m)" ;;
+  esac
+
+  command -v bun >/dev/null 2>&1 || die "bun is required to compile from source"
+  log "Compiling mimo-platform from local source (${bun_target})"
+  [[ -f "$package_dir/src/index.tsx" ]] || die "Missing source file: $package_dir/src/index.tsx"
+  [[ -f "$package_dir/src/assets.ts" ]] || die "Missing source file: $package_dir/src/assets.ts"
+  (
+    cd "$package_dir"
+    bun build --compile --target="$bun_target" ./src/index.tsx ./src/assets.ts --outfile "$target"
+  )
+  chmod +x "$target"
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --download) DOWNLOAD=1 ;;
     --force) FORCE=1 ;;
     --no-start) START=0 ;;
     --bin-dir)
@@ -88,23 +79,9 @@ mkdir -p "$SYSTEMD_USER_DIR" "$MIMO_CONFIG_DIR"
 ensure_writable_dir "$BIN_DIR"
 log "Directories ready (bin: $BIN_DIR)"
 
-if [[ "$DOWNLOAD" -eq 1 ]]; then
-  case "$(uname -m)" in
-    x86_64) TARGET="linux-x64" ;;
-    *) die "Unsupported architecture for release download" ;;
-  esac
-  log "Downloading mimo-platform (${TARGET})"
-  download_binary "https://github.com/bit4bit/mimo/releases/latest/download/mimo-platform-${TARGET}" "$BIN_DIR/mimo-platform"
-else
-  if [[ ! -x "$BIN_DIR/mimo-platform" ]]; then
-    log "Trying local mimo-platform binaries"
-    install_local_binary "$BIN_DIR/mimo-platform" \
-      "$ROOT_DIR/mimo-platform" \
-      "$ROOT_DIR/packages/mimo-platform/dist/mimo-platform" || true
-  fi
-fi
+compile_binary "$BIN_DIR/mimo-platform"
 
-[[ -x "$BIN_DIR/mimo-platform" ]] || die "Missing $BIN_DIR/mimo-platform (use --download)"
+[[ -x "$BIN_DIR/mimo-platform" ]] || die "Missing $BIN_DIR/mimo-platform after local build"
 
 cp "$ROOT_DIR/deploy/systemd/user/mimo-platform.service" "$SYSTEMD_USER_DIR/mimo-platform.service"
 if [[ "$BIN_DIR" != "$HOME/.local/bin" ]]; then

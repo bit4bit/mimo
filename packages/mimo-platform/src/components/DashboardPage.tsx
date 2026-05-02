@@ -14,8 +14,8 @@ interface Agent {
   id: string;
   name: string;
   status: "online" | "offline";
-  startedAt: Date;
-  lastActivityAt?: Date;
+  startedAt: Date | string;
+  lastActivityAt?: Date | string;
 }
 
 interface Session {
@@ -24,7 +24,7 @@ interface Session {
   projectId: string;
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
-  createdAt: Date;
+  createdAt: Date | string;
   closeReason?: string;
 }
 

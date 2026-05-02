@@ -2,10 +2,22 @@
 import { jsx } from "hono/jsx";
 import type { FC } from "hono/jsx";
 import { Layout } from "./Layout.js";
-import type { McpServer, TransportType } from "../mcp-servers/types.js";
+import type { TransportType } from "../mcp-servers/types.js";
+
+// Minimal MCP server interface for UI rendering
+interface McpServerViewModel {
+  id: string;
+  name: string;
+  description?: string;
+  transport: "stdio" | "http" | "sse";
+  command?: string;
+  args?: string[];
+  url?: string;
+  headers?: Record<string, string>;
+}
 
 interface McpServerFormPageProps {
-  server?: McpServer;
+  server?: McpServerViewModel;
   error?: string;
   isEditing?: boolean;
 }

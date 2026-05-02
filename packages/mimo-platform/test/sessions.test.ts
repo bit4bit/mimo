@@ -20,6 +20,35 @@ let agentService: any;
 let mimoContext: any;
 let testHome: string;
 
+// Helper to create test app with internal API mounted
+function createTestApp(ctx: any, _sessionsR: any): Hono {
+  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
+  const { createSessionsRoutes } = require("../src/sessions/routes.tsx");
+
+  const app = new Hono();
+
+  // Mount internal API
+  const internalRouter = createInternalApiRouter(ctx);
+  app.route("/api/internal", internalRouter);
+
+  // Mount session routes with fetchFn that routes through app
+  const sessions = createSessionsRoutes(ctx, {
+    fetchFn: (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/api/internal/")) {
+        // Extract the path from the full URL
+        const path = new URL(urlStr).pathname;
+        return app.request(path, init);
+      }
+      return fetch(url, init);
+    },
+  });
+  app.route("/projects/:projectId/sessions", sessions);
+  app.route("/sessions", sessions);
+
+  return app;
+}
+
 describe("Session Management Integration Tests", () => {
   beforeEach(async () => {
     // Create unique test home for each test
@@ -78,8 +107,7 @@ describe("Session Management Integration Tests", () => {
 
   describe("Session Creation with ACP Session Parking", () => {
     it("should render session creation form without local mirror field", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -109,8 +137,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should create session with ttl days from creation form", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -145,8 +172,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should create a new session for a project", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       // Create user and project
       await userRepository.create(
@@ -186,8 +212,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should create session with default idleTimeoutMs of 10 minutes", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -225,8 +250,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should apply backward-compatible defaults for retention fields", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -276,8 +300,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should provision dev workspace credentials during session creation", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -323,8 +346,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should update idleTimeoutMs via updateSessionConfig", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -373,8 +395,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should update sessionTtlDays via updateSessionConfig", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -418,8 +439,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should reject invalid sessionTtlDays", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -461,8 +481,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should reject idleTimeoutMs below 10000ms", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -507,8 +526,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should reject session creation without authentication", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       const project = await projectRepository.create({
         name: "Test Project",
@@ -531,8 +549,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should reject session with missing name", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -565,8 +582,7 @@ describe("Session Management Integration Tests", () => {
 
   describe("Session Listing", () => {
     it("should list all sessions for a project", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -605,8 +621,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should show empty state", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -634,8 +649,7 @@ describe("Session Management Integration Tests", () => {
 
   describe("Session View", () => {
     it("should show session with three-buffer layout", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -674,8 +688,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should return 404 for non-existent session", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -701,8 +714,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should render clone workspace action with authenticated one-command fossil open", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -764,8 +776,7 @@ describe("Session Management Integration Tests", () => {
     }
 
     it("should call createBranch with session branchName override", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       let capturedBranch: string | null = null;
       mimoContext.services.vcs.createBranch = async (branch: string) => {
@@ -798,8 +809,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should fall back to project newBranch when no session branchName", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       let capturedBranch: string | null = null;
       mimoContext.services.vcs.createBranch = async (branch: string) => {
@@ -831,8 +841,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should not call createBranch when no branchName and no project newBranch", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       let createBranchCalled = false;
       mimoContext.services.vcs.createBranch = async () => {
@@ -862,8 +871,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("defaults to new mode when branchMode is omitted", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       let capturedBranch: string | null = null;
       mimoContext.services.vcs.createBranch = async (branch: string) => {
@@ -911,8 +919,7 @@ describe("Session Management Integration Tests", () => {
     }
 
     it("clones existing remote branch directly and skips createBranch", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       let cloneArgs: any[] | null = null;
       let createBranchCalled = false;
@@ -956,8 +963,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("persists session.branch in sync mode for push flow", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       mimoContext.services.vcs.createFossilUser = async () => ({
         success: true,
@@ -989,8 +995,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("fails sync when checkout HEAD does not match requested branch", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       // Simulate cloneRepository succeeding (e.g., a buggy fallback) but
       // leaving HEAD on a different branch than the user requested.
@@ -1024,8 +1029,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("returns 400 when sync mode has empty branchName", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       const { project, token } = await createUserAndProject();
 
@@ -1046,8 +1050,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("returns 400 when sync mode is used on fossil project", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       const { project, token } = await createUserAndProject({
         repoType: "fossil",
@@ -1071,8 +1074,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("returns 500 and deletes session when sync clone fails", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       mimoContext.services.vcs.cloneRepository = async () => ({
         success: false,
@@ -1105,8 +1107,7 @@ describe("Session Management Integration Tests", () => {
 
   describe("Session Deletion", () => {
     it("should delete session with cleanup", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -1200,8 +1201,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should hide delete button while session is active", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -1237,8 +1237,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should show delete button when session is inactive", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -1276,8 +1275,7 @@ describe("Session Management Integration Tests", () => {
 
   describe("Session Close Reason", () => {
     it("should render close page with form", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -1316,8 +1314,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should close session with reason", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -1360,8 +1357,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should close session without reason", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -1402,8 +1398,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should redirect to referer on cancel", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -1443,8 +1438,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should display close reason on session detail page", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -1485,8 +1479,7 @@ describe("Session Management Integration Tests", () => {
 
   describe("Session Settings - Creation Metadata Display", () => {
     it("should show all creation fields with persisted values on settings page", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -1555,8 +1548,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should show fallback labels when optional creation fields are empty", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",
@@ -1615,8 +1607,7 @@ describe("Session Management Integration Tests", () => {
     });
 
     it("should keep runtime settings (idle timeout) editable", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
         "testuser",

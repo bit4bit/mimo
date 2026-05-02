@@ -3,17 +3,31 @@ import { jsx } from "hono/jsx";
 import type { FC } from "hono/jsx";
 import { Layout } from "./Layout.js";
 import { DataTable, type DataTableColumn } from "./DataTable.js";
-import type { McpServer } from "../mcp-servers/types.js";
+
+// Minimal MCP server interface for UI rendering
+interface McpServerViewModel {
+  id: string;
+  name: string;
+  description?: string;
+  transport: "stdio" | "http" | "sse";
+  command?: string;
+  args?: string[];
+  url?: string;
+}
 
 interface McpServerListPageProps {
-  servers: McpServer[];
+  servers: McpServerViewModel[];
+  error?: string;
 }
 
 const truncate = (text: string, max: number) =>
   text.length <= max ? text : text.substring(0, max) + "...";
 
-export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
-  const columns: DataTableColumn<McpServer>[] = [
+export const McpServerListPage: FC<McpServerListPageProps> = ({
+  servers,
+  error,
+}) => {
+  const columns: DataTableColumn<McpServerViewModel>[] = [
     {
       key: "name",
       label: "Name",
@@ -101,6 +115,15 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({ servers }) => {
             New MCP Server
           </a>
         </div>
+
+        {error && (
+          <div
+            class="error-message"
+            style="background: #5a2d2d; border: 1px solid #ff6b6b; color: #ff6b6b; padding: 10px; margin-bottom: 20px; border-radius: 4px;"
+          >
+            {error}
+          </div>
+        )}
 
         <DataTable
           rows={servers}

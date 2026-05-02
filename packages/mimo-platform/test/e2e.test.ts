@@ -87,7 +87,8 @@ describe("Integration Tests", () => {
 
   describe("13.5: Agent Communication Integration", () => {
     it("should handle agent service operations", async () => {
-      const { createMimoContext } = await import("../src/context/mimo-context.js");
+      const { createMimoContext } =
+        await import("../src/context/mimo-context.js");
 
       const ctx = createMimoContext({
         env: { MIMO_HOME: "/tmp/mimo-e2e-test", JWT_SECRET: "test-secret" },
@@ -327,7 +328,8 @@ describe("Integration Tests", () => {
 
   describe("13.11: ACP Request Cancellation", () => {
     it("should handle ACP request cancellation in agent service", async () => {
-      const { createMimoContext } = await import("../src/context/mimo-context.js");
+      const { createMimoContext } =
+        await import("../src/context/mimo-context.js");
 
       const ctx = createMimoContext({
         env: { MIMO_HOME: "/tmp/mimo-e2e-test", JWT_SECRET: "test-secret" },
@@ -341,7 +343,8 @@ describe("Integration Tests", () => {
     });
 
     it("should create and track ACP request controllers", async () => {
-      const { createMimoContext } = await import("../src/context/mimo-context.js");
+      const { createMimoContext } =
+        await import("../src/context/mimo-context.js");
 
       const ctx = createMimoContext({
         env: { MIMO_HOME: "/tmp/mimo-e2e-test", JWT_SECRET: "test-secret" },

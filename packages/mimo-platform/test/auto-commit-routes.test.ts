@@ -27,15 +27,18 @@ describe("auto-commit routes", () => {
 
   it("returns sync status for a session", async () => {
     const app = new Hono();
-    const router = createAutoCommitRouter({
-      getSyncStatus: async () => ({
-        syncState: "idle",
-        lastSyncAt: undefined,
-        lastSyncError: undefined,
-      }),
-      syncNow: async () => ({ success: true, message: "Synced" }),
-      handleThoughtEnd: async () => ({ success: true, message: "Synced" }),
-    } as any, { auth: testAuth });
+    const router = createAutoCommitRouter(
+      {
+        getSyncStatus: async () => ({
+          syncState: "idle",
+          lastSyncAt: undefined,
+          lastSyncError: undefined,
+        }),
+        syncNow: async () => ({ success: true, message: "Synced" }),
+        handleThoughtEnd: async () => ({ success: true, message: "Synced" }),
+      } as any,
+      { auth: testAuth },
+    );
 
     app.route("/sessions", router);
     const token = await testAuth.generateToken("testuser");

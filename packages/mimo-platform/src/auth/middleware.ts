@@ -26,5 +26,3 @@ export function createAuthMiddleware(
     await next();
   };
 }
-
-

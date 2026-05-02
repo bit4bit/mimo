@@ -138,10 +138,7 @@ describe("Session Bootstrap Integration Tests", () => {
       expect(importResult.success).toBe(true);
 
       mkdirSync(agentWorkspacePath, { recursive: true });
-      const openResult = await vcs.openFossil(
-        fossilPath,
-        agentWorkspacePath,
-      );
+      const openResult = await vcs.openFossil(fossilPath, agentWorkspacePath);
       expect(openResult.success).toBe(true);
 
       const currentBranch = execSync("fossil branch current", {

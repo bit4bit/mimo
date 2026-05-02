@@ -20,6 +20,23 @@ import { mcpTokenStore } from "../mcp/token-store.js";
 import { createPlatformMcpServerConfig } from "../mcp/platform-config.js";
 import { DEFAULT_MIMO_HOST } from "../context/mimo-context.js";
 import { handleRefreshImpact } from "../impact/refresh-handler.js";
+import { createInternalApiClient } from "../api/internal/index.js";
+import type {
+  GetSessionDetailsResponse,
+  GetChatHistoryResponse,
+  ListSessionsResponse,
+  GetSessionResponse,
+  CreateSessionResponse,
+  UpdateSessionResponse,
+  SessionResponse,
+} from "../api/internal/sessions/types.js";
+import type {
+  ListMcpServersResponse,
+  GetMcpServerResponse,
+} from "../api/internal/mcp-servers/types.js";
+import type { GetAgentResponse } from "../api/internal/agents/types.js";
+import type { GetConfigResponse } from "../api/internal/config/types.js";
+import type { SaveMessageResponse } from "../api/internal/chat/types.js";
 
 type SessionsRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
 
@@ -30,6 +47,8 @@ interface ImpactBackgroundDeps {
 
 interface SessionsRoutesDeps {
   impactBackground?: ImpactBackgroundDeps;
+  /** Optional custom fetch function for testing (routes to internal API) */
+  fetchFn?: typeof fetch;
 }
 
 export function createSessionsRoutes(
@@ -63,6 +82,13 @@ export function createSessionsRoutes(
     agentService,
     mcpTokenStore,
   });
+
+  // Helper to create API client with optional test fetch
+  function createApiClient(c: Context) {
+    return createInternalApiClient(c, mimoContext as MimoContext, {
+      fetchFn: deps.fetchFn,
+    });
+  }
 
   // Helper to get authenticated username from cookie
   async function getAuthUsername(c: Context): Promise<string | null> {
@@ -114,6 +140,7 @@ export function createSessionsRoutes(
   }
 
   // GET /sessions or /projects/:projectId/sessions - List sessions
+  // Proxies to internal API for data, handles rendering
   router.get("/", async (c: Context) => {
     const username = await getAuthUsername(c);
     if (!username) {
@@ -124,6 +151,7 @@ export function createSessionsRoutes(
 
     // Scoped to a single project (used by /projects/:id/sessions)
     if (projectId) {
+      // Verify project exists via projects repository
       const project = await projectRepository.findById(projectId);
       if (!project || project.owner !== username) {
         return c.text("Project not found", 404);
@@ -152,7 +180,15 @@ export function createSessionsRoutes(
       return c.text("Project not found", 404);
     }
 
-    const mcpServers = await mcpServerService.findAll();
+    // Get MCP servers via Internal API Client
+    const apiClient = createApiClient(c);
+    const mcpResult =
+      await apiClient.get<ListMcpServersResponse>("/mcp-servers");
+
+    let mcpServers: any[] = [];
+    if (mcpResult.success) {
+      mcpServers = mcpResult.data.servers;
+    }
 
     return c.html(
       <SessionCreatePage project={project} mcpServers={mcpServers} />,
@@ -227,23 +263,29 @@ export function createSessionsRoutes(
       return c.text("Sync mode is only supported for git repositories", 400);
     }
 
-    // Validate MCP server IDs if provided
+    // Validate MCP server IDs if provided via Internal API Client
+    const apiClient = createApiClient(c);
+
     if (mcpServerIds.length > 0) {
       try {
         // Check all MCP servers exist
         for (const id of mcpServerIds) {
-          const server = await mcpServerService.findById(id);
-          if (!server) {
+          const serverResult = await apiClient.get<GetMcpServerResponse>(
+            `/mcp-servers/${id}`,
+          );
+          if (!serverResult.success) {
             return c.text(`MCP server '${id}' not found`, 400);
           }
         }
 
-        // Check for duplicate MCP server names
-        const duplicateName =
-          await mcpServerService.findDuplicateNames(mcpServerIds);
-        if (duplicateName) {
+        // Check for duplicate MCP server names via Internal API Client
+        const dupResult = await apiClient.post<{
+          duplicateName: string | null;
+        }>("/mcp-servers/validate-duplicates", { ids: mcpServerIds });
+
+        if (dupResult.success && dupResult.data.duplicateName) {
           return c.text(
-            `Duplicate MCP server name '${duplicateName}' in selection`,
+            `Duplicate MCP server name '${dupResult.data.duplicateName}' in selection`,
             400,
           );
         }
@@ -252,16 +294,33 @@ export function createSessionsRoutes(
       }
     }
 
-    // Create session with upstream and checkout directories
-    const session = await sessionRepository.create({
-      name: name as string,
-      projectId: projectId as string,
-      owner: username,
-      agentSubpath: effectiveSubpath,
-      mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
-      sessionTtlDays,
-      priority,
-    });
+    // Create session via Internal API Client
+    const createResult = await apiClient.post<CreateSessionResponse>(
+      "/sessions",
+      {
+        name,
+        projectId,
+        agentSubpath: effectiveSubpath,
+        mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
+        sessionTtlDays,
+        priority,
+      },
+    );
+
+    if (!createResult.success) {
+      return c.text(`Error: ${createResult.error}`, createResult.status);
+    }
+    const session = createResult.data.session;
+
+    // Get full session details for VCS operations
+    const getSessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${session.id}`,
+    );
+
+    if (!getSessionResult.success) {
+      return c.text("Failed to retrieve created session", 500);
+    }
+    const fullSession = getSessionResult.data.session;
 
     // Initialize repository: clone → import to fossil
     // Note: checkout is created by agent when it receives session_ready
@@ -280,7 +339,8 @@ export function createSessionsRoutes(
       );
 
       if (!cloneResult.success) {
-        await sessionRepository.delete(projectId, session.id);
+        // Cleanup: delete session via Internal API Client
+        await apiClient.delete(`/sessions/${session.id}`);
         return c.text(`Failed to clone repository: ${cloneResult.error}`, 500);
       }
 
@@ -299,7 +359,7 @@ export function createSessionsRoutes(
           session.upstreamPath,
         );
         if (!headResult.success || headResult.branch !== branchName) {
-          await sessionRepository.delete(projectId, session.id);
+          await apiClient.delete(`/sessions/${session.id}`);
           return c.text(
             `Sync failed: expected branch '${branchName}' but checkout is on '${headResult.branch ?? "unknown"}'. Verify the branch exists on the remote.`,
             500,
@@ -315,7 +375,7 @@ export function createSessionsRoutes(
             session.upstreamPath,
           );
           if (!branchResult.success) {
-            await sessionRepository.delete(projectId, session.id);
+            await apiClient.delete(`/sessions/${session.id}`);
             return c.text(
               `Failed to create branch '${desiredBranch}': ${branchResult.error}`,
               500,
@@ -335,7 +395,7 @@ export function createSessionsRoutes(
       );
 
       if (!importResult.success) {
-        await sessionRepository.delete(projectId, session.id);
+        await apiClient.delete(`/sessions/${session.id}`);
         return c.text(`Failed to import to fossil: ${importResult.error}`, 500);
       }
 
@@ -352,7 +412,9 @@ export function createSessionsRoutes(
       }
 
       if (desiredBranch) {
-        await sessionRepository.update(session.id, { branch: desiredBranch });
+        await apiClient.put(`/sessions/${session.id}`, {
+          branch: desiredBranch,
+        });
       }
 
       // Step 4: Create fossil user for agent access
@@ -373,12 +435,12 @@ export function createSessionsRoutes(
           "[session] Failed to create fossil user:",
           userResult.error,
         );
-        await sessionRepository.delete(projectId, session.id);
+        await apiClient.delete(`/sessions/${session.id}`);
         return c.text("Failed to create session workspace user", 500);
       }
 
-      // Save credentials to session
-      await sessionRepository.update(session.id, {
+      // Save credentials to session via Internal API Client
+      await apiClient.put(`/sessions/${session.id}`, {
         agentWorkspaceUser,
         agentWorkspacePassword,
       });
@@ -395,7 +457,7 @@ export function createSessionsRoutes(
           "[session] Failed to open fossil in agent-workspace:",
           openResult.error,
         );
-        await sessionRepository.delete(projectId, session.id);
+        await apiClient.delete(`/sessions/${session.id}`);
         return c.text("Failed to open fossil checkout", 500);
       }
 
@@ -412,11 +474,17 @@ export function createSessionsRoutes(
         // Non-fatal: continue session creation
       }
 
-      // Step 6: Resolve MCP servers if attached
+      // Step 6: Resolve MCP servers if attached via Internal API Client
       let mcpServers: any[] = [];
       if (mcpServerIds.length > 0) {
         try {
-          mcpServers = await mcpServerService.resolveMcpServers(mcpServerIds);
+          const resolveResult = await apiClient.post<{ servers: any[] }>(
+            "/mcp-servers/resolve",
+            { ids: mcpServerIds },
+          );
+          if (resolveResult.success) {
+            mcpServers = resolveResult.data.servers;
+          }
         } catch (error) {
           logger.error(
             `[session] Failed to resolve MCP servers for session ${session.id}:`,
@@ -427,7 +495,7 @@ export function createSessionsRoutes(
       }
     } catch (error) {
       logger.error("Failed to setup session:", error);
-      await sessionRepository.delete(projectId, session.id);
+      await apiClient.delete(`/sessions/${session.id}`);
       return c.text("Failed to setup session repository", 500);
     }
 
@@ -443,8 +511,18 @@ export function createSessionsRoutes(
 
     const q = c.req.query("q") ?? "";
 
-    // List all sessions and filter by owner
-    const allSessions = await sessionRepository.listAll();
+    // List all sessions via Internal API Client
+    const apiClient = createApiClient(c);
+    const listResult = await apiClient.get<ListSessionsResponse>("/sessions");
+
+    if (!listResult.success) {
+      return c.json(
+        { error: `Failed to list sessions: ${listResult.error}` },
+        listResult.status,
+      );
+    }
+
+    const allSessions = listResult.data.sessions;
     const ownerSessions = allSessions.filter((s) => s.owner === username);
 
     // Load project names for each session
@@ -498,6 +576,7 @@ export function createSessionsRoutes(
   });
 
   // GET /sessions/:id or /projects/:projectId/sessions/:id - View session detail
+  // Proxies to internal API for session data
   router.get("/:id", async (c: Context) => {
     const username = await getAuthUsername(c);
     if (!username) {
@@ -505,86 +584,138 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
 
-    if (!session || session.owner !== username) {
-      return c.text("Session not found", 404);
+    const apiClient = createApiClient(c);
+
+    try {
+      // Call internal API for session details
+      const detailsResult = await apiClient.get<GetSessionDetailsResponse>(
+        `/sessions/${sessionId}/details`,
+      );
+
+      if (!detailsResult.success) {
+        return c.text(
+          detailsResult.error || "Session not found",
+          detailsResult.status === 404 ? 404 : 500,
+        );
+      }
+
+      const details = detailsResult.data;
+      const session = details.session;
+
+      if (!session) {
+        return c.text("Session not found", 404);
+      }
+
+      const project = details.project;
+      if (!project) {
+        return c.text("Project not found", 404);
+      }
+
+      // Get chat history from internal API
+      const chatResult = await apiClient.get<GetChatHistoryResponse>(
+        `/sessions/${sessionId}/chat`,
+      );
+
+      let chatHistory: unknown[] = [];
+      if (chatResult.success) {
+        chatHistory = chatResult.data.messages;
+      }
+
+      // Get assigned agent if any via Internal API Client
+      let agent = undefined;
+      if (session.assignedAgentId) {
+        const agentResult = await apiClient.get<GetAgentResponse>(
+          `/agents/${session.assignedAgentId}`,
+        );
+        if (agentResult.success) {
+          agent = agentResult.data.agent;
+        }
+      }
+
+      // Get model/mode state from in-memory store, fallback to persisted session data
+      // We already have the session from the details API above, use that for modelState/modeState
+      const modelState =
+        sessionStateService.getModelState(sessionId) ?? session.modelState;
+      const modeState =
+        sessionStateService.getModeState(sessionId) ?? session.modeState;
+
+      // Always generate fossil URL - the shared server should be running
+      // If it's not running yet, the URL will still be valid but the server won't respond
+      const fossilUrl = sharedFossilServer.getUrl(sessionId);
+      const cloneWorkspaceCommand =
+        session.agentWorkspaceUser && session.agentWorkspacePassword
+          ? `fossil open ${shellDoubleQuote(buildAuthenticatedUrl(fossilUrl, session.agentWorkspaceUser, session.agentWorkspacePassword))} --workdir ${shellDoubleQuote(sanitizeSessionNameForWorkdir(session.name))} --repodir ${shellDoubleQuote(sanitizeSessionNameForWorkdir(session.name))}`
+          : null;
+
+      // Resolve attached MCP servers for display via Internal API Client
+      const mcpServers: any[] = [];
+      if (session.mcpServerIds && session.mcpServerIds.length > 0) {
+        const mcpServersResult =
+          await apiClient.get<ListMcpServersResponse>("/mcp-servers");
+        if (mcpServersResult.success) {
+          for (const id of session.mcpServerIds) {
+            const server = mcpServersResult.data.servers.find(
+              (s) => s.id === id,
+            );
+            if (server) {
+              mcpServers.push(server);
+            }
+          }
+        }
+      }
+
+      // Load config via Internal API Client
+      const configResult = await apiClient.get<GetConfigResponse>("/config");
+
+      let loadedConfig: GetConfigResponse["config"] = {
+        streamingTimeoutMs: 30000,
+        sessionKeybindings: [],
+        globalKeybindings: [],
+        chatFileExtensions: [],
+      };
+      if (configResult.success) {
+        loadedConfig = configResult.data.config;
+      }
+      const streamingTimeoutMs = loadedConfig.streamingTimeoutMs;
+      const sessionKeybindings = loadedConfig.sessionKeybindings;
+      const globalKeybindings = loadedConfig.globalKeybindings;
+      const chatFileExtensions = loadedConfig.chatFileExtensions;
+      const canDelete = canDeleteSessionNow(session);
+
+      return c.html(
+        <SessionDetailPage
+          session={session}
+          project={project}
+          chatHistory={chatHistory}
+          frameState={normalizeFrameState(session.frameState)}
+          notesContent={frameStateService.loadNotes(session.id)}
+          projectId={session.projectId}
+          projectNotesContent={frameStateService.loadProjectNotes(
+            session.projectId,
+          )}
+          agent={agent}
+          modelState={modelState}
+          modeState={modeState}
+          fossilUrl={fossilUrl}
+          cloneWorkspaceCommand={cloneWorkspaceCommand ?? undefined}
+          acpStatus={session.acpStatus}
+          mcpServers={mcpServers}
+          streamingTimeoutMs={streamingTimeoutMs}
+          sessionKeybindings={sessionKeybindings}
+          globalKeybindings={globalKeybindings}
+          chatFileExtensions={chatFileExtensions}
+          chatThreads={session.chatThreads}
+          activeChatThreadId={session.activeChatThreadId}
+          agentWorkspacePath={session.agentWorkspacePath}
+          canDelete={canDelete}
+          backUrl={`/projects?selected=${session.projectId}`}
+        />,
+      );
+    } catch (error) {
+      logger.error("[sessions] Error loading session:", error);
+      return c.text("Error loading session", 500);
     }
-
-    const project = await projectRepository.findById(session.projectId);
-    if (!project) {
-      return c.text("Project not found", 404);
-    }
-
-    // Get chat history for the active thread
-    const chatHistory = await chatService.loadHistory(
-      sessionId,
-      session.activeChatThreadId,
-    );
-
-    // Get assigned agent if any
-    let agent = undefined;
-    if (session.assignedAgentId) {
-      agent = await agentRepository.findById(session.assignedAgentId);
-    }
-
-    // Get model/mode state from in-memory store, fallback to persisted session data
-    const modelState =
-      sessionStateService.getModelState(sessionId) ?? session.modelState;
-    const modeState =
-      sessionStateService.getModeState(sessionId) ?? session.modeState;
-
-    // Always generate fossil URL - the shared server should be running
-    // If it's not running yet, the URL will still be valid but the server won't respond
-    const fossilUrl = sharedFossilServer.getUrl(sessionId);
-    const cloneWorkspaceCommand =
-      session.agentWorkspaceUser && session.agentWorkspacePassword
-        ? `fossil open ${shellDoubleQuote(buildAuthenticatedUrl(fossilUrl, session.agentWorkspaceUser, session.agentWorkspacePassword))} --workdir ${shellDoubleQuote(sanitizeSessionNameForWorkdir(session.name))} --repodir ${shellDoubleQuote(sanitizeSessionNameForWorkdir(session.name))}`
-        : null;
-
-    // Resolve attached MCP servers for display
-    const mcpServers = await Promise.all(
-      (session.mcpServerIds ?? []).map((id) => mcpServerService.findById(id)),
-    ).then((results) =>
-      results.filter((s): s is NonNullable<typeof s> => s !== null),
-    );
-
-    const loadedConfig = configService.load();
-    const streamingTimeoutMs = loadedConfig.streamingTimeoutMs;
-    const sessionKeybindings = loadedConfig.sessionKeybindings;
-    const globalKeybindings = loadedConfig.globalKeybindings;
-    const chatFileExtensions = loadedConfig.chatFileExtensions;
-    const canDelete = canDeleteSessionNow(session);
-
-    return c.html(
-      <SessionDetailPage
-        session={session}
-        project={project}
-        chatHistory={chatHistory}
-        frameState={normalizeFrameState(session.frameState)}
-        notesContent={frameStateService.loadNotes(session.id)}
-        projectId={session.projectId}
-        projectNotesContent={frameStateService.loadProjectNotes(
-          session.projectId,
-        )}
-        agent={agent}
-        modelState={modelState}
-        modeState={modeState}
-        fossilUrl={fossilUrl}
-        cloneWorkspaceCommand={cloneWorkspaceCommand ?? undefined}
-        acpStatus={session.acpStatus}
-        mcpServers={mcpServers}
-        streamingTimeoutMs={streamingTimeoutMs}
-        sessionKeybindings={sessionKeybindings}
-        globalKeybindings={globalKeybindings}
-        chatFileExtensions={chatFileExtensions}
-        chatThreads={session.chatThreads}
-        activeChatThreadId={session.activeChatThreadId}
-        agentWorkspacePath={session.agentWorkspacePath}
-        canDelete={canDelete}
-        backUrl={`/projects?selected=${session.projectId}`}
-      />,
-    );
   });
 
   // GET /sessions/:id/frame-state - Fetch frame state
@@ -595,7 +726,22 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username) {
       return c.json({ error: "Session not found" }, 404);
     }
@@ -611,7 +757,22 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username) {
       return c.json({ error: "Session not found" }, 404);
     }
@@ -643,7 +804,21 @@ export function createSessionsRoutes(
       activeBufferId,
       isCollapsed,
     });
-    await sessionRepository.update(sessionId, { frameState: nextState });
+
+    // Update session via Internal API Client
+    const updateResult = await apiClient.put<SessionResponse>(
+      `/sessions/${sessionId}`,
+      {
+        frameState: nextState,
+      },
+    );
+
+    if (!updateResult.success) {
+      return c.json(
+        { error: `Failed to update session: ${updateResult.error}` },
+        updateResult.status,
+      );
+    }
 
     return c.json(nextState);
   });
@@ -656,7 +831,22 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username) {
       return c.json({ error: "Session not found" }, 404);
     }
@@ -672,7 +862,22 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username) {
       return c.json({ error: "Session not found" }, 404);
     }
@@ -692,7 +897,21 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
 
     if (!session || session.owner !== username) {
       return c.text("Session not found", 404);
@@ -711,7 +930,21 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
 
     if (!session || session.owner !== username) {
       return c.text("Session not found", 404);
@@ -787,7 +1020,21 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
 
     if (!session || session.owner !== username) {
       return c.text("Session not found", 404);
@@ -796,10 +1043,21 @@ export function createSessionsRoutes(
     const body = await c.req.parseBody();
     const closeReason = (body.closeReason as string) || undefined;
 
-    await sessionRepository.update(sessionId, {
-      status: "closed",
-      ...(closeReason && { closeReason }),
-    });
+    // Update session via Internal API Client
+    const updateResult = await apiClient.put<SessionResponse>(
+      `/sessions/${sessionId}`,
+      {
+        status: "closed",
+        ...(closeReason && { closeReason }),
+      },
+    );
+
+    if (!updateResult.success) {
+      return c.text(
+        `Failed to close session: ${updateResult.error}`,
+        updateResult.status,
+      );
+    }
 
     return c.redirect(`/projects/${session.projectId}/sessions/${sessionId}`);
   });
@@ -812,13 +1070,37 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
 
     if (!session || session.owner !== username) {
       return c.text("Session not found", 404);
     }
 
-    await sessionDeletion.deleteSessionByRecord(session);
+    // Delete session via Internal API Client
+    const deleteResult = await apiClient.delete<SessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!deleteResult.success) {
+      return c.text(
+        `Failed to delete session: ${deleteResult.error}`,
+        deleteResult.status,
+      );
+    }
 
     return c.redirect(`/projects?selected=${session.projectId}`);
   });
@@ -829,7 +1111,22 @@ export function createSessionsRoutes(
     if (!username) return c.json({ error: "Unauthorized" }, 401);
     const sessionId = c.req.param("id");
     const pattern = c.req.query("pattern") ?? "";
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
     try {
@@ -849,7 +1146,21 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
 
     if (!session || session.owner !== username) {
       return c.text("Session not found", 404);
@@ -859,6 +1170,10 @@ export function createSessionsRoutes(
       return c.text("Session is closed", 403);
     }
 
+    if (!session.activeChatThreadId) {
+      return c.text("Create a thread before sending messages", 400);
+    }
+
     const body = await c.req.parseBody();
     const message = body.message as string;
 
@@ -866,21 +1181,38 @@ export function createSessionsRoutes(
       return c.text("Message required", 400);
     }
 
-    if (!session.activeChatThreadId) {
-      return c.text("Create a thread before sending messages", 400);
-    }
-
-    await chatService.saveMessage(
-      sessionId,
+    // Save message via Internal API Client
+    const saveMessageResult = await apiClient.post<SaveMessageResponse>(
+      "/chat/messages",
       {
-        role: "user",
-        content: message,
-        timestamp: new Date().toISOString(),
+        sessionId,
+        threadId: session.activeChatThreadId,
+        message: {
+          role: "user",
+          content: message,
+          timestamp: new Date().toISOString(),
+        },
       },
-      session.activeChatThreadId,
     );
 
-    await sessionRepository.touchSessionActivity(sessionId);
+    if (!saveMessageResult.success) {
+      return c.text(
+        `Failed to save message: ${saveMessageResult.error}`,
+        saveMessageResult.status,
+      );
+    }
+
+    // Touch session activity via Internal API Client
+    const touchResult = await apiClient.post<void>(
+      `/sessions/${sessionId}/touch`,
+      {},
+    );
+
+    if (!touchResult.success) {
+      logger.warn(
+        `[session] Failed to touch session activity: ${touchResult.error}`,
+      );
+    }
 
     return c.json({ success: true });
   });
@@ -893,7 +1225,21 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
 
     if (!session || session.owner !== username) {
       return c.json({ error: "Session not found" }, 404);
@@ -996,21 +1342,35 @@ export function createSessionsRoutes(
         // Return basic file counts without complexity
         const { readdirSync, statSync, readFileSync, lstatSync } =
           await import("fs");
-        for (const entry of entries) {
-          const fullPath = join(dir, entry.name);
-          const relPath = relative(baseDir, fullPath);
-          if (VCS_INTERNALS.has(entry.name)) continue;
-          const entryStats = lstatSync(fullPath);
-          if (entryStats.isDirectory()) {
-            scanDir(fullPath, baseDir, files);
-          } else if (entryStats.isFile()) {
-            const stats = statSync(fullPath);
-            const content = readFileSync(fullPath);
-            const checksum = crypto
-              .createHash("md5")
-              .update(content)
-              .digest("hex");
-            files.set(relPath, { checksum, size: stats.size });
+        const entries = readdirSync(session.agentWorkspacePath, {
+          withFileTypes: true,
+        });
+        const files: Map<string, { checksum: string; size: number }> =
+          new Map();
+        const { relative } = await import("path");
+
+        function scanDir(
+          dir: string,
+          baseDir: string,
+          files: Map<string, { checksum: string; size: number }>,
+        ) {
+          const entries = readdirSync(dir, { withFileTypes: true });
+          for (const entry of entries) {
+            const fullPath = join(dir, entry.name);
+            const relPath = relative(baseDir, fullPath);
+            if (VCS_INTERNALS.has(entry.name)) continue;
+            const entryStats = lstatSync(fullPath);
+            if (entryStats.isDirectory()) {
+              scanDir(fullPath, baseDir, files);
+            } else if (entryStats.isFile()) {
+              const stats = statSync(fullPath);
+              const content = readFileSync(fullPath);
+              const checksum = crypto
+                .createHash("md5")
+                .update(content)
+                .digest("hex");
+              files.set(relPath, { checksum, size: stats.size });
+            }
           }
         }
 
@@ -1080,7 +1440,21 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
 
     if (!session || session.owner !== username) {
       return c.json({ error: "Session not found" }, 404);
@@ -1105,7 +1479,21 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
 
     if (!session || session.owner !== username) {
       return c.json({ error: "Session not found" }, 404);
@@ -1147,9 +1535,9 @@ export function createSessionsRoutes(
         );
       }
 
-      // Update session config (validation happens in repository)
-      const updatedSession = await sessionRepository.updateSessionConfig(
-        sessionId,
+      // Update session config via Internal API Client
+      const updateConfigResult = await apiClient.put<SessionResponse>(
+        `/sessions/${sessionId}/config`,
         {
           ...(idleTimeoutMs !== undefined ? { idleTimeoutMs } : {}),
           ...(sessionTtlDays !== undefined ? { sessionTtlDays } : {}),
@@ -1157,9 +1545,14 @@ export function createSessionsRoutes(
         },
       );
 
-      if (!updatedSession) {
-        return c.json({ error: "Failed to update session configuration" }, 500);
+      if (!updateConfigResult.success) {
+        return c.json(
+          { error: `Failed to update config: ${updateConfigResult.error}` },
+          updateConfigResult.status,
+        );
       }
+
+      const updatedSession = updateConfigResult.data;
 
       // Notify agent of config change if assigned and online
       if (
@@ -1207,7 +1600,21 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
 
     if (!session || session.owner !== username) {
       return c.text("Session not found", 404);
@@ -1218,20 +1625,26 @@ export function createSessionsRoutes(
       return c.text("Project not found", 404);
     }
 
-    // Resolve assigned agent name
+    // Resolve assigned agent name via Internal API Client
     let assignedAgentName: string | null = null;
     if (session.assignedAgentId) {
-      const agent = await agentRepository.findById(session.assignedAgentId);
-      assignedAgentName = agent?.name ?? null;
+      const agentResult = await apiClient.get<GetAgentResponse>(
+        `/agents/${session.assignedAgentId}`,
+      );
+      if (agentResult.success) {
+        assignedAgentName = agentResult.data.agent?.name ?? null;
+      }
     }
 
-    // Resolve MCP server names
+    // Resolve MCP server names via Internal API Client
     const mcpServerNames: string[] = [];
     if (session.mcpServerIds && session.mcpServerIds.length > 0) {
       for (const mcpId of session.mcpServerIds) {
-        const mcpServer = await mcpServerService.findById(mcpId);
-        if (mcpServer) {
-          mcpServerNames.push(mcpServer.name);
+        const mcpServerResult = await apiClient.get<GetMcpServerResponse>(
+          `/mcp-servers/${mcpId}`,
+        );
+        if (mcpServerResult.success && mcpServerResult.data.server) {
+          mcpServerNames.push(mcpServerResult.data.server.name);
         }
       }
     }
@@ -1240,7 +1653,13 @@ export function createSessionsRoutes(
     const { SessionSettingsPage } =
       await import("../components/SessionSettingsPage.js");
 
-    const streamingTimeoutMs = configService.load().streamingTimeoutMs;
+    // Load config via Internal API Client
+    const configResult = await apiClient.get<GetConfigResponse>("/config");
+
+    let streamingTimeoutMs = 30000; // default
+    if (configResult.success) {
+      streamingTimeoutMs = configResult.data.config.streamingTimeoutMs ?? 30000;
+    }
 
     return c.html(
       <SessionSettingsPage
@@ -1277,7 +1696,21 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
 
     if (!session || session.owner !== username) {
       return c.text("Session not found", 404);
@@ -1327,11 +1760,31 @@ export function createSessionsRoutes(
     }
 
     try {
-      // Update the session config
-      await sessionRepository.updateSessionConfig(sessionId, {
-        idleTimeoutMs,
-        sessionTtlDays,
-      });
+      // Update the session config via Internal API Client
+      const updateConfigResult = await apiClient.put<SessionResponse>(
+        `/sessions/${sessionId}/config`,
+        {
+          idleTimeoutMs,
+          sessionTtlDays,
+        },
+      );
+
+      if (!updateConfigResult.success) {
+        return c.html(
+          <div style="padding: 20px; color: #ff6b6b;">
+            Error: {updateConfigResult.error}
+            <br />
+            <br />
+            <a
+              href={`/projects/${session.projectId}/sessions/${sessionId}/settings`}
+            >
+              Go Back
+            </a>
+          </div>,
+        );
+      }
+
+      const updatedSession = updateConfigResult.data;
 
       // Notify agent of config change if assigned and online
       if (
@@ -1382,7 +1835,21 @@ export function createSessionsRoutes(
     }
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
 
     if (!session || session.owner !== username) {
       return c.text("Session not found", 404);
@@ -1406,9 +1873,28 @@ export function createSessionsRoutes(
       );
     }
 
-    await sessionRepository.updateSessionConfig(sessionId, {
-      priority: priority as "high" | "medium" | "low",
-    });
+    // Update session config via Internal API Client
+    const updateConfigResult = await apiClient.put<SessionResponse>(
+      `/sessions/${sessionId}/config`,
+      {
+        priority: priority as "high" | "medium" | "low",
+      },
+    );
+
+    if (!updateConfigResult.success) {
+      return c.html(
+        <div style="padding: 20px; color: #ff6b6b;">
+          Error: {updateConfigResult.error}
+          <br />
+          <br />
+          <a
+            href={`/projects/${session.projectId}/sessions/${sessionId}/settings`}
+          >
+            Go Back
+          </a>
+        </div>,
+      );
+    }
 
     return c.redirect(
       `/projects/${session.projectId}/sessions/${sessionId}/settings`,
@@ -1425,7 +1911,22 @@ export function createSessionsRoutes(
     if (!username) return c.json({ error: "Unauthorized" }, 401);
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
 
@@ -1441,7 +1942,23 @@ export function createSessionsRoutes(
     if (!username) return c.json({ error: "Unauthorized" }, 401);
 
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      const errorText = sessionResult.error || "Session not found";
+      return c.json(
+        { error: errorText },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
 
@@ -1465,38 +1982,57 @@ export function createSessionsRoutes(
 
     const assignedAgentId = body.assignedAgentId.trim();
 
-    const thread = await sessionRepository.addChatThread(sessionId, {
-      name: body.name,
-      model: body.model,
-      mode: body.mode,
-      acpSessionId: null,
-      assignedAgentId,
-      state: "active",
-    });
+    // Add chat thread via Internal API Client
+    const addThreadResult = await apiClient.post<{ thread: any }>(
+      `/sessions/${sessionId}/chat-threads`,
+      {
+        name: body.name,
+        model: body.model,
+        mode: body.mode,
+        acpSessionId: body.acpSessionId || null,
+        assignedAgentId,
+        state: "active",
+      },
+    );
+
+    if (!addThreadResult.success) {
+      return c.json(
+        { error: `Failed to add chat thread: ${addThreadResult.error}` },
+        addThreadResult.status,
+      );
+    }
+
+    const thread = addThreadResult.data.thread;
 
     // Pre-populate session modelState/modeState from agent capabilities so the
     // context bar dropdowns render immediately without waiting for session_initialized
     if (assignedAgentId && !session.modelState) {
-      const agent = await agentRepository.findById(assignedAgentId);
-      if (agent?.capabilities) {
-        const {
-          availableModels,
-          defaultModelId,
-          availableModes,
-          defaultModeId,
-        } = agent.capabilities;
-        await sessionRepository.update(sessionId, {
-          modelState: {
-            currentModelId: defaultModelId,
+      const agentResult = await apiClient.get<GetAgentResponse>(
+        `/agents/${assignedAgentId}`,
+      );
+      if (agentResult.success) {
+        const agent = agentResult.data.agent;
+        if (agent?.capabilities) {
+          const {
             availableModels,
-            optionId: defaultModelId,
-          },
-          modeState: {
-            currentModeId: defaultModeId,
+            defaultModelId,
             availableModes,
-            optionId: defaultModeId,
-          },
-        });
+            defaultModeId,
+          } = agent.capabilities;
+          // Update session via Internal API Client
+          await apiClient.put<SessionResponse>(`/sessions/${sessionId}`, {
+            modelState: {
+              currentModelId: defaultModelId,
+              availableModels,
+              optionId: defaultModelId,
+            },
+            modeState: {
+              currentModeId: defaultModeId,
+              availableModes,
+              optionId: defaultModeId,
+            },
+          });
+        }
       }
     }
 
@@ -1504,7 +2040,14 @@ export function createSessionsRoutes(
     if (assignedAgentId && agentService.isAgentOnline(assignedAgentId)) {
       const agentWs = agentService.getAgentConnection(assignedAgentId);
       if (agentWs && agentWs.readyState === 1) {
-        const sessionWithCreds = await sessionRepository.findById(sessionId);
+        // Get full session details for notification
+        const fullSessionResult = await apiClient.get<GetSessionResponse>(
+          `/sessions/${sessionId}`,
+        );
+        const sessionWithCreds = fullSessionResult.success
+          ? fullSessionResult.data.session
+          : null;
+
         const fossilUrl = sharedFossilServer.getUrl(sessionId);
         let mcpServers: any[] = [];
         if (
@@ -1512,9 +2055,14 @@ export function createSessionsRoutes(
           sessionWithCreds.mcpServerIds.length > 0
         ) {
           try {
-            mcpServers = await mcpServerService.resolveMcpServers(
-              sessionWithCreds.mcpServerIds,
+            // Resolve MCP servers via Internal API Client
+            const resolveResult = await apiClient.post<{ servers: any[] }>(
+              "/mcp-servers/resolve",
+              { ids: sessionWithCreds.mcpServerIds },
             );
+            if (resolveResult.success) {
+              mcpServers = resolveResult.data.servers;
+            }
           } catch (err) {
             logger.error(
               `[session] Failed to resolve MCP servers for session ${sessionId}:`,
@@ -1579,16 +2127,31 @@ export function createSessionsRoutes(
 
     const sessionId = c.req.param("id");
     const threadId = c.req.param("threadId");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
 
     const body = await c.req.json().catch(() => null);
     if (!body) return c.json({ error: "Body required" }, 400);
 
-    const updated = await sessionRepository.updateChatThread(
-      sessionId,
-      threadId,
+    // Update chat thread via Internal API Client
+    const updateThreadResult = await apiClient.put<SessionResponse>(
+      `/sessions/${sessionId}/chat-threads/${threadId}`,
       {
         ...(body.name !== undefined && { name: body.name }),
         ...(body.model !== undefined && { model: body.model }),
@@ -1596,7 +2159,15 @@ export function createSessionsRoutes(
       },
     );
 
-    if (!updated) return c.json({ error: "Thread not found" }, 404);
+    if (!updateThreadResult.success) {
+      return c.json(
+        { error: `Failed to update thread: ${updateThreadResult.error}` },
+        updateThreadResult.status,
+      );
+    }
+
+    const updated = updateThreadResult.data;
+
     return c.json(updated);
   });
 
@@ -1607,18 +2178,44 @@ export function createSessionsRoutes(
 
     const sessionId = c.req.param("id");
     const threadId = c.req.param("threadId");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
 
     if (session.chatThreads.length <= 1)
       return c.json({ error: "Cannot delete the last thread" }, 400);
 
-    await sessionRepository.removeChatThread(sessionId, threadId);
-
     const deletedThread = session.chatThreads.find((t) => t.id === threadId);
     const deletedThreadAgentId =
       deletedThread?.assignedAgentId || session.assignedAgentId;
+
+    // Remove chat thread via Internal API Client
+    const removeThreadResult = await apiClient.delete<SessionResponse>(
+      `/sessions/${sessionId}/chat-threads/${threadId}`,
+    );
+
+    if (!removeThreadResult.success) {
+      return c.json(
+        { error: `Failed to remove thread: ${removeThreadResult.error}` },
+        removeThreadResult.status,
+      );
+    }
+
     if (
       deletedThreadAgentId &&
       agentService.isAgentOnline(deletedThreadAgentId)
@@ -1645,12 +2242,38 @@ export function createSessionsRoutes(
 
     const sessionId = c.req.param("id");
     const threadId = c.req.param("threadId");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
 
     try {
-      await sessionRepository.setActiveChatThread(sessionId, threadId);
+      // Set active chat thread via Internal API Client
+      const activateResult = await apiClient.post<void>(
+        `/sessions/${sessionId}/active-thread`,
+        { threadId },
+      );
+
+      if (!activateResult.success) {
+        return c.json(
+          { error: `Failed to set active thread: ${activateResult.error}` },
+          activateResult.status,
+        );
+      }
     } catch {
       return c.json({ error: "Thread not found" }, 404);
     }
@@ -1665,7 +2288,22 @@ export function createSessionsRoutes(
 
     const sessionId = c.req.param("id");
     const threadId = c.req.param("threadId");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
 
@@ -1674,7 +2312,20 @@ export function createSessionsRoutes(
     if (!threadExists) return c.json({ error: "Thread not found" }, 404);
 
     try {
-      const messages = await chatService.loadHistory(sessionId, threadId);
+      // Load chat history via Internal API Client
+      const chatResult = await apiClient.get<GetChatHistoryResponse>(
+        `/sessions/${sessionId}/chat?threadId=${threadId}`,
+      );
+
+      if (!chatResult.success) {
+        return c.json(
+          { error: `Failed to load messages: ${chatResult.error}` },
+          chatResult.status,
+        );
+      }
+
+      const messages = chatResult.data.messages;
+
       return c.json(messages);
     } catch (err) {
       return c.json({ error: "Failed to load messages" }, 500);
@@ -1689,7 +2340,22 @@ export function createSessionsRoutes(
     const sessionId = c.req.param("id");
     const filePath = c.req.query("path");
     if (!filePath) return c.json({ error: "path query param required" }, 400);
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
     let raw: string;
@@ -1719,7 +2385,22 @@ export function createSessionsRoutes(
     const sessionId = c.req.param("id");
     const filePath = c.req.query("path");
     if (!filePath) return c.json({ error: "path query param required" }, 400);
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
     let raw: string;
@@ -1752,7 +2433,21 @@ export function createSessionsRoutes(
 
     if (!query) return c.json({ error: "q query param required" }, 400);
 
-    const session = await sessionRepository.findById(sessionId);
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
 
@@ -1792,7 +2487,22 @@ export function createSessionsRoutes(
     const sessionId = c.req.param("id");
     const filePath = c.req.query("path");
     if (!filePath) return c.json({ error: "path query param required" }, 400);
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
 
@@ -1818,7 +2528,22 @@ export function createSessionsRoutes(
     const content = body?.content;
     if (!path || content === undefined)
       return c.json({ error: "path and content required" }, 400);
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
 
@@ -1850,7 +2575,22 @@ export function createSessionsRoutes(
     const username = await getAuthUsername(c);
     if (!username) return c.json({ error: "Unauthorized" }, 401);
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
 
@@ -1870,7 +2610,22 @@ export function createSessionsRoutes(
     const username = await getAuthUsername(c);
     if (!username) return c.json({ error: "Unauthorized" }, 401);
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
 
@@ -1899,7 +2654,22 @@ export function createSessionsRoutes(
     const username = await getAuthUsername(c);
     if (!username) return c.json({ error: "Unauthorized" }, 401);
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
 
@@ -1976,7 +2746,22 @@ export function createSessionsRoutes(
     const username = await getAuthUsername(c);
     if (!username) return c.json({ error: "Unauthorized" }, 401);
     const sessionId = c.req.param("id");
-    const session = await sessionRepository.findById(sessionId);
+
+    // Get session via Internal API Client
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
 

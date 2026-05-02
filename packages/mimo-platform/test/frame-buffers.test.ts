@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -6,17 +6,62 @@ import { rmSync, existsSync, writeFileSync } from "fs";
 
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
-let sessionRoutes: any;
-let projectsRoutes: any;
 let sessionRepository: any;
 let userRepository: any;
 let projectRepository: any;
 let authService: any;
+let mimoContext: any;
+let testHome: string;
+
+// Helper to create test app with internal API mounted
+function createTestApp(ctx: any): Hono {
+  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
+  const { createProjectsRoutes } = require("../src/projects/routes.tsx");
+  const { createSessionsRoutes } = require("../src/sessions/routes.tsx");
+
+  const app = new Hono();
+
+  // Mount internal API
+  const internalRouter = createInternalApiRouter(ctx);
+  app.route("/api/internal", internalRouter);
+
+  // Mount routes with fetchFn that routes through app
+  const projects = createProjectsRoutes(ctx, {
+    fetchFn: (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/api/internal/")) {
+        const path = new URL(urlStr).pathname;
+        return app.request(path, init);
+      }
+      return fetch(url, init);
+    },
+  });
+
+  const sessions = createSessionsRoutes(ctx, {
+    fetchFn: (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/api/internal/")) {
+        const path = new URL(urlStr).pathname;
+        return app.request(path, init);
+      }
+      return fetch(url, init);
+    },
+  });
+
+  app.route("/projects", projects);
+  app.route("/projects/:projectId/sessions", sessions);
+  app.route("/sessions", sessions);
+
+  return app;
+}
 
 describe("Frame buffers integration", () => {
-  const testHome = join(tmpdir(), `mimo-frame-buffers-${Date.now()}`);
-
   beforeEach(async () => {
+    testHome = join(
+      tmpdir(),
+      `mimo-frame-buffers-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
+
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
@@ -26,11 +71,13 @@ describe("Frame buffers integration", () => {
     const ctx = createMimoContext({
       env: {
         MIMO_HOME: testHome,
-        JWT_SECRET: "test-secret-key-for-testing",
+        JWT_SECRET: "test-secret-key-for-frame-buffers",
+        PLATFORM_URL: "http://localhost:3000",
       },
       services: { sharedFossil: new DummySharedFossilServer() },
     });
 
+    mimoContext = ctx;
     userRepository = ctx.repos.users;
     projectRepository = ctx.repos.projects;
     sessionRepository = ctx.repos.sessions;
@@ -41,18 +88,14 @@ describe("Frame buffers integration", () => {
     ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
     ctx.services.vcs.openFossil = async () => ({ success: true });
     ctx.services.vcs.createFossilUser = async () => ({ success: true });
+  });
 
-    const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
-    sessionRoutes = createSessionsRoutes(ctx);
-
-    const { createProjectsRoutes } = await import("../src/projects/routes.tsx");
-    projectsRoutes = createProjectsRoutes(ctx);
+  afterEach(() => {
+    // Cleanup
   });
 
   async function createSessionAppAndAuth() {
-    const app = new Hono();
-    app.route("/projects", projectsRoutes);
-    app.route("/sessions", sessionRoutes);
+    const app = createTestApp(mimoContext);
 
     await userRepository.create(
       "testuser",
@@ -76,6 +119,7 @@ describe("Frame buffers integration", () => {
       body: new URLSearchParams({ name: "Frame Session" }).toString(),
     });
 
+    const body = await createRes.text();
     expect(createRes.status).toBe(302);
     const location = createRes.headers.get("location") || "";
     const sessionId = location.split("/").pop() || "";

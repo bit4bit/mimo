@@ -2,12 +2,10 @@ import { Hono } from "hono";
 import { DashboardPage } from "../components/DashboardPage.js";
 import { createAuthMiddleware } from "../auth/middleware.js";
 import type { MimoContext } from "../context/mimo-context.js";
+import type { DashboardResponse } from "../api/internal/dashboard/types.js";
+import { createInternalApiClient } from "../api/internal/index.js";
 
 export function createDashboardRoutes(mimoContext: MimoContext): Hono {
-  const projects = mimoContext.repos.projects;
-  const agents = mimoContext.repos.agents;
-  const sessions = mimoContext.repos.sessions;
-
   const dashboard = new Hono();
   const auth = createAuthMiddleware(mimoContext.services.auth);
 
@@ -17,28 +15,20 @@ export function createDashboardRoutes(mimoContext: MimoContext): Hono {
     const user = c.get("user") as { username: string };
     const username = user.username;
 
-    // Get user's projects
-    const userProjects = await projects.listByOwner(username);
+    // Use internal API client to fetch dashboard data
+    const apiClient = createInternalApiClient(c, mimoContext);
+    const result = await apiClient.get<DashboardResponse>("/dashboard");
 
-    // Get user's agents
-    const userAgents = await agents.findByOwner(username);
-
-    // Get all sessions across all projects
-    const allSessions: any[] = [];
-    for (const project of userProjects) {
-      const projectSessions = await sessions.listByProject(project.id);
-      allSessions.push(...projectSessions);
+    if (!result.success) {
+      return c.text(`Failed to load dashboard: ${result.error}`, result.status);
     }
-
-    // Sort sessions by creation date descending
-    allSessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     return c.html(
       <DashboardPage
         username={username}
-        projects={userProjects}
-        agents={userAgents}
-        sessions={allSessions.slice(0, 10)}
+        projects={result.data.projects}
+        agents={result.data.agents}
+        sessions={result.data.recentSessions}
       />,
     );
   });

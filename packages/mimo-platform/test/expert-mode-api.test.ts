@@ -7,79 +7,106 @@ import { which } from "bun";
 
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
-let sessionRoutes: any;
 let sessionRepository: any;
 let userRepository: any;
-let authService: any;
 let projectRepository: any;
+let authService: any;
+let mimoContext: any;
 let testHome: string;
 
-async function setup() {
-  testHome = join(
-    tmpdir(),
-    `expert-api-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-  );
+// Helper to create test app with internal API mounted
+function createTestApp(ctx: any): Hono {
+  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
+  const { createSessionsRoutes } = require("../src/sessions/routes.tsx");
 
-  const { createMimoContext } = await import("../src/context/mimo-context.ts");
-  const ctx = createMimoContext({
-    env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key" },
-    services: { sharedFossil: new DummySharedFossilServer() },
+  const app = new Hono();
+
+  // Mount internal API
+  const internalRouter = createInternalApiRouter(ctx);
+  app.route("/api/internal", internalRouter);
+
+  // Mount session routes with fetchFn that routes through app
+  const sessions = createSessionsRoutes(ctx, {
+    fetchFn: (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/api/internal/")) {
+        const path = new URL(urlStr).pathname;
+        return app.request(path, init);
+      }
+      return fetch(url, init);
+    },
   });
+  app.route("/sessions", sessions);
 
-  sessionRepository = ctx.repos.sessions;
-  projectRepository = ctx.repos.projects;
-  userRepository = ctx.repos.users;
-  authService = ctx.services.auth;
-
-  ctx.services.vcs.cloneRepository = async () => ({ success: true });
-  ctx.services.vcs.importToFossil = async () => ({ success: true });
-  ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
-  ctx.services.vcs.openFossil = async () => ({ success: true });
-  ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });
-  ctx.services.vcs.createFossilUser = async () => ({ success: true });
-
-  const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
-  sessionRoutes = createSessionsRoutes(ctx);
-}
-
-async function createUserAndSession(username: string) {
-  await userRepository.create(
-    username,
-    await Bun.password.hash("pass", { algorithm: "bcrypt", cost: 10 }),
-  );
-
-  const project = await projectRepository.create({
-    name: "Test Project",
-    repoUrl: "https://github.com/user/repo.git",
-    repoType: "git",
-    owner: username,
-  });
-
-  const session = await sessionRepository.create({
-    name: "Test Session",
-    projectId: project.id,
-    owner: username,
-    model: "claude-sonnet-4-6",
-    mode: "auto",
-  });
-
-  const token = await authService.generateToken(username);
-
-  return { session, token };
+  return app;
 }
 
 describe("GET /sessions/:id/files/content", () => {
-  beforeEach(setup);
+  beforeEach(async () => {
+    testHome = join(
+      tmpdir(),
+      `expert-api-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
+
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({
+      env: {
+        MIMO_HOME: testHome,
+        JWT_SECRET: "test-secret-key",
+        PLATFORM_URL: "http://localhost:3000",
+      },
+      services: { sharedFossil: new DummySharedFossilServer() },
+    });
+    mimoContext = ctx;
+
+    sessionRepository = ctx.repos.sessions;
+    projectRepository = ctx.repos.projects;
+    userRepository = ctx.repos.users;
+    authService = ctx.services.auth;
+
+    ctx.services.vcs.cloneRepository = async () => ({ success: true });
+    ctx.services.vcs.importToFossil = async () => ({ success: true });
+    ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
+    ctx.services.vcs.openFossil = async () => ({ success: true });
+    ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });
+    ctx.services.vcs.createFossilUser = async () => ({ success: true });
+  });
 
   afterEach(() => {
     rmSync(testHome, { recursive: true, force: true });
   });
 
-  it("returns HTML-escaped file content", async () => {
-    const app = new Hono();
-    app.route("/sessions", sessionRoutes);
+  async function createUserAndSession(username: string) {
+    await userRepository.create(
+      username,
+      await Bun.password.hash("pass", { algorithm: "bcrypt", cost: 10 }),
+    );
 
+    const project = await projectRepository.create({
+      name: "Test Project",
+      repoUrl: "https://github.com/user/repo.git",
+      repoType: "git",
+      owner: username,
+    });
+
+    const session = await sessionRepository.create({
+      name: "Test Session",
+      projectId: project.id,
+      owner: username,
+      model: "claude-sonnet-4-6",
+      mode: "auto",
+    });
+
+    const token = await authService.generateToken(username);
+
+    return { session, token };
+  }
+
+  it("returns HTML-escaped file content", async () => {
+    const app = createTestApp(mimoContext);
     const { session, token } = await createUserAndSession("user1");
+
     writeFileSync(
       join(session.agentWorkspacePath, "hello.ts"),
       "const x = 1 < 2;",
@@ -98,9 +125,7 @@ describe("GET /sessions/:id/files/content", () => {
   });
 
   it("returns 404 when file does not exist", async () => {
-    const app = new Hono();
-    app.route("/sessions", sessionRoutes);
-
+    const app = createTestApp(mimoContext);
     const { session, token } = await createUserAndSession("user2");
 
     const res = await app.request(
@@ -112,9 +137,7 @@ describe("GET /sessions/:id/files/content", () => {
   });
 
   it("returns 401 when not authenticated", async () => {
-    const app = new Hono();
-    app.route("/sessions", sessionRoutes);
-
+    const app = createTestApp(mimoContext);
     const { session } = await createUserAndSession("user3");
 
     const res = await app.request(
@@ -126,16 +149,69 @@ describe("GET /sessions/:id/files/content", () => {
 });
 
 describe("GET /sessions/:id/search", () => {
-  beforeEach(setup);
+  beforeEach(async () => {
+    testHome = join(
+      tmpdir(),
+      `expert-api-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
+
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({
+      env: {
+        MIMO_HOME: testHome,
+        JWT_SECRET: "test-secret-key",
+        PLATFORM_URL: "http://localhost:3000",
+      },
+      services: { sharedFossil: new DummySharedFossilServer() },
+    });
+    mimoContext = ctx;
+
+    sessionRepository = ctx.repos.sessions;
+    projectRepository = ctx.repos.projects;
+    userRepository = ctx.repos.users;
+    authService = ctx.services.auth;
+
+    ctx.services.vcs.cloneRepository = async () => ({ success: true });
+    ctx.services.vcs.importToFossil = async () => ({ success: true });
+    ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
+    ctx.services.vcs.openFossil = async () => ({ success: true });
+    ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });
+    ctx.services.vcs.createFossilUser = async () => ({ success: true });
+  });
 
   afterEach(() => {
     rmSync(testHome, { recursive: true, force: true });
   });
 
-  it("returns search results with workspace-relative paths", async () => {
-    const app = new Hono();
-    app.route("/sessions", sessionRoutes);
+  async function createUserAndSession(username: string) {
+    await userRepository.create(
+      username,
+      await Bun.password.hash("pass", { algorithm: "bcrypt", cost: 10 }),
+    );
 
+    const project = await projectRepository.create({
+      name: "Test Project",
+      repoUrl: "https://github.com/user/repo.git",
+      repoType: "git",
+      owner: username,
+    });
+
+    const session = await sessionRepository.create({
+      name: "Test Session",
+      projectId: project.id,
+      owner: username,
+      model: "claude-sonnet-4-6",
+      mode: "auto",
+    });
+
+    const token = await authService.generateToken(username);
+
+    return { session, token };
+  }
+
+  it("returns search results with workspace-relative paths", async () => {
+    const app = createTestApp(mimoContext);
     const { session, token } = await createUserAndSession("search-user");
     mkdirSync(join(session.agentWorkspacePath, "src"), { recursive: true });
     writeFileSync(
@@ -182,10 +258,16 @@ describe("GET /sessions/:id/search", () => {
     const { createMimoContext } =
       await import("../src/context/mimo-context.ts");
     const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
+    const { createInternalApiRouter } =
+      await import("../src/api/internal/index.ts");
 
     const searchCalls: Array<{ workspacePath: string; query: string }> = [];
     const ctx = createMimoContext({
-      env: { MIMO_HOME: customHome, JWT_SECRET: "test-secret-key" },
+      env: {
+        MIMO_HOME: customHome,
+        JWT_SECRET: "test-secret-key",
+        PLATFORM_URL: "http://localhost:3000",
+      },
       services: {
         sharedFossil: new DummySharedFossilServer(),
         search: {
@@ -205,7 +287,20 @@ describe("GET /sessions/:id/search", () => {
     ctx.services.vcs.createFossilUser = async () => ({ success: true });
 
     const app = new Hono();
-    app.route("/sessions", createSessionsRoutes(ctx));
+    const internalRouter = createInternalApiRouter(ctx);
+    app.route("/api/internal", internalRouter);
+
+    const sessions = createSessionsRoutes(ctx, {
+      fetchFn: (url: string | URL | Request, init?: RequestInit) => {
+        const urlStr = url.toString();
+        if (urlStr.includes("/api/internal/")) {
+          const path = new URL(urlStr).pathname;
+          return app.request(path, init);
+        }
+        return fetch(url, init);
+      },
+    });
+    app.route("/sessions", sessions);
 
     await ctx.repos.users.create(
       "search-di-user",
@@ -242,16 +337,69 @@ describe("GET /sessions/:id/search", () => {
 });
 
 describe("POST /sessions/:id/files/write", () => {
-  beforeEach(setup);
+  beforeEach(async () => {
+    testHome = join(
+      tmpdir(),
+      `expert-api-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
+
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
+    const ctx = createMimoContext({
+      env: {
+        MIMO_HOME: testHome,
+        JWT_SECRET: "test-secret-key",
+        PLATFORM_URL: "http://localhost:3000",
+      },
+      services: { sharedFossil: new DummySharedFossilServer() },
+    });
+    mimoContext = ctx;
+
+    sessionRepository = ctx.repos.sessions;
+    projectRepository = ctx.repos.projects;
+    userRepository = ctx.repos.users;
+    authService = ctx.services.auth;
+
+    ctx.services.vcs.cloneRepository = async () => ({ success: true });
+    ctx.services.vcs.importToFossil = async () => ({ success: true });
+    ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
+    ctx.services.vcs.openFossil = async () => ({ success: true });
+    ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });
+    ctx.services.vcs.createFossilUser = async () => ({ success: true });
+  });
 
   afterEach(() => {
     rmSync(testHome, { recursive: true, force: true });
   });
 
-  it("writes content to an existing file", async () => {
-    const app = new Hono();
-    app.route("/sessions", sessionRoutes);
+  async function createUserAndSession(username: string) {
+    await userRepository.create(
+      username,
+      await Bun.password.hash("pass", { algorithm: "bcrypt", cost: 10 }),
+    );
 
+    const project = await projectRepository.create({
+      name: "Test Project",
+      repoUrl: "https://github.com/user/repo.git",
+      repoType: "git",
+      owner: username,
+    });
+
+    const session = await sessionRepository.create({
+      name: "Test Session",
+      projectId: project.id,
+      owner: username,
+      model: "claude-sonnet-4-6",
+      mode: "auto",
+    });
+
+    const token = await authService.generateToken(username);
+
+    return { session, token };
+  }
+
+  it("writes content to an existing file", async () => {
+    const app = createTestApp(mimoContext);
     const { session, token } = await createUserAndSession("user4");
     writeFileSync(join(session.agentWorkspacePath, "edit.ts"), "old", "utf-8");
 
@@ -273,9 +421,7 @@ describe("POST /sessions/:id/files/write", () => {
   });
 
   it("returns 400 when path contains ..", async () => {
-    const app = new Hono();
-    app.route("/sessions", sessionRoutes);
-
+    const app = createTestApp(mimoContext);
     const { session, token } = await createUserAndSession("user5");
 
     const res = await app.request(`/sessions/${session.id}/files/write`, {
@@ -291,9 +437,7 @@ describe("POST /sessions/:id/files/write", () => {
   });
 
   it("returns 401 when not authenticated", async () => {
-    const app = new Hono();
-    app.route("/sessions", sessionRoutes);
-
+    const app = createTestApp(mimoContext);
     const { session } = await createUserAndSession("user6");
 
     const res = await app.request(`/sessions/${session.id}/files/write`, {

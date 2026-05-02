@@ -5,13 +5,40 @@ import { join } from "path";
 
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
-let sessionRoutes: any;
 let sessionRepository: any;
 let projectRepository: any;
 let userRepository: any;
 let authService: any;
 let testHome: string;
 let mimoContext: any;
+
+// Helper to create test app with internal API mounted
+function createTestApp(ctx: any): Hono {
+  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
+  const { createSessionsRoutes } = require("../src/sessions/routes.tsx");
+
+  const app = new Hono();
+
+  // Mount internal API
+  const internalRouter = createInternalApiRouter(ctx);
+  app.route("/api/internal", internalRouter);
+
+  // Mount session routes with fetchFn that routes through app
+  const sessions = createSessionsRoutes(ctx, {
+    fetchFn: (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/api/internal/")) {
+        const path = new URL(urlStr).pathname;
+        return app.request(path, init);
+      }
+      return fetch(url, init);
+    },
+  });
+  app.route("/projects/:projectId/sessions", sessions);
+  app.route("/sessions", sessions);
+
+  return app;
+}
 
 describe("Session Search API", () => {
   beforeEach(async () => {
@@ -37,15 +64,11 @@ describe("Session Search API", () => {
     ctx.services.vcs.importToFossil = async () => ({ success: true });
     ctx.services.vcs.openFossil = async () => ({ success: true });
     ctx.services.vcs.createFossilUser = async () => ({ success: true });
-
-    const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
-    sessionRoutes = createSessionsRoutes(ctx);
   });
 
   describe("GET /sessions/search", () => {
     it("returns 401 for unauthenticated request", async () => {
-      const app = new Hono();
-      app.route("/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext);
 
       const res = await app.request("/sessions/search");
 
@@ -53,8 +76,7 @@ describe("Session Search API", () => {
     });
 
     it("returns sessions filtered by query matching session name", async () => {
-      const app = new Hono();
-      app.route("/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext);
 
       await userRepository.create(
         "testuser",
@@ -90,8 +112,7 @@ describe("Session Search API", () => {
     });
 
     it("returns sessions filtered by query matching project name", async () => {
-      const app = new Hono();
-      app.route("/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext);
 
       await userRepository.create(
         "testuser",
@@ -133,8 +154,7 @@ describe("Session Search API", () => {
     });
 
     it("returns empty query returns recent sessions", async () => {
-      const app = new Hono();
-      app.route("/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext);
 
       await userRepository.create(
         "testuser",
@@ -172,8 +192,7 @@ describe("Session Search API", () => {
     });
 
     it("only returns sessions owned by authenticated user", async () => {
-      const app = new Hono();
-      app.route("/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext);
 
       await userRepository.create(
         "user1",
@@ -214,8 +233,7 @@ describe("Session Search API", () => {
     });
 
     it("returns up to 10 sessions", async () => {
-      const app = new Hono();
-      app.route("/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext);
 
       await userRepository.create(
         "testuser",
@@ -247,8 +265,7 @@ describe("Session Search API", () => {
     });
 
     it("returns JSON with required fields", async () => {
-      const app = new Hono();
-      app.route("/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext);
 
       await userRepository.create(
         "testuser",

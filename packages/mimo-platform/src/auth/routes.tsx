@@ -4,25 +4,25 @@ import { Hono } from "hono";
 import type { MimoContext } from "../context/mimo-context.js";
 import { LoginPage } from "../components/LoginPage.js";
 import { RegisterPage } from "../components/RegisterPage.js";
+import type { StatusCode } from "hono/utils/http-status";
 
-type AuthRoutesContext = Pick<MimoContext, "services" | "repos">;
+type AuthRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
 
 export function createAuthRoutes(mimoContext: AuthRoutesContext) {
   const auth = new Hono();
-  const authService = mimoContext.services.auth;
-  const userRepository = mimoContext.repos.users;
 
   // GET /auth/register - Show registration page
   auth.get("/register", (c) => {
     return c.html(<RegisterPage />);
   });
 
-  // POST /auth/register - Process registration
+  // POST /auth/register - Process registration directly
   auth.post("/register", async (c) => {
     const body = await c.req.parseBody();
     const username = body.username as string;
     const password = body.password as string;
 
+    // Validate required fields
     if (!username || !password) {
       return c.html(
         <RegisterPage error="Username and password required" />,
@@ -30,16 +30,19 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
       );
     }
 
-    const existingUser = await userRepository.getCredentials(username);
+    // Check if username already exists
+    const existingUser = await mimoContext.repos.users.getCredentials(username);
     if (existingUser) {
       return c.html(<RegisterPage error="Username already exists" />, 409);
     }
 
+    // Hash password and create user
     const passwordHash = await Bun.password.hash(password, {
       algorithm: "bcrypt",
       cost: 10,
     });
-    await userRepository.create(username, passwordHash);
+
+    await mimoContext.repos.users.create(username, passwordHash);
 
     return c.redirect("/auth/login");
   });
@@ -49,21 +52,24 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
     return c.html(<LoginPage />);
   });
 
-  // POST /auth/login - Process login
+  // POST /auth/login - Process login directly
   auth.post("/login", async (c) => {
     const body = await c.req.parseBody();
     const username = body.username as string;
     const password = body.password as string;
 
+    // Validate required fields
     if (!username || !password) {
       return c.html(<LoginPage error="Username and password required" />, 400);
     }
 
-    const credentials = await userRepository.getCredentials(username);
+    // Get user credentials
+    const credentials = await mimoContext.repos.users.getCredentials(username);
     if (!credentials) {
       return c.html(<LoginPage error="Invalid credentials" />, 401);
     }
 
+    // Verify password
     const isValidPassword = await Bun.password.verify(
       password,
       credentials.passwordHash,
@@ -72,7 +78,8 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
       return c.html(<LoginPage error="Invalid credentials" />, 401);
     }
 
-    const token = await authService.generateToken(username);
+    // Generate token
+    const token = await mimoContext.services.auth.generateToken(username);
 
     // Set cookie with token and username
     c.header(

@@ -43,11 +43,9 @@ describe("SCC filename collision bug", () => {
         ],
       },
     ]);
-    writeFileSync(
-      mockSccPath,
-      `#!/bin/bash\necho '${mockOutput}'`,
-      { mode: 0o755 },
-    );
+    writeFileSync(mockSccPath, `#!/bin/bash\necho '${mockOutput}'`, {
+      mode: 0o755,
+    });
   });
 
   afterAll(() => {

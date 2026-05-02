@@ -62,11 +62,17 @@ chmod +x mimo-agent
 Use the split installer scripts:
 
 ```bash
-./scripts/install-user-platform.sh --download
-./scripts/install-user-agent.sh --download --provider opencode --token <AGENT_JWT>
+./scripts/install-user-platform.sh
+./scripts/install-user-agent.sh --provider opencode --token <AGENT_JWT>
 ```
 
 If `--token` is omitted, the agent installer asks interactively.
+
+Compile/copy only (no prompts, no service/env changes):
+
+```bash
+./scripts/install-user-agent.sh --compile-only
+```
 
 ```bash
 systemctl --user restart mimo-agent@opencode.service

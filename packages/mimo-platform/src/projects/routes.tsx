@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { CreateProjectInput } from "../projects/repository";
 import { Credential } from "../credentials/repository";
 import { createAuthMiddleware } from "../auth/middleware";
 import { ProjectsSessionsPage } from "../components/ProjectsSessionsPage";
@@ -8,33 +7,60 @@ import { ProjectEditPage } from "../components/ProjectEditPage";
 import { ImpactHistoryPage } from "../components/ImpactHistoryPage";
 import { createSessionsRoutes } from "../sessions/routes";
 import type { MimoContext } from "../context/mimo-context.js";
+import { createInternalApiClient } from "../api/internal/index.js";
+import type {
+  ListProjectsResponse,
+  GetProjectResponse,
+  CreateProjectResponse,
+} from "../api/internal/projects/types.js";
+import type { Context } from "hono";
 
-type ProjectsRoutesContext = Pick<MimoContext, "services" | "repos">;
+type ProjectsRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
 
-export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
+interface ProjectsRoutesDeps {
+  /** Optional custom fetch function for testing (routes to internal API) */
+  fetchFn?: typeof fetch;
+}
+
+// Helper to detect if URL is SSH
+function isSshUrl(url: string): boolean {
+  return url.startsWith("git@") || url.startsWith("ssh://");
+}
+
+export function createProjectsRoutes(
+  mimoContext: ProjectsRoutesContext,
+  deps: ProjectsRoutesDeps = {},
+) {
   const projects = new Hono();
-  const projectRepository = mimoContext.repos.projects;
-  const sessionRepository = mimoContext.repos.sessions;
   const credentialRepository = mimoContext.repos.credentials;
+  const sessionRepository = mimoContext.repos.sessions;
   const impactRepository = mimoContext.repos.impacts;
-  const sessions = createSessionsRoutes(mimoContext);
   const auth = createAuthMiddleware(mimoContext.services.auth);
+  const sessions = createSessionsRoutes(mimoContext, {
+    fetchFn: deps.fetchFn,
+  });
 
-  // Helper to detect if URL is SSH
-  function isSshUrl(url: string): boolean {
-    return url.startsWith("git@") || url.startsWith("ssh://");
-  }
-
-  // Helper to get credential type from URL
-  function getCredentialTypeFromUrl(url: string): "https" | "ssh" {
-    return isSshUrl(url) ? "ssh" : "https";
+  // Helper to create API client with optional test fetch
+  function createApiClient(c: Context) {
+    return createInternalApiClient(c, mimoContext as MimoContext, {
+      fetchFn: deps.fetchFn,
+    });
   }
 
   // List all projects (GET /projects)
   projects.get("/", auth, async (c) => {
     const user = c.get("user") as { username: string };
     const selectedId = c.req.query("selected");
-    const projectsList = await projectRepository.listByOwner(user.username);
+    const apiClient = createApiClient(c);
+
+    // Call internal API for projects list
+    const result = await apiClient.get<ListProjectsResponse>("/projects");
+
+    if (!result.success) {
+      return c.text(`Failed to load projects: ${result.error}`, result.status);
+    }
+
+    const projectsList = result.data.projects;
 
     let selectedProject = null;
     let selectedCredential: Credential | null = null;
@@ -43,15 +69,18 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
     > = [];
 
     if (selectedId) {
-      const candidate = await projectRepository.findById(selectedId);
-      if (candidate && candidate.owner === user.username) {
-        selectedProject = candidate;
-        selectedProjectSessions = await sessionRepository.listByProject(
-          candidate.id,
-        );
-        if (candidate.credentialId) {
+      // Call internal API for selected project
+      const selectedResult = await apiClient.get<GetProjectResponse>(
+        `/projects/${selectedId}`,
+      );
+
+      if (selectedResult.success) {
+        selectedProject = selectedResult.data.project;
+        selectedProjectSessions =
+          await sessionRepository.listByProject(selectedId);
+        if (selectedProject.credentialId) {
           selectedCredential = await credentialRepository.findById(
-            candidate.credentialId,
+            selectedProject.credentialId,
             user.username,
           );
         }
@@ -103,6 +132,7 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
     const agentSubpath = body.agentSubpath as string | undefined;
     const user = c.get("user") as { username: string };
 
+    // Pre-validate before calling internal API
     if (!name || !repoUrl) {
       const credentials = await credentialRepository.findByOwner(user.username);
       return c.html(
@@ -118,7 +148,6 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
     try {
       new URL(repoUrl);
     } catch {
-      // Allow SSH URLs (git@github.com:user/repo.git)
       if (!isSshUrl(repoUrl)) {
         const credentials = await credentialRepository.findByOwner(
           user.username,
@@ -176,8 +205,7 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
         );
       }
 
-      // Validate credential type matches URL type
-      const expectedType = getCredentialTypeFromUrl(repoUrl);
+      const expectedType = isSshUrl(repoUrl) ? "ssh" : "https";
       if (credential.type !== expectedType) {
         const credentials = await credentialRepository.findByOwner(
           user.username,
@@ -192,44 +220,41 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
       }
     }
 
-    try {
-      const project = await projectRepository.create({
-        name,
-        repoUrl,
-        repoType: repoType as "git" | "fossil",
-        owner: user.username,
-        description: description || undefined,
-        credentialId: credentialId || undefined,
-        sourceBranch: sourceBranch || undefined,
-        newBranch: newBranch || undefined,
-        agentSubpath: agentSubpath?.trim() || undefined,
-      });
+    // Use internal API client to create project
+    const apiClient = createApiClient(c);
+    const result = await apiClient.post<CreateProjectResponse>("/projects", {
+      name,
+      repoUrl,
+      repoType,
+      description,
+      credentialId,
+      sourceBranch,
+      newBranch,
+      agentSubpath,
+    });
 
-      return c.redirect(`/projects/${project.id}`, 302);
-    } catch (error) {
+    if (!result.success) {
       const credentials = await credentialRepository.findByOwner(user.username);
       return c.html(
-        <ProjectCreatePage
-          credentials={credentials}
-          error="Failed to create project"
-        />,
-        500,
+        <ProjectCreatePage credentials={credentials} error={result.error} />,
+        result.status >= 400 && result.status < 500 ? result.status : 500,
       );
     }
+
+    return c.redirect(`/projects/${result.data.project.id}`, 302);
   });
 
   // View project (GET /projects/:id)
   projects.get("/:id", auth, async (c) => {
     const id = c.req.param("id");
-    const project = await projectRepository.findById(id);
+    const apiClient = createApiClient(c);
+    const result = await apiClient.get<GetProjectResponse>(`/projects/${id}`);
 
-    if (!project) {
-      return c.notFound();
-    }
-
-    const user = c.get("user") as { username: string };
-    if (project.owner !== user.username) {
-      return c.notFound();
+    if (!result.success) {
+      if (result.status === 404) {
+        return c.notFound();
+      }
+      return c.text(`Failed to load project: ${result.error}`, result.status);
     }
 
     return c.redirect(`/projects?selected=${id}`, 302);
@@ -238,36 +263,48 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
   // Edit project form (GET /projects/:id/edit)
   projects.get("/:id/edit", auth, async (c) => {
     const id = c.req.param("id");
-    const project = await projectRepository.findById(id);
-
-    if (!project) {
-      return c.notFound();
-    }
-
     const user = c.get("user") as { username: string };
-    if (project.owner !== user.username) {
-      return c.notFound();
+    const apiClient = createApiClient(c);
+    const result = await apiClient.get<GetProjectResponse>(`/projects/${id}`);
+
+    if (!result.success) {
+      if (result.status === 404) {
+        return c.notFound();
+      }
+      return c.text(`Failed to load project: ${result.error}`, result.status);
     }
 
     const credentials = await credentialRepository.findByOwner(user.username);
     return c.html(
-      <ProjectEditPage project={project} credentials={credentials} />,
+      <ProjectEditPage
+        project={result.data.project}
+        credentials={credentials}
+      />,
     );
   });
 
   // Update project (POST /projects/:id/edit)
   projects.post("/:id/edit", auth, async (c) => {
     const id = c.req.param("id");
-    const project = await projectRepository.findById(id);
-
-    if (!project) {
-      return c.notFound();
-    }
-
     const user = c.get("user") as { username: string };
-    if (project.owner !== user.username) {
-      return c.notFound();
+    const apiClient = createApiClient(c);
+
+    // Fetch current project via internal API
+    const getResult = await apiClient.get<GetProjectResponse>(
+      `/projects/${id}`,
+    );
+
+    if (!getResult.success) {
+      if (getResult.status === 404) {
+        return c.notFound();
+      }
+      return c.text(
+        `Failed to load project: ${getResult.error}`,
+        getResult.status,
+      );
     }
+
+    const currentProject = getResult.data.project;
 
     const body = await c.req.parseBody();
     const name = body.name as string;
@@ -276,11 +313,12 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
     const description = body.description as string | undefined;
     const credentialId = body.credentialId as string | undefined;
 
+    // Pre-validation
     if (!name || !repoUrl) {
       const credentials = await credentialRepository.findByOwner(user.username);
       return c.html(
         <ProjectEditPage
-          project={project}
+          project={currentProject}
           credentials={credentials}
           error="Name and repository URL are required"
         />,
@@ -298,7 +336,7 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
         );
         return c.html(
           <ProjectEditPage
-            project={project}
+            project={currentProject}
             credentials={credentials}
             error="Invalid repository URL"
           />,
@@ -312,7 +350,7 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
       const credentials = await credentialRepository.findByOwner(user.username);
       return c.html(
         <ProjectEditPage
-          project={project}
+          project={currentProject}
           credentials={credentials}
           error="Repository type must be 'git' or 'fossil'"
         />,
@@ -325,7 +363,7 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
       const credentials = await credentialRepository.findByOwner(user.username);
       return c.html(
         <ProjectEditPage
-          project={project}
+          project={currentProject}
           credentials={credentials}
           error="Description must be 500 characters or less"
         />,
@@ -345,7 +383,7 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
         );
         return c.html(
           <ProjectEditPage
-            project={project}
+            project={currentProject}
             credentials={credentials}
             error="Selected credential not found"
           />,
@@ -353,15 +391,14 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
         );
       }
 
-      // Validate credential type matches URL type
-      const expectedType = getCredentialTypeFromUrl(repoUrl);
+      const expectedType = isSshUrl(repoUrl) ? "ssh" : "https";
       if (credential.type !== expectedType) {
         const credentials = await credentialRepository.findByOwner(
           user.username,
         );
         return c.html(
           <ProjectEditPage
-            project={project}
+            project={currentProject}
             credentials={credentials}
             error={`Credential type does not match repository URL type. Expected ${expectedType.toUpperCase()} but got ${credential.type.toUpperCase()}`}
           />,
@@ -370,62 +407,64 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
       }
     }
 
-    try {
-      await projectRepository.update(id, {
+    // Use internal API client to update project
+    const result = await apiClient.put<{ project: typeof currentProject }>(
+      `/projects/${id}`,
+      {
         name,
         repoUrl,
-        repoType: repoType as "git" | "fossil",
-        description: description || undefined,
-        credentialId: credentialId || undefined,
-      });
+        repoType,
+        description,
+        credentialId,
+      },
+    );
 
-      return c.redirect(`/projects/${id}`, 302);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to update project";
+    if (!result.success) {
       const credentials = await credentialRepository.findByOwner(user.username);
       return c.html(
         <ProjectEditPage
-          project={project}
+          project={currentProject}
           credentials={credentials}
-          error={errorMessage}
+          error={result.error}
         />,
-        500,
+        result.status >= 400 && result.status < 500 ? result.status : 500,
       );
     }
+
+    return c.redirect(`/projects/${id}`, 302);
   });
 
   // Delete project (POST /projects/:id/delete)
   projects.post("/:id/delete", auth, async (c) => {
     const id = c.req.param("id");
-    const project = await projectRepository.findById(id);
+    const apiClient = createApiClient(c);
+    const result = await apiClient.delete<{ deleted: true }>(`/projects/${id}`);
 
-    if (!project) {
-      return c.notFound();
+    if (!result.success) {
+      if (result.status === 404) {
+        return c.notFound();
+      }
+      return c.text(`Failed to delete project: ${result.error}`, result.status);
     }
 
-    const user = c.get("user") as { username: string };
-    if (project.owner !== user.username) {
-      return c.notFound();
-    }
-
-    await projectRepository.delete(id);
     return c.redirect("/projects", 302);
   });
 
   // GET /projects/:id/impacts - Impact history page
   projects.get("/:id/impacts", auth, async (c) => {
     const id = c.req.param("id");
-    const project = await projectRepository.findById(id);
-
-    if (!project) {
-      return c.notFound();
-    }
-
     const user = c.get("user") as { username: string };
-    if (project.owner !== user.username) {
-      return c.notFound();
+    const apiClient = createApiClient(c);
+    const result = await apiClient.get<GetProjectResponse>(`/projects/${id}`);
+
+    if (!result.success) {
+      if (result.status === 404) {
+        return c.notFound();
+      }
+      return c.text(`Failed to load project: ${result.error}`, result.status);
     }
+
+    const project = result.data.project;
 
     // Get all impact records for this project
     const impacts = await impactRepository.findByProject(id);
@@ -455,15 +494,14 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
   // GET /projects/:id/notes - Fetch project notes
   projects.get("/:id/notes", auth, async (c) => {
     const id = c.req.param("id");
-    const project = await projectRepository.findById(id);
+    const apiClient = createApiClient(c);
+    const result = await apiClient.get<GetProjectResponse>(`/projects/${id}`);
 
-    if (!project) {
-      return c.json({ error: "Project not found" }, 404);
-    }
-
-    const user = c.get("user") as { username: string };
-    if (project.owner !== user.username) {
-      return c.json({ error: "Unauthorized" }, 403);
+    if (!result.success) {
+      if (result.status === 404) {
+        return c.json({ error: "Project not found" }, 404);
+      }
+      return c.text(`Failed to load project: ${result.error}`, result.status);
     }
 
     const frameStateService = mimoContext.services.frameState;
@@ -475,15 +513,14 @@ export function createProjectsRoutes(mimoContext: ProjectsRoutesContext) {
   // POST /projects/:id/notes - Save project notes
   projects.post("/:id/notes", auth, async (c) => {
     const id = c.req.param("id");
-    const project = await projectRepository.findById(id);
+    const apiClient = createApiClient(c);
+    const result = await apiClient.get<GetProjectResponse>(`/projects/${id}`);
 
-    if (!project) {
-      return c.json({ error: "Project not found" }, 404);
-    }
-
-    const user = c.get("user") as { username: string };
-    if (project.owner !== user.username) {
-      return c.json({ error: "Unauthorized" }, 403);
+    if (!result.success) {
+      if (result.status === 404) {
+        return c.json({ error: "Project not found" }, 404);
+      }
+      return c.text(`Failed to load project: ${result.error}`, result.status);
     }
 
     const body = await c.req.json();

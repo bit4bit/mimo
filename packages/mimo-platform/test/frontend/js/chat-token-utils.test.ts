@@ -2,15 +2,17 @@ import { describe, it, expect } from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";
 
-const tokenUtilsPath = join(import.meta.dir, "../../../public/js/chat-token-utils.js");
+const tokenUtilsPath = join(
+  import.meta.dir,
+  "../../../public/js/chat-token-utils.js",
+);
 const tokenUtilsCode = readFileSync(tokenUtilsPath, "utf-8");
 
 // Provide a mock module object so the IIFE assigns exports
 const mockModule = { exports: {} };
-const wrappedCode = tokenUtilsCode.replace(
-  /^"use strict";\s*/,
-  '"use strict";\n(function (module) {',
-).replace(/$/, "\n})(mockModule);");
+const wrappedCode = tokenUtilsCode
+  .replace(/^"use strict";\s*/, '"use strict";\n(function (module) {')
+  .replace(/$/, "\n})(mockModule);");
 
 // eslint-disable-next-line @typescript-eslint/no-implied-eval
 eval(wrappedCode);

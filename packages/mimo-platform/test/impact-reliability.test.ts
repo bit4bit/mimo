@@ -108,7 +108,11 @@ export function divide(x: number, y: number): number {
       return;
     }
 
-    const calculator = new ImpactCalculator(sccService, createDummyJscpdService(), os);
+    const calculator = new ImpactCalculator(
+      sccService,
+      createDummyJscpdService(),
+      os,
+    );
 
     // Run impact calculation 5 times
     const results = [];
@@ -162,7 +166,11 @@ export function divide(x: number, y: number): number {
       return;
     }
 
-    const calculator = new ImpactCalculator(sccService, createDummyJscpdService(), os);
+    const calculator = new ImpactCalculator(
+      sccService,
+      createDummyJscpdService(),
+      os,
+    );
 
     // Clear caches
     sccService.clearCache(upstreamDir);
@@ -227,7 +235,11 @@ console.log(add(1, 2));
       return;
     }
 
-    const calculator = new ImpactCalculator(sccService, createDummyJscpdService(), os);
+    const calculator = new ImpactCalculator(
+      sccService,
+      createDummyJscpdService(),
+      os,
+    );
 
     // Initial calculation with caching
     const result1 = await calculator.calculateImpact(
@@ -279,7 +291,11 @@ console.log(add(1, 2));
       return;
     }
 
-    const calculator = new ImpactCalculator(sccService, createDummyJscpdService(), os);
+    const calculator = new ImpactCalculator(
+      sccService,
+      createDummyJscpdService(),
+      os,
+    );
 
     // Clear caches
     sccService.clearCache(upstreamDir);
