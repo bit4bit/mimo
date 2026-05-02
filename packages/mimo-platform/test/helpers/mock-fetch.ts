@@ -141,10 +141,10 @@ export function setupInternalApiMock(repos: MockRepos) {
         if (
           method === "DELETE" &&
           subPath?.startsWith("chat-threads/") &&
-          repos.sessions?.deleteChatThread
+          repos.sessions?.removeChatThread
         ) {
           const threadId = subPath.replace("chat-threads/", "");
-          await repos.sessions.deleteChatThread(sessionId, threadId);
+          await repos.sessions.removeChatThread(sessionId, threadId);
           return new Response(JSON.stringify({ success: true, data: {} }), {
             status: 200,
             headers: { "Content-Type": "application/json" },

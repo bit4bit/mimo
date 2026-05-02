@@ -21,6 +21,7 @@ import {
   touchSessionHandler,
   updateSessionConfigHandler,
   updateChatThreadHandler,
+  deleteChatThreadHandler,
   setActiveChatThreadHandler,
 } from "./sessions/handlers.js";
 
@@ -74,6 +75,9 @@ export function createSessionsInternalRouter(_mimoContext: MimoContext): Hono {
 
   // Update chat thread
   router.put("/:id/chat-threads/:threadId", updateChatThreadHandler);
+
+  // Delete chat thread
+  router.delete("/:id/chat-threads/:threadId", deleteChatThreadHandler);
 
   // Set active chat thread
   router.post("/:id/active-thread", setActiveChatThreadHandler);

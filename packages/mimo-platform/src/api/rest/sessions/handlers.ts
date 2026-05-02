@@ -715,6 +715,44 @@ export async function updateChatThreadHandler(
 }
 
 /**
+ * Remove a chat thread from a session.
+ * DELETE /api/internal/sessions/:id/chat-threads/:threadId
+ */
+export async function deleteChatThreadHandler(
+  c: InternalApiContext,
+): Promise<Response> {
+  const user = c.get("user") as { username: string } | undefined;
+  if (!user) {
+    return c.json(errorResponse("Unauthorized", 401), 401);
+  }
+
+  const sessionId = c.req.param("id");
+  const threadId = c.req.param("threadId");
+  if (!sessionId || !threadId) {
+    return c.json(
+      errorResponse("Session ID and thread ID are required", 400),
+      400,
+    );
+  }
+
+  const mimoContext = c.get("mimoContext");
+  const session = await mimoContext.repos.sessions.findById(sessionId);
+
+  if (!session || session.owner !== user.username) {
+    return c.json(errorResponse("Session not found", 404), 404);
+  }
+
+  const threadExists = session.chatThreads.some((t) => t.id === threadId);
+  if (!threadExists) {
+    return c.json(errorResponse("Thread not found", 404), 404);
+  }
+
+  await mimoContext.repos.sessions.removeChatThread(sessionId, threadId);
+
+  return c.body(null, 204);
+}
+
+/**
  * Set the active chat thread for a session.
  * POST /api/internal/sessions/:id/active-thread
  */

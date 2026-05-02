@@ -2232,9 +2232,6 @@ export function createSessionsRoutes(
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
 
-    if (session.chatThreads.length <= 1)
-      return c.json({ error: "Cannot delete the last thread" }, 400);
-
     const deletedThread = session.chatThreads.find((t) => t.id === threadId);
     const deletedThreadAgentId =
       deletedThread?.assignedAgentId || session.assignedAgentId;

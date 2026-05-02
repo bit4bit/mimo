@@ -88,6 +88,16 @@ function makeMocks() {
     getPort: mock(() => 8000),
   };
 
+  const os = {
+    fs: {
+      exists: mock(() => true),
+    },
+  };
+
+  const autoCommitService = { triggerAutoCommit: mock(async () => ({ success: true })) };
+  const sccService = { isStale: mock(() => false) };
+  const vcs = { fossilUp: mock(async () => ({ success: true })) };
+
   const mimoContext = {
     services: {
       chat: chat,
@@ -128,6 +138,10 @@ function makeMocks() {
     chat,
     sharedFossilServer,
     mimoContext,
+    os,
+    autoCommitService,
+    sccService,
+    vcs,
   };
 }
 
@@ -146,6 +160,10 @@ function makeRouter(deps: ReturnType<typeof makeMocks>) {
     sharedFossilServer: deps.sharedFossilServer,
     mimoContext: deps.mimoContext,
     platformUrl: "http://localhost:3000",
+    os: deps.os,
+    autoCommitService: deps.autoCommitService,
+    sccService: deps.sccService,
+    vcs: deps.vcs,
   });
 }
 

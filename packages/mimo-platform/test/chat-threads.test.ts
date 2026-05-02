@@ -574,4 +574,166 @@ describe("Chat Threads API", () => {
       }
     });
   });
+
+  describe("Thread deletion", () => {
+    it("DELETE /sessions/:id/chat-threads/:threadId removes a thread and returns 204", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
+      // Create a thread
+      const r1 = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "To Delete",
+            model: "claude-3",
+            mode: "code",
+            assignedAgentId: "agent-xyz",
+          }),
+        },
+      );
+      expect(r1.status).toBe(201);
+      const thread = await r1.json();
+
+      // Create a second thread so we can delete the first
+      const r2 = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Keep",
+            model: "gpt-4",
+            mode: "review",
+            assignedAgentId: "agent-xyz",
+          }),
+        },
+      );
+      expect(r2.status).toBe(201);
+
+      // Delete the first thread
+      const del = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads/${thread.id}`,
+        {
+          method: "DELETE",
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+      expect(del.status).toBe(204);
+
+      // Verify thread is gone
+      const list = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "GET",
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+      expect(list.status).toBe(200);
+      const body = await list.json();
+      expect(body.threads).toHaveLength(1);
+      expect(body.threads[0].name).toBe("Keep");
+    });
+
+    it("DELETE /sessions/:id/chat-threads/:threadId allows deleting the last thread", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
+      // Create exactly one thread
+      const r1 = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Only Thread",
+            model: "claude-3",
+            mode: "code",
+            assignedAgentId: "agent-xyz",
+          }),
+        },
+      );
+      expect(r1.status).toBe(201);
+      const thread = await r1.json();
+
+      // Delete it — should succeed even if it's the last one
+      const del = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads/${thread.id}`,
+        {
+          method: "DELETE",
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+      expect(del.status).toBe(204);
+
+      // Verify no threads remain
+      const list = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "GET",
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+      expect(list.status).toBe(200);
+      const body = await list.json();
+      expect(body.threads).toHaveLength(0);
+      expect(body.activeChatThreadId).toBeNull();
+    });
+
+    it("DELETE /sessions/:id/chat-threads/:threadId returns 404 for non-existent thread", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
+      // Create a thread so we're not at the last-thread boundary
+      const r1 = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Real Thread",
+            model: "claude-3",
+            mode: "code",
+            assignedAgentId: "agent-xyz",
+          }),
+        },
+      );
+      expect(r1.status).toBe(201);
+
+      // Try to delete a non-existent thread
+      const del = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads/non-existent-id`,
+        {
+          method: "DELETE",
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+      expect(del.status).toBe(404);
+      const body = await del.json();
+      expect(body.error).toContain("Thread not found");
+    });
+
+    it("DELETE /sessions/:id/chat-threads/:threadId returns 401 for unauthenticated requests", async () => {
+      const { app, project, session } = await createUserProjectSession();
+
+      const del = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads/thread-123`,
+        {
+          method: "DELETE",
+        },
+      );
+      expect(del.status).toBe(401);
+    });
+  });
 });
