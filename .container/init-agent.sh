@@ -3,16 +3,18 @@ set -eu
 
 echo "[init-agent] Preparing runtime tools"
 
-install_wrapper() {
-  name="$1"
-  target="$2"
-  wrapper_path="$HOME/.local/bin/$name"
+install_opencode_wrapper() {
+  wrapper_path="$HOME/.local/bin/opencode"
 
   cat > "$wrapper_path" <<EOF
 #!/bin/sh
-exec bunx --bun $target "\$@"
+exec bunx --bun opencode-ai "\$@"
 EOF
   chmod +x "$wrapper_path"
+}
+
+ensure_openspec_installed() {
+  npm install -g @fission-ai/openspec@latest
 }
 
 warm_command() {
@@ -31,8 +33,8 @@ require_command() {
 mkdir -p "$HOME/.local/bin"
 export PATH="$HOME/.local/bin:$PATH"
 
-install_wrapper "opencode" "opencode-ai"
-install_wrapper "openspec" "@fission-ai/openspec"
+install_opencode_wrapper
+ensure_openspec_installed
 
 warm_command "opencode"
 warm_command "openspec"
