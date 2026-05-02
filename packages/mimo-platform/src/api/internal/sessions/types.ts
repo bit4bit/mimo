@@ -45,6 +45,8 @@ export interface SessionResponse {
   // Chat threads
   chatThreads: ChatThreadResponse[];
   activeChatThreadId?: string | null;
+  // Frame state
+  frameState?: import("../../../sessions/frame-state.js").FrameState;
 }
 
 /**
@@ -97,6 +99,9 @@ export interface UpdateSessionRequest {
   branch?: string;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
+  frameState?: import("../../../sessions/frame-state.js").FrameState;
+  status?: "active" | "paused" | "closed";
+  closeReason?: string;
 }
 
 /**
@@ -173,9 +178,9 @@ export function toSessionResponse(session: Session): SessionResponse {
     ...(session.mcpToken && { mcpToken: session.mcpToken }),
     // Chat threads
     chatThreads: session.chatThreads.map(toChatThreadResponse),
-    ...(session.activeChatThreadId && {
-      activeChatThreadId: session.activeChatThreadId,
-    }),
+    activeChatThreadId: session.activeChatThreadId ?? null,
+    // Frame state
+    ...(session.frameState && { frameState: session.frameState }),
   };
 }
 

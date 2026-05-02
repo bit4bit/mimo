@@ -301,6 +301,7 @@ export function createSessionsRoutes(
         name,
         projectId,
         agentSubpath: effectiveSubpath,
+        branchName,
         mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
         sessionTtlDays,
         priority,

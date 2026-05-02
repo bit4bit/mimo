@@ -52,8 +52,7 @@ describe("Debug Project Tests", () => {
       "testuser",
       await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
     );
-    const { generateToken } = await import("../src/auth/jwt.ts");
-    const token = await generateToken("testuser");
+    const token = await mimoContext.services.auth.generateToken("testuser");
     console.log("[DEBUG] Generated token:", token.substring(0, 20) + "...");
 
     // Make request

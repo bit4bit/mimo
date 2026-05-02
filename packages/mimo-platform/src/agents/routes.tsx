@@ -19,7 +19,14 @@ import type {
 
 type AgentsRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
 
-export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
+interface AgentsRoutesDeps {
+  fetchFn?: typeof fetch;
+}
+
+export function createAgentsRoutes(
+  mimoContext: AgentsRoutesContext,
+  deps: AgentsRoutesDeps = {},
+) {
   const router = new Hono();
   const agentService = mimoContext.services.agents;
   const agentRepository = mimoContext.repos.agents;
@@ -30,6 +37,12 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
   const platformUrl =
     mimoContext.env?.PLATFORM_URL ??
     `http://${mimoContext.env?.MIMO_HOST ?? DEFAULT_MIMO_HOST}:3000`;
+
+  function createApiClient(c: Context) {
+    return createInternalApiClient(c, mimoContext as MimoContext, {
+      fetchFn: deps.fetchFn,
+    });
+  }
 
   // Agent API endpoint - uses agent JWT, not user auth
   // This endpoint is kept separate from internal API (per task 2.9)
@@ -66,7 +79,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
 
   // List agents (JSON endpoint) - proxies to internal API
   router.get("/list", authMiddlewareWithContext, async (c: Context) => {
-    const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
+    const apiClient = createApiClient(c);
     const result = await apiClient.get<ListAgentsResponse>("/agents");
 
     if (result.success === false) {
@@ -89,7 +102,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
 
   // List agents (HTML page) - proxies to internal API
   router.get("/", async (c: Context) => {
-    const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
+    const apiClient = createApiClient(c);
     const result = await apiClient.get<ListAgentsResponse>("/agents");
 
     if (result.success === false) {
@@ -407,7 +420,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     }
 
     // Call internal API to create agent
-    const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
+    const apiClient = createApiClient(c);
     const result = await apiClient.post<CreateAgentResponse>("/agents", {
       name: name.trim(),
       provider,
@@ -476,7 +489,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     const showRefreshed = c.req.query("refreshed") === "1";
     const agentOffline = c.req.query("offline") === "1";
 
-    const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
+    const apiClient = createApiClient(c);
     const result = await apiClient.get<GetAgentResponse>(`/agents/${agentId}`);
 
     if (result.success === false) {
@@ -747,7 +760,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
   router.post("/:id/delete", async (c: Context) => {
     const agentId = c.req.param("id");
 
-    const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
+    const apiClient = createApiClient(c);
     const result = await apiClient.delete<unknown>(`/agents/${agentId}`);
 
     if (result.success === false) {
@@ -764,7 +777,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
   router.get("/:id/capabilities", async (c: Context) => {
     const agentId = c.req.param("id");
 
-    const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
+    const apiClient = createApiClient(c);
     const result = await apiClient.get<GetCapabilitiesResponse>(
       `/agents/${agentId}/capabilities`,
     );
@@ -783,7 +796,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
   router.post("/:id/capabilities/refresh", async (c: Context) => {
     const agentId = c.req.param("id");
 
-    const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
+    const apiClient = createApiClient(c);
     const result = await apiClient.post<RefreshCapabilitiesResponse>(
       `/agents/${agentId}/capabilities/refresh`,
       {},

@@ -327,6 +327,14 @@ export async function updateSessionHandler(
       updates.sessionTtlDays = body.sessionTtlDays;
     if (body.idleTimeoutMs !== undefined)
       updates.idleTimeoutMs = body.idleTimeoutMs;
+    if (body.branch !== undefined) updates.branch = body.branch;
+    if (body.agentWorkspaceUser !== undefined)
+      updates.agentWorkspaceUser = body.agentWorkspaceUser;
+    if (body.agentWorkspacePassword !== undefined)
+      updates.agentWorkspacePassword = body.agentWorkspacePassword;
+    if (body.frameState !== undefined) updates.frameState = body.frameState;
+    if (body.status !== undefined) updates.status = body.status;
+    if (body.closeReason !== undefined) updates.closeReason = body.closeReason;
 
     const updated = await mimoContext.repos.sessions.update(id, updates);
 
@@ -644,4 +652,106 @@ export async function addChatThreadHandler(
     }),
     201,
   );
+}
+
+/**
+ * Update a chat thread in a session.
+ * PUT /api/internal/sessions/:id/chat-threads/:threadId
+ */
+export async function updateChatThreadHandler(
+  c: InternalApiContext,
+): Promise<Response> {
+  const user = c.get("user") as { username: string } | undefined;
+  if (!user) {
+    return c.json(errorResponse("Unauthorized", 401), 401);
+  }
+
+  const sessionId = c.req.param("id");
+  const threadId = c.req.param("threadId");
+  if (!sessionId || !threadId) {
+    return c.json(
+      errorResponse("Session ID and thread ID are required", 400),
+      400,
+    );
+  }
+
+  const mimoContext = c.get("mimoContext");
+  const session = await mimoContext.repos.sessions.findById(sessionId);
+
+  if (!session || session.owner !== user.username) {
+    return c.json(errorResponse("Session not found", 404), 404);
+  }
+
+  const body = await c.req.json();
+  const updates: Partial<
+    Pick<
+      import("../../../sessions/repository.js").ChatThread,
+      "name" | "model" | "mode" | "acpSessionId" | "state"
+    >
+  > = {};
+  if (body.name !== undefined) updates.name = body.name;
+  if (body.model !== undefined) updates.model = body.model;
+  if (body.mode !== undefined) updates.mode = body.mode;
+  if (body.acpSessionId !== undefined) updates.acpSessionId = body.acpSessionId;
+  if (body.state !== undefined) updates.state = body.state;
+
+  const updated = await mimoContext.repos.sessions.updateChatThread(
+    sessionId,
+    threadId,
+    updates,
+  );
+
+  if (!updated) {
+    return c.json(errorResponse("Thread not found", 404), 404);
+  }
+
+  return c.json(
+    successResponse({
+      session: toSessionResponse(
+        await mimoContext.repos.sessions.findById(sessionId)!,
+      ),
+    }),
+  );
+}
+
+/**
+ * Set the active chat thread for a session.
+ * POST /api/internal/sessions/:id/active-thread
+ */
+export async function setActiveChatThreadHandler(
+  c: InternalApiContext,
+): Promise<Response> {
+  const user = c.get("user") as { username: string } | undefined;
+  if (!user) {
+    return c.json(errorResponse("Unauthorized", 401), 401);
+  }
+
+  const sessionId = c.req.param("id");
+  if (!sessionId) {
+    return c.json(errorResponse("Session ID is required", 400), 400);
+  }
+
+  const mimoContext = c.get("mimoContext");
+  const session = await mimoContext.repos.sessions.findById(sessionId);
+
+  if (!session || session.owner !== user.username) {
+    return c.json(errorResponse("Session not found", 404), 404);
+  }
+
+  const body = await c.req.json();
+  if (!body.threadId || typeof body.threadId !== "string") {
+    return c.json(errorResponse("threadId is required", 400), 400);
+  }
+
+  try {
+    await mimoContext.repos.sessions.setActiveChatThread(
+      sessionId,
+      body.threadId,
+    );
+    return c.json(successResponse({ success: true }));
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to set active thread";
+    return c.json(errorResponse(message, 400), 400);
+  }
 }

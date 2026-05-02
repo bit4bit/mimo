@@ -4,3 +4,4 @@
 **/bin
 **/.mimo
 **/.agent-shell
+node_modules

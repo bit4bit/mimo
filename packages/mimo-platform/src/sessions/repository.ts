@@ -306,6 +306,7 @@ export class SessionRepository {
       createdAt: now,
       updatedAt: now,
       ...(input.agentSubpath && { agentSubpath: input.agentSubpath }),
+      ...(input.branchName && { branch: input.branchName }),
     };
 
     this.os.fs.writeFile(

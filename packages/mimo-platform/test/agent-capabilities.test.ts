@@ -4,6 +4,33 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync } from "fs";
 
+// Helper to create test app with internal API mounted
+function createTestApp(ctx: any): Hono {
+  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
+  const { createAgentsRoutes } = require("../src/agents/routes.tsx");
+
+  const app = new Hono();
+
+  // Mount internal API
+  const internalRouter = createInternalApiRouter(ctx);
+  app.route("/api/internal", internalRouter);
+
+  // Mount agent routes with fetchFn that routes through app
+  const agents = createAgentsRoutes(ctx, {
+    fetchFn: (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/api/internal/")) {
+        const path = new URL(urlStr).pathname;
+        return app.request(path, init);
+      }
+      return fetch(url, init);
+    },
+  });
+  app.route("/agents", agents);
+
+  return app;
+}
+
 describe("Agent Capabilities", () => {
   let testHome: string;
   let agentRepository: any;
@@ -11,7 +38,7 @@ describe("Agent Capabilities", () => {
   let userRepository: any;
   let projectRepository: any;
   let sessionRepository: any;
-  let agentRoutes: any;
+  let mimoContext: any;
   let authToken: string;
 
   beforeEach(async () => {
@@ -30,14 +57,12 @@ describe("Agent Capabilities", () => {
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
 
+    mimoContext = ctx;
     userRepository = ctx.repos.users;
     agentRepository = ctx.repos.agents;
     projectRepository = ctx.repos.projects;
     sessionRepository = ctx.repos.sessions;
     agentService = ctx.services.agents;
-
-    const { createAgentsRoutes } = await import("../src/agents/routes.tsx");
-    agentRoutes = createAgentsRoutes(ctx);
 
     await userRepository.create(
       "testuser",
@@ -48,8 +73,7 @@ describe("Agent Capabilities", () => {
 
   describe("GET /agents/:agentId/capabilities", () => {
     it("returns 404 when agent does not exist", async () => {
-      const app = new Hono();
-      app.route("/agents", agentRoutes);
+      const app = createTestApp(mimoContext);
 
       const res = await app.request("/agents/nonexistent/capabilities", {
         headers: { Cookie: `token=${authToken}` },
@@ -59,8 +83,7 @@ describe("Agent Capabilities", () => {
     });
 
     it("returns 404 when agent has no cached capabilities", async () => {
-      const app = new Hono();
-      app.route("/agents", agentRoutes);
+      const app = createTestApp(mimoContext);
 
       const agent = await agentRepository.create({
         name: "No Caps Agent",
@@ -76,8 +99,7 @@ describe("Agent Capabilities", () => {
     });
 
     it("returns capabilities after agent advertises them", async () => {
-      const app = new Hono();
-      app.route("/agents", agentRoutes);
+      const app = createTestApp(mimoContext);
 
       const agent = await agentRepository.create({
         name: "Caps Agent",
@@ -113,8 +135,7 @@ describe("Agent Capabilities", () => {
     });
 
     it("derives capabilities from session state when cache is missing", async () => {
-      const app = new Hono();
-      app.route("/agents", agentRoutes);
+      const app = createTestApp(mimoContext);
 
       const agent = await agentRepository.create({
         name: "Derived Caps Agent",
@@ -168,8 +189,7 @@ describe("Agent Capabilities", () => {
     });
 
     it("returns updated capabilities after re-advertisement", async () => {
-      const app = new Hono();
-      app.route("/agents", agentRoutes);
+      const app = createTestApp(mimoContext);
 
       const agent = await agentRepository.create({
         name: "Recaps Agent",
