@@ -3,12 +3,12 @@ import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync } from "fs";
+import { JwtService } from "../src/auth/jwt";
 
 let authRoutes: any;
-let authMiddleware: any;
+let createAuthMiddleware: any;
 let userRepository: any;
-let generateToken: any;
-let verifyToken: any;
+let testAuth: JwtService;
 let testHome: string;
 
 describe("Authentication Integration Tests", () => {
@@ -28,16 +28,13 @@ describe("Authentication Integration Tests", () => {
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
     userRepository = ctx.repos.users;
+    testAuth = ctx.services.auth;
 
     const { createAuthRoutes } = await import("../src/auth/routes.tsx");
     authRoutes = createAuthRoutes(ctx);
 
-    const jwtModule = await import("../src/auth/jwt.ts");
-    generateToken = jwtModule.generateToken;
-    verifyToken = jwtModule.verifyToken;
-
     const middlewareModule = await import("../src/auth/middleware.ts");
-    authMiddleware = middlewareModule.authMiddleware;
+    createAuthMiddleware = middlewareModule.createAuthMiddleware;
   });
 
   describe("Registration", () => {
@@ -215,9 +212,9 @@ describe("Authentication Integration Tests", () => {
   describe("Protected Routes", () => {
     it("should redirect to login without token", async () => {
       const app = new Hono();
-      const { authMiddleware } = await import("../src/auth/middleware.ts");
+      const auth = createAuthMiddleware(testAuth);
 
-      app.get("/projects", authMiddleware, (c) => {
+      app.get("/projects", auth, (c) => {
         return c.text("Projects");
       });
 
@@ -229,13 +226,13 @@ describe("Authentication Integration Tests", () => {
 
     it("should access protected route with valid token", async () => {
       const app = new Hono();
-      const { authMiddleware } = await import("../src/auth/middleware.ts");
+      const auth = createAuthMiddleware(testAuth);
 
-      app.get("/projects", authMiddleware, (c) => {
+      app.get("/projects", auth, (c) => {
         return c.text("Projects");
       });
 
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const res = await app.request("/projects", {
         headers: { Cookie: `token=${token}` },
@@ -248,9 +245,9 @@ describe("Authentication Integration Tests", () => {
 
     it("should redirect with invalid token", async () => {
       const app = new Hono();
-      const { authMiddleware } = await import("../src/auth/middleware.ts");
+      const auth = createAuthMiddleware(testAuth);
 
-      app.get("/projects", authMiddleware, (c) => {
+      app.get("/projects", auth, (c) => {
         return c.text("Projects");
       });
 
@@ -265,22 +262,22 @@ describe("Authentication Integration Tests", () => {
 
   describe("JWT Token Validation", () => {
     it("should verify valid token", async () => {
-      const token = await generateToken("testuser");
-      const payload = await verifyToken(token);
+      const token = await testAuth.generateToken("testuser");
+      const payload = await testAuth.verifyToken(token);
 
       expect(payload).not.toBeNull();
       expect(payload?.username).toBe("testuser");
     });
 
     it("should reject expired token", async () => {
-      const token = await generateToken("testuser", "-1s");
-      const payload = await verifyToken(token);
+      const token = await testAuth.generateToken("testuser", "-1s");
+      const payload = await testAuth.verifyToken(token);
 
       expect(payload).toBeNull();
     });
 
     it("should reject invalid token", async () => {
-      const payload = await verifyToken("invalid.token.here");
+      const payload = await testAuth.verifyToken("invalid.token.here");
       expect(payload).toBeNull();
     });
   });

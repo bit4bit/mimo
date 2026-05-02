@@ -26,7 +26,7 @@ describe("Frame buffers integration", () => {
     const ctx = createMimoContext({
       env: {
         MIMO_HOME: testHome,
-        JWT_SECRET: "your-secret-key-change-in-production",
+        JWT_SECRET: "test-secret-key-for-testing",
       },
       services: { sharedFossil: new DummySharedFossilServer() },
     });

@@ -1,12 +1,12 @@
 import type { MiddlewareHandler } from "hono";
-import { jwtService, type JwtService } from "./jwt.js";
+import type { JwtService } from "./jwt.js";
 
 export interface AuthContext {
   username: string;
 }
 
 export function createAuthMiddleware(
-  auth: Pick<JwtService, "verifyToken"> = jwtService,
+  auth: Pick<JwtService, "verifyToken">,
 ): MiddlewareHandler {
   return async (c, next) => {
     const cookie = c.req.header("Cookie");
@@ -27,4 +27,4 @@ export function createAuthMiddleware(
   };
 }
 
-export const authMiddleware: MiddlewareHandler = createAuthMiddleware();
+

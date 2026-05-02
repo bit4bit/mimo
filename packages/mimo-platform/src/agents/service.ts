@@ -7,8 +7,6 @@ import {
 import { SignJWT, jwtVerify } from "jose";
 import { logger } from "../logger.js";
 
-const DEFAULT_JWT_SECRET = "your-secret-key-change-in-production";
-
 export interface AgentTokenPayload {
   agentId: string;
   sessionId?: string;
@@ -33,7 +31,7 @@ export class AgentService {
 
   constructor(
     private repository: AgentRepository,
-    jwtSecret: string = DEFAULT_JWT_SECRET,
+    jwtSecret: string,
   ) {
     this.agentSecret = new TextEncoder().encode(jwtSecret);
   }
@@ -323,5 +321,3 @@ export class AgentService {
     }
   }
 }
-
-export const agentService = new AgentService();

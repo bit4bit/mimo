@@ -6,7 +6,7 @@ import type { Context } from "hono";
 
 import { Layout } from "../components/Layout.js";
 import { DataTable, type DataTableColumn } from "../components/DataTable.js";
-import { authMiddleware, createAuthMiddleware } from "../auth/middleware.js";
+import { createAuthMiddleware } from "../auth/middleware.js";
 
 type AgentsRoutesContext = Pick<MimoContext, "services" | "repos">;
 
@@ -195,7 +195,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     );
   });
 
-  router.use("/*", mimoContext ? authMiddlewareWithContext : authMiddleware);
+  router.use("/*", authMiddlewareWithContext);
 
   router.get("/", async (c: Context) => {
     const user = c.get("user") as { username: string };

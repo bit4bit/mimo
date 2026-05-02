@@ -8,6 +8,7 @@ let app: any;
 let projectRepository: any;
 let sessionRepository: any;
 let userRepository: any;
+let testAuth: any;
 
 describe("Project Sessions Link Integration Tests", () => {
   const testHome = join(tmpdir(), `mimo-project-sessions-test-${Date.now()}`);
@@ -26,14 +27,12 @@ describe("Project Sessions Link Integration Tests", () => {
     userRepository = ctx.repos.users;
     projectRepository = ctx.repos.projects;
     sessionRepository = ctx.repos.sessions;
+    testAuth = ctx.services.auth;
 
     app = new Hono();
 
     const authModule = await import("../src/auth/routes.tsx");
     app.route("/auth", authModule.createAuthRoutes(ctx));
-
-    // Note: protectedRoutes was empty (new Hono()) and has been removed
-    // Global auth middleware now handles all routes
 
     const projectsModule = await import("../src/projects/routes.tsx");
     app.route("/projects", projectsModule.createProjectsRoutes(ctx));
@@ -45,8 +44,7 @@ describe("Project Sessions Link Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const project = await projectRepository.create({
         name: "Test Project",
@@ -83,8 +81,7 @@ describe("Project Sessions Link Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const project = await projectRepository.create({
         name: "Empty Project",
@@ -107,8 +104,7 @@ describe("Project Sessions Link Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const project = await projectRepository.create({
         name: "Test Project",
@@ -132,8 +128,7 @@ describe("Project Sessions Link Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const project = await projectRepository.create({
         name: "Test Project",
@@ -162,8 +157,7 @@ describe("Project Sessions Link Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const project = await projectRepository.create({
         name: "Test Project",

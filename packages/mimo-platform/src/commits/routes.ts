@@ -1,17 +1,18 @@
 /** @jsx jsx */
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";
-import { authMiddleware } from "../auth/middleware.js";
+import { createAuthMiddleware } from "../auth/middleware.js";
 import type { Context } from "hono";
 import type { MimoContext } from "../context/mimo-context.js";
 
 export function createCommitRoutes(mimoContext: MimoContext): Hono {
   const service = mimoContext.services.commits;
+  const auth = createAuthMiddleware(mimoContext.services.auth);
 
   const router = new Hono();
 
   // Apply auth middleware to all routes
-  router.use("/*", authMiddleware);
+  router.use("/*", auth);
 
   // GET /commits/:sessionId/preview - Get commit preview with file tree
   router.get("/:sessionId/preview", async (c: Context) => {

@@ -1,17 +1,18 @@
 /** @jsx jsx */
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";
-import { authMiddleware } from "../auth/middleware.js";
+import { createAuthMiddleware } from "../auth/middleware.js";
 import type { Context } from "hono";
 import type { MimoContext } from "../context/mimo-context.js";
 
 export function createSyncRoutes(mimoContext: MimoContext): Hono {
   const service = mimoContext.services.fileSync;
+  const auth = createAuthMiddleware(mimoContext.services.auth);
 
   const router = new Hono();
 
   // Apply auth middleware to all routes
-  router.use("/*", authMiddleware);
+  router.use("/*", auth);
 
   // GET /sync/:sessionId - Get change set for a session
   router.get("/:sessionId", async (c: Context) => {

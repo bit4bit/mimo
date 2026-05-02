@@ -7,7 +7,8 @@ import { rmSync } from "fs";
 describe("API Auth Boundary Tests", () => {
   let app: Hono;
   let testHome: string;
-  let generateToken: any;
+  let testAuth: any;
+  let createAuthMiddleware: any;
 
   beforeEach(async () => {
     testHome = join(
@@ -25,8 +26,11 @@ describe("API Auth Boundary Tests", () => {
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
 
+    testAuth = ctx.services.auth;
+
     const { createAuthRoutes } = await import("../src/auth/routes.tsx");
-    const { authMiddleware } = await import("../src/auth/middleware.ts");
+    const middlewareModule = await import("../src/auth/middleware.ts");
+    createAuthMiddleware = middlewareModule.createAuthMiddleware;
     const { registerHelpRoutes } = await import("../src/help/routes.js");
 
     app = new Hono();
@@ -44,12 +48,14 @@ describe("API Auth Boundary Tests", () => {
       return PUBLIC_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
     }
 
+    const auth = createAuthMiddleware(testAuth);
+
     app.use("*", async (c, next) => {
       const path = c.req.path;
       if (isPublicPath(path)) {
         return next();
       }
-      return authMiddleware(c, next);
+      return auth(c, next);
     });
 
     app.route("/auth", createAuthRoutes(ctx));
@@ -65,9 +71,6 @@ describe("API Auth Boundary Tests", () => {
     app.get("/health", (c) => c.json({ status: "healthy" }));
 
     registerHelpRoutes(app);
-
-    const jwtModule = await import("../src/auth/jwt.ts");
-    generateToken = jwtModule.generateToken;
   });
 
   it("should redirect to /auth/login for removed /api/test endpoint (now protected)", async () => {

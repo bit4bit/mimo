@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Credential } from "../credentials/repository";
-import { authMiddleware } from "../auth/middleware";
+import { createAuthMiddleware } from "../auth/middleware";
 import { CredentialsListPage } from "../components/CredentialsListPage";
 import { CredentialCreatePage } from "../components/CredentialCreatePage";
 import { CredentialEditPage } from "../components/CredentialEditPage";
@@ -8,23 +8,24 @@ import type { MimoContext } from "../context/mimo-context.js";
 
 export function createCredentialsRoutes(mimoContext: MimoContext): Hono {
   const repo = mimoContext.repos.credentials;
+  const auth = createAuthMiddleware(mimoContext.services.auth);
 
   const credentials = new Hono();
 
   // List all credentials (GET /credentials)
-  credentials.get("/", authMiddleware, async (c) => {
+  credentials.get("/", auth, async (c) => {
     const user = c.get("user") as { username: string };
     const credentialsList = await repo.findByOwner(user.username);
     return c.html(<CredentialsListPage credentials={credentialsList} />);
   });
 
   // Show create form (GET /credentials/new)
-  credentials.get("/new", authMiddleware, (c) => {
+  credentials.get("/new", auth, (c) => {
     return c.html(<CredentialCreatePage />);
   });
 
   // Create credential (POST /credentials)
-  credentials.post("/", authMiddleware, async (c) => {
+  credentials.post("/", auth, async (c) => {
     const body = await c.req.parseBody();
     const name = body.name as string;
     const type = (body.type as string) || "https";
@@ -91,7 +92,7 @@ export function createCredentialsRoutes(mimoContext: MimoContext): Hono {
   });
 
   // Edit form (GET /credentials/:id/edit)
-  credentials.get("/:id/edit", authMiddleware, async (c) => {
+  credentials.get("/:id/edit", auth, async (c) => {
     const id = c.req.param("id");
     const user = c.get("user") as { username: string };
 
@@ -104,7 +105,7 @@ export function createCredentialsRoutes(mimoContext: MimoContext): Hono {
   });
 
   // Update credential (POST /credentials/:id/edit)
-  credentials.post("/:id/edit", authMiddleware, async (c) => {
+  credentials.post("/:id/edit", auth, async (c) => {
     const id = c.req.param("id");
     const user = c.get("user") as { username: string };
 
@@ -164,7 +165,7 @@ export function createCredentialsRoutes(mimoContext: MimoContext): Hono {
   });
 
   // Delete credential (POST /credentials/:id/delete)
-  credentials.post("/:id/delete", authMiddleware, async (c) => {
+  credentials.post("/:id/delete", auth, async (c) => {
     const id = c.req.param("id");
     const user = c.get("user") as { username: string };
 

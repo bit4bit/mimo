@@ -160,8 +160,7 @@ export function createMimoContext(
   const env: MimoEnv = {
     PORT: port,
     PLATFORM_URL: overrides.env?.PLATFORM_URL ?? `http://${host}:${port}`,
-    JWT_SECRET:
-      overrides.env?.JWT_SECRET ?? "your-secret-key-change-in-production",
+    JWT_SECRET: overrides.env?.JWT_SECRET ?? "",
     MIMO_HOME: mimoHome,
     FOSSIL_REPOS_DIR:
       overrides.env?.FOSSIL_REPOS_DIR ??

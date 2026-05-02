@@ -8,7 +8,8 @@ import { rmSync, existsSync } from "fs";
 let projectRoutes: any;
 let projectRepository: any;
 let sessionRepository: any;
-let authMiddleware: any;
+let createAuthMiddleware: any;
+let testAuth: any;
 let userRepository: any;
 
 describe("Project Management Integration Tests", () => {
@@ -28,9 +29,10 @@ describe("Project Management Integration Tests", () => {
     });
 
     userRepository = ctx.repos.users;
+    testAuth = ctx.services.auth;
 
     const middlewareModule = await import("../src/auth/middleware.ts");
-    authMiddleware = middlewareModule.authMiddleware;
+    createAuthMiddleware = middlewareModule.createAuthMiddleware;
 
     projectRepository = ctx.repos.projects;
     sessionRepository = ctx.repos.sessions;
@@ -49,8 +51,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "My Test Project");
@@ -101,8 +102,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("repoUrl", "https://github.com/user/repo.git");
@@ -127,8 +127,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Test Project");
@@ -156,8 +155,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       // Create some projects
       await projectRepository.create({
@@ -194,8 +192,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       await projectRepository.create({
         name: "Project 1",
@@ -239,8 +236,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const res = await app.request("/projects", {
         headers: { Cookie: `token=${token}` },
@@ -261,8 +257,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const project = await projectRepository.create({
         name: "Test Project",
@@ -289,8 +284,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const res = await app.request("/projects/non-existent-id", {
         headers: { Cookie: `token=${token}` },
@@ -309,8 +303,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const project = await projectRepository.create({
         name: "Project To Delete",
@@ -346,8 +339,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const res = await app.request("/projects/new", {
         headers: { Cookie: `token=${token}` },
@@ -371,8 +363,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project with Description");
@@ -405,8 +396,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project Without Description");
@@ -438,8 +428,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const longDescription = "a".repeat(501);
       const formData = new URLSearchParams();
@@ -472,8 +461,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project with Agent Subpath");
@@ -506,8 +494,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project Without Agent Subpath");
@@ -632,8 +619,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project with Source Branch");
@@ -667,8 +653,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project with New Branch");
@@ -702,8 +687,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project with Both Branches");
@@ -738,8 +722,7 @@ describe("Project Management Integration Tests", () => {
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await testAuth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project Without Branches");
