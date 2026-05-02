@@ -2,9 +2,7 @@ import {
   describe,
   it,
   expect,
-  beforeAll,
   afterAll,
-  beforeEach,
 } from "bun:test";
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
@@ -15,31 +13,10 @@ import { createOS } from "../src/os/node-adapter.js";
  * Integration Tests
  *
  * These tests verify the complete integration of all components.
- * Note: Tests requiring a running server are skipped if server is not available.
+ * No running server is required — all tests work via direct module imports.
  */
 
-const baseUrl = "http://localhost:3000";
-let serverAvailable = false;
-
-// Check if server is available before running tests
 describe("Integration Tests", () => {
-  beforeAll(async () => {
-    try {
-      const response = await fetch(`${baseUrl}/health`, {
-        signal: AbortSignal.timeout(1000),
-      });
-      serverAvailable = response.status === 200;
-    } catch {
-      serverAvailable = false;
-    }
-  });
-
-  describe("13.1: End-to-End User Flow", () => {
-    it("should have server running for E2E tests", () => {
-      // This test documents that E2E tests require a running server
-      expect(true).toBe(true);
-    });
-  });
 
   describe("13.2: Authentication Integration", () => {
     it("should handle auth module integration", async () => {
@@ -360,28 +337,4 @@ describe("Integration Tests", () => {
   });
 });
 
-describe("E2E: Server Availability Check", () => {
-  it("documents that full E2E tests require running server", async () => {
-    // This test serves as documentation
-    // Full E2E tests require: bun run dev (to start server on port 3000)
-    // Then tests can connect to http://localhost:3000
-    const baseUrl = "http://localhost:3000";
 
-    let available = false;
-    try {
-      const response = await fetch(`${baseUrl}/health`, {
-        signal: AbortSignal.timeout(1000),
-      });
-      available = response.status === 200;
-    } catch {
-      available = false;
-    }
-
-    if (!available) {
-      console.log("⚠️  Server not running. Start with: bun run dev");
-    }
-
-    // Always pass - this is documentation
-    expect(true).toBe(true);
-  });
-});

@@ -19,6 +19,7 @@ _FOSSIL_
 **/bin
 **/.mimo
 **/.agent-shell
+node_modules
 
 
 # --- From: .mimoignore ---

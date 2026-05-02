@@ -2,7 +2,6 @@ import {
   describe,
   it,
   expect,
-  beforeAll,
   afterAll,
   beforeEach,
 } from "bun:test";
@@ -349,12 +348,6 @@ describe("File Sync API Routes", () => {
   let originalRepo: string;
   let fileSyncService: FileSyncService;
   const sessionId = "api-test-session";
-  const baseUrl = "http://localhost:3456";
-
-  beforeAll(async () => {
-    // Start the server for integration tests
-    // This would require server setup, simplified for now
-  });
 
   beforeEach(() => {
     sessionWorktree = mkdtempSync(join(tmpdir(), "mimo-session-"));
