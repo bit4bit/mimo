@@ -269,7 +269,10 @@ describe("Session Priority", () => {
             "Content-Type": "application/x-www-form-urlencoded",
             Cookie: `token=${token}`,
           },
-          body: new URLSearchParams({ name, priority: priority as string }).toString(),
+          body: new URLSearchParams({
+            name,
+            priority: priority as string,
+          }).toString(),
         });
         expect(res.status).toBe(302);
       }

@@ -30,7 +30,10 @@ import type {
   UpdateSessionResponse,
   SessionResponse,
 } from "../api/internal/sessions/types.js";
-import type { ListMcpServersResponse, GetMcpServerResponse } from "../api/internal/mcp-servers/types.js";
+import type {
+  ListMcpServersResponse,
+  GetMcpServerResponse,
+} from "../api/internal/mcp-servers/types.js";
 import type { GetAgentResponse } from "../api/internal/agents/types.js";
 import type { GetConfigResponse } from "../api/internal/config/types.js";
 import type { SaveMessageResponse } from "../api/internal/chat/types.js";
@@ -179,7 +182,8 @@ export function createSessionsRoutes(
 
     // Get MCP servers via Internal API Client
     const apiClient = createApiClient(c);
-    const mcpResult = await apiClient.get<ListMcpServersResponse>("/mcp-servers");
+    const mcpResult =
+      await apiClient.get<ListMcpServersResponse>("/mcp-servers");
 
     let mcpServers: any[] = [];
     if (mcpResult.success) {
@@ -266,17 +270,18 @@ export function createSessionsRoutes(
       try {
         // Check all MCP servers exist
         for (const id of mcpServerIds) {
-          const serverResult = await apiClient.get<GetMcpServerResponse>(`/mcp-servers/${id}`);
+          const serverResult = await apiClient.get<GetMcpServerResponse>(
+            `/mcp-servers/${id}`,
+          );
           if (!serverResult.success) {
             return c.text(`MCP server '${id}' not found`, 400);
           }
         }
 
         // Check for duplicate MCP server names via Internal API Client
-        const dupResult = await apiClient.post<{ duplicateName: string | null }>(
-          "/mcp-servers/validate-duplicates",
-          { ids: mcpServerIds }
-        );
+        const dupResult = await apiClient.post<{
+          duplicateName: string | null;
+        }>("/mcp-servers/validate-duplicates", { ids: mcpServerIds });
 
         if (dupResult.success && dupResult.data.duplicateName) {
           return c.text(
@@ -290,14 +295,17 @@ export function createSessionsRoutes(
     }
 
     // Create session via Internal API Client
-    const createResult = await apiClient.post<CreateSessionResponse>("/sessions", {
-      name,
-      projectId,
-      agentSubpath: effectiveSubpath,
-      mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
-      sessionTtlDays,
-      priority,
-    });
+    const createResult = await apiClient.post<CreateSessionResponse>(
+      "/sessions",
+      {
+        name,
+        projectId,
+        agentSubpath: effectiveSubpath,
+        mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
+        sessionTtlDays,
+        priority,
+      },
+    );
 
     if (!createResult.success) {
       return c.text(`Error: ${createResult.error}`, createResult.status);
@@ -305,7 +313,9 @@ export function createSessionsRoutes(
     const session = createResult.data.session;
 
     // Get full session details for VCS operations
-    const getSessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${session.id}`);
+    const getSessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${session.id}`,
+    );
 
     if (!getSessionResult.success) {
       return c.text("Failed to retrieve created session", 500);
@@ -402,7 +412,9 @@ export function createSessionsRoutes(
       }
 
       if (desiredBranch) {
-        await apiClient.put(`/sessions/${session.id}`, { branch: desiredBranch });
+        await apiClient.put(`/sessions/${session.id}`, {
+          branch: desiredBranch,
+        });
       }
 
       // Step 4: Create fossil user for agent access
@@ -468,7 +480,7 @@ export function createSessionsRoutes(
         try {
           const resolveResult = await apiClient.post<{ servers: any[] }>(
             "/mcp-servers/resolve",
-            { ids: mcpServerIds }
+            { ids: mcpServerIds },
           );
           if (resolveResult.success) {
             mcpServers = resolveResult.data.servers;
@@ -504,7 +516,10 @@ export function createSessionsRoutes(
     const listResult = await apiClient.get<ListSessionsResponse>("/sessions");
 
     if (!listResult.success) {
-      return c.json({ error: `Failed to list sessions: ${listResult.error}` }, listResult.status);
+      return c.json(
+        { error: `Failed to list sessions: ${listResult.error}` },
+        listResult.status,
+      );
     }
 
     const allSessions = listResult.data.sessions;
@@ -574,10 +589,15 @@ export function createSessionsRoutes(
 
     try {
       // Call internal API for session details
-      const detailsResult = await apiClient.get<GetSessionDetailsResponse>(`/sessions/${sessionId}/details`);
+      const detailsResult = await apiClient.get<GetSessionDetailsResponse>(
+        `/sessions/${sessionId}/details`,
+      );
 
       if (!detailsResult.success) {
-        return c.text(detailsResult.error || "Session not found", detailsResult.status === 404 ? 404 : 500);
+        return c.text(
+          detailsResult.error || "Session not found",
+          detailsResult.status === 404 ? 404 : 500,
+        );
       }
 
       const details = detailsResult.data;
@@ -593,7 +613,9 @@ export function createSessionsRoutes(
       }
 
       // Get chat history from internal API
-      const chatResult = await apiClient.get<GetChatHistoryResponse>(`/sessions/${sessionId}/chat`);
+      const chatResult = await apiClient.get<GetChatHistoryResponse>(
+        `/sessions/${sessionId}/chat`,
+      );
 
       let chatHistory: unknown[] = [];
       if (chatResult.success) {
@@ -603,7 +625,9 @@ export function createSessionsRoutes(
       // Get assigned agent if any via Internal API Client
       let agent = undefined;
       if (session.assignedAgentId) {
-        const agentResult = await apiClient.get<GetAgentResponse>(`/agents/${session.assignedAgentId}`);
+        const agentResult = await apiClient.get<GetAgentResponse>(
+          `/agents/${session.assignedAgentId}`,
+        );
         if (agentResult.success) {
           agent = agentResult.data.agent;
         }
@@ -612,11 +636,9 @@ export function createSessionsRoutes(
       // Get model/mode state from in-memory store, fallback to persisted session data
       // We already have the session from the details API above, use that for modelState/modeState
       const modelState =
-        sessionStateService.getModelState(sessionId) ??
-        session.modelState;
+        sessionStateService.getModelState(sessionId) ?? session.modelState;
       const modeState =
-        sessionStateService.getModeState(sessionId) ??
-        session.modeState;
+        sessionStateService.getModeState(sessionId) ?? session.modeState;
 
       // Always generate fossil URL - the shared server should be running
       // If it's not running yet, the URL will still be valid but the server won't respond
@@ -629,10 +651,13 @@ export function createSessionsRoutes(
       // Resolve attached MCP servers for display via Internal API Client
       const mcpServers: any[] = [];
       if (session.mcpServerIds && session.mcpServerIds.length > 0) {
-        const mcpServersResult = await apiClient.get<ListMcpServersResponse>("/mcp-servers");
+        const mcpServersResult =
+          await apiClient.get<ListMcpServersResponse>("/mcp-servers");
         if (mcpServersResult.success) {
           for (const id of session.mcpServerIds) {
-            const server = mcpServersResult.data.servers.find((s) => s.id === id);
+            const server = mcpServersResult.data.servers.find(
+              (s) => s.id === id,
+            );
             if (server) {
               mcpServers.push(server);
             }
@@ -704,10 +729,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -730,10 +760,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -771,12 +806,18 @@ export function createSessionsRoutes(
     });
 
     // Update session via Internal API Client
-    const updateResult = await apiClient.put<SessionResponse>(`/sessions/${sessionId}`, {
-      frameState: nextState,
-    });
+    const updateResult = await apiClient.put<SessionResponse>(
+      `/sessions/${sessionId}`,
+      {
+        frameState: nextState,
+      },
+    );
 
     if (!updateResult.success) {
-      return c.json({ error: `Failed to update session: ${updateResult.error}` }, updateResult.status);
+      return c.json(
+        { error: `Failed to update session: ${updateResult.error}` },
+        updateResult.status,
+      );
     }
 
     return c.json(nextState);
@@ -793,10 +834,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -819,10 +865,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -849,10 +900,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.text("Session not found", sessionResult.status === 404 ? 404 : 500);
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -877,10 +933,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.text("Session not found", sessionResult.status === 404 ? 404 : 500);
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -962,10 +1023,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.text("Session not found", sessionResult.status === 404 ? 404 : 500);
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -978,13 +1044,19 @@ export function createSessionsRoutes(
     const closeReason = (body.closeReason as string) || undefined;
 
     // Update session via Internal API Client
-    const updateResult = await apiClient.put<SessionResponse>(`/sessions/${sessionId}`, {
-      status: "closed",
-      ...(closeReason && { closeReason }),
-    });
+    const updateResult = await apiClient.put<SessionResponse>(
+      `/sessions/${sessionId}`,
+      {
+        status: "closed",
+        ...(closeReason && { closeReason }),
+      },
+    );
 
     if (!updateResult.success) {
-      return c.text(`Failed to close session: ${updateResult.error}`, updateResult.status);
+      return c.text(
+        `Failed to close session: ${updateResult.error}`,
+        updateResult.status,
+      );
     }
 
     return c.redirect(`/projects/${session.projectId}/sessions/${sessionId}`);
@@ -1001,10 +1073,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.text("Session not found", sessionResult.status === 404 ? 404 : 500);
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -1014,10 +1091,15 @@ export function createSessionsRoutes(
     }
 
     // Delete session via Internal API Client
-    const deleteResult = await apiClient.delete<SessionResponse>(`/sessions/${sessionId}`);
+    const deleteResult = await apiClient.delete<SessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!deleteResult.success) {
-      return c.text(`Failed to delete session: ${deleteResult.error}`, deleteResult.status);
+      return c.text(
+        `Failed to delete session: ${deleteResult.error}`,
+        deleteResult.status,
+      );
     }
 
     return c.redirect(`/projects?selected=${session.projectId}`);
@@ -1032,10 +1114,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -1062,10 +1149,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.text("Session not found", sessionResult.status === 404 ? 404 : 500);
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -1090,25 +1182,36 @@ export function createSessionsRoutes(
     }
 
     // Save message via Internal API Client
-    const saveMessageResult = await apiClient.post<SaveMessageResponse>("/chat/messages", {
-      sessionId,
-      threadId: session.activeChatThreadId,
-      message: {
-        role: "user",
-        content: message,
-        timestamp: new Date().toISOString(),
+    const saveMessageResult = await apiClient.post<SaveMessageResponse>(
+      "/chat/messages",
+      {
+        sessionId,
+        threadId: session.activeChatThreadId,
+        message: {
+          role: "user",
+          content: message,
+          timestamp: new Date().toISOString(),
+        },
       },
-    });
+    );
 
     if (!saveMessageResult.success) {
-      return c.text(`Failed to save message: ${saveMessageResult.error}`, saveMessageResult.status);
+      return c.text(
+        `Failed to save message: ${saveMessageResult.error}`,
+        saveMessageResult.status,
+      );
     }
 
     // Touch session activity via Internal API Client
-    const touchResult = await apiClient.post<void>(`/sessions/${sessionId}/touch`, {});
+    const touchResult = await apiClient.post<void>(
+      `/sessions/${sessionId}/touch`,
+      {},
+    );
 
     if (!touchResult.success) {
-      logger.warn(`[session] Failed to touch session activity: ${touchResult.error}`);
+      logger.warn(
+        `[session] Failed to touch session activity: ${touchResult.error}`,
+      );
     }
 
     return c.json({ success: true });
@@ -1125,10 +1228,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -1237,7 +1345,8 @@ export function createSessionsRoutes(
         const entries = readdirSync(session.agentWorkspacePath, {
           withFileTypes: true,
         });
-        const files: Map<string, { checksum: string; size: number }> = new Map();
+        const files: Map<string, { checksum: string; size: number }> =
+          new Map();
         const { relative } = await import("path");
 
         function scanDir(
@@ -1334,10 +1443,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -1368,10 +1482,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -1417,14 +1536,20 @@ export function createSessionsRoutes(
       }
 
       // Update session config via Internal API Client
-      const updateConfigResult = await apiClient.put<SessionResponse>(`/sessions/${sessionId}/config`, {
-        ...(idleTimeoutMs !== undefined ? { idleTimeoutMs } : {}),
-        ...(sessionTtlDays !== undefined ? { sessionTtlDays } : {}),
-        ...(priority !== undefined ? { priority } : {}),
-      });
+      const updateConfigResult = await apiClient.put<SessionResponse>(
+        `/sessions/${sessionId}/config`,
+        {
+          ...(idleTimeoutMs !== undefined ? { idleTimeoutMs } : {}),
+          ...(sessionTtlDays !== undefined ? { sessionTtlDays } : {}),
+          ...(priority !== undefined ? { priority } : {}),
+        },
+      );
 
       if (!updateConfigResult.success) {
-        return c.json({ error: `Failed to update config: ${updateConfigResult.error}` }, updateConfigResult.status);
+        return c.json(
+          { error: `Failed to update config: ${updateConfigResult.error}` },
+          updateConfigResult.status,
+        );
       }
 
       const updatedSession = updateConfigResult.data;
@@ -1478,10 +1603,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.text("Session not found", sessionResult.status === 404 ? 404 : 500);
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -1498,7 +1628,9 @@ export function createSessionsRoutes(
     // Resolve assigned agent name via Internal API Client
     let assignedAgentName: string | null = null;
     if (session.assignedAgentId) {
-      const agentResult = await apiClient.get<GetAgentResponse>(`/agents/${session.assignedAgentId}`);
+      const agentResult = await apiClient.get<GetAgentResponse>(
+        `/agents/${session.assignedAgentId}`,
+      );
       if (agentResult.success) {
         assignedAgentName = agentResult.data.agent?.name ?? null;
       }
@@ -1508,7 +1640,9 @@ export function createSessionsRoutes(
     const mcpServerNames: string[] = [];
     if (session.mcpServerIds && session.mcpServerIds.length > 0) {
       for (const mcpId of session.mcpServerIds) {
-        const mcpServerResult = await apiClient.get<GetMcpServerResponse>(`/mcp-servers/${mcpId}`);
+        const mcpServerResult = await apiClient.get<GetMcpServerResponse>(
+          `/mcp-servers/${mcpId}`,
+        );
         if (mcpServerResult.success && mcpServerResult.data.server) {
           mcpServerNames.push(mcpServerResult.data.server.name);
         }
@@ -1565,10 +1699,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.text("Session not found", sessionResult.status === 404 ? 404 : 500);
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -1622,10 +1761,13 @@ export function createSessionsRoutes(
 
     try {
       // Update the session config via Internal API Client
-      const updateConfigResult = await apiClient.put<SessionResponse>(`/sessions/${sessionId}/config`, {
-        idleTimeoutMs,
-        sessionTtlDays,
-      });
+      const updateConfigResult = await apiClient.put<SessionResponse>(
+        `/sessions/${sessionId}/config`,
+        {
+          idleTimeoutMs,
+          sessionTtlDays,
+        },
+      );
 
       if (!updateConfigResult.success) {
         return c.html(
@@ -1696,10 +1838,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.text("Session not found", sessionResult.status === 404 ? 404 : 500);
+      return c.text(
+        "Session not found",
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -1727,9 +1874,12 @@ export function createSessionsRoutes(
     }
 
     // Update session config via Internal API Client
-    const updateConfigResult = await apiClient.put<SessionResponse>(`/sessions/${sessionId}/config`, {
-      priority: priority as "high" | "medium" | "low",
-    });
+    const updateConfigResult = await apiClient.put<SessionResponse>(
+      `/sessions/${sessionId}/config`,
+      {
+        priority: priority as "high" | "medium" | "low",
+      },
+    );
 
     if (!updateConfigResult.success) {
       return c.html(
@@ -1764,10 +1914,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -1790,11 +1945,16 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
       const errorText = sessionResult.error || "Session not found";
-      return c.json({ error: errorText }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: errorText },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -1823,17 +1983,23 @@ export function createSessionsRoutes(
     const assignedAgentId = body.assignedAgentId.trim();
 
     // Add chat thread via Internal API Client
-    const addThreadResult = await apiClient.post<{ thread: any }>(`/sessions/${sessionId}/chat-threads`, {
-      name: body.name,
-      model: body.model,
-      mode: body.mode,
-      acpSessionId: body.acpSessionId || null,
-      assignedAgentId,
-      state: "active",
-    });
+    const addThreadResult = await apiClient.post<{ thread: any }>(
+      `/sessions/${sessionId}/chat-threads`,
+      {
+        name: body.name,
+        model: body.model,
+        mode: body.mode,
+        acpSessionId: body.acpSessionId || null,
+        assignedAgentId,
+        state: "active",
+      },
+    );
 
     if (!addThreadResult.success) {
-      return c.json({ error: `Failed to add chat thread: ${addThreadResult.error}` }, addThreadResult.status);
+      return c.json(
+        { error: `Failed to add chat thread: ${addThreadResult.error}` },
+        addThreadResult.status,
+      );
     }
 
     const thread = addThreadResult.data.thread;
@@ -1841,7 +2007,9 @@ export function createSessionsRoutes(
     // Pre-populate session modelState/modeState from agent capabilities so the
     // context bar dropdowns render immediately without waiting for session_initialized
     if (assignedAgentId && !session.modelState) {
-      const agentResult = await apiClient.get<GetAgentResponse>(`/agents/${assignedAgentId}`);
+      const agentResult = await apiClient.get<GetAgentResponse>(
+        `/agents/${assignedAgentId}`,
+      );
       if (agentResult.success) {
         const agent = agentResult.data.agent;
         if (agent?.capabilities) {
@@ -1873,7 +2041,9 @@ export function createSessionsRoutes(
       const agentWs = agentService.getAgentConnection(assignedAgentId);
       if (agentWs && agentWs.readyState === 1) {
         // Get full session details for notification
-        const fullSessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+        const fullSessionResult = await apiClient.get<GetSessionResponse>(
+          `/sessions/${sessionId}`,
+        );
         const sessionWithCreds = fullSessionResult.success
           ? fullSessionResult.data.session
           : null;
@@ -1888,7 +2058,7 @@ export function createSessionsRoutes(
             // Resolve MCP servers via Internal API Client
             const resolveResult = await apiClient.post<{ servers: any[] }>(
               "/mcp-servers/resolve",
-              { ids: sessionWithCreds.mcpServerIds }
+              { ids: sessionWithCreds.mcpServerIds },
             );
             if (resolveResult.success) {
               mcpServers = resolveResult.data.servers;
@@ -1960,10 +2130,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -1975,14 +2150,20 @@ export function createSessionsRoutes(
     if (!body) return c.json({ error: "Body required" }, 400);
 
     // Update chat thread via Internal API Client
-    const updateThreadResult = await apiClient.put<SessionResponse>(`/sessions/${sessionId}/chat-threads/${threadId}`, {
-      ...(body.name !== undefined && { name: body.name }),
-      ...(body.model !== undefined && { model: body.model }),
-      ...(body.mode !== undefined && { mode: body.mode }),
-    });
+    const updateThreadResult = await apiClient.put<SessionResponse>(
+      `/sessions/${sessionId}/chat-threads/${threadId}`,
+      {
+        ...(body.name !== undefined && { name: body.name }),
+        ...(body.model !== undefined && { model: body.model }),
+        ...(body.mode !== undefined && { mode: body.mode }),
+      },
+    );
 
     if (!updateThreadResult.success) {
-      return c.json({ error: `Failed to update thread: ${updateThreadResult.error}` }, updateThreadResult.status);
+      return c.json(
+        { error: `Failed to update thread: ${updateThreadResult.error}` },
+        updateThreadResult.status,
+      );
     }
 
     const updated = updateThreadResult.data;
@@ -2000,10 +2181,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -2019,10 +2205,15 @@ export function createSessionsRoutes(
       deletedThread?.assignedAgentId || session.assignedAgentId;
 
     // Remove chat thread via Internal API Client
-    const removeThreadResult = await apiClient.delete<SessionResponse>(`/sessions/${sessionId}/chat-threads/${threadId}`);
+    const removeThreadResult = await apiClient.delete<SessionResponse>(
+      `/sessions/${sessionId}/chat-threads/${threadId}`,
+    );
 
     if (!removeThreadResult.success) {
-      return c.json({ error: `Failed to remove thread: ${removeThreadResult.error}` }, removeThreadResult.status);
+      return c.json(
+        { error: `Failed to remove thread: ${removeThreadResult.error}` },
+        removeThreadResult.status,
+      );
     }
 
     if (
@@ -2054,10 +2245,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -2067,10 +2263,16 @@ export function createSessionsRoutes(
 
     try {
       // Set active chat thread via Internal API Client
-      const activateResult = await apiClient.post<void>(`/sessions/${sessionId}/active-thread`, { threadId });
+      const activateResult = await apiClient.post<void>(
+        `/sessions/${sessionId}/active-thread`,
+        { threadId },
+      );
 
       if (!activateResult.success) {
-        return c.json({ error: `Failed to set active thread: ${activateResult.error}` }, activateResult.status);
+        return c.json(
+          { error: `Failed to set active thread: ${activateResult.error}` },
+          activateResult.status,
+        );
       }
     } catch {
       return c.json({ error: "Thread not found" }, 404);
@@ -2089,10 +2291,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -2106,10 +2313,15 @@ export function createSessionsRoutes(
 
     try {
       // Load chat history via Internal API Client
-      const chatResult = await apiClient.get<GetChatHistoryResponse>(`/sessions/${sessionId}/chat?threadId=${threadId}`);
+      const chatResult = await apiClient.get<GetChatHistoryResponse>(
+        `/sessions/${sessionId}/chat?threadId=${threadId}`,
+      );
 
       if (!chatResult.success) {
-        return c.json({ error: `Failed to load messages: ${chatResult.error}` }, chatResult.status);
+        return c.json(
+          { error: `Failed to load messages: ${chatResult.error}` },
+          chatResult.status,
+        );
       }
 
       const messages = chatResult.data.messages;
@@ -2131,10 +2343,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -2171,10 +2388,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -2213,10 +2435,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -2263,10 +2490,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -2299,10 +2531,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -2341,10 +2578,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -2371,10 +2613,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -2410,10 +2657,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;
@@ -2497,10 +2749,15 @@ export function createSessionsRoutes(
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
-    const sessionResult = await apiClient.get<GetSessionResponse>(`/sessions/${sessionId}`);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
 
     if (!sessionResult.success) {
-      return c.json({ error: "Session not found" }, sessionResult.status === 404 ? 404 : 500);
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
     }
 
     const session = sessionResult.data.session;

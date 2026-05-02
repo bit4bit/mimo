@@ -48,7 +48,8 @@ describe("GET /sessions/:id/files/content", () => {
       `expert-api-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     );
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: {
         MIMO_HOME: testHome,
@@ -154,7 +155,8 @@ describe("GET /sessions/:id/search", () => {
       `expert-api-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     );
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: {
         MIMO_HOME: testHome,
@@ -341,7 +343,8 @@ describe("POST /sessions/:id/files/write", () => {
       `expert-api-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     );
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: {
         MIMO_HOME: testHome,

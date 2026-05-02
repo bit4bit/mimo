@@ -57,7 +57,10 @@ function createTestApp(ctx: any): Hono {
 
 describe("Frame buffers integration", () => {
   beforeEach(async () => {
-    testHome = join(tmpdir(), `mimo-frame-buffers-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    testHome = join(
+      tmpdir(),
+      `mimo-frame-buffers-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
 
     try {
       rmSync(testHome, { recursive: true, force: true });

@@ -7,10 +7,7 @@
 
 import { successResponse, errorResponse } from "../shared/response.js";
 import type { InternalApiContext } from "../shared/types.js";
-import type {
-  CreateAgentRequest,
-  UpdateAgentRequest,
-} from "./types.js";
+import type { CreateAgentRequest, UpdateAgentRequest } from "./types.js";
 import { toAgentResponse } from "./types.js";
 import type { AgentCapabilities } from "../../../agents/repository.js";
 
@@ -18,7 +15,9 @@ import type { AgentCapabilities } from "../../../agents/repository.js";
  * List all agents for the authenticated user.
  * GET /api/internal/agents
  */
-export async function listAgentsHandler(c: InternalApiContext): Promise<Response> {
+export async function listAgentsHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -38,7 +37,9 @@ export async function listAgentsHandler(c: InternalApiContext): Promise<Response
  * Get a specific agent by ID.
  * GET /api/internal/agents/:id
  */
-export async function getAgentHandler(c: InternalApiContext): Promise<Response> {
+export async function getAgentHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -72,14 +73,16 @@ export async function getAgentHandler(c: InternalApiContext): Promise<Response> 
  * Create a new agent.
  * POST /api/internal/agents
  */
-export async function createAgentHandler(c: InternalApiContext): Promise<Response> {
+export async function createAgentHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
   }
 
   const mimoContext = c.get("mimoContext");
-  const body = await c.req.json() as CreateAgentRequest;
+  const body = (await c.req.json()) as CreateAgentRequest;
 
   // Validate required fields
   if (!body.name || body.name.trim().length === 0) {
@@ -88,7 +91,10 @@ export async function createAgentHandler(c: InternalApiContext): Promise<Respons
 
   // Validate name length
   if (body.name.length > 64) {
-    return c.json(errorResponse("Name must be 64 characters or less", 400), 400);
+    return c.json(
+      errorResponse("Name must be 64 characters or less", 400),
+      400,
+    );
   }
 
   // Validate provider
@@ -96,7 +102,10 @@ export async function createAgentHandler(c: InternalApiContext): Promise<Respons
     return c.json(errorResponse("Provider is required", 400), 400);
   }
   if (body.provider !== "opencode" && body.provider !== "claude") {
-    return c.json(errorResponse("Provider must be 'opencode' or 'claude'", 400), 400);
+    return c.json(
+      errorResponse("Provider must be 'opencode' or 'claude'", 400),
+      400,
+    );
   }
 
   try {
@@ -114,7 +123,8 @@ export async function createAgentHandler(c: InternalApiContext): Promise<Respons
       201,
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create agent";
+    const message =
+      error instanceof Error ? error.message : "Failed to create agent";
     return c.json(errorResponse(message, 500), 500);
   }
 }
@@ -123,7 +133,9 @@ export async function createAgentHandler(c: InternalApiContext): Promise<Respons
  * Update an agent.
  * PUT /api/internal/agents/:id
  */
-export async function updateAgentHandler(c: InternalApiContext): Promise<Response> {
+export async function updateAgentHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -145,11 +157,14 @@ export async function updateAgentHandler(c: InternalApiContext): Promise<Respons
     return c.json(errorResponse("Agent not found", 404), 404);
   }
 
-  const body = await c.req.json() as UpdateAgentRequest;
+  const body = (await c.req.json()) as UpdateAgentRequest;
 
   // Validate name length if provided
   if (body.name && body.name.length > 64) {
-    return c.json(errorResponse("Name must be 64 characters or less", 400), 400);
+    return c.json(
+      errorResponse("Name must be 64 characters or less", 400),
+      400,
+    );
   }
 
   try {
@@ -167,7 +182,8 @@ export async function updateAgentHandler(c: InternalApiContext): Promise<Respons
       }),
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update agent";
+    const message =
+      error instanceof Error ? error.message : "Failed to update agent";
     return c.json(errorResponse(message, 500), 500);
   }
 }
@@ -176,7 +192,9 @@ export async function updateAgentHandler(c: InternalApiContext): Promise<Respons
  * Delete an agent.
  * DELETE /api/internal/agents/:id
  */
-export async function deleteAgentHandler(c: InternalApiContext): Promise<Response> {
+export async function deleteAgentHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -207,7 +225,9 @@ export async function deleteAgentHandler(c: InternalApiContext): Promise<Respons
  * Get agent capabilities.
  * GET /api/internal/agents/:id/capabilities
  */
-export async function getCapabilitiesHandler(c: InternalApiContext): Promise<Response> {
+export async function getCapabilitiesHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -231,7 +251,7 @@ export async function getCapabilitiesHandler(c: InternalApiContext): Promise<Res
 
   // Derive capabilities if not cached
   let capabilities: AgentCapabilities | null = agent.capabilities ?? null;
-  
+
   const hasCachedCapabilities =
     capabilities &&
     Array.isArray(capabilities.availableModels) &&
@@ -241,7 +261,7 @@ export async function getCapabilitiesHandler(c: InternalApiContext): Promise<Res
 
   if (!hasCachedCapabilities) {
     capabilities = await deriveCapabilities(c, id, mimoContext);
-    
+
     if (capabilities) {
       await mimoContext.repos.agents.updateCapabilities(id, capabilities);
     }
@@ -262,7 +282,9 @@ export async function getCapabilitiesHandler(c: InternalApiContext): Promise<Res
  * Refresh agent capabilities.
  * POST /api/internal/agents/:id/capabilities/refresh
  */
-export async function refreshCapabilitiesHandler(c: InternalApiContext): Promise<Response> {
+export async function refreshCapabilitiesHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -288,7 +310,8 @@ export async function refreshCapabilitiesHandler(c: InternalApiContext): Promise
   await mimoContext.repos.agents.clearCapabilities(id);
 
   // If agent is online, request fresh capabilities
-  const requested = await mimoContext.services.agents.requestCapabilitiesRefresh(id);
+  const requested =
+    await mimoContext.services.agents.requestCapabilitiesRefresh(id);
 
   return c.json(
     successResponse({
@@ -308,7 +331,7 @@ async function deriveCapabilities(
   mimoContext: ReturnType<InternalApiContext["get"]> & { mimoContext: any },
 ): Promise<AgentCapabilities | null> {
   const sessionRepo = mimoContext.repos.sessions;
-  
+
   const [sessionAssigned, threadAssigned] = await Promise.all([
     sessionRepo.findByAssignedAgentId(agentId),
     sessionRepo.findByThreadAgentId(agentId),
@@ -339,7 +362,9 @@ async function deriveCapabilities(
 /**
  * Build capabilities from session state (modelState and modeState).
  */
-function buildCapabilitiesFromSessionState(session: any): AgentCapabilities | null {
+function buildCapabilitiesFromSessionState(
+  session: any,
+): AgentCapabilities | null {
   const modelState = session?.modelState;
   const modeState = session?.modeState;
 
@@ -365,7 +390,10 @@ function buildCapabilitiesFromSessionState(session: any): AgentCapabilities | nu
 /**
  * Build capabilities from thread assignment.
  */
-function buildCapabilitiesFromThread(agentId: string, session: any): AgentCapabilities | null {
+function buildCapabilitiesFromThread(
+  agentId: string,
+  session: any,
+): AgentCapabilities | null {
   const matchingThreads = Array.isArray(session?.chatThreads)
     ? session.chatThreads.filter(
         (thread: any) => thread?.assignedAgentId === agentId,
@@ -386,9 +414,7 @@ function buildCapabilitiesFromThread(agentId: string, session: any): AgentCapabi
       { value: fallbackThread.model, name: fallbackThread.model },
     ],
     defaultModelId: fallbackThread.model,
-    availableModes: [
-      { value: fallbackThread.mode, name: fallbackThread.mode },
-    ],
+    availableModes: [{ value: fallbackThread.mode, name: fallbackThread.mode }],
     defaultModeId: fallbackThread.mode,
   };
 }

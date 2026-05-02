@@ -201,9 +201,12 @@ describe("Config Internal API", () => {
 
   describe("Reset Config", () => {
     it("should require authentication", async () => {
-      const req = new Request("http://localhost:3000/api/internal/config/reset", {
-        method: "POST",
-      });
+      const req = new Request(
+        "http://localhost:3000/api/internal/config/reset",
+        {
+          method: "POST",
+        },
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -230,12 +233,15 @@ describe("Config Internal API", () => {
       );
 
       // Then reset
-      const req = new Request("http://localhost:3000/api/internal/config/reset", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${validToken}`,
+      const req = new Request(
+        "http://localhost:3000/api/internal/config/reset",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${validToken}`,
+          },
         },
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();

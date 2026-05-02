@@ -49,7 +49,10 @@ export function successResponse<T>(data: T): SuccessResponse<T> {
  * // Returns: { success: false, error: "User not found", code: 404 }
  * ```
  */
-export function errorResponse(message: string, code: number = 500): ErrorResponse {
+export function errorResponse(
+  message: string,
+  code: number = 500,
+): ErrorResponse {
   return {
     success: false,
     error: message,

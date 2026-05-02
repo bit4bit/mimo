@@ -48,7 +48,8 @@ export function createInternalAuthMiddleware(
       return c.json(
         {
           success: false,
-          error: "Invalid Authorization header format. Expected: Bearer <token>",
+          error:
+            "Invalid Authorization header format. Expected: Bearer <token>",
           code: 401,
         },
         401,

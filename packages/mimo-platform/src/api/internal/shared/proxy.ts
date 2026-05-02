@@ -78,7 +78,11 @@ export async function fetchInternalApi(
   };
 
   // Add Content-Type for JSON bodies
-  if (options.body && typeof options.body === "string" && !headers["Content-Type"]) {
+  if (
+    options.body &&
+    typeof options.body === "string" &&
+    !headers["Content-Type"]
+  ) {
     headers["Content-Type"] = "application/json";
   }
 
@@ -108,7 +112,9 @@ export async function parseApiResponse<T>(response: Response): Promise<T> {
     throw new Error(`API request failed: ${errorText}`);
   }
 
-  const result = await response.json() as ApiSuccessResponse<T> | ApiErrorResponse;
+  const result = (await response.json()) as
+    | ApiSuccessResponse<T>
+    | ApiErrorResponse;
 
   if (!result.success) {
     throw new Error((result as ApiErrorResponse).error);

@@ -7,10 +7,7 @@
 
 import { Hono } from "hono";
 import type { MimoContext } from "../../../context/mimo-context.js";
-import {
-  refreshSummaryHandler,
-  getLatestSummaryHandler,
-} from "./handlers.js";
+import { refreshSummaryHandler, getLatestSummaryHandler } from "./handlers.js";
 
 /**
  * Creates the summary internal API router.

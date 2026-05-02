@@ -116,7 +116,10 @@ export function setupInternalApiMock(baseUrl: string) {
       currentHandlers = handlers;
 
       // Create new mock function with current handlers
-      const fetchWithHandlers = createMockInternalApiFetch(baseUrl, currentHandlers);
+      const fetchWithHandlers = createMockInternalApiFetch(
+        baseUrl,
+        currentHandlers,
+      );
 
       // Set up spy if not already done
       if (!fetchSpy) {

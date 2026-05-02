@@ -35,70 +35,78 @@ describe("Agent Lifecycle Integration Tests", () => {
     agentRoutes = createAgentsRoutes(ctx);
 
     // Set up mock for fetch to handle internal API calls
-    fetchSpy = spyOn(global, "fetch").mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = input.toString();
-      const method = init?.method || "GET";
+    fetchSpy = spyOn(global, "fetch").mockImplementation(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input.toString();
+        const method = init?.method || "GET";
 
-      // Only mock internal API calls
-      if (!url.includes("/api/internal")) {
-        throw new Error(`Unexpected fetch call: ${url}`);
-      }
+        // Only mock internal API calls
+        if (!url.includes("/api/internal")) {
+          throw new Error(`Unexpected fetch call: ${url}`);
+        }
 
-      // Extract the path
-      const path = url.replace(/^.*\/api\/internal/, "/api/internal");
+        // Extract the path
+        const path = url.replace(/^.*\/api\/internal/, "/api/internal");
 
-      // Mock internal API responses
-      if (path.startsWith("/api/internal/agents")) {
-        const id = path.match(/\/api\/internal\/agents\/([^\/]+)/)?.[1];
+        // Mock internal API responses
+        if (path.startsWith("/api/internal/agents")) {
+          const id = path.match(/\/api\/internal\/agents\/([^\/]+)/)?.[1];
 
-        if (path.endsWith("/capabilities/refresh")) {
-          // Handle refresh capabilities
-          const agentId = path.split("/")[4];
-          const agent = await agentRepository.findById(agentId);
-          if (!agent) {
+          if (path.endsWith("/capabilities/refresh")) {
+            // Handle refresh capabilities
+            const agentId = path.split("/")[4];
+            const agent = await agentRepository.findById(agentId);
+            if (!agent) {
+              return new Response(
+                JSON.stringify({ success: false, error: "Agent not found" }),
+                {
+                  status: 404,
+                  headers: { "Content-Type": "application/json" },
+                },
+              );
+            }
+            await agentRepository.updateCapabilities(agentId, undefined);
             return new Response(
-              JSON.stringify({ success: false, error: "Agent not found" }),
-              { status: 404, headers: { "Content-Type": "application/json" } }
+              JSON.stringify({ success: true, data: { requested: true } }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
             );
           }
-          await agentRepository.updateCapabilities(agentId, undefined);
-          return new Response(
-            JSON.stringify({ success: true, data: { requested: true } }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
-          );
-        }
 
-        if (path === "/api/internal/agents") {
-          // List agents
-          const agents = await agentRepository.findByOwner("testuser");
-          return new Response(
-            JSON.stringify({ success: true, data: { agents } }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
-          );
-        }
-
-        if (id) {
-          // Get single agent
-          const agent = await agentRepository.findById(id);
-          if (!agent) {
+          if (path === "/api/internal/agents") {
+            // List agents
+            const agents = await agentRepository.findByOwner("testuser");
             return new Response(
-              JSON.stringify({ success: false, error: "Agent not found" }),
-              { status: 404, headers: { "Content-Type": "application/json" } }
+              JSON.stringify({ success: true, data: { agents } }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
             );
           }
-          return new Response(
-            JSON.stringify({ success: true, data: { agent } }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
-          );
-        }
-      }
 
-      // Default: not found
-      return new Response(
-        JSON.stringify({ success: false, error: "Not found" }),
-        { status: 404, headers: { "Content-Type": "application/json" } }
-      );
-    });
+          if (id) {
+            // Get single agent
+            const agent = await agentRepository.findById(id);
+            if (!agent) {
+              return new Response(
+                JSON.stringify({ success: false, error: "Agent not found" }),
+                {
+                  status: 404,
+                  headers: { "Content-Type": "application/json" },
+                },
+              );
+            }
+            return new Response(
+              JSON.stringify({ success: true, data: { agent } }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            );
+          }
+        }
+
+        // Default: not found
+        return new Response(
+          JSON.stringify({ success: false, error: "Not found" }),
+          { status: 404, headers: { "Content-Type": "application/json" } },
+        );
+      },
+    );
   });
 
   afterEach(() => {

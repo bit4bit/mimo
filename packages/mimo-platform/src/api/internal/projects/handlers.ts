@@ -7,17 +7,16 @@
 
 import { successResponse, errorResponse } from "../shared/response.js";
 import type { InternalApiContext } from "../shared/types.js";
-import type {
-  CreateProjectRequest,
-  UpdateProjectRequest,
-} from "./types.js";
+import type { CreateProjectRequest, UpdateProjectRequest } from "./types.js";
 import { toProjectResponse, toSessionResponse } from "./types.js";
 
 /**
  * List all projects for the authenticated user.
  * GET /api/internal/projects
  */
-export async function listProjectsHandler(c: InternalApiContext): Promise<Response> {
+export async function listProjectsHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -37,7 +36,9 @@ export async function listProjectsHandler(c: InternalApiContext): Promise<Respon
  * Get a specific project by ID.
  * GET /api/internal/projects/:id
  */
-export async function getProjectHandler(c: InternalApiContext): Promise<Response> {
+export async function getProjectHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -70,29 +71,40 @@ export async function getProjectHandler(c: InternalApiContext): Promise<Response
  * Create a new project.
  * POST /api/internal/projects
  */
-export async function createProjectHandler(c: InternalApiContext): Promise<Response> {
+export async function createProjectHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
   }
 
   const mimoContext = c.get("mimoContext");
-  const body = await c.req.json() as CreateProjectRequest;
+  const body = (await c.req.json()) as CreateProjectRequest;
 
   // Validate required fields
   if (!body.name || !body.repoUrl) {
-    return c.json(errorResponse("Name and repository URL are required", 400), 400);
+    return c.json(
+      errorResponse("Name and repository URL are required", 400),
+      400,
+    );
   }
 
   // Validate repo type
   const repoType = body.repoType ?? "git";
   if (repoType !== "git" && repoType !== "fossil") {
-    return c.json(errorResponse("Repository type must be 'git' or 'fossil'", 400), 400);
+    return c.json(
+      errorResponse("Repository type must be 'git' or 'fossil'", 400),
+      400,
+    );
   }
 
   // Validate description length
   if (body.description && body.description.length > 500) {
-    return c.json(errorResponse("Description must be 500 characters or less", 400), 400);
+    return c.json(
+      errorResponse("Description must be 500 characters or less", 400),
+      400,
+    );
   }
 
   // Validate credential if provided
@@ -106,7 +118,8 @@ export async function createProjectHandler(c: InternalApiContext): Promise<Respo
     }
 
     // Validate credential type matches URL type
-    const isSshUrl = body.repoUrl.startsWith("git@") || body.repoUrl.startsWith("ssh://");
+    const isSshUrl =
+      body.repoUrl.startsWith("git@") || body.repoUrl.startsWith("ssh://");
     const expectedType = isSshUrl ? "ssh" : "https";
     if (credential.type !== expectedType) {
       return c.json(
@@ -139,7 +152,8 @@ export async function createProjectHandler(c: InternalApiContext): Promise<Respo
       201,
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create project";
+    const message =
+      error instanceof Error ? error.message : "Failed to create project";
     return c.json(errorResponse(message, 500), 500);
   }
 }
@@ -148,7 +162,9 @@ export async function createProjectHandler(c: InternalApiContext): Promise<Respo
  * Update a project.
  * PUT /api/internal/projects/:id
  */
-export async function updateProjectHandler(c: InternalApiContext): Promise<Response> {
+export async function updateProjectHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -170,16 +186,22 @@ export async function updateProjectHandler(c: InternalApiContext): Promise<Respo
     return c.json(errorResponse("Project not found", 404), 404);
   }
 
-  const body = await c.req.json() as UpdateProjectRequest;
+  const body = (await c.req.json()) as UpdateProjectRequest;
 
   // Validate repo type if provided
   if (body.repoType && body.repoType !== "git" && body.repoType !== "fossil") {
-    return c.json(errorResponse("Repository type must be 'git' or 'fossil'", 400), 400);
+    return c.json(
+      errorResponse("Repository type must be 'git' or 'fossil'", 400),
+      400,
+    );
   }
 
   // Validate description length
   if (body.description && body.description.length > 500) {
-    return c.json(errorResponse("Description must be 500 characters or less", 400), 400);
+    return c.json(
+      errorResponse("Description must be 500 characters or less", 400),
+      400,
+    );
   }
 
   // Validate credential if provided
@@ -222,7 +244,8 @@ export async function updateProjectHandler(c: InternalApiContext): Promise<Respo
       }),
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update project";
+    const message =
+      error instanceof Error ? error.message : "Failed to update project";
     return c.json(errorResponse(message, 500), 500);
   }
 }
@@ -231,7 +254,9 @@ export async function updateProjectHandler(c: InternalApiContext): Promise<Respo
  * Delete a project.
  * DELETE /api/internal/projects/:id
  */
-export async function deleteProjectHandler(c: InternalApiContext): Promise<Response> {
+export async function deleteProjectHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -262,7 +287,9 @@ export async function deleteProjectHandler(c: InternalApiContext): Promise<Respo
  * List sessions for a project.
  * GET /api/internal/projects/:id/sessions
  */
-export async function listProjectSessionsHandler(c: InternalApiContext): Promise<Response> {
+export async function listProjectSessionsHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);

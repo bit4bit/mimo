@@ -575,9 +575,13 @@ describe("Agents Internal API", () => {
 
       // Set capabilities
       await mimoContext.repos.agents.updateCapabilities(agent.id, {
-        availableModels: [{ value: "gpt-4", name: "GPT-4", description: "Test model" }],
+        availableModels: [
+          { value: "gpt-4", name: "GPT-4", description: "Test model" },
+        ],
         defaultModelId: "gpt-4",
-        availableModes: [{ value: "agent", name: "Agent", description: "Test mode" }],
+        availableModes: [
+          { value: "agent", name: "Agent", description: "Test mode" },
+        ],
         defaultModeId: "agent",
       });
 

@@ -125,7 +125,9 @@ export function toDashboardSession(session: {
     id: session.id,
     name: session.name,
     projectId: session.projectId,
-    ...(session.assignedAgentId && { assignedAgentId: session.assignedAgentId }),
+    ...(session.assignedAgentId && {
+      assignedAgentId: session.assignedAgentId,
+    }),
     status: session.status,
     createdAt: session.createdAt.toISOString(),
     ...(session.closeReason && { closeReason: session.closeReason }),

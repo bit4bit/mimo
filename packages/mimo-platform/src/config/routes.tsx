@@ -1,7 +1,7 @@
 /** @jsx jsx */
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";
-import { authMiddleware } from "../auth/middleware.js";
+import { createAuthMiddleware } from "../auth/middleware.js";
 import { configValidator } from "../config/validator.js";
 import { ConfigEditorPage } from "../components/ConfigEditorPage.js";
 import type { Context } from "hono";
@@ -17,9 +17,10 @@ export function createConfigRoutes(mimoContext: MimoContext): Hono {
   const service = mimoContext.services.config;
 
   const router = new Hono();
+  const auth = createAuthMiddleware(mimoContext.services.auth);
 
   // Apply auth middleware to all routes
-  router.use("/*", authMiddleware);
+  router.use("/*", auth);
 
   // GET /config - Show config editor
   router.get("/", async (c: Context) => {
@@ -100,7 +101,10 @@ export function createConfigRoutes(mimoContext: MimoContext): Hono {
     const result = await apiClient.get<GetConfigResponse>("/config");
 
     if (!result.success) {
-      return c.json({ error: `Failed to load config: ${result.error}` }, result.status);
+      return c.json(
+        { error: `Failed to load config: ${result.error}` },
+        result.status,
+      );
     }
 
     return c.json(result.data.config);

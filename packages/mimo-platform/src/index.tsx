@@ -48,6 +48,12 @@ import { getEmbeddedAssets, getMimeType } from "./assets.js";
 const app = new Hono();
 const _port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
+if (!process.env.JWT_SECRET) {
+  console.error("ERROR: JWT_SECRET environment variable is required");
+  console.error("Please set JWT_SECRET before starting the server");
+  process.exit(1);
+}
+
 // Resolve MIMO_HOME and FOSSIL_REPOS_DIR before creating services
 const mimoHome = process.env.MIMO_HOME ?? join(homedir(), ".mimo");
 const fossilReposDir =
@@ -66,8 +72,7 @@ const sharedFossilServer = createSharedFossilServer(
   {
     PORT: _port,
     PLATFORM_URL: process.env.PLATFORM_URL ?? `http://${_host}:${_port}`,
-    JWT_SECRET:
-      process.env.JWT_SECRET ?? "your-secret-key-change-in-production",
+    JWT_SECRET: process.env.JWT_SECRET,
     MIMO_HOME: mimoHome,
     FOSSIL_REPOS_DIR: fossilReposDir,
     MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
@@ -82,8 +87,7 @@ const mimoContext = createMimoContext({
   env: {
     PORT: _port,
     PLATFORM_URL: process.env.PLATFORM_URL ?? `http://${_host}:${_port}`,
-    JWT_SECRET:
-      process.env.JWT_SECRET ?? "your-secret-key-change-in-production",
+    JWT_SECRET: process.env.JWT_SECRET,
     MIMO_HOME: mimoHome,
     FOSSIL_REPOS_DIR: fossilReposDir,
     MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
@@ -162,11 +166,17 @@ import { mcpTokenStore } from "./mcp/token-store.js";
 import { createMcpRoutes } from "./mcp/server.js";
 import { createPlatformMcpServerConfig } from "./mcp/platform-config.js";
 import { registerHelpRoutes } from "./help/routes.js";
-import { authMiddleware } from "./auth/middleware.js";
+import { createAuthMiddleware } from "./auth/middleware.js";
 import { createInternalApiRouter } from "./api/internal/index.js";
 
 const PUBLIC_PATHS = ["/", "/health", "/api/projects/public", "/api/help"];
-const PUBLIC_PATH_PREFIXES = ["/auth/", "/js/", "/vendor/", "/api/mimo-mcp", "/api/internal"];
+const PUBLIC_PATH_PREFIXES = [
+  "/auth/",
+  "/js/",
+  "/vendor/",
+  "/api/mimo-mcp",
+  "/api/internal",
+];
 
 function isPublicPath(path: string): boolean {
   if (PUBLIC_PATHS.includes(path)) return true;
@@ -178,7 +188,7 @@ app.use("*", async (c, next) => {
   if (isPublicPath(path)) {
     return next();
   }
-  return authMiddleware(c, next);
+  return createAuthMiddleware(mimoContext.services.auth)(c, next);
 });
 
 // Track active chat sessions
@@ -411,6 +421,7 @@ app.route(
     sccService: mimoContext.services.scc,
     vcs: mimoContext.services.vcs,
     os,
+    auth: mimoContext.services.auth,
   }),
 );
 

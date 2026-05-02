@@ -7,7 +7,7 @@ import { DEFAULT_MIMO_HOST } from "../context/mimo-context.js";
 
 import { Layout } from "../components/Layout.js";
 import { DataTable, type DataTableColumn } from "../components/DataTable.js";
-import { authMiddleware, createAuthMiddleware } from "../auth/middleware.js";
+import { createAuthMiddleware } from "../auth/middleware.js";
 import { createInternalApiClient } from "../api/internal/index.js";
 import type {
   ListAgentsResponse,
@@ -70,7 +70,10 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     const result = await apiClient.get<ListAgentsResponse>("/agents");
 
     if (result.success === false) {
-      return c.json({ error: result.error }, result.status as 400 | 401 | 403 | 404 | 500);
+      return c.json(
+        { error: result.error },
+        result.status as 400 | 401 | 403 | 404 | 500,
+      );
     }
 
     return c.json(
@@ -82,7 +85,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     );
   });
 
-  router.use("/*", mimoContext ? authMiddlewareWithContext : authMiddleware);
+  router.use("/*", authMiddlewareWithContext);
 
   // List agents (HTML page) - proxies to internal API
   router.get("/", async (c: Context) => {
@@ -90,7 +93,10 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     const result = await apiClient.get<ListAgentsResponse>("/agents");
 
     if (result.success === false) {
-      return c.text(`Error: ${result.error}`, result.status as 400 | 401 | 403 | 404 | 500);
+      return c.text(
+        `Error: ${result.error}`,
+        result.status as 400 | 401 | 403 | 404 | 500,
+      );
     }
 
     const agents = result.data.agents;
@@ -102,7 +108,9 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     // Fetch session counts for each agent
     const agentsWithSessionCounts = await Promise.all(
       filteredAgents.map(async (agent: any) => {
-        const sessions = await sessionRepository.findByAssignedAgentId(agent.id);
+        const sessions = await sessionRepository.findByAssignedAgentId(
+          agent.id,
+        );
         return {
           ...agent,
           sessionCount: sessions.length,
@@ -155,9 +163,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
         key: "lastActivityAt",
         label: "Last Active",
         render: (agent) =>
-          agent.lastActivityAt
-            ? agent.lastActivityAt.toLocaleString()
-            : "-",
+          agent.lastActivityAt ? agent.lastActivityAt.toLocaleString() : "-",
       },
       {
         key: "actions",
@@ -474,7 +480,10 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     const result = await apiClient.get<GetAgentResponse>(`/agents/${agentId}`);
 
     if (result.success === false) {
-      return c.text(`Error: ${result.error}`, result.status === 404 ? 404 : result.status);
+      return c.text(
+        `Error: ${result.error}`,
+        result.status === 404 ? 404 : result.status,
+      );
     }
 
     const agent = result.data.agent;
@@ -742,7 +751,10 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     const result = await apiClient.delete<unknown>(`/agents/${agentId}`);
 
     if (result.success === false) {
-      return c.text(`Error: ${result.error}`, result.status === 404 ? 404 : result.status);
+      return c.text(
+        `Error: ${result.error}`,
+        result.status === 404 ? 404 : result.status,
+      );
     }
 
     return c.redirect("/agents");
@@ -753,10 +765,15 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     const agentId = c.req.param("id");
 
     const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
-    const result = await apiClient.get<GetCapabilitiesResponse>(`/agents/${agentId}/capabilities`);
+    const result = await apiClient.get<GetCapabilitiesResponse>(
+      `/agents/${agentId}/capabilities`,
+    );
 
     if (result.success === false) {
-      return c.json({ error: result.error }, result.status as 400 | 401 | 403 | 404 | 500);
+      return c.json(
+        { error: result.error },
+        result.status as 400 | 401 | 403 | 404 | 500,
+      );
     }
 
     return c.json(result.data.capabilities);
@@ -767,10 +784,16 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     const agentId = c.req.param("id");
 
     const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
-    const result = await apiClient.post<RefreshCapabilitiesResponse>(`/agents/${agentId}/capabilities/refresh`, {});
+    const result = await apiClient.post<RefreshCapabilitiesResponse>(
+      `/agents/${agentId}/capabilities/refresh`,
+      {},
+    );
 
     if (result.success === false) {
-      return c.json({ error: result.error }, result.status as 400 | 401 | 403 | 404 | 500);
+      return c.json(
+        { error: result.error },
+        result.status as 400 | 401 | 403 | 404 | 500,
+      );
     }
 
     // Redirect with appropriate message

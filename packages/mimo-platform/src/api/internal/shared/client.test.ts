@@ -11,10 +11,7 @@
 
 import { describe, it, expect, beforeEach, spyOn } from "bun:test";
 import type { Context } from "hono";
-import {
-  createInternalApiClient,
-  type ApiResult,
-} from "./client.js";
+import { createInternalApiClient, type ApiResult } from "./client.js";
 import { createMimoContext } from "../../../context/mimo-context.js";
 import { createMockOS } from "../../../os/mock-adapter.js";
 import type { MockOS } from "../../../os/mock-adapter.js";
@@ -98,7 +95,9 @@ describe("createInternalApiClient", () => {
       const fetchCall = fetchSpy.mock.calls[0];
       expect(fetchCall).toBeDefined();
       if (fetchCall) {
-        expect(fetchCall[0]).toBe("http://localhost:3000/api/internal/sessions/123");
+        expect(fetchCall[0]).toBe(
+          "http://localhost:3000/api/internal/sessions/123",
+        );
         expect(fetchCall[1]).toMatchObject({
           method: "GET",
           headers: {
@@ -128,7 +127,10 @@ describe("createInternalApiClient", () => {
 
       const c = createMockContext({ cookie: "token=valid-jwt-token" });
       const client = createInternalApiClient(c, mimoContext);
-      const result = await client.post<typeof responseData>("/sessions", requestBody);
+      const result = await client.post<typeof responseData>(
+        "/sessions",
+        requestBody,
+      );
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -141,7 +143,9 @@ describe("createInternalApiClient", () => {
       const fetchCall = fetchSpy.mock.calls[0];
       expect(fetchCall).toBeDefined();
       if (fetchCall) {
-        expect(fetchCall[0]).toBe("http://localhost:3000/api/internal/sessions");
+        expect(fetchCall[0]).toBe(
+          "http://localhost:3000/api/internal/sessions",
+        );
         expect(fetchCall[1]).toMatchObject({
           method: "POST",
           headers: {
@@ -173,7 +177,10 @@ describe("createInternalApiClient", () => {
 
       const c = createMockContext({ cookie: "token=valid-jwt-token" });
       const client = createInternalApiClient(c, mimoContext);
-      const result = await client.put<typeof responseData>("/sessions/123", requestBody);
+      const result = await client.put<typeof responseData>(
+        "/sessions/123",
+        requestBody,
+      );
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -346,9 +353,8 @@ describe("createInternalApiClient", () => {
       const client = createInternalApiClient(c, mimoContext);
 
       // Type parameter should enforce SessionResponse type
-      const result: ApiResult<SessionResponse> = await client.get<SessionResponse>(
-        "/sessions/123",
-      );
+      const result: ApiResult<SessionResponse> =
+        await client.get<SessionResponse>("/sessions/123");
 
       expect(result.success).toBe(true);
       if (result.success) {

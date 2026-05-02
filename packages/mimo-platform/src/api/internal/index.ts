@@ -96,7 +96,11 @@ export function createInternalApiRouter(mimoContext: MimoContext): Hono {
 
 // Re-export shared utilities for convenience
 export { successResponse, errorResponse } from "./shared/response.js";
-export type { SuccessResponse, ErrorResponse, ApiResponse } from "./shared/response.js";
+export type {
+  SuccessResponse,
+  ErrorResponse,
+  ApiResponse,
+} from "./shared/response.js";
 export type { InternalApiContext, InternalApiHandler } from "./shared/types.js";
 export { createInternalAuthMiddleware } from "./shared/auth.js";
 export { createInternalApiClient } from "./shared/client.js";

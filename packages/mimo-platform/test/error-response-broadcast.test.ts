@@ -6,11 +6,10 @@ function extractMessage(rawError: any): string {
   return typeof rawError === "string"
     ? rawError
     : rawError?.message ||
-      (rawError ? JSON.stringify(rawError) : "Unknown error");
+        (rawError ? JSON.stringify(rawError) : "Unknown error");
 }
 
 describe("error_response platform extraction", () => {
-
   it("extracts message from ACP error object", () => {
     const acpError = {
       code: -32603,

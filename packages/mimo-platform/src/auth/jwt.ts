@@ -1,7 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
 
-const DEFAULT_JWT_SECRET = "your-secret-key-change-in-production";
-
 export interface JWTPayload {
   username: string;
   exp?: number;
@@ -10,7 +8,7 @@ export interface JWTPayload {
 export class JwtService {
   private secret: Uint8Array;
 
-  constructor(secret: string = DEFAULT_JWT_SECRET) {
+  constructor(secret: string) {
     this.secret = new TextEncoder().encode(secret);
   }
 
@@ -38,17 +36,4 @@ export class JwtService {
       return null;
     }
   }
-}
-
-export const jwtService = new JwtService();
-
-export async function generateToken(
-  username: string,
-  expiresIn: string = "7d",
-): Promise<string> {
-  return jwtService.generateToken(username, expiresIn);
-}
-
-export async function verifyToken(token: string): Promise<JWTPayload | null> {
-  return jwtService.verifyToken(token);
 }

@@ -411,7 +411,9 @@ describe("AgentMessageRouter", () => {
         mcpServerIds: [],
       };
 
-      deps.sessionRepository.findByAssignedAgentId = mock(async () => [session]);
+      deps.sessionRepository.findByAssignedAgentId = mock(async () => [
+        session,
+      ]);
       deps.sessionRepository.findByThreadAgentId = mock(async () => []);
       deps.sessionRepository.findById = mock(async (id: string) =>
         id === "sess-1" ? session : null,
@@ -455,7 +457,9 @@ describe("AgentMessageRouter", () => {
         mcpServerIds: [],
       };
 
-      deps.sessionRepository.findByAssignedAgentId = mock(async () => [session]);
+      deps.sessionRepository.findByAssignedAgentId = mock(async () => [
+        session,
+      ]);
       deps.sessionRepository.findByThreadAgentId = mock(async () => []);
       deps.sessionRepository.findById = mock(async () => session);
 

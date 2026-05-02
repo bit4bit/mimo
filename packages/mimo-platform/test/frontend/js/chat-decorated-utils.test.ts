@@ -2,7 +2,10 @@ import { describe, it, expect } from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";
 
-const utilsPath = join(import.meta.dir, "../../../public/js/chat-decorated-utils.js");
+const utilsPath = join(
+  import.meta.dir,
+  "../../../public/js/chat-decorated-utils.js",
+);
 const utilsCode = readFileSync(utilsPath, "utf-8");
 
 const sandbox: any = {};
@@ -185,12 +188,12 @@ describe("buildDecoratedLines — heading tokens", () => {
         "\n",
       ),
     );
-    expect(lines.map((line: { type: string; level?: number }) => line.type)).toEqual(
-      ["heading", "heading", "heading", "heading", "heading"],
-    );
     expect(
-      lines.map((line: { level?: number }) => line.level),
-    ).toEqual([2, 3, 4, 5, 6]);
+      lines.map((line: { type: string; level?: number }) => line.type),
+    ).toEqual(["heading", "heading", "heading", "heading", "heading"]);
+    expect(lines.map((line: { level?: number }) => line.level)).toEqual([
+      2, 3, 4, 5, 6,
+    ]);
   });
 
   it("does not treat #hashtag as a heading", () => {
@@ -209,16 +212,16 @@ describe("buildDecoratedLines — heading tokens", () => {
     const lines = buildDecoratedLines("## **Bold**");
     expect(lines).toHaveLength(1);
     expect(lines[0].type).toBe("heading");
-    expect(lines[0].html).toContain(
-      '<b class="decorated-bold">**Bold**</b>',
-    );
+    expect(lines[0].html).toContain('<b class="decorated-bold">**Bold**</b>');
   });
 
   it("decorates inline code spans inside heading html", () => {
     const lines = buildDecoratedLines("### `code`");
     expect(lines).toHaveLength(1);
     expect(lines[0].type).toBe("heading");
-    expect(lines[0].html).toContain('<code class="decorated-code">`code`</code>');
+    expect(lines[0].html).toContain(
+      '<code class="decorated-code">`code`</code>',
+    );
   });
 
   it("escapes heading html to prevent script injection", () => {

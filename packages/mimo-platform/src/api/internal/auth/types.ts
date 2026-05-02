@@ -65,7 +65,10 @@ export interface VerifyResponse {
 /**
  * Converts a User entity to API response format.
  */
-export function toUserResponse(user: User): { username: string; createdAt: string } {
+export function toUserResponse(user: User): {
+  username: string;
+  createdAt: string;
+} {
   return {
     username: user.username,
     createdAt: user.createdAt.toISOString(),

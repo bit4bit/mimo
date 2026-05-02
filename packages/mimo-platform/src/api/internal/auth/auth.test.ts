@@ -68,16 +68,19 @@ describe("Auth Internal API", () => {
 
   describe("Register", () => {
     it("should register a new user successfully", async () => {
-      const req = new Request("http://localhost:3000/api/internal/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/auth/register",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username: "newuser",
+            password: "password123",
+          }),
         },
-        body: JSON.stringify({
-          username: "newuser",
-          password: "password123",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -89,15 +92,18 @@ describe("Auth Internal API", () => {
     });
 
     it("should return 400 when username is missing", async () => {
-      const req = new Request("http://localhost:3000/api/internal/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/auth/register",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            password: "password123",
+          }),
         },
-        body: JSON.stringify({
-          password: "password123",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -108,15 +114,18 @@ describe("Auth Internal API", () => {
     });
 
     it("should return 400 when password is missing", async () => {
-      const req = new Request("http://localhost:3000/api/internal/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/auth/register",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username: "newuser2",
+          }),
         },
-        body: JSON.stringify({
-          username: "newuser2",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -131,16 +140,19 @@ describe("Auth Internal API", () => {
       await mimoContext.repos.users.create("existinguser", "hashedpassword");
 
       // Duplicate registration
-      const req = new Request("http://localhost:3000/api/internal/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/auth/register",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username: "existinguser",
+            password: "password123",
+          }),
         },
-        body: JSON.stringify({
-          username: "existinguser",
-          password: "password123",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -250,9 +262,12 @@ describe("Auth Internal API", () => {
 
   describe("Logout", () => {
     it("should require authentication", async () => {
-      const req = new Request("http://localhost:3000/api/internal/auth/logout", {
-        method: "POST",
-      });
+      const req = new Request(
+        "http://localhost:3000/api/internal/auth/logout",
+        {
+          method: "POST",
+        },
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -271,12 +286,15 @@ describe("Auth Internal API", () => {
       await mimoContext.repos.users.create("logoutuser", passwordHash);
       const token = await mimoContext.services.auth.generateToken("logoutuser");
 
-      const req = new Request("http://localhost:3000/api/internal/auth/logout", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const req = new Request(
+        "http://localhost:3000/api/internal/auth/logout",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -300,11 +318,14 @@ describe("Auth Internal API", () => {
     });
 
     it("should return valid=false for invalid token", async () => {
-      const req = new Request("http://localhost:3000/api/internal/auth/verify", {
-        headers: {
-          Authorization: "Bearer invalid-token",
+      const req = new Request(
+        "http://localhost:3000/api/internal/auth/verify",
+        {
+          headers: {
+            Authorization: "Bearer invalid-token",
+          },
         },
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -323,11 +344,14 @@ describe("Auth Internal API", () => {
       await mimoContext.repos.users.create("verifyuser", passwordHash);
       const token = await mimoContext.services.auth.generateToken("verifyuser");
 
-      const req = new Request("http://localhost:3000/api/internal/auth/verify", {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const req = new Request(
+        "http://localhost:3000/api/internal/auth/verify",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -342,16 +366,19 @@ describe("Auth Internal API", () => {
 
   describe("No Authentication Required", () => {
     it("register should not require authentication", async () => {
-      const req = new Request("http://localhost:3000/api/internal/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/auth/register",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username: "noshouldreguser",
+            password: "password123",
+          }),
         },
-        body: JSON.stringify({
-          username: "noshouldreguser",
-          password: "password123",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
 

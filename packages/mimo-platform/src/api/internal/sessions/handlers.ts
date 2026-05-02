@@ -5,10 +5,7 @@
  * All handlers are pure functions that operate on injected dependencies.
  */
 
-import {
-  successResponse,
-  errorResponse,
-} from "../shared/response.js";
+import { successResponse, errorResponse } from "../shared/response.js";
 import type { InternalApiContext } from "../shared/types.js";
 import type {
   CreateSessionRequest,
@@ -71,7 +68,7 @@ export async function updateSessionConfigHandler(
     return c.json(errorResponse("Session not found", 404), 404);
   }
 
-  const body = await c.req.json() as UpdateSessionRequest;
+  const body = (await c.req.json()) as UpdateSessionRequest;
 
   // Validate priority if provided
   if (body.priority !== undefined) {
@@ -108,8 +105,7 @@ export async function updateSessionConfigHandler(
   }
 
   try {
-    const updates: Parameters<typeof mimoContext.repos.sessions.update>[1] =
-      {};
+    const updates: Parameters<typeof mimoContext.repos.sessions.update>[1] = {};
     if (body.priority !== undefined) updates.priority = body.priority;
     if (body.sessionTtlDays !== undefined)
       updates.sessionTtlDays = body.sessionTtlDays;
@@ -119,10 +115,7 @@ export async function updateSessionConfigHandler(
     const updated = await mimoContext.repos.sessions.update(id, updates);
 
     if (!updated) {
-      return c.json(
-        errorResponse("Failed to update session config", 500),
-        500,
-      );
+      return c.json(errorResponse("Failed to update session config", 500), 500);
     }
 
     return c.json(
@@ -132,7 +125,9 @@ export async function updateSessionConfigHandler(
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to update session config";
+      error instanceof Error
+        ? error.message
+        : "Failed to update session config";
     return c.json(errorResponse(message, 500), 500);
   }
 }
@@ -141,7 +136,9 @@ export async function updateSessionConfigHandler(
  * List all sessions for the authenticated user.
  * GET /api/internal/sessions
  */
-export async function listSessionsHandler(c: InternalApiContext): Promise<Response> {
+export async function listSessionsHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -162,7 +159,9 @@ export async function listSessionsHandler(c: InternalApiContext): Promise<Respon
  * Get a specific session by ID.
  * GET /api/internal/sessions/:id
  */
-export async function getSessionHandler(c: InternalApiContext): Promise<Response> {
+export async function getSessionHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -191,14 +190,16 @@ export async function getSessionHandler(c: InternalApiContext): Promise<Response
  * Create a new session.
  * POST /api/internal/sessions
  */
-export async function createSessionHandler(c: InternalApiContext): Promise<Response> {
+export async function createSessionHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
   }
 
   const mimoContext = c.get("mimoContext");
-  const body = await c.req.json() as CreateSessionRequest;
+  const body = (await c.req.json()) as CreateSessionRequest;
 
   // Validate required fields
   if (!body.name || !body.projectId) {
@@ -209,14 +210,20 @@ export async function createSessionHandler(c: InternalApiContext): Promise<Respo
   if (body.priority !== undefined) {
     const valid: Array<"high" | "medium" | "low"> = ["high", "medium", "low"];
     if (!valid.includes(body.priority)) {
-      return c.json(errorResponse("Priority must be one of: high, medium, low", 400), 400);
+      return c.json(
+        errorResponse("Priority must be one of: high, medium, low", 400),
+        400,
+      );
     }
   }
 
   // Validate sessionTtlDays if provided
   if (body.sessionTtlDays !== undefined) {
     if (!Number.isInteger(body.sessionTtlDays) || body.sessionTtlDays < 1) {
-      return c.json(errorResponse("sessionTtlDays must be an integer >= 1", 400), 400);
+      return c.json(
+        errorResponse("sessionTtlDays must be an integer >= 1", 400),
+        400,
+      );
     }
   }
 
@@ -246,7 +253,8 @@ export async function createSessionHandler(c: InternalApiContext): Promise<Respo
       201,
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create session";
+    const message =
+      error instanceof Error ? error.message : "Failed to create session";
     return c.json(errorResponse(message, 500), 500);
   }
 }
@@ -255,7 +263,9 @@ export async function createSessionHandler(c: InternalApiContext): Promise<Respo
  * Update a session.
  * PUT /api/internal/sessions/:id
  */
-export async function updateSessionHandler(c: InternalApiContext): Promise<Response> {
+export async function updateSessionHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -273,27 +283,39 @@ export async function updateSessionHandler(c: InternalApiContext): Promise<Respo
     return c.json(errorResponse("Session not found", 404), 404);
   }
 
-  const body = await c.req.json() as UpdateSessionRequest;
+  const body = (await c.req.json()) as UpdateSessionRequest;
 
   // Validate priority if provided
   if (body.priority !== undefined) {
     const valid: Array<"high" | "medium" | "low"> = ["high", "medium", "low"];
     if (!valid.includes(body.priority)) {
-      return c.json(errorResponse("Priority must be one of: high, medium, low", 400), 400);
+      return c.json(
+        errorResponse("Priority must be one of: high, medium, low", 400),
+        400,
+      );
     }
   }
 
   // Validate sessionTtlDays if provided
   if (body.sessionTtlDays !== undefined) {
     if (!Number.isInteger(body.sessionTtlDays) || body.sessionTtlDays < 1) {
-      return c.json(errorResponse("sessionTtlDays must be an integer >= 1", 400), 400);
+      return c.json(
+        errorResponse("sessionTtlDays must be an integer >= 1", 400),
+        400,
+      );
     }
   }
 
   // Validate idleTimeoutMs if provided
   if (body.idleTimeoutMs !== undefined) {
     if (body.idleTimeoutMs !== 0 && body.idleTimeoutMs < 10000) {
-      return c.json(errorResponse("idleTimeoutMs must be at least 10000ms or 0 to disable", 400), 400);
+      return c.json(
+        errorResponse(
+          "idleTimeoutMs must be at least 10000ms or 0 to disable",
+          400,
+        ),
+        400,
+      );
     }
   }
 
@@ -301,8 +323,10 @@ export async function updateSessionHandler(c: InternalApiContext): Promise<Respo
     const updates: Parameters<typeof mimoContext.repos.sessions.update>[1] = {};
     if (body.name !== undefined) updates.name = body.name;
     if (body.priority !== undefined) updates.priority = body.priority;
-    if (body.sessionTtlDays !== undefined) updates.sessionTtlDays = body.sessionTtlDays;
-    if (body.idleTimeoutMs !== undefined) updates.idleTimeoutMs = body.idleTimeoutMs;
+    if (body.sessionTtlDays !== undefined)
+      updates.sessionTtlDays = body.sessionTtlDays;
+    if (body.idleTimeoutMs !== undefined)
+      updates.idleTimeoutMs = body.idleTimeoutMs;
 
     const updated = await mimoContext.repos.sessions.update(id, updates);
 
@@ -316,7 +340,8 @@ export async function updateSessionHandler(c: InternalApiContext): Promise<Respo
       }),
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update session";
+    const message =
+      error instanceof Error ? error.message : "Failed to update session";
     return c.json(errorResponse(message, 500), 500);
   }
 }
@@ -325,7 +350,9 @@ export async function updateSessionHandler(c: InternalApiContext): Promise<Respo
  * Delete a session.
  * DELETE /api/internal/sessions/:id
  */
-export async function deleteSessionHandler(c: InternalApiContext): Promise<Response> {
+export async function deleteSessionHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -352,7 +379,9 @@ export async function deleteSessionHandler(c: InternalApiContext): Promise<Respo
  * Get chat history for a session.
  * GET /api/internal/sessions/:id/chat
  */
-export async function getChatHistoryHandler(c: InternalApiContext): Promise<Response> {
+export async function getChatHistoryHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -371,7 +400,10 @@ export async function getChatHistoryHandler(c: InternalApiContext): Promise<Resp
   }
 
   const threadId = c.req.query("threadId") || session.activeChatThreadId;
-  const messages = await mimoContext.services.chat.loadHistory(id, threadId ?? undefined);
+  const messages = await mimoContext.services.chat.loadHistory(
+    id,
+    threadId ?? undefined,
+  );
 
   return c.json(
     successResponse({
@@ -384,7 +416,9 @@ export async function getChatHistoryHandler(c: InternalApiContext): Promise<Resp
  * Assign an agent to a session.
  * POST /api/internal/sessions/:id/assign-agent
  */
-export async function assignAgentHandler(c: InternalApiContext): Promise<Response> {
+export async function assignAgentHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -402,7 +436,7 @@ export async function assignAgentHandler(c: InternalApiContext): Promise<Respons
     return c.json(errorResponse("Session not found", 404), 404);
   }
 
-  const body = await c.req.json() as AssignAgentRequest;
+  const body = (await c.req.json()) as AssignAgentRequest;
 
   if (!body.agentId) {
     return c.json(errorResponse("Agent ID is required", 400), 400);
@@ -429,7 +463,8 @@ export async function assignAgentHandler(c: InternalApiContext): Promise<Respons
       }),
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to assign agent";
+    const message =
+      error instanceof Error ? error.message : "Failed to assign agent";
     return c.json(errorResponse(message, 500), 500);
   }
 }
@@ -438,7 +473,9 @@ export async function assignAgentHandler(c: InternalApiContext): Promise<Respons
  * Close a session.
  * POST /api/internal/sessions/:id/close
  */
-export async function closeSessionHandler(c: InternalApiContext): Promise<Response> {
+export async function closeSessionHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -456,7 +493,7 @@ export async function closeSessionHandler(c: InternalApiContext): Promise<Respon
     return c.json(errorResponse("Session not found", 404), 404);
   }
 
-  const body = await c.req.json().catch(() => ({})) as CloseSessionRequest;
+  const body = (await c.req.json().catch(() => ({}))) as CloseSessionRequest;
 
   try {
     const updated = await mimoContext.repos.sessions.update(id, {
@@ -474,7 +511,8 @@ export async function closeSessionHandler(c: InternalApiContext): Promise<Respon
       }),
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to close session";
+    const message =
+      error instanceof Error ? error.message : "Failed to close session";
     return c.json(errorResponse(message, 500), 500);
   }
 }
@@ -483,7 +521,9 @@ export async function closeSessionHandler(c: InternalApiContext): Promise<Respon
  * Get session with full details including chat threads.
  * GET /api/internal/sessions/:id/details
  */
-export async function getSessionDetailsHandler(c: InternalApiContext): Promise<Response> {
+export async function getSessionDetailsHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -547,7 +587,9 @@ export async function getSessionDetailsHandler(c: InternalApiContext): Promise<R
  * Add a chat thread to a session.
  * POST /api/internal/sessions/:id/chat-threads
  */
-export async function addChatThreadHandler(c: InternalApiContext): Promise<Response> {
+export async function addChatThreadHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);

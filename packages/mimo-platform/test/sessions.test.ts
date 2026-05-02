@@ -24,13 +24,13 @@ let testHome: string;
 function createTestApp(ctx: any, _sessionsR: any): Hono {
   const { createInternalApiRouter } = require("../src/api/internal/index.ts");
   const { createSessionsRoutes } = require("../src/sessions/routes.tsx");
-  
+
   const app = new Hono();
-  
+
   // Mount internal API
   const internalRouter = createInternalApiRouter(ctx);
   app.route("/api/internal", internalRouter);
-  
+
   // Mount session routes with fetchFn that routes through app
   const sessions = createSessionsRoutes(ctx, {
     fetchFn: (url: string | URL | Request, init?: RequestInit) => {
@@ -45,7 +45,7 @@ function createTestApp(ctx: any, _sessionsR: any): Hono {
   });
   app.route("/projects/:projectId/sessions", sessions);
   app.route("/sessions", sessions);
-  
+
   return app;
 }
 

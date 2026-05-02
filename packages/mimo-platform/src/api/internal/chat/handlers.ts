@@ -12,14 +12,16 @@ import type { SaveMessageRequest } from "./types.js";
  * Save a chat message.
  * POST /api/internal/chat/messages
  */
-export async function saveMessageHandler(c: InternalApiContext): Promise<Response> {
+export async function saveMessageHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
   }
 
   const mimoContext = c.get("mimoContext");
-  const body = await c.req.json() as SaveMessageRequest;
+  const body = (await c.req.json()) as SaveMessageRequest;
 
   // Validate required fields
   if (!body.sessionId) {
@@ -31,7 +33,10 @@ export async function saveMessageHandler(c: InternalApiContext): Promise<Respons
   }
 
   if (!body.role || !["user", "assistant", "system"].includes(body.role)) {
-    return c.json(errorResponse("role must be user, assistant, or system", 400), 400);
+    return c.json(
+      errorResponse("role must be user, assistant, or system", 400),
+      400,
+    );
   }
 
   if (body.content === undefined || body.content === null) {
@@ -45,7 +50,9 @@ export async function saveMessageHandler(c: InternalApiContext): Promise<Respons
   }
 
   // Verify the chat thread exists
-  const threadExists = session.chatThreads.some((t) => t.id === body.chatThreadId);
+  const threadExists = session.chatThreads.some(
+    (t) => t.id === body.chatThreadId,
+  );
   if (!threadExists) {
     return c.json(errorResponse("Chat thread not found", 404), 404);
   }

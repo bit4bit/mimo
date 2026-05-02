@@ -36,4 +36,6 @@ export interface InternalApiContext extends Context {
 /**
  * Type alias for internal API route handlers.
  */
-export type InternalApiHandler = (c: InternalApiContext) => Response | Promise<Response>;
+export type InternalApiHandler = (
+  c: InternalApiContext,
+) => Response | Promise<Response>;

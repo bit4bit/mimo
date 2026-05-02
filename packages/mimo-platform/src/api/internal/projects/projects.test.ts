@@ -459,7 +459,9 @@ describe("Projects Internal API", () => {
       expect(json.success).toBe(true);
       expect(json.data.project.name).toBe("Updated Name");
       expect(json.data.project.description).toBe("Updated description");
-      expect(json.data.project.repoUrl).toBe("https://github.com/test/original");
+      expect(json.data.project.repoUrl).toBe(
+        "https://github.com/test/original",
+      );
     });
   });
 

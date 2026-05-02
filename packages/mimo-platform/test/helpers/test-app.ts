@@ -20,7 +20,10 @@
  */
 
 import { Hono } from "hono";
-import { createMimoContext, type MimoContext } from "../src/context/mimo-context.js";
+import {
+  createMimoContext,
+  type MimoContext,
+} from "../src/context/mimo-context.js";
 import { createInternalApiRouter } from "../src/api/internal/index.js";
 import { createAgentsRoutes } from "../src/agents/routes.tsx";
 import { createDashboardRoutes } from "../src/dashboard/routes.tsx";

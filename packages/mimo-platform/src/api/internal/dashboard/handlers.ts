@@ -29,7 +29,9 @@ export async function getDashboardHandler(c: InternalApiContext) {
   const mimoContext = c.get("mimoContext");
 
   // Get user's projects
-  const userProjects = await mimoContext.repos.projects.listByOwner(user.username);
+  const userProjects = await mimoContext.repos.projects.listByOwner(
+    user.username,
+  );
 
   // Get user's agents
   const userAgents = await mimoContext.repos.agents.findByOwner(user.username);
@@ -37,7 +39,9 @@ export async function getDashboardHandler(c: InternalApiContext) {
   // Get all sessions across all projects
   const allSessions: any[] = [];
   for (const project of userProjects) {
-    const projectSessions = await mimoContext.repos.sessions.listByProject(project.id);
+    const projectSessions = await mimoContext.repos.sessions.listByProject(
+      project.id,
+    );
     allSessions.push(...projectSessions);
   }
 
@@ -50,9 +54,15 @@ export async function getDashboardHandler(c: InternalApiContext) {
   // Calculate stats
   const totalProjects = userProjects.length;
   const totalAgents = userAgents.length;
-  const onlineAgents = userAgents.filter((a: { status: string }) => a.status === "online").length;
-  const offlineAgents = userAgents.filter((a: { status: string }) => a.status === "offline").length;
-  const activeSessions = allSessions.filter((s) => s.status === "active").length;
+  const onlineAgents = userAgents.filter(
+    (a: { status: string }) => a.status === "online",
+  ).length;
+  const offlineAgents = userAgents.filter(
+    (a: { status: string }) => a.status === "offline",
+  ).length;
+  const activeSessions = allSessions.filter(
+    (s) => s.status === "active",
+  ).length;
 
   // Transform data for dashboard
   const dashboardData = {

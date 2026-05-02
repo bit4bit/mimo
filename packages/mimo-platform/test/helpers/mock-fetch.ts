@@ -24,8 +24,15 @@ export interface MockRepos {
     findById: (id: string) => Promise<unknown>;
     create?: (data: unknown) => Promise<unknown>;
     addChatThread?: (sessionId: string, thread: unknown) => Promise<unknown>;
-    updateChatThread?: (sessionId: string, threadId: string, updates: unknown) => Promise<unknown>;
-    deleteChatThread?: (sessionId: string, threadId: string) => Promise<unknown>;
+    updateChatThread?: (
+      sessionId: string,
+      threadId: string,
+      updates: unknown,
+    ) => Promise<unknown>;
+    deleteChatThread?: (
+      sessionId: string,
+      threadId: string,
+    ) => Promise<unknown>;
   };
   agents?: {
     findById: (id: string) => Promise<unknown>;
@@ -54,7 +61,10 @@ export function setupInternalApiMock(repos: MockRepos) {
   originalFetch = globalThis.fetch;
   mockActive = true;
 
-  globalThis.fetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+  globalThis.fetch = async (
+    input: string | URL | Request,
+    init?: RequestInit,
+  ): Promise<Response> => {
     const urlStr = input.toString();
     const method = init?.method || "GET";
 
@@ -80,7 +90,7 @@ export function setupInternalApiMock(repos: MockRepos) {
         const session = await repos.sessions.create(body);
         return new Response(
           JSON.stringify({ success: true, data: { session } }),
-          { status: 201, headers: { "Content-Type": "application/json" } }
+          { status: 201, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -90,46 +100,62 @@ export function setupInternalApiMock(repos: MockRepos) {
         if (!session) {
           return new Response(
             JSON.stringify({ success: false, error: "Session not found" }),
-            { status: 404, headers: { "Content-Type": "application/json" } }
+            { status: 404, headers: { "Content-Type": "application/json" } },
           );
         }
 
         // POST /sessions/:id/chat-threads
-        if (method === "POST" && subPath === "chat-threads" && repos.sessions?.addChatThread) {
+        if (
+          method === "POST" &&
+          subPath === "chat-threads" &&
+          repos.sessions?.addChatThread
+        ) {
           const body = JSON.parse(init?.body as string);
           const thread = await repos.sessions.addChatThread(sessionId, body);
           return new Response(
             JSON.stringify({ success: true, data: { thread } }),
-            { status: 201, headers: { "Content-Type": "application/json" } }
+            { status: 201, headers: { "Content-Type": "application/json" } },
           );
         }
 
         // PATCH /sessions/:id/chat-threads/:threadId
-        if (method === "PUT" && subPath?.startsWith("chat-threads/") && repos.sessions?.updateChatThread) {
+        if (
+          method === "PUT" &&
+          subPath?.startsWith("chat-threads/") &&
+          repos.sessions?.updateChatThread
+        ) {
           const threadId = subPath.replace("chat-threads/", "");
           const body = JSON.parse(init?.body as string);
-          const thread = await repos.sessions.updateChatThread(sessionId, threadId, body);
+          const thread = await repos.sessions.updateChatThread(
+            sessionId,
+            threadId,
+            body,
+          );
           return new Response(
             JSON.stringify({ success: true, data: { thread } }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
+            { status: 200, headers: { "Content-Type": "application/json" } },
           );
         }
 
         // DELETE /sessions/:id/chat-threads/:threadId
-        if (method === "DELETE" && subPath?.startsWith("chat-threads/") && repos.sessions?.deleteChatThread) {
+        if (
+          method === "DELETE" &&
+          subPath?.startsWith("chat-threads/") &&
+          repos.sessions?.deleteChatThread
+        ) {
           const threadId = subPath.replace("chat-threads/", "");
           await repos.sessions.deleteChatThread(sessionId, threadId);
-          return new Response(
-            JSON.stringify({ success: true, data: {} }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
-          );
+          return new Response(JSON.stringify({ success: true, data: {} }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
         }
 
         // GET /sessions/:id
         if (!subPath) {
           return new Response(
             JSON.stringify({ success: true, data: { session } }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
+            { status: 200, headers: { "Content-Type": "application/json" } },
           );
         }
 
@@ -137,16 +163,16 @@ export function setupInternalApiMock(repos: MockRepos) {
         if (subPath === "details") {
           return new Response(
             JSON.stringify({ success: true, data: { session } }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
+            { status: 200, headers: { "Content-Type": "application/json" } },
           );
         }
 
         // DELETE /sessions/:id
         if (method === "DELETE" && !subPath) {
-          return new Response(
-            JSON.stringify({ success: true, data: {} }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
-          );
+          return new Response(JSON.stringify({ success: true, data: {} }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
         }
       }
 
@@ -155,7 +181,7 @@ export function setupInternalApiMock(repos: MockRepos) {
         // List sessions - for now just return empty
         return new Response(
           JSON.stringify({ success: true, data: { sessions: [] } }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
+          { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
     }
@@ -168,18 +194,22 @@ export function setupInternalApiMock(repos: MockRepos) {
 
       if (agentId) {
         // POST /agents/:id/capabilities/refresh
-        if (method === "POST" && subPath === "capabilities/refresh" && repos.agents?.updateCapabilities) {
+        if (
+          method === "POST" &&
+          subPath === "capabilities/refresh" &&
+          repos.agents?.updateCapabilities
+        ) {
           const agent = await repos.agents.findById(agentId);
           if (!agent) {
             return new Response(
               JSON.stringify({ success: false, error: "Agent not found" }),
-              { status: 404, headers: { "Content-Type": "application/json" } }
+              { status: 404, headers: { "Content-Type": "application/json" } },
             );
           }
           await repos.agents.updateCapabilities(agentId, undefined);
           return new Response(
             JSON.stringify({ success: true, data: { requested: true } }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
+            { status: 200, headers: { "Content-Type": "application/json" } },
           );
         }
 
@@ -189,12 +219,12 @@ export function setupInternalApiMock(repos: MockRepos) {
           if (!agent) {
             return new Response(
               JSON.stringify({ success: false, error: "Agent not found" }),
-              { status: 404, headers: { "Content-Type": "application/json" } }
+              { status: 404, headers: { "Content-Type": "application/json" } },
             );
           }
           return new Response(
             JSON.stringify({ success: true, data: { agent } }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
+            { status: 200, headers: { "Content-Type": "application/json" } },
           );
         }
       }
@@ -205,7 +235,7 @@ export function setupInternalApiMock(repos: MockRepos) {
         const agents = await repos.agents.findByOwner("testuser");
         return new Response(
           JSON.stringify({ success: true, data: { agents } }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
+          { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
     }
@@ -220,12 +250,12 @@ export function setupInternalApiMock(repos: MockRepos) {
         if (!project) {
           return new Response(
             JSON.stringify({ success: false, error: "Project not found" }),
-            { status: 404, headers: { "Content-Type": "application/json" } }
+            { status: 404, headers: { "Content-Type": "application/json" } },
           );
         }
         return new Response(
           JSON.stringify({ success: true, data: { project } }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
+          { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -234,7 +264,7 @@ export function setupInternalApiMock(repos: MockRepos) {
         const projects = await repos.projects.listByOwner("testuser");
         return new Response(
           JSON.stringify({ success: true, data: { projects } }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
+          { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
     }
@@ -249,20 +279,23 @@ export function setupInternalApiMock(repos: MockRepos) {
         if (method === "DELETE") {
           return new Response(
             JSON.stringify({ success: true, data: { deleted: true } }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
+            { status: 200, headers: { "Content-Type": "application/json" } },
           );
         }
 
-        const credential = await repos.credentials?.findById(credentialId, "testuser");
+        const credential = await repos.credentials?.findById(
+          credentialId,
+          "testuser",
+        );
         if (!credential) {
           return new Response(
             JSON.stringify({ success: false, error: "Credential not found" }),
-            { status: 404, headers: { "Content-Type": "application/json" } }
+            { status: 404, headers: { "Content-Type": "application/json" } },
           );
         }
         return new Response(
           JSON.stringify({ success: true, data: { credential } }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
+          { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -271,7 +304,7 @@ export function setupInternalApiMock(repos: MockRepos) {
         const credentials = await repos.credentials.findByOwner("testuser");
         return new Response(
           JSON.stringify({ success: true, data: { credentials } }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
+          { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
     }
@@ -287,7 +320,7 @@ export function setupInternalApiMock(repos: MockRepos) {
             recentSessions: [],
           },
         }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -309,7 +342,7 @@ export function setupInternalApiMock(repos: MockRepos) {
               },
             },
           }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
+          { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -320,13 +353,15 @@ export function setupInternalApiMock(repos: MockRepos) {
             success: true,
             data: { config: body },
           }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
+          { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
     }
 
     // MCP Servers endpoints
-    const mcpServersMatch = path.match(/^\/mcp-servers(?:\/([^\/]+))?(?:\/(.+))?$/);
+    const mcpServersMatch = path.match(
+      /^\/mcp-servers(?:\/([^\/]+))?(?:\/(.+))?$/,
+    );
     if (mcpServersMatch) {
       const serverId = mcpServersMatch[1];
       const subPath = mcpServersMatch[2];
@@ -335,7 +370,7 @@ export function setupInternalApiMock(repos: MockRepos) {
       if (method === "GET" && !serverId) {
         return new Response(
           JSON.stringify({ success: true, data: { servers: [] } }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
+          { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -343,7 +378,7 @@ export function setupInternalApiMock(repos: MockRepos) {
       if (method === "GET" && serverId && !subPath) {
         return new Response(
           JSON.stringify({ success: false, error: "MCP server not found" }),
-          { status: 404, headers: { "Content-Type": "application/json" } }
+          { status: 404, headers: { "Content-Type": "application/json" } },
         );
       }
     }
@@ -353,7 +388,7 @@ export function setupInternalApiMock(repos: MockRepos) {
       if (method === "POST") {
         return new Response(
           JSON.stringify({ success: true, data: { saved: true } }),
-          { status: 201, headers: { "Content-Type": "application/json" } }
+          { status: 201, headers: { "Content-Type": "application/json" } },
         );
       }
     }
@@ -362,17 +397,17 @@ export function setupInternalApiMock(repos: MockRepos) {
     if (path.match(/^\/sessions\/[^\/]+\/summary$/)) {
       return new Response(
         JSON.stringify({ success: true, data: { summary: "Test summary" } }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
 
     // Session touch endpoint
     const touchMatch = path.match(/^\/sessions\/([^\/]+)\/touch$/);
     if (touchMatch && method === "POST") {
-      return new Response(
-        JSON.stringify({ success: true, data: {} }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ success: true, data: {} }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // Session config endpoint
@@ -383,17 +418,17 @@ export function setupInternalApiMock(repos: MockRepos) {
       const session = await repos.sessions?.findById(sessionId);
       if (session) {
         return new Response(
-          JSON.stringify({ 
-            success: true, 
-            data: { 
-              session: { 
-                ...session, 
+          JSON.stringify({
+            success: true,
+            data: {
+              session: {
+                ...session,
                 ...body,
-                id: sessionId 
-              } 
-            } 
+                id: sessionId,
+              },
+            },
           }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
+          { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
     }
@@ -402,7 +437,7 @@ export function setupInternalApiMock(repos: MockRepos) {
     console.warn(`Unhandled internal API call: ${method} ${path}`);
     return new Response(
       JSON.stringify({ success: false, error: "Not found" }),
-      { status: 404, headers: { "Content-Type": "application/json" } }
+      { status: 404, headers: { "Content-Type": "application/json" } },
     );
   };
 }

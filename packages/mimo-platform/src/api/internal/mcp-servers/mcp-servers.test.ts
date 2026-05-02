@@ -78,11 +78,14 @@ describe("MCP Servers Internal API", () => {
     });
 
     it("should return empty list when no MCP servers exist", async () => {
-      const req = new Request("http://localhost:3000/api/internal/mcp-servers", {
-        headers: {
-          Authorization: `Bearer ${validToken}`,
+      const req = new Request(
+        "http://localhost:3000/api/internal/mcp-servers",
+        {
+          headers: {
+            Authorization: `Bearer ${validToken}`,
+          },
         },
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -107,14 +110,17 @@ describe("MCP Servers Internal API", () => {
         description: "GitHub API access",
         transport: "http",
         url: "https://api.github.com/mcp",
-        headers: { "Authorization": "Bearer token123" },
+        headers: { Authorization: "Bearer token123" },
       });
 
-      const req = new Request("http://localhost:3000/api/internal/mcp-servers", {
-        headers: {
-          Authorization: `Bearer ${validToken}`,
+      const req = new Request(
+        "http://localhost:3000/api/internal/mcp-servers",
+        {
+          headers: {
+            Authorization: `Bearer ${validToken}`,
+          },
         },
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -122,20 +128,27 @@ describe("MCP Servers Internal API", () => {
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
       expect(json.data.servers.length).toBe(2);
-      
+
       // Check stdio server
-      const stdioServer = json.data.servers.find((s: any) => s.transport === "stdio");
+      const stdioServer = json.data.servers.find(
+        (s: any) => s.transport === "stdio",
+      );
       expect(stdioServer).toBeDefined();
       expect(stdioServer.name).toBe("Filesystem Server");
       expect(stdioServer.command).toBe("npx");
-      expect(stdioServer.args).toEqual(["-y", "@modelcontextprotocol/server-filesystem"]);
-      
+      expect(stdioServer.args).toEqual([
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+      ]);
+
       // Check HTTP server
-      const httpServer = json.data.servers.find((s: any) => s.transport === "http");
+      const httpServer = json.data.servers.find(
+        (s: any) => s.transport === "http",
+      );
       expect(httpServer).toBeDefined();
       expect(httpServer.name).toBe("GitHub Server");
       expect(httpServer.url).toBe("https://api.github.com/mcp");
-      expect(httpServer.headers).toEqual({ "Authorization": "Bearer token123" });
+      expect(httpServer.headers).toEqual({ Authorization: "Bearer token123" });
     });
   });
 
@@ -236,17 +249,20 @@ describe("MCP Servers Internal API", () => {
 
   describe("Create MCP Server", () => {
     it("should require authentication", async () => {
-      const req = new Request("http://localhost:3000/api/internal/mcp-servers", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/mcp-servers",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "Test Server",
+            transport: "stdio",
+            command: "node",
+          }),
         },
-        body: JSON.stringify({
-          name: "Test Server",
-          transport: "stdio",
-          command: "node",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -256,17 +272,20 @@ describe("MCP Servers Internal API", () => {
     });
 
     it("should validate required fields", async () => {
-      const req = new Request("http://localhost:3000/api/internal/mcp-servers", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${validToken}`,
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/mcp-servers",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${validToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            transport: "stdio",
+            command: "node",
+          }),
         },
-        body: JSON.stringify({
-          transport: "stdio",
-          command: "node",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -277,17 +296,20 @@ describe("MCP Servers Internal API", () => {
     });
 
     it("should validate transport type", async () => {
-      const req = new Request("http://localhost:3000/api/internal/mcp-servers", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${validToken}`,
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/mcp-servers",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${validToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "Test Server",
+            transport: "invalid",
+          }),
         },
-        body: JSON.stringify({
-          name: "Test Server",
-          transport: "invalid",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -298,17 +320,20 @@ describe("MCP Servers Internal API", () => {
     });
 
     it("should validate stdio transport requires command", async () => {
-      const req = new Request("http://localhost:3000/api/internal/mcp-servers", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${validToken}`,
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/mcp-servers",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${validToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "Test Server",
+            transport: "stdio",
+          }),
         },
-        body: JSON.stringify({
-          name: "Test Server",
-          transport: "stdio",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -319,17 +344,20 @@ describe("MCP Servers Internal API", () => {
     });
 
     it("should validate HTTP transport requires URL", async () => {
-      const req = new Request("http://localhost:3000/api/internal/mcp-servers", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${validToken}`,
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/mcp-servers",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${validToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "Test Server",
+            transport: "http",
+          }),
         },
-        body: JSON.stringify({
-          name: "Test Server",
-          transport: "http",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -340,20 +368,23 @@ describe("MCP Servers Internal API", () => {
     });
 
     it("should create stdio MCP server with valid data", async () => {
-      const req = new Request("http://localhost:3000/api/internal/mcp-servers", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${validToken}`,
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/mcp-servers",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${validToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "New Stdio Server",
+            description: "A new stdio server",
+            transport: "stdio",
+            command: "python",
+            args: ["script.py", "--port", "8080"],
+          }),
         },
-        body: JSON.stringify({
-          name: "New Stdio Server",
-          description: "A new stdio server",
-          transport: "stdio",
-          command: "python",
-          args: ["script.py", "--port", "8080"],
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -368,23 +399,26 @@ describe("MCP Servers Internal API", () => {
     });
 
     it("should create HTTP MCP server with valid data", async () => {
-      const req = new Request("http://localhost:3000/api/internal/mcp-servers", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${validToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: "New HTTP Server",
-          description: "A new HTTP server",
-          transport: "http",
-          url: "https://api.example.com/v1/mcp",
+      const req = new Request(
+        "http://localhost:3000/api/internal/mcp-servers",
+        {
+          method: "POST",
           headers: {
-            "Authorization": "Bearer token123",
-            "X-Custom-Header": "value",
+            Authorization: `Bearer ${validToken}`,
+            "Content-Type": "application/json",
           },
-        }),
-      });
+          body: JSON.stringify({
+            name: "New HTTP Server",
+            description: "A new HTTP server",
+            transport: "http",
+            url: "https://api.example.com/v1/mcp",
+            headers: {
+              Authorization: "Bearer token123",
+              "X-Custom-Header": "value",
+            },
+          }),
+        },
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -395,24 +429,27 @@ describe("MCP Servers Internal API", () => {
       expect(json.data.server.transport).toBe("http");
       expect(json.data.server.url).toBe("https://api.example.com/v1/mcp");
       expect(json.data.server.headers).toEqual({
-        "Authorization": "Bearer token123",
+        Authorization: "Bearer token123",
         "X-Custom-Header": "value",
       });
     });
 
     it("should create SSE MCP server with valid data", async () => {
-      const req = new Request("http://localhost:3000/api/internal/mcp-servers", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${validToken}`,
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/mcp-servers",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${validToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "New SSE Server",
+            transport: "sse",
+            url: "https://sse.example.com/events",
+          }),
         },
-        body: JSON.stringify({
-          name: "New SSE Server",
-          transport: "sse",
-          url: "https://sse.example.com/events",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -433,18 +470,21 @@ describe("MCP Servers Internal API", () => {
       });
 
       // Try to create second with same name
-      const req = new Request("http://localhost:3000/api/internal/mcp-servers", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${validToken}`,
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/mcp-servers",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${validToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "Duplicate Server",
+            transport: "http",
+            url: "https://example.com",
+          }),
         },
-        body: JSON.stringify({
-          name: "Duplicate Server",
-          transport: "http",
-          url: "https://example.com",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();

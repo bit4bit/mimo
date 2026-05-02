@@ -14,9 +14,11 @@ import { toUserResponse } from "./types.js";
  * Register a new user.
  * POST /api/internal/auth/register
  */
-export async function registerHandler(c: InternalApiContext): Promise<Response> {
+export async function registerHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const mimoContext = c.get("mimoContext");
-  const body = await c.req.json() as RegisterRequest;
+  const body = (await c.req.json()) as RegisterRequest;
 
   // Validate required fields
   if (!body.username || !body.password) {
@@ -24,7 +26,9 @@ export async function registerHandler(c: InternalApiContext): Promise<Response> 
   }
 
   // Check if username already exists
-  const existingUser = await mimoContext.repos.users.getCredentials(body.username);
+  const existingUser = await mimoContext.repos.users.getCredentials(
+    body.username,
+  );
   if (existingUser) {
     return c.json(errorResponse("Username already exists", 409), 409);
   }
@@ -35,7 +39,10 @@ export async function registerHandler(c: InternalApiContext): Promise<Response> 
     cost: 10,
   });
 
-  const user = await mimoContext.repos.users.create(body.username, passwordHash);
+  const user = await mimoContext.repos.users.create(
+    body.username,
+    passwordHash,
+  );
 
   return c.json(
     successResponse({
@@ -51,7 +58,7 @@ export async function registerHandler(c: InternalApiContext): Promise<Response> 
  */
 export async function loginHandler(c: InternalApiContext): Promise<Response> {
   const mimoContext = c.get("mimoContext");
-  const body = await c.req.json() as LoginRequest;
+  const body = (await c.req.json()) as LoginRequest;
 
   // Validate required fields
   if (!body.username || !body.password) {
@@ -59,7 +66,9 @@ export async function loginHandler(c: InternalApiContext): Promise<Response> {
   }
 
   // Get user credentials
-  const credentials = await mimoContext.repos.users.getCredentials(body.username);
+  const credentials = await mimoContext.repos.users.getCredentials(
+    body.username,
+  );
   if (!credentials) {
     return c.json(errorResponse("Invalid credentials", 401), 401);
   }

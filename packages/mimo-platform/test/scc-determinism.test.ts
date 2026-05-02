@@ -157,7 +157,11 @@ export function multiply(x: number, y: number): number {
       return;
     }
 
-    const calculator = new ImpactCalculator(sccService, createDummyJscpdService(), os);
+    const calculator = new ImpactCalculator(
+      sccService,
+      createDummyJscpdService(),
+      os,
+    );
 
     const upstreamDir = join(testHome, "upstream");
     const workspaceDir = join(testHome, "workspace");

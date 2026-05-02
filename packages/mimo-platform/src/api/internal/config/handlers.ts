@@ -46,7 +46,7 @@ export async function updateConfigHandler(
   }
 
   const mimoContext = c.get("mimoContext");
-  const body = await c.req.json() as UpdateConfigRequest;
+  const body = (await c.req.json()) as UpdateConfigRequest;
 
   // Get existing config to preserve values not sent in request
   const existingConfig = mimoContext.services.config.load();
@@ -61,10 +61,7 @@ export async function updateConfigHandler(
   const validation = configValidator.validate(newConfig);
 
   if (validation.errors.length > 0) {
-    return c.json(
-      errorResponse("Validation failed", 400),
-      400,
-    );
+    return c.json(errorResponse("Validation failed", 400), 400);
   }
 
   // Save the config

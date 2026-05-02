@@ -5,7 +5,11 @@
  * endpoints in the internal API.
  */
 
-import type { Session, SessionPriority, ChatThread } from "../../../sessions/repository.js";
+import type {
+  Session,
+  SessionPriority,
+  ChatThread,
+} from "../../../sessions/repository.js";
 
 /**
  * Session response format for API serialization.
@@ -144,7 +148,9 @@ export function toSessionResponse(session: Session): SessionResponse {
     priority: session.priority,
     sessionTtlDays: session.sessionTtlDays,
     ...(session.closeReason && { closeReason: session.closeReason }),
-    ...(session.assignedAgentId && { assignedAgentId: session.assignedAgentId }),
+    ...(session.assignedAgentId && {
+      assignedAgentId: session.assignedAgentId,
+    }),
     ...(session.agentSubpath && { agentSubpath: session.agentSubpath }),
     ...(session.branch && { branch: session.branch }),
     acpStatus: session.acpStatus,
@@ -157,13 +163,19 @@ export function toSessionResponse(session: Session): SessionResponse {
     agentWorkspacePath: session.agentWorkspacePath,
     fossilPath: session.fossilPath,
     // Credentials
-    ...(session.agentWorkspaceUser && { agentWorkspaceUser: session.agentWorkspaceUser }),
-    ...(session.agentWorkspacePassword && { agentWorkspacePassword: session.agentWorkspacePassword }),
+    ...(session.agentWorkspaceUser && {
+      agentWorkspaceUser: session.agentWorkspaceUser,
+    }),
+    ...(session.agentWorkspacePassword && {
+      agentWorkspacePassword: session.agentWorkspacePassword,
+    }),
     // MCP token
     ...(session.mcpToken && { mcpToken: session.mcpToken }),
     // Chat threads
     chatThreads: session.chatThreads.map(toChatThreadResponse),
-    ...(session.activeChatThreadId && { activeChatThreadId: session.activeChatThreadId }),
+    ...(session.activeChatThreadId && {
+      activeChatThreadId: session.activeChatThreadId,
+    }),
   };
 }
 

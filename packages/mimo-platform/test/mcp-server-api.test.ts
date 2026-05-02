@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "bun:test";
 import { Hono } from "hono";
 import { existsSync, mkdtempSync, readdirSync, rmSync, unlinkSync } from "fs";
 import { join } from "path";
@@ -68,11 +75,11 @@ describe("MCP Server API Integration Tests", () => {
 
     // Initialize mimoContext with proper JWT_SECRET
     const { createMimoContext } = await import("../src/context/mimo-context");
-    mimoContext = createMimoContext({ 
-      env: { 
+    mimoContext = createMimoContext({
+      env: {
         MIMO_HOME: testHome,
         JWT_SECRET: "test-secret-key-for-mcp-tests",
-      } 
+      },
     });
 
     // Create a valid auth token
@@ -149,7 +156,7 @@ describe("MCP Server API Integration Tests", () => {
         body: JSON.stringify({
           name: "PostgreSQL Server",
           transport: "stdio",
-                    command: "npx",
+          command: "npx",
           args: ["-y", "@modelcontextprotocol/server-postgres"],
         }),
       });
@@ -175,7 +182,7 @@ describe("MCP Server API Integration Tests", () => {
         body: JSON.stringify({
           name: "Unique Server",
           transport: "stdio",
-                    command: "npx",
+          command: "npx",
           args: [],
         }),
       });
@@ -190,7 +197,7 @@ describe("MCP Server API Integration Tests", () => {
         body: JSON.stringify({
           name: "Unique Server",
           transport: "stdio",
-                    command: "npx",
+          command: "npx",
           args: [],
         }),
       });
@@ -229,7 +236,7 @@ describe("MCP Server API Integration Tests", () => {
         body: JSON.stringify({
           name: "New Server",
           transport: "stdio",
-                    command: "",
+          command: "",
           args: [],
         }),
       });
@@ -252,11 +259,11 @@ describe("MCP Server API Integration Tests", () => {
         body: JSON.stringify({
           name: "Gettable Server",
           transport: "stdio",
-                    command: "npx",
+          command: "npx",
           args: [],
         }),
       });
-      const created = await createRes.json() as McpServer;
+      const created = (await createRes.json()) as McpServer;
 
       const response = await app.request(`/mcp-servers/${created.id}`, {
         headers: {
@@ -294,11 +301,11 @@ describe("MCP Server API Integration Tests", () => {
         body: JSON.stringify({
           name: "Updatable Server",
           transport: "stdio",
-                    command: "npx",
+          command: "npx",
           args: [],
         }),
       });
-      const created = await createRes.json() as McpServer;
+      const created = (await createRes.json()) as McpServer;
 
       const response = await app.request(`/mcp-servers/${created.id}`, {
         method: "PATCH",
@@ -327,11 +334,11 @@ describe("MCP Server API Integration Tests", () => {
         body: JSON.stringify({
           name: "Original Name",
           transport: "stdio",
-                    command: "npx",
+          command: "npx",
           args: [],
         }),
       });
-      const created = await createRes.json() as McpServer;
+      const created = (await createRes.json()) as McpServer;
       const originalId = created.id;
 
       const response = await app.request(`/mcp-servers/${created.id}`, {
@@ -381,11 +388,11 @@ describe("MCP Server API Integration Tests", () => {
         body: JSON.stringify({
           name: "Delete Me",
           transport: "stdio",
-                    command: "npx",
+          command: "npx",
           args: [],
         }),
       });
-      const created = await createRes.json() as McpServer;
+      const created = (await createRes.json()) as McpServer;
 
       const response = await app.request(`/mcp-servers/${created.id}`, {
         method: "DELETE",

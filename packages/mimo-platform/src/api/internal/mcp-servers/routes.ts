@@ -26,7 +26,9 @@ import {
  * @param _mimoContext - The MimoContext (passed for consistency, unused directly)
  * @returns Configured Hono router for MCP servers endpoints
  */
-export function createMcpServersInternalRouter(_mimoContext: MimoContext): Hono {
+export function createMcpServersInternalRouter(
+  _mimoContext: MimoContext,
+): Hono {
   const router = new Hono();
 
   // List all MCP servers

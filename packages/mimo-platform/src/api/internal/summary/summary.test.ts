@@ -68,17 +68,20 @@ describe("Summary Internal API", () => {
 
   describe("POST /api/internal/summary/refresh", () => {
     it("should return 401 when not authenticated", async () => {
-      const req = new Request("http://localhost:3000/api/internal/summary/refresh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/summary/refresh",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sessionId: "test-session",
+            analyzeThreadId: "thread-1",
+            summarizeThreadId: "thread-2",
+          }),
         },
-        body: JSON.stringify({
-          sessionId: "test-session",
-          analyzeThreadId: "thread-1",
-          summarizeThreadId: "thread-2",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -88,17 +91,20 @@ describe("Summary Internal API", () => {
     });
 
     it("should return 400 when sessionId is missing", async () => {
-      const req = new Request("http://localhost:3000/api/internal/summary/refresh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${validToken}`,
+      const req = new Request(
+        "http://localhost:3000/api/internal/summary/refresh",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${validToken}`,
+          },
+          body: JSON.stringify({
+            analyzeThreadId: "thread-1",
+            summarizeThreadId: "thread-2",
+          }),
         },
-        body: JSON.stringify({
-          analyzeThreadId: "thread-1",
-          summarizeThreadId: "thread-2",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -109,17 +115,20 @@ describe("Summary Internal API", () => {
     });
 
     it("should return 400 when analyzeThreadId is missing", async () => {
-      const req = new Request("http://localhost:3000/api/internal/summary/refresh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${validToken}`,
+      const req = new Request(
+        "http://localhost:3000/api/internal/summary/refresh",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${validToken}`,
+          },
+          body: JSON.stringify({
+            sessionId: "test-session",
+            summarizeThreadId: "thread-2",
+          }),
         },
-        body: JSON.stringify({
-          sessionId: "test-session",
-          summarizeThreadId: "thread-2",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -130,17 +139,20 @@ describe("Summary Internal API", () => {
     });
 
     it("should return 400 when summarizeThreadId is missing", async () => {
-      const req = new Request("http://localhost:3000/api/internal/summary/refresh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${validToken}`,
+      const req = new Request(
+        "http://localhost:3000/api/internal/summary/refresh",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${validToken}`,
+          },
+          body: JSON.stringify({
+            sessionId: "test-session",
+            analyzeThreadId: "thread-1",
+          }),
         },
-        body: JSON.stringify({
-          sessionId: "test-session",
-          analyzeThreadId: "thread-1",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -151,18 +163,21 @@ describe("Summary Internal API", () => {
     });
 
     it("should return 404 when session does not exist", async () => {
-      const req = new Request("http://localhost:3000/api/internal/summary/refresh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${validToken}`,
+      const req = new Request(
+        "http://localhost:3000/api/internal/summary/refresh",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${validToken}`,
+          },
+          body: JSON.stringify({
+            sessionId: "nonexistent-session",
+            analyzeThreadId: "thread-1",
+            summarizeThreadId: "thread-2",
+          }),
         },
-        body: JSON.stringify({
-          sessionId: "nonexistent-session",
-          analyzeThreadId: "thread-1",
-          summarizeThreadId: "thread-2",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -176,7 +191,7 @@ describe("Summary Internal API", () => {
   describe("GET /api/internal/summary/latest", () => {
     it("should return 401 when not authenticated", async () => {
       const req = new Request(
-        "http://localhost:3000/api/internal/summary/latest?sessionId=test-session&summarizeThreadId=thread-2"
+        "http://localhost:3000/api/internal/summary/latest?sessionId=test-session&summarizeThreadId=thread-2",
       );
 
       const res = await app.fetch(req);
@@ -191,9 +206,9 @@ describe("Summary Internal API", () => {
         "http://localhost:3000/api/internal/summary/latest?summarizeThreadId=thread-2",
         {
           headers: {
-            "Authorization": `Bearer ${validToken}`,
+            Authorization: `Bearer ${validToken}`,
           },
-        }
+        },
       );
 
       const res = await app.fetch(req);
@@ -209,9 +224,9 @@ describe("Summary Internal API", () => {
         "http://localhost:3000/api/internal/summary/latest?sessionId=test-session",
         {
           headers: {
-            "Authorization": `Bearer ${validToken}`,
+            Authorization: `Bearer ${validToken}`,
           },
-        }
+        },
       );
 
       const res = await app.fetch(req);
@@ -227,9 +242,9 @@ describe("Summary Internal API", () => {
         "http://localhost:3000/api/internal/summary/latest?sessionId=nonexistent-session&summarizeThreadId=thread-2",
         {
           headers: {
-            "Authorization": `Bearer ${validToken}`,
+            Authorization: `Bearer ${validToken}`,
           },
-        }
+        },
       );
 
       const res = await app.fetch(req);
@@ -256,16 +271,18 @@ describe("Summary Internal API", () => {
       });
 
       // Get the updated session to get the thread ID
-      const updatedSession = await mimoContext.repos.sessions.findById(session.id);
+      const updatedSession = await mimoContext.repos.sessions.findById(
+        session.id,
+      );
       const threadId = updatedSession?.chatThreads[0]?.id || "thread-1";
 
       const req = new Request(
         `http://localhost:3000/api/internal/summary/latest?sessionId=${session.id}&summarizeThreadId=${threadId}`,
         {
           headers: {
-            "Authorization": `Bearer ${validToken}`,
+            Authorization: `Bearer ${validToken}`,
           },
-        }
+        },
       );
 
       const res = await app.fetch(req);

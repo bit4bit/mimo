@@ -51,13 +51,14 @@ describe("Integration Tests", () => {
     });
 
     it("should handle JWT token generation", async () => {
-      const { generateToken, verifyToken } = await import("../src/auth/jwt.js");
+      const { JwtService } = await import("../src/auth/jwt.js");
 
-      const token = await generateToken("testuser", "1h");
+      const auth = new JwtService("test-secret-for-e2e");
+      const token = await auth.generateToken("testuser", "1h");
 
       expect(token).toBeTruthy();
 
-      const payload = await verifyToken(token);
+      const payload = await auth.verifyToken(token);
       expect(payload?.username).toBe("testuser");
     });
   });
@@ -86,7 +87,13 @@ describe("Integration Tests", () => {
 
   describe("13.5: Agent Communication Integration", () => {
     it("should handle agent service operations", async () => {
-      const { agentService } = await import("../src/agents/service.js");
+      const { createMimoContext } =
+        await import("../src/context/mimo-context.js");
+
+      const ctx = createMimoContext({
+        env: { MIMO_HOME: "/tmp/mimo-e2e-test", JWT_SECRET: "test-secret" },
+      });
+      const agentService = ctx.services.agents;
 
       expect(typeof agentService.generateAgentToken).toBe("function");
       expect(typeof agentService.verifyAgentToken).toBe("function");
@@ -273,9 +280,10 @@ describe("Integration Tests", () => {
     });
 
     it("should handle invalid JWT tokens", async () => {
-      const { verifyToken } = await import("../src/auth/jwt.js");
+      const { JwtService } = await import("../src/auth/jwt.js");
 
-      const payload = await verifyToken("invalid-token");
+      const auth = new JwtService("test-secret-for-e2e");
+      const payload = await auth.verifyToken("invalid-token");
       expect(payload).toBeNull();
     });
   });
@@ -320,7 +328,13 @@ describe("Integration Tests", () => {
 
   describe("13.11: ACP Request Cancellation", () => {
     it("should handle ACP request cancellation in agent service", async () => {
-      const { agentService } = await import("../src/agents/service.js");
+      const { createMimoContext } =
+        await import("../src/context/mimo-context.js");
+
+      const ctx = createMimoContext({
+        env: { MIMO_HOME: "/tmp/mimo-e2e-test", JWT_SECRET: "test-secret" },
+      });
+      const agentService = ctx.services.agents;
 
       // Test that the cancellation methods exist and are callable
       expect(typeof agentService.cancelCurrentRequest).toBe("function");
@@ -329,7 +343,13 @@ describe("Integration Tests", () => {
     });
 
     it("should create and track ACP request controllers", async () => {
-      const { agentService } = await import("../src/agents/service.js");
+      const { createMimoContext } =
+        await import("../src/context/mimo-context.js");
+
+      const ctx = createMimoContext({
+        env: { MIMO_HOME: "/tmp/mimo-e2e-test", JWT_SECRET: "test-secret" },
+      });
+      const agentService = ctx.services.agents;
 
       const controller = agentService.startAcpRequest("test-agent-id");
       expect(controller).toBeInstanceOf(AbortController);

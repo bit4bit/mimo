@@ -7,24 +7,23 @@
 
 import { successResponse, errorResponse } from "../shared/response.js";
 import type { InternalApiContext } from "../shared/types.js";
-import type {
-  RefreshSummaryRequest,
-  GetLatestSummaryQuery,
-} from "./types.js";
+import type { RefreshSummaryRequest, GetLatestSummaryQuery } from "./types.js";
 import { defaultSummaryPrompt } from "../../../config/service.js";
 
 /**
  * Refresh/generate a summary for a session.
  * POST /api/internal/summary/refresh
  */
-export async function refreshSummaryHandler(c: InternalApiContext): Promise<Response> {
+export async function refreshSummaryHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
   }
 
   const mimoContext = c.get("mimoContext");
-  const body = await c.req.json() as RefreshSummaryRequest;
+  const body = (await c.req.json()) as RefreshSummaryRequest;
 
   // Validate required fields
   if (!body.sessionId) {
@@ -61,7 +60,10 @@ export async function refreshSummaryHandler(c: InternalApiContext): Promise<Resp
   const agentService = mimoContext.services.agents;
   const ws = agentService.getAgentConnection(summarizeAgentId);
   if (!ws || ws.readyState !== 1) {
-    return c.json(errorResponse("Agent is not active in the summarize thread", 400), 400);
+    return c.json(
+      errorResponse("Agent is not active in the summarize thread", 400),
+      400,
+    );
   }
 
   // Load chat history
@@ -122,7 +124,9 @@ export async function refreshSummaryHandler(c: InternalApiContext): Promise<Resp
  * Get the latest summary for a session.
  * GET /api/internal/summary/latest
  */
-export async function getLatestSummaryHandler(c: InternalApiContext): Promise<Response> {
+export async function getLatestSummaryHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -154,7 +158,8 @@ export async function getLatestSummaryHandler(c: InternalApiContext): Promise<Re
 
   // Find the latest assistant message
   const assistantMessages = history.filter(
-    (msg: { role: string; content: string }) => msg.role === "assistant" && msg.content,
+    (msg: { role: string; content: string }) =>
+      msg.role === "assistant" && msg.content,
   );
 
   if (assistantMessages.length === 0) {

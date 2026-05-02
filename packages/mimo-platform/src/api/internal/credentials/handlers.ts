@@ -11,10 +11,7 @@ import type {
   CreateCredentialRequest,
   UpdateCredentialRequest,
 } from "./types.js";
-import {
-  toCredentialListResponse,
-  toCredentialResponse,
-} from "./types.js";
+import { toCredentialListResponse, toCredentialResponse } from "./types.js";
 import type { CredentialType } from "../../../credentials/repository.js";
 
 /**
@@ -88,7 +85,7 @@ export async function createCredentialHandler(
   }
 
   const mimoContext = c.get("mimoContext");
-  const body = await c.req.json() as CreateCredentialRequest;
+  const body = (await c.req.json()) as CreateCredentialRequest;
 
   // Validate required fields
   if (!body.name) {
@@ -177,7 +174,7 @@ export async function updateCredentialHandler(
     return c.json(errorResponse("Credential not found", 404), 404);
   }
 
-  const body = await c.req.json() as UpdateCredentialRequest;
+  const body = (await c.req.json()) as UpdateCredentialRequest;
 
   // Build updates - include the type to match expected signature
   const updates: {

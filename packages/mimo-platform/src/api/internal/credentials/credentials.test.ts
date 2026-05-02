@@ -83,11 +83,14 @@ describe("Credentials Internal API", () => {
     });
 
     it("should return empty list when no credentials exist", async () => {
-      const req = new Request("http://localhost:3000/api/internal/credentials", {
-        headers: {
-          Authorization: `Bearer ${validToken}`,
+      const req = new Request(
+        "http://localhost:3000/api/internal/credentials",
+        {
+          headers: {
+            Authorization: `Bearer ${validToken}`,
+          },
         },
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -162,7 +165,7 @@ describe("Credentials Internal API", () => {
 
       expect(listRes.status).toBe(200);
       expect(listJson.success).toBe(true);
-      
+
       // Find the credential in the list
       const credential = listJson.data.credentials.find(
         (c: { id: string }) => c.id === credentialId,
@@ -251,18 +254,21 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
 
   describe("Create HTTPS Credential", () => {
     it("should require authentication", async () => {
-      const req = new Request("http://localhost:3000/api/internal/credentials", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/credentials",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "Test",
+            type: "https",
+            username: "user",
+            password: "pass",
+          }),
         },
-        body: JSON.stringify({
-          name: "Test",
-          type: "https",
-          username: "user",
-          password: "pass",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -272,19 +278,22 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
     });
 
     it("should create HTTPS credential with valid data", async () => {
-      const req = new Request("http://localhost:3000/api/internal/credentials", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${user1Token}`,
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/credentials",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${user1Token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "My HTTPS Credential",
+            type: "https",
+            username: "githubuser",
+            password: "githubtoken123",
+          }),
         },
-        body: JSON.stringify({
-          name: "My HTTPS Credential",
-          type: "https",
-          username: "githubuser",
-          password: "githubtoken123",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -298,18 +307,21 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
     });
 
     it("should return 400 when name is missing", async () => {
-      const req = new Request("http://localhost:3000/api/internal/credentials", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${user1Token}`,
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/credentials",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${user1Token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            type: "https",
+            username: "user",
+            password: "pass",
+          }),
         },
-        body: JSON.stringify({
-          type: "https",
-          username: "user",
-          password: "pass",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -320,47 +332,57 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
     });
 
     it("should return 400 when username is missing for HTTPS", async () => {
-      const req = new Request("http://localhost:3000/api/internal/credentials", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${user1Token}`,
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/credentials",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${user1Token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "Test",
+            type: "https",
+            password: "pass",
+          }),
         },
-        body: JSON.stringify({
-          name: "Test",
-          type: "https",
-          password: "pass",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
 
       expect(res.status).toBe(400);
       expect(json.success).toBe(false);
-      expect(json.error).toBe("Username and password are required for HTTPS credentials");
+      expect(json.error).toBe(
+        "Username and password are required for HTTPS credentials",
+      );
     });
 
     it("should return 400 when password is missing for HTTPS", async () => {
-      const req = new Request("http://localhost:3000/api/internal/credentials", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${user1Token}`,
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/credentials",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${user1Token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "Test",
+            type: "https",
+            username: "user",
+          }),
         },
-        body: JSON.stringify({
-          name: "Test",
-          type: "https",
-          username: "user",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
 
       expect(res.status).toBe(400);
       expect(json.success).toBe(false);
-      expect(json.error).toBe("Username and password are required for HTTPS credentials");
+      expect(json.error).toBe(
+        "Username and password are required for HTTPS credentials",
+      );
     });
   });
 
@@ -372,18 +394,21 @@ QyNTUxOQAAACB4HrBdrkD3gH0C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAED4HrBdrkD3gH0
 C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
 -----END OPENSSH PRIVATE KEY-----`;
 
-      const req = new Request("http://localhost:3000/api/internal/credentials", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${user1Token}`,
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/credentials",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${user1Token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "My SSH Key",
+            type: "ssh",
+            privateKey: validKey,
+          }),
         },
-        body: JSON.stringify({
-          name: "My SSH Key",
-          type: "ssh",
-          privateKey: validKey,
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -396,17 +421,20 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
     });
 
     it("should return 400 when private key is missing for SSH", async () => {
-      const req = new Request("http://localhost:3000/api/internal/credentials", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${user1Token}`,
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/credentials",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${user1Token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "Test",
+            type: "ssh",
+          }),
         },
-        body: JSON.stringify({
-          name: "Test",
-          type: "ssh",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -417,18 +445,21 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
     });
 
     it("should return 400 for invalid SSH key format", async () => {
-      const req = new Request("http://localhost:3000/api/internal/credentials", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${user1Token}`,
-          "Content-Type": "application/json",
+      const req = new Request(
+        "http://localhost:3000/api/internal/credentials",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${user1Token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "Test",
+            type: "ssh",
+            privateKey: "invalid-key-format",
+          }),
         },
-        body: JSON.stringify({
-          name: "Test",
-          type: "ssh",
-          privateKey: "invalid-key-format",
-        }),
-      });
+      );
 
       const res = await app.fetch(req);
       const json = await res.json();
@@ -742,7 +773,7 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
 
       expect(listRes.status).toBe(200);
       expect(listJson.success).toBe(true);
-      
+
       // Find the credential in the list
       const credential = listJson.data.credentials.find(
         (c: { name: string }) => c.name === "Secret HTTPS",
@@ -786,7 +817,7 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
 
       expect(listRes.status).toBe(200);
       expect(listJson.success).toBe(true);
-      
+
       // Find the credential in the list
       const credential = listJson.data.credentials.find(
         (c: { name: string }) => c.name === "Secret SSH",

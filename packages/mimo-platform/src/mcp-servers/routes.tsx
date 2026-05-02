@@ -29,7 +29,10 @@ async function getAuthUsername(
   return null;
 }
 
-export function createMcpServerRoutes(mimoContext: MimoContext, deps: { fetchFn?: typeof fetch } = {}): Hono {
+export function createMcpServerRoutes(
+  mimoContext: MimoContext,
+  deps: { fetchFn?: typeof fetch } = {},
+): Hono {
   const router = new Hono();
 
   // GET /mcp-servers - List all MCP servers (HTML or JSON based on Accept header)
@@ -40,15 +43,22 @@ export function createMcpServerRoutes(mimoContext: MimoContext, deps: { fetchFn?
     }
 
     // Use internal API client
-    const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
-    const result = await apiClient.get<{ servers: McpServerResponse[] }>("/mcp-servers");
+    const apiClient = createInternalApiClient(c, mimoContext, {
+      fetchFn: deps.fetchFn,
+    });
+    const result = await apiClient.get<{ servers: McpServerResponse[] }>(
+      "/mcp-servers",
+    );
 
     if (!result.success) {
       if (c.req.header("Accept")?.includes("application/json")) {
         return c.json({ error: result.error }, result.status as any);
       }
       return c.html(
-        <McpServerListPage servers={[]} error={result.error || "Failed to fetch MCP servers"} />,
+        <McpServerListPage
+          servers={[]}
+          error={result.error || "Failed to fetch MCP servers"}
+        />,
       );
     }
 
@@ -82,8 +92,12 @@ export function createMcpServerRoutes(mimoContext: MimoContext, deps: { fetchFn?
     }
 
     const id = c.req.param("id");
-    const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
-    const result = await apiClient.get<{ server: McpServerResponse }>(`/mcp-servers/${id}`);
+    const apiClient = createInternalApiClient(c, mimoContext, {
+      fetchFn: deps.fetchFn,
+    });
+    const result = await apiClient.get<{ server: McpServerResponse }>(
+      `/mcp-servers/${id}`,
+    );
 
     if (!result.success) {
       if (result.status === 404) {
@@ -92,11 +106,16 @@ export function createMcpServerRoutes(mimoContext: MimoContext, deps: { fetchFn?
         );
       }
       return c.html(
-        <McpServerFormPage error={result.error || "Failed to fetch MCP server"} isEditing={true} />,
+        <McpServerFormPage
+          error={result.error || "Failed to fetch MCP server"}
+          isEditing={true}
+        />,
       );
     }
 
-    return c.html(<McpServerFormPage server={result.data.server} isEditing={true} />);
+    return c.html(
+      <McpServerFormPage server={result.data.server} isEditing={true} />,
+    );
   });
 
   // POST /mcp-servers - Create new MCP server (from form)
@@ -108,12 +127,17 @@ export function createMcpServerRoutes(mimoContext: MimoContext, deps: { fetchFn?
 
     try {
       const contentType = c.req.header("Content-Type");
-      const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
+      const apiClient = createInternalApiClient(c, mimoContext, {
+        fetchFn: deps.fetchFn,
+      });
 
       if (contentType?.includes("application/json")) {
         // JSON API request
         const body = await c.req.json();
-        const result = await apiClient.post<{ server: McpServerResponse }>("/mcp-servers", body);
+        const result = await apiClient.post<{ server: McpServerResponse }>(
+          "/mcp-servers",
+          body,
+        );
 
         if (!result.success) {
           return c.json({ error: result.error }, result.status as any);
@@ -165,10 +189,17 @@ export function createMcpServerRoutes(mimoContext: MimoContext, deps: { fetchFn?
           };
         }
 
-        const result = await apiClient.post<{ server: McpServerResponse }>("/mcp-servers", apiBody);
+        const result = await apiClient.post<{ server: McpServerResponse }>(
+          "/mcp-servers",
+          apiBody,
+        );
 
         if (!result.success) {
-          return c.html(<McpServerFormPage error={result.error || "Failed to create MCP server"} />);
+          return c.html(
+            <McpServerFormPage
+              error={result.error || "Failed to create MCP server"}
+            />,
+          );
         }
 
         return c.redirect("/mcp-servers");
@@ -190,7 +221,9 @@ export function createMcpServerRoutes(mimoContext: MimoContext, deps: { fetchFn?
     }
 
     const id = c.req.param("id");
-    const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
+    const apiClient = createInternalApiClient(c, mimoContext, {
+      fetchFn: deps.fetchFn,
+    });
     await apiClient.delete<void>(`/mcp-servers/${id}`);
 
     return c.redirect("/mcp-servers");
@@ -204,8 +237,12 @@ export function createMcpServerRoutes(mimoContext: MimoContext, deps: { fetchFn?
     }
 
     const id = c.req.param("id");
-    const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
-    const result = await apiClient.get<{ server: McpServerResponse }>(`/mcp-servers/${id}`);
+    const apiClient = createInternalApiClient(c, mimoContext, {
+      fetchFn: deps.fetchFn,
+    });
+    const result = await apiClient.get<{ server: McpServerResponse }>(
+      `/mcp-servers/${id}`,
+    );
 
     if (!result.success) {
       if (result.status === 404) {
@@ -227,8 +264,13 @@ export function createMcpServerRoutes(mimoContext: MimoContext, deps: { fetchFn?
     const id = c.req.param("id");
     const body = await c.req.json();
 
-    const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
-    const result = await apiClient.put<{ server: McpServerResponse }>(`/mcp-servers/${id}`, body);
+    const apiClient = createInternalApiClient(c, mimoContext, {
+      fetchFn: deps.fetchFn,
+    });
+    const result = await apiClient.put<{ server: McpServerResponse }>(
+      `/mcp-servers/${id}`,
+      body,
+    );
 
     if (!result.success) {
       return c.json({ error: result.error }, result.status as any);
@@ -292,11 +334,18 @@ export function createMcpServerRoutes(mimoContext: MimoContext, deps: { fetchFn?
         };
       }
 
-      const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
-      const result = await apiClient.put<{ server: McpServerResponse }>(`/mcp-servers/${id}`, apiBody);
+      const apiClient = createInternalApiClient(c, mimoContext, {
+        fetchFn: deps.fetchFn,
+      });
+      const result = await apiClient.put<{ server: McpServerResponse }>(
+        `/mcp-servers/${id}`,
+        apiBody,
+      );
 
       if (!result.success) {
-        const serverResult = await apiClient.get<{ server: McpServerResponse }>(`/mcp-servers/${id}`);
+        const serverResult = await apiClient.get<{ server: McpServerResponse }>(
+          `/mcp-servers/${id}`,
+        );
         return c.html(
           <McpServerFormPage
             server={serverResult.success ? serverResult.data.server : undefined}
@@ -321,7 +370,9 @@ export function createMcpServerRoutes(mimoContext: MimoContext, deps: { fetchFn?
     }
 
     const id = c.req.param("id");
-    const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
+    const apiClient = createInternalApiClient(c, mimoContext, {
+      fetchFn: deps.fetchFn,
+    });
     const result = await apiClient.delete<void>(`/mcp-servers/${id}`);
 
     if (!result.success) {

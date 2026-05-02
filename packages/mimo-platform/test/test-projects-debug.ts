@@ -7,12 +7,13 @@ import { rmSync } from "fs";
 describe("Debug Project Tests", () => {
   it("should debug the issue", async () => {
     const testHome = join(tmpdir(), `debug-test-${Date.now()}`);
-    
+
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
 
-    const { createMimoContext } = await import("../src/context/mimo-context.ts");
+    const { createMimoContext } =
+      await import("../src/context/mimo-context.ts");
     const mimoContext = createMimoContext({
       env: {
         MIMO_HOME: testHome,
@@ -22,19 +23,20 @@ describe("Debug Project Tests", () => {
       },
     });
 
-    const { createInternalApiRouter } = await import("../src/api/internal/index.ts");
+    const { createInternalApiRouter } =
+      await import("../src/api/internal/index.ts");
     const { createProjectsRoutes } = await import("src/projects/routes.tsx");
-    
+
     const app = new Hono();
     const internalRouter = createInternalApiRouter(mimoContext);
     app.route("/api/internal", internalRouter);
-    
+
     const projects = createProjectsRoutes(mimoContext, {
       fetchFn: (url: string | URL | Request, init?: RequestInit) => {
         const urlStr = url.toString();
         console.log("[DEBUG] fetchFn called with URL:", urlStr);
         console.log("[DEBUG] fetchFn init:", JSON.stringify(init, null, 2));
-        
+
         if (urlStr.includes("/api/internal/")) {
           const path = new URL(urlStr).pathname;
           console.log("[DEBUG] Routing to path:", path);
@@ -73,7 +75,7 @@ describe("Debug Project Tests", () => {
     console.log("[DEBUG] Response headers:", res.headers);
     const body = await res.text();
     console.log("[DEBUG] Response body:", body.substring(0, 500));
-    
+
     expect(res.status).toBe(302);
   });
 });

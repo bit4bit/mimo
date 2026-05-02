@@ -1,14 +1,15 @@
 import { Hono } from "hono";
 import { DashboardPage } from "../components/DashboardPage.js";
-import { authMiddleware } from "../auth/middleware.js";
+import { createAuthMiddleware } from "../auth/middleware.js";
 import type { MimoContext } from "../context/mimo-context.js";
 import type { DashboardResponse } from "../api/internal/dashboard/types.js";
 import { createInternalApiClient } from "../api/internal/index.js";
 
 export function createDashboardRoutes(mimoContext: MimoContext): Hono {
   const dashboard = new Hono();
+  const auth = createAuthMiddleware(mimoContext.services.auth);
 
-  dashboard.use(authMiddleware);
+  dashboard.use(auth);
 
   dashboard.get("/", async (c) => {
     const user = c.get("user") as { username: string };

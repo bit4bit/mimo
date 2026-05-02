@@ -74,7 +74,7 @@ describe("Dashboard Internal API", () => {
     it("should require authentication", async () => {
       const req = new Request("http://localhost:3000/api/internal/dashboard");
       const res = await app.fetch(req);
-      const json = await res.json() as { success: boolean; error: string };
+      const json = (await res.json()) as { success: boolean; error: string };
 
       expect(res.status).toBe(401);
       expect(json.success).toBe(false);
@@ -89,7 +89,10 @@ describe("Dashboard Internal API", () => {
       });
 
       const res = await app.fetch(req);
-      const json = await res.json() as { success: boolean; data: DashboardResponse };
+      const json = (await res.json()) as {
+        success: boolean;
+        data: DashboardResponse;
+      };
 
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
@@ -133,7 +136,10 @@ describe("Dashboard Internal API", () => {
       });
 
       const res = await app.fetch(req);
-      const json = await res.json() as { success: boolean; data: DashboardResponse };
+      const json = (await res.json()) as {
+        success: boolean;
+        data: DashboardResponse;
+      };
 
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
@@ -164,7 +170,10 @@ describe("Dashboard Internal API", () => {
       });
 
       const res = await app.fetch(req);
-      const json = await res.json() as { success: boolean; data: DashboardResponse };
+      const json = (await res.json()) as {
+        success: boolean;
+        data: DashboardResponse;
+      };
 
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
@@ -174,12 +183,17 @@ describe("Dashboard Internal API", () => {
 
     it("should calculate stats correctly", async () => {
       // Get current counts before adding new data
-      const baseRes = await app.fetch(new Request("http://localhost:3000/api/internal/dashboard", {
-        headers: {
-          Authorization: `Bearer ${user1Token}`,
-        },
-      }));
-      const baseJson = await baseRes.json() as { success: boolean; data: DashboardResponse };
+      const baseRes = await app.fetch(
+        new Request("http://localhost:3000/api/internal/dashboard", {
+          headers: {
+            Authorization: `Bearer ${user1Token}`,
+          },
+        }),
+      );
+      const baseJson = (await baseRes.json()) as {
+        success: boolean;
+        data: DashboardResponse;
+      };
       const baseStats = baseJson.data.stats;
 
       // Create an online agent for user1
@@ -221,7 +235,10 @@ describe("Dashboard Internal API", () => {
       });
 
       const res = await app.fetch(req);
-      const json = await res.json() as { success: boolean; data: DashboardResponse };
+      const json = (await res.json()) as {
+        success: boolean;
+        data: DashboardResponse;
+      };
 
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
@@ -265,7 +282,10 @@ describe("Dashboard Internal API", () => {
       });
 
       const res = await app.fetch(req);
-      const json = await res.json() as { success: boolean; data: DashboardResponse };
+      const json = (await res.json()) as {
+        success: boolean;
+        data: DashboardResponse;
+      };
 
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
@@ -300,7 +320,10 @@ describe("Dashboard Internal API", () => {
       });
 
       const res = await app.fetch(req);
-      const json = await res.json() as { success: boolean; data: DashboardResponse };
+      const json = (await res.json()) as {
+        success: boolean;
+        data: DashboardResponse;
+      };
 
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);

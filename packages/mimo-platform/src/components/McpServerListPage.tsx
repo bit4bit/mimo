@@ -23,7 +23,10 @@ interface McpServerListPageProps {
 const truncate = (text: string, max: number) =>
   text.length <= max ? text : text.substring(0, max) + "...";
 
-export const McpServerListPage: FC<McpServerListPageProps> = ({ servers, error }) => {
+export const McpServerListPage: FC<McpServerListPageProps> = ({
+  servers,
+  error,
+}) => {
   const columns: DataTableColumn<McpServerViewModel>[] = [
     {
       key: "name",

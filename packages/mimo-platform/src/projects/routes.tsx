@@ -35,6 +35,7 @@ export function createProjectsRoutes(
   const credentialRepository = mimoContext.repos.credentials;
   const sessionRepository = mimoContext.repos.sessions;
   const impactRepository = mimoContext.repos.impacts;
+  const auth = createAuthMiddleware(mimoContext.services.auth);
   const sessions = createSessionsRoutes(mimoContext, {
     fetchFn: deps.fetchFn,
   });
@@ -47,7 +48,7 @@ export function createProjectsRoutes(
   }
 
   // List all projects (GET /projects)
-  projects.get("/", createAuthMiddleware(mimoContext.services.auth), async (c) => {
+  projects.get("/", auth, async (c) => {
     const user = c.get("user") as { username: string };
     const selectedId = c.req.query("selected");
     const apiClient = createApiClient(c);
@@ -75,7 +76,8 @@ export function createProjectsRoutes(
 
       if (selectedResult.success) {
         selectedProject = selectedResult.data.project;
-        selectedProjectSessions = await sessionRepository.listByProject(selectedId);
+        selectedProjectSessions =
+          await sessionRepository.listByProject(selectedId);
         if (selectedProject.credentialId) {
           selectedCredential = await credentialRepository.findById(
             selectedProject.credentialId,
@@ -111,14 +113,14 @@ export function createProjectsRoutes(
   });
 
   // Show create form (GET /projects/new)
-  projects.get("/new", createAuthMiddleware(mimoContext.services.auth), async (c) => {
+  projects.get("/new", auth, async (c) => {
     const user = c.get("user") as { username: string };
     const credentials = await credentialRepository.findByOwner(user.username);
     return c.html(<ProjectCreatePage credentials={credentials} />);
   });
 
   // Create project (POST /projects)
-  projects.post("/", createAuthMiddleware(mimoContext.services.auth), async (c) => {
+  projects.post("/", auth, async (c) => {
     const body = await c.req.parseBody();
     const name = body.name as string;
     const repoUrl = body.repoUrl as string;
@@ -243,7 +245,7 @@ export function createProjectsRoutes(
   });
 
   // View project (GET /projects/:id)
-  projects.get("/:id", createAuthMiddleware(mimoContext.services.auth), async (c) => {
+  projects.get("/:id", auth, async (c) => {
     const id = c.req.param("id");
     const apiClient = createApiClient(c);
     const result = await apiClient.get<GetProjectResponse>(`/projects/${id}`);
@@ -259,7 +261,7 @@ export function createProjectsRoutes(
   });
 
   // Edit project form (GET /projects/:id/edit)
-  projects.get("/:id/edit", createAuthMiddleware(mimoContext.services.auth), async (c) => {
+  projects.get("/:id/edit", auth, async (c) => {
     const id = c.req.param("id");
     const user = c.get("user") as { username: string };
     const apiClient = createApiClient(c);
@@ -274,24 +276,32 @@ export function createProjectsRoutes(
 
     const credentials = await credentialRepository.findByOwner(user.username);
     return c.html(
-      <ProjectEditPage project={result.data.project} credentials={credentials} />,
+      <ProjectEditPage
+        project={result.data.project}
+        credentials={credentials}
+      />,
     );
   });
 
   // Update project (POST /projects/:id/edit)
-  projects.post("/:id/edit", createAuthMiddleware(mimoContext.services.auth), async (c) => {
+  projects.post("/:id/edit", auth, async (c) => {
     const id = c.req.param("id");
     const user = c.get("user") as { username: string };
     const apiClient = createApiClient(c);
 
     // Fetch current project via internal API
-    const getResult = await apiClient.get<GetProjectResponse>(`/projects/${id}`);
+    const getResult = await apiClient.get<GetProjectResponse>(
+      `/projects/${id}`,
+    );
 
     if (!getResult.success) {
       if (getResult.status === 404) {
         return c.notFound();
       }
-      return c.text(`Failed to load project: ${getResult.error}`, getResult.status);
+      return c.text(
+        `Failed to load project: ${getResult.error}`,
+        getResult.status,
+      );
     }
 
     const currentProject = getResult.data.project;
@@ -425,7 +435,7 @@ export function createProjectsRoutes(
   });
 
   // Delete project (POST /projects/:id/delete)
-  projects.post("/:id/delete", createAuthMiddleware(mimoContext.services.auth), async (c) => {
+  projects.post("/:id/delete", auth, async (c) => {
     const id = c.req.param("id");
     const apiClient = createApiClient(c);
     const result = await apiClient.delete<{ deleted: true }>(`/projects/${id}`);
@@ -441,7 +451,7 @@ export function createProjectsRoutes(
   });
 
   // GET /projects/:id/impacts - Impact history page
-  projects.get("/:id/impacts", createAuthMiddleware(mimoContext.services.auth), async (c) => {
+  projects.get("/:id/impacts", auth, async (c) => {
     const id = c.req.param("id");
     const user = c.get("user") as { username: string };
     const apiClient = createApiClient(c);
@@ -482,7 +492,7 @@ export function createProjectsRoutes(
   });
 
   // GET /projects/:id/notes - Fetch project notes
-  projects.get("/:id/notes", createAuthMiddleware(mimoContext.services.auth), async (c) => {
+  projects.get("/:id/notes", auth, async (c) => {
     const id = c.req.param("id");
     const apiClient = createApiClient(c);
     const result = await apiClient.get<GetProjectResponse>(`/projects/${id}`);
@@ -501,7 +511,7 @@ export function createProjectsRoutes(
   });
 
   // POST /projects/:id/notes - Save project notes
-  projects.post("/:id/notes", createAuthMiddleware(mimoContext.services.auth), async (c) => {
+  projects.post("/:id/notes", auth, async (c) => {
     const id = c.req.param("id");
     const apiClient = createApiClient(c);
     const result = await apiClient.get<GetProjectResponse>(`/projects/${id}`);

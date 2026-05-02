@@ -5,7 +5,10 @@
  * endpoints in the internal API.
  */
 
-import type { Credential, CredentialType } from "../../../credentials/repository.js";
+import type {
+  Credential,
+  CredentialType,
+} from "../../../credentials/repository.js";
 
 /**
  * Credential response format for list endpoint (without secrets).
@@ -139,7 +142,9 @@ export function toCredentialListResponse(
 /**
  * Converts a Credential entity to full response format (with secrets).
  */
-export function toCredentialResponse(credential: Credential): CredentialResponse {
+export function toCredentialResponse(
+  credential: Credential,
+): CredentialResponse {
   const base = toCredentialListResponse(credential);
 
   if (credential.type === "https") {

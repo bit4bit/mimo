@@ -5,7 +5,12 @@
  * endpoints in the internal API.
  */
 
-import type { Agent, AgentCapabilities, AgentStatus, AgentProvider } from "../../../agents/repository.js";
+import type {
+  Agent,
+  AgentCapabilities,
+  AgentStatus,
+  AgentProvider,
+} from "../../../agents/repository.js";
 
 /**
  * Agent response format for API serialization.
@@ -103,7 +108,9 @@ export function toAgentResponse(agent: Agent): AgentResponse {
     provider: agent.provider,
     startedAt: agent.startedAt.toISOString(),
     updatedAt: agent.updatedAt.toISOString(),
-    ...(agent.lastActivityAt && { lastActivityAt: agent.lastActivityAt.toISOString() }),
+    ...(agent.lastActivityAt && {
+      lastActivityAt: agent.lastActivityAt.toISOString(),
+    }),
     ...(agent.capabilities && { capabilities: agent.capabilities }),
   };
 }

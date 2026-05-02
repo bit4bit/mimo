@@ -33,10 +33,7 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
     // Check if username already exists
     const existingUser = await mimoContext.repos.users.getCredentials(username);
     if (existingUser) {
-      return c.html(
-        <RegisterPage error="Username already exists" />,
-        409,
-      );
+      return c.html(<RegisterPage error="Username already exists" />, 409);
     }
 
     // Hash password and create user
@@ -63,19 +60,13 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
 
     // Validate required fields
     if (!username || !password) {
-      return c.html(
-        <LoginPage error="Username and password required" />,
-        400,
-      );
+      return c.html(<LoginPage error="Username and password required" />, 400);
     }
 
     // Get user credentials
     const credentials = await mimoContext.repos.users.getCredentials(username);
     if (!credentials) {
-      return c.html(
-        <LoginPage error="Invalid credentials" />,
-        401,
-      );
+      return c.html(<LoginPage error="Invalid credentials" />, 401);
     }
 
     // Verify password
@@ -84,10 +75,7 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
       credentials.passwordHash,
     );
     if (!isValidPassword) {
-      return c.html(
-        <LoginPage error="Invalid credentials" />,
-        401,
-      );
+      return c.html(<LoginPage error="Invalid credentials" />, 401);
     }
 
     // Generate token

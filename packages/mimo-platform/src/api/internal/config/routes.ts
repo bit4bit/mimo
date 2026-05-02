@@ -22,9 +22,7 @@ import {
  * @param _mimoContext - The MimoContext (passed for consistency, unused directly)
  * @returns Configured Hono router for config endpoints
  */
-export function createConfigInternalRouter(
-  _mimoContext: MimoContext,
-): Hono {
+export function createConfigInternalRouter(_mimoContext: MimoContext): Hono {
   const router = new Hono();
 
   // Get current configuration

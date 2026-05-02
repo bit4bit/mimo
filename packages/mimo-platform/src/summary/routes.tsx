@@ -74,11 +74,14 @@ export function createSummaryRoutes(mimoContext: SummaryRoutesContext) {
 
     // Use internal API client
     const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
-    const result = await apiClient.post<{ requested: boolean }>("/summary/refresh", {
-      sessionId,
-      analyzeThreadId,
-      summarizeThreadId,
-    });
+    const result = await apiClient.post<{ requested: boolean }>(
+      "/summary/refresh",
+      {
+        sessionId,
+        analyzeThreadId,
+        summarizeThreadId,
+      },
+    );
 
     if (!result.success) {
       return c.json({ error: result.error }, result.status as 400 | 401 | 404);

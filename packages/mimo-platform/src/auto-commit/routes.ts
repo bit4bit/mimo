@@ -2,10 +2,11 @@
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";
 import { randomUUID } from "crypto";
-import { authMiddleware } from "../auth/middleware.js";
+import { createAuthMiddleware } from "../auth/middleware.js";
 import type { OS } from "../os/types.js";
 import type { AutoCommitService } from "./service.js";
 import type { VCS } from "../vcs/index.js";
+import type { JwtService } from "../auth/jwt.js";
 
 type PendingAgentSync = {
   resolve: (value: {
@@ -48,6 +49,7 @@ export interface AutoCommitRouterContext {
   };
   vcs: VCS;
   os: OS;
+  auth: Pick<JwtService, "verifyToken">;
 }
 
 export function resolveAgentSyncNowResult(result: {
@@ -248,7 +250,11 @@ export function createAutoCommitRouter(
 ): Hono {
   const router = new Hono();
 
-  router.use("/*", authMiddleware);
+  const auth = syncContext?.auth
+    ? createAuthMiddleware(syncContext.auth)
+    : (c, next) => next();
+
+  router.use("/*", auth);
 
   router.post("/:sessionId/sync", async (c) => {
     const sessionId = c.req.param("sessionId");

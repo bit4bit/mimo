@@ -17,7 +17,9 @@ import { toMcpServerResponse } from "./types.js";
  * List all MCP servers.
  * GET /api/internal/mcp-servers
  */
-export async function listMcpServersHandler(c: InternalApiContext): Promise<Response> {
+export async function listMcpServersHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -37,7 +39,9 @@ export async function listMcpServersHandler(c: InternalApiContext): Promise<Resp
  * Get a specific MCP server by ID.
  * GET /api/internal/mcp-servers/:id
  */
-export async function getMcpServerHandler(c: InternalApiContext): Promise<Response> {
+export async function getMcpServerHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -66,14 +70,16 @@ export async function getMcpServerHandler(c: InternalApiContext): Promise<Respon
  * Create a new MCP server.
  * POST /api/internal/mcp-servers
  */
-export async function createMcpServerHandler(c: InternalApiContext): Promise<Response> {
+export async function createMcpServerHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
   }
 
   const mimoContext = c.get("mimoContext");
-  const body = await c.req.json() as CreateMcpServerRequest;
+  const body = (await c.req.json()) as CreateMcpServerRequest;
 
   // Validate required fields
   if (!body.name || body.name.trim().length === 0) {
@@ -85,18 +91,28 @@ export async function createMcpServerHandler(c: InternalApiContext): Promise<Res
   }
 
   // Validate transport type first
-  if (body.transport !== "stdio" && body.transport !== "http" && body.transport !== "sse") {
+  if (
+    body.transport !== "stdio" &&
+    body.transport !== "http" &&
+    body.transport !== "sse"
+  ) {
     return c.json(errorResponse("Transport type is required", 400), 400);
   }
 
   // Validate transport-specific fields
   if (body.transport === "stdio") {
     if (!body.command || body.command.trim().length === 0) {
-      return c.json(errorResponse("Command is required for stdio transport", 400), 400);
+      return c.json(
+        errorResponse("Command is required for stdio transport", 400),
+        400,
+      );
     }
   } else if (body.transport === "http" || body.transport === "sse") {
     if (!body.url || body.url.trim().length === 0) {
-      return c.json(errorResponse("URL is required for HTTP/SSE transport", 400), 400);
+      return c.json(
+        errorResponse("URL is required for HTTP/SSE transport", 400),
+        400,
+      );
     }
   }
 
@@ -118,7 +134,8 @@ export async function createMcpServerHandler(c: InternalApiContext): Promise<Res
       201,
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create MCP server";
+    const message =
+      error instanceof Error ? error.message : "Failed to create MCP server";
     return c.json(errorResponse(message, 400), 400);
   }
 }
@@ -127,7 +144,9 @@ export async function createMcpServerHandler(c: InternalApiContext): Promise<Res
  * Update an MCP server.
  * PUT /api/internal/mcp-servers/:id
  */
-export async function updateMcpServerHandler(c: InternalApiContext): Promise<Response> {
+export async function updateMcpServerHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -139,7 +158,7 @@ export async function updateMcpServerHandler(c: InternalApiContext): Promise<Res
   }
 
   const mimoContext = c.get("mimoContext");
-  const body = await c.req.json() as UpdateMcpServerRequest;
+  const body = (await c.req.json()) as UpdateMcpServerRequest;
 
   // Validate name if provided
   if (body.name !== undefined && body.name.trim().length === 0) {
@@ -150,11 +169,17 @@ export async function updateMcpServerHandler(c: InternalApiContext): Promise<Res
   if (body.transport !== undefined) {
     if (body.transport === "stdio") {
       if (body.command !== undefined && body.command.trim().length === 0) {
-        return c.json(errorResponse("Command is required for stdio transport", 400), 400);
+        return c.json(
+          errorResponse("Command is required for stdio transport", 400),
+          400,
+        );
       }
     } else if (body.transport === "http" || body.transport === "sse") {
       if (body.url !== undefined && body.url.trim().length === 0) {
-        return c.json(errorResponse("URL is required for HTTP/SSE transport", 400), 400);
+        return c.json(
+          errorResponse("URL is required for HTTP/SSE transport", 400),
+          400,
+        );
       }
     }
   }
@@ -180,7 +205,8 @@ export async function updateMcpServerHandler(c: InternalApiContext): Promise<Res
       }),
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update MCP server";
+    const message =
+      error instanceof Error ? error.message : "Failed to update MCP server";
     return c.json(errorResponse(message, 400), 400);
   }
 }
@@ -189,7 +215,9 @@ export async function updateMcpServerHandler(c: InternalApiContext): Promise<Res
  * Delete an MCP server.
  * DELETE /api/internal/mcp-servers/:id
  */
-export async function deleteMcpServerHandler(c: InternalApiContext): Promise<Response> {
+export async function deleteMcpServerHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
@@ -214,19 +242,23 @@ export async function deleteMcpServerHandler(c: InternalApiContext): Promise<Res
  * Validate duplicate MCP server names for a list of IDs.
  * POST /api/internal/mcp-servers/validate-duplicates
  */
-export async function validateDuplicateNamesHandler(c: InternalApiContext): Promise<Response> {
+export async function validateDuplicateNamesHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
   }
 
-  const body = await c.req.json() as { ids: string[] };
+  const body = (await c.req.json()) as { ids: string[] };
   if (!body.ids || !Array.isArray(body.ids)) {
     return c.json(errorResponse("ids array is required", 400), 400);
   }
 
   const mimoContext = c.get("mimoContext");
-  const duplicateName = await mimoContext.services.mcpServer.findDuplicateNames(body.ids);
+  const duplicateName = await mimoContext.services.mcpServer.findDuplicateNames(
+    body.ids,
+  );
 
   return c.json(
     successResponse({
@@ -239,20 +271,24 @@ export async function validateDuplicateNamesHandler(c: InternalApiContext): Prom
  * Resolve MCP servers by their IDs.
  * POST /api/internal/mcp-servers/resolve
  */
-export async function resolveMcpServersHandler(c: InternalApiContext): Promise<Response> {
+export async function resolveMcpServersHandler(
+  c: InternalApiContext,
+): Promise<Response> {
   const user = c.get("user") as { username: string } | undefined;
   if (!user) {
     return c.json(errorResponse("Unauthorized", 401), 401);
   }
 
-  const body = await c.req.json() as { ids: string[] };
+  const body = (await c.req.json()) as { ids: string[] };
   if (!body.ids || !Array.isArray(body.ids)) {
     return c.json(errorResponse("ids array is required", 400), 400);
   }
 
   const mimoContext = c.get("mimoContext");
   try {
-    const servers = await mimoContext.services.mcpServer.resolveMcpServers(body.ids);
+    const servers = await mimoContext.services.mcpServer.resolveMcpServers(
+      body.ids,
+    );
     return c.json(
       successResponse({
         servers,

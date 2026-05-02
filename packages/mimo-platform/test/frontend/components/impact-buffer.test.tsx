@@ -4,7 +4,8 @@ import { jsx } from "hono/jsx";
 
 describe("ImpactBuffer", () => {
   it("renders the shell with header and refresh button", async () => {
-    const { ImpactBuffer } = await import("../../../src/components/ImpactBuffer.tsx");
+    const { ImpactBuffer } =
+      await import("../../../src/components/ImpactBuffer.tsx");
 
     const html = await renderToString(
       jsx(ImpactBuffer, { sessionId: "test-session" }),
@@ -16,7 +17,8 @@ describe("ImpactBuffer", () => {
   });
 
   it("renders the loading prompt as the initial state", async () => {
-    const { ImpactBuffer } = await import("../../../src/components/ImpactBuffer.tsx");
+    const { ImpactBuffer } =
+      await import("../../../src/components/ImpactBuffer.tsx");
 
     const html = await renderToString(
       jsx(ImpactBuffer, { sessionId: "test-session" }),
@@ -26,7 +28,8 @@ describe("ImpactBuffer", () => {
   });
 
   it("includes CSS classes used by the client-side renderer", async () => {
-    const { ImpactBuffer } = await import("../../../src/components/ImpactBuffer.tsx");
+    const { ImpactBuffer } =
+      await import("../../../src/components/ImpactBuffer.tsx");
 
     const html = await renderToString(
       jsx(ImpactBuffer, { sessionId: "test-session" }),
