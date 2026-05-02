@@ -6,6 +6,7 @@ interface Project {
   name: string;
   newBranch?: string;
   agentSubpath?: string;
+  instructions?: string;
 }
 
 interface McpServer {
@@ -58,6 +59,20 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
             </select>
             <p class="form-help">
               Affects the order sessions appear in the list.
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label>Instructions (optional)</label>
+            <textarea
+              name="instructions"
+              rows="4"
+              placeholder="Behavior instructions for this session (e.g., Focus on Django ORM. Review all models.)"
+              style="background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%;"
+              data-help-id="session-create-page-instructions-textarea"
+            >{project.instructions || ""}</textarea>
+            <p style="color: #888; font-size: 12px; margin-top: 5px;">
+              These instructions will override project-level instructions for all threads in this session.
             </p>
           </div>
 

@@ -11,6 +11,7 @@ interface Project {
   createdAt: Date;
   description?: string;
   credentialId?: string;
+  instructions?: string;
 }
 
 interface ProjectEditProps {
@@ -53,6 +54,22 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({
             >
               {project.description || ""}
             </textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Instructions (optional)</label>
+            <textarea
+              name="instructions"
+              rows="4"
+              placeholder="Behavior instructions for the AI agent..."
+              style="background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%;"
+              data-help-id="project-edit-page-instructions-textarea"
+            >
+              {project.instructions || ""}
+            </textarea>
+            <small class="form-help">
+              These instructions will be used as a default for all sessions and threads in this project. Can be overridden at the session or thread level.
+            </small>
           </div>
 
           <div class="form-group">

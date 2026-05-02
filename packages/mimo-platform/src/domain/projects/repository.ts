@@ -14,6 +14,7 @@ export interface Project {
   sourceBranch?: string;
   newBranch?: string;
   agentSubpath?: string;
+  instructions?: string;
 }
 
 export interface PublicProject {
@@ -26,6 +27,7 @@ export interface PublicProject {
   sourceBranch?: string;
   newBranch?: string;
   agentSubpath?: string;
+  instructions?: string;
 }
 
 export interface ProjectData {
@@ -40,6 +42,7 @@ export interface ProjectData {
   sourceBranch?: string;
   newBranch?: string;
   agentSubpath?: string;
+  instructions?: string;
 }
 
 export interface CreateProjectInput {
@@ -52,6 +55,7 @@ export interface CreateProjectInput {
   sourceBranch?: string;
   newBranch?: string;
   agentSubpath?: string;
+  instructions?: string;
 }
 
 interface ProjectRepositoryDeps {
@@ -113,6 +117,7 @@ export class ProjectRepository {
       ...(input.sourceBranch && { sourceBranch: input.sourceBranch }),
       ...(input.newBranch && { newBranch: input.newBranch }),
       ...(input.agentSubpath && { agentSubpath: input.agentSubpath }),
+      ...(input.instructions && { instructions: input.instructions }),
     };
 
     this.os.fs.writeFile(this.getProjectFilePath(id), dump(projectData), {
@@ -254,6 +259,7 @@ export class ProjectRepository {
       repoType?: "git" | "fossil";
       description?: string;
       credentialId?: string;
+      instructions?: string;
     },
   ): Promise<Project> {
     const project = await this.findById(id);
@@ -284,6 +290,15 @@ export class ProjectRepository {
       }
     } else if (project.credentialId) {
       updatedData.credentialId = project.credentialId;
+    }
+
+    // Handle instructions specially - if undefined, keep existing; if null, remove; if string, set
+    if ("instructions" in updates) {
+      if (updates.instructions !== undefined) {
+        updatedData.instructions = updates.instructions;
+      }
+    } else if (project.instructions) {
+      updatedData.instructions = project.instructions;
     }
 
     this.os.fs.writeFile(this.getProjectFilePath(id), dump(updatedData), {

@@ -204,6 +204,11 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       backUrl={backUrl ?? `/projects/${project.id}/sessions`}
       showSessionFinder={true}
     >
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `window.MIMO_DEFAULT_INSTRUCTIONS = ${JSON.stringify(session.instructions || project.instructions || "")};`,
+        }}
+      />
       <div class="session-container">
         {session.status === "closed" && session.closeReason && (
           <div style="background: #5a2d2d; color: #ff6b6b; padding: 8px 16px; font-size: 13px; border-bottom: 1px solid #444;">

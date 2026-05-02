@@ -2027,6 +2027,7 @@ export function createSessionsRoutes(
         acpSessionId: body.acpSessionId || null,
         assignedAgentId,
         state: "active",
+        ...(body.instructions !== undefined && { instructions: body.instructions }),
       },
     );
 
@@ -2149,6 +2150,21 @@ export function createSessionsRoutes(
         logger.debug(
           `[session] Notified agent ${assignedAgentId} of new thread ${thread.id} in session ${sessionId}`,
         );
+
+        // Send initial prompt if thread has instructions
+        if (thread.instructions) {
+          agentWs.send(
+            JSON.stringify({
+              type: "initial_prompt",
+              sessionId,
+              chatThreadId: thread.id,
+              content: thread.instructions,
+            }),
+          );
+          logger.debug(
+            `[session] Sent initial prompt to agent ${assignedAgentId} for thread ${thread.id}`,
+          );
+        }
       }
     }
 

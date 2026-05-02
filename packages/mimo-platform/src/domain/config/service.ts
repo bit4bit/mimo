@@ -60,6 +60,7 @@ export interface Config {
   globalKeybindings?: GlobalKeybindingsConfig;
   chatFileExtensions?: string[];
   summary?: SummaryConfig;
+  defaultProjectInstructions?: string;
 }
 
 export const defaultSessionKeybindings: SessionKeybindingsConfig = {
@@ -174,6 +175,7 @@ export const defaultConfig: Config = {
   sessionKeybindings: { ...defaultSessionKeybindings },
   globalKeybindings: { ...defaultGlobalKeybindings },
   chatFileExtensions: [...defaultChatFileExtensions],
+  defaultProjectInstructions: "Before performing any task, try to locate and read the file `AGENTS.md` if not found inform the user and continue.",
 };
 
 function sanitizeSessionKeybindings(
@@ -332,6 +334,7 @@ export class ConfigService {
           loaded.chatFileExtensions,
         ),
         summary: sanitizeSummaryConfig(loaded.summary),
+        defaultProjectInstructions: loaded.defaultProjectInstructions ?? defaultConfig.defaultProjectInstructions,
       };
 
       return this.config;

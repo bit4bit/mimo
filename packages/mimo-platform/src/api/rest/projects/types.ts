@@ -23,6 +23,7 @@ export interface ProjectResponse {
   sourceBranch?: string;
   newBranch?: string;
   agentSubpath?: string;
+  instructions?: string;
 }
 
 /**
@@ -55,6 +56,7 @@ export interface CreateProjectRequest {
   sourceBranch?: string;
   newBranch?: string;
   agentSubpath?: string;
+  instructions?: string;
 }
 
 /**
@@ -66,6 +68,7 @@ export interface UpdateProjectRequest {
   repoType?: "git" | "fossil";
   description?: string;
   credentialId?: string;
+  instructions?: string;
 }
 
 /**
@@ -105,6 +108,7 @@ export function toProjectResponse(project: Project): ProjectResponse {
     ...(project.sourceBranch && { sourceBranch: project.sourceBranch }),
     ...(project.newBranch && { newBranch: project.newBranch }),
     ...(project.agentSubpath && { agentSubpath: project.agentSubpath }),
+    ...(project.instructions && { instructions: project.instructions }),
   };
 }
 

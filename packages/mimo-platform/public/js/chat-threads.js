@@ -41,7 +41,7 @@ async function fetchThreads() {
   }
 }
 
-async function createThread(name, model, mode, assignedAgentId) {
+async function createThread(name, model, mode, assignedAgentId, instructions) {
   if (!ChatThreadsState.sessionId) return null;
 
   try {
@@ -55,6 +55,7 @@ async function createThread(name, model, mode, assignedAgentId) {
           model,
           mode,
           assignedAgentId,
+          ...(instructions && { instructions }),
         }),
       },
     );
@@ -748,11 +749,29 @@ async function showCreateThreadDialog() {
         </select>
       </div>
 
-      <div style="margin-bottom: 20px;">
+      <div style="margin-bottom: 15px;">
         <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Mode</label>
         <select id="new-thread-mode" style="${selectStyle}">
           ${initialModeOptions}
         </select>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Instructions (optional)</label>
+        <textarea id="new-thread-instructions" placeholder="Behavior instructions for this thread..." style="
+          width: 100%;
+          padding: 8px;
+          background: #1a1a1a;
+          border: 1px solid #444;
+          color: #d4d4d4;
+          font-family: monospace;
+          font-size: 13px;
+          border-radius: 3px;
+          box-sizing: border-box;
+          min-height: 80px;
+          resize: vertical;
+        ">${window.MIMO_DEFAULT_INSTRUCTIONS || ""}</textarea>
+        <small style="color: #888; font-size: 11px;">Overrides project/session instructions for this thread</small>
       </div>
       
       <div style="display: flex; gap: 10px; justify-content: flex-end;">
@@ -859,6 +878,7 @@ async function showCreateThreadDialog() {
       const modelSelect = document.querySelector("#new-thread-model");
       const modeSelect = document.querySelector("#new-thread-mode");
       const agentSelect = document.querySelector("#new-thread-agent");
+      const instructionsInput = document.querySelector("#new-thread-instructions");
 
       const name = nameInput?.value.trim();
       if (!name) {
@@ -885,7 +905,9 @@ async function showCreateThreadDialog() {
         return;
       }
 
-      const newThread = await createThread(name, model, mode, assignedAgentId);
+      const instructions = instructionsInput?.value.trim() || "";
+
+      const newThread = await createThread(name, model, mode, assignedAgentId, instructions);
       if (newThread) {
         dialog.remove();
 
