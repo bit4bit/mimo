@@ -17,8 +17,8 @@ describe("Auth routes with injected user repository", () => {
 
   it("logs in using credentials from injected user repository", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
-    const { createAuthRoutes } = await import("../src/auth/routes.tsx");
+      await import("../src/infrastructure/context/mimo-context.ts");
+    const { createAuthRoutes } = await import("../src/web/features/auth/pages/auth.tsx");
 
     const passwordHash = await Bun.password.hash("secret-pass", {
       algorithm: "bcrypt",

@@ -9,8 +9,8 @@ import {
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { tmpdir } from "os";
-import { SccService, SccMetrics } from "../src/impact/scc-service.js";
-import { createOS } from "../src/os/node-adapter.js";
+import { SccService, SccMetrics } from "../src/domain/impact/scc-service.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 describe("SCC Smart Cache", () => {
   let testDir: string;

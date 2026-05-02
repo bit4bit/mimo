@@ -3,11 +3,11 @@ import { tmpdir } from "os";
 import { join, relative } from "path";
 import { rmSync, mkdirSync, existsSync, writeFileSync } from "fs";
 import { execSync } from "child_process";
-import { createOS } from "../src/os/node-adapter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 import {
   SharedFossilServer,
   normalizeSessionIdForFossil,
-} from "../src/vcs/shared-fossil-server.js";
+} from "../src/domain/vcs/shared-fossil-server.js";
 import { findAvailablePort } from "./test-helpers.js";
 
 describe("Agent Bootstrap Integration Tests", () => {
@@ -31,7 +31,7 @@ describe("Agent Bootstrap Integration Tests", () => {
     );
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: {
         MIMO_HOME: testHome,
@@ -48,15 +48,15 @@ describe("Agent Bootstrap Integration Tests", () => {
     mkdirSync(join(testHome, "projects"), { recursive: true });
     mkdirSync(join(testHome, "agents"), { recursive: true });
 
-    const sessionModule = await import("../src/sessions/repository.ts");
+    const sessionModule = await import("../src/domain/sessions/repository.ts");
     SessionRepository = sessionModule.SessionRepository;
     sessionRepository = ctx.repos.sessions;
 
-    const agentModule = await import("../src/agents/repository.ts");
+    const agentModule = await import("../src/domain/agents/repository.ts");
     AgentRepository = agentModule.AgentRepository;
     agentRepository = ctx.repos.agents;
 
-    const serviceModule = await import("../src/agents/service.ts");
+    const serviceModule = await import("../src/domain/agents/service.ts");
     AgentService = serviceModule.AgentService;
     agentService = serviceModule.agentService;
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { McpServerRepository } from "../src/mcp-servers/repository.js";
-import { createOS } from "../src/os/node-adapter.js";
-import type { OS } from "../src/os/types.js";
+import { McpServerRepository } from "../src/domain/mcp-servers/repository.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
+import type { OS } from "../src/infrastructure/os/types.js";
 import { rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";

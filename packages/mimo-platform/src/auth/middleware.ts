@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from "hono";
-import type { JwtService } from "./jwt.js";
+import type { JwtService } from "../domain/auth/jwt.js";
 
 export interface AuthContext {
   username: string;

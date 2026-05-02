@@ -2,7 +2,7 @@ import { describe, it, expect, afterAll } from "bun:test";
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { createOS } from "../src/os/node-adapter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 /**
  * Integration Tests
@@ -14,7 +14,7 @@ import { createOS } from "../src/os/node-adapter.js";
 describe("Integration Tests", () => {
   describe("13.2: Authentication Integration", () => {
     it("should handle auth module integration", async () => {
-      const { userRepository } = await import("../src/auth/user.js");
+      const { userRepository } = await import("../src/domain/auth/user.js");
 
       // Test that user repository is properly integrated
       expect(userRepository).toBeDefined();
@@ -22,7 +22,7 @@ describe("Integration Tests", () => {
     });
 
     it("should handle JWT token generation", async () => {
-      const { JwtService } = await import("../src/auth/jwt.js");
+      const { JwtService } = await import("../src/domain/auth/jwt.js");
 
       const auth = new JwtService("test-secret-for-e2e");
       const token = await auth.generateToken("testuser", "1h");
@@ -37,7 +37,7 @@ describe("Integration Tests", () => {
   describe("13.3: Project CRUD Integration", () => {
     it("should handle project repository module", async () => {
       const { ProjectRepository } =
-        await import("../src/projects/repository.js");
+        await import("../src/domain/projects/repository.js");
 
       // Test that project service is properly integrated
       expect(ProjectRepository).toBeDefined();
@@ -48,7 +48,7 @@ describe("Integration Tests", () => {
   describe("13.4: Session Lifecycle Integration", () => {
     it("should handle session repository module", async () => {
       const { SessionRepository } =
-        await import("../src/sessions/repository.js");
+        await import("../src/domain/sessions/repository.js");
 
       // Test that session service is properly integrated
       expect(SessionRepository).toBeDefined();
@@ -59,7 +59,7 @@ describe("Integration Tests", () => {
   describe("13.5: Agent Communication Integration", () => {
     it("should handle agent service operations", async () => {
       const { createMimoContext } =
-        await import("../src/context/mimo-context.js");
+        await import("../src/infrastructure/context/mimo-context.js");
 
       const ctx = createMimoContext({
         env: { MIMO_HOME: "/tmp/mimo-e2e-test", JWT_SECRET: "test-secret" },
@@ -84,7 +84,7 @@ describe("Integration Tests", () => {
     });
 
     it("should handle file sync service class", async () => {
-      const { FileSyncService } = await import("../src/sync/service.js");
+      const { FileSyncService } = await import("../src/domain/sync/service.js");
 
       expect(typeof FileSyncService).toBe("function");
     });
@@ -92,7 +92,7 @@ describe("Integration Tests", () => {
 
   describe("13.7: Commit and Push Integration", () => {
     it("should handle commit service class", async () => {
-      const { CommitService } = await import("../src/commits/service.js");
+      const { CommitService } = await import("../src/domain/commits/service.js");
 
       expect(typeof CommitService).toBe("function");
     });
@@ -100,7 +100,7 @@ describe("Integration Tests", () => {
 
   describe("13.8: Configuration Integration", () => {
     it("should handle config service operations", async () => {
-      const { configService } = await import("../src/config/service.js");
+      const { configService } = await import("../src/domain/config/service.js");
 
       expect(typeof configService.load).toBe("function");
       expect(typeof configService.save).toBe("function");
@@ -108,7 +108,7 @@ describe("Integration Tests", () => {
     });
 
     it("should handle config validation", async () => {
-      const { configValidator } = await import("../src/config/validator.js");
+      const { configValidator } = await import("../src/domain/config/validator.js");
 
       const validConfig = {
         theme: "dark",
@@ -139,7 +139,7 @@ describe("Integration Tests", () => {
           ].join("\n"),
         );
 
-        const { ConfigService } = await import("../src/config/service.js");
+        const { ConfigService } = await import("../src/domain/config/service.js");
         const os = createOS(process.env as Record<string, string>);
         const isolatedConfigService = new ConfigService(
           os,
@@ -178,7 +178,7 @@ describe("Integration Tests", () => {
           ].join("\n"),
         );
 
-        const { ConfigService } = await import("../src/config/service.js");
+        const { ConfigService } = await import("../src/domain/config/service.js");
         const os = createOS(process.env as Record<string, string>);
         const isolatedConfigService = new ConfigService(
           os,
@@ -198,7 +198,7 @@ describe("Integration Tests", () => {
     });
 
     it("should detect invalid configs", async () => {
-      const { configValidator } = await import("../src/config/validator.js");
+      const { configValidator } = await import("../src/domain/config/validator.js");
 
       const invalidConfig = {
         theme: "invalid",
@@ -215,10 +215,10 @@ describe("Integration Tests", () => {
 
   describe("13.9: Error Handling Integration", () => {
     it("should handle missing session gracefully", async () => {
-      const { createOS } = await import("../src/os/node-adapter.js");
+      const { createOS } = await import("../src/infrastructure/os/node-adapter.js");
       const os = createOS(process.env as Record<string, string>);
       const { SessionRepository } =
-        await import("../src/sessions/repository.js");
+        await import("../src/domain/sessions/repository.js");
 
       const tempDir = mkdtempSync(join(tmpdir(), "mimo-session-test-"));
       const sessionRepository = new SessionRepository({
@@ -233,10 +233,10 @@ describe("Integration Tests", () => {
     });
 
     it("should handle missing project gracefully", async () => {
-      const { createOS } = await import("../src/os/node-adapter.js");
+      const { createOS } = await import("../src/infrastructure/os/node-adapter.js");
       const os = createOS(process.env as Record<string, string>);
       const { ProjectRepository } =
-        await import("../src/projects/repository.js");
+        await import("../src/domain/projects/repository.js");
 
       const tempDir = mkdtempSync(join(tmpdir(), "mimo-project-test-"));
       const projectRepository = new ProjectRepository({
@@ -251,7 +251,7 @@ describe("Integration Tests", () => {
     });
 
     it("should handle invalid JWT tokens", async () => {
-      const { JwtService } = await import("../src/auth/jwt.js");
+      const { JwtService } = await import("../src/domain/auth/jwt.js");
 
       const auth = new JwtService("test-secret-for-e2e");
       const payload = await auth.verifyToken("invalid-token");
@@ -300,7 +300,7 @@ describe("Integration Tests", () => {
   describe("13.11: ACP Request Cancellation", () => {
     it("should handle ACP request cancellation in agent service", async () => {
       const { createMimoContext } =
-        await import("../src/context/mimo-context.js");
+        await import("../src/infrastructure/context/mimo-context.js");
 
       const ctx = createMimoContext({
         env: { MIMO_HOME: "/tmp/mimo-e2e-test", JWT_SECRET: "test-secret" },
@@ -315,7 +315,7 @@ describe("Integration Tests", () => {
 
     it("should create and track ACP request controllers", async () => {
       const { createMimoContext } =
-        await import("../src/context/mimo-context.js");
+        await import("../src/infrastructure/context/mimo-context.js");
 
       const ctx = createMimoContext({
         env: { MIMO_HOME: "/tmp/mimo-e2e-test", JWT_SECRET: "test-secret" },

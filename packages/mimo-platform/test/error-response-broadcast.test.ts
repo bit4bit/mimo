@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { broadcastToSession } from "../src/ws/session-broadcast";
+import { broadcastToSession } from "../src/api/websocket/session-broadcast";
 
 // Platform extraction logic - matches message-router.ts handleErrorResponse
 function extractMessage(rawError: any): string {

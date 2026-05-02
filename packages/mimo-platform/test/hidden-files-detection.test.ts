@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { detectChangedFiles } from "../src/files/changed-files";
-import { createOS } from "../src/os/node-adapter.js";
+import { detectChangedFiles } from "../src/domain/files/changed-files";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 describe("detectChangedFiles — hidden files", () => {
   let upstream: string;

@@ -2,7 +2,7 @@ import { describe, it, expect } from "bun:test";
 import {
   validateImpactMetrics,
   type ImpactMetrics,
-} from "../src/impact/calculator.ts";
+} from "../src/domain/impact/calculator.ts";
 
 function baseMetrics(): ImpactMetrics {
   return {

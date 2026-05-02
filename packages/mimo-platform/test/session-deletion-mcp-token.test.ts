@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { createSessionDeletionUseCase } from "../src/sessions/session-deletion.js";
+import { createSessionDeletionUseCase } from "../src/domain/sessions/session-deletion.js";
 
 describe("session deletion revokes MCP token", () => {
   it("calls mcpTokenStore.revoke when mcpToken is present", async () => {

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync, writeFileSync, existsSync } from "fs";
-import { createOS } from "../src/os/node-adapter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 import { cleanupTestDir } from "./test-helpers.js";
 
 // Helper to create a no-op JscpdService for tests that don't test duplication
@@ -29,7 +29,7 @@ describe("Impact Calculation Reliability", () => {
     workspaceDir = join(testHome, "workspace");
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
@@ -91,8 +91,8 @@ export function divide(x: number, y: number): number {
   });
 
   it("calculates consistent complexity across multiple runs", async () => {
-    const { ImpactCalculator } = await import("../src/impact/calculator.ts");
-    const { SccService } = await import("../src/impact/scc-service.ts");
+    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccPath = join(
       process.env.HOME || "/usr/local/bin",
@@ -149,8 +149,8 @@ export function divide(x: number, y: number): number {
   });
 
   it("detects variance with concurrent file modifications", async () => {
-    const { ImpactCalculator } = await import("../src/impact/calculator.ts");
-    const { SccService } = await import("../src/impact/scc-service.ts");
+    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccPath = join(
       process.env.HOME || "/usr/local/bin",
@@ -218,8 +218,8 @@ console.log(add(1, 2));
   });
 
   it("cache bypass on force refresh clears stale data", async () => {
-    const { ImpactCalculator } = await import("../src/impact/calculator.ts");
-    const { SccService } = await import("../src/impact/scc-service.ts");
+    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccPath = join(
       process.env.HOME || "/usr/local/bin",
@@ -274,8 +274,8 @@ console.log(add(1, 2));
   });
 
   it("anomaly detection flags extreme deltas", async () => {
-    const { ImpactCalculator } = await import("../src/impact/calculator.ts");
-    const { SccService } = await import("../src/impact/scc-service.ts");
+    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccPath = join(
       process.env.HOME || "/usr/local/bin",

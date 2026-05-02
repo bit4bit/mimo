@@ -13,7 +13,7 @@ describe("Debug Project Tests", () => {
     } catch {}
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const mimoContext = createMimoContext({
       env: {
         MIMO_HOME: testHome,
@@ -24,8 +24,8 @@ describe("Debug Project Tests", () => {
     });
 
     const { createInternalApiRouter } =
-      await import("../src/api/internal/index.ts");
-    const { createProjectsRoutes } = await import("src/projects/routes.tsx");
+      await import("../src/api/rest/index.ts");
+    const { createProjectsRoutes } = await import("../src/web/features/projects/pages/projects.tsx");
 
     const app = new Hono();
     const internalRouter = createInternalApiRouter(mimoContext);
@@ -52,7 +52,7 @@ describe("Debug Project Tests", () => {
       "testuser",
       await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
     );
-    const { generateToken } = await import("../src/auth/jwt.ts");
+    const { generateToken } = await import("../src/domain/auth/jwt.ts");
     const token = await generateToken("testuser");
     console.log("[DEBUG] Generated token:", token.substring(0, 20) + "...");
 

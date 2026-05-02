@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "bun:test";
 import { join } from "path";
 import { tmpdir } from "os";
 import { rmSync } from "fs";
-import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
+import { DummySharedFossilServer } from "../src/domain/vcs/shared-fossil-server.js";
 
 let mimoContext: any;
 let sessionRepository: any;
@@ -16,7 +16,7 @@ describe("Session MCP Token", () => {
     );
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       services: { sharedFossil: new DummySharedFossilServer() },

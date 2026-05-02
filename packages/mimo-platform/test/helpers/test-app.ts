@@ -23,16 +23,16 @@ import { Hono } from "hono";
 import {
   createMimoContext,
   type MimoContext,
-} from "../src/context/mimo-context.js";
-import { createInternalApiRouter } from "../src/api/internal/index.js";
-import { createAgentsRoutes } from "../src/agents/routes.tsx";
-import { createDashboardRoutes } from "../src/dashboard/routes.tsx";
-import { createCredentialsRoutes } from "../src/credentials/routes.tsx";
-import { createProjectsRoutes } from "../src/projects/routes.tsx";
-import { createSessionsRoutes } from "../src/sessions/routes.tsx";
-import { createConfigRoutes } from "../src/config/routes.tsx";
-import { createMcpServerRoutes } from "../src/mcp-servers/routes.tsx";
-import { createSummaryRoutes } from "../src/summary/routes.tsx";
+} from "../src/infrastructure/context/mimo-context.js";
+import { createInternalApiRouter } from "../src/api/rest/index.js";
+import { createAgentsRoutes } from "../src/web/features/agents/pages/agents.tsx";
+import { createDashboardRoutes } from "../src/web/features/dashboard/pages/dashboard.tsx";
+import { createCredentialsRoutes } from "../src/web/features/credentials/pages/credentials.tsx";
+import { createProjectsRoutes } from "../src/web/features/projects/pages/projects.tsx";
+import { createSessionsRoutes } from "../src/web/features/sessions/pages/sessions.tsx";
+import { createConfigRoutes } from "../src/web/features/config/pages/config.tsx";
+import { createMcpServerRoutes } from "../src/web/features/mcp-servers/pages/mcp-servers.tsx";
+import { createSummaryRoutes } from "../src/web/features/summary/pages/summary.tsx";
 
 export interface TestAppConfig {
   env: {

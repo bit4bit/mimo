@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import { Hono } from "hono";
-import { createFilesRoutes } from "../src/files/routes.js";
-import type { FileInfo } from "../src/files/types.js";
+import { createFilesRoutes } from "../src/api/rest/files.js";
+import type { FileInfo } from "../src/domain/files/types.js";
 
 const TEST_FILES: FileInfo[] = [
   { path: "src/routes.ts", name: "routes.ts", size: 100 },

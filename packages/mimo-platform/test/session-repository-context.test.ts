@@ -23,7 +23,7 @@ describe("SessionRepository with mimoContext paths", () => {
 
   it("uses injected context paths even if process env changes later", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const mimoContext = createMimoContext({
       env: {
         MIMO_HOME: homeA,

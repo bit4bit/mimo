@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync, writeFileSync, readFileSync } from "fs";
-import { createOS } from "../src/os/node-adapter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 interface NormalizedMetrics {
   files: {
@@ -82,7 +82,7 @@ describe("Impact refresh stability", () => {
     workspaceDir = join(testHome, "workspace");
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
@@ -136,8 +136,8 @@ describe("Impact refresh stability", () => {
   });
 
   it("returns identical metrics across repeated forced refresh with no file changes", async () => {
-    const { ImpactCalculator } = await import("../src/impact/calculator.ts");
-    const { SccService } = await import("../src/impact/scc-service.ts");
+    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccPath = join(
       process.env.HOME || "/usr/local/bin",
@@ -178,8 +178,8 @@ describe("Impact refresh stability", () => {
   });
 
   it("keeps delta and absolute complexity mathematically consistent on every refresh", async () => {
-    const { ImpactCalculator } = await import("../src/impact/calculator.ts");
-    const { SccService } = await import("../src/impact/scc-service.ts");
+    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     writeFileSync(
       join(workspaceDir, "main.ts"),
@@ -232,8 +232,8 @@ describe("Impact refresh stability", () => {
   });
 
   it("ignores runtime file churn in workspace for impact metrics", async () => {
-    const { ImpactCalculator } = await import("../src/impact/calculator.ts");
-    const { SccService } = await import("../src/impact/scc-service.ts");
+    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccPath = join(
       process.env.HOME || "/usr/local/bin",

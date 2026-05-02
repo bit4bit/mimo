@@ -22,7 +22,7 @@ describe("Repositories with mimoContext paths", () => {
 
   it("uses injected paths for user repository", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const mimoContext = createMimoContext({ env: { MIMO_HOME: homeA } });
 
     await mimoContext.repos.users.create("ctx-user", "hash");
@@ -34,7 +34,7 @@ describe("Repositories with mimoContext paths", () => {
 
   it("uses injected paths for project repository", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const mimoContext = createMimoContext({ env: { MIMO_HOME: homeA } });
 
     const project = await mimoContext.repos.projects.create({
@@ -51,7 +51,7 @@ describe("Repositories with mimoContext paths", () => {
 
   it("uses injected paths for agent repository", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const mimoContext = createMimoContext({ env: { MIMO_HOME: homeA } });
 
     const agent = await mimoContext.repos.agents.create({
@@ -67,7 +67,7 @@ describe("Repositories with mimoContext paths", () => {
 
   it("uses injected paths for mcp server repository", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const mimoContext = createMimoContext({ env: { MIMO_HOME: homeA } });
 
     const server = await mimoContext.repos.mcpServers.create({

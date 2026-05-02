@@ -6,7 +6,7 @@ import { execSync } from "child_process";
 import {
   SharedFossilServer,
   normalizeSessionIdForFossil,
-} from "../src/vcs/shared-fossil-server.js";
+} from "../src/domain/vcs/shared-fossil-server.js";
 
 describe("Fossil Credential Provisioning Integration Tests", () => {
   let testHome: string;
@@ -25,7 +25,7 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
     );
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     createMimoContext({
       env: {
         MIMO_HOME: testHome,
@@ -40,7 +40,7 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
 
     mkdirSync(testHome, { recursive: true });
 
-    const vcsModule = await import("../src/vcs/index.ts");
+    const vcsModule = await import("../src/domain/vcs/index.ts");
     VCS = vcsModule.VCS;
     vcs = new VCS();
 

@@ -21,7 +21,7 @@ describe("Agent Lifecycle Integration Tests", () => {
     } catch {}
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
@@ -31,7 +31,7 @@ describe("Agent Lifecycle Integration Tests", () => {
     agentRepository = ctx.repos.agents;
     agentService = ctx.services.agents;
 
-    const { createAgentsRoutes } = await import("../src/agents/routes.tsx");
+    const { createAgentsRoutes } = await import("../src/web/features/agents/pages/agents.tsx");
     agentRoutes = createAgentsRoutes(ctx);
 
     // Set up mock for fetch to handle internal API calls
@@ -499,7 +499,7 @@ describe("Agent Lifecycle Integration Tests", () => {
 
       // Use mimoContext's JwtService instead of the singleton
       const { createMimoContext } =
-        await import("../src/context/mimo-context.ts");
+        await import("../src/infrastructure/context/mimo-context.ts");
       const ctx = createMimoContext({
         env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       });

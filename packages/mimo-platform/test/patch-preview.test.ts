@@ -4,8 +4,8 @@ import {
   buildTreeFromFiles,
   filterPatchByPaths,
   validateSelectedPaths,
-} from "../src/commits/patch-preview.js";
-import type { FileChange } from "../src/commits/patch-preview.js";
+} from "../src/domain/commits/patch-preview.js";
+import type { FileChange } from "../src/domain/commits/patch-preview.js";
 
 describe("Patch Preview Parser", () => {
   describe("1.4 Added/Modified/Deleted Parsing", () => {
@@ -264,12 +264,12 @@ Binary files a/old-image.gif and /dev/null differ
     it("should handle nested directories", () => {
       const files: FileChange[] = [
         {
-          path: "src/components/modals/dialog.tsx",
+          path: "src/web/components/modals/dialog.tsx",
           status: "added",
           isBinary: false,
         },
         {
-          path: "src/components/buttons/Button.tsx",
+          path: "src/web/components/buttons/Button.tsx",
           status: "modified",
           isBinary: false,
         },
@@ -282,7 +282,9 @@ Binary files a/old-image.gif and /dev/null differ
       expect(tree[0].name).toBe("src");
       expect(tree[0].children).toHaveLength(2);
 
-      const components = tree[0].children?.find((n) => n.name === "components");
+      const web = tree[0].children?.find((n) => n.name === "web");
+      expect(web).toBeDefined();
+      const components = web?.children?.find((n) => n.name === "components");
       expect(components).toBeDefined();
       expect(components?.children).toHaveLength(2);
     });

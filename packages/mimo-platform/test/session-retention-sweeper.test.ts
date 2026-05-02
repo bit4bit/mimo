@@ -2,7 +2,7 @@ import { describe, it, expect } from "bun:test";
 import {
   sweepExpiredInactiveSessions,
   type SessionDeletionLike,
-} from "../src/sessions/session-retention-sweeper.js";
+} from "../src/domain/sessions/session-retention-sweeper.js";
 
 describe("Session retention sweeper", () => {
   it("deletes expired and inactive sessions", async () => {

@@ -5,7 +5,7 @@ import { join } from "path";
 import { mkdirSync, writeFileSync, readFileSync, rmSync } from "fs";
 import { which } from "bun";
 
-import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
+import { DummySharedFossilServer } from "../src/domain/vcs/shared-fossil-server.js";
 
 let sessionRepository: any;
 let userRepository: any;
@@ -16,8 +16,8 @@ let testHome: string;
 
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any): Hono {
-  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
-  const { createSessionsRoutes } = require("../src/sessions/routes.tsx");
+  const { createInternalApiRouter } = require("../src/api/rest/index.ts");
+  const { createSessionsRoutes } = require("../src/web/features/sessions/pages/sessions.tsx");
 
   const app = new Hono();
 
@@ -49,7 +49,7 @@ describe("GET /sessions/:id/files/content", () => {
     );
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: {
         MIMO_HOME: testHome,
@@ -156,7 +156,7 @@ describe("GET /sessions/:id/search", () => {
     );
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: {
         MIMO_HOME: testHome,
@@ -256,10 +256,10 @@ describe("GET /sessions/:id/search", () => {
     };
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
-    const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
+      await import("../src/infrastructure/context/mimo-context.ts");
+    const { createSessionsRoutes } = await import("../src/web/features/sessions/pages/sessions.tsx");
     const { createInternalApiRouter } =
-      await import("../src/api/internal/index.ts");
+      await import("../src/api/rest/index.ts");
 
     const searchCalls: Array<{ workspacePath: string; query: string }> = [];
     const ctx = createMimoContext({
@@ -344,7 +344,7 @@ describe("POST /sessions/:id/files/write", () => {
     );
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: {
         MIMO_HOME: testHome,

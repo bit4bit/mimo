@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { syncSessionViaAssignedAgent } from "../src/auto-commit/routes";
+import { syncSessionViaAssignedAgent } from "../src/api/rest/auto-commit";
 
 describe("syncSessionViaAssignedAgent", () => {
   it("should use assignedAgentId from active chat thread when session has no assignedAgentId", async () => {

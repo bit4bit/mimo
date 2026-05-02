@@ -21,21 +21,21 @@ describe("Filesystem Paths Integration Test", () => {
 
   test("should use MIMO_HOME environment variable", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({ env: { MIMO_HOME: testHome } });
     expect(ctx.paths.root).toBe(testHome);
   });
 
   test("should expose data directory rooted at MIMO_HOME", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({ env: { MIMO_HOME: testHome } });
     expect(ctx.paths.data).toBe(testHome);
   });
 
   test("should create all directories on ensureMimoHome", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({ env: { MIMO_HOME: testHome } });
     expect(existsSync(ctx.paths.root)).toBe(true);
     expect(existsSync(ctx.paths.users)).toBe(true);
@@ -45,7 +45,7 @@ describe("Filesystem Paths Integration Test", () => {
 
   test("should return correct user path", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({ env: { MIMO_HOME: testHome } });
     expect(join(ctx.paths.users, "alice")).toBe(
       join(testHome, "users", "alice"),
@@ -54,7 +54,7 @@ describe("Filesystem Paths Integration Test", () => {
 
   test("should return correct project path", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({ env: { MIMO_HOME: testHome } });
     expect(join(ctx.paths.projects, "my-app")).toBe(
       join(testHome, "projects", "my-app"),
@@ -63,7 +63,7 @@ describe("Filesystem Paths Integration Test", () => {
 
   test("should return correct session path", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({ env: { MIMO_HOME: testHome } });
     expect(join(ctx.paths.projects, "my-app", "sessions", "session-1")).toBe(
       join(testHome, "projects", "my-app", "sessions", "session-1"),
@@ -72,7 +72,7 @@ describe("Filesystem Paths Integration Test", () => {
 
   test("should return correct agent path", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({ env: { MIMO_HOME: testHome } });
     expect(join(ctx.paths.agents, "agent-123")).toBe(
       join(testHome, "agents", "agent-123"),

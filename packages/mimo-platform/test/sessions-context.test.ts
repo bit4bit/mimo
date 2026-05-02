@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { join } from "path";
 import { tmpdir } from "os";
 import { rmSync } from "fs";
-import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
+import { DummySharedFossilServer } from "../src/domain/vcs/shared-fossil-server.js";
 
 describe("Sessions routes with mimoContext", () => {
   let testHome: string;
@@ -18,8 +18,8 @@ describe("Sessions routes with mimoContext", () => {
 
   it("uses injected auth service for token verification", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
-    const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
+      await import("../src/infrastructure/context/mimo-context.ts");
+    const { createSessionsRoutes } = await import("../src/web/features/sessions/pages/sessions.tsx");
 
     const mimoContext = createMimoContext({
       env: {

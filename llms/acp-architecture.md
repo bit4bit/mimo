@@ -72,5 +72,5 @@ If load fails: fallback to `newSession`, keep chat history, show fresh-context n
 Key files:
 - `packages/mimo-platform/src/impact/jscpd-service.ts`
 - `packages/mimo-platform/src/impact/calculator.ts`
-- `packages/mimo-platform/src/components/ImpactBuffer.tsx`
+- `packages/mimo-platform/src/web/components/ImpactBuffer.tsx`
 - `packages/mimo-platform/src/auto-commit/service.ts`

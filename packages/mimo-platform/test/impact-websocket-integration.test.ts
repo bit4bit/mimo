@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { handleRefreshImpact } from "../src/impact/refresh-handler";
+import { handleRefreshImpact } from "../src/domain/impact/refresh-handler";
 
 describe("WebSocket refresh_impact integration", () => {
   it("declares calculatingSessions and passes it to handleRefreshImpact", async () => {

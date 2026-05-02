@@ -6,8 +6,8 @@ import { rmSync, mkdirSync } from "fs";
 
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any): Hono {
-  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
-  const { createAgentsRoutes } = require("../src/agents/routes.tsx");
+  const { createInternalApiRouter } = require("../src/api/rest/index.ts");
+  const { createAgentsRoutes } = require("../src/web/features/agents/pages/agents.tsx");
 
   const app = new Hono();
 
@@ -52,7 +52,7 @@ describe("Agent Capabilities", () => {
     mkdirSync(testHome, { recursive: true });
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });

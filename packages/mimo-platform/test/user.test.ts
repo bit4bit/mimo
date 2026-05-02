@@ -15,7 +15,7 @@ describe("User Repository Integration Test", () => {
     );
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({ env: { MIMO_HOME: testHome } });
     userRepository = ctx.repos.users;
   });

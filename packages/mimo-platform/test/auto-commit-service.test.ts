@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { AutoCommitService } from "../src/auto-commit/service";
+import { AutoCommitService } from "../src/domain/auto-commit/service";
 
 function makeService(overrides: {
   duplication?: {

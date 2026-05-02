@@ -11,7 +11,7 @@ import {
   readFileSync,
 } from "fs";
 import { execSync } from "child_process";
-import { createOS } from "../src/os/node-adapter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 describe("Commit Service Tests", () => {
   let testHome: string;
@@ -36,7 +36,7 @@ describe("Commit Service Tests", () => {
     os = createOS({ ...process.env });
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       os,
@@ -45,7 +45,7 @@ describe("Commit Service Tests", () => {
     // Use services from mimoContext
     CommitService = ctx.services.commits;
 
-    const vcsModule = await import("../src/vcs/index.ts");
+    const vcsModule = await import("../src/domain/vcs/index.ts");
     VCS = vcsModule.VCS;
   });
 

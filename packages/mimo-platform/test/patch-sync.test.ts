@@ -10,7 +10,7 @@ import {
   readdirSync,
 } from "fs";
 import { execSync } from "child_process";
-import { createOS } from "../src/os/node-adapter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 describe("Patch-based Sync", () => {
   let testHome: string;
@@ -24,7 +24,7 @@ describe("Patch-based Sync", () => {
     );
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
@@ -37,7 +37,7 @@ describe("Patch-based Sync", () => {
 
     os = createOS({ ...process.env });
 
-    const vcsModule = await import("../src/vcs/index.ts");
+    const vcsModule = await import("../src/domain/vcs/index.ts");
     VCS = vcsModule.VCS;
   });
 

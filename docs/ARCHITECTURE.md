@@ -16,7 +16,7 @@ MIMO is a web-based development environment built with:
 
 ### 1. Web Interface (Client-Side)
 
-**Location**: `packages/mimo-platform/src/components/`
+**Location**: `packages/mimo-platform/src/web/components/`
 
 - **Layout.tsx**: Base HTML layout with status line
 - **SessionDetailPage.tsx**: Three-buffer layout (Files, Chat, Changes)

@@ -74,7 +74,7 @@ For every change, verify against these invariants. Score each: PASS / WARN / FAI
 | # | Rule | How to Verify |
 |---|------|---------------|
 | 6.1 | **Reuse existing pages over creating new** | Before adding a new page, verify if an existing page already covers the use case. Refactor and extend existing pages instead of duplicating layouts, forms, or list structures. |
-| 6.2 | **Reuse logic from existing pages** | Extract shared components, handlers, or utilities from existing pages rather than duplicating form logic, validation, or rendering patterns. Shared logic belongs in `src/components/` or domain-specific helpers, not copy-pasted between pages. |
+| 6.2 | **Reuse logic from existing pages** | Extract shared components, handlers, or utilities from existing pages rather than duplicating form logic, validation, or rendering patterns. Shared logic belongs in `src/web/components/` or domain-specific helpers, not copy-pasted between pages. |
 | 6.3 | **Uses `Layout` with correct title** | Every retained or refactored page extends `Layout` and sets a title. |
 | 6.4 | **Max-width containers** | List/detail = 800px, forms = 400px. |
 | 6.5 | **Forms use `method="post"`, include Cancel + Submit, validation errors in `.error-message` and help text in `.form-help`**. |

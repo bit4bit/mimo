@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, mkdirSync } from "fs";
-import { createOS } from "../src/os/node-adapter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 describe("VCS Integration Tests", () => {
   let testHome: string;
@@ -28,10 +28,10 @@ describe("VCS Integration Tests", () => {
     os = createOS({ ...process.env });
 
     // Re-import to get fresh modules
-    const vcsModule = await import("../src/vcs/index.ts");
+    const vcsModule = await import("../src/domain/vcs/index.ts");
     VCS = vcsModule.VCS;
 
-    const serverModule = await import("../src/vcs/server.ts");
+    const serverModule = await import("../src/domain/vcs/server.ts");
     const FossilServerManager = serverModule.FossilServerManager;
     fossilServer = new FossilServerManager({ os });
     getNextPort = serverModule.getNextPort;

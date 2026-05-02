@@ -29,7 +29,7 @@ describe("Agent Sessions API Integration Tests", () => {
     mkdirSync(testHome, { recursive: true });
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
@@ -40,10 +40,10 @@ describe("Agent Sessions API Integration Tests", () => {
     agentRepository = ctx.repos.agents;
     agentService = ctx.services.agents;
 
-    const jwtModule = await import("../src/auth/jwt.ts");
+    const jwtModule = await import("../src/domain/auth/jwt.ts");
     generateToken = jwtModule.generateToken;
 
-    const { createAgentsRoutes } = await import("../src/agents/routes.tsx");
+    const { createAgentsRoutes } = await import("../src/web/features/agents/pages/agents.tsx");
     agentRoutes = createAgentsRoutes(ctx);
   });
 

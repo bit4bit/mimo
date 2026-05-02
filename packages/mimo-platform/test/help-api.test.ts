@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { Hono } from "hono";
-import { registerHelpRoutes } from "../src/help/routes.js";
+import { registerHelpRoutes } from "../src/api/rest/help.js";
 
 describe("GET /api/help", () => {
   it("returns default help content", async () => {

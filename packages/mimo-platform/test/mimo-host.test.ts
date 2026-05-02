@@ -21,7 +21,7 @@ describe("MIMO_HOST environment variable", () => {
 
   test("should use MIMO_HOST in PLATFORM_URL default", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: {
         MIMO_HOME: testHome,
@@ -35,7 +35,7 @@ describe("MIMO_HOST environment variable", () => {
 
   test("should default MIMO_HOST to localhost", async () => {
     const { createMimoContext, DEFAULT_MIMO_HOST } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: {
         MIMO_HOME: testHome,
@@ -48,7 +48,7 @@ describe("MIMO_HOST environment variable", () => {
 
   test("should allow overriding PLATFORM_URL independently", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: {
         MIMO_HOME: testHome,
@@ -62,8 +62,8 @@ describe("MIMO_HOST environment variable", () => {
 
   test("should use MIMO_HOST in SharedFossilServer URL", async () => {
     const { SharedFossilServer } =
-      await import("../src/vcs/shared-fossil-server.js");
-    const { createOS } = await import("../src/os/node-adapter.js");
+      await import("../src/domain/vcs/shared-fossil-server.js");
+    const { createOS } = await import("../src/infrastructure/os/node-adapter.js");
     const os = createOS({ PATH: process.env.PATH, HOME: process.env.HOME });
 
     const server = new SharedFossilServer(
@@ -81,8 +81,8 @@ describe("MIMO_HOST environment variable", () => {
 
   test("should default SharedFossilServer host to localhost", async () => {
     const { SharedFossilServer } =
-      await import("../src/vcs/shared-fossil-server.js");
-    const { createOS } = await import("../src/os/node-adapter.js");
+      await import("../src/domain/vcs/shared-fossil-server.js");
+    const { createOS } = await import("../src/infrastructure/os/node-adapter.js");
     const os = createOS({ PATH: process.env.PATH, HOME: process.env.HOME });
 
     const server = new SharedFossilServer(

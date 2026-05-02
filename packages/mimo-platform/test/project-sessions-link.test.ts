@@ -12,10 +12,10 @@ let testHome: string;
 
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any): Hono {
-  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
-  const { createProjectsRoutes } = require("../src/projects/routes.tsx");
-  const { createSessionsRoutes } = require("../src/sessions/routes.tsx");
-  const { createAuthRoutes } = require("../src/auth/routes.tsx");
+  const { createInternalApiRouter } = require("../src/api/rest/index.ts");
+  const { createProjectsRoutes } = require("../src/web/features/projects/pages/projects.tsx");
+  const { createSessionsRoutes } = require("../src/web/features/sessions/pages/sessions.tsx");
+  const { createAuthRoutes } = require("../src/web/features/auth/pages/auth.tsx");
 
   const app = new Hono();
 
@@ -68,7 +68,7 @@ describe("Project Sessions Link Integration Tests", () => {
     } catch {}
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });

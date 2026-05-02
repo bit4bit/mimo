@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { SccService } from "../src/impact/scc-service.js";
-import { createOS } from "../src/os/node-adapter.js";
+import { SccService } from "../src/domain/impact/scc-service.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 describe("SCC filename collision bug", () => {
   let testDir: string;

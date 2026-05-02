@@ -7,7 +7,7 @@ import {
   isExternalDependency,
   buildDependencyGraph,
   compareDependencyGraphs,
-} from "../src/impact/dependency-parser.ts";
+} from "../src/domain/impact/dependency-parser.ts";
 
 describe("dependency parser", () => {
   it("parses TypeScript ES6 imports", () => {
@@ -75,7 +75,7 @@ require Logger
       {
         source: "src/components",
         target: "src/services",
-        file: "src/components/Button.tsx",
+        file: "src/web/components/Button.tsx",
       },
     ]);
 
@@ -83,12 +83,12 @@ require Logger
       {
         source: "src/components",
         target: "src/services",
-        file: "src/components/Button.tsx",
+        file: "src/web/components/Button.tsx",
       },
       {
         source: "src/components",
         target: "src/utils",
-        file: "src/components/Button.tsx",
+        file: "src/web/components/Button.tsx",
       },
     ]);
 
@@ -98,7 +98,7 @@ require Logger
       {
         source: "src/components",
         target: "src/utils",
-        files: ["src/components/Button.tsx"],
+        files: ["src/web/components/Button.tsx"],
         status: "added",
       },
     ]);
@@ -135,12 +135,12 @@ require Logger
       {
         source: "src/components",
         target: "src/utils",
-        file: "src/components/Button.tsx",
+        file: "src/web/components/Button.tsx",
       },
       {
         source: "src/components",
         target: "src/utils",
-        file: "src/components/Form.tsx",
+        file: "src/web/components/Form.tsx",
       },
     ]);
 
@@ -148,8 +148,8 @@ require Logger
 
     expect(result.added).toHaveLength(1);
     expect(result.added[0]?.files).toEqual([
-      "src/components/Button.tsx",
-      "src/components/Form.tsx",
+      "src/web/components/Button.tsx",
+      "src/web/components/Form.tsx",
     ]);
   });
 });

@@ -17,7 +17,7 @@ describe("Auth middleware with mimoContext", () => {
 
   it("verifies token using injected auth service secret", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const { createAuthMiddleware } = await import("../src/auth/middleware.ts");
 
     const mimoContext = createMimoContext({

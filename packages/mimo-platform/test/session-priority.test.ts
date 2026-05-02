@@ -5,7 +5,7 @@ import { join } from "path";
 import { mkdirSync, writeFileSync } from "fs";
 import { dump } from "js-yaml";
 
-import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
+import { DummySharedFossilServer } from "../src/domain/vcs/shared-fossil-server.js";
 
 let sessionRepository: any;
 let userRepository: any;
@@ -16,8 +16,8 @@ let mimoContext: any;
 
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any): Hono {
-  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
-  const { createSessionsRoutes } = require("../src/sessions/routes.tsx");
+  const { createInternalApiRouter } = require("../src/api/rest/index.ts");
+  const { createSessionsRoutes } = require("../src/web/features/sessions/pages/sessions.tsx");
 
   const app = new Hono();
 
@@ -50,7 +50,7 @@ describe("Session Priority", () => {
     );
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       services: { sharedFossil: new DummySharedFossilServer() },

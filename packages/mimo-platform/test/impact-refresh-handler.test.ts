@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { handleRefreshImpact } from "../src/impact/refresh-handler";
+import { handleRefreshImpact } from "../src/domain/impact/refresh-handler";
 
 describe("impact refresh handler", () => {
   it("runs a full refresh flow and broadcasts state transitions", async () => {

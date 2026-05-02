@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { Hono } from "hono";
-import { createAutoCommitRouter } from "../src/auto-commit/routes";
-import { JwtService } from "../src/auth/jwt";
+import { createAutoCommitRouter } from "../src/api/rest/auto-commit";
+import { JwtService } from "../src/domain/auth/jwt";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync } from "fs";

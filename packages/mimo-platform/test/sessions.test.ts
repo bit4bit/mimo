@@ -7,7 +7,7 @@ import { rmSync, existsSync, readFileSync, mkdirSync, writeFileSync } from "fs";
 import { load, dump } from "js-yaml";
 
 // Re-import modules after setting up environment
-import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
+import { DummySharedFossilServer } from "../src/domain/vcs/shared-fossil-server.js";
 import { resetGlobalState } from "./test-helpers.js";
 
 let sessionRoutes: any;
@@ -22,8 +22,8 @@ let testHome: string;
 
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any, _sessionsR: any): Hono {
-  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
-  const { createSessionsRoutes } = require("../src/sessions/routes.tsx");
+  const { createInternalApiRouter } = require("../src/api/rest/index.ts");
+  const { createSessionsRoutes } = require("../src/web/features/sessions/pages/sessions.tsx");
 
   const app = new Hono();
 
@@ -59,7 +59,7 @@ describe("Session Management Integration Tests", () => {
 
     // Set up fresh environment with createMimoContext
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       services: { sharedFossil: new DummySharedFossilServer() },
@@ -70,7 +70,7 @@ describe("Session Management Integration Tests", () => {
     projectRepository = ctx.repos.projects;
     sessionRepository = ctx.repos.sessions;
 
-    const chatModule = await import("../src/sessions/chat.ts");
+    const chatModule = await import("../src/domain/sessions/chat.ts");
     chatService = chatModule.chatService;
 
     authService = ctx.services.auth;
@@ -92,7 +92,7 @@ describe("Session Management Integration Tests", () => {
       _workDir: string,
     ) => ({ success: true, branch: "__sync_head__" });
 
-    const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
+    const { createSessionsRoutes } = await import("../src/web/features/sessions/pages/sessions.tsx");
     sessionRoutes = createSessionsRoutes(ctx);
   });
 
@@ -1171,9 +1171,9 @@ describe("Session Management Integration Tests", () => {
       });
 
       const { createSessionDeletionUseCase } =
-        await import("../src/sessions/session-deletion.ts");
+        await import("../src/domain/sessions/session-deletion.ts");
       const { sweepExpiredInactiveSessions } =
-        await import("../src/sessions/session-retention-sweeper.ts");
+        await import("../src/domain/sessions/session-retention-sweeper.ts");
 
       const sessionDeletion = createSessionDeletionUseCase({
         sessionRepository: mimoContext.repos.sessions,

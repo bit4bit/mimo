@@ -10,12 +10,12 @@ import {
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, mkdirSync, writeFileSync } from "fs";
-import { createOS } from "../src/os/node-adapter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 import {
   DummySharedFossilServer,
   SharedFossilServer,
   normalizeSessionIdForFossil,
-} from "../src/vcs/shared-fossil-server.js";
+} from "../src/domain/vcs/shared-fossil-server.js";
 import { findAvailablePort } from "./test-helpers.js";
 
 describe("SharedFossilServer Integration Tests", () => {
@@ -31,7 +31,7 @@ describe("SharedFossilServer Integration Tests", () => {
     );
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     createMimoContext({
       env: {
         MIMO_HOME: testHome,

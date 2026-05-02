@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { Hono } from "hono";
-import { SessionDetailPage } from "../../../src/components/SessionDetailPage";
+import { SessionDetailPage } from "../../../src/web/features/sessions/components/SessionDetailPage.tsx";
 
 describe("Session impact refresh UI", () => {
   it("renders refresh controls and removes 5s impact polling", async () => {

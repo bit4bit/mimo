@@ -1,4 +1,4 @@
-import type { McpServerConfig } from "../mcp-servers/types.js";
+import type { McpServerConfig } from "../domain/mcp-servers/types.js";
 
 function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, "");

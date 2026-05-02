@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { statSync } from "fs";
 import { rmdirSync, unlinkSync, existsSync } from "fs";
 import { join } from "path";
-import { createOS } from "../src/os/node-adapter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 describe("Credentials Management", () => {
   let ctx: any;
@@ -12,7 +12,7 @@ describe("Credentials Management", () => {
   let credentialsDir: string;
 
   beforeEach(async () => {
-    const { createMimoContext } = await import("../src/context/mimo-context");
+    const { createMimoContext } = await import("../src/infrastructure/context/mimo-context");
     ctx = createMimoContext({
       env: { MIMO_HOME: "/tmp/test-mimo-credentials" },
     });
@@ -283,7 +283,7 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
     let vcs: any;
 
     beforeEach(() => {
-      const { VCS } = require("../src/vcs/index");
+      const { VCS } = require("../src/domain/vcs/index");
       const os = createOS({ ...process.env });
       vcs = new VCS({ os });
     });

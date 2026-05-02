@@ -6,3 +6,4 @@
 **/.agent-shell
 node_modules
 .env
+.claude/settings.local.json

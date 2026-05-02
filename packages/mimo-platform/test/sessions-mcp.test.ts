@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { SessionRepository } from "../src/sessions/repository.js";
-import { createOS } from "../src/os/node-adapter.js";
-import type { OS } from "../src/os/types.js";
+import { SessionRepository } from "../src/domain/sessions/repository.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
+import type { OS } from "../src/infrastructure/os/types.js";
 import {
   existsSync,
   rmdirSync,

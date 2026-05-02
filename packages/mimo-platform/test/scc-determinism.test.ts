@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync, writeFileSync, readdirSync } from "fs";
-import { createOS } from "../src/os/node-adapter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 // Helper to create a no-op JscpdService for tests that don't test duplication
 function createDummyJscpdService() {
@@ -26,7 +26,7 @@ describe("SCC Determinism Test", () => {
     testDir = join(testHome, "test-project");
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
@@ -69,7 +69,7 @@ export function multiply(x: number, y: number): number {
   });
 
   it("should return identical SCC results on identical files", async () => {
-    const { SccService } = await import("../src/impact/scc-service.ts");
+    const { SccService } = await import("../src/domain/impact/scc-service.ts");
     const sccPath = join(
       process.env.HOME || "/usr/local/bin",
       ".mimo",
@@ -140,8 +140,8 @@ export function multiply(x: number, y: number): number {
   });
 
   it("should return identical delta calculations on unchanged files", async () => {
-    const { ImpactCalculator } = await import("../src/impact/calculator.ts");
-    const { SccService } = await import("../src/impact/scc-service.ts");
+    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccPath = join(
       process.env.HOME || "/usr/local/bin",

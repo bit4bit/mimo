@@ -1,5 +1,11 @@
-import { describe, it, expect, afterAll, beforeEach } from "bun:test";
-import { FileSyncService, FileChange, FileStatus } from "../src/sync/service";
+import {
+  describe,
+  it,
+  expect,
+  afterAll,
+  beforeEach,
+} from "bun:test";
+import { FileSyncService, FileChange, FileStatus } from "../src/domain/sync/service";
 import {
   mkdtempSync,
   writeFileSync,
@@ -10,7 +16,7 @@ import {
 } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { createOS } from "../src/os/node-adapter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 describe("File Synchronization", () => {
   let sessionWorktree: string;

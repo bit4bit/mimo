@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync, existsSync, writeFileSync, readFileSync } from "fs";
-import { createOS } from "../src/os/node-adapter.js";
-import { ExpertService } from "../src/files/expert-service.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
+import { ExpertService } from "../src/domain/files/expert-service.js";
 
 function makeTmpDir(): string {
   const dir = join(

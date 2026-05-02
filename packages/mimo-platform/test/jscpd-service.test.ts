@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync, writeFileSync } from "fs";
-import { createOS } from "../src/os/node-adapter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 // Duplicated block used across multiple test files
 const DUPLICATED_BLOCK = `function compute(x: number, y: number): number {
@@ -30,7 +30,7 @@ describe("JscpdService", () => {
   });
 
   it("initializes with a binary path", async () => {
-    const { JscpdService } = await import("../src/impact/jscpd-service.ts");
+    const { JscpdService } = await import("../src/domain/impact/jscpd-service.ts");
     const os = createOS({ ...process.env });
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
     const service = new JscpdService(os, jscpdBin);
@@ -38,7 +38,7 @@ describe("JscpdService", () => {
   });
 
   it("reports as installed when binary exists", async () => {
-    const { JscpdService } = await import("../src/impact/jscpd-service.ts");
+    const { JscpdService } = await import("../src/domain/impact/jscpd-service.ts");
     const os = createOS({ ...process.env });
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
     const service = new JscpdService(os, jscpdBin);
@@ -46,7 +46,7 @@ describe("JscpdService", () => {
   });
 
   it("parses cross-file duplicates from jscpd output", async () => {
-    const { JscpdService } = await import("../src/impact/jscpd-service.ts");
+    const { JscpdService } = await import("../src/domain/impact/jscpd-service.ts");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
     const os = createOS({ ...process.env });
     const service = new JscpdService(os, jscpdBin);
@@ -69,7 +69,7 @@ describe("JscpdService", () => {
   });
 
   it("parses intra-file duplicates from jscpd output", async () => {
-    const { JscpdService } = await import("../src/impact/jscpd-service.ts");
+    const { JscpdService } = await import("../src/domain/impact/jscpd-service.ts");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
     const os = createOS({ ...process.env });
     const service = new JscpdService(os, jscpdBin);
@@ -93,7 +93,7 @@ describe("JscpdService", () => {
   });
 
   it("returns empty metrics when no duplicates exist", async () => {
-    const { JscpdService } = await import("../src/impact/jscpd-service.ts");
+    const { JscpdService } = await import("../src/domain/impact/jscpd-service.ts");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
     const os = createOS({ ...process.env });
     const service = new JscpdService(os, jscpdBin);
@@ -109,7 +109,7 @@ describe("JscpdService", () => {
   });
 
   it("builds composite ignore file from gitignore and mimoignore", async () => {
-    const { JscpdService } = await import("../src/impact/jscpd-service.ts");
+    const { JscpdService } = await import("../src/domain/impact/jscpd-service.ts");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
     const os = createOS({ ...process.env });
     const service = new JscpdService(os, jscpdBin);

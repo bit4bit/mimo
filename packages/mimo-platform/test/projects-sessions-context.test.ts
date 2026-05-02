@@ -17,8 +17,8 @@ describe("Projects nested sessions with mimoContext", () => {
 
   it("uses injected auth service for nested sessions routes", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
-    const { createProjectsRoutes } = await import("../src/projects/routes.tsx");
+      await import("../src/infrastructure/context/mimo-context.ts");
+    const { createProjectsRoutes } = await import("../src/web/features/projects/pages/projects.tsx");
 
     const mimoContext = createMimoContext({
       env: {

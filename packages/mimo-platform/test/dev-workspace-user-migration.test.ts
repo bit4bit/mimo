@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 
-import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
-import { migrateDevWorkspaceUsers } from "../src/sessions/dev-workspace-user-migration.ts";
+import { DummySharedFossilServer } from "../src/domain/vcs/shared-fossil-server.js";
+import { migrateDevWorkspaceUsers } from "../src/domain/sessions/dev-workspace-user-migration.ts";
 
 let sessionRepository: any;
 let projectRepository: any;
@@ -18,7 +18,7 @@ describe("Dev workspace user migration", () => {
     );
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       services: { sharedFossil: new DummySharedFossilServer() },

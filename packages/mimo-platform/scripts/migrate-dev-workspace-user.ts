@@ -2,9 +2,9 @@
 
 import { homedir } from "os";
 import { join } from "path";
-import { createMimoContext } from "../src/context/mimo-context.js";
-import { SharedFossilServer } from "../src/vcs/shared-fossil-server.js";
-import { migrateDevWorkspaceUsers } from "../src/sessions/dev-workspace-user-migration.js";
+import { createMimoContext } from "../src/infrastructure/context/mimo-context.js";
+import { SharedFossilServer } from "../src/domain/vcs/shared-fossil-server.js";
+import { migrateDevWorkspaceUsers } from "../src/domain/sessions/dev-workspace-user-migration.js";
 
 async function main(): Promise<void> {
   const dryRun = process.argv.includes("--dry-run");

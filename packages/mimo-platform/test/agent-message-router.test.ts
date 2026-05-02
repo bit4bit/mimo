@@ -8,7 +8,7 @@ let AgentMessageRouter: any;
 
 async function loadRouter() {
   try {
-    const mod = await import("../src/agents/message-router.ts");
+    const mod = await import("../src/domain/agents/message-router.ts");
     AgentMessageRouter = mod.AgentMessageRouter;
   } catch {
     AgentMessageRouter = null;

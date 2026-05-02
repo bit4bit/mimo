@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
-import type { ChatMessage } from "../src/sessions/chat.ts";
+import type { ChatMessage } from "../src/domain/sessions/chat.ts";
 
 type SaveMessageFn = (
   sessionId: string,
@@ -15,7 +15,7 @@ type BroadcastFn = (
 let ChatStreamingPipeline: any;
 
 async function loadPipeline() {
-  const mod = await import("../src/sessions/streaming-pipeline.ts");
+  const mod = await import("../src/domain/sessions/streaming-pipeline.ts");
   ChatStreamingPipeline = mod.ChatStreamingPipeline;
 }
 

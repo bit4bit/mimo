@@ -27,7 +27,7 @@ describe("Chat History Persistence", () => {
   beforeAll(async () => {
     // Set up fresh environment with createMimoContext
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
@@ -38,7 +38,7 @@ describe("Chat History Persistence", () => {
 
     // Use ChatService from mimoContext instead of singleton
     chatService = ctx.services.chat;
-    const chatModule = await import("../src/sessions/chat.ts");
+    const chatModule = await import("../src/domain/sessions/chat.ts");
     ChatMessage = chatModule.ChatMessage;
 
     // Create test user

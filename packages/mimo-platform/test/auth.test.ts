@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync } from "fs";
-import { JwtService } from "../src/auth/jwt";
+import { JwtService } from "../src/domain/auth/jwt";
 
 let authRoutes: any;
 let createAuthMiddleware: any;
@@ -23,14 +23,14 @@ describe("Authentication Integration Tests", () => {
     } catch {}
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
     userRepository = ctx.repos.users;
     testAuth = ctx.services.auth;
 
-    const { createAuthRoutes } = await import("../src/auth/routes.tsx");
+    const { createAuthRoutes } = await import("../src/web/features/auth/pages/auth.tsx");
     authRoutes = createAuthRoutes(ctx);
 
     const middlewareModule = await import("../src/auth/middleware.ts");

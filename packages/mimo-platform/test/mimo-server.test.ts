@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { MimoServer } from "../src/server/mimo-server.js";
+import { MimoServer } from "../src/infrastructure/server/mimo-server.js";
 
 describe("MimoServer", () => {
   it("starts with configured handlers and schedules shared fossil bootstrap", async () => {

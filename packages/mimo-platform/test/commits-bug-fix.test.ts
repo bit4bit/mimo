@@ -21,7 +21,7 @@ describe("Commit Service Bug Fix - Untracked Files Preservation", () => {
     mkdirSync(join(testHome, "projects"), { recursive: true });
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
@@ -29,7 +29,7 @@ describe("Commit Service Bug Fix - Untracked Files Preservation", () => {
 
   describe("Commit Service Integration", () => {
     it("should have commit service with commitAndPush method", async () => {
-      const { CommitService } = await import("../src/commits/service.ts");
+      const { CommitService } = await import("../src/domain/commits/service.ts");
 
       // Verify the service class exists and mimoContext has the instance
       expect(CommitService).toBeDefined();
@@ -39,7 +39,7 @@ describe("Commit Service Bug Fix - Untracked Files Preservation", () => {
     });
 
     it("should have VCS service with required methods", async () => {
-      const { VCS } = await import("../src/vcs/index.ts");
+      const { VCS } = await import("../src/domain/vcs/index.ts");
 
       // Verify VCS class exists
       expect(VCS).toBeDefined();

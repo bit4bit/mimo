@@ -10,8 +10,8 @@ import { Hono } from "hono";
 import { existsSync, mkdtempSync, readdirSync, rmSync, unlinkSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { createMcpServerRoutes } from "../src/mcp-servers/routes.js";
-import type { McpServer } from "../src/mcp-servers/types.js";
+import { createMcpServerRoutes } from "../src/web/features/mcp-servers/pages/mcp-servers.js";
+import type { McpServer } from "../src/domain/mcp-servers/types.js";
 
 let mimoContext: any;
 let testHome: string;
@@ -19,8 +19,8 @@ let authToken: string;
 
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any): Hono {
-  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
-  const { createMcpServerRoutes } = require("../src/mcp-servers/routes.js");
+  const { createInternalApiRouter } = require("../src/api/rest/index.ts");
+  const { createMcpServerRoutes } = require("../src/web/features/mcp-servers/pages/mcp-servers.js");
 
   const app = new Hono();
 
@@ -74,7 +74,7 @@ describe("MCP Server API Integration Tests", () => {
     process.env.MIMO_HOME = testHome;
 
     // Initialize mimoContext with proper JWT_SECRET
-    const { createMimoContext } = await import("../src/context/mimo-context");
+    const { createMimoContext } = await import("../src/infrastructure/context/mimo-context");
     mimoContext = createMimoContext({
       env: {
         MIMO_HOME: testHome,

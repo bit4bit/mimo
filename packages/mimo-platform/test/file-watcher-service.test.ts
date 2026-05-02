@@ -5,8 +5,8 @@ import { join, resolve } from "path";
 import {
   createFileWatcherService,
   type FileWatcherService,
-} from "../src/files/file-watcher-service";
-import { createOS } from "../src/os/node-adapter.js";
+} from "../src/domain/files/file-watcher-service";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 import { waitFor, waitForEvent } from "./test-helpers.js";
 
 describe("FileWatcherService", () => {

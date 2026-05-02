@@ -15,8 +15,8 @@ let testHome: string;
 
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any, _projectsR: any): Hono {
-  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
-  const { createProjectsRoutes } = require("../src/projects/routes.tsx");
+  const { createInternalApiRouter } = require("../src/api/rest/index.ts");
+  const { createProjectsRoutes } = require("../src/web/features/projects/pages/projects.tsx");
 
   const app = new Hono();
 
@@ -77,7 +77,7 @@ describe("Project Management Integration Tests", () => {
 
     // Set up fresh environment with createMimoContext
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: {
         MIMO_HOME: testHome,
@@ -92,7 +92,7 @@ describe("Project Management Integration Tests", () => {
     projectRepository = ctx.repos.projects;
     sessionRepository = ctx.repos.sessions;
 
-    const { createProjectsRoutes } = await import("../src/projects/routes.tsx");
+    const { createProjectsRoutes } = await import("../src/web/features/projects/pages/projects.tsx");
     projectRoutes = createProjectsRoutes(ctx);
   });
 

@@ -3,7 +3,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, mkdirSync, writeFileSync } from "fs";
 import { execSync } from "child_process";
-import { createOS } from "../src/os/node-adapter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 describe("Session Bootstrap Integration Tests", () => {
   let testHome: string;
@@ -29,10 +29,10 @@ describe("Session Bootstrap Integration Tests", () => {
     mkdirSync(fossilReposDir, { recursive: true });
 
     // Re-import to get fresh modules
-    const vcsModule = await import("../src/vcs/index.ts");
+    const vcsModule = await import("../src/domain/vcs/index.ts");
     VCS = vcsModule.VCS;
 
-    const sessionModule = await import("../src/sessions/repository.ts");
+    const sessionModule = await import("../src/domain/sessions/repository.ts");
     const os = createOS(process.env as Record<string, string>);
     sessionRepository = new sessionModule.SessionRepository({
       paths: {

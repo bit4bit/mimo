@@ -84,7 +84,7 @@ echo "JWT_SECRET=$(openssl rand -base64 32)" > .env
 # Reset a user's password manually
 cd packages/mimo-platform
 bun run -e "
-const { userRepository } = require('./src/auth/user.js');
+const { userRepository } = require('./src/domain/auth/user.js');
 const bcrypt = require('bcrypt');
 const hash = await bcrypt.hash('newpassword', 10);
 await userRepository.updatePassword('username', hash);

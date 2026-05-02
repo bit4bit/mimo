@@ -9,9 +9,9 @@ import {
 } from "fs";
 import { join, resolve } from "path";
 import { tmpdir } from "os";
-import { createMcpRoutes } from "../src/mcp/server.js";
+import { createMcpRoutes } from "../src/api/mcp/server.js";
 import { mcpTokenStore } from "../src/mcp/token-store.js";
-import type { FileService } from "../src/files/types.js";
+import type { FileService } from "../src/domain/files/types.js";
 
 describe("Platform MCP HTTP endpoint", () => {
   let workspacePath: string;

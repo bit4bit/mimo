@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { JwtService } from "../src/auth/jwt.ts";
+import { JwtService } from "../src/domain/auth/jwt.ts";
 
 describe("JWT Service", () => {
   test("should generate valid token", async () => {

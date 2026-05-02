@@ -2,14 +2,13 @@ import { describe, it, expect } from "bun:test";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
-import bcrypt from "bcrypt";
-import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
+import { DummySharedFossilServer } from "../src/domain/vcs/shared-fossil-server.js";
 
 describe("Debug", () => {
   it("debug session creation", async () => {
     const testHome = join(tmpdir(), `mimo-debug-${Date.now()}`);
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret" },
       services: { sharedFossil: new DummySharedFossilServer() },
@@ -26,7 +25,7 @@ describe("Debug", () => {
     const projectRepository = ctx.repos.projects;
     const authService = ctx.services.auth;
 
-    await userRepository.create("testuser", await bcrypt.hash("testpass", 10));
+    await userRepository.create("testuser", await Bun.password.hash("testpass"));
     const project = await projectRepository.create({
       name: "Test Project",
       repoUrl: "https://github.com/user/repo.git",
@@ -35,7 +34,7 @@ describe("Debug", () => {
     });
     const token = await authService.generateToken("testuser");
 
-    const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
+    const { createSessionsRoutes } = await import("../src/web/features/sessions/pages/sessions.tsx");
     const sessionRoutes = createSessionsRoutes(ctx);
     const app = new Hono();
     app.route("/projects/:projectId/sessions", sessionRoutes);

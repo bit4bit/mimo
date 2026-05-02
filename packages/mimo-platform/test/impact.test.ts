@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, mkdirSync, writeFileSync, chmodSync } from "fs";
-import { createOS } from "../src/os/node-adapter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 describe("Impact Buffer Tests", () => {
   let testHome: string;
@@ -23,7 +23,7 @@ describe("Impact Buffer Tests", () => {
     mkdirSync(join(testHome, "bin"), { recursive: true });
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
@@ -37,7 +37,7 @@ describe("Impact Buffer Tests", () => {
 
   describe("SccService", () => {
     it("should detect platform correctly", async () => {
-      const { SccService } = await import("../src/impact/scc-service.ts");
+      const { SccService } = await import("../src/domain/impact/scc-service.ts");
       const os = createOS({ ...process.env });
       const service = new SccService(os, join(testHome, "bin", "scc"));
       const platform = service.detectPlatform();
@@ -48,7 +48,7 @@ describe("Impact Buffer Tests", () => {
     });
 
     it("should generate correct download URL", async () => {
-      const { SccService } = await import("../src/impact/scc-service.ts");
+      const { SccService } = await import("../src/domain/impact/scc-service.ts");
       const os = createOS({ ...process.env });
       const service = new SccService(os, join(testHome, "bin", "scc"));
       const platform = { os: "Linux" as const, arch: "x86_64" as const };
@@ -60,14 +60,14 @@ describe("Impact Buffer Tests", () => {
     });
 
     it("should initially report scc as not installed", async () => {
-      const { SccService } = await import("../src/impact/scc-service.ts");
+      const { SccService } = await import("../src/domain/impact/scc-service.ts");
       const os = createOS({ ...process.env });
       const service = new SccService(os, join(testHome, "bin", "scc"));
       expect(service.isInstalled()).toBe(false);
     });
 
     it("should detect installed scc binary", async () => {
-      const { SccService } = await import("../src/impact/scc-service.ts");
+      const { SccService } = await import("../src/domain/impact/scc-service.ts");
       const os = createOS({ ...process.env });
       const sccPath = join(testHome, "bin", "scc");
       const service = new SccService(os, sccPath);
@@ -81,7 +81,7 @@ describe("Impact Buffer Tests", () => {
     });
 
     it("should parse scc JSON output correctly", async () => {
-      const { SccService } = await import("../src/impact/scc-service.ts");
+      const { SccService } = await import("../src/domain/impact/scc-service.ts");
       const os = createOS({ ...process.env });
       const sccPath = join(testHome, "bin", "scc");
       const service = new SccService(os, sccPath);
@@ -220,7 +220,7 @@ fi`;
     });
 
     it("should handle empty scc output", async () => {
-      const { SccService } = await import("../src/impact/scc-service.ts");
+      const { SccService } = await import("../src/domain/impact/scc-service.ts");
       const os = createOS({ ...process.env });
       const sccPath = join(testHome, "bin", "scc-empty");
       const service = new SccService(os, sccPath);
@@ -248,7 +248,7 @@ echo '[]'`;
   describe("ImpactCalculator", () => {
     it("should calculate file changes correctly", async () => {
       const { createMimoContext } =
-        await import("../src/context/mimo-context.ts");
+        await import("../src/infrastructure/context/mimo-context.ts");
       const ctx = createMimoContext({
         env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       });
@@ -288,7 +288,7 @@ echo '[]'`;
 
     it("should detect deleted files", async () => {
       const { createMimoContext } =
-        await import("../src/context/mimo-context.ts");
+        await import("../src/infrastructure/context/mimo-context.ts");
       const ctx = createMimoContext({
         env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       });
@@ -316,7 +316,7 @@ echo '[]'`;
 
     it("should calculate trends between scans", async () => {
       const { createMimoContext } =
-        await import("../src/context/mimo-context.ts");
+        await import("../src/infrastructure/context/mimo-context.ts");
       const ctx = createMimoContext({
         env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       });
@@ -354,7 +354,7 @@ echo '[]'`;
 
     it("should track unchanged files", async () => {
       const { createMimoContext } =
-        await import("../src/context/mimo-context.ts");
+        await import("../src/infrastructure/context/mimo-context.ts");
       const ctx = createMimoContext({
         env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       });
@@ -383,7 +383,7 @@ echo '[]'`;
 
     it("should detect dependency changes between upstream and workspace", async () => {
       const { createMimoContext } =
-        await import("../src/context/mimo-context.ts");
+        await import("../src/infrastructure/context/mimo-context.ts");
       const localCtx = createMimoContext({
         env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       });
@@ -435,7 +435,7 @@ echo '[]'`;
 
   describe("ImpactRepository", () => {
     it("should save and retrieve impact records", async () => {
-      const { ImpactRepository } = await import("../src/impact/repository.ts");
+      const { ImpactRepository } = await import("../src/domain/impact/repository.ts");
       const repository = ctx.repos.impacts;
       const projectId = "test-project";
 
@@ -482,7 +482,7 @@ echo '[]'`;
     });
 
     it("should find records by session", async () => {
-      const { ImpactRepository } = await import("../src/impact/repository.ts");
+      const { ImpactRepository } = await import("../src/domain/impact/repository.ts");
       const repository = ctx.repos.impacts;
       const projectId = "test-project";
 
@@ -521,7 +521,7 @@ echo '[]'`;
     });
 
     it("should sort records by commit date descending", async () => {
-      const { ImpactRepository } = await import("../src/impact/repository.ts");
+      const { ImpactRepository } = await import("../src/domain/impact/repository.ts");
       const repository = ctx.repos.impacts;
       const projectId = "test-project";
 
@@ -564,7 +564,7 @@ echo '[]'`;
     });
 
     it("should return empty array for project with no impacts", async () => {
-      const { ImpactRepository } = await import("../src/impact/repository.ts");
+      const { ImpactRepository } = await import("../src/domain/impact/repository.ts");
       const repository = ctx.repos.impacts;
       const records = repository.findByProject("non-existent-project");
       expect(records).toEqual([]);
@@ -574,7 +574,7 @@ echo '[]'`;
   describe("Impact Trend Calculation", () => {
     it("should show upward trend when new files increase", async () => {
       const { createMimoContext } =
-        await import("../src/context/mimo-context.ts");
+        await import("../src/infrastructure/context/mimo-context.ts");
       const ctx = createMimoContext({
         env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       });
@@ -612,7 +612,7 @@ echo '[]'`;
 
     it("should show stable trend when metrics unchanged", async () => {
       const { createMimoContext } =
-        await import("../src/context/mimo-context.ts");
+        await import("../src/infrastructure/context/mimo-context.ts");
       const ctx = createMimoContext({
         env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
       });

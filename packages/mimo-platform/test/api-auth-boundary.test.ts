@@ -21,17 +21,17 @@ describe("API Auth Boundary Tests", () => {
     } catch {}
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
 
     testAuth = ctx.services.auth;
 
-    const { createAuthRoutes } = await import("../src/auth/routes.tsx");
+    const { createAuthRoutes } = await import("../src/web/features/auth/pages/auth.tsx");
     const middlewareModule = await import("../src/auth/middleware.ts");
     createAuthMiddleware = middlewareModule.createAuthMiddleware;
-    const { registerHelpRoutes } = await import("../src/help/routes.js");
+    const { registerHelpRoutes } = await import("../src/api/rest/help.js");
 
     app = new Hono();
 

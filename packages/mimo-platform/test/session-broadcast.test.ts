@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { broadcastToSession } from "../src/ws/session-broadcast";
+import { broadcastToSession } from "../src/api/websocket/session-broadcast";
 
 describe("session broadcast", () => {
   it("sends a message to every connected client in a session", () => {

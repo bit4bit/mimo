@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   filterAvailableCommands,
   normalizeAvailableCommands,
-} from "../src/sessions/available-commands";
+} from "../src/domain/sessions/available-commands";
 
 describe("available commands normalization", () => {
   it("normalizes command objects with template", () => {

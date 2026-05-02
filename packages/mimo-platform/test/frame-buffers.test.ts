@@ -4,7 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, writeFileSync } from "fs";
 
-import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
+import { DummySharedFossilServer } from "../src/domain/vcs/shared-fossil-server.js";
 
 let sessionRepository: any;
 let userRepository: any;
@@ -15,9 +15,9 @@ let testHome: string;
 
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any): Hono {
-  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
-  const { createProjectsRoutes } = require("../src/projects/routes.tsx");
-  const { createSessionsRoutes } = require("../src/sessions/routes.tsx");
+  const { createInternalApiRouter } = require("../src/api/rest/index.ts");
+  const { createProjectsRoutes } = require("../src/web/features/projects/pages/projects.tsx");
+  const { createSessionsRoutes } = require("../src/web/features/sessions/pages/sessions.tsx");
 
   const app = new Hono();
 
@@ -67,7 +67,7 @@ describe("Frame buffers integration", () => {
     } catch {}
 
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
+      await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: {
         MIMO_HOME: testHome,

@@ -17,8 +17,8 @@ describe("Agents routes with mimoContext", () => {
 
   it("uses jwt secret from injected mimoContext", async () => {
     const { createMimoContext } =
-      await import("../src/context/mimo-context.ts");
-    const { createAgentsRoutes } = await import("../src/agents/routes.tsx");
+      await import("../src/infrastructure/context/mimo-context.ts");
+    const { createAgentsRoutes } = await import("../src/web/features/agents/pages/agents.tsx");
 
     const mimoContext = createMimoContext({
       env: {

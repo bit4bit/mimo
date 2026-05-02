@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, mkdirSync, writeFileSync } from "fs";
-import { createOS } from "../src/os/node-adapter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 const BLOCK_A = `function processItems(items: string[]): string[] {
   const result: string[] = [];
@@ -43,9 +43,9 @@ describe("ImpactCalculator duplication integration", () => {
   });
 
   it("detects duplication when two new files share the same code block", async () => {
-    const { ImpactCalculator } = await import("../src/impact/calculator.ts");
-    const { JscpdService } = await import("../src/impact/jscpd-service.ts");
-    const { SccService } = await import("../src/impact/scc-service.ts");
+    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { JscpdService } = await import("../src/domain/impact/jscpd-service.ts");
+    const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccBin = join(process.cwd(), "bin/scc");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
@@ -73,9 +73,9 @@ describe("ImpactCalculator duplication integration", () => {
   });
 
   it("returns zero duplication for unique code changes", async () => {
-    const { ImpactCalculator } = await import("../src/impact/calculator.ts");
-    const { JscpdService } = await import("../src/impact/jscpd-service.ts");
-    const { SccService } = await import("../src/impact/scc-service.ts");
+    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { JscpdService } = await import("../src/domain/impact/jscpd-service.ts");
+    const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccBin = join(process.cwd(), "bin/scc");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
@@ -105,9 +105,9 @@ describe("ImpactCalculator duplication integration", () => {
   });
 
   it("calculates duplication percentage relative to total changed lines", async () => {
-    const { ImpactCalculator } = await import("../src/impact/calculator.ts");
-    const { JscpdService } = await import("../src/impact/jscpd-service.ts");
-    const { SccService } = await import("../src/impact/scc-service.ts");
+    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { JscpdService } = await import("../src/domain/impact/jscpd-service.ts");
+    const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccBin = join(process.cwd(), "bin/scc");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
@@ -134,9 +134,9 @@ describe("ImpactCalculator duplication integration", () => {
   });
 
   it("groups clones by file in byFile map", async () => {
-    const { ImpactCalculator } = await import("../src/impact/calculator.ts");
-    const { JscpdService } = await import("../src/impact/jscpd-service.ts");
-    const { SccService } = await import("../src/impact/scc-service.ts");
+    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { JscpdService } = await import("../src/domain/impact/jscpd-service.ts");
+    const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccBin = join(process.cwd(), "bin/scc");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
@@ -164,9 +164,9 @@ describe("ImpactCalculator duplication integration", () => {
   });
 
   it("includes duplication data in returned ImpactMetrics", async () => {
-    const { ImpactCalculator } = await import("../src/impact/calculator.ts");
-    const { JscpdService } = await import("../src/impact/jscpd-service.ts");
-    const { SccService } = await import("../src/impact/scc-service.ts");
+    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { JscpdService } = await import("../src/domain/impact/jscpd-service.ts");
+    const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccBin = join(process.cwd(), "bin/scc");
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");

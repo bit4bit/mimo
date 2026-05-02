@@ -4,10 +4,10 @@ import {
   findFiles,
   applyIgnorePatterns,
   loadIgnorePatterns,
-} from "../src/files/service.js";
-import { detectLanguage, escapeHtml } from "../src/files/syntax-highlighter.js";
-import { createOS } from "../src/os/node-adapter.js";
-import type { FileInfo } from "../src/files/types.js";
+} from "../src/domain/files/service.js";
+import { detectLanguage, escapeHtml } from "../src/domain/files/syntax-highlighter.js";
+import { createOS } from "../src/infrastructure/os/node-adapter.js";
+import type { FileInfo } from "../src/domain/files/types.js";
 
 // --- matchesPattern ---
 
@@ -182,7 +182,7 @@ describe("loadIgnorePatterns", () => {
 
 describe("createFileService readFile", () => {
   it("rejects path traversal outside workspace", async () => {
-    const { createFileService } = await import("../src/files/service.js");
+    const { createFileService } = await import("../src/domain/files/service.js");
     const os = createOS({ ...process.env });
     const service = createFileService(os);
     await expect(
