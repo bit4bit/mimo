@@ -89,17 +89,10 @@ Then edit `.env`:
 - `OPENCODE_AGENT_JWT`
 - `CLAUDE_AGENT_JWT`
 
-User/group mapping defaults to `${UID:-1000}:${GID:-1000}`. If you want to force your current user IDs, export them before running compose:
+Use the provided `Makefile` to start Docker Compose with your current UID/GID automatically:
 
 ```bash
-export UID=$(id -u)
-export GID=$(id -g)
-```
-
-Then start:
-
-```bash
-docker compose up --build
+make daemon
 ```
 
 One-line setup/run instructions:
@@ -107,7 +100,7 @@ One-line setup/run instructions:
 - `cp .env.example .env`
 - `# update environment values in .env (JWT_SECRET, OPENCODE_AGENT_JWT, CLAUDE_AGENT_JWT)`
 - `# ensure SSH keys for private repos are in ~/.ssh-mimo (mounted into agent containers as /home/app/.ssh)`
-- `docker compose up --build -d`
+- `make daemon`
 
 Docker Compose exposes the platform at `http://localhost:3001`.
 

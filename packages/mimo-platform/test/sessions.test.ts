@@ -15,6 +15,7 @@ let sessionRepository: any;
 let chatService: any;
 let userRepository: any;
 let projectRepository: any;
+let credentialRepository: any;
 let authService: any;
 let agentService: any;
 let mimoContext: any;
@@ -23,7 +24,9 @@ let testHome: string;
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any, _sessionsR: any): Hono {
   const { createInternalApiRouter } = require("../src/api/rest/index.ts");
-  const { createSessionsRoutes } = require("../src/web/features/sessions/pages/sessions.tsx");
+  const {
+    createSessionsRoutes,
+  } = require("../src/web/features/sessions/pages/sessions.tsx");
 
   const app = new Hono();
 
@@ -68,6 +71,7 @@ describe("Session Management Integration Tests", () => {
 
     userRepository = ctx.repos.users;
     projectRepository = ctx.repos.projects;
+    credentialRepository = ctx.repos.credentials;
     sessionRepository = ctx.repos.sessions;
 
     const chatModule = await import("../src/domain/sessions/chat.ts");
@@ -92,7 +96,8 @@ describe("Session Management Integration Tests", () => {
       _workDir: string,
     ) => ({ success: true, branch: "__sync_head__" });
 
-    const { createSessionsRoutes } = await import("../src/web/features/sessions/pages/sessions.tsx");
+    const { createSessionsRoutes } =
+      await import("../src/web/features/sessions/pages/sessions.tsx");
     sessionRoutes = createSessionsRoutes(ctx);
   });
 
@@ -960,6 +965,62 @@ describe("Session Management Integration Tests", () => {
       // cloneRepository signature: (repoUrl, repoType, targetDir, credential, sourceBranch)
       expect(cloneArgs?.[4]).toBe("feature/existing");
       expect(createBranchCalled).toBe(false);
+    });
+
+    it("passes project SSH credential to cloneRepository", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      let cloneArgs: any[] | null = null;
+      mimoContext.services.vcs.cloneRepository = async (...args: any[]) => {
+        cloneArgs = args;
+        return { success: true };
+      };
+      mimoContext.services.vcs.createFossilUser = async () => ({
+        success: true,
+      });
+      mimoContext.services.vcs.getCurrentBranch = async () => ({
+        success: true,
+        branch: "feature/existing",
+      });
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const credential = await credentialRepository.create({
+        name: "codeberg-ssh",
+        type: "ssh",
+        owner: "testuser",
+        privateKey:
+          "-----BEGIN OPENSSH PRIVATE KEY-----\nmock\n-----END OPENSSH PRIVATE KEY-----",
+      });
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "git@codeberg.org:user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        credentialId: credential.id,
+      });
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "My Session",
+          branchName: "feature/existing",
+          branchMode: "sync",
+        }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      expect(cloneArgs?.[3]).toBeDefined();
+      expect(cloneArgs?.[3].type).toBe("ssh");
+      expect(cloneArgs?.[3].id).toBe(credential.id);
+      expect(cloneArgs?.[4]).toBe("feature/existing");
     });
 
     it("persists session.branch in sync mode for push flow", async () => {

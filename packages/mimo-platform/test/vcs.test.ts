@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
-import { rmSync, existsSync, mkdirSync } from "fs";
+import { rmSync, existsSync, mkdirSync, readFileSync } from "fs";
 import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 describe("VCS Integration Tests", () => {
@@ -48,6 +48,38 @@ describe("VCS Integration Tests", () => {
       const vcs = new VCS({ os });
       const version = await vcs.getFossilVersion();
       expect(version).toContain("2.");
+    });
+  });
+
+  describe("SSH credential handling", () => {
+    it("normalizes escaped newlines before writing SSH key file", () => {
+      const vcs = new VCS({ os });
+      const rawKey =
+        "-----BEGIN OPENSSH PRIVATE KEY-----\\nline1\\nline2\\n-----END OPENSSH PRIVATE KEY-----";
+
+      const keyPath = (vcs as any).createTempSshKeyFile(rawKey);
+      const written = readFileSync(keyPath, "utf-8");
+
+      expect(written).toContain("-----BEGIN OPENSSH PRIVATE KEY-----\n");
+      expect(written).toContain("\nline1\nline2\n");
+      expect(written).toContain("\n-----END OPENSSH PRIVATE KEY-----");
+
+      (vcs as any).deleteTempSshKeyFile(keyPath);
+    });
+
+    it("normalizes quoted key content with CRLF and appends newline", () => {
+      const vcs = new VCS({ os });
+      const rawKey =
+        '"-----BEGIN OPENSSH PRIVATE KEY-----\\r\\nline1\\r\\nline2\\r\\n-----END OPENSSH PRIVATE KEY-----"';
+
+      const keyPath = (vcs as any).createTempSshKeyFile(rawKey);
+      const written = readFileSync(keyPath, "utf-8");
+
+      expect(written).toBe(
+        "-----BEGIN OPENSSH PRIVATE KEY-----\nline1\nline2\n-----END OPENSSH PRIVATE KEY-----\n",
+      );
+
+      (vcs as any).deleteTempSshKeyFile(keyPath);
     });
   });
 

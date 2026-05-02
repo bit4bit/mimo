@@ -7,11 +7,17 @@ import { SessionDetailPage } from "../components/SessionDetailPage.js";
 import { SessionCreatePage } from "../components/SessionCreatePage.js";
 import { Layout } from "../../../shared/components/Layout.js";
 import type { Context } from "hono";
-import { normalizeFrameState, updateFrameState } from "../../../../domain/sessions/frame-state.js";
+import {
+  normalizeFrameState,
+  updateFrameState,
+} from "../../../../domain/sessions/frame-state.js";
 import { logger } from "../../../../logger.js";
 import type { MimoContext } from "../../../../infrastructure/context/mimo-context.js";
 import { findFiles } from "../../../../domain/files/service.js";
-import { detectLanguage, escapeHtml } from "../../../../domain/files/syntax-highlighter.js";
+import {
+  detectLanguage,
+  escapeHtml,
+} from "../../../../domain/files/syntax-highlighter.js";
 import { SearchServiceError } from "../../../../domain/files/search-service.js";
 import { canDeleteSessionNow } from "../../../../domain/sessions/session-retention.js";
 import { createSessionDeletionUseCase } from "../../../../domain/sessions/session-deletion.js";
@@ -248,6 +254,22 @@ export function createSessionsRoutes(
       return c.text("Project not found", 404);
     }
 
+    let projectCredential:
+      | import("../../../../domain/credentials/repository.js").Credential
+      | undefined;
+    if (project.credentialId) {
+      projectCredential = await mimoContext.repos.credentials.findById(
+        project.credentialId,
+        username,
+      );
+      if (!projectCredential) {
+        return c.text(
+          "Project credential not found. Update project credentials and try again.",
+          400,
+        );
+      }
+    }
+
     const effectiveSubpath =
       (agentSubpathRaw?.trim() || undefined) ??
       project.agentSubpath ??
@@ -335,7 +357,7 @@ export function createSessionsRoutes(
         project.repoUrl,
         project.repoType,
         session.upstreamPath,
-        undefined,
+        projectCredential,
         cloneBranch,
       );
 

@@ -135,12 +135,31 @@ export class VCS {
   // ── SSH key helpers (now use injected fs/path) ──────────────────────────
 
   private createTempSshKeyFile(privateKey: string): string {
+    let normalizedPrivateKey = privateKey.trim();
+    if (
+      (normalizedPrivateKey.startsWith('"') &&
+        normalizedPrivateKey.endsWith('"')) ||
+      (normalizedPrivateKey.startsWith("'") &&
+        normalizedPrivateKey.endsWith("'"))
+    ) {
+      normalizedPrivateKey = normalizedPrivateKey.slice(1, -1);
+    }
+    normalizedPrivateKey = normalizedPrivateKey
+      .replace(/^\uFEFF/, "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .replace(/\\r\\n/g, "\n")
+      .replace(/\\r/g, "\n")
+      .replace(/\\n/g, "\n");
+    if (!normalizedPrivateKey.endsWith("\n")) {
+      normalizedPrivateKey += "\n";
+    }
     const tempDir = this.os.path.tempDir();
     const keyFile = this.os.path.join(
       tempDir,
       `mimo-ssh-key-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     );
-    this.os.fs.writeFile(keyFile, privateKey, { mode: 0o600 });
+    this.os.fs.writeFile(keyFile, normalizedPrivateKey, { mode: 0o600 });
     this.os.fs.chmod(keyFile, 0o600);
     return keyFile;
   }
@@ -155,6 +174,17 @@ export class VCS {
 
   private buildGitSshCommand(keyPath: string): string {
     return `ssh -i "${keyPath}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`;
+  }
+
+  private sanitizeGitUrl(repoUrl: string): string {
+    try {
+      const url = new URL(repoUrl);
+      if (url.username) url.username = "***";
+      if (url.password) url.password = "***";
+      return url.toString();
+    } catch {
+      return repoUrl;
+    }
   }
 
   // ── URL / auth helpers (pure functions, unchanged) ───────────────────────
@@ -721,12 +751,24 @@ export class VCS {
         const cloneArgs = sourceBranch
           ? ["git", "clone", "--branch", sourceBranch, url, targetDir]
           : ["git", "clone", url, targetDir];
+        logger.debug("[vcs] Starting git clone", {
+          repoUrl: this.sanitizeGitUrl(repoUrl),
+          targetDir,
+          sourceBranch: sourceBranch ?? null,
+          credentialType: credential?.type ?? null,
+          usingInjectedSshCommand: !!env?.GIT_SSH_COMMAND,
+        });
         const result = await this.execCommand(
           cloneArgs,
           targetDir,
           env,
           this.cloneTimeoutMs,
         );
+        logger.debug("[vcs] git clone finished", {
+          success: result.success,
+          error: result.error,
+          output: result.output,
+        });
 
         if (
           !result.success &&
