@@ -5,6 +5,8 @@ import { McpServerListPage } from "../components/McpServerListPage.js";
 import { McpServerFormPage } from "../components/McpServerFormPage.js";
 import type { Context } from "hono";
 import type { MimoContext } from "../context/mimo-context.js";
+import type { McpServerResponse } from "../api/internal/mcp-servers/types.js";
+import { createInternalApiClient } from "../api/internal/index.js";
 
 // Helper to get authenticated username - uses mimoContext
 async function getAuthUsername(
@@ -27,9 +29,7 @@ async function getAuthUsername(
   return null;
 }
 
-export function createMcpServerRoutes(mimoContext: MimoContext): Hono {
-  const service = mimoContext.services.mcpServer;
-
+export function createMcpServerRoutes(mimoContext: MimoContext, deps: { fetchFn?: typeof fetch } = {}): Hono {
   const router = new Hono();
 
   // GET /mcp-servers - List all MCP servers (HTML or JSON based on Accept header)
@@ -39,7 +39,20 @@ export function createMcpServerRoutes(mimoContext: MimoContext): Hono {
       return c.redirect("/auth/login");
     }
 
-    const servers = await service.findAll();
+    // Use internal API client
+    const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
+    const result = await apiClient.get<{ servers: McpServerResponse[] }>("/mcp-servers");
+
+    if (!result.success) {
+      if (c.req.header("Accept")?.includes("application/json")) {
+        return c.json({ error: result.error }, result.status as any);
+      }
+      return c.html(
+        <McpServerListPage servers={[]} error={result.error || "Failed to fetch MCP servers"} />,
+      );
+    }
+
+    const servers = result.data.servers || [];
 
     // Check if client wants JSON
     const acceptHeader = c.req.header("Accept");
@@ -69,15 +82,21 @@ export function createMcpServerRoutes(mimoContext: MimoContext): Hono {
     }
 
     const id = c.req.param("id");
-    const server = await service.findById(id);
+    const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
+    const result = await apiClient.get<{ server: McpServerResponse }>(`/mcp-servers/${id}`);
 
-    if (!server) {
+    if (!result.success) {
+      if (result.status === 404) {
+        return c.html(
+          <McpServerFormPage error="MCP server not found" isEditing={true} />,
+        );
+      }
       return c.html(
-        <McpServerFormPage error="MCP server not found" isEditing={true} />,
+        <McpServerFormPage error={result.error || "Failed to fetch MCP server"} isEditing={true} />,
       );
     }
 
-    return c.html(<McpServerFormPage server={server} isEditing={true} />);
+    return c.html(<McpServerFormPage server={result.data.server} isEditing={true} />);
   });
 
   // POST /mcp-servers - Create new MCP server (from form)
@@ -89,30 +108,26 @@ export function createMcpServerRoutes(mimoContext: MimoContext): Hono {
 
     try {
       const contentType = c.req.header("Content-Type");
+      const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
 
       if (contentType?.includes("application/json")) {
         // JSON API request
         const body = await c.req.json();
-        const { name, description, transport, command, args, url, headers } =
-          body;
+        const result = await apiClient.post<{ server: McpServerResponse }>("/mcp-servers", body);
 
-        const server = await service.create({
-          name,
-          description,
-          transport: transport || "stdio",
-          command,
-          args: args || [],
-          url,
-          headers,
-        });
+        if (!result.success) {
+          return c.json({ error: result.error }, result.status as any);
+        }
 
-        return c.json(server, 201);
+        return c.json(result.data.server, 201);
       } else {
         // Form submission
         const body = await c.req.parseBody();
         const name = body.name as string;
         const description = body.description as string;
         const transport = (body.transport as string) || "stdio";
+
+        let apiBody: Record<string, unknown>;
 
         if (transport === "stdio") {
           const command = body.command as string;
@@ -121,13 +136,13 @@ export function createMcpServerRoutes(mimoContext: MimoContext): Hono {
             ? argsText.split("\n").filter((line) => line.trim())
             : [];
 
-          const server = await service.create({
+          apiBody = {
             name,
             description,
             transport,
             command,
             args,
-          });
+          };
         } else {
           // HTTP or SSE transport
           const url = body.url as string;
@@ -141,13 +156,19 @@ export function createMcpServerRoutes(mimoContext: MimoContext): Hono {
             });
           }
 
-          const server = await service.create({
+          apiBody = {
             name,
             description,
             transport: transport as "http" | "sse",
             url,
             headers,
-          });
+          };
+        }
+
+        const result = await apiClient.post<{ server: McpServerResponse }>("/mcp-servers", apiBody);
+
+        if (!result.success) {
+          return c.html(<McpServerFormPage error={result.error || "Failed to create MCP server"} />);
         }
 
         return c.redirect("/mcp-servers");
@@ -169,7 +190,8 @@ export function createMcpServerRoutes(mimoContext: MimoContext): Hono {
     }
 
     const id = c.req.param("id");
-    await service.delete(id);
+    const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
+    await apiClient.delete<void>(`/mcp-servers/${id}`);
 
     return c.redirect("/mcp-servers");
   });
@@ -182,13 +204,17 @@ export function createMcpServerRoutes(mimoContext: MimoContext): Hono {
     }
 
     const id = c.req.param("id");
-    const server = await service.findById(id);
+    const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
+    const result = await apiClient.get<{ server: McpServerResponse }>(`/mcp-servers/${id}`);
 
-    if (!server) {
-      return c.json({ error: "MCP server not found" }, 404);
+    if (!result.success) {
+      if (result.status === 404) {
+        return c.json({ error: "MCP server not found" }, 404);
+      }
+      return c.json({ error: result.error }, result.status as any);
     }
 
-    return c.json(server);
+    return c.json(result.data.server);
   });
 
   // PATCH /mcp-servers/:id - Update MCP server (JSON API)
@@ -199,30 +225,16 @@ export function createMcpServerRoutes(mimoContext: MimoContext): Hono {
     }
 
     const id = c.req.param("id");
+    const body = await c.req.json();
 
-    try {
-      const body = await c.req.json();
-      const { name, description, transport, command, args, url, headers } =
-        body;
+    const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
+    const result = await apiClient.put<{ server: McpServerResponse }>(`/mcp-servers/${id}`, body);
 
-      const server = await service.update(id, {
-        name,
-        description,
-        transport,
-        command,
-        args,
-        url,
-        headers,
-      });
-
-      if (!server) {
-        return c.json({ error: "MCP server not found" }, 404);
-      }
-
-      return c.json(server);
-    } catch (error: any) {
-      return c.json({ error: error.message }, 400);
+    if (!result.success) {
+      return c.json({ error: result.error }, result.status as any);
     }
+
+    return c.json(result.data.server);
   });
 
   // POST /mcp-servers/:id - Update MCP server (form submission with _method=PATCH)
@@ -238,76 +250,63 @@ export function createMcpServerRoutes(mimoContext: MimoContext): Hono {
     // Check if this is a PATCH override
     const method = body._method as string;
     if (method === "PATCH") {
-      try {
-        const name = body.name as string;
-        const description = body.description as string;
-        const transport = (body.transport as string) || "stdio";
+      const name = body.name as string;
+      const description = body.description as string;
+      const transport = (body.transport as string) || "stdio";
 
-        if (transport === "stdio") {
-          const command = body.command as string;
-          const argsText = body.args as string;
-          const args = argsText
-            ? argsText.split("\n").filter((line) => line.trim())
-            : [];
+      let apiBody: Record<string, unknown>;
 
-          const server = await service.update(id, {
-            name,
-            description,
-            transport,
-            command,
-            args,
+      if (transport === "stdio") {
+        const command = body.command as string;
+        const argsText = body.args as string;
+        const args = argsText
+          ? argsText.split("\n").filter((line) => line.trim())
+          : [];
+
+        apiBody = {
+          name,
+          description,
+          transport,
+          command,
+          args,
+        };
+      } else {
+        // HTTP or SSE transport
+        const url = body.url as string;
+        const headersText = body.headers as string;
+        let headers: Record<string, string> | undefined;
+        if (headersText) {
+          headers = {};
+          headersText.split("\n").forEach((line) => {
+            const [key, value] = line.split(":").map((s) => s.trim());
+            if (key && value) headers![key] = value;
           });
-
-          if (!server) {
-            return c.html(
-              <McpServerFormPage
-                error="MCP server not found"
-                isEditing={true}
-              />,
-            );
-          }
-        } else {
-          // HTTP or SSE transport
-          const url = body.url as string;
-          const headersText = body.headers as string;
-          let headers: Record<string, string> | undefined;
-          if (headersText) {
-            headers = {};
-            headersText.split("\n").forEach((line) => {
-              const [key, value] = line.split(":").map((s) => s.trim());
-              if (key && value) headers![key] = value;
-            });
-          }
-
-          const server = await service.update(id, {
-            name,
-            description,
-            transport: transport as "http" | "sse",
-            url,
-            headers,
-          });
-
-          if (!server) {
-            return c.html(
-              <McpServerFormPage
-                error="MCP server not found"
-                isEditing={true}
-              />,
-            );
-          }
         }
 
-        return c.redirect("/mcp-servers");
-      } catch (error: any) {
-        const server = await service.findById(id);
+        apiBody = {
+          name,
+          description,
+          transport: transport as "http" | "sse",
+          url,
+          headers,
+        };
+      }
+
+      const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
+      const result = await apiClient.put<{ server: McpServerResponse }>(`/mcp-servers/${id}`, apiBody);
+
+      if (!result.success) {
+        const serverResult = await apiClient.get<{ server: McpServerResponse }>(`/mcp-servers/${id}`);
         return c.html(
           <McpServerFormPage
-            server={server || undefined}
-            error={error.message}
+            server={serverResult.success ? serverResult.data.server : undefined}
+            error={result.error || "Failed to update MCP server"}
             isEditing={true}
           />,
         );
       }
+
+      return c.redirect("/mcp-servers");
     }
 
     // Regular POST (shouldn't happen, but redirect to list)
@@ -322,10 +321,11 @@ export function createMcpServerRoutes(mimoContext: MimoContext): Hono {
     }
 
     const id = c.req.param("id");
-    const result = await service.delete(id);
+    const apiClient = createInternalApiClient(c, mimoContext, { fetchFn: deps.fetchFn });
+    const result = await apiClient.delete<void>(`/mcp-servers/${id}`);
 
-    if (!result) {
-      return c.json({ error: "MCP server not found" }, 404);
+    if (!result.success) {
+      return c.json({ error: result.error }, result.status as any);
     }
 
     return c.json({ success: true });

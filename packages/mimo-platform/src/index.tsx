@@ -163,9 +163,10 @@ import { createMcpRoutes } from "./mcp/server.js";
 import { createPlatformMcpServerConfig } from "./mcp/platform-config.js";
 import { registerHelpRoutes } from "./help/routes.js";
 import { authMiddleware } from "./auth/middleware.js";
+import { createInternalApiRouter } from "./api/internal/index.js";
 
 const PUBLIC_PATHS = ["/", "/health", "/api/projects/public", "/api/help"];
-const PUBLIC_PATH_PREFIXES = ["/auth/", "/js/", "/vendor/", "/api/mimo-mcp"];
+const PUBLIC_PATH_PREFIXES = ["/auth/", "/js/", "/vendor/", "/api/mimo-mcp", "/api/internal"];
 
 function isPublicPath(path: string): boolean {
   if (PUBLIC_PATHS.includes(path)) return true;
@@ -429,6 +430,9 @@ app.route(
 
 // Help API endpoint (unprotected, read-only)
 registerHelpRoutes(app);
+
+// Internal API routes (protected by JWT Bearer token)
+app.route("/api/internal", createInternalApiRouter(mimoContext));
 
 // Health check
 app.get("/health", (c) => {

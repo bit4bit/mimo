@@ -6,6 +6,12 @@ import { configValidator } from "../config/validator.js";
 import { ConfigEditorPage } from "../components/ConfigEditorPage.js";
 import type { Context } from "hono";
 import type { MimoContext } from "../context/mimo-context.js";
+import type { Config } from "../config/service.js";
+import { createInternalApiClient } from "../api/internal/index.js";
+import type {
+  GetConfigResponse,
+  UpdateConfigResponse,
+} from "../api/internal/config/types.js";
 
 export function createConfigRoutes(mimoContext: MimoContext): Hono {
   const service = mimoContext.services.config;
@@ -17,7 +23,14 @@ export function createConfigRoutes(mimoContext: MimoContext): Hono {
 
   // GET /config - Show config editor
   router.get("/", async (c: Context) => {
-    const config = service.load();
+    const apiClient = createInternalApiClient(c, mimoContext);
+    const result = await apiClient.get<GetConfigResponse>("/config");
+
+    if (!result.success) {
+      return c.text(`Failed to load config: ${result.error}`, result.status);
+    }
+
+    const config = result.data.config as Config;
     return c.html(<ConfigEditorPage config={config} />);
   });
 
@@ -47,26 +60,50 @@ export function createConfigRoutes(mimoContext: MimoContext): Hono {
       );
     }
 
-    // Save the config
-    service.save(validation.sanitized);
+    // Save via internal API client
+    const apiClient = createInternalApiClient(c, mimoContext);
+    const result = await apiClient.put<UpdateConfigResponse>(
+      "/config",
+      validation.sanitized,
+    );
+
+    if (!result.success) {
+      return c.html(
+        <ConfigEditorPage
+          config={validation.sanitized}
+          errors={[{ field: "general", message: result.error }]}
+        />,
+        result.status >= 400 && result.status < 500 ? result.status : 400,
+      );
+    }
 
     return c.html(
-      <ConfigEditorPage config={validation.sanitized} success={true} />,
+      <ConfigEditorPage config={result.data.config as Config} success={true} />,
     );
   });
 
   // POST /config/reset - Reset to defaults
   router.post("/reset", async (c: Context) => {
-    const { defaultConfig } = await import("../config/service.js");
-    service.save(defaultConfig);
+    const apiClient = createInternalApiClient(c, mimoContext);
+    const result = await apiClient.post<void>("/config/reset", {});
+
+    if (!result.success) {
+      return c.text(`Failed to reset config: ${result.error}`, result.status);
+    }
 
     return c.redirect("/config");
   });
 
   // GET /config/api - Get config as JSON (for frontend)
   router.get("/api", async (c: Context) => {
-    const config = service.load();
-    return c.json(config);
+    const apiClient = createInternalApiClient(c, mimoContext);
+    const result = await apiClient.get<GetConfigResponse>("/config");
+
+    if (!result.success) {
+      return c.json({ error: `Failed to load config: ${result.error}` }, result.status);
+    }
+
+    return c.json(result.data.config);
   });
 
   // POST /config/api - Update config via JSON API
@@ -85,11 +122,26 @@ export function createConfigRoutes(mimoContext: MimoContext): Hono {
       );
     }
 
-    service.save(validation.sanitized);
+    // Save via internal API client
+    const apiClient = createInternalApiClient(c, mimoContext);
+    const result = await apiClient.put<UpdateConfigResponse>(
+      "/config",
+      validation.sanitized,
+    );
+
+    if (!result.success) {
+      return c.json(
+        {
+          success: false,
+          errors: [{ field: "general", message: result.error }],
+        },
+        result.status >= 400 && result.status < 500 ? result.status : 400,
+      );
+    }
 
     return c.json({
       success: true,
-      config: validation.sanitized,
+      config: result.data.config,
     });
   });
 

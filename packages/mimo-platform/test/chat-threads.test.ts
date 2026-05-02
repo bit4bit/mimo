@@ -1,12 +1,3 @@
-/**
- * Failing integration tests for: add-chat-threads-shared-workspace
- *
- * Tasks covered:
- *   1.3  per-thread model/mode are isolated across threads
- *   1.4  reconnect sends streaming state for active thread
- *   1.5  programmatic thread creation API works without UI
- *   session-management spec: session creation starts without chat threads
- */
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { Hono } from "hono";
 import { tmpdir } from "os";
@@ -16,16 +7,39 @@ import { rmSync } from "fs";
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
 let testHome: string;
-let app: Hono;
-let sessionRoutes: any;
+let mimoContext: any;
 let sessionRepository: any;
 let projectRepository: any;
 let userRepository: any;
 let authService: any;
 let agentService: any;
-let token: string;
-let projectId: string;
-let sessionId: string;
+
+// Helper to create test app with internal API mounted
+function createTestApp(ctx: any): Hono {
+  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
+  const { createSessionsRoutes } = require("../src/sessions/routes.tsx");
+
+  const app = new Hono();
+
+  // Mount internal API
+  const internalRouter = createInternalApiRouter(ctx);
+  app.route("/api/internal", internalRouter);
+
+  // Mount session routes with fetchFn that routes through app
+  const sessions = createSessionsRoutes(ctx, {
+    fetchFn: (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/api/internal/")) {
+        const path = new URL(urlStr).pathname;
+        return app.request(path, init);
+      }
+      return fetch(url, init);
+    },
+  });
+  app.route("/projects/:projectId/sessions", sessions);
+
+  return app;
+}
 
 describe("Chat Threads API", () => {
   beforeEach(async () => {
@@ -37,10 +51,15 @@ describe("Chat Threads API", () => {
     const { createMimoContext } =
       await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({
-      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret" },
+      env: {
+        MIMO_HOME: testHome,
+        JWT_SECRET: "test-secret",
+        PLATFORM_URL: "http://localhost:3000",
+      },
       services: { sharedFossil: new DummySharedFossilServer() },
     });
 
+    mimoContext = ctx;
     userRepository = ctx.repos.users;
     projectRepository = ctx.repos.projects;
     sessionRepository = ctx.repos.sessions;
@@ -53,34 +72,6 @@ describe("Chat Threads API", () => {
     ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
     ctx.services.vcs.openFossil = async () => ({ success: true });
     ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });
-
-    const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
-    sessionRoutes = createSessionsRoutes(ctx);
-
-    app = new Hono();
-    app.route("/projects/:projectId/sessions", sessionRoutes);
-
-    // Seed: user, project, session
-    await userRepository.create(
-      "owner",
-      await Bun.password.hash("pass", { algorithm: "bcrypt", cost: 10 }),
-    );
-    token = await authService.generateToken("owner");
-
-    const project = await projectRepository.create({
-      name: "Test Project",
-      repoUrl: "https://github.com/user/repo.git",
-      repoType: "git",
-      owner: "owner",
-    });
-    projectId = project.id;
-
-    const session = await sessionRepository.create({
-      name: "Test Session",
-      projectId,
-      owner: "owner",
-    });
-    sessionId = session.id;
   });
 
   afterEach(() => {
@@ -89,11 +80,38 @@ describe("Chat Threads API", () => {
     } catch {}
   });
 
+  async function createUserProjectSession() {
+    const app = createTestApp(mimoContext);
+
+    await userRepository.create(
+      "owner",
+      await Bun.password.hash("pass", { algorithm: "bcrypt", cost: 10 }),
+    );
+    const token = await authService.generateToken("owner");
+
+    const project = await projectRepository.create({
+      name: "Test Project",
+      repoUrl: "https://github.com/user/repo.git",
+      repoType: "git",
+      owner: "owner",
+    });
+
+    const session = await sessionRepository.create({
+      name: "Test Session",
+      projectId: project.id,
+      owner: "owner",
+    });
+
+    return { app, project, session, token };
+  }
+
   // Task 1.5 + session-management spec: new session starts with no threads
   describe("Session creation starts without chat threads", () => {
     it("GET /sessions/:id/chat-threads returns an empty thread list for a new session", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
       const res = await app.request(
-        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "GET",
           headers: { Cookie: `token=${token}` },
@@ -111,8 +129,10 @@ describe("Chat Threads API", () => {
   // Task 1.5: programmatic thread creation without UI
   describe("Programmatic thread creation", () => {
     it("POST /sessions/:id/chat-threads creates a named thread with model and mode", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
       const res = await app.request(
-        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
           headers: {
@@ -137,8 +157,10 @@ describe("Chat Threads API", () => {
     });
 
     it("POST /sessions/:id/chat-threads returns 401 for unauthenticated requests", async () => {
+      const { app, project, session } = await createUserProjectSession();
+
       const res = await app.request(
-        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -156,8 +178,10 @@ describe("Chat Threads API", () => {
 
   describe("Thread agent assignment", () => {
     it("POST /sessions/:id/chat-threads stores assignedAgentId on thread", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
       const res = await app.request(
-        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
           headers: {
@@ -179,8 +203,10 @@ describe("Chat Threads API", () => {
     });
 
     it("POST /sessions/:id/chat-threads returns 400 when assignedAgentId is not provided", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
       const res = await app.request(
-        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
           headers: {
@@ -204,9 +230,11 @@ describe("Chat Threads API", () => {
   // Task 1.3: model/mode isolation
   describe("Per-thread model and mode isolation", () => {
     it("PATCH /sessions/:id/chat-threads/:threadId updates one thread without affecting siblings", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
       // Create two threads
       const r1 = await app.request(
-        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
           headers: {
@@ -225,7 +253,7 @@ describe("Chat Threads API", () => {
       const thread1 = await r1.json();
 
       const r2 = await app.request(
-        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
           headers: {
@@ -245,7 +273,7 @@ describe("Chat Threads API", () => {
 
       // Change model of thread1 only
       const patch = await app.request(
-        `/projects/${projectId}/sessions/${sessionId}/chat-threads/${thread1.id}`,
+        `/projects/${project.id}/sessions/${session.id}/chat-threads/${thread1.id}`,
         {
           method: "PATCH",
           headers: {
@@ -259,7 +287,7 @@ describe("Chat Threads API", () => {
 
       // List threads and verify isolation
       const list = await app.request(
-        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "GET",
           headers: { Cookie: `token=${token}` },
@@ -280,9 +308,11 @@ describe("Chat Threads API", () => {
   // Task 1.4: reconnect sends streaming state for active thread
   describe("Reconnect streaming state is thread-scoped", () => {
     it("streaming state stored for a thread is retrievable by chatThreadId", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
       // Create a thread
       const r = await app.request(
-        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
           headers: {
@@ -302,7 +332,7 @@ describe("Chat Threads API", () => {
 
       // Activate the thread
       const activate = await app.request(
-        `/projects/${projectId}/sessions/${sessionId}/chat-threads/${thread.id}/activate`,
+        `/projects/${project.id}/sessions/${session.id}/chat-threads/${thread.id}/activate`,
         {
           method: "POST",
           headers: { Cookie: `token=${token}` },
@@ -312,7 +342,7 @@ describe("Chat Threads API", () => {
 
       // Verify activeChatThreadId is updated
       const list = await app.request(
-        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "GET",
           headers: { Cookie: `token=${token}` },
@@ -326,9 +356,11 @@ describe("Chat Threads API", () => {
   // Bug fix: restart recovery of non-main thread context
   describe("Restart recovery of thread context", () => {
     it("should persist thread acpSessionId and include it in session_ready", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
       // Create two threads
       const r1 = await app.request(
-        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
           headers: {
@@ -347,7 +379,7 @@ describe("Chat Threads API", () => {
       const mainThread = await r1.json();
 
       const r2 = await app.request(
-        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
           headers: {
@@ -366,40 +398,36 @@ describe("Chat Threads API", () => {
       const reviewerThread = await r2.json();
 
       // Simulate ACP session created with thread-specific acpSessionId
-      // This would normally come from the agent after spawning ACP for the thread
-      await sessionRepository.updateChatThread(sessionId, reviewerThread.id, {
+      await sessionRepository.updateChatThread(session.id, reviewerThread.id, {
         acpSessionId: "acp-thread-reviewer-123",
       });
 
-      // Simulate agent disconnect and reconnect - load the session
-      const session = await sessionRepository.findById(sessionId);
-      expect(session).toBeDefined();
+      // Reload session from disk (simulates restart)
+      const reloadedSession = await sessionRepository.findById(session.id);
+      expect(reloadedSession).toBeDefined();
 
-      // Verify thread has persisted acpSessionId
-      const updatedThread = session!.chatThreads.find(
+      const reloadedThread = reloadedSession!.chatThreads.find(
         (t: any) => t.id === reviewerThread.id,
       );
-      expect(updatedThread?.acpSessionId).toBe("acp-thread-reviewer-123");
+      expect(reloadedThread?.acpSessionId).toBe("acp-thread-reviewer-123");
 
-      // The session_ready message should include thread-level acpSessionId
-      // This is verified by checking the thread data structure
-      expect(session!.chatThreads).toHaveLength(2);
-
-      // Verify each thread has the expected structure for bootstrap
-      for (const thread of session!.chatThreads) {
+      // Verify thread data structure
+      expect(reloadedSession!.chatThreads).toHaveLength(2);
+      for (const thread of reloadedSession!.chatThreads) {
         expect(thread.id).toBeDefined();
         expect(thread.name).toBeDefined();
         expect(thread.model).toBeDefined();
         expect(thread.mode).toBeDefined();
-        // acpSessionId should be present (null or string)
         expect(thread).toHaveProperty("acpSessionId");
       }
     });
 
     it("should preserve thread acpSessionId across session reloads", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
       // Create a thread with acpSessionId
       const r = await app.request(
-        `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
           headers: {
@@ -418,14 +446,14 @@ describe("Chat Threads API", () => {
       const thread = await r.json();
 
       // Set thread-specific acpSessionId
-      await sessionRepository.updateChatThread(sessionId, thread.id, {
+      await sessionRepository.updateChatThread(session.id, thread.id, {
         acpSessionId: "acp-feature-session-456",
         model: "claude-3-opus",
         mode: "build",
       });
 
       // Reload session from disk (simulates restart)
-      const reloadedSession = await sessionRepository.findById(sessionId);
+      const reloadedSession = await sessionRepository.findById(session.id);
       expect(reloadedSession).toBeDefined();
 
       const reloadedThread = reloadedSession!.chatThreads.find(
@@ -439,6 +467,8 @@ describe("Chat Threads API", () => {
 
   describe("session_ready MCP config injection", () => {
     it("4.4 session_ready includes platform MCP server config", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
       const sentMessages: any[] = [];
       const originalIsOnline = agentService.isAgentOnline.bind(agentService);
       const originalGetConnection =
@@ -451,11 +481,10 @@ describe("Chat Threads API", () => {
       });
 
       try {
-        const session = await sessionRepository.findById(sessionId);
         expect(session?.mcpToken).toBeTruthy();
 
         const res = await app.request(
-          `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+          `/projects/${project.id}/sessions/${session.id}/chat-threads`,
           {
             method: "POST",
             headers: {
@@ -492,6 +521,8 @@ describe("Chat Threads API", () => {
     });
 
     it("4.5 repeated session_ready payloads keep the same mcpToken", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
       const sentMessages: any[] = [];
       const originalIsOnline = agentService.isAgentOnline.bind(agentService);
       const originalGetConnection =
@@ -504,12 +535,11 @@ describe("Chat Threads API", () => {
       });
 
       try {
-        const initial = await sessionRepository.findById(sessionId);
-        const firstToken = initial!.mcpToken;
+        const firstToken = session!.mcpToken;
 
         for (let i = 0; i < 2; i += 1) {
           const res = await app.request(
-            `/projects/${projectId}/sessions/${sessionId}/chat-threads`,
+            `/projects/${project.id}/sessions/${session.id}/chat-threads`,
             {
               method: "POST",
               headers: {

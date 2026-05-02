@@ -4,15 +4,65 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync } from "fs";
 
-let app: any;
 let projectRepository: any;
 let sessionRepository: any;
 let userRepository: any;
+let mimoContext: any;
+let testHome: string;
+
+// Helper to create test app with internal API mounted
+function createTestApp(ctx: any): Hono {
+  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
+  const { createProjectsRoutes } = require("../src/projects/routes.tsx");
+  const { createSessionsRoutes } = require("../src/sessions/routes.tsx");
+  const { createAuthRoutes } = require("../src/auth/routes.tsx");
+
+  const app = new Hono();
+
+  // Mount internal API
+  const internalRouter = createInternalApiRouter(ctx);
+  app.route("/api/internal", internalRouter);
+
+  // Mount auth routes
+  app.route("/auth", createAuthRoutes(ctx));
+
+  // Mount project routes with fetchFn that routes through app
+  const projects = createProjectsRoutes(ctx, {
+    fetchFn: (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/api/internal/")) {
+        const path = new URL(urlStr).pathname;
+        return app.request(path, init);
+      }
+      return fetch(url, init);
+    },
+  });
+
+  // Mount sessions routes with same fetchFn
+  const sessions = createSessionsRoutes(ctx, {
+    fetchFn: (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/api/internal/")) {
+        const path = new URL(urlStr).pathname;
+        return app.request(path, init);
+      }
+      return fetch(url, init);
+    },
+  });
+
+  app.route("/projects", projects);
+  app.route("/projects/:projectId/sessions", sessions);
+
+  return app;
+}
 
 describe("Project Sessions Link Integration Tests", () => {
-  const testHome = join(tmpdir(), `mimo-project-sessions-test-${Date.now()}`);
-
   beforeEach(async () => {
+    testHome = join(
+      tmpdir(),
+      `mimo-project-sessions-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
+
     try {
       rmSync(testHome, { recursive: true, force: true });
     } catch {}
@@ -23,30 +73,21 @@ describe("Project Sessions Link Integration Tests", () => {
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     });
 
+    mimoContext = ctx;
     userRepository = ctx.repos.users;
     projectRepository = ctx.repos.projects;
     sessionRepository = ctx.repos.sessions;
-
-    app = new Hono();
-
-    const authModule = await import("../src/auth/routes.tsx");
-    app.route("/auth", authModule.createAuthRoutes(ctx));
-
-    // Note: protectedRoutes was empty (new Hono()) and has been removed
-    // Global auth middleware now handles all routes
-
-    const projectsModule = await import("../src/projects/routes.tsx");
-    app.route("/projects", projectsModule.createProjectsRoutes(ctx));
   });
 
   describe("Unified Projects Sessions Page", () => {
     it("should show sessions list when a project is selected", async () => {
+      const app = createTestApp(mimoContext);
+
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
         name: "Test Project",
@@ -79,12 +120,13 @@ describe("Project Sessions Link Integration Tests", () => {
     });
 
     it("should show empty session state when no sessions exist", async () => {
+      const app = createTestApp(mimoContext);
+
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
         name: "Empty Project",
@@ -103,12 +145,13 @@ describe("Project Sessions Link Integration Tests", () => {
     });
 
     it("should show New Session button", async () => {
+      const app = createTestApp(mimoContext);
+
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
         name: "Test Project",
@@ -128,12 +171,13 @@ describe("Project Sessions Link Integration Tests", () => {
     });
 
     it("should show session links to session detail", async () => {
+      const app = createTestApp(mimoContext);
+
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
         name: "Test Project",
@@ -158,12 +202,13 @@ describe("Project Sessions Link Integration Tests", () => {
     });
 
     it("should order sessions by recency when priorities are equal", async () => {
+      const app = createTestApp(mimoContext);
+
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
         name: "Test Project",

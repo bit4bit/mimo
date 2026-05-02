@@ -1,3 +1,7 @@
 [test]
 # Only run tests in test/ directory by default
 root = "./test"
+
+[run]
+# Use hono/jsx as the JSX import source
+jsx = "hono/jsx"

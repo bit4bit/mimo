@@ -1,37 +1,94 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync } from "fs";
 
-// Re-import modules after setting up environment
+import { resetGlobalState } from "./test-helpers.js";
+
 let projectRoutes: any;
 let projectRepository: any;
 let sessionRepository: any;
-let authMiddleware: any;
 let userRepository: any;
+let mimoContext: any;
+let testHome: string;
+
+// Helper to create test app with internal API mounted
+function createTestApp(ctx: any, _projectsR: any): Hono {
+  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
+  const { createProjectsRoutes } = require("../src/projects/routes.tsx");
+
+  const app = new Hono();
+
+  // Mount internal API
+  const internalRouter = createInternalApiRouter(ctx);
+  app.route("/api/internal", internalRouter);
+
+  // Mount project routes with fetchFn that routes through app
+  const projects = createProjectsRoutes(ctx, {
+    fetchFn: (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/api/internal/")) {
+        // Extract the path from the full URL
+        const path = new URL(urlStr).pathname;
+        // For internal API calls, pass through the init directly
+        // The internal API auth middleware will check Authorization header
+        return app.request(path, init);
+      }
+      return fetch(url, init);
+    },
+  });
+  app.route("/projects", projects);
+
+  return app;
+}
+
+// Helper to make authenticated requests
+type RequestOptions = {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+};
+
+function makeAuthRequest(
+  app: Hono,
+  path: string,
+  token: string,
+  options: RequestOptions = {},
+): Promise<Response> {
+  const headers: Record<string, string> = {
+    Cookie: `token=${token}`,
+    ...options.headers,
+  };
+  return app.request(path, {
+    method: options.method || "GET",
+    headers,
+    body: options.body,
+  });
+}
 
 describe("Project Management Integration Tests", () => {
-  const testHome = join(tmpdir(), `mimo-project-test-${Date.now()}`);
-
   beforeEach(async () => {
-    // Clean up from previous run
-    try {
-      rmSync(testHome, { recursive: true, force: true });
-    } catch {}
+    // Create unique test home for each test
+    testHome = join(
+      tmpdir(),
+      `mimo-project-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
 
     // Set up fresh environment with createMimoContext
     const { createMimoContext } =
       await import("../src/context/mimo-context.ts");
     const ctx = createMimoContext({
-      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+      env: {
+        MIMO_HOME: testHome,
+        JWT_SECRET: "test-secret-key-for-testing",
+        PLATFORM_URL: "http://localhost:3000",
+        PORT: 3000,
+      },
     });
+    mimoContext = ctx;
 
     userRepository = ctx.repos.users;
-
-    const middlewareModule = await import("../src/auth/middleware.ts");
-    authMiddleware = middlewareModule.authMiddleware;
-
     projectRepository = ctx.repos.projects;
     sessionRepository = ctx.repos.sessions;
 
@@ -39,18 +96,25 @@ describe("Project Management Integration Tests", () => {
     projectRoutes = createProjectsRoutes(ctx);
   });
 
+  afterEach(async () => {
+    await resetGlobalState();
+    try {
+      rmSync(testHome, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+  });
+
   describe("Project Creation", () => {
     it("should create a new project", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       // Create and authenticate user first
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "My Test Project");
@@ -76,8 +140,7 @@ describe("Project Management Integration Tests", () => {
     });
 
     it("should reject project creation without authentication", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       const formData = new URLSearchParams();
       formData.append("name", "Test Project");
@@ -94,15 +157,13 @@ describe("Project Management Integration Tests", () => {
     });
 
     it("should reject project with missing name", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("repoUrl", "https://github.com/user/repo.git");
@@ -120,15 +181,13 @@ describe("Project Management Integration Tests", () => {
     });
 
     it("should reject invalid Git URL", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Test Project");
@@ -149,15 +208,13 @@ describe("Project Management Integration Tests", () => {
 
   describe("Project Listing", () => {
     it("should list all projects for authenticated user", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       // Create some projects
       await projectRepository.create({
@@ -187,15 +244,13 @@ describe("Project Management Integration Tests", () => {
     });
 
     it("should render selected project sessions in unified page", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       await projectRepository.create({
         name: "Project 1",
@@ -232,15 +287,13 @@ describe("Project Management Integration Tests", () => {
     });
 
     it("should show empty state when no projects", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const res = await app.request("/projects", {
         headers: { Cookie: `token=${token}` },
@@ -254,15 +307,13 @@ describe("Project Management Integration Tests", () => {
 
   describe("Project View", () => {
     it("should redirect legacy project detail URL to unified page", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
         name: "Test Project",
@@ -282,15 +333,13 @@ describe("Project Management Integration Tests", () => {
     });
 
     it("should return 404 for non-existent project", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const res = await app.request("/projects/non-existent-id", {
         headers: { Cookie: `token=${token}` },
@@ -302,15 +351,13 @@ describe("Project Management Integration Tests", () => {
 
   describe("Project Deletion", () => {
     it("should delete project and cleanup files", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
         name: "Project To Delete",
@@ -339,15 +386,13 @@ describe("Project Management Integration Tests", () => {
 
   describe("Project Creation Form", () => {
     it("should show creation form", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const res = await app.request("/projects/new", {
         headers: { Cookie: `token=${token}` },
@@ -364,15 +409,13 @@ describe("Project Management Integration Tests", () => {
 
   describe("Project Description", () => {
     it("should create project with description", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project with Description");
@@ -398,15 +441,13 @@ describe("Project Management Integration Tests", () => {
     });
 
     it("should create project without description (backwards compatible)", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project Without Description");
@@ -431,15 +472,13 @@ describe("Project Management Integration Tests", () => {
     });
 
     it("should reject description longer than 500 characters", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const longDescription = "a".repeat(501);
       const formData = new URLSearchParams();
@@ -465,15 +504,13 @@ describe("Project Management Integration Tests", () => {
 
   describe("Project agentSubpath", () => {
     it("should create project with agentSubpath", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project with Agent Subpath");
@@ -499,15 +536,13 @@ describe("Project Management Integration Tests", () => {
     });
 
     it("should create project without agentSubpath (backwards compatible)", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project Without Agent Subpath");
@@ -565,11 +600,11 @@ describe("Project Management Integration Tests", () => {
       const projects = await projectRepository.listByOwner("testuser");
       expect(projects.length).toBe(2);
       expect(
-        projects.find((p) => p.name === "List Agent Subpath Project 1")
+        projects.find((p: any) => p.name === "List Agent Subpath Project 1")
           ?.agentSubpath,
       ).toBe("packages/web");
       expect(
-        projects.find((p) => p.name === "List Agent Subpath Project 2")
+        projects.find((p: any) => p.name === "List Agent Subpath Project 2")
           ?.agentSubpath,
       ).toBe("packages/cli");
     });
@@ -625,15 +660,13 @@ describe("Project Management Integration Tests", () => {
 
   describe("Project Branch Fields", () => {
     it("should create project with sourceBranch only", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project with Source Branch");
@@ -660,15 +693,13 @@ describe("Project Management Integration Tests", () => {
     });
 
     it("should create project with newBranch only", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project with New Branch");
@@ -695,15 +726,13 @@ describe("Project Management Integration Tests", () => {
     });
 
     it("should create project with both branch fields", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project with Both Branches");
@@ -731,15 +760,13 @@ describe("Project Management Integration Tests", () => {
     });
 
     it("should create project without branch fields (backwards compatible)", async () => {
-      const app = new Hono();
-      app.route("/projects", projectRoutes);
+      const app = createTestApp(mimoContext, projectRoutes);
 
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
-      const { generateToken } = await import("../src/auth/jwt.ts");
-      const token = await generateToken("testuser");
+      const token = await mimoContext.services.auth.generateToken("testuser");
 
       const formData = new URLSearchParams();
       formData.append("name", "Project Without Branches");
@@ -800,10 +827,12 @@ describe("Project Management Integration Tests", () => {
       const projects = await projectRepository.listByOwner("testuser");
       expect(projects.length).toBe(2);
       expect(
-        projects.find((p) => p.name === "List Branch Project 1")?.sourceBranch,
+        projects.find((p: any) => p.name === "List Branch Project 1")
+          ?.sourceBranch,
       ).toBe("main");
       expect(
-        projects.find((p) => p.name === "List Branch Project 2")?.newBranch,
+        projects.find((p: any) => p.name === "List Branch Project 2")
+          ?.newBranch,
       ).toBe("ai-branch");
     });
   });

@@ -3,12 +3,21 @@ import { jsx } from "hono/jsx";
 import { Hono } from "hono";
 import type { MimoContext } from "../context/mimo-context.js";
 import type { Context } from "hono";
+import { DEFAULT_MIMO_HOST } from "../context/mimo-context.js";
 
 import { Layout } from "../components/Layout.js";
 import { DataTable, type DataTableColumn } from "../components/DataTable.js";
 import { authMiddleware, createAuthMiddleware } from "../auth/middleware.js";
+import { createInternalApiClient } from "../api/internal/index.js";
+import type {
+  ListAgentsResponse,
+  GetAgentResponse,
+  CreateAgentResponse,
+  GetCapabilitiesResponse,
+  RefreshCapabilitiesResponse,
+} from "../api/internal/agents/types.js";
 
-type AgentsRoutesContext = Pick<MimoContext, "services" | "repos">;
+type AgentsRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
 
 export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
   const router = new Hono();
@@ -18,91 +27,12 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
   const authMiddlewareWithContext = createAuthMiddleware(
     mimoContext.services.auth,
   );
-
-  function hasOptions(options: unknown): boolean {
-    return Array.isArray(options) && options.length > 0;
-  }
-
-  function buildCapabilitiesFromSessionState(session: any) {
-    const modelState = session?.modelState;
-    const modeState = session?.modeState;
-
-    if (
-      !modelState ||
-      !modeState ||
-      !hasOptions(modelState.availableModels) ||
-      !hasOptions(modeState.availableModes)
-    ) {
-      return null;
-    }
-
-    return {
-      availableModels: modelState.availableModels,
-      defaultModelId:
-        modelState.currentModelId || modelState.availableModels[0]?.value || "",
-      availableModes: modeState.availableModes,
-      defaultModeId:
-        modeState.currentModeId || modeState.availableModes[0]?.value || "",
-    };
-  }
-
-  function buildCapabilitiesFromThread(agentId: string, session: any) {
-    const matchingThreads = Array.isArray(session?.chatThreads)
-      ? session.chatThreads.filter(
-          (thread: any) => thread?.assignedAgentId === agentId,
-        )
-      : [];
-
-    if (matchingThreads.length === 0) return null;
-
-    const activeThread = matchingThreads.find(
-      (thread: any) => thread.id === session?.activeChatThreadId,
-    );
-    const fallbackThread = activeThread || matchingThreads[0];
-
-    if (!fallbackThread?.model || !fallbackThread?.mode) return null;
-
-    return {
-      availableModels: [
-        { value: fallbackThread.model, name: fallbackThread.model },
-      ],
-      defaultModelId: fallbackThread.model,
-      availableModes: [
-        { value: fallbackThread.mode, name: fallbackThread.mode },
-      ],
-      defaultModeId: fallbackThread.mode,
-    };
-  }
-
-  async function deriveCapabilities(agentId: string) {
-    const [sessionAssigned, threadAssigned] = await Promise.all([
-      sessionRepository.findByAssignedAgentId(agentId),
-      sessionRepository.findByThreadAgentId(agentId),
-    ]);
-
-    const byId = new Map<string, any>();
-    for (const session of [...sessionAssigned, ...threadAssigned]) {
-      byId.set(session.id, session);
-    }
-
-    const sessions = [...byId.values()].sort(
-      (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
-    );
-
-    for (const session of sessions) {
-      const fromSession = buildCapabilitiesFromSessionState(session);
-      if (fromSession) return fromSession;
-    }
-
-    for (const session of sessions) {
-      const fromThread = buildCapabilitiesFromThread(agentId, session);
-      if (fromThread) return fromThread;
-    }
-
-    return null;
-  }
+  const platformUrl =
+    mimoContext.env?.PLATFORM_URL ??
+    `http://${mimoContext.env?.MIMO_HOST ?? DEFAULT_MIMO_HOST}:3000`;
 
   // Agent API endpoint - uses agent JWT, not user auth
+  // This endpoint is kept separate from internal API (per task 2.9)
   router.get("/me/sessions", async (c: Context) => {
     const authHeader = c.req.header("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -134,92 +64,55 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     );
   });
 
-  router.get(
-    "/:agentId/capabilities",
-    authMiddlewareWithContext,
-    async (c: Context) => {
-      const agentId = c.req.param("agentId");
-      const agent = await agentRepository.findById(agentId);
-      if (!agent) return c.json({ error: "Agent not found" }, 404);
-
-      const hasCachedCapabilities =
-        !!agent.capabilities &&
-        hasOptions(agent.capabilities.availableModels) &&
-        hasOptions(agent.capabilities.availableModes);
-
-      if (hasCachedCapabilities) {
-        return c.json(agent.capabilities);
-      }
-
-      const derivedCapabilities = await deriveCapabilities(agentId);
-      if (!derivedCapabilities) {
-        return c.json({ error: "No capabilities available" }, 404);
-      }
-
-      await agentRepository.updateCapabilities(agentId, derivedCapabilities);
-      return c.json(derivedCapabilities);
-    },
-  );
-
-  router.post(
-    "/:agentId/capabilities/refresh",
-    authMiddlewareWithContext,
-    async (c: Context) => {
-      const agentId = c.req.param("agentId");
-      const agent = await agentRepository.findById(agentId);
-      if (!agent) return c.json({ error: "Agent not found" }, 404);
-
-      // Clear cached capabilities first
-      await agentRepository.clearCapabilities(agentId);
-
-      // If agent is online, request fresh capabilities
-      const requested = await agentService.requestCapabilitiesRefresh(agentId);
-
-      // Redirect with appropriate message
-      const redirectUrl = requested
-        ? `/agents/${agentId}?refreshed=1`
-        : `/agents/${agentId}?refreshed=1&offline=1`;
-      return c.redirect(redirectUrl);
-    },
-  );
-
+  // List agents (JSON endpoint) - proxies to internal API
   router.get("/list", authMiddlewareWithContext, async (c: Context) => {
-    const user = c.get("user") as { username: string };
-    const agents = await agentService.listAgentsByOwner(user.username);
-    const statusFilter = c.req.query("status");
-    const filtered = statusFilter
-      ? agents.filter((a) => a.status === statusFilter)
-      : agents;
+    const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
+    const result = await apiClient.get<ListAgentsResponse>("/agents");
+
+    if (result.success === false) {
+      return c.json({ error: result.error }, result.status as 400 | 401 | 403 | 404 | 500);
+    }
+
     return c.json(
-      filtered.map((a) => ({ id: a.id, name: a.name, status: a.status })),
+      result.data.agents.map((a: any) => ({
+        id: a.id,
+        name: a.name,
+        status: a.status,
+      })),
     );
   });
 
   router.use("/*", mimoContext ? authMiddlewareWithContext : authMiddleware);
 
+  // List agents (HTML page) - proxies to internal API
   router.get("/", async (c: Context) => {
-    const user = c.get("user") as { username: string };
-    const username = user.username;
+    const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
+    const result = await apiClient.get<ListAgentsResponse>("/agents");
 
-    const agents = await agentService.listAgentsByOwner(username);
+    if (result.success === false) {
+      return c.text(`Error: ${result.error}`, result.status as 400 | 401 | 403 | 404 | 500);
+    }
 
-    const agentsWithDetails = await Promise.all(
-      agents.map(async (agent) => {
-        const sessions = await sessionRepository.findByAssignedAgentId(
-          agent.id,
-        );
+    const agents = result.data.agents;
+    const statusFilter = c.req.query("status");
+    const filteredAgents = statusFilter
+      ? agents.filter((agent: any) => agent.status === statusFilter)
+      : agents;
+
+    // Fetch session counts for each agent
+    const agentsWithSessionCounts = await Promise.all(
+      filteredAgents.map(async (agent: any) => {
+        const sessions = await sessionRepository.findByAssignedAgentId(agent.id);
         return {
           ...agent,
           sessionCount: sessions.length,
-          status: agent.status,
+          startedAt: new Date(agent.startedAt),
+          lastActivityAt: agent.lastActivityAt
+            ? new Date(agent.lastActivityAt)
+            : undefined,
         };
       }),
     );
-
-    const statusFilter = c.req.query("status");
-    const filteredAgents = statusFilter
-      ? agentsWithDetails.filter((agent) => agent.status === statusFilter)
-      : agentsWithDetails;
 
     const agentColumns: DataTableColumn<any>[] = [
       {
@@ -256,14 +149,14 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
       {
         key: "startedAt",
         label: "Created",
-        render: (agent) => new Date(agent.startedAt).toLocaleString(),
+        render: (agent) => agent.startedAt.toLocaleString(),
       },
       {
         key: "lastActivityAt",
         label: "Last Active",
         render: (agent) =>
           agent.lastActivityAt
-            ? new Date(agent.lastActivityAt).toLocaleString()
+            ? agent.lastActivityAt.toLocaleString()
             : "-",
       },
       {
@@ -328,7 +221,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
           </div>
 
           <DataTable
-            rows={filteredAgents}
+            rows={agentsWithSessionCounts}
             columns={agentColumns}
             searchFields={["name"]}
             pageSize={10}
@@ -390,6 +283,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     );
   });
 
+  // New agent form (no proxy needed - just renders form)
   router.get("/new", async (c: Context) => {
     return c.html(
       <Layout title="Create Agent">
@@ -453,10 +347,8 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     );
   });
 
+  // Create agent - proxies to internal API
   router.post("/", async (c: Context) => {
-    const user = c.get("user") as { username: string };
-    const username = user.username;
-
     const body = await c.req.parseBody();
     const name = body.name as string;
     const provider = body.provider as "opencode" | "claude";
@@ -508,23 +400,20 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
       );
     }
 
-    try {
-      const agent = await agentService.createAgent({
-        name: name.trim(),
-        owner: username,
-        provider,
-      });
-      return c.redirect(`/agents/${agent.id}?created=1`);
-    } catch (error) {
+    // Call internal API to create agent
+    const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
+    const result = await apiClient.post<CreateAgentResponse>("/agents", {
+      name: name.trim(),
+      provider,
+    });
+
+    if (result.success === false) {
+      const errorMessage = result.error;
       return c.html(
         <Layout title="Create Agent">
           <div class="agent-create-container">
             <h1>Create Agent</h1>
-            <div class="error-message">
-              {error instanceof Error
-                ? error.message
-                : "Failed to create agent"}
-            </div>
+            <div class="error-message">{errorMessage}</div>
             <form method="POST" action="/agents">
               <div class="form-group">
                 <label for="name">Agent Name:</label>
@@ -570,21 +459,25 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
         </Layout>,
       );
     }
+
+    return c.redirect(`/agents/${result.data.agent.id}?created=1`);
   });
 
+  // Get agent - proxies to internal API
   router.get("/:id", async (c: Context) => {
-    const user = c.get("user") as { username: string };
-    const username = user.username;
     const agentId = c.req.param("id");
     const showToken = c.req.query("created") === "1";
     const showRefreshed = c.req.query("refreshed") === "1";
     const agentOffline = c.req.query("offline") === "1";
 
-    const agent = await agentRepository.findById(agentId);
-    if (!agent || agent.owner !== username) {
-      return c.text("Agent not found", 404);
+    const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
+    const result = await apiClient.get<GetAgentResponse>(`/agents/${agentId}`);
+
+    if (result.success === false) {
+      return c.text(`Error: ${result.error}`, result.status === 404 ? 404 : result.status);
     }
 
+    const agent = result.data.agent;
     const sessions = await sessionRepository.findByAssignedAgentId(agentId);
 
     const sessionColumns: DataTableColumn<any>[] = [
@@ -682,7 +575,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
             <div class="token-section">
               <label>Token:</label>
               <div class="token-box">
-                <code id="agent-token">{agent.token}</code>
+                <code id="agent-token">{result.data.token}</code>
                 <button
                   type="button"
                   onclick="copyToken()"
@@ -705,7 +598,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
                     <span class="cap-label">Available Models:</span>
                     <span>
                       {agent.capabilities.availableModels
-                        .map((m) => m.name)
+                        .map((m: any) => m.name)
                         .join(", ")}
                     </span>
                   </div>
@@ -717,7 +610,7 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
                     <span class="cap-label">Available Modes:</span>
                     <span>
                       {agent.capabilities.availableModes
-                        .map((m) => m.name)
+                        .map((m: any) => m.name)
                         .join(", ")}
                     </span>
                   </div>
@@ -841,18 +734,51 @@ export function createAgentsRoutes(mimoContext: AgentsRoutesContext) {
     );
   });
 
+  // Delete agent - proxies to internal API
   router.post("/:id/delete", async (c: Context) => {
-    const user = c.get("user") as { username: string };
-    const username = user.username;
     const agentId = c.req.param("id");
 
-    const agent = await agentRepository.findById(agentId);
-    if (!agent || agent.owner !== username) {
-      return c.text("Agent not found", 404);
+    const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
+    const result = await apiClient.delete<unknown>(`/agents/${agentId}`);
+
+    if (result.success === false) {
+      return c.text(`Error: ${result.error}`, result.status === 404 ? 404 : result.status);
     }
 
-    await agentService.deleteAgent(agentId);
     return c.redirect("/agents");
+  });
+
+  // Get capabilities - proxies to internal API (JSON endpoint)
+  router.get("/:id/capabilities", async (c: Context) => {
+    const agentId = c.req.param("id");
+
+    const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
+    const result = await apiClient.get<GetCapabilitiesResponse>(`/agents/${agentId}/capabilities`);
+
+    if (result.success === false) {
+      return c.json({ error: result.error }, result.status as 400 | 401 | 403 | 404 | 500);
+    }
+
+    return c.json(result.data.capabilities);
+  });
+
+  // Refresh capabilities - proxies to internal API
+  router.post("/:id/capabilities/refresh", async (c: Context) => {
+    const agentId = c.req.param("id");
+
+    const apiClient = createInternalApiClient(c, mimoContext as MimoContext);
+    const result = await apiClient.post<RefreshCapabilitiesResponse>(`/agents/${agentId}/capabilities/refresh`, {});
+
+    if (result.success === false) {
+      return c.json({ error: result.error }, result.status as 400 | 401 | 403 | 404 | 500);
+    }
+
+    // Redirect with appropriate message
+    const requested = result.data.requested;
+    const redirectUrl = requested
+      ? `/agents/${agentId}?refreshed=1`
+      : `/agents/${agentId}?refreshed=1&offline=1`;
+    return c.redirect(redirectUrl);
   });
 
   return router;

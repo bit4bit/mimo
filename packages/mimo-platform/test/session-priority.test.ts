@@ -7,12 +7,40 @@ import { dump } from "js-yaml";
 
 import { DummySharedFossilServer } from "../src/vcs/shared-fossil-server.js";
 
-let sessionRoutes: any;
 let sessionRepository: any;
 let userRepository: any;
 let projectRepository: any;
 let authService: any;
 let testHome: string;
+let mimoContext: any;
+
+// Helper to create test app with internal API mounted
+function createTestApp(ctx: any): Hono {
+  const { createInternalApiRouter } = require("../src/api/internal/index.ts");
+  const { createSessionsRoutes } = require("../src/sessions/routes.tsx");
+
+  const app = new Hono();
+
+  // Mount internal API
+  const internalRouter = createInternalApiRouter(ctx);
+  app.route("/api/internal", internalRouter);
+
+  // Mount session routes with fetchFn that routes through app
+  const sessions = createSessionsRoutes(ctx, {
+    fetchFn: (url: string | URL | Request, init?: RequestInit) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/api/internal/")) {
+        const path = new URL(urlStr).pathname;
+        return app.request(path, init);
+      }
+      return fetch(url, init);
+    },
+  });
+  app.route("/projects/:projectId/sessions", sessions);
+  app.route("/sessions", sessions);
+
+  return app;
+}
 
 describe("Session Priority", () => {
   beforeEach(async () => {
@@ -28,6 +56,7 @@ describe("Session Priority", () => {
       services: { sharedFossil: new DummySharedFossilServer() },
     });
 
+    mimoContext = ctx;
     userRepository = ctx.repos.users;
     projectRepository = ctx.repos.projects;
     sessionRepository = ctx.repos.sessions;
@@ -39,9 +68,6 @@ describe("Session Priority", () => {
     ctx.services.vcs.openFossil = async () => ({ success: true });
     ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });
     ctx.services.vcs.createFossilUser = async () => ({ success: true });
-
-    const { createSessionsRoutes } = await import("../src/sessions/routes.tsx");
-    sessionRoutes = createSessionsRoutes(ctx);
   });
 
   async function createUser(username = "testuser") {
@@ -63,8 +89,7 @@ describe("Session Priority", () => {
 
   describe("6.1 — create session with priority: high stores and returns it", () => {
     it("should store and return priority: high when specified at creation", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext);
 
       const token = await createUser();
       const project = await createProject();
@@ -91,8 +116,7 @@ describe("Session Priority", () => {
 
   describe("6.2 — create session without priority defaults to medium", () => {
     it("should default to medium when priority not provided", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext);
 
       const token = await createUser();
       const project = await createProject();
@@ -118,8 +142,7 @@ describe("Session Priority", () => {
 
   describe("6.3 — POST with invalid priority returns 400", () => {
     it("should return 400 when priority is not a valid value", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext);
 
       const token = await createUser();
       const project = await createProject();
@@ -142,8 +165,7 @@ describe("Session Priority", () => {
 
   describe("6.4 — PATCH config with priority: low persists it", () => {
     it("should persist updated priority via PATCH config", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext);
 
       const token = await createUser();
       const project = await createProject();
@@ -230,8 +252,7 @@ describe("Session Priority", () => {
 
   describe("6.6 — list returns high before medium before low regardless of creation order", () => {
     it("should sort sessions high → medium → low", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext);
 
       const token = await createUser();
       const project = await createProject();
@@ -242,14 +263,15 @@ describe("Session Priority", () => {
         ["Low Session", "low"],
         ["High Session", "high"],
       ]) {
-        await app.request(`/projects/${project.id}/sessions`, {
+        const res = await app.request(`/projects/${project.id}/sessions`, {
           method: "POST",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
             Cookie: `token=${token}`,
           },
-          body: new URLSearchParams({ name, priority }).toString(),
+          body: new URLSearchParams({ name, priority: priority as string }).toString(),
         });
+        expect(res.status).toBe(302);
       }
 
       const sessions = await sessionRepository.listByProject(project.id);
@@ -262,13 +284,12 @@ describe("Session Priority", () => {
 
   describe("6.7 — within same priority, newer session appears first", () => {
     it("should sort newer sessions before older within the same priority", async () => {
-      const app = new Hono();
-      app.route("/projects/:projectId/sessions", sessionRoutes);
+      const app = createTestApp(mimoContext);
 
       const token = await createUser();
       const project = await createProject();
 
-      await app.request(`/projects/${project.id}/sessions`, {
+      const res1 = await app.request(`/projects/${project.id}/sessions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -279,11 +300,12 @@ describe("Session Priority", () => {
           priority: "high",
         }).toString(),
       });
+      expect(res1.status).toBe(302);
 
       // Ensure different createdAt timestamps
       await new Promise((r) => setTimeout(r, 10));
 
-      await app.request(`/projects/${project.id}/sessions`, {
+      const res2 = await app.request(`/projects/${project.id}/sessions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -294,6 +316,7 @@ describe("Session Priority", () => {
           priority: "high",
         }).toString(),
       });
+      expect(res2.status).toBe(302);
 
       const sessions = await sessionRepository.listByProject(project.id);
       expect(sessions.length).toBe(2);

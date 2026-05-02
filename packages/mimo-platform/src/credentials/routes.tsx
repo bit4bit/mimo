@@ -5,17 +5,27 @@ import { CredentialsListPage } from "../components/CredentialsListPage";
 import { CredentialCreatePage } from "../components/CredentialCreatePage";
 import { CredentialEditPage } from "../components/CredentialEditPage";
 import type { MimoContext } from "../context/mimo-context.js";
+import type {
+  ListCredentialsResponse,
+  GetCredentialResponse,
+} from "../api/internal/credentials/types.js";
+import { createInternalApiClient } from "../api/internal/index.js";
 
 export function createCredentialsRoutes(mimoContext: MimoContext): Hono {
-  const repo = mimoContext.repos.credentials;
-
   const credentials = new Hono();
 
   // List all credentials (GET /credentials)
   credentials.get("/", authMiddleware, async (c) => {
-    const user = c.get("user") as { username: string };
-    const credentialsList = await repo.findByOwner(user.username);
-    return c.html(<CredentialsListPage credentials={credentialsList} />);
+    const apiClient = createInternalApiClient(c, mimoContext);
+    const result = await apiClient.get<ListCredentialsResponse>("/credentials");
+
+    if (!result.success) {
+      return c.text(`Failed to load credentials: ${result.error}`, result.status);
+    }
+
+    return c.html(
+      <CredentialsListPage credentials={result.data.credentials as Credential[]} />,
+    );
   });
 
   // Show create form (GET /credentials/new)
@@ -28,7 +38,6 @@ export function createCredentialsRoutes(mimoContext: MimoContext): Hono {
     const body = await c.req.parseBody();
     const name = body.name as string;
     const type = (body.type as string) || "https";
-    const user = c.get("user") as { username: string };
 
     if (!name) {
       return c.html(
@@ -44,136 +53,152 @@ export function createCredentialsRoutes(mimoContext: MimoContext): Hono {
       );
     }
 
-    try {
-      if (type === "https") {
-        const username = body.username as string;
-        const password = body.password as string;
+    // Build request body for internal API
+    let requestBody: {
+      name: string;
+      type: "https" | "ssh";
+      username?: string;
+      password?: string;
+      privateKey?: string;
+    } = {
+      name,
+      type: type as "https" | "ssh",
+    };
 
-        if (!username || !password) {
-          return c.html(
-            <CredentialCreatePage error="Username and password are required for HTTPS credentials" />,
-            400,
-          );
-        }
+    if (type === "https") {
+      const username = body.username as string;
+      const password = body.password as string;
 
-        await repo.create({
-          name,
-          type: "https",
-          username,
-          password,
-          owner: user.username,
-        });
-      } else {
-        // SSH credential
-        const privateKey = body.privateKey as string;
-
-        if (!privateKey) {
-          return c.html(
-            <CredentialCreatePage error="Private key is required for SSH credentials" />,
-            400,
-          );
-        }
-
-        await repo.create({
-          name,
-          type: "ssh",
-          privateKey,
-          owner: user.username,
-        });
+      if (!username || !password) {
+        return c.html(
+          <CredentialCreatePage error="Username and password are required for HTTPS credentials" />,
+          400,
+        );
       }
 
-      return c.redirect("/credentials", 302);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to create credential";
-      return c.html(<CredentialCreatePage error={errorMessage} />, 400);
+      requestBody.username = username;
+      requestBody.password = password;
+    } else {
+      // SSH credential
+      const privateKey = body.privateKey as string;
+
+      if (!privateKey) {
+        return c.html(
+          <CredentialCreatePage error="Private key is required for SSH credentials" />,
+          400,
+        );
+      }
+
+      requestBody.privateKey = privateKey;
     }
+
+    // Use internal API client to create credential
+    const apiClient = createInternalApiClient(c, mimoContext);
+    const result = await apiClient.post<{ credential: Credential }>("/credentials", requestBody);
+
+    if (!result.success) {
+      return c.html(
+        <CredentialCreatePage error={result.error} />,
+        result.status >= 400 && result.status < 500 ? result.status : 400,
+      );
+    }
+
+    return c.redirect("/credentials", 302);
   });
 
   // Edit form (GET /credentials/:id/edit)
   credentials.get("/:id/edit", authMiddleware, async (c) => {
     const id = c.req.param("id");
-    const user = c.get("user") as { username: string };
+    const apiClient = createInternalApiClient(c, mimoContext);
+    const result = await apiClient.get<GetCredentialResponse>(`/credentials/${id}`);
 
-    const credential = await repo.findById(id, user.username);
-    if (!credential) {
-      return c.notFound();
+    if (!result.success) {
+      if (result.status === 404) {
+        return c.notFound();
+      }
+      return c.text(`Failed to load credential: ${result.error}`, result.status);
     }
 
-    return c.html(<CredentialEditPage credential={credential} />);
+    return c.html(<CredentialEditPage credential={result.data.credential as Credential} />);
   });
 
   // Update credential (POST /credentials/:id/edit)
   credentials.post("/:id/edit", authMiddleware, async (c) => {
     const id = c.req.param("id");
-    const user = c.get("user") as { username: string };
+    const apiClient = createInternalApiClient(c, mimoContext);
 
-    const credential = await repo.findById(id, user.username);
-    if (!credential) {
-      return c.notFound();
+    // First get the current credential to populate error page if needed
+    const getResult = await apiClient.get<GetCredentialResponse>(`/credentials/${id}`);
+
+    if (!getResult.success) {
+      if (getResult.status === 404) {
+        return c.notFound();
+      }
+      return c.text(`Failed to load credential: ${getResult.error}`, getResult.status);
     }
 
+    const credential = getResult.data.credential;
     const body = await c.req.parseBody();
     const name = body.name as string;
 
     if (!name) {
       return c.html(
         <CredentialEditPage
-          credential={credential}
+          credential={credential as Credential}
           error="Credential name is required"
         />,
         400,
       );
     }
 
-    try {
-      const updates: {
-        name: string;
-        type: "https" | "ssh";
-        username?: string;
-        password?: string;
-        privateKey?: string;
-      } = {
+    // Build request body for internal API
+    let requestBody: { name?: string; username?: string; password?: string; privateKey?: string } =
+      {
         name,
-        type: credential.type,
       };
 
-      if (credential.type === "https") {
-        const username = body.username as string;
-        const password = body.password as string;
+    if (credential.type === "https") {
+      const username = body.username as string;
+      const password = body.password as string;
 
-        if (username) updates.username = username;
-        if (password) updates.password = password;
-      } else {
-        // SSH credential
-        const privateKey = body.privateKey as string;
+      if (username) requestBody.username = username;
+      if (password) requestBody.password = password;
+    } else {
+      // SSH credential
+      const privateKey = body.privateKey as string;
 
-        if (privateKey) updates.privateKey = privateKey;
-      }
+      if (privateKey) requestBody.privateKey = privateKey;
+    }
 
-      await repo.update(id, user.username, updates);
-      return c.redirect("/credentials", 302);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to update credential";
+    // Use internal API client to update credential
+    const result = await apiClient.put<{ credential: Credential }>(
+      `/credentials/${id}`,
+      requestBody,
+    );
+
+    if (!result.success) {
       return c.html(
-        <CredentialEditPage credential={credential} error={errorMessage} />,
-        400,
+        <CredentialEditPage credential={credential as Credential} error={result.error} />,
+        result.status >= 400 && result.status < 500 ? result.status : 400,
       );
     }
+
+    return c.redirect("/credentials", 302);
   });
 
   // Delete credential (POST /credentials/:id/delete)
   credentials.post("/:id/delete", authMiddleware, async (c) => {
     const id = c.req.param("id");
-    const user = c.get("user") as { username: string };
+    const apiClient = createInternalApiClient(c, mimoContext);
+    const result = await apiClient.delete<{ deleted: true }>(`/credentials/${id}`);
 
-    const credential = await repo.findById(id, user.username);
-    if (!credential) {
-      return c.notFound();
+    if (!result.success) {
+      if (result.status === 404) {
+        return c.notFound();
+      }
+      return c.text(`Failed to delete credential: ${result.error}`, result.status);
     }
 
-    await repo.delete(id, user.username);
     return c.redirect("/credentials", 302);
   });
 
