@@ -91,7 +91,8 @@ export function divide(x: number, y: number): number {
   });
 
   it("calculates consistent complexity across multiple runs", async () => {
-    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { ImpactCalculator } =
+      await import("../src/domain/impact/calculator.ts");
     const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccPath = join(
@@ -149,7 +150,8 @@ export function divide(x: number, y: number): number {
   });
 
   it("detects variance with concurrent file modifications", async () => {
-    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { ImpactCalculator } =
+      await import("../src/domain/impact/calculator.ts");
     const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccPath = join(
@@ -218,7 +220,8 @@ console.log(add(1, 2));
   });
 
   it("cache bypass on force refresh clears stale data", async () => {
-    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { ImpactCalculator } =
+      await import("../src/domain/impact/calculator.ts");
     const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccPath = join(
@@ -274,7 +277,8 @@ console.log(add(1, 2));
   });
 
   it("anomaly detection flags extreme deltas", async () => {
-    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { ImpactCalculator } =
+      await import("../src/domain/impact/calculator.ts");
     const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccPath = join(

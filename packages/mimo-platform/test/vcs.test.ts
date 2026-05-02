@@ -355,7 +355,9 @@ describe("VCS Integration Tests", () => {
 
         mkdirSync(upstreamPath, { recursive: true });
         execSync("git init", { cwd: upstreamPath });
-        execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+        execSync('git config user.email "test@test.com"', {
+          cwd: upstreamPath,
+        });
         execSync('git config user.name "Test User"', { cwd: upstreamPath });
 
         // Create initial commit
@@ -366,7 +368,13 @@ describe("VCS Integration Tests", () => {
 
         // Verify that pushUpstream accepts the force option without error
         // (actual force behavior depends on remote setup)
-        const result = await vcs.pushUpstream(upstreamPath, "git", undefined, undefined, { force: true });
+        const result = await vcs.pushUpstream(
+          upstreamPath,
+          "git",
+          undefined,
+          undefined,
+          { force: true },
+        );
 
         // Should be defined and not throw - the option is passed correctly
         expect(result).toBeDefined();
@@ -414,7 +422,13 @@ describe("VCS Integration Tests", () => {
         );
 
         // Verify that pushUpstream accepts the force option without error
-        const result = await vcs.pushUpstream(upstreamPath, "fossil", undefined, undefined, { force: true });
+        const result = await vcs.pushUpstream(
+          upstreamPath,
+          "fossil",
+          undefined,
+          undefined,
+          { force: true },
+        );
 
         // Should be defined and not throw - the option is passed correctly
         expect(result).toBeDefined();

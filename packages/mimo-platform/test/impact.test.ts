@@ -37,7 +37,8 @@ describe("Impact Buffer Tests", () => {
 
   describe("SccService", () => {
     it("should detect platform correctly", async () => {
-      const { SccService } = await import("../src/domain/impact/scc-service.ts");
+      const { SccService } =
+        await import("../src/domain/impact/scc-service.ts");
       const os = createOS({ ...process.env });
       const service = new SccService(os, join(testHome, "bin", "scc"));
       const platform = service.detectPlatform();
@@ -48,7 +49,8 @@ describe("Impact Buffer Tests", () => {
     });
 
     it("should generate correct download URL", async () => {
-      const { SccService } = await import("../src/domain/impact/scc-service.ts");
+      const { SccService } =
+        await import("../src/domain/impact/scc-service.ts");
       const os = createOS({ ...process.env });
       const service = new SccService(os, join(testHome, "bin", "scc"));
       const platform = { os: "Linux" as const, arch: "x86_64" as const };
@@ -60,14 +62,16 @@ describe("Impact Buffer Tests", () => {
     });
 
     it("should initially report scc as not installed", async () => {
-      const { SccService } = await import("../src/domain/impact/scc-service.ts");
+      const { SccService } =
+        await import("../src/domain/impact/scc-service.ts");
       const os = createOS({ ...process.env });
       const service = new SccService(os, join(testHome, "bin", "scc"));
       expect(service.isInstalled()).toBe(false);
     });
 
     it("should detect installed scc binary", async () => {
-      const { SccService } = await import("../src/domain/impact/scc-service.ts");
+      const { SccService } =
+        await import("../src/domain/impact/scc-service.ts");
       const os = createOS({ ...process.env });
       const sccPath = join(testHome, "bin", "scc");
       const service = new SccService(os, sccPath);
@@ -81,7 +85,8 @@ describe("Impact Buffer Tests", () => {
     });
 
     it("should parse scc JSON output correctly", async () => {
-      const { SccService } = await import("../src/domain/impact/scc-service.ts");
+      const { SccService } =
+        await import("../src/domain/impact/scc-service.ts");
       const os = createOS({ ...process.env });
       const sccPath = join(testHome, "bin", "scc");
       const service = new SccService(os, sccPath);
@@ -220,7 +225,8 @@ fi`;
     });
 
     it("should handle empty scc output", async () => {
-      const { SccService } = await import("../src/domain/impact/scc-service.ts");
+      const { SccService } =
+        await import("../src/domain/impact/scc-service.ts");
       const os = createOS({ ...process.env });
       const sccPath = join(testHome, "bin", "scc-empty");
       const service = new SccService(os, sccPath);
@@ -435,7 +441,8 @@ echo '[]'`;
 
   describe("ImpactRepository", () => {
     it("should save and retrieve impact records", async () => {
-      const { ImpactRepository } = await import("../src/domain/impact/repository.ts");
+      const { ImpactRepository } =
+        await import("../src/domain/impact/repository.ts");
       const repository = ctx.repos.impacts;
       const projectId = "test-project";
 
@@ -482,7 +489,8 @@ echo '[]'`;
     });
 
     it("should find records by session", async () => {
-      const { ImpactRepository } = await import("../src/domain/impact/repository.ts");
+      const { ImpactRepository } =
+        await import("../src/domain/impact/repository.ts");
       const repository = ctx.repos.impacts;
       const projectId = "test-project";
 
@@ -521,7 +529,8 @@ echo '[]'`;
     });
 
     it("should sort records by commit date descending", async () => {
-      const { ImpactRepository } = await import("../src/domain/impact/repository.ts");
+      const { ImpactRepository } =
+        await import("../src/domain/impact/repository.ts");
       const repository = ctx.repos.impacts;
       const projectId = "test-project";
 
@@ -564,7 +573,8 @@ echo '[]'`;
     });
 
     it("should return empty array for project with no impacts", async () => {
-      const { ImpactRepository } = await import("../src/domain/impact/repository.ts");
+      const { ImpactRepository } =
+        await import("../src/domain/impact/repository.ts");
       const repository = ctx.repos.impacts;
       const records = repository.findByProject("non-existent-project");
       expect(records).toEqual([]);

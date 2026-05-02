@@ -2,7 +2,10 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { ConfigService, defaultSummaryPrompt } from "../src/domain/config/service.js";
+import {
+  ConfigService,
+  defaultSummaryPrompt,
+} from "../src/domain/config/service.js";
 import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 describe("sanitizeSummaryConfig", () => {

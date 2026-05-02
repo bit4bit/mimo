@@ -17,7 +17,9 @@ let agentService: any;
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any): Hono {
   const { createInternalApiRouter } = require("../src/api/rest/index.ts");
-  const { createSessionsRoutes } = require("../src/web/features/sessions/pages/sessions.tsx");
+  const {
+    createSessionsRoutes,
+  } = require("../src/web/features/sessions/pages/sessions.tsx");
 
   const app = new Hono();
 

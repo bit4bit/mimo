@@ -30,7 +30,8 @@ describe("Authentication Integration Tests", () => {
     userRepository = ctx.repos.users;
     testAuth = ctx.services.auth;
 
-    const { createAuthRoutes } = await import("../src/web/features/auth/pages/auth.tsx");
+    const { createAuthRoutes } =
+      await import("../src/web/features/auth/pages/auth.tsx");
     authRoutes = createAuthRoutes(ctx);
 
     const middlewareModule = await import("../src/auth/middleware.ts");

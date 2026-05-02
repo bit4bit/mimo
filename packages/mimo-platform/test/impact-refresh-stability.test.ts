@@ -136,7 +136,8 @@ describe("Impact refresh stability", () => {
   });
 
   it("returns identical metrics across repeated forced refresh with no file changes", async () => {
-    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { ImpactCalculator } =
+      await import("../src/domain/impact/calculator.ts");
     const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccPath = join(
@@ -178,7 +179,8 @@ describe("Impact refresh stability", () => {
   });
 
   it("keeps delta and absolute complexity mathematically consistent on every refresh", async () => {
-    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { ImpactCalculator } =
+      await import("../src/domain/impact/calculator.ts");
     const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     writeFileSync(
@@ -232,7 +234,8 @@ describe("Impact refresh stability", () => {
   });
 
   it("ignores runtime file churn in workspace for impact metrics", async () => {
-    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { ImpactCalculator } =
+      await import("../src/domain/impact/calculator.ts");
     const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccPath = join(

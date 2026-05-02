@@ -25,7 +25,8 @@ describe("Debug Project Tests", () => {
 
     const { createInternalApiRouter } =
       await import("../src/api/rest/index.ts");
-    const { createProjectsRoutes } = await import("../src/web/features/projects/pages/projects.tsx");
+    const { createProjectsRoutes } =
+      await import("../src/web/features/projects/pages/projects.tsx");
 
     const app = new Hono();
     const internalRouter = createInternalApiRouter(mimoContext);

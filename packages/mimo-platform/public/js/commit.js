@@ -701,10 +701,12 @@
       const result = await response.json();
 
       if (result.success) {
-        commitStatus.textContent = result.message || "Force push completed successfully!";
+        commitStatus.textContent =
+          result.message || "Force push completed successfully!";
         commitStatus.style.color = "#51cf66";
       } else {
-        commitStatus.textContent = result.error || result.message || "Force push failed";
+        commitStatus.textContent =
+          result.error || result.message || "Force push failed";
         commitStatus.style.color = "#ff6b6b";
       }
     } catch (error) {

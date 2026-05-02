@@ -1,5 +1,9 @@
 import type { FC } from "hono/jsx";
-import type { BufferConfig, BufferProps, FrameId } from "../../features/sessions/components/buffers/types.js";
+import type {
+  BufferConfig,
+  BufferProps,
+  FrameId,
+} from "../../features/sessions/components/buffers/types.js";
 
 interface FrameProps {
   frameId: FrameId;

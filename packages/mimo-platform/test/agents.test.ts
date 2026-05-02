@@ -31,7 +31,8 @@ describe("Agent Lifecycle Integration Tests", () => {
     agentRepository = ctx.repos.agents;
     agentService = ctx.services.agents;
 
-    const { createAgentsRoutes } = await import("../src/web/features/agents/pages/agents.tsx");
+    const { createAgentsRoutes } =
+      await import("../src/web/features/agents/pages/agents.tsx");
     agentRoutes = createAgentsRoutes(ctx);
 
     // Set up mock for fetch to handle internal API calls

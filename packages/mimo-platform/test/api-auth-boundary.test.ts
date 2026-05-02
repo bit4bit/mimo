@@ -28,7 +28,8 @@ describe("API Auth Boundary Tests", () => {
 
     testAuth = ctx.services.auth;
 
-    const { createAuthRoutes } = await import("../src/web/features/auth/pages/auth.tsx");
+    const { createAuthRoutes } =
+      await import("../src/web/features/auth/pages/auth.tsx");
     const middlewareModule = await import("../src/auth/middleware.ts");
     createAuthMiddleware = middlewareModule.createAuthMiddleware;
     const { registerHelpRoutes } = await import("../src/api/rest/help.js");

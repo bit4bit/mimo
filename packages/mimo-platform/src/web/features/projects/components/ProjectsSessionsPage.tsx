@@ -1,6 +1,9 @@
 import type { FC } from "hono/jsx";
 import { Layout } from "../../../shared/components/Layout.js";
-import { DataTable, type DataTableColumn } from "../../agents/components/DataTable.js";
+import {
+  DataTable,
+  type DataTableColumn,
+} from "../../agents/components/DataTable.js";
 
 interface Project {
   id: string;

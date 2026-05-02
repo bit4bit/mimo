@@ -29,7 +29,8 @@ describe("Commit Service Bug Fix - Untracked Files Preservation", () => {
 
   describe("Commit Service Integration", () => {
     it("should have commit service with commitAndPush method", async () => {
-      const { CommitService } = await import("../src/domain/commits/service.ts");
+      const { CommitService } =
+        await import("../src/domain/commits/service.ts");
 
       // Verify the service class exists and mimoContext has the instance
       expect(CommitService).toBeDefined();

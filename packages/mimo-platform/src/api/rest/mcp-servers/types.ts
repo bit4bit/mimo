@@ -5,7 +5,10 @@
  * endpoints in the internal API.
  */
 
-import type { McpServer, TransportType } from "../../../domain/mcp-servers/types.js";
+import type {
+  McpServer,
+  TransportType,
+} from "../../../domain/mcp-servers/types.js";
 
 /**
  * MCP server response format for API serialization.

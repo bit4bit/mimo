@@ -140,7 +140,8 @@ export function multiply(x: number, y: number): number {
   });
 
   it("should return identical delta calculations on unchanged files", async () => {
-    const { ImpactCalculator } = await import("../src/domain/impact/calculator.ts");
+    const { ImpactCalculator } =
+      await import("../src/domain/impact/calculator.ts");
     const { SccService } = await import("../src/domain/impact/scc-service.ts");
 
     const sccPath = join(
