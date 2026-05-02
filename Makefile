@@ -1,18 +1,24 @@
-.PHONY: up daemon down restart logs ps
+.PHONY: ensure-dirs up daemon down restart logs ps
 
 UID := $(shell id -u)
 GID := $(shell id -g)
 
+ensure-dirs:
+	mkdir -p ~/.mimo-container ~/.mimo-agent-container
+
 up:
+	$(MAKE) ensure-dirs
 	UID=$(UID) GID=$(GID) docker compose up --build
 
 daemon:
+	$(MAKE) ensure-dirs
 	UID=$(UID) GID=$(GID) docker compose up --build -d
 
 down:
 	UID=$(UID) GID=$(GID) docker compose down
 
 restart:
+	$(MAKE) ensure-dirs
 	UID=$(UID) GID=$(GID) docker compose down
 	UID=$(UID) GID=$(GID) docker compose up --build -d
 
