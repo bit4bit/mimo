@@ -763,6 +763,98 @@ describe("Commit Service Tests", () => {
   });
 
   describe("Force Push Endpoint", () => {
+    it("uses project SSH credential for force push", async () => {
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
+      const credentialRepo = ctx.repos.credentials;
+
+      const credential = await credentialRepo.create({
+        owner: "testuser",
+        name: "ssh-key",
+        type: "ssh",
+        privateKey:
+          "-----BEGIN OPENSSH PRIVATE KEY-----\nmock\n-----END OPENSSH PRIVATE KEY-----",
+      });
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "git@github.com:test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        credentialId: credential.id,
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      let pushedCredential: any;
+      const originalPushUpstream = ctx.services.vcs.pushUpstream.bind(
+        ctx.services.vcs,
+      );
+      ctx.services.vcs.pushUpstream = async (
+        path: string,
+        repoType: "git" | "fossil",
+        credentialArg?: any,
+        branch?: string,
+      ) => {
+        pushedCredential = credentialArg;
+        return {
+          success: true,
+          output: "stubbed push",
+        };
+      };
+
+      try {
+        const result = await ctx.services.commits.forcePush(session.id);
+
+        expect(result.success).toBe(true);
+        expect(pushedCredential?.id).toBe(credential.id);
+        expect(pushedCredential?.type).toBe("ssh");
+      } finally {
+        ctx.services.vcs.pushUpstream = originalPushUpstream;
+      }
+    }, 30000);
+
+    it("fails force push when configured project credential is missing", async () => {
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "git@github.com:test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        credentialId: "missing-credential-id",
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      const result = await ctx.services.commits.forcePush(session.id);
+
+      expect(result.success).toBe(false);
+      expect(result.step).toBe("push");
+      expect(result.error).toBe("Project credential not found");
+    }, 30000);
+
     it("should return success when force push works", async () => {
       const vcs = new VCS({ os });
       const sessionRepo = ctx.repos.sessions;
@@ -805,7 +897,9 @@ describe("Commit Service Tests", () => {
       // Amend commit to create divergence
       writeFileSync(join(upstreamPath, "test.txt"), "modified");
       execSync("git add .", { cwd: upstreamPath });
-      execSync('git commit --amend -m "Initial (amended)"', { cwd: upstreamPath });
+      execSync('git commit --amend -m "Initial (amended)"', {
+        cwd: upstreamPath,
+      });
 
       // Call forcePush via service
       const result = await ctx.services.commits.forcePush(session.id);
@@ -815,7 +909,9 @@ describe("Commit Service Tests", () => {
     }, 30000);
 
     it("should return error when session not found", async () => {
-      const result = await ctx.services.commits.forcePush("nonexistent-session-id");
+      const result = await ctx.services.commits.forcePush(
+        "nonexistent-session-id",
+      );
 
       expect(result.success).toBe(false);
       expect(result.message).toBe("Session not found");

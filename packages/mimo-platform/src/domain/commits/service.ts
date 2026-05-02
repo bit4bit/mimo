@@ -385,12 +385,29 @@ export class CommitService {
 
     const repoType = project.repoType;
     const pushBranch = session.branch || project.newBranch || undefined;
+    let pushCredential: Credential | undefined;
+
+    if (project.credentialId) {
+      const credential = await this.deps.credentialRepository.findById(
+        project.credentialId,
+        project.owner,
+      );
+      if (!credential) {
+        return {
+          success: false,
+          message: "Force push failed",
+          error: "Project credential not found",
+          step: "push",
+        };
+      }
+      pushCredential = credential;
+    }
 
     // Push to remote with force flag
     const pushResult = await this.deps.vcs.pushUpstream(
       session.upstreamPath,
       repoType,
-      undefined,
+      pushCredential,
       pushBranch,
       { force: true },
     );
