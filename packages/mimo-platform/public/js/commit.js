@@ -678,4 +678,44 @@
 
   refreshSyncStatus();
   setInterval(refreshSyncStatus, 15000);
+
+  // ── Force Push functionality ───────────────────────────────────────────
+  const forcePushBtn = document.getElementById("force-push-btn");
+
+  // Execute force push directly on button click
+  forcePushBtn?.addEventListener("click", async () => {
+    if (!sessionId) return;
+
+    forcePushBtn.disabled = true;
+    forcePushBtn.textContent = "Force pushing...";
+    commitStatus.textContent = "";
+
+    try {
+      const response = await fetch(`/commits/${sessionId}/push-force`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        commitStatus.textContent = result.message || "Force push completed successfully!";
+        commitStatus.style.color = "#51cf66";
+      } else {
+        commitStatus.textContent = result.error || result.message || "Force push failed";
+        commitStatus.style.color = "#ff6b6b";
+      }
+    } catch (error) {
+      commitStatus.textContent = `Force push failed: ${error.message}`;
+      commitStatus.style.color = "#ff6b6b";
+    } finally {
+      forcePushBtn.disabled = false;
+      forcePushBtn.textContent = "Force Push";
+      setTimeout(() => {
+        commitStatus.textContent = "";
+      }, 5000);
+    }
+  });
 })();

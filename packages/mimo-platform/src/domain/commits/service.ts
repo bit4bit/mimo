@@ -336,6 +336,74 @@ export class CommitService {
   }
 
   /**
+   * Force push upstream commits to remote.
+   * This is a destructive operation that overwrites remote history.
+   */
+  async forcePush(sessionId: string): Promise<CommitAndPushResult> {
+    const session = await this.deps.sessionRepository.findById(sessionId);
+    if (!session) {
+      return {
+        success: false,
+        message: "Session not found",
+        error: "Session not found",
+        step: null,
+      };
+    }
+
+    const project = await this.deps.projectRepository.findById(
+      session.projectId,
+    );
+    if (!project) {
+      return {
+        success: false,
+        message: "Project not found",
+        error: "Project not found",
+        step: null,
+      };
+    }
+
+    const repoType = project.repoType;
+    const pushBranch = session.branch || project.newBranch || undefined;
+
+    // Push to remote with force flag
+    const pushResult = await this.deps.vcs.pushUpstream(
+      session.upstreamPath,
+      repoType,
+      undefined,
+      pushBranch,
+      { force: true },
+    );
+
+    if (!pushResult.success) {
+      // Check for "no upstream branch" / "no remote configured"
+      if (
+        pushResult.error?.includes("no upstream branch") ||
+        pushResult.error?.includes("has no upstream branch") ||
+        pushResult.output?.includes("No remote configured")
+      ) {
+        return {
+          success: true,
+          message: "No remote configured",
+          step: null,
+        };
+      }
+
+      return {
+        success: false,
+        message: "Force push failed",
+        error: pushResult.error || "Force push failed",
+        step: "push",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Force push completed successfully",
+      step: null,
+    };
+  }
+
+  /**
    * Commit and push all changes (backward compatibility).
    * Alias for commitAndPushSelective with no selected paths.
    */
