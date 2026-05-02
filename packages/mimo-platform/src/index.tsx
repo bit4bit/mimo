@@ -19,6 +19,7 @@ const _port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const mimoHome = process.env.MIMO_HOME ?? join(homedir(), ".mimo");
 const fossilReposDir =
   process.env.FOSSIL_REPOS_DIR ?? join(mimoHome, "session-fossils");
+const listenHost = process.env.MIMO_LISTEN_HOST;
 
 const os: OS = createOS({
   PATH: process.env.PATH,
@@ -27,6 +28,7 @@ const os: OS = createOS({
 });
 
 const _host = process.env.MIMO_HOST ?? DEFAULT_MIMO_HOST;
+const sharedFossilHost = process.env.MIMO_SHARED_FOSSIL_SERVER_HOST;
 const sharedFossilServer = createSharedFossilServer(
   {
     PORT: _port,
@@ -38,6 +40,7 @@ const sharedFossilServer = createSharedFossilServer(
       ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
       : 8000,
     MIMO_HOST: _host,
+    MIMO_SHARED_FOSSIL_SERVER_HOST: sharedFossilHost,
   },
   os,
 );
@@ -53,6 +56,7 @@ const mimoContext = createMimoContext({
       ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
       : 8000,
     MIMO_HOST: _host,
+    MIMO_SHARED_FOSSIL_SERVER_HOST: sharedFossilHost,
   },
   services: {
     sharedFossil: sharedFossilServer,
@@ -66,6 +70,6 @@ await bootstrapMimoServer({
   mimoContext,
   os,
   sharedFossilServer,
-  host: _host,
+  host: listenHost ?? _host,
   port: _port,
 });

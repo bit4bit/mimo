@@ -14,7 +14,6 @@ Edit `.env` with:
 
 - `JWT_SECRET`
 - `OPENCODE_AGENT_JWT`
-- `CLAUDE_AGENT_JWT`
 
 Optional: run containers as your current host user/group:
 
@@ -39,7 +38,7 @@ docker compose up --build -d
 ```bash
 docker compose ps
 docker compose logs -f platform
-docker compose logs -f agent-opencode agent-claude
+docker compose logs -f agent-opencode
 curl http://127.0.0.1:3001/health
 ```
 

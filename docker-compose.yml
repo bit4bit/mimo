@@ -11,7 +11,9 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       PORT: "3001"
       MIMO_HOST: "localhost"
-      PLATFORM_URL: "http://platform:3001"
+      MIMO_LISTEN_HOST: "0.0.0.0"
+      MIMO_SHARED_FOSSIL_SERVER_HOST: "platform"
+      PLATFORM_URL: "http://localhost:3001"
       MIMO_HOME: "${MIMO_HOME:-/home/app/.mimo}"
       MIMO_SHARED_FOSSIL_SERVER_PORT: "8001"
       HOME: "/home/app"
@@ -24,7 +26,7 @@ services:
       - "3001:3001"
       - "8001:8001"
     volumes:
-      - mimo-home:/home/app
+      - mimo-home-platform:/home/app
       - ~/.mimo:/home/app/.mimo
       - ~/.ssh-mimo:/home/app/.ssh:ro
     healthcheck:
@@ -62,7 +64,7 @@ services:
       platform:
         condition: service_healthy
     volumes:
-      - mimo-home:/home/app
+      - mimo-home-agent:/home/app
       - ~/.opencode:/home/app/.opencode
       - ~/.local/share/opencode:/home/app/.local/share/opencode
       - ~/.mimo-agent:/home/app/.mimo-agent
@@ -70,38 +72,6 @@ services:
       - ~/.ssh-mimo:/home/app/.ssh:ro
     restart: unless-stopped
 
-  agent-claude:
-    image: mimo:local
-    user: "${UID}:${GID}"
-    working_dir: /app/packages/mimo-agent
-    command:
-      [
-        "bun",
-        "run",
-        "src/index.ts",
-        "--token",
-        "${CLAUDE_AGENT_JWT}",
-        "--platform",
-        "ws://platform:3001/ws/agent",
-        "--provider",
-        "claude",
-        "--workdir",
-        "/home/app/.mimo-agent"
-      ]
-    environment:
-      HOME: "/home/app"
-      USER: "app"
-      LOGNAME: "app"
-      GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-    depends_on:
-      platform:
-        condition: service_healthy
-    volumes:
-      - mimo-home:/home/app
-      - ~/.mimo-agent:/home/app/.mimo-agent
-      - ~/.claude:/home/app/.claude
-      - ~/.ssh-mimo:/home/app/.ssh:ro
-    restart: unless-stopped
-
 volumes:
-  mimo-home:
+  mimo-home-platform:
+  mimo-home-agent:

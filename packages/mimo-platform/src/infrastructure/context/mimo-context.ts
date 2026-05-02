@@ -25,7 +25,10 @@ import {
   createFileWatcherService,
   type FileWatcherService,
 } from "../../domain/files/file-watcher-service.js";
-import { ExpertService, createExpertService } from "../../domain/files/expert-service.js";
+import {
+  ExpertService,
+  createExpertService,
+} from "../../domain/files/expert-service.js";
 import { createSearchService } from "../../domain/files/search-service.js";
 import type { SearchService } from "../../domain/files/types.js";
 import { createFileService } from "../../domain/files/service.js";
@@ -43,6 +46,7 @@ export interface MimoEnv {
   FOSSIL_REPOS_DIR: string;
   MIMO_SHARED_FOSSIL_SERVER_PORT: number | undefined;
   MIMO_HOST: string;
+  MIMO_SHARED_FOSSIL_SERVER_HOST?: string;
 }
 
 export interface MimoPaths {
@@ -135,7 +139,7 @@ export function createSharedFossilServer(
   const config: SharedFossilServerConfig = {
     port,
     reposDir: env.FOSSIL_REPOS_DIR,
-    host: env.MIMO_HOST,
+    host: env.MIMO_SHARED_FOSSIL_SERVER_HOST ?? env.MIMO_HOST,
   };
 
   return new SharedFossilServer(config, os);
@@ -168,6 +172,8 @@ export function createMimoContext(
     MIMO_SHARED_FOSSIL_SERVER_PORT:
       overrides.env?.MIMO_SHARED_FOSSIL_SERVER_PORT,
     MIMO_HOST: host,
+    MIMO_SHARED_FOSSIL_SERVER_HOST:
+      overrides.env?.MIMO_SHARED_FOSSIL_SERVER_HOST,
   };
 
   const paths = resolvePaths(env.MIMO_HOME, os);

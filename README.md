@@ -65,9 +65,8 @@ This repo includes `Dockerfile.mimo` and `docker-compose.yml` that run:
 
 - `mimo-platform` with Bun runtime
 - `mimo-agent` opencode with Bun runtime
-- `mimo-agent` claude with Bun runtime
 
-Both agents use the same workdir path in container:
+The agent uses this workdir path in container:
 
 - `/home/app/.mimo-agent`
 
@@ -75,7 +74,6 @@ And map host folders:
 
 - `~/.mimo-agent` -> `/home/app/.mimo-agent`
 - `~/.config/opencode` -> `/home/app/.config/opencode`
-- `~/.claude` -> `/home/app/.claude`
 
 Before first run, create a local env file and set required values:
 
@@ -87,7 +85,12 @@ Then edit `.env`:
 
 - `JWT_SECRET`
 - `OPENCODE_AGENT_JWT`
-- `CLAUDE_AGENT_JWT`
+
+For Docker Compose networking (agent -> platform/fossil):
+
+- `MIMO_HOST=localhost` (general host value for local platform URLs)
+- `MIMO_LISTEN_HOST=0.0.0.0` (bind interface inside container)
+- `MIMO_SHARED_FOSSIL_SERVER_HOST=platform` (hostname embedded in fossil URLs for agent containers)
 
 Use the provided `Makefile` to start Docker Compose with your current UID/GID automatically:
 
@@ -98,7 +101,7 @@ make daemon
 One-line setup/run instructions:
 
 - `cp .env.example .env`
-- `# update environment values in .env (JWT_SECRET, OPENCODE_AGENT_JWT, CLAUDE_AGENT_JWT)`
+- `# update environment values in .env (JWT_SECRET, OPENCODE_AGENT_JWT)`
 - `# ensure SSH keys for private repos are in ~/.ssh-mimo (mounted into agent containers as /home/app/.ssh)`
 - `make daemon`
 
@@ -121,6 +124,9 @@ Environment variables:
 | `PORT` | `3000` | HTTP port |
 | `JWT_SECRET` | *required* | Change in production |
 | `MIMO_HOME` | `~/.mimo` | Data directory |
+| `MIMO_HOST` | `localhost` | Hostname used in generated internal URLs |
+| `MIMO_LISTEN_HOST` | `MIMO_HOST` | Bind interface/host for the platform server |
+| `MIMO_SHARED_FOSSIL_SERVER_HOST` | `MIMO_HOST` | Hostname used when generating shared fossil server URLs |
 
 See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for full configuration options.
 

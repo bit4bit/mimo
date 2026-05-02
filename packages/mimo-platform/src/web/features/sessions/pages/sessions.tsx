@@ -77,6 +77,18 @@ export function createSessionsRoutes(
   const platformUrl =
     mimoContext.env?.PLATFORM_URL ??
     `http://${mimoContext.env?.MIMO_HOST ?? DEFAULT_MIMO_HOST}:3000`;
+
+  function getBrowserFossilUrl(sessionId: string): string {
+    const fossilUrl = sharedFossilServer.getUrl(sessionId);
+    try {
+      const fossil = new URL(fossilUrl);
+      const platform = new URL(platformUrl);
+      fossil.hostname = platform.hostname;
+      return fossil.toString();
+    } catch {
+      return fossilUrl;
+    }
+  }
   const fileService = mimoContext.services.fileService;
   const searchService = mimoContext.services.search;
   const expertService = mimoContext.services.expert;
@@ -665,7 +677,7 @@ export function createSessionsRoutes(
 
       // Always generate fossil URL - the shared server should be running
       // If it's not running yet, the URL will still be valid but the server won't respond
-      const fossilUrl = sharedFossilServer.getUrl(sessionId);
+      const fossilUrl = getBrowserFossilUrl(sessionId);
       const cloneWorkspaceCommand =
         session.agentWorkspaceUser && session.agentWorkspacePassword
           ? `fossil open ${shellDoubleQuote(buildAuthenticatedUrl(fossilUrl, session.agentWorkspaceUser, session.agentWorkspacePassword))} --workdir ${shellDoubleQuote(sanitizeSessionNameForWorkdir(session.name))} --repodir ${shellDoubleQuote(sanitizeSessionNameForWorkdir(session.name))}`
@@ -1486,7 +1498,7 @@ export function createSessionsRoutes(
     // Check shared fossil server status
     const isServerRunning = await sharedFossilServer.isRunning();
     // Always generate the URL - the shared server should eventually be running
-    const fossilUrl = sharedFossilServer.getUrl(sessionId);
+    const fossilUrl = getBrowserFossilUrl(sessionId);
 
     return c.json({
       running: isServerRunning,
