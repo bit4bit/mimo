@@ -10,7 +10,7 @@ BIN_DIR="${MIMO_BIN_DIR:-$HOME/.local/bin}"
 
 FORCE=0
 START=1
-DOWNLOAD=0
+COMPILE_ONLY=0
 PROVIDER=""
 TOKEN=""
 
@@ -24,10 +24,10 @@ usage() {
 Install mimo-agent as a systemd user service instance by provider.
 
 Usage:
-  ./scripts/install-user-agent.sh [--download] [--force] [--no-start] [--provider <opencode|claude>] [--token <jwt>] [--bin-dir <path>]
+  ./scripts/install-user-agent.sh [--compile-only] [--force] [--no-start] [--provider <opencode|claude>] [--token <jwt>] [--bin-dir <path>]
 
 Options:
-  --download  Download release binary to ~/.local/bin.
+  --compile-only  Only compile and copy mimo-agent binary, then exit.
   --force     Overwrite existing ~/.config/mimo/mimo-agent.env.
   --no-start  Do not enable/start the service.
   --provider  Provider to enable (opencode|claude). If omitted, script asks.
@@ -43,17 +43,24 @@ ensure_writable_dir() {
   [[ -w "$dir" ]] || die "Directory is not writable: $dir"
 }
 
-download_binary() {
-  local url="$1"
-  local target="$2"
-  local tmp
-  tmp="$(mktemp "${target}.tmp.XXXXXX")"
-  if ! curl -fL --progress-bar -o "$tmp" "$url"; then
-    rm -f "$tmp"
-    die "Download failed for $url (check permissions and free disk space)"
-  fi
-  chmod +x "$tmp"
-  mv "$tmp" "$target"
+compile_binary() {
+  local target="$1"
+  local bun_target
+  local package_dir="$ROOT_DIR/packages/mimo-agent"
+
+  case "$(uname -m)" in
+    x86_64) bun_target="bun-linux-x64" ;;
+    *) die "Unsupported architecture for local build: $(uname -m)" ;;
+  esac
+
+  command -v bun >/dev/null 2>&1 || die "bun is required to compile from source"
+  log "Compiling mimo-agent from local source (${bun_target})"
+  [[ -f "$package_dir/src/index.ts" ]] || die "Missing source file: $package_dir/src/index.ts"
+  (
+    cd "$package_dir"
+    bun build --compile --target="$bun_target" ./src/index.ts --outfile "$target"
+  )
+  chmod +x "$target"
 }
 
 validate_provider() {
@@ -90,23 +97,9 @@ prompt_token() {
   done
 }
 
-install_local_binary() {
-  local target="$1"
-  shift
-  local src
-  for src in "$@"; do
-    if [[ -x "$src" ]]; then
-      cp "$src" "$target"
-      chmod +x "$target"
-      return 0
-    fi
-  done
-  return 1
-}
-
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --download) DOWNLOAD=1 ;;
+    --compile-only) COMPILE_ONLY=1 ;;
     --force) FORCE=1 ;;
     --no-start) START=0 ;;
     --provider)
@@ -132,6 +125,23 @@ done
 
 [[ "$(uname -s)" == "Linux" ]] || die "Linux/systemd only"
 
+ensure_writable_dir "$BIN_DIR"
+log "Directories ready (bin: $BIN_DIR)"
+
+compile_binary "$BIN_DIR/mimo-agent"
+[[ -x "$BIN_DIR/mimo-agent" ]] || die "Missing $BIN_DIR/mimo-agent after local build"
+
+if [[ "$COMPILE_ONLY" -eq 1 ]]; then
+  log "Compile-only mode complete"
+  cat <<EOF
+Done.
+Binary: $BIN_DIR/mimo-agent
+EOF
+  exit 0
+fi
+
+mkdir -p "$SYSTEMD_USER_DIR" "$MIMO_CONFIG_DIR"
+
 if [[ -n "$PROVIDER" ]] && ! validate_provider "$PROVIDER"; then
   die "Unknown provider: $PROVIDER"
 fi
@@ -153,28 +163,6 @@ if [[ -z "$TOKEN" ]]; then
     die "No token provided. Use --token <jwt>"
   fi
 fi
-
-mkdir -p "$SYSTEMD_USER_DIR" "$MIMO_CONFIG_DIR"
-ensure_writable_dir "$BIN_DIR"
-log "Directories ready (bin: $BIN_DIR)"
-
-if [[ "$DOWNLOAD" -eq 1 ]]; then
-  case "$(uname -m)" in
-    x86_64) TARGET="linux-x64" ;;
-    *) die "Unsupported architecture for release download" ;;
-  esac
-  log "Downloading mimo-agent (${TARGET})"
-  download_binary "https://github.com/bit4bit/mimo/releases/latest/download/mimo-agent-${TARGET}" "$BIN_DIR/mimo-agent"
-else
-  if [[ ! -x "$BIN_DIR/mimo-agent" ]]; then
-    log "Trying local mimo-agent binaries"
-    install_local_binary "$BIN_DIR/mimo-agent" \
-      "$ROOT_DIR/mimo-agent" \
-      "$ROOT_DIR/packages/mimo-agent/dist/mimo-agent" || true
-  fi
-fi
-
-[[ -x "$BIN_DIR/mimo-agent" ]] || die "Missing $BIN_DIR/mimo-agent (use --download)"
 
 cp "$ROOT_DIR/deploy/systemd/user/mimo-agent@.service" "$SYSTEMD_USER_DIR/mimo-agent@.service"
 if [[ "$BIN_DIR" != "$HOME/.local/bin" ]]; then

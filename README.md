@@ -1,5 +1,7 @@
 # MIMO Platform
 
+[MOVED TO](https://codeberg.org/bit4bit/mimo)
+
 My opinionated agent development environment. A personal tool for daily development activities and a training dojo for tuning LLM-assisted workflows.
 
 A web-based interface for AI-assisted development with session-based worktrees, structured change management, and multi-provider agent support.
@@ -60,11 +62,17 @@ chmod +x mimo-agent
 Use the split installer scripts:
 
 ```bash
-./scripts/install-user-platform.sh --download
-./scripts/install-user-agent.sh --download --provider opencode --token <AGENT_JWT>
+./scripts/install-user-platform.sh
+./scripts/install-user-agent.sh --provider opencode --token <AGENT_JWT>
 ```
 
 If `--token` is omitted, the agent installer asks interactively.
+
+Compile/copy only (no prompts, no service/env changes):
+
+```bash
+./scripts/install-user-agent.sh --compile-only
+```
 
 ```bash
 systemctl --user restart mimo-agent@opencode.service

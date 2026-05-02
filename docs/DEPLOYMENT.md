@@ -9,15 +9,23 @@ Non-root user services for Linux (systemd) and macOS (launchd).
 From repo root:
 
 ```bash
-./scripts/install-user-platform.sh --download
-./scripts/install-user-agent.sh --download --provider opencode --token <AGENT_JWT>
+./scripts/install-user-platform.sh
+./scripts/install-user-agent.sh --provider opencode --token <AGENT_JWT>
 ```
+
+Installers compile binaries from the current local source (no release download).
 
 If `~/.local/bin` is not writable, use `--bin-dir "$HOME/bin"` on both commands.
 
 `install-user-agent.sh` supports provider instances (`opencode` or `claude`). If `--provider` or `--token` is omitted, it prompts interactively.
 
 Token is saved to `~/.config/mimo/mimo-agent.env` by the installer.
+
+Compile/copy only (no prompts, no env writes, no service actions):
+
+```bash
+./scripts/install-user-agent.sh --compile-only
+```
 
 ### Useful commands
 
@@ -42,17 +50,19 @@ sudo loginctl enable-linger "$USER"
 From repo root:
 
 ```bash
-./scripts/install-mac-platform.sh --download
-./scripts/install-mac-agent.sh --download --provider opencode --token <AGENT_JWT>
+./scripts/install-mac-platform.sh
+./scripts/install-mac-agent.sh --provider opencode --token <AGENT_JWT>
 ```
 
-Or both at once:
-
-```bash
-./scripts/install-mac-services.sh --download --provider opencode --token <AGENT_JWT>
-```
+Installers compile binaries from the current local source (no release download).
 
 Architecture is auto-detected (`darwin-x64` or `darwin-arm64`). If `--provider` or `--token` is omitted, the agent installer prompts interactively. Token is saved per provider to `~/.config/mimo/mimo-agent.<provider>.env` (chmod 600), so each provider has its own JWT.
+
+Compile/copy only (no prompts, no env writes, no launchd actions):
+
+```bash
+./scripts/install-mac-agent.sh --compile-only
+```
 
 If `~/.local/bin` is not writable, use `--bin-dir "$HOME/bin"` on both commands.
 
