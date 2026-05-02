@@ -630,6 +630,136 @@ describe("Commit Service Tests", () => {
       expect(patchContent).toContain("new content");
       expect(patchContent).not.toBe("");
     }, 30000);
+
+    it("uses project SSH credential for commit and push", async () => {
+      const vcs = new VCS({ os });
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
+      const credentialRepo = ctx.repos.credentials;
+
+      const credential = await credentialRepo.create({
+        owner: "testuser",
+        name: "ssh-key",
+        type: "ssh",
+        privateKey:
+          "-----BEGIN OPENSSH PRIVATE KEY-----\nmock\n-----END OPENSSH PRIVATE KEY-----",
+      });
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "git@github.com:test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        credentialId: credential.id,
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      const agentWorkspacePath = session.agentWorkspacePath;
+      const fossilPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(fossilPath);
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      await vcs.openFossil(fossilPath, agentWorkspacePath);
+
+      writeFileSync(join(agentWorkspacePath, "test.txt"), "new content");
+      await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Initial"],
+        agentWorkspacePath,
+      );
+
+      let pushedCredential: any;
+      const originalPushUpstream = ctx.services.vcs.pushUpstream.bind(
+        ctx.services.vcs,
+      );
+      ctx.services.vcs.pushUpstream = async (
+        path: string,
+        repoType: "git" | "fossil",
+        credentialArg?: any,
+        branch?: string,
+      ) => {
+        pushedCredential = credentialArg;
+        return {
+          success: true,
+          output: "stubbed push",
+        };
+      };
+
+      try {
+        const result = await ctx.services.commits.commitAndPushSelective(
+          session.id,
+          "Test commit",
+          ["test.txt"],
+          undefined,
+        );
+
+        expect(result.success).toBe(true);
+        expect(pushedCredential?.id).toBe(credential.id);
+        expect(pushedCredential?.type).toBe("ssh");
+      } finally {
+        ctx.services.vcs.pushUpstream = originalPushUpstream;
+      }
+    }, 30000);
+
+    it("fails push when configured project credential is missing", async () => {
+      const vcs = new VCS({ os });
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "git@github.com:test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        credentialId: "missing-credential-id",
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      const agentWorkspacePath = session.agentWorkspacePath;
+      const fossilPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(fossilPath);
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      await vcs.openFossil(fossilPath, agentWorkspacePath);
+
+      writeFileSync(join(agentWorkspacePath, "test.txt"), "new content");
+      await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Initial"],
+        agentWorkspacePath,
+      );
+
+      const result = await ctx.services.commits.commitAndPushSelective(
+        session.id,
+        "Test commit",
+        ["test.txt"],
+        undefined,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.step).toBe("push");
+      expect(result.error).toBe("Project credential not found");
+    }, 30000);
   });
 
   describe("Force Push Endpoint", () => {

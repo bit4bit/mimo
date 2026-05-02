@@ -7,6 +7,7 @@ import {
   type FileChange,
 } from "./changed-files.js";
 import { parsePatchPreview, type DiffHunk } from "./patch-preview.js";
+import type { Credential } from "../credentials/repository.js";
 
 export interface CommitResult {
   success: boolean;
@@ -55,6 +56,9 @@ export interface SelectiveCommitResult extends CommitAndPushResult {
 export interface CommitServiceDeps {
   sessionRepository: any;
   projectRepository: any;
+  credentialRepository: {
+    findById: (id: string, owner: string) => Promise<Credential | null>;
+  };
   impactRepository: any;
   impactCalculator: any;
   vcs: VCS;
@@ -310,12 +314,29 @@ export class CommitService {
       };
     }
 
+    let pushCredential: Credential | undefined;
+    if (project.credentialId) {
+      const credential = await this.deps.credentialRepository.findById(
+        project.credentialId,
+        project.owner,
+      );
+      if (!credential) {
+        return {
+          success: false,
+          message: "Push failed",
+          error: "Project credential not found",
+          step: "push",
+        };
+      }
+      pushCredential = credential;
+    }
+
     // Push to remote
     const pushBranch = session.branch || project.newBranch || undefined;
     const pushResult = await this.deps.vcs.pushUpstream(
       session.upstreamPath,
       repoType,
-      undefined,
+      pushCredential,
       pushBranch,
     );
 
