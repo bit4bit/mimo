@@ -57,32 +57,63 @@ chmod +x mimo-agent
 ./mimo-agent --token <AGENT_JWT> --platform ws://localhost:3000/ws/agent --provider opencode
 ```
 
-## Run with systemd (non-root user)
+## Run with Docker Compose
 
-Use the split installer scripts:
+Docker Compose is the official deployment method.
+
+This repo includes `Dockerfile.mimo` and `docker-compose.yml` that run:
+
+- `mimo-platform` with Bun runtime
+- `mimo-agent` opencode with Bun runtime
+- `mimo-agent` claude with Bun runtime
+
+Both agents use the same workdir path in container:
+
+- `/home/app/.mimo-agent`
+
+And map host folders:
+
+- `~/.mimo-agent` -> `/home/app/.mimo-agent`
+- `~/.config/opencode` -> `/home/app/.config/opencode`
+- `~/.claude` -> `/home/app/.claude`
+
+Before first run, create a local env file and set required values:
 
 ```bash
-./scripts/install-user-platform.sh
-./scripts/install-user-agent.sh --provider opencode --token <AGENT_JWT>
+cp .env.example .env
 ```
 
-If `--token` is omitted, the agent installer asks interactively.
+Then edit `.env`:
 
-Compile/copy only (no prompts, no service/env changes):
+- `JWT_SECRET`
+- `OPENCODE_AGENT_JWT`
+- `CLAUDE_AGENT_JWT`
+
+User/group mapping defaults to `${UID:-1000}:${GID:-1000}`. If you want to force your current user IDs, export them before running compose:
 
 ```bash
-./scripts/install-user-agent.sh --compile-only
+export UID=$(id -u)
+export GID=$(id -g)
 ```
+
+Then start:
 
 ```bash
-systemctl --user restart mimo-agent@opencode.service
+docker compose up --build
 ```
 
-Full details: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+One-line setup/run instructions:
+
+- `cp .env.example .env`
+- `# update environment values in .env (JWT_SECRET, OPENCODE_AGENT_JWT, CLAUDE_AGENT_JWT)`
+- `# ensure SSH keys for private repos are in ~/.ssh-mimo (mounted into agent containers as /home/app/.ssh)`
+- `docker compose up --build -d`
+
+Docker Compose exposes the platform at `http://localhost:3001`.
 
 ## Usage
 
-1. **Register/Login** at `http://localhost:3000`
+1. **Register/Login** at `http://localhost:3001`
 2. **Create a Project** with a Git/Fossil repository URL
 3. **Create an Agent** at `/agents` and copy the JWT token
 4. **Start a Session** in your project

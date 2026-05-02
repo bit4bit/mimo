@@ -1,0 +1,28 @@
+FROM oven/bun:1
+
+WORKDIR /app
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates curl fossil git openssh-client python3 build-essential \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV ASDF_DIR=/opt/asdf
+RUN git clone https://github.com/asdf-vm/asdf.git "$ASDF_DIR" --branch v0.16.4
+ENV PATH="$ASDF_DIR/bin:$ASDF_DIR/shims:$PATH"
+
+RUN printf '#!/bin/sh\nexec bunx --bun opencode-ai "$@"\n' > /usr/local/bin/opencode \
+  && printf '#!/bin/sh\nexec bunx --bun @agentclientprotocol/claude-agent-acp "$@"\n' > /usr/local/bin/claude-agent-acp \
+  && chmod +x /usr/local/bin/opencode /usr/local/bin/claude-agent-acp
+
+COPY package.json bun.lock* ./
+COPY packages/mimo-platform/package.json ./packages/mimo-platform/package.json
+COPY packages/mimo-agent/package.json ./packages/mimo-agent/package.json
+
+COPY . .
+
+RUN bun install --cwd /app/packages/mimo-platform \
+  && bun install --cwd /app/packages/mimo-agent
+
+RUN bun install
+
+WORKDIR /app

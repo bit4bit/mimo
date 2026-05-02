@@ -1,0 +1,7 @@
+.git
+node_modules
+packages/*/node_modules
+packages/*/dist
+llm-sessions
+tmp
+.DS_Store

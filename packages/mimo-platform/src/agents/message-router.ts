@@ -282,6 +282,19 @@ export class AgentMessageRouter {
           const fossilPath =
             this.deps.sessionRepository.getFossilPath(sessionId);
           const fossilUrl = this.deps.sharedFossilServer.getUrl(sessionId);
+
+          if (!this.deps.os.fs.exists(fossilPath)) {
+            logger.warn(
+              "[agent] Skipping session_ready for missing fossil repo:",
+              sessionId,
+              "path:",
+              fossilPath,
+              "url:",
+              fossilUrl,
+            );
+            continue;
+          }
+
           logger.debug(
             "[agent] Using shared fossil server for session:",
             sessionId,

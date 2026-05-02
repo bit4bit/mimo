@@ -1,10 +1,4 @@
-import {
-  describe,
-  it,
-  expect,
-  afterAll,
-  beforeEach,
-} from "bun:test";
+import { describe, it, expect, afterAll, beforeEach } from "bun:test";
 import { FileSyncService, FileChange, FileStatus } from "../src/sync/service";
 import {
   mkdtempSync,

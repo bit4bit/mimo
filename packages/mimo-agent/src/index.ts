@@ -588,7 +588,7 @@ export class MimoAgent {
       );
       if (!cloneResult.success) {
         throw new Error(
-          `fossil clone failed: ${cloneResult.error || cloneResult.output}`,
+          `fossil clone failed for URL ${cloneUrl}: ${cloneResult.error || cloneResult.output}`,
         );
       }
       if (!(await this.os.fs.exists(checkoutPath))) {

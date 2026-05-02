@@ -1,9 +1,4 @@
-import {
-  describe,
-  it,
-  expect,
-  afterAll,
-} from "bun:test";
+import { describe, it, expect, afterAll } from "bun:test";
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -17,7 +12,6 @@ import { createOS } from "../src/os/node-adapter.js";
  */
 
 describe("Integration Tests", () => {
-
   describe("13.2: Authentication Integration", () => {
     it("should handle auth module integration", async () => {
       const { userRepository } = await import("../src/auth/user.js");
@@ -336,5 +330,3 @@ describe("Integration Tests", () => {
     });
   });
 });
-
-

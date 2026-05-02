@@ -1,0 +1,97 @@
+services:
+  platform:
+    build:
+      context: .
+      dockerfile: Dockerfile.mimo
+    image: mimo:local
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /app/packages/mimo-platform
+    command: ["bun", "run", "src/index.tsx"]
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: "3001"
+      MIMO_HOST: "localhost"
+      PLATFORM_URL: "http://platform:3001"
+      MIMO_HOME: "/home/app/.mimo"
+      MIMO_SHARED_FOSSIL_SERVER_PORT: "8001"
+      HOME: "/home/app"
+      USER: "app"
+      LOGNAME: "app"
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    ports:
+      - "3001:3001"
+      - "8001:8001"
+    volumes:
+      - ~/.mimo:/home/app/.mimo
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  agent-opencode:
+    image: mimo:local
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /app/packages/mimo-agent
+    command:
+      [
+        "bun",
+        "run",
+        "src/index.ts",
+        "--token",
+        "${OPENCODE_AGENT_JWT}",
+        "--platform",
+        "ws://platform:3001/ws/agent",
+        "--provider",
+        "opencode",
+        "--workdir",
+        "/home/app/.mimo-agent"
+      ]
+    environment:
+      HOME: "/home/app"
+      USER: "app"
+      LOGNAME: "app"
+      GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    depends_on:
+      platform:
+        condition: service_healthy
+    volumes:
+      - ~/.mimo-agent:/home/app/.mimo-agent
+      - ~/.config/opencode:/home/app/.config/opencode
+      - ~/.ssh-mimo:/home/app/.ssh:ro
+    restart: unless-stopped
+
+  agent-claude:
+    image: mimo:local
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /app/packages/mimo-agent
+    command:
+      [
+        "bun",
+        "run",
+        "src/index.ts",
+        "--token",
+        "${CLAUDE_AGENT_JWT}",
+        "--platform",
+        "ws://platform:3001/ws/agent",
+        "--provider",
+        "claude",
+        "--workdir",
+        "/home/app/.mimo-agent"
+      ]
+    environment:
+      HOME: "/home/app"
+      USER: "app"
+      LOGNAME: "app"
+      GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    depends_on:
+      platform:
+        condition: service_healthy
+    volumes:
+      - ~/.mimo-agent:/home/app/.mimo-agent
+      - ~/.claude:/home/app/.claude
+      - ~/.ssh-mimo:/home/app/.ssh:ro
+    restart: unless-stopped
