@@ -16,7 +16,9 @@ let testHome: string;
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any, _projectsR: any): Hono {
   const { createInternalApiRouter } = require("../src/api/rest/index.ts");
-  const { createProjectsRoutes } = require("../src/web/features/projects/pages/projects.tsx");
+  const {
+    createProjectsRoutes,
+  } = require("../src/web/features/projects/pages/projects.tsx");
 
   const app = new Hono();
 
@@ -92,7 +94,8 @@ describe("Project Management Integration Tests", () => {
     projectRepository = ctx.repos.projects;
     sessionRepository = ctx.repos.sessions;
 
-    const { createProjectsRoutes } = await import("../src/web/features/projects/pages/projects.tsx");
+    const { createProjectsRoutes } =
+      await import("../src/web/features/projects/pages/projects.tsx");
     projectRoutes = createProjectsRoutes(ctx);
   });
 

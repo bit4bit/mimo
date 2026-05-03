@@ -2,7 +2,10 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import type { FileService } from "../../domain/files/types.js";
 import { findFiles } from "../../domain/files/service.js";
-import { detectLanguage, escapeHtml } from "../../domain/files/syntax-highlighter.js";
+import {
+  detectLanguage,
+  escapeHtml,
+} from "../../domain/files/syntax-highlighter.js";
 import { ExpertService } from "../../domain/files/expert-service.js";
 
 interface FilesRoutesContext {

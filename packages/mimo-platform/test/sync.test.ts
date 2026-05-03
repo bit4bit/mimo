@@ -1,11 +1,9 @@
+import { describe, it, expect, afterAll, beforeEach } from "bun:test";
 import {
-  describe,
-  it,
-  expect,
-  afterAll,
-  beforeEach,
-} from "bun:test";
-import { FileSyncService, FileChange, FileStatus } from "../src/domain/sync/service";
+  FileSyncService,
+  FileChange,
+  FileStatus,
+} from "../src/domain/sync/service";
 import {
   mkdtempSync,
   writeFileSync,

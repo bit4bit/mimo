@@ -59,7 +59,8 @@ export async function waitFor(
  * Call this in afterEach to prevent state leakage between tests.
  */
 export async function resetGlobalState(): Promise<void> {
-  const { sessionStateService } = await import("../src/domain/sessions/state.js");
+  const { sessionStateService } =
+    await import("../src/domain/sessions/state.js");
   sessionStateService.reset();
 }
 

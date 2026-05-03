@@ -12,7 +12,8 @@ describe("Credentials Management", () => {
   let credentialsDir: string;
 
   beforeEach(async () => {
-    const { createMimoContext } = await import("../src/infrastructure/context/mimo-context");
+    const { createMimoContext } =
+      await import("../src/infrastructure/context/mimo-context");
     ctx = createMimoContext({
       env: { MIMO_HOME: "/tmp/test-mimo-credentials" },
     });

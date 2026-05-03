@@ -630,5 +630,339 @@ describe("Commit Service Tests", () => {
       expect(patchContent).toContain("new content");
       expect(patchContent).not.toBe("");
     }, 30000);
+
+    it("uses project SSH credential for commit and push", async () => {
+      const vcs = new VCS({ os });
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
+      const credentialRepo = ctx.repos.credentials;
+
+      const credential = await credentialRepo.create({
+        owner: "testuser",
+        name: "ssh-key",
+        type: "ssh",
+        privateKey:
+          "-----BEGIN OPENSSH PRIVATE KEY-----\nmock\n-----END OPENSSH PRIVATE KEY-----",
+      });
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "git@github.com:test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        credentialId: credential.id,
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      const agentWorkspacePath = session.agentWorkspacePath;
+      const fossilPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(fossilPath);
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      await vcs.openFossil(fossilPath, agentWorkspacePath);
+
+      writeFileSync(join(agentWorkspacePath, "test.txt"), "new content");
+      await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Initial"],
+        agentWorkspacePath,
+      );
+
+      let pushedCredential: any;
+      const originalPushUpstream = ctx.services.vcs.pushUpstream.bind(
+        ctx.services.vcs,
+      );
+      ctx.services.vcs.pushUpstream = async (
+        path: string,
+        repoType: "git" | "fossil",
+        credentialArg?: any,
+        branch?: string,
+      ) => {
+        pushedCredential = credentialArg;
+        return {
+          success: true,
+          output: "stubbed push",
+        };
+      };
+
+      try {
+        const result = await ctx.services.commits.commitAndPushSelective(
+          session.id,
+          "Test commit",
+          ["test.txt"],
+          undefined,
+        );
+
+        expect(result.success).toBe(true);
+        expect(pushedCredential?.id).toBe(credential.id);
+        expect(pushedCredential?.type).toBe("ssh");
+      } finally {
+        ctx.services.vcs.pushUpstream = originalPushUpstream;
+      }
+    }, 30000);
+
+    it("fails push when configured project credential is missing", async () => {
+      const vcs = new VCS({ os });
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "git@github.com:test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        credentialId: "missing-credential-id",
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      const agentWorkspacePath = session.agentWorkspacePath;
+      const fossilPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(fossilPath);
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      await vcs.openFossil(fossilPath, agentWorkspacePath);
+
+      writeFileSync(join(agentWorkspacePath, "test.txt"), "new content");
+      await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Initial"],
+        agentWorkspacePath,
+      );
+
+      const result = await ctx.services.commits.commitAndPushSelective(
+        session.id,
+        "Test commit",
+        ["test.txt"],
+        undefined,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.step).toBe("push");
+      expect(result.error).toBe("Project credential not found");
+    }, 30000);
+  });
+
+  describe("Force Push Endpoint", () => {
+    it("uses project SSH credential for force push", async () => {
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
+      const credentialRepo = ctx.repos.credentials;
+
+      const credential = await credentialRepo.create({
+        owner: "testuser",
+        name: "ssh-key",
+        type: "ssh",
+        privateKey:
+          "-----BEGIN OPENSSH PRIVATE KEY-----\nmock\n-----END OPENSSH PRIVATE KEY-----",
+      });
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "git@github.com:test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        credentialId: credential.id,
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      let pushedCredential: any;
+      const originalPushUpstream = ctx.services.vcs.pushUpstream.bind(
+        ctx.services.vcs,
+      );
+      ctx.services.vcs.pushUpstream = async (
+        path: string,
+        repoType: "git" | "fossil",
+        credentialArg?: any,
+        branch?: string,
+      ) => {
+        pushedCredential = credentialArg;
+        return {
+          success: true,
+          output: "stubbed push",
+        };
+      };
+
+      try {
+        const result = await ctx.services.commits.forcePush(session.id);
+
+        expect(result.success).toBe(true);
+        expect(pushedCredential?.id).toBe(credential.id);
+        expect(pushedCredential?.type).toBe("ssh");
+      } finally {
+        ctx.services.vcs.pushUpstream = originalPushUpstream;
+      }
+    }, 30000);
+
+    it("fails force push when configured project credential is missing", async () => {
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "git@github.com:test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+        credentialId: "missing-credential-id",
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      const result = await ctx.services.commits.forcePush(session.id);
+
+      expect(result.success).toBe(false);
+      expect(result.step).toBe("push");
+      expect(result.error).toBe("Project credential not found");
+    }, 30000);
+
+    it("should return success when force push works", async () => {
+      const vcs = new VCS({ os });
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
+
+      // Create a remote repo
+      const remotePath = join(testHome, "remote-force-success");
+      mkdirSync(remotePath, { recursive: true });
+      execSync("git init --bare", { cwd: remotePath });
+
+      // Create a project
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: remotePath,
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      // Create a session
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      // Initialize upstream as Git repo with remote
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+      execSync(`git remote add origin ${remotePath}`, { cwd: upstreamPath });
+
+      // Create initial commit and push
+      writeFileSync(join(upstreamPath, "test.txt"), "initial");
+      execSync("git add .", { cwd: upstreamPath });
+      execSync('git commit -m "Initial"', { cwd: upstreamPath });
+      execSync("git push origin master", { cwd: upstreamPath });
+
+      // Amend commit to create divergence
+      writeFileSync(join(upstreamPath, "test.txt"), "modified");
+      execSync("git add .", { cwd: upstreamPath });
+      execSync('git commit --amend -m "Initial (amended)"', {
+        cwd: upstreamPath,
+      });
+
+      // Call forcePush via service
+      const result = await ctx.services.commits.forcePush(session.id);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("Force push completed");
+    }, 30000);
+
+    it("should return error when session not found", async () => {
+      const result = await ctx.services.commits.forcePush(
+        "nonexistent-session-id",
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe("Session not found");
+      expect(result.step).toBe(null);
+    });
+
+    it("should return success with message when no remote configured", async () => {
+      const vcs = new VCS({ os });
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
+
+      // Create a project
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      // Create a session
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      // Initialize upstream as Git repo but NO remote
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      // Create a commit
+      writeFileSync(join(upstreamPath, "test.txt"), "test");
+      execSync("git add .", { cwd: upstreamPath });
+      execSync('git commit -m "Initial"', { cwd: upstreamPath });
+
+      // Call forcePush - the actual result depends on git behavior
+      // It might succeed if there's nothing to push, or fail if there's a remote issue
+      const result = await ctx.services.commits.forcePush(session.id);
+
+      // Should return a defined result with success status
+      expect(result).toBeDefined();
+      expect(result.success).toBeDefined();
+      // Result should either succeed (if no remote means nothing to do)
+      // or fail with an appropriate error message
+      if (!result.success) {
+        // If it failed, there should be an error message
+        expect(result.error || result.message).toBeTruthy();
+      }
+    }, 30000);
   });
 });

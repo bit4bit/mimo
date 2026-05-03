@@ -94,7 +94,9 @@ function makeMocks() {
     },
   };
 
-  const autoCommitService = { triggerAutoCommit: mock(async () => ({ success: true })) };
+  const autoCommitService = {
+    triggerAutoCommit: mock(async () => ({ success: true })),
+  };
   const sccService = { isStale: mock(() => false) };
   const vcs = { fossilUp: mock(async () => ({ success: true })) };
 

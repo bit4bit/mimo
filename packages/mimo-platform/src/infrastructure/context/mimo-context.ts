@@ -265,6 +265,7 @@ export function createMimoContext(
       new CommitService({
         sessionRepository: repos.sessions,
         projectRepository: repos.projects,
+        credentialRepository: repos.credentials,
         impactRepository: repos.impacts,
         impactCalculator,
         vcs,
@@ -285,6 +286,7 @@ export function createMimoContext(
           new CommitService({
             sessionRepository: repos.sessions,
             projectRepository: repos.projects,
+            credentialRepository: repos.credentials,
             impactRepository: repos.impacts,
             impactCalculator,
             vcs,

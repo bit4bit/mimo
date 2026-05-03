@@ -13,9 +13,15 @@ let testHome: string;
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any): Hono {
   const { createInternalApiRouter } = require("../src/api/rest/index.ts");
-  const { createProjectsRoutes } = require("../src/web/features/projects/pages/projects.tsx");
-  const { createSessionsRoutes } = require("../src/web/features/sessions/pages/sessions.tsx");
-  const { createAuthRoutes } = require("../src/web/features/auth/pages/auth.tsx");
+  const {
+    createProjectsRoutes,
+  } = require("../src/web/features/projects/pages/projects.tsx");
+  const {
+    createSessionsRoutes,
+  } = require("../src/web/features/sessions/pages/sessions.tsx");
+  const {
+    createAuthRoutes,
+  } = require("../src/web/features/auth/pages/auth.tsx");
 
   const app = new Hono();
 

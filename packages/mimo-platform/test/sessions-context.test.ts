@@ -19,7 +19,8 @@ describe("Sessions routes with mimoContext", () => {
   it("uses injected auth service for token verification", async () => {
     const { createMimoContext } =
       await import("../src/infrastructure/context/mimo-context.ts");
-    const { createSessionsRoutes } = await import("../src/web/features/sessions/pages/sessions.tsx");
+    const { createSessionsRoutes } =
+      await import("../src/web/features/sessions/pages/sessions.tsx");
 
     const mimoContext = createMimoContext({
       env: {

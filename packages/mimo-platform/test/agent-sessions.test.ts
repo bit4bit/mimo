@@ -43,7 +43,8 @@ describe("Agent Sessions API Integration Tests", () => {
     const jwtModule = await import("../src/domain/auth/jwt.ts");
     generateToken = jwtModule.generateToken;
 
-    const { createAgentsRoutes } = await import("../src/web/features/agents/pages/agents.tsx");
+    const { createAgentsRoutes } =
+      await import("../src/web/features/agents/pages/agents.tsx");
     agentRoutes = createAgentsRoutes(ctx);
   });
 

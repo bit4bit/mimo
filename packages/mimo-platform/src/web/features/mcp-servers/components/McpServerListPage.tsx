@@ -2,7 +2,10 @@
 import { jsx } from "hono/jsx";
 import type { FC } from "hono/jsx";
 import { Layout } from "../../../shared/components/Layout.js";
-import { DataTable, type DataTableColumn } from "../../agents/components/DataTable.js";
+import {
+  DataTable,
+  type DataTableColumn,
+} from "../../agents/components/DataTable.js";
 
 // Minimal MCP server interface for UI rendering
 interface McpServerViewModel {

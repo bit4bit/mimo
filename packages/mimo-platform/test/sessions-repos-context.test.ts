@@ -18,7 +18,8 @@ describe("Sessions routes with injected repositories", () => {
   it("uses injected project and session repositories", async () => {
     const { createMimoContext } =
       await import("../src/infrastructure/context/mimo-context.ts");
-    const { createSessionsRoutes } = await import("../src/web/features/sessions/pages/sessions.tsx");
+    const { createSessionsRoutes } =
+      await import("../src/web/features/sessions/pages/sessions.tsx");
 
     const mimoContext = createMimoContext({
       env: {

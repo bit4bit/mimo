@@ -303,6 +303,15 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             >
               Sync Now
             </button>
+            <button
+              type="button"
+              id="force-push-btn"
+              class="btn-danger"
+              title="Force push committed changes to upstream (overwrites remote history)"
+              data-help-id="session-detail-page-force-push-btn-button"
+            >
+              Force Push
+            </button>
             <a
               href={`/projects/${project.id}/sessions/${session.id}/settings`}
               class="btn-secondary"

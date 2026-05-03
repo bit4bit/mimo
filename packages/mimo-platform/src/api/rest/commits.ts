@@ -138,5 +138,22 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
     return c.json(body, status);
   });
 
+  // POST /commits/:sessionId/push-force - Force push to remote
+  router.post("/:sessionId/push-force", async (c: Context) => {
+    const sessionId = c.req.param("sessionId");
+
+    const result = await service.forcePush(sessionId);
+
+    const status = result.success ? 200 : 400;
+    const body: Record<string, unknown> = {
+      success: result.success,
+      message: result.message,
+      error: result.error,
+      step: result.step,
+    };
+
+    return c.json(body, status);
+  });
+
   return router;
 }

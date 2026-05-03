@@ -7,7 +7,9 @@ import { rmSync, mkdirSync } from "fs";
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any): Hono {
   const { createInternalApiRouter } = require("../src/api/rest/index.ts");
-  const { createAgentsRoutes } = require("../src/web/features/agents/pages/agents.tsx");
+  const {
+    createAgentsRoutes,
+  } = require("../src/web/features/agents/pages/agents.tsx");
 
   const app = new Hono();
 

@@ -25,7 +25,10 @@ describe("Debug", () => {
     const projectRepository = ctx.repos.projects;
     const authService = ctx.services.auth;
 
-    await userRepository.create("testuser", await Bun.password.hash("testpass"));
+    await userRepository.create(
+      "testuser",
+      await Bun.password.hash("testpass"),
+    );
     const project = await projectRepository.create({
       name: "Test Project",
       repoUrl: "https://github.com/user/repo.git",
@@ -34,7 +37,8 @@ describe("Debug", () => {
     });
     const token = await authService.generateToken("testuser");
 
-    const { createSessionsRoutes } = await import("../src/web/features/sessions/pages/sessions.tsx");
+    const { createSessionsRoutes } =
+      await import("../src/web/features/sessions/pages/sessions.tsx");
     const sessionRoutes = createSessionsRoutes(ctx);
     const app = new Hono();
     app.route("/projects/:projectId/sessions", sessionRoutes);

@@ -7,6 +7,7 @@ import {
   type FileChange,
 } from "./changed-files.js";
 import { parsePatchPreview, type DiffHunk } from "./patch-preview.js";
+import type { Credential } from "../credentials/repository.js";
 
 export interface CommitResult {
   success: boolean;
@@ -55,6 +56,9 @@ export interface SelectiveCommitResult extends CommitAndPushResult {
 export interface CommitServiceDeps {
   sessionRepository: any;
   projectRepository: any;
+  credentialRepository: {
+    findById: (id: string, owner: string) => Promise<Credential | null>;
+  };
   impactRepository: any;
   impactCalculator: any;
   vcs: VCS;
@@ -310,12 +314,29 @@ export class CommitService {
       };
     }
 
+    let pushCredential: Credential | undefined;
+    if (project.credentialId) {
+      const credential = await this.deps.credentialRepository.findById(
+        project.credentialId,
+        project.owner,
+      );
+      if (!credential) {
+        return {
+          success: false,
+          message: "Push failed",
+          error: "Project credential not found",
+          step: "push",
+        };
+      }
+      pushCredential = credential;
+    }
+
     // Push to remote
     const pushBranch = session.branch || project.newBranch || undefined;
     const pushResult = await this.deps.vcs.pushUpstream(
       session.upstreamPath,
       repoType,
-      undefined,
+      pushCredential,
       pushBranch,
     );
 
@@ -331,6 +352,91 @@ export class CommitService {
     return {
       success: true,
       message: "Changes committed and pushed successfully",
+      step: null,
+    };
+  }
+
+  /**
+   * Force push upstream commits to remote.
+   * This is a destructive operation that overwrites remote history.
+   */
+  async forcePush(sessionId: string): Promise<CommitAndPushResult> {
+    const session = await this.deps.sessionRepository.findById(sessionId);
+    if (!session) {
+      return {
+        success: false,
+        message: "Session not found",
+        error: "Session not found",
+        step: null,
+      };
+    }
+
+    const project = await this.deps.projectRepository.findById(
+      session.projectId,
+    );
+    if (!project) {
+      return {
+        success: false,
+        message: "Project not found",
+        error: "Project not found",
+        step: null,
+      };
+    }
+
+    const repoType = project.repoType;
+    const pushBranch = session.branch || project.newBranch || undefined;
+    let pushCredential: Credential | undefined;
+
+    if (project.credentialId) {
+      const credential = await this.deps.credentialRepository.findById(
+        project.credentialId,
+        project.owner,
+      );
+      if (!credential) {
+        return {
+          success: false,
+          message: "Force push failed",
+          error: "Project credential not found",
+          step: "push",
+        };
+      }
+      pushCredential = credential;
+    }
+
+    // Push to remote with force flag
+    const pushResult = await this.deps.vcs.pushUpstream(
+      session.upstreamPath,
+      repoType,
+      pushCredential,
+      pushBranch,
+      { force: true },
+    );
+
+    if (!pushResult.success) {
+      // Check for "no upstream branch" / "no remote configured"
+      if (
+        pushResult.error?.includes("no upstream branch") ||
+        pushResult.error?.includes("has no upstream branch") ||
+        pushResult.output?.includes("No remote configured")
+      ) {
+        return {
+          success: true,
+          message: "No remote configured",
+          step: null,
+        };
+      }
+
+      return {
+        success: false,
+        message: "Force push failed",
+        error: pushResult.error || "Force push failed",
+        step: "push",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Force push completed successfully",
       step: null,
     };
   }

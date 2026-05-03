@@ -6,7 +6,9 @@ services:
     image: mimo:local
     user: "${UID}:${GID}"
     working_dir: /app/packages/mimo-platform
-    command: ["bun", "run", "src/index.tsx"]
+    command: ["/app/.container/init-platform.sh"]
+    mem_limit: 4g
+    memswap_limit: 4g
     environment:
       JWT_SECRET: ${JWT_SECRET}
       PORT: "3001"
@@ -27,7 +29,9 @@ services:
       - "8001:8001"
     volumes:
       - mimo-home-platform:/home/app
-      - ~/.mimo:/home/app/.mimo
+      - ~/.mimo-container:/home/app/.mimo
+      - ~/.mimo-gitconfig:/home/app/.gitconfig:ro
+      - ~/.ssh-mimo:/home/app/.ssh:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 10s
@@ -38,24 +42,15 @@ services:
 
   agent-opencode:
     image: mimo:local
-    user: "${UID}:${GID}"
     working_dir: /app/packages/mimo-agent
-    command:
-      [
-        "bun",
-        "run",
-        "src/index.ts",
-        "--token",
-        "${OPENCODE_AGENT_JWT}",
-        "--platform",
-        "ws://platform:3001/ws/agent",
-        "--provider",
-        "opencode",
-        "--workdir",
-        "/home/app/.mimo-agent"
-      ]
+    mem_limit: 4g
+    memswap_limit: 4g
+    command: ["/app/.container/init-agent.sh"]
     environment:
+      PORT: "3001"
+      OPENCODE_AGENT_JWT: ${OPENCODE_AGENT_JWT}
       HOME: "/home/app"
+      PATH: "/home/app/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
       USER: "app"
       LOGNAME: "app"
       GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
@@ -66,7 +61,7 @@ services:
       - mimo-home-agent:/home/app
       - ~/.opencode:/home/app/.opencode
       - ~/.local/share/opencode:/home/app/.local/share/opencode
-      - ~/.mimo-agent:/home/app/.mimo-agent
+      - ~/.mimo-agent-container:/home/app/.mimo-agent
       - ~/.config/opencode:/home/app/.config/opencode
       - ~/.ssh-mimo:/home/app/.ssh:ro
     restart: unless-stopped

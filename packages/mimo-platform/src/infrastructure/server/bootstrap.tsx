@@ -130,7 +130,8 @@ export async function bootstrapMimoServer(deps: BootstrapDeps) {
 
   const pipeline = new ChatStreamingPipeline(
     mimoContext.services.chat,
-    (sessionId, message) => broadcastToSession(chatSessions, sessionId, message),
+    (sessionId, message) =>
+      broadcastToSession(chatSessions, sessionId, message),
   );
 
   const agentRouter = new AgentMessageRouter({

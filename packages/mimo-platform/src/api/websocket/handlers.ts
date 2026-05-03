@@ -137,7 +137,8 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
     switch (data.type) {
       case "send_message":
         const userSession = await sessionRepository.findById(sessionId);
-        const userThreadId = data.chatThreadId || userSession?.activeChatThreadId;
+        const userThreadId =
+          data.chatThreadId || userSession?.activeChatThreadId;
 
         if (!userThreadId) {
           ws.send(
@@ -237,7 +238,8 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
 
       case "set_mode":
         const modeSession = await sessionRepository.findById(sessionId);
-        const modeThreadId = data.chatThreadId || modeSession?.activeChatThreadId;
+        const modeThreadId =
+          data.chatThreadId || modeSession?.activeChatThreadId;
         const modeAgentId = resolveAgentId(modeSession, modeThreadId);
         if (modeAgentId) {
           const modeAgentWs = agentService.getAgentConnection(modeAgentId);
@@ -263,7 +265,9 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
           const stateAgentWs = agentService.getAgentConnection(stateAgentId);
           if (stateAgentWs && stateAgentWs.readyState === 1 && stateSession) {
             const stateThread = stateThreadId
-              ? stateSession.chatThreads.find((t: any) => t.id === stateThreadId)
+              ? stateSession.chatThreads.find(
+                  (t: any) => t.id === stateThreadId,
+                )
               : undefined;
 
             stateAgentWs.send(
@@ -281,7 +285,10 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
           }
         }
 
-        const stateSnap = pipeline.getStreamingSnapshot(sessionId, stateThreadId);
+        const stateSnap = pipeline.getStreamingSnapshot(
+          sessionId,
+          stateThreadId,
+        );
         if (
           (stateSnap.thoughtContent || stateSnap.messageContent) &&
           chatService.isAgentAlive(sessionId)
@@ -379,7 +386,8 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
             return;
           }
 
-          const cancelSession = await sessionRepository.findById(cancelSessionId);
+          const cancelSession =
+            await sessionRepository.findById(cancelSessionId);
           const cancelThreadId =
             data.chatThreadId || cancelSession?.activeChatThreadId;
           if (!cancelThreadId) {
@@ -391,7 +399,8 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
 
           const cancelAgentId = resolveAgentId(cancelSession, cancelThreadId);
           if (cancelAgentId) {
-            const cancelAgentWs = agentService.getAgentConnection(cancelAgentId);
+            const cancelAgentWs =
+              agentService.getAgentConnection(cancelAgentId);
             if (cancelAgentWs && cancelAgentWs.readyState === 1) {
               cancelAgentWs.send(
                 JSON.stringify({
@@ -479,17 +488,17 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
             const subscribers = chatSessions.get(clearSessionId);
             if (subscribers) {
               subscribers.forEach((client) => {
-                  if (client.readyState === 1) {
-                    client.send(
-                      JSON.stringify({
-                        type: "clear_session_error",
-                        chatThreadId: clearThreadId,
-                        error: "No agent assigned to session",
-                        timestamp: new Date().toISOString(),
-                      }),
-                    );
-                  }
-                });
+                if (client.readyState === 1) {
+                  client.send(
+                    JSON.stringify({
+                      type: "clear_session_error",
+                      chatThreadId: clearThreadId,
+                      error: "No agent assigned to session",
+                      timestamp: new Date().toISOString(),
+                    }),
+                  );
+                }
+              });
             }
           }
         }
@@ -571,7 +580,10 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
             fullPath,
             currentChecksum,
             (event) => {
-              logger.debug(`[WS Files] File watcher callback triggered:`, event);
+              logger.debug(
+                `[WS Files] File watcher callback triggered:`,
+                event,
+              );
               const connections = fileWatchSessions.get(sessionId);
               if (connections) {
                 let sentCount = 0;
@@ -700,12 +712,7 @@ export function createWebSocketSetup(deps: WebSocketSetupDeps) {
     const url = new URL(req.url);
     const type = url.pathname.split("/")[2];
 
-    logger.debug(
-      "[WS] Upgrade request for path:",
-      url.pathname,
-      "type:",
-      type,
-    );
+    logger.debug("[WS] Upgrade request for path:", url.pathname, "type:", type);
 
     if (type === "agent") {
       const token = url.searchParams.get("token");
@@ -776,10 +783,7 @@ export function createWebSocketSetup(deps: WebSocketSetupDeps) {
         return new Response("Unauthorized", { status: 401 });
       }
 
-      logger.debug(
-        "[WS] Chat WebSocket: Authenticated upgrade for",
-        sessionId,
-      );
+      logger.debug("[WS] Chat WebSocket: Authenticated upgrade for", sessionId);
 
       const upgraded = server.upgrade(req, {
         data: {
@@ -828,10 +832,7 @@ export function createWebSocketSetup(deps: WebSocketSetupDeps) {
         return new Response("Unauthorized", { status: 401 });
       }
 
-      logger.debug(
-        "[WS] Files WebSocket: Upgrading connection for",
-        sessionId,
-      );
+      logger.debug("[WS] Files WebSocket: Upgrading connection for", sessionId);
 
       const upgraded = server.upgrade(req, {
         data: {

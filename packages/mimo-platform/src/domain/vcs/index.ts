@@ -1248,6 +1248,7 @@ export class VCS {
     repoType: "git" | "fossil",
     credential?: Credential,
     branch?: string,
+    options?: { force?: boolean },
   ): Promise<VCSResult> {
     if (repoType === "git") {
       let sshKeyPath: string | null = null;
@@ -1264,6 +1265,9 @@ export class VCS {
         const pushArgs = branch
           ? ["push", "origin", branch]
           : ["push", "origin"];
+        if (options?.force) {
+          pushArgs.push("--force");
+        }
         const result = await this.execCommand(
           ["git", ...pushArgs],
           upstreamPath,
@@ -1309,7 +1313,8 @@ export class VCS {
         }
       }
     } else {
-      const result = await this.execCommand(["fossil", "push"], upstreamPath);
+      const args = options?.force ? ["push", "--force"] : ["push"];
+      const result = await this.execCommand(["fossil", ...args], upstreamPath);
 
       if (!result.success && this.isAuthError(result.error, "https")) {
         return {
