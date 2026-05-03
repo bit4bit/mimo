@@ -4,7 +4,7 @@ UID := $(shell id -u)
 GID := $(shell id -g)
 
 ensure-dirs:
-	mkdir -p ~/.mimo-container ~/.mimo-agent-container
+	mkdir -p ~/.mimo-container ~/.mimo-agent-container ~/.claude
 
 up:
 	$(MAKE) ensure-dirs

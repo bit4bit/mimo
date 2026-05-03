@@ -64,16 +64,19 @@ Docker Compose is the official deployment method.
 This repo includes `Dockerfile.mimo` and `docker-compose.yml` that run:
 
 - `mimo-platform` with Bun runtime
-- `mimo-agent` opencode with Bun runtime
+- `agent-opencode` with Bun runtime (OpenCode provider)
+- `agent-claude` with Bun runtime (Claude Code provider)
 
-The agent uses this workdir path in container:
+The agents use this shared workdir path in the container:
 
 - `/home/app/.mimo-agent`
 
-And map host folders:
+Mapped host folders:
 
-- `~/.mimo-agent` -> `/home/app/.mimo-agent`
-- `~/.config/opencode` -> `/home/app/.config/opencode`
+- `~/.mimo-agent-container` → `/home/app/.mimo-agent` (shared workdir)
+- `~/.config/opencode` → `/home/app/.config/opencode` (OpenCode config)
+- `~/.claude` → `/home/app/.claude` (Claude Code data)
+- `~/.claude.json` → `/home/app/.claude.json` (Claude Code config)
 
 Before first run, create a local env file and set required values:
 
@@ -85,6 +88,7 @@ Then edit `.env`:
 
 - `JWT_SECRET`
 - `OPENCODE_AGENT_JWT`
+- `CLAUDE_AGENT_JWT`
 
 For Docker Compose networking (agent -> platform/fossil):
 
@@ -101,7 +105,7 @@ make daemon
 One-line setup/run instructions:
 
 - `cp .env.example .env`
-- `# update environment values in .env (JWT_SECRET, OPENCODE_AGENT_JWT)`
+- `# update environment values in .env (JWT_SECRET, OPENCODE_AGENT_JWT, CLAUDE_AGENT_JWT)`
 - `# ensure SSH keys for private repos are in ~/.ssh-mimo (mounted into agent containers as /home/app/.ssh)`
 - `make daemon`
 
