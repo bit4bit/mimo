@@ -61,11 +61,12 @@ chmod +x mimo-agent
 
 Docker Compose is the official deployment method.
 
-This repo includes `Dockerfile.mimo` and `docker-compose.yml` that run:
+This repo includes `Dockerfile.mimo` and `docker-compose.yml` that run by default:
 
 - `mimo-platform` with Bun runtime
 - `agent-opencode` with Bun runtime (OpenCode provider)
-- `agent-claude` with Bun runtime (Claude Code provider)
+
+To also launch the Claude agent, set `ENABLE_CLAUDE=1` when calling the `Makefile`, which additionally loads `docker-compose.claude.yml`.
 
 The agents use this shared workdir path in the container:
 
@@ -88,7 +89,7 @@ Then edit `.env`:
 
 - `JWT_SECRET`
 - `OPENCODE_AGENT_JWT`
-- `CLAUDE_AGENT_JWT`
+- `CLAUDE_AGENT_JWT` (only if using Claude)
 
 For Docker Compose networking (agent -> platform/fossil):
 
@@ -99,7 +100,11 @@ For Docker Compose networking (agent -> platform/fossil):
 Use the provided `Makefile` to start Docker Compose with your current UID/GID automatically:
 
 ```bash
+# Run only platform + opencode agent
 make daemon
+
+# Run platform + opencode + claude agents
+ENABLE_CLAUDE=1 make daemon
 ```
 
 One-line setup/run instructions:
@@ -108,6 +113,10 @@ One-line setup/run instructions:
 - `# update environment values in .env (JWT_SECRET, OPENCODE_AGENT_JWT, CLAUDE_AGENT_JWT)`
 - `# ensure SSH keys for private repos are in ~/.ssh-mimo (mounted into agent containers as /home/app/.ssh)`
 - `make daemon`
+
+Or with Claude enabled:
+
+- `ENABLE_CLAUDE=1 make daemon`
 
 Docker Compose exposes the platform at `http://localhost:3001`.
 
