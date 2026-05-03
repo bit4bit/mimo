@@ -30,6 +30,9 @@ function makeMocks() {
       messageContent: "",
     })),
     getAvailableCommands: mock(() => undefined),
+    setPromptInFlight: mock(() => {}),
+    clearPromptInFlight: mock(() => {}),
+    isPromptInFlight: mock(() => false),
     clearBuffers: mock(() => {}),
     setExpertPending: mock(() => {}),
     getExpertPending: mock(() => undefined),
@@ -226,6 +229,92 @@ describe("AgentMessageRouter", () => {
       expect(deps.triggerAutoSync).toHaveBeenCalledWith(
         "sess-1",
         "usage_update",
+      );
+      expect(deps.pipeline.clearPromptInFlight).toHaveBeenCalledWith(
+        "sess-1",
+        "thread-1",
+      );
+    });
+  });
+
+  describe("prompt lifecycle flags", () => {
+    it("sets prompt-in-flight on prompt_received", async () => {
+      expect(AgentMessageRouter).not.toBeNull();
+      const deps = makeMocks();
+      const router = makeRouter(deps);
+
+      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
+        type: "prompt_received",
+        sessionId: "sess-1",
+        chatThreadId: "thread-1",
+      });
+
+      expect(deps.pipeline.setPromptInFlight).toHaveBeenCalledWith(
+        "sess-1",
+        "thread-1",
+      );
+    });
+
+    it("sets prompt-in-flight on active thread when prompt_received has no thread", async () => {
+      expect(AgentMessageRouter).not.toBeNull();
+      const deps = makeMocks();
+      deps.sessionRepository.findById = mock(async () => ({
+        id: "sess-1",
+        activeChatThreadId: "thread-active",
+      }));
+      const router = makeRouter(deps);
+
+      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
+        type: "prompt_received",
+        sessionId: "sess-1",
+      });
+
+      expect(deps.pipeline.setPromptInFlight).toHaveBeenCalledWith(
+        "sess-1",
+        "thread-active",
+      );
+    });
+
+    it("clears prompt-in-flight on error_response", async () => {
+      expect(AgentMessageRouter).not.toBeNull();
+      const deps = makeMocks();
+      deps.sessionRepository.findById = mock(async () => ({
+        id: "sess-1",
+        activeChatThreadId: "thread-1",
+      }));
+      const router = makeRouter(deps);
+
+      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
+        type: "error_response",
+        sessionId: "sess-1",
+        chatThreadId: "thread-1",
+        error: "boom",
+      });
+
+      expect(deps.pipeline.clearPromptInFlight).toHaveBeenCalledWith(
+        "sess-1",
+        "thread-1",
+      );
+    });
+
+    it("clears prompt-in-flight on active thread when usage_update has no thread", async () => {
+      expect(AgentMessageRouter).not.toBeNull();
+      const deps = makeMocks();
+      deps.sessionRepository.findById = mock(async () => ({
+        id: "sess-1",
+        activeChatThreadId: "thread-active",
+      }));
+      const router = makeRouter(deps);
+
+      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
+        type: "usage_update",
+        sessionId: "sess-1",
+        usage: { inputTokens: 1 },
+      });
+
+      expect(deps.pipeline.clearPromptInFlight).toHaveBeenCalledWith(
+        "sess-1",
+        "thread-active",
       );
     });
   });

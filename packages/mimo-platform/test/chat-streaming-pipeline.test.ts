@@ -195,6 +195,29 @@ describe("ChatStreamingPipeline", () => {
     });
   });
 
+  describe("prompt in-flight tracking", () => {
+    it("tracks and clears per-thread prompt-in-flight state", async () => {
+      const { pipeline } = makePipeline();
+
+      expect(pipeline.isPromptInFlight("s1", "t1")).toBe(false);
+      pipeline.setPromptInFlight("s1", "t1");
+      expect(pipeline.isPromptInFlight("s1", "t1")).toBe(true);
+
+      pipeline.clearPromptInFlight("s1", "t1");
+      expect(pipeline.isPromptInFlight("s1", "t1")).toBe(false);
+    });
+
+    it("clears prompt-in-flight when buffers are cleared", async () => {
+      const { pipeline } = makePipeline();
+
+      pipeline.setPromptInFlight("s1", "t1");
+      expect(pipeline.isPromptInFlight("s1", "t1")).toBe(true);
+
+      pipeline.clearBuffers("s1", "t1");
+      expect(pipeline.isPromptInFlight("s1", "t1")).toBe(false);
+    });
+  });
+
   describe("duration tracking", () => {
     it("sets duration metadata in saved message", async () => {
       let savedMessage: ChatMessage | null = null;
@@ -256,13 +279,17 @@ describe("ChatStreamingPipeline", () => {
       expect(snap.messageContent).toBe("");
     });
 
-    it("does not persist anything when no buffered output exists", async () => {
+    it("persists an empty cancelled message when no buffered output exists", async () => {
       const mockSave = mock(async () => {});
       const { pipeline } = makePipeline(mockSave as any);
 
       await pipeline.flushAsCancelled("s1", "t1", { activeChatThreadId: "t1" });
 
-      expect((mockSave as ReturnType<typeof mock>).mock.calls.length).toBe(0);
+      expect((mockSave as ReturnType<typeof mock>).mock.calls.length).toBe(1);
+      const saved = (mockSave as ReturnType<typeof mock>).mock.calls[0][1];
+      expect(saved.role).toBe("assistant");
+      expect(saved.content).toBe("");
+      expect(saved.metadata?.cancelled).toBe(true);
     });
 
     it("suppresses a trailing handleUsageUpdate so the same turn is not double-saved", async () => {

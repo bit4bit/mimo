@@ -1885,6 +1885,7 @@ function cancelStreaming() {
 function prepareThreadSwitch() {
   clearStreamingTimeout();
   removeStreamingMessage();
+  ChatState.pendingMessages.clear();
   ChatState.streaming.reconstructed = false;
   ChatState.streaming.lastActivity = null;
 }
@@ -1957,8 +1958,19 @@ function handleStreamingState(data) {
 
   removeEditableBubble();
 
-  if (thoughtContent) {
+  if (
+    ChatState.streaming.messageElement &&
+    !ChatState.streaming.messageElement.isConnected
+  ) {
+    ChatState.streaming.messageElement = null;
+    ChatState.streaming.thoughtElement = null;
+  }
+
+  if (!ChatState.streaming.messageElement) {
     insertStreamingMessage();
+  }
+
+  if (thoughtContent) {
     insertThoughtSection();
     ChatState.streaming.thoughtContent += thoughtContent;
     updateThoughtContent(thoughtContent);
@@ -1966,9 +1978,6 @@ function handleStreamingState(data) {
   }
 
   if (messageContent) {
-    if (!ChatState.streaming.messageElement) {
-      insertStreamingMessage();
-    }
     ChatState.streaming.content += messageContent;
     updateMessageContent(messageContent);
   }
@@ -2999,6 +3008,10 @@ function loadChatHistory(messages) {
 
   container.innerHTML = "";
   ChatState.editableBubble = null;
+  ChatState.streaming.messageElement = null;
+  ChatState.streaming.thoughtElement = null;
+  ChatState.streaming.content = "";
+  ChatState.streaming.thoughtContent = "";
 
   let currentThought = "";
   let currentMessage = "";

@@ -81,6 +81,17 @@ export class AgentMessageRouter {
 
   constructor(private deps: AgentMessageRouterDeps) {}
 
+  private async resolveEffectiveThreadId(
+    sessionId: string,
+    threadId?: string,
+  ): Promise<string | undefined> {
+    if (threadId) {
+      return threadId;
+    }
+    const session = await this.deps.sessionRepository.findById(sessionId);
+    return session?.activeChatThreadId;
+  }
+
   async handle(agentId: string, ws: any, data: any): Promise<void> {
     logger.debug("[agent] Received message:", data.type, data);
     process.stdout?.write?.("");
@@ -444,6 +455,9 @@ export class AgentMessageRouter {
       return;
     }
     const session = await this.deps.sessionRepository.findById(sessionId);
+    const effectiveThreadId =
+      threadId || session?.activeChatThreadId || undefined;
+    this.deps.pipeline.clearPromptInFlight(sessionId, effectiveThreadId);
     const hadExpertPending = !!this.deps.pipeline.getExpertPending(
       sessionId,
       threadId,
@@ -909,6 +923,13 @@ export class AgentMessageRouter {
   }
 
   private async handlePromptReceived(data: any): Promise<void> {
+    if (data.sessionId) {
+      const effectiveThreadId = await this.resolveEffectiveThreadId(
+        data.sessionId,
+        data.chatThreadId,
+      );
+      this.deps.pipeline.setPromptInFlight(data.sessionId, effectiveThreadId);
+    }
     const subscribers = this.deps.chatSessions.get(data.sessionId);
     if (subscribers) {
       subscribers.forEach((client: any) => {
@@ -1006,9 +1027,18 @@ export class AgentMessageRouter {
         : rawError?.message ||
           (rawError ? JSON.stringify(rawError) : "Unknown error");
 
+    let session: any = null;
+    if (sessionId) {
+      session = await this.deps.sessionRepository.findById(sessionId);
+    }
+
+    if (sessionId) {
+      const effectiveThreadId = threadId || session?.activeChatThreadId;
+      this.deps.pipeline.clearPromptInFlight(sessionId, effectiveThreadId);
+    }
+
     if (sessionId && errorMessage) {
       const timestamp = new Date().toISOString();
-      const session = await this.deps.sessionRepository.findById(sessionId);
       const historyThreadId = threadId || session?.activeChatThreadId;
       if (historyThreadId) {
         await this.deps.chat.saveMessage(

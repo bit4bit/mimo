@@ -289,8 +289,16 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
           sessionId,
           stateThreadId,
         );
+        const statePromptInFlight = pipeline.isPromptInFlight(
+          sessionId,
+          stateThreadId,
+        );
+        const stateSessionPromptInFlight = pipeline.isPromptInFlight(sessionId);
         if (
-          (stateSnap.thoughtContent || stateSnap.messageContent) &&
+          (stateSnap.thoughtContent ||
+            stateSnap.messageContent ||
+            statePromptInFlight ||
+            stateSessionPromptInFlight) &&
           chatService.isAgentAlive(sessionId)
         ) {
           ws.send(
@@ -1002,6 +1010,25 @@ export function createWebSocketSetup(deps: WebSocketSetupDeps) {
         const agentId = ws.data.agentId;
         if (agentId) {
           await agentService.handleAgentDisconnect(agentId);
+          const [sessionLevelSessions, threadLevelSessions] = await Promise.all([
+            sessionRepository.findByAssignedAgentId(agentId),
+            sessionRepository.findByThreadAgentId(agentId),
+          ]);
+          const seenSessionIds = new Set<string>();
+          for (const session of [...sessionLevelSessions, ...threadLevelSessions]) {
+            if (seenSessionIds.has(session.id)) {
+              continue;
+            }
+            seenSessionIds.add(session.id);
+            pipeline.clearPromptInFlight(session.id, session.activeChatThreadId);
+            if (Array.isArray(session.chatThreads)) {
+              for (const thread of session.chatThreads) {
+                if (thread?.id) {
+                  pipeline.clearPromptInFlight(session.id, thread.id);
+                }
+              }
+            }
+          }
           logger.debug(`Agent ${agentId} disconnected`);
         }
       } else if (connectionType === "files") {

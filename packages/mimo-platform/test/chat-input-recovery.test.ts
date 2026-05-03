@@ -168,6 +168,22 @@ describe("Chat Input Recovery", () => {
       expect(isAgentAlive).toBe(true);
       expect(shouldSendState).toBe(true);
     });
+
+    it("should send streaming_state when prompt is in-flight even with empty buffers", () => {
+      const sessionId = "test-session-inflight";
+      const thoughtContent = "";
+      const messageContent = "";
+      const isPromptInFlight = true;
+
+      chatService.updateAgentActivity(sessionId);
+      const isAgentAlive = chatService.isAgentAlive(sessionId);
+      const shouldSendState =
+        !!(thoughtContent || messageContent || isPromptInFlight) &&
+        isAgentAlive;
+
+      expect(isAgentAlive).toBe(true);
+      expect(shouldSendState).toBe(true);
+    });
   });
 
   describe("Input Restoration on Refresh", () => {

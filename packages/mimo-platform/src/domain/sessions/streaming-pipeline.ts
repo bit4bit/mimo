@@ -41,6 +41,7 @@ export class ChatStreamingPipeline {
   private availableCommandsBuffers = new Map<string, CommandList>();
   private expertPending = new Map<string, ExpertPendingEntry>();
   private cancelledKeys = new Set<string>();
+  private promptInFlight = new Set<string>();
 
   constructor(
     private chat: ChatServiceLike,
@@ -269,20 +270,18 @@ export class ChatStreamingPipeline {
     this.messageStartTimes.delete(key);
 
     const fullContent = this.buildAndClearAssistantContent(key);
-    if (fullContent !== null) {
-      const historyThreadId = threadId || session.activeChatThreadId;
-      if (historyThreadId) {
-        await this.chat.saveMessage(
-          sessionId,
-          {
-            role: "assistant",
-            content: fullContent,
-            timestamp: new Date().toISOString(),
-            metadata: { cancelled: true },
-          },
-          historyThreadId,
-        );
-      }
+    const historyThreadId = threadId || session.activeChatThreadId;
+    if (historyThreadId) {
+      await this.chat.saveMessage(
+        sessionId,
+        {
+          role: "assistant",
+          content: fullContent ?? "",
+          timestamp: new Date().toISOString(),
+          metadata: { cancelled: true },
+        },
+        historyThreadId,
+      );
     }
 
     // Mark this key so a trailing usage_update from the agent doesn't
@@ -338,6 +337,18 @@ export class ChatStreamingPipeline {
     );
   }
 
+  setPromptInFlight(sessionId: string, threadId?: string): void {
+    this.promptInFlight.add(streamKey(sessionId, threadId));
+  }
+
+  clearPromptInFlight(sessionId: string, threadId?: string): void {
+    this.promptInFlight.delete(streamKey(sessionId, threadId));
+  }
+
+  isPromptInFlight(sessionId: string, threadId?: string): boolean {
+    return this.promptInFlight.has(streamKey(sessionId, threadId));
+  }
+
   clearBuffers(sessionId: string, threadId?: string): void {
     const key = streamKey(sessionId, threadId);
     this.streamingBuffers.delete(key);
@@ -345,6 +356,7 @@ export class ChatStreamingPipeline {
     this.toolCallBuffers.delete(key);
     this.messageStartTimes.delete(key);
     this.cancelledKeys.delete(key);
+    this.promptInFlight.delete(key);
   }
 
   setExpertPending(
