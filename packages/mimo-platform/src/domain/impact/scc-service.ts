@@ -13,6 +13,10 @@ export interface SccMetrics {
     removed: number;
     net: number;
   };
+  totalLines: {
+    upstream: number;
+    workspace: number;
+  };
   complexity: {
     cyclomatic: number;
     cognitive: number;
@@ -383,6 +387,10 @@ export class SccService {
         added: totalCode, // Will be calculated as delta by ImpactCalculator
         removed: 0,
         net: totalCode,
+      },
+      totalLines: {
+        upstream: totalLines,
+        workspace: totalLines,
       },
       complexity: {
         cyclomatic: totalComplexity,

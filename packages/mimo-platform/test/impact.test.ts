@@ -194,6 +194,8 @@ fi`;
       // Verify the parsed metrics
       expect(metrics).toBeDefined();
       expect(metrics.linesOfCode.net).toBe(11); // 8 + 3
+      expect(metrics.totalLines.upstream).toBe(15); // 10 + 5
+      expect(metrics.totalLines.workspace).toBe(15);
       expect(metrics.complexity.cyclomatic).toBe(3);
       expect(metrics.byLanguage).toHaveLength(2);
       expect(metrics.byFile).toHaveLength(2);
@@ -245,6 +247,8 @@ echo '[]'`;
       const metrics = await service.runScc(testDir);
 
       expect(metrics.linesOfCode.net).toBe(0);
+      expect(metrics.totalLines.upstream).toBe(0);
+      expect(metrics.totalLines.workspace).toBe(0);
       expect(metrics.complexity.cyclomatic).toBe(0);
       expect(metrics.byLanguage).toHaveLength(0);
       expect(metrics.byFile).toHaveLength(0);
@@ -343,6 +347,7 @@ echo '[]'`;
         sessionId,
         upstreamDir,
         workspaceDir,
+        true,
       );
       expect(result1.metrics.files.new).toBe(2);
 
@@ -353,9 +358,11 @@ echo '[]'`;
         sessionId,
         upstreamDir,
         workspaceDir,
+        true,
       );
       expect(result2.metrics.files.new).toBe(3);
       expect(result2.trends.files.new).toBe("↑"); // Trend should be up
+      expect(result2.trends.absoluteLoc.total).toBe("↑");
     }, 20000);
 
     it("should track unchanged files", async () => {
@@ -385,6 +392,10 @@ echo '[]'`;
       expect(result.metrics.files.unchanged).toBe(1);
       expect(result.metrics.files.new).toBe(0);
       expect(result.metrics.files.changed).toBe(0);
+      expect(result.metrics.absoluteLoc.total.upstream).toBeGreaterThanOrEqual(0);
+      expect(result.metrics.absoluteLoc.total.workspace).toBeGreaterThanOrEqual(0);
+      expect(result.metrics.absoluteLoc.added.upstream).toBe(0);
+      expect(result.metrics.absoluteLoc.removed.upstream).toBe(0);
     });
 
     it("should detect dependency changes between upstream and workspace", async () => {
@@ -645,8 +656,44 @@ echo '[]'`;
         sessionId,
         upstreamDir,
         workspaceDir,
+        true,
       );
       expect(result2.trends.files.new).toBe("→"); // Stable
+      expect(result2.trends.absoluteLoc.total).toBe("→");
+    }, 10000);
+
+    it("should show downward absolute LOC trend when workspace shrinks", async () => {
+      const { createMimoContext } =
+        await import("../src/infrastructure/context/mimo-context.ts");
+      const ctx = createMimoContext({
+        env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+      });
+
+      const calculator = ctx.services.impactCalculator;
+      const sessionId = "trend-down-test";
+
+      const upstreamDir = join(testHome, "upstream-down");
+      const workspaceDir = join(testHome, "workspace-down");
+      mkdirSync(upstreamDir, { recursive: true });
+      mkdirSync(workspaceDir, { recursive: true });
+
+      const keepFile = join(workspaceDir, "keep.ts");
+      const removeFile = join(workspaceDir, "remove.ts");
+      writeFileSync(keepFile, "export const keep = 1;\n");
+      writeFileSync(removeFile, "export const remove = 2;\n");
+
+      await calculator.calculateImpact(sessionId, upstreamDir, workspaceDir, true);
+
+      rmSync(removeFile, { force: true });
+
+      const result2 = await calculator.calculateImpact(
+        sessionId,
+        upstreamDir,
+        workspaceDir,
+        true,
+      );
+
+      expect(result2.trends.absoluteLoc.total).toBe("↓");
     }, 10000);
   });
 });

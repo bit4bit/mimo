@@ -55,6 +55,20 @@ export interface ImpactMetrics {
     upstream: number;
     workspace: number;
   };
+  absoluteLoc: {
+    total: {
+      upstream: number;
+      workspace: number;
+    };
+    added: {
+      upstream: number;
+      workspace: number;
+    };
+    removed: {
+      upstream: number;
+      workspace: number;
+    };
+  };
   byLanguage: LanguageImpact[];
   byFile: FileImpactDetail[];
   duplication?: DuplicationMetrics;
@@ -92,12 +106,22 @@ export interface ImpactTrend {
   files: { new: string; changed: string; deleted: string };
   linesOfCode: { added: string; removed: string; net: string };
   complexity: { cyclomatic: string; cognitive: string };
+  absoluteLoc: {
+    total: string;
+    added: string;
+    removed: string;
+  };
 }
 
 interface PreviousState {
   fileCounts: { new: number; changed: number; deleted: number };
   loc: { added: number; removed: number; net: number };
   complexity: { cyclomatic: number; cognitive: number };
+  absoluteLoc: {
+    total: number;
+    added: number;
+    removed: number;
+  };
   timestamp: number;
 }
 
@@ -388,6 +412,8 @@ export class ImpactCalculator {
 
     const upstreamComplexity = upstreamMetrics?.complexity?.cyclomatic ?? 0;
     const workspaceComplexity = workspaceMetrics?.complexity?.cyclomatic ?? 0;
+    const upstreamTotalLines = upstreamMetrics?.totalLines?.upstream ?? 0;
+    const workspaceTotalLines = workspaceMetrics?.totalLines?.workspace ?? 0;
 
     const metrics: ImpactMetrics = {
       files,
@@ -404,6 +430,20 @@ export class ImpactCalculator {
       absoluteComplexity: {
         upstream: upstreamComplexity,
         workspace: workspaceComplexity,
+      },
+      absoluteLoc: {
+        total: {
+          upstream: upstreamTotalLines,
+          workspace: workspaceTotalLines,
+        },
+        added: {
+          upstream: 0,
+          workspace: linesAdded,
+        },
+        removed: {
+          upstream: 0,
+          workspace: linesRemoved,
+        },
       },
       byLanguage: Array.from(languageMap.values()),
       byFile: byFileWithDetails,
@@ -441,6 +481,11 @@ export class ImpactCalculator {
         net: linesAdded - linesRemoved,
       },
       complexity: { cyclomatic: cyclomaticDelta, cognitive: cognitiveDelta },
+      absoluteLoc: {
+        total: workspaceTotalLines,
+        added: linesAdded,
+        removed: linesRemoved,
+      },
       timestamp: Date.now(),
     });
 
@@ -643,6 +688,7 @@ export class ImpactCalculator {
         files: { new: "→", changed: "→", deleted: "→" },
         linesOfCode: { added: "→", removed: "→", net: "→" },
         complexity: { cyclomatic: "→", cognitive: "→" },
+        absoluteLoc: { total: "→", added: "→", removed: "→" },
       };
     }
 
@@ -673,6 +719,20 @@ export class ImpactCalculator {
         cognitive: getTrend(
           current.complexity.cognitive,
           previous.complexity.cognitive,
+        ),
+      },
+      absoluteLoc: {
+        total: getTrend(
+          current.absoluteLoc.total.workspace,
+          previous.absoluteLoc.total,
+        ),
+        added: getTrend(
+          current.absoluteLoc.added.workspace,
+          previous.absoluteLoc.added,
+        ),
+        removed: getTrend(
+          current.absoluteLoc.removed.workspace,
+          previous.absoluteLoc.removed,
         ),
       },
     };

@@ -2683,15 +2683,32 @@ function renderImpactMetrics(metrics, trends) {
     removed: "→",
     net: "→",
   };
+  const absoluteLocTrend = trends?.absoluteLoc || {
+    total: "→",
+    added: "→",
+    removed: "→",
+  };
   const complexityTrend = trends?.complexity || {
     cyclomatic: "→",
     cognitive: "→",
   };
-  const netClass = metrics.linesOfCode.net >= 0 ? "positive" : "negative";
-  const netValue =
-    metrics.linesOfCode.net >= 0
-      ? `+${metrics.linesOfCode.net}`
-      : `${metrics.linesOfCode.net}`;
+  const absoluteLoc = metrics.absoluteLoc || {
+    total: { upstream: 0, workspace: 0 },
+    added: { upstream: 0, workspace: 0 },
+    removed: { upstream: 0, workspace: 0 },
+  };
+  const totalLocUpstream = absoluteLoc.total?.upstream ?? 0;
+  const totalLocWorkspace = absoluteLoc.total?.workspace ?? 0;
+  const totalLocDelta = totalLocWorkspace - totalLocUpstream;
+  const totalLocDisplay = `${totalLocUpstream}→${totalLocWorkspace}(${totalLocDelta >= 0 ? "+" : ""}${totalLocDelta})`;
+  const addedLocUpstream = absoluteLoc.added?.upstream ?? 0;
+  const addedLocWorkspace = absoluteLoc.added?.workspace ?? 0;
+  const addedLocDelta = addedLocWorkspace - addedLocUpstream;
+  const addedLocDisplay = `${addedLocUpstream}→${addedLocWorkspace}(${addedLocDelta >= 0 ? "+" : ""}${addedLocDelta})`;
+  const removedLocUpstream = absoluteLoc.removed?.upstream ?? 0;
+  const removedLocWorkspace = absoluteLoc.removed?.workspace ?? 0;
+  const removedLocDelta = removedLocUpstream - removedLocWorkspace;
+  const removedLocDisplay = `${removedLocUpstream}→${removedLocWorkspace}(${removedLocDelta >= 0 ? "+" : ""}${removedLocDelta})`;
   const shortPath = (p) => {
     const parts = p.split("/");
     return parts.length > 2 ? `.../${parts.slice(-2).join("/")}` : p;
@@ -2796,9 +2813,9 @@ function renderImpactMetrics(metrics, trends) {
     </div>
     <div class="impact-section">
       <div class="impact-section-title">Lines of Code</div>
-      <div class="impact-metric"><span class="impact-metric-label">Added:</span><span class="impact-metric-value">+${metrics.linesOfCode.added}</span><span class="impact-trend">${locTrend.added || "→"}</span></div>
-      <div class="impact-metric"><span class="impact-metric-label">Removed:</span><span class="impact-metric-value">-${metrics.linesOfCode.removed}</span><span class="impact-trend">${locTrend.removed || "→"}</span></div>
-      <div class="impact-metric"><span class="impact-metric-label">Net:</span><span class="impact-metric-value ${netClass}">${netValue}</span><span class="impact-trend">${locTrend.net || "→"}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Total:</span><span class="impact-metric-value">${totalLocDisplay}</span><span class="impact-trend">${absoluteLocTrend.total || "→"}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Added:</span><span class="impact-metric-value">${addedLocDisplay}</span><span class="impact-trend">${absoluteLocTrend.added || locTrend.added || "→"}</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Removed:</span><span class="impact-metric-value">${removedLocDisplay}</span><span class="impact-trend">${absoluteLocTrend.removed || locTrend.removed || "→"}</span></div>
     </div>
     <div class="impact-section">
       <div class="impact-section-title">Complexity</div>
