@@ -1,11 +1,10 @@
 import type { FileInfo, FileService } from "./types.js";
 import type { OS } from "../../infrastructure/os/types.js";
-
-const DEFAULT_IGNORE_PATTERNS: string[] = [".mimo-patches/"];
+import { isExcluded } from "./path-policy.js";
 
 export function loadIgnorePatterns(workspacePath: string, os: OS): string[] {
   const files = [".gitignore", ".mimoignore"];
-  const patterns: string[] = [...DEFAULT_IGNORE_PATTERNS];
+  const patterns: string[] = [];
   for (const name of files) {
     const fullPath = os.path.join(workspacePath, name);
     if (!os.fs.exists(fullPath)) continue;
@@ -169,13 +168,14 @@ export function createFileService(
     listFiles: async (workspacePath: string): Promise<FileInfo[]> => {
       if (!os.fs.exists(workspacePath)) return [];
       const paths = await fossilLs(workspacePath, os);
-      const all = paths.map((p) => ({
-        path: p,
-        name: getBasename(p),
-        size: 0,
-      }));
+      const all = paths
+        .filter((p) => !isExcluded(p))
+        .map((p) => ({
+          path: p,
+          name: getBasename(p),
+          size: 0,
+        }));
       const patterns = [
-        ...DEFAULT_IGNORE_PATTERNS,
         ...additionalPatterns,
         ...loadIgnorePatterns(workspacePath, os),
       ];

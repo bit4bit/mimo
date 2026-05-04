@@ -697,3 +697,39 @@ echo '[]'`;
     }, 10000);
   });
 });
+
+// --- shouldIncludeImpactPath ---
+
+describe("impact exclusion uses centralized path policy", () => {
+  it("excludes .git/ paths from impact counts", async () => {
+    const { shouldIncludeImpactPath } = await import(
+      "../src/domain/files/impact-file-policy.ts"
+    );
+    expect(shouldIncludeImpactPath(".git/config")).toBe(false);
+    expect(shouldIncludeImpactPath(".git/HEAD")).toBe(false);
+  });
+
+  it("excludes .mimo/ paths from impact counts", async () => {
+    const { shouldIncludeImpactPath } = await import(
+      "../src/domain/files/impact-file-policy.ts"
+    );
+    expect(shouldIncludeImpactPath(".mimo")).toBe(false);
+    expect(shouldIncludeImpactPath(".mimo/patches/file.patch")).toBe(false);
+  });
+
+  it("excludes .sccignore and .jscpdignore from impact counts", async () => {
+    const { shouldIncludeImpactPath } = await import(
+      "../src/domain/files/impact-file-policy.ts"
+    );
+    expect(shouldIncludeImpactPath(".sccignore")).toBe(false);
+    expect(shouldIncludeImpactPath(".jscpdignore")).toBe(false);
+  });
+
+  it("includes normal project files in impact counts", async () => {
+    const { shouldIncludeImpactPath } = await import(
+      "../src/domain/files/impact-file-policy.ts"
+    );
+    expect(shouldIncludeImpactPath("src/index.ts")).toBe(true);
+    expect(shouldIncludeImpactPath("package.json")).toBe(true);
+  });
+});

@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { logger } from "../../logger.js";
 import type { SccService } from "../impact/scc-service.js";
-import { VCS_INTERNALS } from "../vcs/index.js";
+import { isExcluded } from "../files/path-policy.js";
 import type { OS } from "../../infrastructure/os/types.js";
 
 export type FileStatus =
@@ -487,7 +487,7 @@ export class FileSyncService {
       const fullPath = this.os.path.join(dirPath, entry.name);
       const relativePath = this.os.path.relative(basePath, fullPath);
 
-      if (VCS_INTERNALS.has(entry.name)) continue;
+      if (isExcluded(entry.name)) continue;
 
       const entryStats = this.os.fs.lstat(fullPath);
       if (entryStats.isDirectory()) {

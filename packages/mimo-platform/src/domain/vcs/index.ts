@@ -7,6 +7,7 @@
 import type { OS } from "../../infrastructure/os/types.js";
 import type { Credential } from "../credentials/repository";
 import { logger } from "../../logger.js";
+import { EXCLUDED_PATHS, isExcluded } from "../files/path-policy.js";
 
 export interface VCSResult {
   success: boolean;
@@ -15,31 +16,6 @@ export interface VCSResult {
   port?: number;
 }
 
-/**
- * VCS internal directories/files that must never be tracked as changes.
- * These are excluded from file scanning and change detection.
- */
-export const VCS_INTERNALS = new Set([
-  ".fossil",
-  ".fslckout",
-  ".fossil-settings",
-  ".git",
-]);
-
-/**
- * VCS metadata files that must never be committed, regardless of repo type.
- * These are actively removed before addremove/commit operations.
- */
-export const VCS_METADATA = [".fslckout", "_FOSSIL_", ".fslckout-journal"];
-
-const DEFAULT_FOSSIL_IGNORE_PATTERNS = [
-  ".git",
-  ".git/**",
-  ".hg",
-  ".hg/**",
-  ".svn",
-  ".svn/**",
-];
 
 import { DEFAULT_MIMO_HOST } from "../../infrastructure/context/mimo-context.js";
 
@@ -67,7 +43,7 @@ const withTimeout = <T>(
 
 /**
  * Scan a directory recursively, calling a callback for each non-VCS file.
- * Skips VCS internal directories (VCS_INTERNALS) automatically.
+ * Skips built-in excluded paths (via isExcluded from path-policy) automatically.
  */
 export async function scanDirectory(
   os: OS,
@@ -87,7 +63,7 @@ export async function scanDirectory(
     const fullPath = os.path.join(dirPath, entry.name);
     const relPath = os.path.relative(basePath, fullPath);
 
-    if (VCS_INTERNALS.has(entry.name)) continue;
+    if (isExcluded(entry.name)) continue;
 
     const entryStats = os.fs.lstat(fullPath);
     if (entryStats.isDirectory()) {
@@ -530,8 +506,20 @@ export class VCS {
             .filter((line: string) => line.length > 0 && !line.startsWith("#"))
         : [];
 
+    // Fossil manages its own internals natively; including them in ignore-glob
+    // would prevent "fossil add .fossil-settings/ignore-glob" from working.
+    const fossilNative = new Set([
+      ".fossil",
+      ".fslckout",
+      ".fslckout-journal",
+      ".fossil-settings",
+      "_FOSSIL_",
+    ]);
     const patterns = [
-      ...DEFAULT_FOSSIL_IGNORE_PATTERNS,
+      ...EXCLUDED_PATHS.filter((p) => !fossilNative.has(p)).flatMap((p) => [
+        p,
+        `${p}/**`,
+      ]),
       ...parsePatterns(this.os.path.join(upstreamPath, ".gitignore")),
       ...parsePatterns(this.os.path.join(upstreamPath, ".mimoignore")),
     ];
@@ -1142,7 +1130,7 @@ export class VCS {
         };
       }
 
-      for (const name of VCS_METADATA) {
+      for (const name of EXCLUDED_PATHS) {
         await this.execCommand(
           ["git", "rm", "--cached", "--ignore-unmatch", name],
           upstreamPath,
@@ -1170,7 +1158,7 @@ export class VCS {
         error: commitResult.error || undefined,
       };
     } else {
-      for (const name of VCS_METADATA) {
+      for (const name of EXCLUDED_PATHS) {
         const target = this.os.path.join(upstreamPath, name);
         if (this.os.fs.exists(target)) {
           this.os.fs.unlink(target);
@@ -1579,15 +1567,8 @@ export class VCS {
 
     for (const line of lines) {
       if (line.startsWith("diff --git")) {
-        skipCurrentFile =
-          VCS_METADATA.some(
-            (meta) => line.includes(`a/${meta}`) || line.includes(`b/${meta}`),
-          ) ||
-          Array.from(VCS_INTERNALS).some(
-            (internal) =>
-              line.includes(`a/${internal}/`) ||
-              line.includes(`b/${internal}/`),
-          );
+        const match = line.match(/^diff --git a\/(.+) b\//);
+        skipCurrentFile = match ? isExcluded(match[1]) : false;
       }
 
       if (!skipCurrentFile) {

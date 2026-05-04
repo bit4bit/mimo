@@ -10,6 +10,7 @@ import {
   escapeHtml,
 } from "../src/domain/files/syntax-highlighter.js";
 import { createOS } from "../src/infrastructure/os/node-adapter.js";
+import { isExcluded } from "../src/domain/files/path-policy.js";
 import type { FileInfo } from "../src/domain/files/types.js";
 
 // --- matchesPattern ---
@@ -140,9 +141,7 @@ describe("applyIgnorePatterns", () => {
 describe("loadIgnorePatterns", () => {
   it("returns empty array when neither .gitignore nor .mimoignore exists", () => {
     const os = createOS({ ...process.env });
-    expect(loadIgnorePatterns("/nonexistent/path/xyz123", os)).toEqual([
-      ".mimo-patches/",
-    ]);
+    expect(loadIgnorePatterns("/nonexistent/path/xyz123", os)).toEqual([]);
   });
 
   it("reads patterns from a real .gitignore file", async () => {
@@ -152,7 +151,6 @@ describe("loadIgnorePatterns", () => {
     writeFileSync(dir + "/.gitignore", "# comment\n\n*.log\ndist/\n");
     const os = createOS({ ...process.env });
     const patterns = loadIgnorePatterns(dir, os);
-    expect(patterns).toContain(".mimo-patches/");
     expect(patterns).toContain("*.log");
     expect(patterns).toContain("dist/");
   });
@@ -176,8 +174,32 @@ describe("loadIgnorePatterns", () => {
     writeFileSync(dir + "/.mimoignore", "# ignored\n\n  \nbuild/\n");
     const os = createOS({ ...process.env });
     const patterns = loadIgnorePatterns(dir, os);
-    expect(patterns).toContain(".mimo-patches/");
     expect(patterns).toContain("build/");
+  });
+});
+
+// --- VCS internal exclusions via isExcluded ---
+
+describe("file finder excludes built-in system paths", () => {
+  it("excludes .git and children", () => {
+    expect(isExcluded(".git")).toBe(true);
+    expect(isExcluded(".git/config")).toBe(true);
+    expect(isExcluded(".git/hooks/pre-commit")).toBe(true);
+  });
+
+  it("excludes .fossil-settings and children", () => {
+    expect(isExcluded(".fossil-settings")).toBe(true);
+    expect(isExcluded(".fossil-settings/ignore-glob")).toBe(true);
+  });
+
+  it("excludes .fossil and .fslckout", () => {
+    expect(isExcluded(".fossil")).toBe(true);
+    expect(isExcluded(".fslckout")).toBe(true);
+  });
+
+  it("does not exclude normal project files", () => {
+    expect(isExcluded("src/index.ts")).toBe(false);
+    expect(isExcluded("README.md")).toBe(false);
   });
 });
 
