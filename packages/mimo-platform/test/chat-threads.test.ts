@@ -577,6 +577,120 @@ describe("Chat Threads API", () => {
     });
   });
 
+  describe("Thread name uniqueness", () => {
+    it("POST /sessions/:id/chat-threads rejects duplicate name with 400", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
+      const r1 = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
+          body: JSON.stringify({ name: "Reviewer", model: "claude-3", mode: "review", assignedAgentId: "agent-xyz" }),
+        },
+      );
+      expect(r1.status).toBe(201);
+
+      const r2 = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
+          body: JSON.stringify({ name: "Reviewer", model: "gpt-4", mode: "code", assignedAgentId: "agent-xyz" }),
+        },
+      );
+      expect(r2.status).toBe(400);
+      const body = await r2.json();
+      expect(body.error).toContain("Reviewer");
+    });
+
+    it("PATCH /sessions/:id/chat-threads/:threadId rejects rename to existing name with 400", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
+      const r1 = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
+          body: JSON.stringify({ name: "Reviewer", model: "claude-3", mode: "review", assignedAgentId: "agent-xyz" }),
+        },
+      );
+      expect(r1.status).toBe(201);
+
+      const r2 = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
+          body: JSON.stringify({ name: "Main", model: "gpt-4", mode: "code", assignedAgentId: "agent-xyz" }),
+        },
+      );
+      expect(r2.status).toBe(201);
+      const mainThread = await r2.json();
+
+      const patch = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads/${mainThread.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
+          body: JSON.stringify({ name: "Reviewer" }),
+        },
+      );
+      expect(patch.status).toBe(400);
+      const body = await patch.json();
+      expect(body.error).toContain("Reviewer");
+    });
+
+    it("Case-sensitive uniqueness — 'Foo' and 'foo' are distinct names", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
+      const r1 = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
+          body: JSON.stringify({ name: "foo", model: "claude-3", mode: "code", assignedAgentId: "agent-xyz" }),
+        },
+      );
+      expect(r1.status).toBe(201);
+
+      const r2 = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
+          body: JSON.stringify({ name: "Foo", model: "gpt-4", mode: "review", assignedAgentId: "agent-xyz" }),
+        },
+      );
+      expect(r2.status).toBe(201);
+    });
+
+    it("Renaming thread to its own name succeeds (no-op)", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
+      const r1 = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
+          body: JSON.stringify({ name: "Reviewer", model: "claude-3", mode: "review", assignedAgentId: "agent-xyz" }),
+        },
+      );
+      expect(r1.status).toBe(201);
+      const thread = await r1.json();
+
+      const patch = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads/${thread.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
+          body: JSON.stringify({ name: "Reviewer" }),
+        },
+      );
+      expect(patch.status).toBe(200);
+    });
+  });
+
   describe("Thread deletion", () => {
     it("DELETE /sessions/:id/chat-threads/:threadId removes a thread and returns 204", async () => {
       const { app, project, session, token } = await createUserProjectSession();

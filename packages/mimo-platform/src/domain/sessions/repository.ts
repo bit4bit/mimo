@@ -671,6 +671,13 @@ export class SessionRepository {
     const session = await this.findById(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
+    const duplicate = session.chatThreads.some((t) => t.name === thread.name);
+    if (duplicate) {
+      throw new Error(
+        `A thread with name '${thread.name}' already exists in this session`,
+      );
+    }
+
     const newThread: ChatThread = {
       id: this.generateId(),
       createdAt: new Date().toISOString(),
@@ -698,6 +705,17 @@ export class SessionRepository {
 
     const idx = session.chatThreads.findIndex((t) => t.id === threadId);
     if (idx === -1) return null;
+
+    if (updates.name !== undefined) {
+      const duplicate = session.chatThreads.some(
+        (t) => t.name === updates.name && t.id !== threadId,
+      );
+      if (duplicate) {
+        throw new Error(
+          `A thread with name '${updates.name}' already exists in this session`,
+        );
+      }
+    }
 
     const updatedThread = { ...session.chatThreads[idx], ...updates };
     const updatedThreads = [...session.chatThreads];

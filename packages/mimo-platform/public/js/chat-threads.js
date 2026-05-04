@@ -41,6 +41,17 @@ async function fetchThreads() {
   }
 }
 
+async function throwIfNotOk(response) {
+  if (!response.ok) {
+    let message = `HTTP ${response.status}`;
+    try {
+      const data = await response.json();
+      if (data.error) message = data.error;
+    } catch {}
+    throw new Error(message);
+  }
+}
+
 async function createThread(name, model, mode, assignedAgentId, instructions) {
   if (!ChatThreadsState.sessionId) return null;
 
@@ -60,7 +71,7 @@ async function createThread(name, model, mode, assignedAgentId, instructions) {
       },
     );
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    await throwIfNotOk(response);
 
     const newThread = await response.json();
     ChatThreadsState.threads.push(newThread);
@@ -86,7 +97,7 @@ async function updateThread(threadId, updates) {
       },
     );
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    await throwIfNotOk(response);
 
     const updated = await response.json();
 
@@ -115,7 +126,7 @@ async function deleteThread(threadId) {
       { method: "DELETE" },
     );
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    await throwIfNotOk(response);
 
     ChatThreadsState.threads = ChatThreadsState.threads.filter(
       (t) => t.id !== threadId,

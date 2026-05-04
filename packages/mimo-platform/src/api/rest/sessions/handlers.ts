@@ -646,15 +646,22 @@ export async function addChatThreadHandler(
     }
   }
 
-  const thread = await mimoContext.repos.sessions.addChatThread(sessionId, {
-    name: body.name,
-    model: body.model,
-    mode: body.mode,
-    acpSessionId: body.acpSessionId || null,
-    assignedAgentId: body.assignedAgentId,
-    state: body.state || "active",
-    ...(instructions !== undefined && { instructions }),
-  });
+  let thread: Awaited<ReturnType<typeof mimoContext.repos.sessions.addChatThread>>;
+  try {
+    thread = await mimoContext.repos.sessions.addChatThread(sessionId, {
+      name: body.name,
+      model: body.model,
+      mode: body.mode,
+      acpSessionId: body.acpSessionId || null,
+      assignedAgentId: body.assignedAgentId,
+      state: body.state || "active",
+      ...(instructions !== undefined && { instructions }),
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to add chat thread";
+    return c.json(errorResponse(message, 400), 400);
+  }
 
   // Save instructions as system message in chat history
   if (instructions) {
@@ -722,11 +729,18 @@ export async function updateChatThreadHandler(
   if (body.state !== undefined) updates.state = body.state;
   if (body.instructions !== undefined) updates.instructions = body.instructions;
 
-  const updated = await mimoContext.repos.sessions.updateChatThread(
-    sessionId,
-    threadId,
-    updates,
-  );
+  let updated: Awaited<ReturnType<typeof mimoContext.repos.sessions.updateChatThread>>;
+  try {
+    updated = await mimoContext.repos.sessions.updateChatThread(
+      sessionId,
+      threadId,
+      updates,
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to update chat thread";
+    return c.json(errorResponse(message, 400), 400);
+  }
 
   if (!updated) {
     return c.json(errorResponse("Thread not found", 404), 404);
