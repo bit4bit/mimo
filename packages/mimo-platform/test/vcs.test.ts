@@ -788,6 +788,48 @@ describe("VCS Integration Tests", () => {
         expect(ignoreGlob).toContain(".svn");
       }, 15000);
 
+      it("should derive default ignore patterns from centralized EXCLUDED_PATHS", async () => {
+        const vcs = new VCS({ os });
+        const { readFileSync } = await import("fs");
+        const { EXCLUDED_PATHS } = await import(
+          "../src/domain/files/path-policy.ts"
+        );
+
+        const upstreamPath = join(testHome, "upstream-policy-check");
+        const agentWorkspacePath = join(testHome, "agent-policy-check");
+        const repoPath = join(testHome, "policy-check.fossil");
+
+        mkdirSync(upstreamPath, { recursive: true });
+        mkdirSync(agentWorkspacePath, { recursive: true });
+
+        await vcs.createFossilRepo(repoPath);
+        await vcs.openFossil(repoPath, agentWorkspacePath);
+
+        await vcs.syncIgnoresToFossil(upstreamPath, agentWorkspacePath);
+
+        const ignoreGlob = readFileSync(
+          join(agentWorkspacePath, ".fossil-settings", "ignore-glob"),
+          "utf8",
+        );
+
+        // Fossil-native paths are excluded from the ignore-glob (fossil manages them
+        // natively and including .fossil-settings would block "fossil add").
+        const fossilNative = new Set([
+          ".fossil",
+          ".fslckout",
+          ".fslckout-journal",
+          ".fossil-settings",
+          "_FOSSIL_",
+        ]);
+
+        // All non-fossil-native excluded paths should appear as "path" and "path/**"
+        for (const p of EXCLUDED_PATHS) {
+          if (fossilNative.has(p)) continue;
+          expect(ignoreGlob).toContain(p);
+          expect(ignoreGlob).toContain(`${p}/**`);
+        }
+      }, 15000);
+
       it("should commit the ignore-glob so it appears in fossil history", async () => {
         const vcs = new VCS({ os });
         const { writeFileSync } = await import("fs");

@@ -1,6 +1,6 @@
 import type { OS } from "../../infrastructure/os/types.js";
 import crypto from "crypto";
-import { VCS_INTERNALS, scanDirectory } from "../vcs/index.js";
+import { scanDirectory } from "../vcs/index.js";
 import { logger } from "../../logger.js";
 
 export type FileChangeStatus = "added" | "modified" | "deleted";

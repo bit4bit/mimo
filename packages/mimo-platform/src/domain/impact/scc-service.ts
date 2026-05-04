@@ -1,6 +1,6 @@
 import type { OS } from "../../infrastructure/os/types.js";
 import { logger } from "../../logger.js";
-import { buildImpactIgnorePatterns } from "../files/impact-file-policy.js";
+import { EXCLUDED_PATHS } from "../files/path-policy.js";
 
 export interface SccPlatform {
   os: "Linux" | "Darwin" | "Windows";
@@ -450,7 +450,7 @@ export class SccService {
       "# ============================================",
       "",
       "# --- MIMO internal generated artifacts ---",
-      ...buildImpactIgnorePatterns(),
+      ...EXCLUDED_PATHS.flatMap((p) => [p, `${p}/**`]),
       "",
     ];
 

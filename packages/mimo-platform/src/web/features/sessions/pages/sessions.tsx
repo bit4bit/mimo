@@ -21,7 +21,7 @@ import {
 import { SearchServiceError } from "../../../../domain/files/search-service.js";
 import { canDeleteSessionNow } from "../../../../domain/sessions/session-retention.js";
 import { createSessionDeletionUseCase } from "../../../../domain/sessions/session-deletion.js";
-import { VCS_INTERNALS } from "../../../../domain/vcs/index.js";
+import { isExcluded } from "../../../../domain/files/path-policy.js";
 import { mcpTokenStore } from "../../../../mcp/token-store.js";
 import { createPlatformMcpServerConfig } from "../../../../mcp/platform-config.js";
 import { DEFAULT_MIMO_HOST } from "../../../../infrastructure/context/mimo-context.js";
@@ -1389,7 +1389,7 @@ export function createSessionsRoutes(
           for (const entry of entries) {
             const fullPath = join(dir, entry.name);
             const relPath = relative(baseDir, fullPath);
-            if (VCS_INTERNALS.has(entry.name)) continue;
+            if (isExcluded(entry.name)) continue;
             const entryStats = lstatSync(fullPath);
             if (entryStats.isDirectory()) {
               scanDir(fullPath, baseDir, files);
