@@ -131,7 +131,7 @@
              style="padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; ${i === highlightedIndex ? "background: #3a5a3a;" : ""}">
           <div>
             <div style="color: ${i === highlightedIndex ? "#fff" : "#d4d4d4"}; font-size: 13px;">${escapeHtml(r.sessionName)}</div>
-            <div style="color: #888; font-size: 11px; margin-top: 2px;">${escapeHtml(r.projectName)}</div>
+            <div style="color: #bbb; font-size: 11px; margin-top: 2px;">${escapeHtml(r.projectName)}</div>
           </div>
           <span class="status-badge ${r.status}" style="font-size: 10px; padding: 2px 6px; border-radius: 3px; background: ${getStatusColor(r.status)};">${r.status}</span>
         </div>

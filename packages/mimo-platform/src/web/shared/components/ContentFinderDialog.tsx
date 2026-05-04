@@ -15,11 +15,10 @@ export const ContentFinderDialog: FC<ContentFinderDialogProps> = ({
     >
       <div
         class="mimo-modal-content"
-        style="width: 700px; max-width: 90%; background: #2d2d2d; border: 1px solid #444;"
+        style="min-width: 700px; max-width: 95vw; width: auto; background: #2d2d2d; border: 1px solid #444;"
       >
         <div style="font-size: 13px; color: #888; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #444;">
-          Search Content{" "}
-          <span style="float: right; font-size: 11px;">Esc to close</span>
+          Search Content
         </div>
         <input
           id="content-finder-input"
@@ -40,7 +39,7 @@ export const ContentFinderDialog: FC<ContentFinderDialogProps> = ({
         />
         <div
           id="content-finder-results"
-          style="margin-top: 8px; max-height: 400px; overflow-y: auto;"
+          style="margin-top: 8px; max-height: 400px; overflow-y: auto; overflow-x: auto;"
         >
           <div style="color: #888; font-size: 12px; padding: 8px 0;">
             Press Enter to search...

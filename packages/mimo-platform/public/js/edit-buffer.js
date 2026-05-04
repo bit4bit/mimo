@@ -1272,6 +1272,11 @@
         });
     }
 
+    // Always sort by path so parent dirs appear before children
+    filteredFiles.sort(function (a, b) {
+      return String(a.path).localeCompare(String(b.path));
+    });
+
     selectedResultIndex = 0;
     renderResults(filteredFiles);
   }
@@ -1281,7 +1286,7 @@
     if (!resultsEl) return;
     if (!files.length) {
       resultsEl.innerHTML =
-        '<div style="color:#888;padding:8px;font-size:12px;">No files found.</div>';
+        '<div style="color:#888;padding:8px;font-size:14px;">No files found.</div>';
       return;
     }
     const MAX = 50;
@@ -1294,17 +1299,12 @@
           escapeAttr(f.path) +
           '" data-index="' +
           i +
-          '" style="padding:7px 10px;cursor:pointer;font-family:monospace;font-size:12px;background:' +
+          '" style="padding:7px 10px;cursor:pointer;font-family:monospace;font-size:14px;white-space:nowrap;background:' +
           (active ? "#3a3a5a" : "transparent") +
-          ";color:" +
-          (active ? "#d4d4d4" : "#aaa") +
           ';">' +
           '<span style="color:' +
           (active ? "#d4d4d4" : "#ccc") +
           ';">' +
-          escapeHtml(f.name) +
-          "</span>" +
-          '<span style="color:#666;margin-left:8px;font-size:11px;">' +
           escapeHtml(f.path) +
           "</span>" +
           "</div>"
@@ -1517,7 +1517,7 @@
         let html =
           '<div class="content-finder-result" data-index="' +
           i +
-          '" style="padding: 6px 10px; cursor: pointer; font-family: monospace; font-size: 12px; background: ' +
+          '" style="padding: 6px 10px; cursor: pointer; font-family: monospace; font-size: 14px; white-space: nowrap; background: ' +
           (active ? "#3a3a5a" : "transparent") +
           "; color: " +
           (active ? "#d4d4d4" : "#aaa") +
@@ -1525,7 +1525,7 @@
         html +=
           '<div style="color: ' +
           (active ? "#9b9bbb" : "#888") +
-          '; font-size: 11px; margin-bottom: 2px;">' +
+          '; font-size: 13px; margin-bottom: 2px;">' +
           escapeHtml(path) +
           "</div>";
         html +=

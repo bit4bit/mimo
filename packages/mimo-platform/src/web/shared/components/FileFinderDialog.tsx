@@ -14,11 +14,10 @@ export const FileFinderDialog: FC<FileFinderDialogProps> = ({ sessionId }) => {
     >
       <div
         class="mimo-modal-content"
-        style="width: 600px; max-width: 90%; background: #2d2d2d; border: 1px solid #444;"
+        style="min-width: 600px; max-width: 95vw; width: auto; background: #2d2d2d; border: 1px solid #444;"
       >
         <div style="font-size: 13px; color: #888; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #444;">
-          Open File{" "}
-          <span style="float: right; font-size: 11px;">Esc to close</span>
+          Open File
         </div>
         <input
           id="file-finder-input"
@@ -40,7 +39,7 @@ export const FileFinderDialog: FC<FileFinderDialogProps> = ({ sessionId }) => {
         />
         <div
           id="file-finder-results"
-          style="margin-top: 8px; max-height: 320px; overflow-y: auto;"
+          style="margin-top: 8px; max-height: 320px; overflow-y: auto; overflow-x: auto;"
         >
           <div style="color: #888; font-size: 12px; padding: 8px 0;">
             Loading files...
