@@ -50,7 +50,7 @@ export const DashboardPage: FC<DashboardProps> = ({
       <div class="dashboard">
         <div class="dashboard-header">
           <h1>Dashboard</h1>
-          <p style="color: #888;">Welcome back, {username}</p>
+          <p class="text-muted">Welcome back, {username}</p>
         </div>
 
         <div class="stats-grid">
@@ -65,7 +65,7 @@ export const DashboardPage: FC<DashboardProps> = ({
           <div class="stat-card">
             <div class="stat-value">
               <span class="online-dot">🟢</span> {onlineAgents}
-              <span style="margin-left: 10px;">
+              <span class="stat-separator">
                 <span class="offline-dot">🔴</span> {offlineAgents}
               </span>
             </div>
@@ -190,7 +190,7 @@ export const DashboardPage: FC<DashboardProps> = ({
             {sessions.length === 0 ? (
               <div class="empty-state">
                 <p>No sessions yet.</p>
-                <p style="color: #666; font-size: 12px;">
+                <p class="dashboard-hint">
                   Create a project first, then add sessions.
                 </p>
               </div>
@@ -212,7 +212,7 @@ export const DashboardPage: FC<DashboardProps> = ({
                           {project?.name || "Unknown"}
                           {session.status === "closed" &&
                             session.closeReason && (
-                              <span style="margin-left: 8px; color: #888;">
+                              <span class="session-close-reason">
                                 ({session.closeReason})
                               </span>
                             )}
@@ -268,6 +268,7 @@ export const DashboardPage: FC<DashboardProps> = ({
           font-size: 14px;
           text-transform: uppercase;
         }
+        .stat-separator { margin-left: 10px; }
         .dashboard-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -346,6 +347,8 @@ export const DashboardPage: FC<DashboardProps> = ({
           color: #888;
           font-size: 12px;
         }
+        .dashboard-hint { color: #666; font-size: 12px; }
+        .session-close-reason { margin-left: 8px; color: #888; }
         .status-badge {
           padding: 2px 6px;
           border-radius: 3px;

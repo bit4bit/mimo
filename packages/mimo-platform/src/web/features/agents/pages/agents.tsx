@@ -189,7 +189,7 @@ export function createAgentsRoutes(
             <form
               method="POST"
               action={`/agents/${agent.id}/delete`}
-              style="display: inline;"
+              class="inline-form"
             >
               <button type="submit" class="btn-danger">
                 Delete
@@ -205,7 +205,7 @@ export function createAgentsRoutes(
         <div class="agents-container">
           <h1>Agents</h1>
 
-          <div style="margin: 20px 0;">
+          <div class="section-gap">
             <a href="/agents/new" class="btn-primary">
               Create Agent
             </a>
@@ -279,6 +279,8 @@ export function createAgentsRoutes(
           font-family: monospace;
         }
         .filters { margin: 20px 0; }
+        .inline-form { display: inline; }
+        .section-gap { margin: 20px 0; }
         .filter-link { 
           margin-right: 15px; 
           padding: 5px 10px;
@@ -308,7 +310,7 @@ export function createAgentsRoutes(
       <Layout title="Create Agent">
         <div class="agent-create-container">
           <h1>Create Agent</h1>
-          <p style="color: #888; margin-bottom: 20px;">
+          <p class="text-muted page-lead">
             Create an agent to run mimo-agent locally. After creation, you'll
             receive a token to use when running{" "}
             <code>mimo-agent --token=XXX --provider=PROVIDER</code>.
@@ -347,7 +349,7 @@ export function createAgentsRoutes(
           <a
             href="/agents"
             class="btn-secondary"
-            style="display: inline-block; margin-left: 10px;"
+            class="btn-secondary inline-offset-link"
           >
             Cancel
           </a>
@@ -355,6 +357,8 @@ export function createAgentsRoutes(
 
         <style>{`
         .agent-create-container { padding: 20px; max-width: 600px; }
+        .page-lead { margin-bottom: 20px; }
+        .inline-offset-link { display: inline-block; margin-left: 10px; }
         code {
           background: #2d2d2d;
           padding: 2px 6px;
@@ -410,7 +414,7 @@ export function createAgentsRoutes(
             <a
               href="/agents"
               class="btn-secondary"
-              style="display: inline-block; margin-left: 10px;"
+              class="btn-secondary inline-offset-link"
             >
               Cancel
             </a>
@@ -470,7 +474,7 @@ export function createAgentsRoutes(
             <a
               href="/agents"
               class="btn-secondary"
-              style="display: inline-block; margin-left: 10px;"
+              class="btn-secondary inline-offset-link"
             >
               Cancel
             </a>
@@ -638,7 +642,7 @@ export function createAgentsRoutes(
                   </div>
                 </div>
               ) : (
-                <p style="color: #888; margin: 10px 0;">
+                <p class="text-muted capabilities-empty-copy">
                   No capabilities cached. Agent will advertise capabilities on
                   next connection.
                 </p>
@@ -659,14 +663,14 @@ export function createAgentsRoutes(
             />
           </div>
 
-          <div style="margin-top: 30px;">
+          <div class="actions-top-gap">
             <a href="/agents" class="btn-secondary">
               Back to Agents
             </a>{" "}
             <form
               method="POST"
               action={`/agents/${agent.id}/capabilities/refresh`}
-              style="display: inline; margin-left: 10px;"
+              class="inline-form with-left-gap"
             >
               <button type="submit" class="btn-secondary">
                 Refresh Capabilities
@@ -675,7 +679,7 @@ export function createAgentsRoutes(
             <form
               method="POST"
               action={`/agents/${agent.id}/delete`}
-              style="display: inline; margin-left: 10px;"
+              class="inline-form with-left-gap"
             >
               <button type="submit" class="btn-danger">
                 Delete Agent
@@ -751,6 +755,9 @@ export function createAgentsRoutes(
 .cap-label { min-width: 140px; color: #888; font-size: 12px; }
 .cap-row code { background: #1a1a1a; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
 .cap-row span { color: #d4d4d4; }
+.capabilities-empty-copy { margin: 10px 0; }
+.actions-top-gap { margin-top: 30px; }
+.with-left-gap { margin-left: 10px; }
       `}</style>
       </Layout>,
     );

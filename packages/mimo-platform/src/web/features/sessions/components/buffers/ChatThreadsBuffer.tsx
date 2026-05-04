@@ -41,15 +41,9 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
     threads.find((t) => t.id === activeThreadId) ?? threads[0];
 
   return (
-    <div
-      class="chat-threads-container"
-      style="display: flex; flex-direction: column; height: 100%;"
-    >
+    <div class="chat-threads-container buffer-container">
       {/* Thread Tabs */}
-      <div
-        class="chat-threads-tabs"
-        style="display: flex; background: #2d2d2d; border-bottom: 1px solid #444; overflow-x: auto;"
-      >
+      <div class="chat-threads-tabs">
         {threads.map((thread) => {
           const icon =
             thread.state === "disconnected"
@@ -73,26 +67,11 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
               type="button"
               class={`chat-thread-tab ${thread.id === activeThreadId ? "active" : ""}`}
               data-thread-id={thread.id}
-              style={`
-                padding: 8px 16px;
-                border: none;
-                border-right: 1px solid #444;
-                background: ${thread.id === activeThreadId ? "#1a1a1a" : "transparent"};
-                color: ${thread.id === activeThreadId ? "#d4d4d4" : "#888"};
-                cursor: pointer;
-                font-family: monospace;
-                font-size: 12px;
-                white-space: nowrap;
-                display: flex;
-                align-items: center;
-                gap: 6px;
-              `}
             >
               <span
                 class="thread-status-indicator"
                 data-thread-state={thread.state}
                 title={title}
-                style="cursor: help;"
               >
                 {icon}
               </span>
@@ -105,17 +84,7 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
         <button
           type="button"
           id="create-thread-btn"
-          style={`
-            padding: 8px 12px;
-            border: none;
-            border-right: 1px solid #444;
-            background: transparent;
-            color: #888;
-            cursor: pointer;
-            font-family: monospace;
-            font-size: 12px;
-            white-space: nowrap;
-          `}
+          class="chat-thread-action-btn"
           title="Create new chat thread"
         >
           + New Thread
@@ -123,38 +92,22 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
       </div>
 
       {/* Thread Context Bar with Model/Mode Selectors */}
-      <div
-        class="chat-thread-context"
-        style="padding: 8px 12px; background: #252525; border-bottom: 1px solid #444; display: flex; gap: 15px; align-items: center;"
-      >
+      <div class="chat-thread-context thread-context-bar">
         {activeThread && (
           <>
-            <div style="font-size: 12px; color: #888; white-space: nowrap;">
-              Thread: <span style="color: #d4d4d4;">{activeThread.name}</span>
+            <div class="thread-context-item text-muted">
+              Thread: <span class="text-primary">{activeThread.name}</span>
             </div>
 
             {/* Model Selector for active thread - always show */}
-            <div
-              class="thread-model-selector"
-              style="display: flex; align-items: center; gap: 6px; white-space: nowrap;"
-            >
-              <label style="font-size: 11px; color: #888; text-transform: uppercase;">
+            <div class="thread-model-selector thread-selector">
+              <label class="thread-selector-label">
                 Model:
               </label>
               <select
                 id="thread-model-select"
                 data-thread-id={activeThread.id}
-                style="
-                  background: #2d2d2d;
-                  border: 1px solid #444;
-                  color: #d4d4d4;
-                  padding: 4px 8px;
-                  font-family: monospace;
-                  font-size: 11px;
-                  border-radius: 3px;
-                  cursor: pointer;
-                  min-width: 120px;
-                "
+                class="thread-selector-select thread-model-select"
               >
                 {availableModels.length > 0 ? (
                   availableModels.map((model) => (
@@ -172,27 +125,14 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
             </div>
 
             {/* Mode Selector for active thread - always show */}
-            <div
-              class="thread-mode-selector"
-              style="display: flex; align-items: center; gap: 6px; white-space: nowrap;"
-            >
-              <label style="font-size: 11px; color: #888; text-transform: uppercase;">
+            <div class="thread-mode-selector thread-selector">
+              <label class="thread-selector-label">
                 Mode:
               </label>
               <select
                 id="thread-mode-select"
                 data-thread-id={activeThread.id}
-                style="
-                  background: #2d2d2d;
-                  border: 1px solid #444;
-                  color: #d4d4d4;
-                  padding: 4px 8px;
-                  font-family: monospace;
-                  font-size: 11px;
-                  border-radius: 3px;
-                  cursor: pointer;
-                  min-width: 100px;
-                "
+                class="thread-selector-select thread-mode-select"
               >
                 {availableModes.length > 0 ? (
                   availableModes.map((mode) => (
@@ -210,23 +150,13 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
             </div>
 
             {/* Spacer to push delete button to the right */}
-            <div style="flex: 1;"></div>
+            <div class="flex-grow"></div>
 
             <button
               type="button"
               id="delete-thread-btn"
               data-thread-id={activeThread.id}
-              style="
-                padding: 4px 8px;
-                background: transparent;
-                border: 1px solid #555;
-                color: #888;
-                font-family: monospace;
-                font-size: 10px;
-                cursor: pointer;
-                border-radius: 3px;
-                white-space: nowrap;
-              "
+              class="thread-delete-btn"
               title="Delete this thread"
             >
               Delete
@@ -234,38 +164,28 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
           </>
         )}
         {!activeThread && (
-          <div style="font-size: 12px; color: #888;">
+          <div class="text-small text-muted">
             No active thread. Use + New Thread to get started.
           </div>
         )}
       </div>
 
       {/* Chat Messages Area */}
-      <div
-        class="chat-messages-wrapper"
-        style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden;"
-      >
+      <div class="chat-messages-wrapper flex flex-col flex-grow messages-wrapper">
         <div
           class="buffer-content"
           id="chat-messages"
           data-session-id={sessionId}
           data-active-thread-id={activeThread?.id}
         >
-          <div
-            class="no-messages"
-            style="padding: 20px; color: #888; text-align: center;"
-          >
+          <div class="no-messages chat-empty-state text-muted">
             <p>No messages yet.</p>
-            <p style="font-size: 12px; margin-top: 10px;">
+            <p class="text-small chat-empty-hint">
               Start chatting with the agent in this thread
             </p>
           </div>
         </div>
-        <div
-          id="chat-usage"
-          class="chat-usage"
-          style="display: none; font-size: 0.75em; color: #666; padding: 4px 10px; text-align: right; border-top: 1px solid #333;"
-        ></div>
+        <div id="chat-usage" class="chat-usage hidden"></div>
       </div>
     </div>
   );

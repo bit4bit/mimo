@@ -28,9 +28,9 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
 }) => {
   return (
     <Layout title={`New Session - ${project.name}`}>
-      <div class="container" style="max-width: 600px;">
+      <div class="container session-create-container">
         <h1>Create New Session</h1>
-        <p style="color: #888; margin-bottom: 20px;">Project: {project.name}</p>
+        <p class="text-muted session-create-project">Project: {project.name}</p>
 
         <form method="POST" action={`/projects/${project.id}/sessions`}>
           <div class="form-group">
@@ -68,17 +68,17 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
               name="instructions"
               rows="4"
               placeholder="Behavior instructions for this session (e.g., Focus on Django ORM. Review all models.)"
-              style="background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%;"
+              class="session-create-textarea"
               data-help-id="session-create-page-instructions-textarea"
             >{project.instructions || ""}</textarea>
-            <p style="color: #888; font-size: 12px; margin-top: 5px;">
+            <p class="session-create-help">
               These instructions will override project-level instructions for all threads in this session.
             </p>
           </div>
 
           <div class="form-group">
             <label>Session Type</label>
-            <p style="color: #888; font-size: 14px;">
+            <p class="text-muted">
               Creates a worktree for isolated development. Changes will be
               tracked separately from the main branch.
             </p>
@@ -98,7 +98,7 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
               </option>
               <option value="365">365 days</option>
             </select>
-            <p style="color: #888; font-size: 12px; margin-top: 5px;">
+            <p class="session-create-help">
               Session is eligible for auto-delete after this age, only when
               inactive for at least 10 minutes.
             </p>
@@ -113,7 +113,7 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
               value={project.agentSubpath ?? ""}
               data-help-id="session-create-page-agent-subpath-input"
             />
-            <p style="color: #888; font-size: 12px; margin-top: 5px;">
+            <p class="session-create-help">
               Relative path within the repository where the agent will start.
               {project.agentSubpath
                 ? ` Currently defaults to: ${project.agentSubpath}`
@@ -130,37 +130,37 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
               placeholder="auto: uses session name"
               data-help-id="session-create-page-branch-name-input-input"
             />
-            <p style="color: #888; font-size: 12px; margin-top: 5px;">
+            <p class="session-create-help">
               Defaults to the session name (slugified). Edit to override, or
               clear to use the project default
               {project.newBranch ? ` (${project.newBranch})` : " (none)"}.
             </p>
 
-            <div style="margin-top: 10px;">
-              <label style="display: block; margin-bottom: 4px; font-weight: normal;">
+            <div class="branch-mode-group">
+              <label class="branch-mode-option mb-4">
                 <input
                   type="radio"
                   name="branchMode"
                   value="new"
                   checked
-                  style="margin-right: 6px;"
+                  class="mr-6"
                   data-help-id="session-create-page-branch-mode-input"
                 />
                 Create new branch
-                <span style="color: #888; font-size: 12px; margin-left: 4px;">
+                <span class="text-muted text-small ml-4">
                   — clone project default, create this branch locally
                 </span>
               </label>
-              <label style="display: block; font-weight: normal;">
+              <label class="branch-mode-option">
                 <input
                   type="radio"
                   name="branchMode"
                   value="sync"
-                  style="margin-right: 6px;"
+                  class="mr-6"
                   data-help-id="session-create-page-branch-mode-input"
                 />
                 Sync existing branch
-                <span style="color: #888; font-size: 12px; margin-left: 4px;">
+                <span class="text-muted text-small ml-4">
                   — branch already exists on remote; clone it directly
                 </span>
               </label>
@@ -169,9 +169,9 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
 
           <div class="form-group">
             <label>MCP Servers</label>
-            <div style="border: 1px solid #ddd; border-radius: 4px; padding: 10px; max-height: 150px; overflow-y: auto;">
+            <div class="mcp-server-list-box">
               {mcpServers.length === 0 ? (
-                <p style="color: #888; font-size: 12px; margin: 0;">
+                <p class="text-muted text-small no-margin">
                   No MCP servers configured.{" "}
                   <a href="/mcp-servers" data-help-id="session-create-page-a">
                     Configure MCP servers
@@ -181,22 +181,18 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
                 mcpServers.map((server) => (
                   <label
                     key={server.id}
-                    style={{
-                      display: "block",
-                      margin: "5px 0",
-                      cursor: "pointer",
-                    }}
+                    class="mcp-server-option"
                   >
                     <input
                       type="checkbox"
                       name="mcpServerIds"
                       value={server.id}
-                      style={{ marginRight: "8px" }}
+                      class="mr-8"
                       data-help-id="session-create-page-mcp-server-ids-input"
                     />
                     <strong>{server.name}</strong>
                     {server.description && (
-                      <span style="color: #888; font-size: 12px; margin-left: 8px;">
+                      <span class="text-muted text-small ml-8">
                         - {server.description}
                       </span>
                     )}
@@ -204,7 +200,7 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
                 ))
               )}
             </div>
-            <p style="color: #888; font-size: 12px; margin-top: 5px;">
+            <p class="session-create-help">
               Select MCP servers to attach to this session. These provide tools
               and resources to the AI agent.
             </p>
@@ -259,6 +255,22 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
 `,
           }}
         />
+        <style>{`
+          .session-create-container { max-width: 600px; }
+          .session-create-project { margin-bottom: 20px; }
+          .session-create-textarea { background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%; }
+          .session-create-help { color: #888; font-size: 12px; margin-top: 5px; }
+          .branch-mode-group { margin-top: 10px; }
+          .branch-mode-option { display: block; font-weight: normal; }
+          .mb-4 { margin-bottom: 4px; }
+          .mr-6 { margin-right: 6px; }
+          .ml-4 { margin-left: 4px; }
+          .ml-8 { margin-left: 8px; }
+          .mr-8 { margin-right: 8px; }
+          .mcp-server-list-box { border: 1px solid #ddd; border-radius: 4px; padding: 10px; max-height: 150px; overflow-y: auto; }
+          .mcp-server-option { display: block; margin: 5px 0; cursor: pointer; }
+          .no-margin { margin: 0; }
+        `}</style>
       </div>
     </Layout>
   );

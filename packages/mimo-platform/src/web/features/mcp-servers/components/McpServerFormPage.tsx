@@ -33,13 +33,12 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
 
   return (
     <Layout title={title}>
-      <div class="container" style="max-width: 600px;">
+      <div class="container mcp-form-container">
         <h1>{title}</h1>
 
         {error && (
           <div
-            class="error-message"
-            style="background: #5a2d2d; border: 1px solid #ff6b6b; color: #ff6b6b; padding: 10px; margin-bottom: 20px; border-radius: 4px;"
+            class="error-message page-error-banner"
           >
             {error}
           </div>
@@ -59,7 +58,7 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
             <label htmlFor="name">
               Name *
               {isEditing && (
-                <span style="color: #666; font-size: 12px; margin-left: 10px;">
+                <span class="field-meta-id">
                   (ID: {server?.id})
                 </span>
               )}
@@ -72,10 +71,7 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
               required
               defaultValue={server?.name}
               disabled={isEditing}
-              class="form-input"
-              style={
-                isEditing ? { background: "#1a1a1a", color: "#666" } : undefined
-              }
+              class={`form-input ${isEditing ? "is-readonly" : ""}`}
               data-help-id="mcp-server-form-page-name-input"
             />
             <p class="form-help">
@@ -110,9 +106,7 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
               class="form-select"
               defaultValue={transport}
               disabled={isEditing}
-              style={
-                isEditing ? { background: "#1a1a1a", color: "#666" } : undefined
-              }
+              class={`form-select ${isEditing ? "is-readonly" : ""}`}
               onchange="toggleTransportFields()"
               data-help-id="mcp-server-form-page-transport-select"
             >
@@ -171,7 +165,7 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
           </div>
 
           {/* HTTP/SSE Transport Fields */}
-          <div id="http-fields" class="transport-fields" style="display: none;">
+          <div id="http-fields" class="transport-fields hidden">
             <div class="form-group">
               <label htmlFor="url">Server URL *</label>
               <input
@@ -231,19 +225,19 @@ X-Custom-Header: value`}
           </div>
         </form>
 
-        <div style="margin-top: 40px; padding: 15px; background: #2d2d2d; border: 1px solid #444; border-radius: 4px;">
-          <h3 style="margin-bottom: 10px; font-size: 14px; color: #888;">
+        <div class="transport-examples">
+          <h3 class="transport-examples-title">
             Transport Type Examples
           </h3>
 
-          <div style="margin-bottom: 15px;">
-            <strong style="color: #74c0fc; font-size: 13px;">
+          <div class="transport-example-block">
+            <strong class="transport-example-label">
               Standard I/O (stdio):
             </strong>
-            <p style="color: #888; font-size: 12px; margin: 5px 0;">
+            <p class="transport-example-copy">
               Spawn a local process. Best for npm packages and local tools.
             </p>
-            <pre style="background: #1a1a1a; padding: 8px; margin-top: 5px; font-size: 12px; overflow-x: auto;">
+            <pre class="transport-example-code">
               <code>
                 Command: npx Args: - -y -
                 @modelcontextprotocol/server-filesystem - /path/to/project
@@ -251,12 +245,12 @@ X-Custom-Header: value`}
             </pre>
           </div>
 
-          <div style="margin-bottom: 15px;">
-            <strong style="color: #74c0fc; font-size: 13px;">HTTP:</strong>
-            <p style="color: #888; font-size: 12px; margin: 5px 0;">
+          <div class="transport-example-block">
+            <strong class="transport-example-label">HTTP:</strong>
+            <p class="transport-example-copy">
               Connect to a remote HTTP MCP server endpoint.
             </p>
-            <pre style="background: #1a1a1a; padding: 8px; margin-top: 5px; font-size: 12px; overflow-x: auto;">
+            <pre class="transport-example-code">
               <code>
                 URL: http://localhost:3000/mcp Headers: Authorization: Bearer
                 token123
@@ -265,13 +259,13 @@ X-Custom-Header: value`}
           </div>
 
           <div>
-            <strong style="color: #74c0fc; font-size: 13px;">
+            <strong class="transport-example-label">
               SSE (Server-Sent Events):
             </strong>
-            <p style="color: #888; font-size: 12px; margin: 5px 0;">
+            <p class="transport-example-copy">
               Connect to an SSE-based MCP server for real-time streaming.
             </p>
-            <pre style="background: #1a1a1a; padding: 8px; margin-top: 5px; font-size: 12px; overflow-x: auto;">
+            <pre class="transport-example-code">
               <code>
                 URL: http://localhost:3000/sse Headers: X-API-Key: secret123
               </code>
@@ -283,6 +277,20 @@ X-Custom-Header: value`}
       <style>{`
         .mcp-server-form {
           margin-top: 20px;
+        }
+        .mcp-form-container { max-width: 600px; }
+        .page-error-banner {
+          background: #5a2d2d;
+          border: 1px solid #ff6b6b;
+          color: #ff6b6b;
+          padding: 10px;
+          margin-bottom: 20px;
+          border-radius: 4px;
+        }
+        .field-meta-id {
+          color: #666;
+          font-size: 12px;
+          margin-left: 10px;
         }
         
         .form-group {
@@ -322,6 +330,10 @@ X-Custom-Header: value`}
           background: #2d2d2d;
           color: #d4d4d4;
         }
+        .is-readonly {
+          background: #1a1a1a;
+          color: #666;
+        }
         
         .form-help {
           color: #666;
@@ -339,6 +351,35 @@ X-Custom-Header: value`}
           border-left: 3px solid #74c0fc;
           padding-left: 15px;
           margin-bottom: 20px;
+        }
+        .transport-examples {
+          margin-top: 40px;
+          padding: 15px;
+          background: #2d2d2d;
+          border: 1px solid #444;
+          border-radius: 4px;
+        }
+        .transport-examples-title {
+          margin-bottom: 10px;
+          font-size: 14px;
+          color: #888;
+        }
+        .transport-example-block { margin-bottom: 15px; }
+        .transport-example-label {
+          color: #74c0fc;
+          font-size: 13px;
+        }
+        .transport-example-copy {
+          color: #888;
+          font-size: 12px;
+          margin: 5px 0;
+        }
+        .transport-example-code {
+          background: #1a1a1a;
+          padding: 8px;
+          margin-top: 5px;
+          font-size: 12px;
+          overflow-x: auto;
         }
         
         pre code {
@@ -359,13 +400,13 @@ X-Custom-Header: value`}
             const urlInput = document.getElementById('url');
             
             if (transport === 'stdio') {
-              stdioFields.style.display = 'block';
-              httpFields.style.display = 'none';
+              stdioFields.classList.remove('hidden');
+              httpFields.classList.add('hidden');
               commandInput.required = true;
               urlInput.required = false;
             } else {
-              stdioFields.style.display = 'none';
-              httpFields.style.display = 'block';
+              stdioFields.classList.add('hidden');
+              httpFields.classList.remove('hidden');
               commandInput.required = false;
               urlInput.required = true;
             }

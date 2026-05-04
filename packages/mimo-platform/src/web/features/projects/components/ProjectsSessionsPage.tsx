@@ -119,11 +119,11 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
       label: "Close Reason",
       render: (session) =>
         session.status === "closed" && session.closeReason ? (
-          <span style="color: #888; font-size: 13px;">
+          <span class="close-reason-text">
             {session.closeReason}
           </span>
         ) : (
-          <span style="color: #555; font-size: 13px;">—</span>
+          <span class="close-reason-empty">—</span>
         ),
     },
     {
@@ -152,13 +152,12 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
       key: "actions",
       label: "Actions",
       render: (session) => (
-        <div style="display: flex; gap: 6px;">
+        <div class="session-actions-row">
           {session.status !== "closed" && (
             <a
               href={`/projects/${selectedProject?.id}/sessions/${session.id}/close`}
-              class="btn-secondary btn-sm"
+              class="btn-secondary btn-sm no-underline"
               data-help-id="projects-sessions-page-button"
-              style="text-decoration: none;"
             >
               Close
             </a>
@@ -166,7 +165,7 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
           <form
             method="POST"
             action={`/projects/${selectedProject?.id}/sessions/${session.id}/delete`}
-            style="display: inline;"
+            class="inline-form"
             onsubmit={`return confirm('Delete session "${session.name}"? This cannot be undone.')`}
           >
             <button
@@ -433,6 +432,11 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
           font-size: 12px;
           margin-left: 0;
         }
+        .close-reason-text { color: #888; font-size: 13px; }
+        .close-reason-empty { color: #555; font-size: 13px; }
+        .session-actions-row { display: flex; gap: 6px; }
+        .no-underline { text-decoration: none; }
+        .inline-form { display: inline; }
       `}</style>
     </Layout>
   );

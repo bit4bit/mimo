@@ -502,6 +502,623 @@ export const Layout: FC<LayoutProps> = ({
             .help-tooltip-content strong {
               color: #fff;
             }
+
+            .dialog-overlay {
+              position: fixed;
+              inset: 0;
+              z-index: 2000;
+              background: rgba(0, 0, 0, 0.7);
+              display: flex;
+              justify-content: center;
+              align-items: flex-start;
+              padding-top: 80px;
+            }
+
+            .dialog-header {
+              font-size: 13px;
+              color: #888;
+              margin-bottom: 10px;
+              padding-bottom: 8px;
+              border-bottom: 1px solid #444;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+
+            .dialog-help {
+              font-size: 11px;
+            }
+
+            .dialog-compact {
+              width: 600px;
+              max-width: 90%;
+            }
+
+            .dialog-wide {
+              min-width: 600px;
+              max-width: 95vw;
+              width: auto;
+            }
+
+            .dialog-xwide {
+              min-width: 700px;
+              max-width: 95vw;
+              width: auto;
+            }
+
+            .finder-results {
+              margin-top: 8px;
+              max-height: 320px;
+              overflow-y: auto;
+            }
+
+            .finder-results.x-scroll {
+              overflow-x: auto;
+            }
+
+            .finder-results.tall {
+              max-height: 400px;
+            }
+
+            .finder-loading {
+              padding: 8px 0;
+            }
+
+            .buffer-container {
+              display: flex;
+              flex-direction: column;
+              height: 100%;
+            }
+
+            .tab-bar {
+              display: flex;
+            }
+
+            .tab-bar-panel {
+              background: #2d2d2d;
+              border-bottom: 1px solid #444;
+              overflow-x: auto;
+              flex-shrink: 0;
+            }
+
+            .toolbar {
+              display: flex;
+            }
+
+            .toolbar.hidden {
+              display: none;
+            }
+
+            .text-primary {
+              color: #d4d4d4;
+            }
+
+            .text-muted {
+              color: #888;
+            }
+
+            .text-subtle {
+              color: #666;
+            }
+
+            .text-small {
+              font-size: 12px;
+            }
+
+            .text-xs {
+              font-size: 11px;
+            }
+
+            .text-error {
+              color: #ff6b6b;
+            }
+
+            .font-mono {
+              font-family: monospace;
+            }
+
+            .status-bar {
+              margin-top: 8px;
+              padding-top: 8px;
+              border-top: 1px solid #444;
+            }
+
+            .status-bar.hidden {
+              display: none;
+            }
+
+            .page-header {
+              font-size: 16px;
+              color: #fff;
+            }
+
+            .page-description {
+              color: #888;
+              font-size: 12px;
+            }
+
+            .code-input {
+              width: 100%;
+              background: #1a1a1a;
+              border: 1px solid #555;
+              color: #d4d4d4;
+              padding: 10px;
+              font-family: monospace;
+              font-size: 13px;
+              outline: none;
+              box-sizing: border-box;
+            }
+
+            .flex {
+              display: flex;
+            }
+
+            .flex-col {
+              flex-direction: column;
+            }
+
+            .flex-grow {
+              flex: 1;
+            }
+
+            .hidden {
+              display: none;
+            }
+
+            .mt-2 {
+              margin-top: 2px;
+            }
+
+            .ml-1 {
+              margin-left: 4px;
+            }
+
+            .ml-2 {
+              margin-left: 8px;
+            }
+
+            .ml-3 {
+              margin-left: 10px;
+            }
+
+            .mr-2 {
+              margin-right: 8px;
+            }
+
+            .main-content {
+              min-height: 0;
+              overflow-y: auto;
+            }
+
+            .chat-empty-state {
+              padding: 20px;
+              text-align: center;
+            }
+
+            .chat-empty-hint {
+              margin-top: 10px;
+            }
+
+            .chat-message-meta {
+              font-size: 0.75em;
+              color: #888;
+              margin-left: 8px;
+            }
+
+            .chat-usage {
+              font-size: 0.75em;
+              color: #666;
+              padding: 4px 10px;
+              text-align: right;
+              border-top: 1px solid #333;
+            }
+
+            .chat-threads-tabs {
+              display: flex;
+              background: #2d2d2d;
+              border-bottom: 1px solid #444;
+              overflow-x: auto;
+            }
+
+            .chat-thread-tab {
+              padding: 8px 16px;
+              border: none;
+              border-right: 1px solid #444;
+              background: transparent;
+              color: #888;
+              cursor: pointer;
+              font-family: monospace;
+              font-size: 12px;
+              white-space: nowrap;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+            }
+
+            .chat-thread-tab.active {
+              background: #1a1a1a;
+              color: #d4d4d4;
+            }
+
+            .chat-thread-action-btn {
+              padding: 8px 12px;
+              border: none;
+              border-right: 1px solid #444;
+              background: transparent;
+              color: #888;
+              cursor: pointer;
+              font-family: monospace;
+              font-size: 12px;
+              white-space: nowrap;
+            }
+
+            .thread-status-indicator {
+              cursor: help;
+            }
+
+            .thread-context-bar {
+              padding: 8px 12px;
+              background: #252525;
+              border-bottom: 1px solid #444;
+              display: flex;
+              gap: 15px;
+              align-items: center;
+              font-size: 12px;
+            }
+
+            .thread-context-item {
+              white-space: nowrap;
+            }
+
+            .thread-selector {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              white-space: nowrap;
+            }
+
+            .thread-selector-label {
+              font-size: 11px;
+              color: #888;
+              text-transform: uppercase;
+            }
+
+            .thread-selector-select {
+              background: #2d2d2d;
+              border: 1px solid #444;
+              color: #d4d4d4;
+              padding: 4px 8px;
+              font-family: monospace;
+              font-size: 11px;
+              border-radius: 3px;
+              cursor: pointer;
+            }
+
+            .thread-model-select {
+              min-width: 120px;
+            }
+
+            .thread-mode-select {
+              min-width: 100px;
+            }
+
+            .messages-wrapper {
+              min-height: 0;
+              overflow: hidden;
+            }
+
+            .thread-delete-btn,
+            .buffer-close-btn {
+              padding: 4px 8px;
+              background: transparent;
+              border: 1px solid #555;
+              color: #888;
+              font-family: monospace;
+              font-size: 10px;
+              cursor: pointer;
+              border-radius: 3px;
+              white-space: nowrap;
+            }
+
+            .edit-context-bar,
+            .patch-context-bar,
+            .expert-actions-bar {
+              padding: 8px 12px;
+              background: #252525;
+              border-bottom: 1px solid #444;
+              display: flex;
+              flex-direction: row;
+              gap: 12px;
+              align-items: center;
+              flex-shrink: 0;
+              font-size: 12px;
+              color: #888;
+            }
+
+            .expert-actions-bar {
+              border-bottom: none;
+              border-top: 1px solid #444;
+              justify-content: center;
+            }
+
+            .expert-toggle-btn,
+            .expert-cancel-btn {
+              padding: 4px 10px;
+              background: #4a90e2;
+              border: none;
+              color: #fff;
+              font-family: monospace;
+              font-size: 11px;
+              cursor: pointer;
+              border-radius: 3px;
+            }
+
+            .expert-cancel-btn {
+              padding: 6px 16px;
+              background: #666;
+              font-size: 12px;
+            }
+
+            .expert-select,
+            .expert-pill,
+            .expert-badge {
+              background: #2a2a2a;
+              border: 1px solid #444;
+              border-radius: 3px;
+              font-size: 11px;
+            }
+
+            .expert-select {
+              padding: 4px 8px;
+              color: #ddd;
+              font-family: monospace;
+              max-width: 200px;
+            }
+
+            .expert-pill {
+              padding: 2px 8px;
+              color: #888;
+            }
+
+            .expert-badge {
+              padding: 2px 8px;
+              color: #fff;
+              background: #4a90e2;
+              font-family: monospace;
+              border: none;
+            }
+
+            .outdated-indicator {
+              color: #ff9800;
+              font-size: 11px;
+              font-weight: 500;
+            }
+
+            .reload-file-btn {
+              padding: 4px 10px;
+              background: #3d3d3d;
+              border: 1px solid #555;
+              color: #ccc;
+              font-family: monospace;
+              font-size: 11px;
+              cursor: pointer;
+              border-radius: 3px;
+              margin-left: 8px;
+            }
+
+            .edit-buffer-content {
+              flex: 1;
+              overflow-y: auto;
+              background: #1a1a1a;
+              font-family: monospace;
+              font-size: 13px;
+              line-height: 1.5;
+              position: relative;
+            }
+
+            .edit-lines-table {
+              width: 100%;
+              border-collapse: collapse;
+            }
+
+            .expert-input-shell {
+              flex-shrink: 0;
+              background: #1a1a1a;
+              border-top: 1px solid #3b3b3b;
+            }
+
+            .panel-divider {
+              width: 1px;
+              background: #444;
+              flex-shrink: 0;
+            }
+
+            .patch-diff-container {
+              overflow: hidden;
+            }
+
+            .pane-column {
+              overflow: hidden;
+            }
+
+            .pane-header.with-divider {
+              border-right: 1px solid #444;
+            }
+
+            .buffer-empty-centered {
+              align-items: center;
+              justify-content: center;
+            }
+
+            .error-panel {
+              padding: 20px;
+              color: #ff6b6b;
+            }
+
+            .mt-20 {
+              margin-top: 20px;
+            }
+
+            .mb-16 {
+              margin-bottom: 16px;
+            }
+
+            .label-strong {
+              display: block;
+              margin-bottom: 8px;
+              font-weight: 500;
+            }
+
+            .textarea-dark {
+              width: 100%;
+              max-width: 500px;
+              padding: 8px;
+              border: 1px solid #444;
+              background: #1a1a1a;
+              color: #e0e0e0;
+              border-radius: 4px;
+              font-family: inherit;
+            }
+
+            .actions-row {
+              display: flex;
+              gap: 12px;
+            }
+
+            .link-no-underline {
+              text-decoration: none;
+            }
+
+            .inline-flex-row {
+              display: inline-flex;
+              align-items: center;
+              gap: 8px;
+            }
+
+            .focus-guide-overlay {
+              position: absolute;
+              left: 0;
+              right: 0;
+              top: 0;
+              bottom: 0;
+              pointer-events: none;
+              z-index: 10;
+            }
+
+            .buffer-empty-state {
+              color: #555;
+              font-size: 13px;
+              text-align: center;
+            }
+
+            .buffer-empty-padded {
+              padding: 40px;
+            }
+
+            .summary-buffer {
+              display: flex;
+              flex-direction: column;
+              height: 100%;
+              padding: 12px;
+            }
+
+            .summary-selectors {
+              display: flex;
+              gap: 8px;
+              margin-bottom: 12px;
+            }
+
+            .summary-column {
+              flex: 1;
+            }
+
+            .summary-label {
+              display: block;
+              font-size: 10px;
+              color: #888;
+              margin-bottom: 4px;
+            }
+
+            .summary-select {
+              width: 100%;
+              padding: 6px;
+              background: #222;
+              color: #ddd;
+              border: 1px solid #444;
+              border-radius: 4px;
+            }
+
+            .summary-refresh-btn {
+              padding: 8px 16px;
+              background: #4a5568;
+              color: #fff;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              opacity: 0.9;
+            }
+
+            .summary-message {
+              margin-top: 12px;
+              padding: 8px;
+              border-radius: 4px;
+              font-size: 13px;
+            }
+
+            .summary-message.error {
+              background: #2c1a1a;
+              color: #f88;
+            }
+
+            .summary-message.success {
+              background: #1a2a1a;
+              color: #8f8;
+            }
+
+            .summary-content {
+              margin-top: 12px;
+              padding: 12px;
+              background: #1a1a2a;
+              color: #ddd;
+              border-radius: 4px;
+              font-size: 13px;
+              white-space: pre-wrap;
+              overflow-y: auto;
+              flex: 1;
+            }
+
+            .summary-description {
+              margin-top: 8px;
+              font-size: 11px;
+              color: #666;
+            }
+
+            .nav-subtle {
+              margin-left: 10px;
+              color: #888;
+            }
+
+            .nav-subtle-link {
+              color: #888;
+            }
+
+            .pane-header {
+              padding: 6px 12px;
+              background: #2a2a2a;
+              border-bottom: 1px solid #444;
+              font-size: 12px;
+              color: #888;
+              flex-shrink: 0;
+            }
+
+            .mono-pane {
+              flex: 1;
+              overflow: auto;
+              padding: 0;
+              font-family: monospace;
+              font-size: 12px;
+              line-height: 20px;
+            }
           `}</style>
         </head>
         <body>
@@ -510,7 +1127,7 @@ export const Layout: FC<LayoutProps> = ({
               {backUrl && (
                 <a
                   href={backUrl}
-                  style="margin-right: 8px;"
+                  class="mr-2"
                   title="Back"
                   data-help-id="layout-a"
                 >
@@ -521,7 +1138,7 @@ export const Layout: FC<LayoutProps> = ({
                 MIMO
               </a>
               {(sessionName || projectName) && (
-                <span style="margin-left: 10px; color: #888;">
+                <span class="nav-subtle">
                   {sessionName && (
                     <span>
                       | {sessionName}
@@ -535,7 +1152,7 @@ export const Layout: FC<LayoutProps> = ({
                       {sessionName ? " | " : "| "}
                       <a
                         href={`/projects/${projectId}`}
-                        style="color: #888;"
+                        class="nav-subtle-link"
                         data-help-id="layout-a"
                       >
                         {projectName}
@@ -545,18 +1162,18 @@ export const Layout: FC<LayoutProps> = ({
                           href={`${fossilUrl}timeline`}
                           target="_blank"
                           title="View Fossil Repository"
-                          style="margin-left: 4px;"
+                          class="ml-1"
                           data-help-id="layout-a"
                         >
                           🌿
                         </a>
                       )}
                       {agentId && agentName && (
-                        <span style="margin-left: 4px;">
+                        <span class="ml-1">
                           |{" "}
                           <a
                             href={`/agents/${agentId}`}
-                            style="color: #888;"
+                            class="nav-subtle-link"
                             data-help-id="layout-a"
                           >
                             {agentName}
@@ -590,7 +1207,7 @@ export const Layout: FC<LayoutProps> = ({
               </a>
             </div>
           </nav>
-          <main style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto;">
+          <main class="flex flex-col flex-grow main-content">
             {children}
           </main>
           {showStatusLine && (

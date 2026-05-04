@@ -127,7 +127,7 @@ export const SessionList: FC<SessionListProps> = ({
                   <div>
                     <span class={`session-status ${s.status}`}>{s.status}</span>
                     {s.status === "closed" && s.closeReason && (
-                      <div style="font-size: 11px; color: #888; margin-top: 2px;">
+                      <div class="text-muted text-xs mt-2">
                         {s.closeReason}
                       </div>
                     )}
@@ -173,7 +173,7 @@ export const SessionList: FC<SessionListProps> = ({
           if(!wrap)return;
           var rows=wrap.querySelectorAll('.session-table-row');
           function show(p){
-            rows.forEach(function(r){r.style.display=parseInt(r.dataset.slPage)===p?'':'none';});
+            rows.forEach(function(r){r.classList.toggle('hidden', parseInt(r.dataset.slPage)!==p);});
             var info=wrap.querySelector('[data-sl-info="'+id+'"]');
             if(info)info.textContent='Page '+p+' of '+totalPages;
             cur=p;
@@ -186,15 +186,15 @@ export const SessionList: FC<SessionListProps> = ({
           if(search){
             search.addEventListener('input',function(e){
               var t=e.target.value.toLowerCase();
-              if(!t){show(1);wrap.querySelector('[data-sl-pag="'+id+'"]').style.display='';return;}
+              if(!t){show(1);var pag=wrap.querySelector('[data-sl-pag="'+id+'"]');if(pag)pag.classList.remove('hidden');return;}
               rows.forEach(function(r){
                 var n=r.querySelector('.session-name').textContent.toLowerCase();
                 var pr=r.querySelector('.session-project');
                 var pt=pr?pr.textContent.toLowerCase():'';
-                r.style.display=(n.indexOf(t)!==-1||pt.indexOf(t)!==-1)?'':'none';
+                r.classList.toggle('hidden', !(n.indexOf(t)!==-1||pt.indexOf(t)!==-1));
               });
               var pag=wrap.querySelector('[data-sl-pag="'+id+'"]');
-              if(pag)pag.style.display='none';
+              if(pag)pag.classList.add('hidden');
             });
           }
           show(1);

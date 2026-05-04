@@ -211,7 +211,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       />
       <div class="session-container">
         {session.status === "closed" && session.closeReason && (
-          <div style="background: #5a2d2d; color: #ff6b6b; padding: 8px 16px; font-size: 13px; border-bottom: 1px solid #444;">
+          <div class="session-closed-banner">
             <strong>Closed:</strong> {session.closeReason}
           </div>
         )}
@@ -285,8 +285,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           </button>
         </div>
 
-        <div style="padding: 15px; border-top: 1px solid #444; display: flex; justify-content: space-between; align-items: center;">
-          <div style="display: flex; gap: 10px;">
+        <div class="session-footer-bar">
+          <div class="session-footer-actions">
             <button
               type="button"
               id="commit-btn"
@@ -320,22 +320,18 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               Settings
             </a>
           </div>
-          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-            <span id="sync-status" style="color: #888; font-size: 12px;">
+          <div class="session-footer-status">
+            <span id="sync-status" class="text-muted text-small">
               Sync: {session.syncState || "idle"}
             </span>
-            <span
-              id="commit-status"
-              style="color: #888; font-size: 12px;"
-            ></span>
+            <span id="commit-status" class="text-muted text-small"></span>
           </div>
-          <div style="display: flex; gap: 8px;">
+          <div class="session-footer-secondary-actions">
             {session.status !== "closed" && (
               <a
                 href={`/projects/${project.id}/sessions/${session.id}/close`}
-                class="btn-secondary"
+                class="btn-secondary link-no-underline"
                 data-help-id="session-detail-page-button"
-                style="text-decoration: none;"
               >
                 Close Session
               </a>
@@ -344,7 +340,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               <form
                 method="POST"
                 action={`/projects/${project.id}/sessions/${session.id}/delete`}
-                style="display: inline;"
+                class="inline-form"
               >
                 <button
                   type="submit"
@@ -599,9 +595,9 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       <ContentFinderDialog sessionId={session.id} />
 
       {/* Commit dialog */}
-      <div id="commit-dialog" class="modal" style="display: none;">
+      <div id="commit-dialog" class="modal hidden">
         <div class="modal-content commit-modal">
-          <h3 style="margin: 0 0 15px 0; font-size: 16px;">Commit Changes</h3>
+          <h3 class="modal-title mb-15">Commit Changes</h3>
           <div class="commit-preview-container">
             <div class="commit-status-filters">
               <label class="status-filter">
@@ -639,7 +635,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                   (<span id="count-deleted">0</span>)
                 </span>
               </label>
-              <span style="margin-left: auto; font-size: 12px; color: #888;">
+              <span class="status-counter-pill">
                 <span id="selected-count">0</span> /{" "}
                 <span id="total-count">0</span> selected
               </span>
@@ -682,12 +678,12 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
 
       {/* Clone workspace command dialog */}
       {cloneWorkspaceCommand && (
-        <div id="clone-workspace-dialog" class="modal" style="display: none;">
+        <div id="clone-workspace-dialog" class="modal hidden">
           <div class="modal-content clone-workspace-modal">
-            <h3 style="margin: 0 0 10px 0; font-size: 16px;">
+            <h3 class="modal-title mb-10">
               Clone Workspace Command
             </h3>
-            <p style="margin: 0 0 12px 0; color: #888; font-size: 12px;">
+            <p class="clone-workspace-help">
               Click the command to copy it.
             </p>
             <pre
@@ -743,6 +739,33 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           flex: 1;
           min-height: 0;
         }
+        .session-closed-banner {
+          background: #5a2d2d;
+          color: #ff6b6b;
+          padding: 8px 16px;
+          font-size: 13px;
+          border-bottom: 1px solid #444;
+        }
+        .session-footer-bar {
+          padding: 15px;
+          border-top: 1px solid #444;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .session-footer-actions { display: flex; gap: 10px; }
+        .session-footer-status {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 4px;
+        }
+        .session-footer-secondary-actions { display: flex; gap: 8px; }
+        .modal-title { margin: 0; font-size: 16px; }
+        .mb-15 { margin-bottom: 15px; }
+        .mb-10 { margin-bottom: 10px; }
+        .status-counter-pill { margin-left: auto; font-size: 12px; color: #888; }
+        .clone-workspace-help { margin: 0 0 12px 0; color: #888; font-size: 12px; }
         .session-header-bar {
           display: flex;
           justify-content: space-between;
@@ -894,6 +917,9 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           width: 100%;
           display: flex;
           flex-direction: column;
+        }
+        .frame-buffer-panel.hidden {
+          display: none;
         }
         .frame-empty {
           padding: 14px;
@@ -1178,6 +1204,9 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           display: flex;
           align-items: center;
           justify-content: center;
+        }
+        .modal.hidden {
+          display: none;
         }
         .modal-content {
           background: #2d2d2d;

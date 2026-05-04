@@ -49,7 +49,7 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({
               name="description"
               rows="3"
               placeholder="Describe your project..."
-              style="background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%;"
+              class="project-textarea"
               data-help-id="project-edit-page-description-textarea"
             >
               {project.description || ""}
@@ -62,7 +62,7 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({
               name="instructions"
               rows="4"
               placeholder="Behavior instructions for the AI agent..."
-              style="background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%;"
+              class="project-textarea"
               data-help-id="project-edit-page-instructions-textarea"
             >
               {project.instructions || ""}
@@ -147,6 +147,16 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({
 
           {error && <div class="error">{error}</div>}
         </form>
+        <style>{`
+          .project-textarea {
+            background: #2d2d2d;
+            border: 1px solid #444;
+            color: #d4d4d4;
+            padding: 10px;
+            font-family: monospace;
+            width: 100%;
+          }
+        `}</style>
       </div>
     </Layout>
   );

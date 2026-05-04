@@ -73,7 +73,7 @@ export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({
             </div>
           </div>
 
-          <div id="ssh-fields" style="display: none;">
+          <div id="ssh-fields" class="hidden">
             <div class="form-group">
               <label htmlFor="privateKey">SSH Private Key</label>
               <textarea
@@ -118,18 +118,18 @@ export const CredentialCreatePage: FC<CredentialCreatePageProps> = ({
               const sshFields = document.getElementById('ssh-fields');
               
               if (type === 'https') {
-                httpsFields.style.display = 'block';
-                sshFields.style.display = 'none';
+                httpsFields.classList.remove('hidden');
+                sshFields.classList.add('hidden');
                 httpsFields.querySelectorAll('input').forEach(input => input.required = true);
                 sshFields.querySelectorAll('textarea').forEach(input => input.required = false);
               } else if (type === 'ssh') {
-                httpsFields.style.display = 'none';
-                sshFields.style.display = 'block';
+                httpsFields.classList.add('hidden');
+                sshFields.classList.remove('hidden');
                 httpsFields.querySelectorAll('input').forEach(input => input.required = false);
                 sshFields.querySelectorAll('textarea').forEach(input => input.required = true);
               } else {
-                httpsFields.style.display = 'none';
-                sshFields.style.display = 'none';
+                httpsFields.classList.add('hidden');
+                sshFields.classList.add('hidden');
                 httpsFields.querySelectorAll('input').forEach(input => input.required = false);
                 sshFields.querySelectorAll('textarea').forEach(input => input.required = false);
               }
