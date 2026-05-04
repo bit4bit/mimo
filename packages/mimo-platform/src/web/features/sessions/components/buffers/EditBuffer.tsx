@@ -10,29 +10,18 @@ export const EditBuffer: FC<EditBufferProps> = ({ sessionId }) => {
     <div
       id="edit-buffer-container"
       data-session-id={sessionId}
-      style="display: flex; flex-direction: column; height: 100%;"
+      class="buffer-container"
     >
       {/* File Tabs Bar */}
       <div
         id="edit-buffer-tabs"
-        style="display: flex; background: #2d2d2d; border-bottom: 1px solid #444; overflow-x: auto; flex-shrink: 0;"
+        class="tab-bar tab-bar-panel"
       >
         {/* Tabs rendered by JS */}
         <button
           type="button"
           id="open-file-finder-btn"
-          style="
-            padding: 8px 12px;
-            border: none;
-            border-right: 1px solid #444;
-            background: transparent;
-            color: #888;
-            cursor: pointer;
-            font-family: monospace;
-            font-size: 12px;
-            white-space: nowrap;
-            flex-shrink: 0;
-          "
+          class="chat-thread-action-btn"
           title="Open file (Mod+Shift+F)"
         >
           + Open File
@@ -42,16 +31,16 @@ export const EditBuffer: FC<EditBufferProps> = ({ sessionId }) => {
       {/* File Context Bar */}
       <div
         id="edit-buffer-context"
-        style="display: none; padding: 8px 12px; background: #252525; border-bottom: 1px solid #444; flex-direction: row; gap: 12px; align-items: center; flex-shrink: 0; font-size: 12px; color: #888;"
+        class="edit-context-bar hidden"
       >
-        <span id="edit-buffer-filepath" style="color: #d4d4d4;"></span>
+        <span id="edit-buffer-filepath" class="text-primary"></span>
         <span id="edit-buffer-linecount"></span>
         <span id="edit-buffer-language"></span>
         {/* Expert mode toggle button */}
         <button
           type="button"
           id="expert-mode-toggle"
-          style="display: none; padding: 4px 10px; background: #4a90e2; border: none; color: #fff; font-family: monospace; font-size: 11px; cursor: pointer; border-radius: 3px;"
+          class="expert-toggle-btn hidden"
           title="Toggle Expert Mode (Alt+Shift+E)"
         >
           Expert Mode
@@ -59,7 +48,7 @@ export const EditBuffer: FC<EditBufferProps> = ({ sessionId }) => {
         {/* Expert mode thread selector */}
         <select
           id="expert-thread-select"
-          style="display: none; padding: 4px 8px; background: #2a2a2a; border: 1px solid #444; color: #ddd; font-family: monospace; font-size: 11px; border-radius: 3px; max-width: 200px;"
+          class="expert-select hidden"
           title="Select chat thread for expert mode"
         >
           <option value="">Select thread...</option>
@@ -67,17 +56,17 @@ export const EditBuffer: FC<EditBufferProps> = ({ sessionId }) => {
         {/* Expert mode thread name */}
         <span
           id="expert-thread-name"
-          style="display: none; padding: 2px 8px; background: #2a2a2a; border: 1px solid #444; border-radius: 3px; color: #888; font-size: 11px;"
+          class="expert-pill hidden"
         ></span>
         {/* Expert mode status badge - hidden by default */}
         <span
           id="expert-status-badge"
-          style="display: none; padding: 2px 8px; background: #4a90e2; color: #fff; font-size: 11px; border-radius: 3px; font-family: monospace;"
+          class="expert-badge hidden"
         ></span>
         {/* Outdated indicator - hidden by default */}
         <span
           id="edit-buffer-outdated-indicator"
-          style="display: none; color: #ff9800; font-size: 11px; font-weight: 500;"
+          class="outdated-indicator hidden"
         >
           ● Outdated
         </span>
@@ -85,36 +74,16 @@ export const EditBuffer: FC<EditBufferProps> = ({ sessionId }) => {
         <button
           type="button"
           id="reload-file-btn"
-          style="
-            display: none;
-            padding: 4px 10px;
-            background: #3d3d3d;
-            border: 1px solid #555;
-            color: #ccc;
-            font-family: monospace;
-            font-size: 11px;
-            cursor: pointer;
-            border-radius: 3px;
-            margin-left: 8px;
-          "
+          class="reload-file-btn hidden"
           title="Reload file (Alt+Shift+R)"
         >
           ↻ Reload
         </button>
-        <div style="flex: 1;"></div>
+        <div class="flex-grow"></div>
         <button
           type="button"
           id="close-file-btn"
-          style="
-            padding: 4px 8px;
-            background: transparent;
-            border: 1px solid #555;
-            color: #888;
-            font-family: monospace;
-            font-size: 10px;
-            cursor: pointer;
-            border-radius: 3px;
-          "
+          class="buffer-close-btn"
           title="Close file (Mod+W)"
         >
           ✕ Close
@@ -125,21 +94,21 @@ export const EditBuffer: FC<EditBufferProps> = ({ sessionId }) => {
       <div
         id="edit-buffer-content"
         tabindex="0"
-        style="flex: 1; overflow-y: auto; background: #1a1a1a; font-family: monospace; font-size: 13px; line-height: 1.5; position: relative;"
+        class="edit-buffer-content"
       >
         <div
           id="expert-focus-guide"
-          style="display: none; position: absolute; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none; z-index: 10;"
+          class="focus-guide-overlay hidden"
         ></div>
         <div
           id="edit-buffer-empty"
-          style="padding: 40px; color: #555; text-align: center; font-size: 13px;"
+          class="buffer-empty-state buffer-empty-padded"
         >
           No file open. Press Mod+Shift+F to open a file.
         </div>
         <table
           id="edit-buffer-lines"
-          style="display: none; width: 100%; border-collapse: collapse;"
+          class="hidden edit-lines-table"
         >
           <tbody id="edit-buffer-lines-body"></tbody>
         </table>
@@ -148,18 +117,18 @@ export const EditBuffer: FC<EditBufferProps> = ({ sessionId }) => {
       {/* Expert mode instruction input - pinned at bottom like chat */}
       <div
         id="expert-instruction-input"
-        style="display: none; flex-shrink: 0; background: #1a1a1a; border-top: 1px solid #3b3b3b;"
+        class="hidden expert-input-shell"
       ></div>
 
       {/* Expert mode actions bar — Cancel button only */}
       <div
         id="expert-actions"
-        style="display: none; padding: 8px 12px; background: #252525; border-top: 1px solid #444; flex-direction: row; gap: 12px; align-items: center; justify-content: center; flex-shrink: 0;"
+        class="expert-actions-bar hidden"
       >
         <button
           type="button"
           id="expert-cancel-btn"
-          style="display: none; padding: 6px 16px; background: #666; border: none; color: #fff; font-family: monospace; font-size: 12px; cursor: pointer; border-radius: 3px;"
+          class="expert-cancel-btn hidden"
           title="Cancel processing"
         >
           Cancel

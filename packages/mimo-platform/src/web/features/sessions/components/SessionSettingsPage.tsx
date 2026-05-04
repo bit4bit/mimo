@@ -50,78 +50,63 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
       streamingTimeoutMs={streamingTimeoutMs}
       sessionName={session.name}
     >
-      <div class="container" style="max-width: 600px;">
+      <div class="container session-settings-container">
         <h1>Session Settings</h1>
-        <p style="color: #888; margin-bottom: 20px;">
+        <p class="text-muted session-settings-subtitle">
           {session.name} · {project.name}
         </p>
 
         {creationSettings && (
-          <div
-            style={{
-              background: "#0f1419",
-              padding: "15px",
-              borderRadius: "4px",
-              marginBottom: "30px",
-              borderLeft: "3px solid #4caf50",
-            }}
-          >
-            <h2
-              style={{
-                marginTop: "0",
-                marginBottom: "15px",
-                color: "#d4d4d4",
-                fontSize: "16px",
-              }}
-            >
+          <div class="creation-settings-box">
+            <h2 class="creation-settings-title">
               Creation Settings
             </h2>
-            <div style={{ color: "#ccc", fontSize: "14px" }}>
-              <div style={{ marginBottom: "12px" }}>
-                <span style={{ color: "#888", fontSize: "12px" }}>
+            <div class="creation-settings-content">
+              <div class="settings-row">
+                <span class="settings-label">
                   Session Name
                 </span>
-                <div style={{ color: "#d4d4d4", marginTop: "4px" }}>
+                <div class="settings-value">
                   {creationSettings.sessionName}
                 </div>
               </div>
-              <div style={{ marginBottom: "12px" }}>
-                <span style={{ color: "#888", fontSize: "12px" }}>
+              <div class="settings-row">
+                <span class="settings-label">
                   Assigned Agent
                 </span>
-                <div style={{ color: "#d4d4d4", marginTop: "4px" }}>
+                <div class="settings-value">
                   {creationSettings.assignedAgentName || "None"}
                 </div>
               </div>
-              <div style={{ marginBottom: "12px" }}>
-                <span style={{ color: "#888", fontSize: "12px" }}>
+              <div class="settings-row">
+                <span class="settings-label">
                   Agent working directory
                 </span>
-                <div style={{ color: "#d4d4d4", marginTop: "4px" }}>
+                <div class="settings-value">
                   {creationSettings.agentSubpath || "Repository root"}
                 </div>
               </div>
-              <div style={{ marginBottom: "12px" }}>
-                <span style={{ color: "#888", fontSize: "12px" }}>Branch</span>
-                <div style={{ color: "#d4d4d4", marginTop: "4px" }}>
+              <div class="settings-row">
+                <span class="settings-label">Branch</span>
+                <div class="settings-value">
                   {creationSettings.branch || "Not set"}
                 </div>
               </div>
-              <div style={{ marginBottom: "12px" }}>
-                <span style={{ color: "#888", fontSize: "12px" }}>
+              <div class="settings-row">
+                <span class="settings-label">
                   MCP Servers
                 </span>
-                <div style={{ color: "#d4d4d4", marginTop: "4px" }}>
+                <div class="settings-value">
                   {creationSettings.mcpServerNames.length > 0
                     ? creationSettings.mcpServerNames.join(", ")
                     : "None attached"}
                 </div>
               </div>
               <div>
-                <span style={{ color: "#888", fontSize: "12px" }}>
+                <span class="settings-label">
                   Session Type
                 </span>
-                <div style={{ color: "#d4d4d4", marginTop: "4px" }}>
+                <div class="settings-value">
                   {creationSettings.sessionType}
                 </div>
               </div>
@@ -129,14 +114,7 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
           </div>
         )}
 
-        <h2
-          style={{
-            color: "#d4d4d4",
-            fontSize: "16px",
-            marginTop: "30px",
-            marginBottom: "15px",
-          }}
-        >
+        <h2 class="runtime-settings-title">
           Runtime Settings
         </h2>
 
@@ -184,19 +162,7 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
             <label>
               Idle Timeout
               <span
-                style={{
-                  display: "inline-block",
-                  marginLeft: "10px",
-                  padding: "2px 8px",
-                  borderRadius: "4px",
-                  fontSize: "11px",
-                  fontWeight: 500,
-                  ...(session.acpStatus === "active"
-                    ? { background: "#1e4620", color: "#4caf50" }
-                    : session.acpStatus === "parked"
-                      ? { background: "#332d1a", color: "#ffc107" }
-                      : { background: "#333", color: "#888" }),
-                }}
+                class={`acp-badge ${session.acpStatus === "active" ? "active" : session.acpStatus === "parked" ? "parked" : "unknown"}`}
               >
                 {session.acpStatus === "active"
                   ? "● Active"
@@ -282,14 +248,11 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
             </p>
           </div>
 
-          <div
-            class="form-group"
-            style="background: '#1e1e1e', padding: '15px', borderRadius: '4px', borderLeft: '3px solid #007acc'"
-          >
-            <label style="font-weight: 'normal', color: '#888', fontSize: '12px', marginBottom: '5px'">
+          <div class="form-group current-setting-box">
+            <label class="current-setting-label">
               Current Setting
             </label>
-            <div style="color: '#d4d4d4', fontSize: '14px'">
+            <div class="current-setting-value">
               {formatTimeout(session.idleTimeoutMs)}
             </div>
           </div>
@@ -297,41 +260,38 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
           <div class="form-group">
             <label>ACP Session Information</label>
 
-            <div style="background: '#1e1e1e', padding: '15px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px'">
-              <div style="margin-bottom: '8px'">
-                <span style="color: '#888'">Session ID: </span>
-                <span style="color: '#d4d4d4'">{session.id}</span>
+            <div class="session-info-box">
+              <div class="mb-8">
+                <span class="text-muted">Session ID: </span>
+                <span class="text-primary">{session.id}</span>
               </div>
               <div>
-                <span style="color: '#888'">Auto-park: </span>
-                <span style="color: '#d4d4d4'">
+                <span class="text-muted">Auto-park: </span>
+                <span class="text-primary">
                   {session.idleTimeoutMs === 0
                     ? "Disabled"
                     : `After ${formatTimeout(session.idleTimeoutMs)} of inactivity`}
                 </span>
               </div>
-              <div style="margin-top: '8px'">
-                <span style="color: '#888'">Auto-delete TTL: </span>
-                <span style="color: '#d4d4d4'">
+              <div class="mt-8">
+                <span class="text-muted">Auto-delete TTL: </span>
+                <span class="text-primary">
                   {session.sessionTtlDays} days
                 </span>
               </div>
             </div>
           </div>
 
-          <div
-            class="form-group"
-            style="background: '#2d2d2d', padding: '15px', borderRadius: '4px', borderLeft: '3px solid #ffc107'"
-          >
-            <label style="margin: '0 0 10px 0', color: '#ffc107', fontSize: '14px'">
+          <div class="form-group tips-box">
+            <label class="tips-label">
               💡 Tips
             </label>
-            <ul style="margin: '0', paddingLeft: '20px', color: '#ccc', fontSize: '13px'">
-              <li style="margin-bottom: '8px'">
+            <ul class="tips-list">
+              <li class="mb-8">
                 <strong>Short timeouts (1-2 min):</strong> Good for quick tasks.
                 Saves resources but may have 1-2s wake-up delay.
               </li>
-              <li style="margin-bottom: '8px'">
+              <li class="mb-8">
                 <strong>Medium timeouts (5-10 min):</strong> Good for focused
                 work. Balances responsiveness and resource usage.
               </li>
@@ -359,6 +319,30 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
             </a>
           </div>
         </form>
+        <style>{`
+          .session-settings-container { max-width: 600px; }
+          .session-settings-subtitle { margin-bottom: 20px; }
+          .creation-settings-box { background: #0f1419; padding: 15px; border-radius: 4px; margin-bottom: 30px; border-left: 3px solid #4caf50; }
+          .creation-settings-title { margin-top: 0; margin-bottom: 15px; color: #d4d4d4; font-size: 16px; }
+          .creation-settings-content { color: #ccc; font-size: 14px; }
+          .settings-row { margin-bottom: 12px; }
+          .settings-label { color: #888; font-size: 12px; }
+          .settings-value { color: #d4d4d4; margin-top: 4px; }
+          .runtime-settings-title { color: #d4d4d4; font-size: 16px; margin-top: 30px; margin-bottom: 15px; }
+          .acp-badge { display: inline-block; margin-left: 10px; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+          .acp-badge.active { background: #1e4620; color: #4caf50; }
+          .acp-badge.parked { background: #332d1a; color: #ffc107; }
+          .acp-badge.unknown { background: #333; color: #888; }
+          .current-setting-box { background: #1e1e1e; padding: 15px; border-radius: 4px; border-left: 3px solid #007acc; }
+          .current-setting-label { font-weight: normal; color: #888; font-size: 12px; margin-bottom: 5px; }
+          .current-setting-value { color: #d4d4d4; font-size: 14px; }
+          .session-info-box { background: #1e1e1e; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 12px; }
+          .tips-box { background: #2d2d2d; padding: 15px; border-radius: 4px; border-left: 3px solid #ffc107; }
+          .tips-label { margin: 0 0 10px 0; color: #ffc107; font-size: 14px; }
+          .tips-list { margin: 0; padding-left: 20px; color: #ccc; font-size: 13px; }
+          .mb-8 { margin-bottom: 8px; }
+          .mt-8 { margin-top: 8px; }
+        `}</style>
       </div>
     </Layout>
   );

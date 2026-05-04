@@ -12,18 +12,16 @@ export const ImpactBuffer: FC<ImpactBufferProps> = ({ sessionId }) => {
     >
       <div class="buffer-header">
         <span>Impact</span>
-        <div style="display: inline-flex; align-items: center; gap: 8px; float: right;">
+        <div class="inline-flex-row impact-header-actions">
           <span
             id="impact-stale-badge"
-            class="impact-stale-badge"
-            style="display: none;"
+            class="impact-stale-badge hidden"
           >
             ⚠ Outdated
           </span>
           <span
             id="impact-calculating-badge"
-            class="impact-calculating-badge"
-            style="display: none;"
+            class="impact-calculating-badge hidden"
           >
             ⏳ Analyzing...
           </span>
@@ -52,6 +50,9 @@ export const ImpactBuffer: FC<ImpactBufferProps> = ({ sessionId }) => {
         .impact-calculating-badge {
           color: #74c0fc;
           font-size: 11px;
+        }
+        .impact-header-actions {
+          float: right;
         }
 
         .impact-section {

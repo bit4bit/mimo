@@ -17,12 +17,9 @@ export const ChatBuffer: FC<ChatBufferProps> = ({ chatHistory = [] }) => {
     <>
       <div class="buffer-content" id="chat-messages">
         {chatHistory.length === 0 ? (
-          <div
-            class="no-messages"
-            style="padding: 20px; color: #888; text-align: center;"
-          >
+          <div class="no-messages chat-empty-state text-muted">
             <p>No messages yet.</p>
-            <p style="font-size: 12px; margin-top: 10px;">
+            <p class="text-small chat-empty-hint">
               Start chatting with the agent
             </p>
           </div>
@@ -32,7 +29,7 @@ export const ChatBuffer: FC<ChatBufferProps> = ({ chatHistory = [] }) => {
               <div class="message-header">
                 <span>{msg.role === "user" ? "You" : "Agent"}</span>
                 {msg.role === "assistant" && msg.metadata?.duration && (
-                  <span style="font-size: 0.75em; color: #888; margin-left: 8px;">
+                  <span class="chat-message-meta">
                     {String(msg.metadata.duration)} ·{" "}
                     {new Date(msg.timestamp).toLocaleString()}
                   </span>
@@ -43,11 +40,7 @@ export const ChatBuffer: FC<ChatBufferProps> = ({ chatHistory = [] }) => {
           ))
         )}
       </div>
-      <div
-        id="chat-usage"
-        class="chat-usage"
-        style="display: none; font-size: 0.75em; color: #666; padding: 4px 10px; text-align: right; border-top: 1px solid #333;"
-      ></div>
+      <div id="chat-usage" class="chat-usage hidden"></div>
     </>
   );
 };

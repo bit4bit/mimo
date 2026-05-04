@@ -65,7 +65,6 @@ export const Frame: FC<FrameProps> = ({
               class={`frame-buffer-panel ${isActive ? "active" : "hidden"}`}
               data-frame-id={frameId}
               data-buffer-panel={buffer.id}
-              style={isActive ? "display: flex;" : "display: none;"}
             >
               <BufferComponent
                 sessionId={sessionId}

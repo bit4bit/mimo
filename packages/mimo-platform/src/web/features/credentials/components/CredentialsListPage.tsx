@@ -60,7 +60,7 @@ export const CredentialsListPage: FC<CredentialsListPageProps> = ({
           <form
             method="post"
             action={`/credentials/${cred.id}/delete`}
-            style="display: inline;"
+            class="inline-form"
           >
             <button
               type="submit"
@@ -78,7 +78,7 @@ export const CredentialsListPage: FC<CredentialsListPageProps> = ({
   return (
     <Layout title="Credentials">
       <div class="container-wide">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div class="credentials-header-row">
           <h1>Credentials</h1>
           <a
             href="/credentials/new"
@@ -116,6 +116,13 @@ export const CredentialsListPage: FC<CredentialsListPageProps> = ({
         .credential-type.type-ssh {
           background: #2d4a5a;
           color: #6bafff;
+        }
+        .inline-form { display: inline; }
+        .credentials-header-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
         }
       `}</style>
     </Layout>

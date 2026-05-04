@@ -151,7 +151,7 @@ export const DataTable: FC<DataTableProps<any>> = ({
           if(!wrap)return;
           var rows=wrap.querySelectorAll('.data-table-row');
           function show(p){
-            rows.forEach(function(r){r.style.display=parseInt(r.dataset.dtPage)===p?'':'none';});
+            rows.forEach(function(r){r.classList.toggle('hidden', parseInt(r.dataset.dtPage)!==p);});
             var info=wrap.querySelector('[data-dt-info="'+id+'"]');
             if(info)info.textContent='Page '+p+' of '+totalPages;
             cur=p;
@@ -165,7 +165,7 @@ export const DataTable: FC<DataTableProps<any>> = ({
           if(search){
             search.addEventListener('input',function(e){
               var t=e.target.value.toLowerCase();
-              if(!t){show(1);var pag=wrap.querySelector('[data-dt-pag="'+id+'"]');if(pag)pag.style.display='';return;}
+              if(!t){show(1);var pag=wrap.querySelector('[data-dt-pag="'+id+'"]');if(pag)pag.classList.remove('hidden');return;}
               var colIndexMap={};
               var headers=wrap.querySelectorAll('.data-table th');
               headers.forEach(function(th,idx){colIndexMap[th.textContent.trim().toLowerCase()]=idx;});
@@ -176,10 +176,10 @@ export const DataTable: FC<DataTableProps<any>> = ({
                   var idx=colIndexMap[field.toLowerCase()];
                   if(idx!==undefined && cells[idx] && cells[idx].textContent.toLowerCase().indexOf(t)!==-1)match=true;
                 });
-                r.style.display=match?'':'none';
+                r.classList.toggle('hidden', !match);
               });
               var pag=wrap.querySelector('[data-dt-pag="'+id+'"]');
-              if(pag)pag.style.display='none';
+              if(pag)pag.classList.add('hidden');
             });
           }
           show(1);

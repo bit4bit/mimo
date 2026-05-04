@@ -57,14 +57,11 @@ export const ImpactHistoryPage: FC<ImpactHistoryProps> = ({
 }) => {
   return (
     <Layout title={`Impact History - ${project.name}`}>
-      <div
-        class="container"
-        style="max-width: 1200px; margin: 0 auto; padding: 20px;"
-      >
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <div class="container impact-history-container">
+        <div class="impact-history-header">
           <div>
             <h1>Impact History</h1>
-            <p style="color: #888; margin: 5px 0 0 0;">
+            <p class="impact-history-project text-muted">
               Project: {project.name}
             </p>
           </div>
@@ -80,7 +77,7 @@ export const ImpactHistoryPage: FC<ImpactHistoryProps> = ({
         {impacts.length === 0 ? (
           <div class="empty-state">
             <p>No impact records yet.</p>
-            <p style="font-size: 12px; margin-top: 10px;">
+            <p class="impact-history-empty-hint">
               Commit changes in sessions to generate impact records.
             </p>
           </div>
@@ -198,6 +195,24 @@ export const ImpactHistoryPage: FC<ImpactHistoryProps> = ({
           text-align: center;
           padding: 60px 20px;
           color: #888;
+        }
+        .impact-history-container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .impact-history-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+        }
+        .impact-history-project {
+          margin: 5px 0 0;
+        }
+        .impact-history-empty-hint {
+          font-size: 12px;
+          margin-top: 10px;
         }
         
         .impact-table-container {

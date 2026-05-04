@@ -37,7 +37,7 @@ export const ProjectCreatePage: FC<ProjectCreateProps> = ({
               name="description"
               rows="3"
               placeholder="Describe your project..."
-              style="background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%;"
+              class="project-textarea"
               data-help-id="project-create-page-description-textarea"
             ></textarea>
           </div>
@@ -48,7 +48,7 @@ export const ProjectCreatePage: FC<ProjectCreateProps> = ({
               name="instructions"
               rows="4"
               placeholder="Behavior instructions for the AI agent (e.g., You are a Python expert. Focus on clean code.)"
-              style="background: #2d2d2d; border: 1px solid #444; color: #d4d4d4; padding: 10px; font-family: monospace; width: 100%;"
+              class="project-textarea"
               data-help-id="project-create-page-instructions-textarea"
             >{defaultInstructions}</textarea>
             <small class="form-help">
@@ -160,6 +160,16 @@ export const ProjectCreatePage: FC<ProjectCreateProps> = ({
 
           {error && <div class="error">{error}</div>}
         </form>
+        <style>{`
+          .project-textarea {
+            background: #2d2d2d;
+            border: 1px solid #444;
+            color: #d4d4d4;
+            padding: 10px;
+            font-family: monospace;
+            width: 100%;
+          }
+        `}</style>
       </div>
     </Layout>
   );

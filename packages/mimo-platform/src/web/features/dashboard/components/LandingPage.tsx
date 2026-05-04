@@ -18,15 +18,15 @@ export const LandingPage: FC<LandingPageProps> = ({
 }) => {
   return (
     <Layout title="MIMO - Minimal IDE for Modern Operations">
-      <div class="container" style="max-width: 900px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; padding: 20px 0; border-bottom: 1px solid #444;">
-          <h1 style="margin: 0;">MIMO</h1>
-          <div style="display: flex; gap: 15px; align-items: center;">
+      <div class="container landing-container">
+        <div class="landing-header">
+          <h1 class="landing-title">MIMO</h1>
+          <div class="landing-auth-actions">
             {isAuthenticated ? (
               <>
-                <span style="color: #888;">
+                <span class="text-muted">
                   Logged in as{" "}
-                  <strong style="color: #d4d4d4;">{username}</strong>
+                  <strong class="text-primary">{username}</strong>
                 </span>
                 <a
                   href="/auth/logout"
@@ -53,53 +53,66 @@ export const LandingPage: FC<LandingPageProps> = ({
           </div>
         </div>
 
-        <div style="margin-bottom: 40px;">
-          <h2 style="margin-bottom: 15px;">
+        <div class="landing-intro">
+          <h2 class="landing-subtitle">
             Minimal IDE for Modern Operations
           </h2>
-          <p style="color: #888; line-height: 1.6; margin-bottom: 20px;">
+          <p class="landing-copy">
             MIMO provides a web-based interface for session-based development
             with AI integration. Manage projects, run agents, and sync files
             seamlessly.
           </p>
-          <ul style="color: #888; line-height: 1.8; margin-left: 20px;">
+          <ul class="landing-feature-list">
             <li>
-              <strong style="color: #d4d4d4;">Two-Frame UI</strong> - Chat and
+              <strong class="text-primary">Two-Frame UI</strong> - Chat and
               buffer-based interface for focused workflows
             </li>
             <li>
-              <strong style="color: #d4d4d4;">Session Management</strong> -
+              <strong class="text-primary">Session Management</strong> -
               Create isolated development sessions
             </li>
             <li>
-              <strong style="color: #d4d4d4;">AI Integration</strong> - Work
+              <strong class="text-primary">AI Integration</strong> - Work
               with AI agents in your workspace
             </li>
             <li>
-              <strong style="color: #d4d4d4;">File Sync</strong> - Automatic
+              <strong class="text-primary">File Sync</strong> - Automatic
               synchronization of changes
             </li>
           </ul>
         </div>
 
-        <div style="display: flex; gap: 40px; margin-bottom: 40px;">
+        <div class="landing-stats-row">
           <div>
-            <div style="font-size: 2rem; font-weight: bold;">
+            <div class="landing-stat-value">
               {projectCount}
             </div>
-            <div style="color: #888;">Projects</div>
+            <div class="text-muted">Projects</div>
           </div>
           <div>
-            <div style="font-size: 2rem; font-weight: bold;">
+            <div class="landing-stat-value">
               {sessionCount}
             </div>
-            <div style="color: #888;">Sessions</div>
+            <div class="text-muted">Sessions</div>
           </div>
           <div>
-            <div style="font-size: 2rem; font-weight: bold;">{threadCount}</div>
-            <div style="color: #888;">Chat threads</div>
+            <div class="landing-stat-value">{threadCount}</div>
+            <div class="text-muted">Chat threads</div>
           </div>
         </div>
+
+        <style>{`
+          .landing-container { max-width: 900px; }
+          .landing-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; padding: 20px 0; border-bottom: 1px solid #444; }
+          .landing-title { margin: 0; }
+          .landing-auth-actions { display: flex; gap: 15px; align-items: center; }
+          .landing-intro { margin-bottom: 40px; }
+          .landing-subtitle { margin-bottom: 15px; }
+          .landing-copy { color: #888; line-height: 1.6; margin-bottom: 20px; }
+          .landing-feature-list { color: #888; line-height: 1.8; margin-left: 20px; }
+          .landing-stats-row { display: flex; gap: 40px; margin-bottom: 40px; }
+          .landing-stat-value { font-size: 2rem; font-weight: bold; }
+        `}</style>
       </div>
     </Layout>
   );

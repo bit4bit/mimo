@@ -48,14 +48,10 @@ export const SummaryBuffer: FC<SummaryBufferProps> = ({
   return (
     <div
       class="summary-buffer"
-      style="display: flex; flex-direction: column; height: 100%; padding: 12px;"
     >
-      <div
-        class="summary-selectors"
-        style="display: flex; gap: 8px; margin-bottom: 12px;"
-      >
-        <div style="flex: 1;">
-          <label style="display: block; font-size: 10px; color: #888; margin-bottom: 4px;">
+      <div class="summary-selectors">
+        <div class="summary-column">
+          <label class="summary-label">
             Analyze
           </label>
           <select
@@ -63,7 +59,7 @@ export const SummaryBuffer: FC<SummaryBufferProps> = ({
             value={analyzeThreadId}
             onChange={(e) => setAnalyzeThreadId(e.target.value)}
             data-help-id="summary-buffer-summary-analyze-select"
-            style="width: 100%; padding: 6px; background: #222; color: #ddd; border: 1px solid #444; border-radius: 4px;"
+            class="summary-select"
           >
             {threads.map((thread) => (
               <option value={thread.id}>
@@ -72,11 +68,8 @@ export const SummaryBuffer: FC<SummaryBufferProps> = ({
             ))}
           </select>
         </div>
-        <div style="flex: 1;">
-          <label
-            data-help-id="summary-buffer-summarize-via-label"
-            style="display: block; font-size: 10px; color: #888; margin-bottom: 4px;"
-          >
+        <div class="summary-column">
+          <label data-help-id="summary-buffer-summarize-via-label" class="summary-label">
             Summarize via
           </label>
           <select
@@ -84,7 +77,7 @@ export const SummaryBuffer: FC<SummaryBufferProps> = ({
             value={summarizeThreadId}
             onChange={(e) => setSummarizeThreadId(e.target.value)}
             data-help-id="summary-buffer-summary-summarize-select"
-            style="width: 100%; padding: 6px; background: #222; color: #ddd; border: 1px solid #444; border-radius: 4px;"
+            class="summary-select"
           >
             {threads.map((thread) => (
               <option value={thread.id}>
@@ -99,30 +92,24 @@ export const SummaryBuffer: FC<SummaryBufferProps> = ({
         type="button"
         id="summary-refresh-btn"
         data-help-id="summary-buffer-summary-refresh-btn"
-        style="padding: 8px 16px; background: #4a5568; color: white; border: none; border-radius: 4px; cursor: pointer; opacity: 0.9;"
+        class="summary-refresh-btn"
       >
         Refresh
       </button>
 
-      <div
-        id="summary-error"
-        style="margin-top: 12px; padding: 8px; background: #2c1a1a; color: #f88; border-radius: 4px; font-size: 13px; display: none;"
-      ></div>
+      <div id="summary-error" class="summary-message error hidden"></div>
 
-      <div
-        id="summary-status"
-        style="margin-top: 12px; padding: 8px; background: #1a2a1a; color: #8f8; border-radius: 4px; font-size: 13px; display: none;"
-      ></div>
+      <div id="summary-status" class="summary-message success hidden"></div>
 
       <div
         id="summary-content"
         data-help-id="summary-buffer-summary-content"
-        style="margin-top: 12px; padding: 12px; background: #1a1a2a; color: #ddd; border-radius: 4px; font-size: 13px; white-space: pre-wrap; overflow-y: auto; flex: 1; display: none;"
+        class="summary-content hidden"
       ></div>
       <div
         id="summary-description"
         data-help-id="summary-buffer-description"
-        style="margin-top: 8px; font-size: 11px; color: #666;"
+        class="summary-description"
       >
         The summary helps you remember what happened in the chat.
       </div>

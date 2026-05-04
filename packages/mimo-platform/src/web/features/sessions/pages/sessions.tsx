@@ -1000,31 +1000,27 @@ export function createSessionsRoutes(
           <form
             method="POST"
             action={`/sessions/${sessionId}/close`}
-            style="margin-top: 20px;"
+            class="mt-20"
           >
-            <div style="margin-bottom: 16px;">
-              <label
-                for="closeReason"
-                style="display: block; margin-bottom: 8px; font-weight: 500;"
-              >
+            <div class="mb-16">
+              <label for="closeReason" class="label-strong">
                 Reason for closing (optional)
               </label>
               <textarea
                 id="closeReason"
                 name="closeReason"
                 rows={3}
-                style="width: 100%; max-width: 500px; padding: 8px; border: 1px solid #444; background: #1a1a1a; color: #e0e0e0; border-radius: 4px; font-family: inherit;"
+                class="textarea-dark"
                 placeholder="e.g., Completed successfully, Refactored auth module..."
               />
             </div>
-            <div style="display: flex; gap: 12px;">
+            <div class="actions-row">
               <button type="submit" class="btn-secondary">
                 Close Session
               </button>
               <a
                 href={referer}
-                class="btn-secondary"
-                style="text-decoration: none;"
+                class="btn-secondary link-no-underline"
               >
                 Cancel
               </a>
@@ -1760,7 +1756,7 @@ export function createSessionsRoutes(
       (idleTimeoutMs !== 0 && idleTimeoutMs < 10000)
     ) {
       return c.html(
-        <div style="padding: 20px; color: #ff6b6b;">
+        <div class="error-panel">
           Error: Invalid timeout value. Must be at least 10 seconds (10000ms) or
           0 to disable.
           <br />
@@ -1780,7 +1776,7 @@ export function createSessionsRoutes(
       sessionTtlDays < 1
     ) {
       return c.html(
-        <div style="padding: 20px; color: #ff6b6b;">
+        <div class="error-panel">
           Error: Invalid TTL value. Must be an integer number of days and at
           least 1.
           <br />
@@ -1806,7 +1802,7 @@ export function createSessionsRoutes(
 
       if (!updateConfigResult.success) {
         return c.html(
-          <div style="padding: 20px; color: #ff6b6b;">
+          <div class="error-panel">
             Error: {updateConfigResult.error}
             <br />
             <br />
@@ -1848,7 +1844,7 @@ export function createSessionsRoutes(
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       return c.html(
-        <div style="padding: 20px; color: #ff6b6b;">
+        <div class="error-panel">
           Error: {message}
           <br />
           <br />
@@ -1895,7 +1891,7 @@ export function createSessionsRoutes(
 
     if (!["high", "medium", "low"].includes(priority)) {
       return c.html(
-        <div style="padding: 20px; color: #ff6b6b;">
+        <div class="error-panel">
           Error: priority must be one of: high, medium, low
           <br />
           <br />
@@ -1918,7 +1914,7 @@ export function createSessionsRoutes(
 
     if (!updateConfigResult.success) {
       return c.html(
-        <div style="padding: 20px; color: #ff6b6b;">
+        <div class="error-panel">
           Error: {updateConfigResult.error}
           <br />
           <br />

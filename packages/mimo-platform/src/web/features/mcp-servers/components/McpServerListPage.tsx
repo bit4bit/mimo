@@ -59,7 +59,7 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({
         server.description ? (
           truncate(server.description, 60)
         ) : (
-          <span style="color: #666;">No description</span>
+          <span class="text-dim">No description</span>
         ),
     },
     {
@@ -89,7 +89,7 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({
           <form
             method="post"
             action={`/mcp-servers/${server.id}/delete`}
-            style="display: inline;"
+            class="inline-form"
             onsubmit="return confirm('Are you sure you want to delete this MCP server? Sessions using it may fail to start.')"
           >
             <button
@@ -108,7 +108,7 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({
   return (
     <Layout title="MCP Servers">
       <div class="container-wide">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div class="mcp-header-row">
           <h1>MCP Servers</h1>
           <a
             href="/mcp-servers/new"
@@ -121,8 +121,7 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({
 
         {error && (
           <div
-            class="error-message"
-            style="background: #5a2d2d; border: 1px solid #ff6b6b; color: #ff6b6b; padding: 10px; margin-bottom: 20px; border-radius: 4px;"
+            class="error-message page-error-banner"
           >
             {error}
           </div>
@@ -142,8 +141,7 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({
               </p>
               <a
                 href="/mcp-servers/new"
-                class="btn"
-                style="margin-top: 20px;"
+                class="btn mt-20"
                 data-help-id="mcp-server-list-page-a"
               >
                 Create your first MCP server
@@ -173,6 +171,23 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({
           background: #2d4a5a;
           color: #6bafff;
         }
+        .text-dim { color: #666; }
+        .inline-form { display: inline; }
+        .mcp-header-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+        }
+        .page-error-banner {
+          background: #5a2d2d;
+          border: 1px solid #ff6b6b;
+          color: #ff6b6b;
+          padding: 10px;
+          margin-bottom: 20px;
+          border-radius: 4px;
+        }
+        .mt-20 { margin-top: 20px; }
       `}</style>
     </Layout>
   );
