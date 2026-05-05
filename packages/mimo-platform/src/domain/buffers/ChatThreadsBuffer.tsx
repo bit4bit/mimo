@@ -50,6 +50,26 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
         class="chat-threads-tabs"
         style="display: flex; background: #2d2d2d; border-bottom: 1px solid #444; overflow-x: auto;"
       >
+        {/* Create thread button */}
+        <button
+          type="button"
+          id="create-thread-btn"
+          style={`
+            padding: 8px 12px;
+            border: none;
+            border-right: 1px solid #444;
+            background: transparent;
+            color: #888;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: nowrap;
+          `
+          title="Create new chat thread"
+        >
+          +
+        </button>
+
         {threads.map((thread) => {
           const icon =
             thread.state === "disconnected"
@@ -100,26 +120,6 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
             </button>
           );
         })}
-
-        {/* Create thread button */}
-        <button
-          type="button"
-          id="create-thread-btn"
-          style={`
-            padding: 8px 12px;
-            border: none;
-            border-right: 1px solid #444;
-            background: transparent;
-            color: #888;
-            cursor: pointer;
-            font-family: monospace;
-            font-size: 12px;
-            white-space: nowrap;
-          `}
-          title="Create new chat thread"
-        >
-          + New Thread
-        </button>
       </div>
 
       {/* Thread Context Bar with Model/Mode Selectors */}
@@ -220,7 +220,7 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
                 padding: 4px 8px;
                 background: transparent;
                 border: 1px solid #555;
-                color: #888;
+            color: #4caf50;
                 font-family: monospace;
                 font-size: 10px;
                 cursor: pointer;
@@ -235,7 +235,7 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
         )}
         {!activeThread && (
           <div style="font-size: 12px; color: #888;">
-            No active thread. Use + New Thread to get started.
+            No active thread. Use + to get started.
           </div>
         )}
       </div>

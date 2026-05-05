@@ -321,8 +321,11 @@ function updateThreadTabsUI() {
     .querySelectorAll(".chat-thread-tab")
     .forEach((tab) => tab.remove());
 
-  // Insert thread tabs before the create button
+  // Ensure create button stays on the left
   const createBtn = tabsContainer.querySelector("#create-thread-btn");
+  if (createBtn) {
+    tabsContainer.prepend(createBtn);
+  }
 
   ChatThreadsState.threads.forEach((thread) => {
     const tab = document.createElement("button");
@@ -369,11 +372,7 @@ function updateThreadTabsUI() {
 
     tab.addEventListener("click", () => switchToThread(thread.id));
 
-    if (createBtn) {
-      tabsContainer.insertBefore(tab, createBtn);
-    } else {
-      tabsContainer.appendChild(tab);
-    }
+    tabsContainer.appendChild(tab);
   });
 }
 
@@ -391,7 +390,7 @@ async function updateThreadContextUI() {
   const activeThread = getActiveThread();
   if (!activeThread) {
     container.innerHTML =
-      '<div style="color: #888; font-size: 12px;">No active thread. Use + New Thread to get started.</div>';
+      '<div style="color: #888; font-size: 12px;">No active thread. Use <span style="color: #4caf50;">+</span> to get started.</div>';
     return;
   }
 

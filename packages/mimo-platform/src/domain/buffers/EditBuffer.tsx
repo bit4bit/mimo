@@ -26,7 +26,7 @@ export const EditBuffer: FC<EditBufferProps> = ({ sessionId }) => {
             border: none;
             border-right: 1px solid #444;
             background: transparent;
-            color: #888;
+            color: #4caf50;
             cursor: pointer;
             font-family: monospace;
             font-size: 12px;
@@ -35,7 +35,7 @@ export const EditBuffer: FC<EditBufferProps> = ({ sessionId }) => {
           "
           title="Open file (Mod+Shift+F)"
         >
-          + Open File
+          +
         </button>
       </div>
 
