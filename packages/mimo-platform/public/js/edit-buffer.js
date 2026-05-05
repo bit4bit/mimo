@@ -1696,7 +1696,7 @@
     });
 
     if (openBtn) {
-      tabsEl.appendChild(openBtn);
+      tabsEl.prepend(openBtn);
     } else {
       const btn = document.createElement("button");
       btn.type = "button";
@@ -1706,7 +1706,7 @@
       btn.title = "Open file (Mod+Shift+F)";
       btn.textContent = "+ Open File";
       btn.addEventListener("click", openFileFinder);
-      tabsEl.appendChild(btn);
+      tabsEl.prepend(btn);
     }
   }
 

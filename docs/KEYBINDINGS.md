@@ -27,6 +27,20 @@ MIMO session pages support browser-safe `Mod+Shift` shortcuts (`Mod = Cmd on mac
 
 ## Session Shortcuts
 
+### Notation
+
+Shortcuts use **Emacs-style notation** in the UI:
+
+| Symbol | Meaning | macOS | Linux/Windows |
+|--------|---------|-------|---------------|
+| `C` | Mod (Command/Control) | `Cmd` | `Ctrl` |
+| `M` | Meta (Alt/Option) | `Alt` | `Alt` |
+| `S` | Shift | `Shift` | `Shift` |
+
+So `C-M-<right>` means **Mod+Alt+Right Arrow**.
+
+### Actions
+
 | Key | Action | Description |
 |-----|--------|-------------|
 | `Mod+Shift+N` | New Thread | Open the create-thread dialog |
@@ -36,6 +50,13 @@ MIMO session pages support browser-safe `Mod+Shift` shortcuts (`Mod = Cmd on mac
 | `Mod+Shift+,` | Project Notes | Focus the Project Notes textarea |
 | `Mod+Shift+.` | Session Notes | Focus the Session Notes textarea |
 | `Mod+Shift+/` | Shortcuts Help | Toggle the shortcuts help overlay |
+| `Mod+Shift+F` | Open File | Open the file finder |
+| `Alt+Shift+C` | Find Content | Open content search dialog |
+| `Mod+Alt+ArrowRight` | Next File | Switch to next open file (Edit Buffer) |
+| `Mod+Alt+ArrowLeft` | Previous File | Switch to previous open file (Edit Buffer) |
+| `Alt+Shift+W` | Close File | Close the active file (Edit Buffer) |
+| `Alt+Shift+PageDown` | Next Buffer | Switch to next left-frame buffer |
+| `Alt+Shift+PageUp` | Previous Buffer | Switch to previous left-frame buffer |
 | `Alt+Shift+Control+F` | Toggle Right Frame | Collapse or restore the right frame |
 
 ## YAML Configuration
@@ -48,11 +69,26 @@ sessionKeybindings:
   nextThread: "Mod+Shift+ArrowRight"
   previousThread: "Mod+Shift+ArrowLeft"
   commit: "Mod+Shift+M"
-  projectNotes: "Mod+Shift+,"
-  sessionNotes: "Mod+Shift+."
+  projectNotes: "Mod+Shift,"
+  sessionNotes: "Mod+Shift."
   shortcutsHelp: "Mod+Shift+/"
   closeModal: "Escape"
+  openFileFinder: "Mod+Shift+F"
+  openContentFinder: "Alt+Shift+C"
+  nextFile: "Mod+Alt+ArrowRight"
+  previousFile: "Mod+Alt+ArrowLeft"
+  closeFile: "Alt+Shift+W"
+  reloadFile: "Alt+Shift+R"
+  nextLeftBuffer: "Alt+Shift+PageDown"
+  previousLeftBuffer: "Alt+Shift+PageUp"
   toggleRightFrame: "Alt+Shift+Control+F"
+  toggleExpertMode: "Alt+Shift+E"
+  expertInput: "Enter"
+  moveFocusUp: "Alt+ArrowUp"
+  moveFocusDown: "Alt+ArrowDown"
+  centerFocus: "Alt+Enter"
+  increaseFocus: "Alt+Shift+ArrowRight"
+  decreaseFocus: "Alt+Shift+ArrowLeft"
 ```
 
 ## Patch Buffer
