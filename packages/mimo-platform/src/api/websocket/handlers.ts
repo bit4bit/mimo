@@ -136,6 +136,18 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
 
     switch (data.type) {
       case "send_message":
+        if (typeof data.promptId !== "string" || data.promptId.length === 0) {
+          logger.warn(
+            `[stream-protocol] dropped send_message missing promptId session=${sessionId} thread=${data.chatThreadId || "unknown"}`,
+          );
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              error: "promptId is required",
+            }),
+          );
+          break;
+        }
         const userSession = await sessionRepository.findById(sessionId);
         const userThreadId =
           data.chatThreadId || userSession?.activeChatThreadId;
@@ -188,6 +200,7 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
                 sessionId: sessionId,
                 chatThreadId: userThreadId,
                 content: data.content,
+                promptId: data.promptId,
               }),
             );
           }

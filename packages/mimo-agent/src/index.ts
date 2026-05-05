@@ -78,6 +78,7 @@ export class MimoAgent {
     string,
     Array<{ name: string; description?: string; template?: string }>
   > = new Map();
+  private promptIdsByThread: Map<string, string> = new Map();
 
   private static readonly CAPABILITY_PROBE_SESSION_ID = "capability-probe";
 
@@ -685,50 +686,73 @@ export class MimoAgent {
   ): AcpClientCallbacks {
     return {
       onThoughtStart: (sid) => {
+        const promptId = this.promptIdsByThread.get(acpKey(sid, chatThreadId));
         this.lifecycleManager.recordActivity(sid, chatThreadId);
         this.send({
           type: "thought_start",
           sessionId: sid,
           chatThreadId,
+          ...(promptId ? { promptId } : {}),
           timestamp: new Date().toISOString(),
         });
       },
       onThoughtChunk: (sid, content) => {
+        const promptId = this.promptIdsByThread.get(acpKey(sid, chatThreadId));
         this.lifecycleManager.recordActivity(sid, chatThreadId);
         this.send({
           type: "thought_chunk",
           sessionId: sid,
           chatThreadId,
           content,
+          ...(promptId ? { promptId } : {}),
           timestamp: new Date().toISOString(),
         });
       },
       onThoughtEnd: (sid) => {
+        const promptId = this.promptIdsByThread.get(acpKey(sid, chatThreadId));
         this.send({
           type: "thought_end",
           sessionId: sid,
           chatThreadId,
+          ...(promptId ? { promptId } : {}),
           timestamp: new Date().toISOString(),
         });
       },
       onMessageChunk: (sid, content) => {
+        const promptId = this.promptIdsByThread.get(acpKey(sid, chatThreadId));
         this.lifecycleManager.recordActivity(sid, chatThreadId);
         this.send({
           type: "message_chunk",
           sessionId: sid,
           chatThreadId,
           content,
+          ...(promptId ? { promptId } : {}),
           timestamp: new Date().toISOString(),
         });
       },
       onUsageUpdate: (sid, usage) => {
+        const promptId = this.promptIdsByThread.get(acpKey(sid, chatThreadId));
         this.send({
           type: "usage_update",
           sessionId: sid,
           chatThreadId,
           usage,
+          ...(promptId ? { promptId } : {}),
           timestamp: new Date().toISOString(),
         });
+      },
+      onPromptCompleted: (sid) => {
+        const key = acpKey(sid, chatThreadId);
+        const promptId = this.promptIdsByThread.get(key);
+        logger.debug(`[mimo-agent] onPromptCompleted fired for session ${sid}, thread ${chatThreadId}`);
+        this.send({
+          type: "prompt_completed",
+          sessionId: sid,
+          chatThreadId,
+          ...(promptId ? { promptId } : {}),
+          timestamp: new Date().toISOString(),
+        });
+        logger.debug(`[mimo-agent] prompt_completed sent for session ${sid}, thread ${chatThreadId}`);
       },
       onGenericUpdate: (sid, content) => {
         this.send({
@@ -752,6 +776,7 @@ export class MimoAgent {
         });
       },
       onToolCall: (sid, tool) => {
+        const promptId = this.promptIdsByThread.get(acpKey(sid, chatThreadId));
         this.lifecycleManager.recordActivity(sid, chatThreadId);
         let inputStr: string | undefined;
         if (tool.rawInput) {
@@ -769,10 +794,12 @@ export class MimoAgent {
           toolKind: tool.kind,
           toolInput: inputStr,
           toolStatus: tool.status,
+          ...(promptId ? { promptId } : {}),
           timestamp: new Date().toISOString(),
         });
       },
       onToolCallUpdate: (sid, update) => {
+        const promptId = this.promptIdsByThread.get(acpKey(sid, chatThreadId));
         this.lifecycleManager.recordActivity(sid, chatThreadId);
         let outputStr: string | undefined;
         if (update.rawOutput) {
@@ -788,6 +815,7 @@ export class MimoAgent {
           toolCallId: update.toolCallId,
           toolStatus: update.status,
           toolOutput: outputStr,
+          ...(promptId ? { promptId } : {}),
           timestamp: new Date().toISOString(),
         });
       },
@@ -1487,6 +1515,7 @@ export class MimoAgent {
     const content = message.content;
     // task 5.1: route strictly by chatThreadId
     const chatThreadId: string = message.chatThreadId;
+    const promptId: string | undefined = message.promptId;
 
     if (!sessionId) {
       logger.debug("[mimo-agent] No sessionId in user_message");
@@ -1494,6 +1523,12 @@ export class MimoAgent {
     }
     if (!chatThreadId) {
       logger.debug("[mimo-agent] No chatThreadId in user_message");
+      return;
+    }
+    if (!promptId) {
+      logger.warn(
+        `[stream-protocol] dropped user_message missing promptId session=${sessionId} thread=${chatThreadId}`,
+      );
       return;
     }
 
@@ -1519,7 +1554,7 @@ export class MimoAgent {
         if (!acpClient) {
           throw new Error("ACP client not available after wake-up");
         }
-        await this.sendPrompt(acpClient, sessionId, chatThreadId, content);
+        await this.sendPrompt(acpClient, sessionId, chatThreadId, content, promptId);
       } catch (err) {
         logger.error(
           `[mimo-agent] Failed to wake thread ${chatThreadId}:`,
@@ -1551,6 +1586,7 @@ export class MimoAgent {
           sessionId,
           chatThreadId,
           content,
+          promptId,
         );
       } catch (err) {
         logger.error(
@@ -1582,7 +1618,7 @@ export class MimoAgent {
         if (!acpClient) {
           throw new Error("ACP client not available after initialization");
         }
-        await this.sendPrompt(acpClient, sessionId, chatThreadId, content);
+        await this.sendPrompt(acpClient, sessionId, chatThreadId, content, promptId);
       } catch (err) {
         logger.error(
           `[mimo-agent] Failed to queue prompt for initializing thread ${chatThreadId}:`,
@@ -1618,7 +1654,7 @@ export class MimoAgent {
     }
 
     this.lifecycleManager.recordActivity(sessionId, chatThreadId);
-    await this.sendPrompt(acpClient, sessionId, chatThreadId, content);
+    await this.sendPrompt(acpClient, sessionId, chatThreadId, content, promptId);
   }
 
   private async handleInitialPrompt(message: any): Promise<void> {
@@ -1776,7 +1812,14 @@ export class MimoAgent {
     sessionId: string,
     chatThreadId: string,
     content: string,
+    promptId?: string,
   ): Promise<void> {
+    const key = acpKey(sessionId, chatThreadId);
+    if (promptId) {
+      this.promptIdsByThread.set(key, promptId);
+    } else {
+      this.promptIdsByThread.delete(key);
+    }
     const normalizedContent = await this.normalizeCommandPrompt(
       content,
       acpClient,
@@ -1789,6 +1832,7 @@ export class MimoAgent {
       type: "prompt_received",
       sessionId,
       chatThreadId,
+      ...(promptId ? { promptId } : {}),
       timestamp: new Date().toISOString(),
     });
 
@@ -1804,8 +1848,10 @@ export class MimoAgent {
         sessionId,
         chatThreadId,
         error: err instanceof Error ? err.message : String(err),
+        ...(promptId ? { promptId } : {}),
         timestamp: new Date().toISOString(),
       });
+      this.promptIdsByThread.delete(key);
     }
   }
 

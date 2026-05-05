@@ -47,6 +47,8 @@ const ChatState = {
 
   // Duration tracking
   totalDurationMs: 0,
+  currentPromptId: null,
+  pendingPromptCompletion: null,
 
   // Input
   editableBubble: null,
@@ -1020,6 +1022,7 @@ function handleWebSocketMessage(data) {
 
   switch (data.type) {
     case "prompt_received":
+      if (!hasPromptId(data, "prompt_received")) return;
       if (
         activeThreadId &&
         data.chatThreadId &&
@@ -1027,19 +1030,24 @@ function handleWebSocketMessage(data) {
       ) {
         return;
       }
-      handlePromptReceived();
+      handlePromptReceived(data.promptId || null);
       break;
     case "thought_start":
+      if (!hasPromptId(data, "thought_start")) return;
       if (
         activeThreadId &&
         data.chatThreadId &&
         data.chatThreadId !== activeThreadId
       ) {
+        return;
+      }
+      if (!shouldAcceptStreamingEvent(data)) {
         return;
       }
       handleThoughtStart();
       break;
     case "thought_chunk":
+      if (!hasPromptId(data, "thought_chunk")) return;
       if (
         activeThreadId &&
         data.chatThreadId &&
@@ -1047,9 +1055,13 @@ function handleWebSocketMessage(data) {
       ) {
         return;
       }
+      if (!shouldAcceptStreamingEvent(data)) {
+        return;
+      }
       handleThoughtChunk(data.content);
       break;
     case "thought_end":
+      if (!hasPromptId(data, "thought_end")) return;
       if (
         activeThreadId &&
         data.chatThreadId &&
@@ -1060,16 +1072,21 @@ function handleWebSocketMessage(data) {
       handleThoughtEnd();
       break;
     case "message_chunk":
+      if (!hasPromptId(data, "message_chunk")) return;
       if (
         activeThreadId &&
         data.chatThreadId &&
         data.chatThreadId !== activeThreadId
       ) {
+        return;
+      }
+      if (!shouldAcceptStreamingEvent(data)) {
         return;
       }
       handleMessageChunk(data.content);
       break;
     case "usage_update":
+      if (!hasPromptId(data, "usage_update")) return;
       if (
         activeThreadId &&
         data.chatThreadId &&
@@ -1077,7 +1094,23 @@ function handleWebSocketMessage(data) {
       ) {
         return;
       }
-      handleUsageUpdate(data.usage, data.duration, data.durationMs);
+      handleUsageUpdate(data.usage, data.promptId || null);
+      break;
+    case "prompt_completed":
+      if (!hasPromptId(data, "prompt_completed")) return;
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
+        return;
+      }
+      handlePromptCompleted(
+        data.promptId || null,
+        data.usage,
+        data.duration,
+        data.durationMs,
+      );
       break;
     case "expert_diff_ready":
       if (
@@ -1095,6 +1128,7 @@ function handleWebSocketMessage(data) {
       }
       break;
     case "tool_call":
+      if (!hasPromptId(data, "tool_call")) return;
       if (
         activeThreadId &&
         data.chatThreadId &&
@@ -1102,14 +1136,21 @@ function handleWebSocketMessage(data) {
       ) {
         return;
       }
+      if (!shouldAcceptStreamingEvent(data)) {
+        return;
+      }
       handleToolCall(data);
       break;
     case "tool_call_update":
+      if (!hasPromptId(data, "tool_call_update")) return;
       if (
         activeThreadId &&
         data.chatThreadId &&
         data.chatThreadId !== activeThreadId
       ) {
+        return;
+      }
+      if (!shouldAcceptStreamingEvent(data)) {
         return;
       }
       handleToolCallUpdate(data);
@@ -1237,12 +1278,43 @@ function handleWebSocketMessage(data) {
   }
 }
 
+function hasPromptId(data, eventType) {
+  const ok = typeof data.promptId === "string" && data.promptId.length > 0;
+  if (!ok) {
+    console.warn(
+      `[stream-protocol] dropped ${eventType} missing promptId session=${data?.sessionId || "unknown"} thread=${data?.chatThreadId || "unknown"}`,
+    );
+  }
+  return ok;
+}
+
 // Controller: Handle prompt received (agent is responding)
-function handlePromptReceived() {
+function handlePromptReceived(promptId) {
+  flushPendingPromptCompletion();
+  ChatState.currentPromptId = promptId || null;
   removeEditableBubble();
   insertStreamingMessage();
   startStreamingTimeout();
   ChatState.streaming.startTime = Date.now();
+}
+
+function shouldAcceptStreamingEvent(data) {
+  const eventPromptId = data.promptId;
+  if (!ChatState.currentPromptId) {
+    return false;
+  }
+  const matches = ChatState.currentPromptId === eventPromptId;
+  if (matches) {
+    maybeExtendPendingPromptCompletion(eventPromptId);
+  }
+  return matches;
+}
+
+function maybeExtendPendingPromptCompletion(promptId) {
+  const pending = ChatState.pendingPromptCompletion;
+  if (!pending) return;
+  if (pending.promptId && promptId && pending.promptId !== promptId) return;
+  schedulePromptCompletionFinalize(pending.promptId || promptId, pending.duration);
 }
 
 // Controller: Handle thought start
@@ -1284,15 +1356,64 @@ function handleMessageChunk(content) {
   updateMessageContent(content);
 }
 
-// Controller: Handle usage update (stream end)
-function handleUsageUpdate(usage, duration, durationMs) {
+// Controller: Handle usage update (metadata only, does not finalize stream)
+function handleUsageUpdate(usage, promptId) {
+  if (
+    ChatState.currentPromptId &&
+    promptId &&
+    ChatState.currentPromptId !== promptId
+  ) {
+    return;
+  }
+  clearStreamingTimeout();
+  updateUsageDisplay(usage);
+}
+
+// Controller: Handle prompt_completed (true end-of-stream signal)
+function handlePromptCompleted(promptId, usage, duration, durationMs) {
+  if (
+    ChatState.currentPromptId &&
+    promptId &&
+    ChatState.currentPromptId !== promptId
+  ) {
+    return;
+  }
+  if (usage) {
+    updateUsageDisplay(usage);
+  }
   clearStreamingTimeout();
   if (typeof durationMs === "number" && durationMs > 0) {
     ChatState.totalDurationMs += durationMs;
   }
-  updateUsageDisplay(usage);
-  finalizeMessageStream(duration);
+  schedulePromptCompletionFinalize(promptId || ChatState.currentPromptId, duration);
+}
+
+function clearPendingPromptCompletionTimer() {
+  const pending = ChatState.pendingPromptCompletion;
+  if (pending && pending.timeoutId) {
+    clearTimeout(pending.timeoutId);
+  }
+}
+
+function flushPendingPromptCompletion() {
+  const pending = ChatState.pendingPromptCompletion;
+  if (!pending) return;
+  clearPendingPromptCompletionTimer();
+  ChatState.pendingPromptCompletion = null;
+  ChatState.currentPromptId = null;
+  finalizeMessageStream(pending.duration);
   insertEditableBubble();
+}
+
+function schedulePromptCompletionFinalize(promptId, duration) {
+  clearPendingPromptCompletionTimer();
+  ChatState.pendingPromptCompletion = {
+    promptId: promptId || ChatState.currentPromptId || null,
+    duration,
+    timeoutId: setTimeout(() => {
+      flushPendingPromptCompletion();
+    }, 120),
+  };
 }
 
 // Controller: Handle tool call (tool starts)
@@ -1808,7 +1929,10 @@ function handleSessionInitialized(data) {
 
 // Controller: Send message
 function sendMessage(content) {
+  flushPendingPromptCompletion();
   ChatState.pendingMessages.add(content);
+  const promptId = makePromptId();
+  ChatState.currentPromptId = promptId;
 
   // Get active thread ID from the thread management system
   const activeThreadId =
@@ -1826,6 +1950,7 @@ function sendMessage(content) {
     const payload = {
       type: "send_message",
       content: content,
+      promptId,
     };
     // Include chatThreadId if available
     if (activeThreadId) {
@@ -1856,6 +1981,9 @@ async function sendMessageHttp(content) {
 
 // Controller: Cancel streaming
 function cancelStreaming() {
+  clearPendingPromptCompletionTimer();
+  ChatState.pendingPromptCompletion = null;
+  ChatState.currentPromptId = null;
   clearStreamingTimeout();
 
   const activeThreadId =
@@ -1880,6 +2008,13 @@ function cancelStreaming() {
   // Convert streaming message to a static message showing partial content
   finalizeStreamingAsCancelled();
   insertEditableBubble();
+}
+
+function makePromptId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function prepareThreadSwitch() {

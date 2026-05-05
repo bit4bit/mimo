@@ -8,6 +8,7 @@ export interface AcpClientCallbacks {
   onThoughtEnd: (sessionId: string) => void;
   onMessageChunk: (sessionId: string, content: string) => void;
   onUsageUpdate: (sessionId: string, usage: any) => void;
+  onPromptCompleted: (sessionId: string) => void;
   onGenericUpdate: (sessionId: string, content: string) => void;
   onAvailableCommandsUpdate: (
     sessionId: string,
@@ -376,16 +377,20 @@ export class AcpClient {
     // Reset thought buffer at start of prompt
     this.session.currentThoughtBuffer = "";
 
-    const response = await this.session.connection.prompt({
-      sessionId: this.session.acpSessionId,
-      prompt: [{ type: "text", text: content }],
-    });
-
-    // Note: thought_end is sent by usage_update handler, not here.
-    // Codex sends content in multiple phases (initial + after tool calls),
-    // so we can't send thought_end until usage_update signals completion.
-
-    return response;
+    logger.debug(`[acp-client] prompt() starting for session ${this.sessionId}`);
+    try {
+      const response = await this.session.connection.prompt({
+        sessionId: this.session.acpSessionId,
+        prompt: [{ type: "text", text: content }],
+      });
+      logger.debug(`[acp-client] prompt() resolved for session ${this.sessionId}, calling onPromptCompleted`);
+      this.callbacks.onPromptCompleted(this.sessionId);
+      return response;
+    } catch (err) {
+      logger.debug(`[acp-client] prompt() errored for session ${this.sessionId}, calling onPromptCompleted before throw`);
+      this.callbacks.onPromptCompleted(this.sessionId);
+      throw err;
+    }
   }
 
   async cancel(): Promise<void> {
