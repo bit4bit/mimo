@@ -55,11 +55,10 @@ export const SummaryBuffer: FC<SummaryBufferProps> = ({
             Analyze
           </label>
           <select
-            class="summary-analyze-select"
+            class="summary-analyze-select summary-select"
             value={analyzeThreadId}
             onChange={(e) => setAnalyzeThreadId(e.target.value)}
             data-help-id="summary-buffer-summary-analyze-select"
-            class="summary-select"
           >
             {threads.map((thread) => (
               <option value={thread.id}>
@@ -73,11 +72,10 @@ export const SummaryBuffer: FC<SummaryBufferProps> = ({
             Summarize via
           </label>
           <select
-            class="summary-summarize-select"
+            class="summary-summarize-select summary-select"
             value={summarizeThreadId}
             onChange={(e) => setSummarizeThreadId(e.target.value)}
             data-help-id="summary-buffer-summary-summarize-select"
-            class="summary-select"
           >
             {threads.map((thread) => (
               <option value={thread.id}>

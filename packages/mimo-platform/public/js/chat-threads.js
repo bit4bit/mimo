@@ -75,6 +75,7 @@ async function createThread(name, model, mode, assignedAgentId, instructions) {
 
     const newThread = await response.json();
     ChatThreadsState.threads.push(newThread);
+    updateSummaryBufferSelects();
 
     return newThread;
   } catch (error) {
@@ -131,6 +132,7 @@ async function deleteThread(threadId) {
     ChatThreadsState.threads = ChatThreadsState.threads.filter(
       (t) => t.id !== threadId,
     );
+    updateSummaryBufferSelects();
 
     return true;
   } catch (error) {
@@ -594,10 +596,12 @@ function attachThreadContextListeners() {
       if (success) {
         if (ChatThreadsState.threads.length > 0) {
           switchToThread(ChatThreadsState.threads[0].id);
+          updateSummaryBufferSelects();
         } else {
           ChatThreadsState.activeThreadId = null;
           updateThreadTabsUI();
           updateThreadContextUI();
+          updateSummaryBufferSelects();
         }
       }
     });
@@ -964,6 +968,51 @@ async function showCreateThreadDialog() {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// SUMMARY BUFFER SYNC
+// ═════════════════════════════════════════════════════════════════════════════
+
+function getThreadStateIcon(state) {
+  switch (state) {
+    case "active": return "🟢";
+    case "disconnected": return "🔴";
+    case "waking": return "⏳";
+    case "parked": return "🟡";
+    default: return "⚪";
+  }
+}
+
+function rebuildSelectOptions(selectEl, threads) {
+  const currentValue = selectEl?.value;
+  if (!selectEl) return null;
+  selectEl.innerHTML = "";
+  threads.forEach((thread) => {
+    const option = document.createElement("option");
+    option.value = thread.id;
+    option.textContent = `${getThreadStateIcon(thread.state)} ${thread.name}`;
+    selectEl.appendChild(option);
+  });
+  // Restore previous selection if still valid, otherwise select first
+  if (currentValue && threads.some((t) => t.id === currentValue)) {
+    selectEl.value = currentValue;
+    return currentValue;
+  } else if (threads.length > 0) {
+    selectEl.value = threads[0].id;
+    return threads[0].id;
+  }
+  return null;
+}
+
+function updateSummaryBufferSelects() {
+  const analyzeSelect = document.querySelector(".summary-analyze-select");
+  const summarizeSelect = document.querySelector(".summary-summarize-select");
+  if (!analyzeSelect && !summarizeSelect) return;
+
+  const threads = ChatThreadsState.threads;
+  rebuildSelectOptions(analyzeSelect, threads);
+  rebuildSelectOptions(summarizeSelect, threads);
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // UTILITY FUNCTIONS
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -993,6 +1042,7 @@ async function initChatThreads(sessionId) {
   // Initial UI render
   updateThreadTabsUI();
   updateThreadContextUI();
+  updateSummaryBufferSelects();
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1011,6 +1061,7 @@ window.MIMO_CHAT_THREADS = {
     await fetchThreads();
     updateThreadTabsUI();
     updateThreadContextUI();
+    updateSummaryBufferSelects();
   },
 };
 
