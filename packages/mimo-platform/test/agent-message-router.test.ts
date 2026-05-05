@@ -24,6 +24,7 @@ function makeMocks() {
     handleToolCall: mock(() => {}),
     handleToolCallUpdate: mock(() => {}),
     handleUsageUpdate: mock(async () => {}),
+    handlePromptCompleted: mock(async () => {}),
     handleAvailableCommandsUpdate: mock(() => {}),
     getStreamingSnapshot: mock(() => ({
       thoughtContent: "",
@@ -187,10 +188,12 @@ describe("AgentMessageRouter", () => {
         type: "thought_start",
         sessionId: "sess-1",
         chatThreadId: "thread-1",
+        promptId: "p1",
       });
       expect(deps.pipeline.handleThoughtStart).toHaveBeenCalledWith(
         "sess-1",
         "thread-1",
+        "p1",
       );
     });
   });
@@ -216,6 +219,7 @@ describe("AgentMessageRouter", () => {
           sessionId: "sess-1",
           chatThreadId: "thread-1",
           usage: { inputTokens: 100 },
+          promptId: "p1",
         },
       );
 
@@ -223,7 +227,8 @@ describe("AgentMessageRouter", () => {
         "sess-1",
         "thread-1",
         { inputTokens: 100 },
-        expect.any(Object),
+        { id: "sess-1", activeChatThreadId: "thread-1" },
+        "p1",
       );
       // Auto-sync should be called for non-expert usage
       expect(deps.triggerAutoSync).toHaveBeenCalledWith(
@@ -234,6 +239,7 @@ describe("AgentMessageRouter", () => {
         "sess-1",
         "thread-1",
       );
+      expect(deps.chat.saveMessage).not.toHaveBeenCalled();
     });
   });
 
@@ -247,6 +253,7 @@ describe("AgentMessageRouter", () => {
         type: "prompt_received",
         sessionId: "sess-1",
         chatThreadId: "thread-1",
+        promptId: "p1",
       });
 
       expect(deps.pipeline.setPromptInFlight).toHaveBeenCalledWith(
@@ -267,6 +274,7 @@ describe("AgentMessageRouter", () => {
       await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
         type: "prompt_received",
         sessionId: "sess-1",
+        promptId: "p1",
       });
 
       expect(deps.pipeline.setPromptInFlight).toHaveBeenCalledWith(
@@ -310,11 +318,40 @@ describe("AgentMessageRouter", () => {
         type: "usage_update",
         sessionId: "sess-1",
         usage: { inputTokens: 1 },
+        promptId: "p1",
       });
 
       expect(deps.pipeline.clearPromptInFlight).toHaveBeenCalledWith(
         "sess-1",
         "thread-active",
+      );
+    });
+  });
+
+  describe("prompt_completed routing", () => {
+    it("passes usage to pipeline.handlePromptCompleted", async () => {
+      expect(AgentMessageRouter).not.toBeNull();
+      const deps = makeMocks();
+      deps.sessionRepository.findById = mock(async () => ({
+        id: "sess-1",
+        activeChatThreadId: "thread-1",
+      }));
+      const router = makeRouter(deps);
+
+      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
+        type: "prompt_completed",
+        sessionId: "sess-1",
+        chatThreadId: "thread-1",
+        usage: { inputTokens: 5, outputTokens: 8 },
+        promptId: "p1",
+      });
+
+      expect(deps.pipeline.handlePromptCompleted).toHaveBeenCalledWith(
+        "sess-1",
+        "thread-1",
+        { id: "sess-1", activeChatThreadId: "thread-1" },
+        { inputTokens: 5, outputTokens: 8 },
+        "p1",
       );
     });
   });

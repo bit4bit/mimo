@@ -531,6 +531,7 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       type: "user_message",
       sessionId: "s-race",
       chatThreadId: "t-race",
+      promptId: "p-race-1",
       content: "hello",
     });
 

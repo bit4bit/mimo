@@ -81,6 +81,18 @@ export class AgentMessageRouter {
 
   constructor(private deps: AgentMessageRouterDeps) {}
 
+  private requirePromptId(data: any, eventType: string): string | null {
+    const promptId =
+      typeof data?.promptId === "string" && data.promptId.length > 0
+        ? data.promptId
+        : null;
+    if (promptId) return promptId;
+    logger.warn(
+      `[stream-protocol] dropped ${eventType} missing promptId session=${data?.sessionId || "unknown"} thread=${data?.chatThreadId || "unknown"}`,
+    );
+    return null;
+  }
+
   private async resolveEffectiveThreadId(
     sessionId: string,
     threadId?: string,
@@ -173,6 +185,9 @@ export class AgentMessageRouter {
         break;
       case "prompt_received":
         await this.handlePromptReceived(data);
+        break;
+      case "prompt_completed":
+        await this.handlePromptCompleted(data);
         break;
       case "sync_now_result":
         this.handleSyncNowResult(data);
@@ -402,8 +417,10 @@ export class AgentMessageRouter {
       logger.debug("No sessionId in thought_start");
       return;
     }
+    const promptId = this.requirePromptId(data, "thought_start");
+    if (!promptId) return;
     this.deps.chat.updateAgentActivity(sessionId);
-    this.deps.pipeline.handleThoughtStart(sessionId, threadId);
+    this.deps.pipeline.handleThoughtStart(sessionId, threadId, promptId);
   }
 
   private handleThoughtChunk(data: any): void {
@@ -413,11 +430,14 @@ export class AgentMessageRouter {
       logger.debug("No sessionId in thought_chunk");
       return;
     }
+    const promptId = this.requirePromptId(data, "thought_chunk");
+    if (!promptId) return;
     this.deps.chat.updateAgentActivity(sessionId);
     this.deps.pipeline.handleThoughtChunk(
       sessionId,
       threadId,
       data.content || "",
+      promptId,
     );
   }
 
@@ -428,7 +448,9 @@ export class AgentMessageRouter {
       logger.debug("No sessionId in thought_end");
       return;
     }
-    this.deps.pipeline.handleThoughtEnd(sessionId, threadId);
+    const promptId = this.requirePromptId(data, "thought_end");
+    if (!promptId) return;
+    this.deps.pipeline.handleThoughtEnd(sessionId, threadId, promptId);
     void this.deps.triggerAutoSync(sessionId, "thought_end");
   }
 
@@ -439,11 +461,14 @@ export class AgentMessageRouter {
       logger.debug("No sessionId in message_chunk");
       return;
     }
+    const promptId = this.requirePromptId(data, "message_chunk");
+    if (!promptId) return;
     this.deps.chat.updateAgentActivity(sessionId);
     this.deps.pipeline.handleMessageChunk(
       sessionId,
       threadId,
       data.content || "",
+      promptId,
     );
   }
 
@@ -454,6 +479,8 @@ export class AgentMessageRouter {
       logger.debug("No sessionId in usage_update");
       return;
     }
+    const promptId = this.requirePromptId(data, "usage_update");
+    if (!promptId) return;
     const session = await this.deps.sessionRepository.findById(sessionId);
     const effectiveThreadId =
       threadId || session?.activeChatThreadId || undefined;
@@ -468,6 +495,7 @@ export class AgentMessageRouter {
       threadId,
       data.usage ?? {},
       sessionObj,
+      promptId,
     );
     if (!hadExpertPending) {
       void this.deps.triggerAutoSync(sessionId, "usage_update");
@@ -481,6 +509,8 @@ export class AgentMessageRouter {
       logger.debug("No sessionId in tool_call");
       return;
     }
+    const promptId = this.requirePromptId(data, "tool_call");
+    if (!promptId) return;
     this.deps.chat.updateAgentActivity(sessionId);
     this.deps.pipeline.handleToolCall(sessionId, threadId, {
       toolCallId: data.toolCallId,
@@ -488,6 +518,7 @@ export class AgentMessageRouter {
       toolKind: data.toolKind,
       toolInput: data.toolInput,
       toolStatus: data.toolStatus,
+      promptId,
       timestamp: data.timestamp,
     });
   }
@@ -499,11 +530,14 @@ export class AgentMessageRouter {
       logger.debug("No sessionId in tool_call_update");
       return;
     }
+    const promptId = this.requirePromptId(data, "tool_call_update");
+    if (!promptId) return;
     this.deps.chat.updateAgentActivity(sessionId);
     this.deps.pipeline.handleToolCallUpdate(sessionId, threadId, {
       toolCallId: data.toolCallId,
       toolStatus: data.toolStatus,
       toolOutput: data.toolOutput,
+      promptId,
       timestamp: data.timestamp,
     });
   }
@@ -923,6 +957,8 @@ export class AgentMessageRouter {
   }
 
   private async handlePromptReceived(data: any): Promise<void> {
+    const promptId = this.requirePromptId(data, "prompt_received");
+    if (!promptId) return;
     if (data.sessionId) {
       const effectiveThreadId = await this.resolveEffectiveThreadId(
         data.sessionId,
@@ -939,12 +975,32 @@ export class AgentMessageRouter {
               type: "prompt_received",
               sessionId: data.sessionId,
               chatThreadId: data.chatThreadId,
+              promptId,
               timestamp: new Date().toISOString(),
             }),
           );
         }
       });
     }
+  }
+
+  private async handlePromptCompleted(data: any): Promise<void> {
+    const sessionId = data.sessionId;
+    const threadId = data.chatThreadId;
+    const promptId = this.requirePromptId(data, "prompt_completed");
+    if (!promptId) return;
+    if (!sessionId) {
+      return;
+    }
+    const session = await this.deps.sessionRepository.findById(sessionId);
+    const sessionObj = session ? session : { activeChatThreadId: undefined };
+    await this.deps.pipeline.handlePromptCompleted(
+      sessionId,
+      threadId,
+      sessionObj,
+      data.usage,
+      promptId,
+    );
   }
 
   private handleSyncNowResult(data: any): void {
