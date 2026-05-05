@@ -1667,7 +1667,7 @@
     const tabsEl = document.getElementById("edit-buffer-tabs");
     if (!tabsEl) return;
 
-    // Remove existing dynamic tabs (all except the "+ Open File" button)
+    // Remove existing dynamic tabs (all except the "+" button)
     const openBtn = document.getElementById("open-file-finder-btn");
     tabsEl.innerHTML = "";
 
@@ -1696,17 +1696,17 @@
     });
 
     if (openBtn) {
-      tabsEl.appendChild(openBtn);
+      tabsEl.prepend(openBtn);
     } else {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.id = "open-file-finder-btn";
       btn.style.cssText =
-        "padding:8px 12px;border:none;border-right:1px solid #444;background:transparent;color:#888;cursor:pointer;font-family:monospace;font-size:12px;white-space:nowrap;flex-shrink:0;";
+        "padding:8px 12px;border:none;border-right:1px solid #444;background:transparent;color:#4caf50;cursor:pointer;font-family:monospace;font-size:12px;white-space:nowrap;flex-shrink:0;";
       btn.title = "Open file (Mod+Shift+F)";
-      btn.textContent = "+ Open File";
+      btn.textContent = "+";
       btn.addEventListener("click", openFileFinder);
-      tabsEl.appendChild(btn);
+      tabsEl.prepend(btn);
     }
   }
 

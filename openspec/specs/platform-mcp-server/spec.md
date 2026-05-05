@@ -25,6 +25,12 @@ The platform SHALL expose an MCP-protocol HTTP endpoint at `POST /api/mimo-mcp` 
 ### Requirement: open_file Tool
 The MCP endpoint SHALL provide an `open_file` tool that opens a file in the session's EditBuffer.
 
+#### Tool Description
+- **WHEN** the ACP queries the tool list
+- **THEN** the `open_file` tool description SHALL instruct the ACP to use it when the user asks to open, view, see, or look at a file, or references a file path they want to examine
+- **AND** the description SHALL provide examples of trigger phrases: "open file x.ts", "show me README.md", "look at src/main.ts", "go to line 50 of app.js"
+- **AND** the `path` parameter description SHALL instruct the ACP to call the tool whenever the user mentions a file they want to open or view
+
 #### Scenario: Open a valid file
 - **WHEN** an ACP calls `open_file` with a path that exists within the session workspace
 - **THEN** the platform SHALL broadcast `{ type: "open_file_in_editbuffer", sessionId, path }` to all WebSocket clients for that session

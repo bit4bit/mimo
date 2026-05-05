@@ -23,8 +23,9 @@ export const EditBuffer: FC<EditBufferProps> = ({ sessionId }) => {
           id="open-file-finder-btn"
           class="chat-thread-action-btn"
           title="Open file (Mod+Shift+F)"
+          style="color: #4caf50;"
         >
-          + Open File
+          +
         </button>
       </div>
 

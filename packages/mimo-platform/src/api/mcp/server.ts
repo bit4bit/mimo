@@ -76,14 +76,14 @@ export function createMcpRoutes(mimoContext: McpRoutesContext) {
           {
             name: "open_file",
             description:
-              "Open a file in the platform editor (EditBuffer) for the current session. Optionally scrolls to a specific line.",
+              "Open or show a file to the user in the platform editor (EditBuffer). Use this tool when the user asks to open, view, see, or look at a file, or references a file path they want to examine. Examples: 'open file x.ts', 'show me README.md', 'look at src/main.ts', 'go to line 50 of app.js'. This makes the file visible in the user's editor. Optionally scrolls to a specific line.",
             inputSchema: {
               type: "object",
               properties: {
                 path: {
                   type: "string",
                   description:
-                    "Relative path to the file within the session workspace",
+                    "Relative path to the file within the session workspace. Call this whenever the user mentions a file they want to open or view.",
                 },
                 line: {
                   type: "integer",

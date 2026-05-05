@@ -44,6 +44,17 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
     <div class="chat-threads-container buffer-container">
       {/* Thread Tabs */}
       <div class="chat-threads-tabs">
+        {/* Create thread button */}
+        <button
+          type="button"
+          id="create-thread-btn"
+          class="chat-thread-action-btn"
+          title="Create new chat thread"
+          style="color: #4caf50;"
+        >
+          +
+        </button>
+
         {threads.map((thread) => {
           const icon =
             thread.state === "disconnected"
@@ -79,16 +90,6 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
             </button>
           );
         })}
-
-        {/* Create thread button */}
-        <button
-          type="button"
-          id="create-thread-btn"
-          class="chat-thread-action-btn"
-          title="Create new chat thread"
-        >
-          + New Thread
-        </button>
       </div>
 
       {/* Thread Context Bar with Model/Mode Selectors */}
@@ -165,7 +166,7 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
         )}
         {!activeThread && (
           <div class="text-small text-muted">
-            No active thread. Use + New Thread to get started.
+            No active thread. Use + to get started.
           </div>
         )}
       </div>
