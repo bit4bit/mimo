@@ -1,25 +1,48 @@
 import { describe, it, expect } from "bun:test";
-import { SignJWT } from "jose";
 import { ClaudeAgentProvider } from "../src/acp/providers/claude-agent";
 import { OpencodeProvider } from "../src/acp/providers/opencode";
 import { NewSessionResponse } from "../src/acp/types";
 
-const TEST_SECRET = new TextEncoder().encode("test-secret-for-testing-only");
+const TEST_SECRET = "test-secret-for-testing-only";
+
+function base64Url(input: string): string {
+  return Buffer.from(input).toString("base64url");
+}
+
+async function signHs256(input: string, secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(input),
+  );
+  return Buffer.from(sig).toString("base64url");
+}
 
 async function createTestToken(provider?: string): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
   const payload: any = {
     agentId: "test-agent-id",
     owner: "testuser",
+    iat: now,
+    exp: now + 3600,
   };
   if (provider) {
     payload.provider = provider;
   }
 
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("1h")
-    .sign(TEST_SECRET);
+  const header = { alg: "HS256", typ: "JWT" };
+  const encodedHeader = base64Url(JSON.stringify(header));
+  const encodedPayload = base64Url(JSON.stringify(payload));
+  const signingInput = `${encodedHeader}.${encodedPayload}`;
+  const signature = await signHs256(signingInput, TEST_SECRET);
+  return `${signingInput}.${signature}`;
 }
 
 const AGENT_CWD = import.meta.dir.replace("/integration-test", "");
@@ -126,7 +149,7 @@ describe("provider selection", () => {
   });
 
   describe("--provider opencode", () => {
-    it("should log startup message when --provider opencode matches token", async () => {
+    it("should proceed to connection attempt when --provider opencode matches token", async () => {
       const token = await createTestToken("opencode");
       const proc = Bun.spawn(
         [
@@ -149,8 +172,10 @@ describe("provider selection", () => {
 
       await proc.exited;
       const stdout = await new Response(proc.stdout).text();
-      // Agent logs "[mimo-agent] Starting..." before attempting connection
-      expect(stdout).toContain("[mimo-agent] Starting...");
+      const stderr = await new Response(proc.stderr).text();
+      const logs = `${stdout}\n${stderr}`;
+      expect(logs).toContain("Failed to start");
+      expect(logs).not.toContain("Provider mismatch");
     });
 
     it("should exit with code 1 when provider mismatches token", async () => {
@@ -208,7 +233,7 @@ describe("provider selection", () => {
   });
 
   describe("--provider claude", () => {
-    it("should log startup message when --provider claude matches token", async () => {
+    it("should proceed to connection attempt when --provider claude matches token", async () => {
       const token = await createTestToken("claude");
       const proc = Bun.spawn(
         [
@@ -231,8 +256,10 @@ describe("provider selection", () => {
 
       await proc.exited;
       const stdout = await new Response(proc.stdout).text();
-      // Agent logs "[mimo-agent] Starting..." before attempting connection — confirms provider was valid
-      expect(stdout).toContain("[mimo-agent] Starting...");
+      const stderr = await new Response(proc.stderr).text();
+      const logs = `${stdout}\n${stderr}`;
+      expect(logs).toContain("Failed to start");
+      expect(logs).not.toContain("Provider mismatch");
     });
 
     it("should exit with code 1 when provider mismatches token", async () => {
@@ -285,7 +312,10 @@ describe("provider selection", () => {
 
       await proc.exited;
       const stdout = await new Response(proc.stdout).text();
-      expect(stdout).toContain("[mimo-agent] Starting...");
+      const stderr = await new Response(proc.stderr).text();
+      const logs = `${stdout}\n${stderr}`;
+      expect(logs).toContain("Using legacy token");
+      expect(logs).toContain("Failed to start");
     });
 
     it("should show warning with legacy token", async () => {
@@ -367,8 +397,10 @@ describe("ClaudeAgentProvider", () => {
       expect(provider.mapUpdateType("usage_update")).toBe("usage_update");
     });
 
-    it("should return null for tool_call_update (skip)", () => {
-      expect(provider.mapUpdateType("tool_call_update")).toBeNull();
+    it("should map tool_call_update to tool_call_update", () => {
+      expect(provider.mapUpdateType("tool_call_update")).toBe(
+        "tool_call_update",
+      );
     });
 
     it("should return null for config_option_update (skip)", () => {

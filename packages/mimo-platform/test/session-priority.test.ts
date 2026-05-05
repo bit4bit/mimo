@@ -307,8 +307,10 @@ describe("Session Priority", () => {
       });
       expect(res1.status).toBe(302);
 
-      // Ensure different createdAt timestamps
-      await new Promise((r) => setTimeout(r, 10));
+      const startMs = Date.now();
+      while (Date.now() === startMs) {
+        // wait for next millisecond to avoid equal createdAt values
+      }
 
       const res2 = await app.request(`/projects/${project.id}/sessions`, {
         method: "POST",

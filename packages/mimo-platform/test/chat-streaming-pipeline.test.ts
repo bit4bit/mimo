@@ -292,16 +292,21 @@ describe("ChatStreamingPipeline", () => {
       });
       const { pipeline } = makePipeline(mockSave as any);
 
-      pipeline.handleThoughtStart("s1", "t1");
-      pipeline.handleMessageChunk("s1", "t1", "answer");
+      const originalNow = Date.now;
+      let now = 1700000000000;
+      Date.now = () => (now += 25);
+      try {
+        pipeline.handleThoughtStart("s1", "t1");
+        pipeline.handleMessageChunk("s1", "t1", "answer");
 
-      await new Promise((r) => setTimeout(r, 10));
-
-      await pipeline.handlePromptCompleted(
-        "s1",
-        "t1",
-        { activeChatThreadId: "t1" },
-      );
+        await pipeline.handlePromptCompleted(
+          "s1",
+          "t1",
+          { activeChatThreadId: "t1" },
+        );
+      } finally {
+        Date.now = originalNow;
+      }
 
       expect(savedMessage).not.toBeNull();
       expect(

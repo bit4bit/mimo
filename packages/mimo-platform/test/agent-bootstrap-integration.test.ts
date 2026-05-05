@@ -8,7 +8,7 @@ import {
   SharedFossilServer,
   normalizeSessionIdForFossil,
 } from "../src/domain/vcs/shared-fossil-server.js";
-import { findAvailablePort } from "./test-helpers.js";
+import { findAvailablePort, waitFor } from "./test-helpers.js";
 
 describe("Agent Bootstrap Integration Tests", () => {
   let testHome: string;
@@ -124,8 +124,7 @@ describe("Agent Bootstrap Integration Tests", () => {
       // Start shared fossil server
       await sharedFossilServer.start();
 
-      // Wait for server to be fully ready
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await waitFor(() => sharedFossilServer.isRunning(), { timeout: 2000 });
 
       expect(await sharedFossilServer.isRunning()).toBe(true);
       expect(sharedFossilServer.getPort()).toBe(testPort);
@@ -167,8 +166,7 @@ describe("Agent Bootstrap Integration Tests", () => {
       mkdirSync(agentWorkspacePath, { recursive: true });
       await sharedFossilServer.start();
 
-      // Wait for server to be fully ready
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await waitFor(() => sharedFossilServer.isRunning(), { timeout: 2000 });
 
       const port = sharedFossilServer.getPort();
       const normalizedId = normalizeSessionIdForFossil(sessionId);
@@ -270,8 +268,7 @@ describe("Agent Bootstrap Integration Tests", () => {
 
       await sharedFossilServer.start();
 
-      // Wait for server to be fully ready
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await waitFor(() => sharedFossilServer.isRunning(), { timeout: 2000 });
 
       expect(await sharedFossilServer.isRunning()).toBe(true);
 

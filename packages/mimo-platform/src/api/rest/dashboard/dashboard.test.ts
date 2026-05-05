@@ -260,16 +260,18 @@ describe("Dashboard Internal API", () => {
       });
 
       // Create sessions with different timestamps
-      const session1 = await mimoContext.repos.sessions.create({
+      await mimoContext.repos.sessions.create({
         name: "Older Session",
         projectId: project.id,
         owner: "user1",
       });
 
-      // Wait a tiny bit to ensure different timestamps
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      const startMs = Date.now();
+      while (Date.now() === startMs) {
+        // wait for next millisecond to avoid equal createdAt values
+      }
 
-      const session2 = await mimoContext.repos.sessions.create({
+      await mimoContext.repos.sessions.create({
         name: "Newer Session",
         projectId: project.id,
         owner: "user1",

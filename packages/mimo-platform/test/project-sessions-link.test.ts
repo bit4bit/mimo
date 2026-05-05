@@ -230,8 +230,10 @@ describe("Project Sessions Link Integration Tests", () => {
         priority: "medium",
       });
 
-      // Small delay to ensure different timestamps
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      const startMs = Date.now();
+      while (Date.now() === startMs) {
+        // wait for next millisecond to avoid equal createdAt values
+      }
 
       await sessionRepository.create({
         name: "Second Session",

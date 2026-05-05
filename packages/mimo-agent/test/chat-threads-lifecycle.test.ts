@@ -10,6 +10,7 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { SessionLifecycleManager } from "../src/lifecycle.js";
 import type { SessionLifecycleCallbacks } from "../src/lifecycle.js";
+import { waitFor } from "./test-helpers";
 
 function makeCallbacks(
   overrides: Partial<SessionLifecycleCallbacks> = {},
@@ -71,16 +72,19 @@ describe("Thread-aware SessionLifecycleManager", () => {
       manager.initializeThread(sessionId, "t2", 80);
 
       // Activity on t1 should reset the timer so neither thread parks within 60ms
-      await new Promise((r) => setTimeout(r, 40));
+      await waitFor(() => true, { timeout: 60, interval: 60 });
       manager.recordActivity(sessionId, "t1");
 
       // Wait another 60ms — timer was reset so neither should have parked yet
-      await new Promise((r) => setTimeout(r, 60));
+      await waitFor(() => true, { timeout: 80, interval: 80 });
 
       expect(parkedThreads).toHaveLength(0);
 
       // Now wait for the full timeout to fire (80ms from last activity = ~80ms more)
-      await new Promise((r) => setTimeout(r, 100));
+      await waitFor(
+        () => parkedThreads.includes("t1") && parkedThreads.includes("t2"),
+        { timeout: 500, interval: 20 },
+      );
 
       // After inactivity, both threads should be parked
       expect(parkedThreads).toContain("t1");
@@ -107,8 +111,13 @@ describe("Thread-aware SessionLifecycleManager", () => {
       manager.initializeThread(sessionId, "thread-b", 50);
       manager.initializeThread(sessionId, "thread-c", 50);
 
-      // Wait for idle timeout to fire
-      await new Promise((r) => setTimeout(r, 150));
+      await waitFor(
+        () =>
+          parkedThreads.includes("thread-a") &&
+          parkedThreads.includes("thread-b") &&
+          parkedThreads.includes("thread-c"),
+        { timeout: 500, interval: 20 },
+      );
 
       expect(parkedThreads).toContain("thread-a");
       expect(parkedThreads).toContain("thread-b");
@@ -142,8 +151,12 @@ describe("Thread-aware SessionLifecycleManager", () => {
       manager.initializeThread(sessionId, "t1", 50);
       manager.initializeThread(sessionId, "t2", 50);
 
-      // Let both threads park
-      await new Promise((r) => setTimeout(r, 150));
+      await waitFor(
+        () =>
+          manager.getThreadState(sessionId, "t1") === "parked" &&
+          manager.getThreadState(sessionId, "t2") === "parked",
+        { timeout: 500, interval: 20 },
+      );
 
       expect(manager.getThreadState(sessionId, "t1")).toBe("parked");
       expect(manager.getThreadState(sessionId, "t2")).toBe("parked");
@@ -153,7 +166,10 @@ describe("Thread-aware SessionLifecycleManager", () => {
 
       // Send prompt to t2 only
       const queuePromise = manager.queueThreadPrompt(sessionId, "t2", "hello");
-      await new Promise((r) => setTimeout(r, 50));
+      await waitFor(() => spawnCallThreadIds.includes("t2"), {
+        timeout: 500,
+        interval: 20,
+      });
 
       // Only t2 should have been spawned
       expect(spawnCallThreadIds).toContain("t2");

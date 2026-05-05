@@ -169,7 +169,7 @@ describe("Session Search API", () => {
         owner: "testuser",
       });
 
-      await sessionRepository.create({
+      const oldSession = await sessionRepository.create({
         name: "Old Session",
         projectId: project.id,
         owner: "testuser",
@@ -180,7 +180,14 @@ describe("Session Search API", () => {
         projectId: project.id,
         owner: "testuser",
       });
-      await sessionRepository.touchSessionActivity(recentSession.id);
+      await sessionRepository.touchSessionActivity(
+        oldSession.id,
+        "2020-01-01T00:00:00.000Z",
+      );
+      await sessionRepository.touchSessionActivity(
+        recentSession.id,
+        "2030-01-01T00:00:00.000Z",
+      );
 
       const token = await authService.generateToken("testuser");
       const res = await app.request("/sessions/search", {

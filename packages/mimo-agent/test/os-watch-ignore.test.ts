@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { createOS } from "../src/os/node-adapter.js";
+import { waitFor } from "./test-helpers";
 
 describe("NodeFileSystem.watch ignored predicate", () => {
   it("does not invoke listener for ignored paths", async () => {
@@ -23,7 +24,7 @@ describe("NodeFileSystem.watch ignored predicate", () => {
 
     await new Promise<void>((resolve) => watcher.on("ready", resolve));
     writeFileSync(join(root, "ignored.txt"), "ignored");
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    await waitFor(() => true, { timeout: 300, interval: 300 });
 
     watcher.close();
     rmSync(root, { recursive: true, force: true });

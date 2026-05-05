@@ -9,6 +9,7 @@ import {
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync } from "fs";
+import { waitForEvent } from "./test-helpers.js";
 
 let chatService: any;
 
@@ -17,12 +18,15 @@ let streamingTimeout: ReturnType<typeof setTimeout> | null = null;
 let lastStreamingActivity: number | null = null;
 const TIMEOUT_MS = 60000; // 60 seconds
 
-function startStreamingTimeoutMock(onTimeout: () => void) {
+function startStreamingTimeoutMock(
+  onTimeout: () => void,
+  timeoutMs: number = TIMEOUT_MS,
+) {
   clearStreamingTimeoutMock();
   lastStreamingActivity = Date.now();
   streamingTimeout = setTimeout(() => {
     onTimeout();
-  }, TIMEOUT_MS);
+  }, timeoutMs);
 }
 
 function clearStreamingTimeoutMock() {
@@ -75,19 +79,20 @@ describe("Chat Input Recovery", () => {
 
     it("should clear timeout when usage_update arrives", () => {
       let timeoutCalled = false;
+      let resolveTimeoutEvent: () => void;
+      const timeoutEvent = new Promise<void>((resolve) => {
+        resolveTimeoutEvent = resolve;
+      });
+
       startStreamingTimeoutMock(() => {
         timeoutCalled = true;
-      });
+        resolveTimeoutEvent();
+      }, 50);
 
       // Simulate usage_update arriving
       clearStreamingTimeoutMock();
 
-      // Fast forward time
-      const advanceTime = () =>
-        new Promise((resolve) => setTimeout(resolve, TIMEOUT_MS + 100));
-      advanceTime().then(() => {
-        expect(timeoutCalled).toBe(false);
-      });
+      return expect(waitForEvent(timeoutEvent, { timeout: 100 })).rejects.toThrow();
     });
   });
 
@@ -190,17 +195,28 @@ describe("Chat Input Recovery", () => {
     it("should force input creation after 2 second delay", async () => {
       // Simulate the setTimeout that forces input restoration
       let inputCreated = false;
+      const forceDelayMs = 20;
 
-      const mockForceInput = () => {
+      const mockForceInput = (delayMs: number) => {
         setTimeout(() => {
           inputCreated = true;
-        }, 2000);
+        }, delayMs);
       };
 
-      mockForceInput();
+      mockForceInput(forceDelayMs);
 
       // Wait for timeout
-      await new Promise((resolve) => setTimeout(resolve, 2500));
+      await waitForEvent(
+        new Promise<void>((resolve) => {
+          const interval = setInterval(() => {
+            if (inputCreated) {
+              clearInterval(interval);
+              resolve();
+            }
+          }, 5);
+        }),
+        { timeout: 250 },
+      );
 
       expect(inputCreated).toBe(true);
     });

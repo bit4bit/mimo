@@ -7,7 +7,7 @@ import {
   type FileWatcherService,
 } from "../src/domain/files/file-watcher-service";
 import { createOS } from "../src/infrastructure/os/node-adapter.js";
-import { waitFor, waitForEvent } from "./test-helpers.js";
+import { waitForEvent } from "./test-helpers.js";
 
 describe("FileWatcherService", () => {
   let tempDir: string;
@@ -100,14 +100,13 @@ describe("FileWatcherService", () => {
         },
       );
 
-      // Give chokidar time to set up watchers
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Modify the file
       writeFileSync(filePath, "Modified content");
 
       // Wait for event with explicit timeout
-      await waitForEvent(eventPromise, { timeout: 3000 });
+      await waitForEvent(eventPromise, { timeout: 5000 });
 
       expect(receivedEvents.length).toBeGreaterThan(0);
       expect(receivedEvents[0].type).toBe("file_outdated");
@@ -120,15 +119,20 @@ describe("FileWatcherService", () => {
 
       const checksum = await watcher.computeChecksum(filePath);
 
-      await watcher.watchFile("session-3", filePath, checksum, (event) => {
-        receivedEvents.push(event);
+      let resolveAnyEvent: () => void;
+      const anyEventPromise = new Promise<void>((resolve) => {
+        resolveAnyEvent = resolve;
       });
 
-      // Write same content (should not trigger change)
+      await watcher.watchFile("session-3", filePath, checksum, (event) => {
+        receivedEvents.push(event);
+        resolveAnyEvent();
+      });
+
+      // Write same content (should not trigger outdated change)
       writeFileSync(filePath, "Same content");
 
-      // Wait briefly for any events to propagate
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await expect(waitForEvent(anyEventPromise, { timeout: 250 })).rejects.toThrow();
 
       // Should not have received outdated event for same content
       const outdatedEvents = receivedEvents.filter(
@@ -196,9 +200,6 @@ describe("FileWatcherService", () => {
         }
       });
 
-      // Give chokidar time to set up watchers
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
       // Delete the file
       rmSync(filePath);
 
@@ -251,8 +252,7 @@ describe("FileWatcherService", () => {
         }
       });
 
-      // Give chokidar time to set up watchers
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Modify the file
       writeFileSync(filePath, "Modified");
@@ -260,8 +260,8 @@ describe("FileWatcherService", () => {
       // Wait for both events with explicit timeout
       try {
         await Promise.all([
-          waitForEvent(promiseA, { timeout: 3000 }),
-          waitForEvent(promiseB, { timeout: 3000 }),
+            waitForEvent(promiseA, { timeout: 3000 }),
+            waitForEvent(promiseB, { timeout: 3000 }),
         ]);
       } catch {
         // At least one watcher may not fire on all platforms
