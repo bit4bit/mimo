@@ -33,6 +33,10 @@ import { createSearchService } from "../../domain/files/search-service.js";
 import type { SearchService } from "../../domain/files/types.js";
 import { createFileService } from "../../domain/files/service.js";
 import type { FileService } from "../../domain/files/types.js";
+import {
+  createProjectVcsCache,
+  type ProjectVcsCache,
+} from "../../domain/projects/vcs-cache.js";
 import { createOS } from "../os/node-adapter.js";
 import type { OS } from "../os/types.js";
 
@@ -91,6 +95,7 @@ export interface MimoContext {
     expert: ExpertService;
     search: SearchService;
     fileService: FileService;
+    projectVcsCache: ProjectVcsCache;
   };
 }
 
@@ -307,6 +312,13 @@ export function createMimoContext(
     expert: expertService,
     search: overrides.services?.search ?? createSearchService({ os }),
     fileService,
+    projectVcsCache:
+      overrides.services?.projectVcsCache ??
+      createProjectVcsCache({
+        os,
+        projectsPath: paths.projects,
+        vcs,
+      }),
   };
 
   return {
