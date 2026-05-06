@@ -9,6 +9,7 @@ import { successResponse, errorResponse } from "../shared/response.js";
 import type { InternalApiContext } from "../shared/types.js";
 import type { CreateProjectRequest, UpdateProjectRequest } from "./types.js";
 import { toProjectResponse, toSessionResponse } from "./types.js";
+import { logger } from "../../../logger.js";
 
 /**
  * List all projects for the authenticated user.
@@ -146,6 +147,57 @@ export async function createProjectHandler(
       ...(body.instructions !== undefined && { instructions: body.instructions }),
     });
 
+    const credential = project.credentialId
+      ? await mimoContext.repos.credentials.findById(
+          project.credentialId,
+          project.owner,
+        )
+      : undefined;
+
+    // By default, block project creation on cache pre-warm so first session
+    // creation does not pay full clone cost for large repositories.
+    const warmCacheSync = body.warmCacheSync ?? true;
+
+    const runPrewarm = async (): Promise<{ success: boolean; error?: string }> =>
+      mimoContext.services.projectVcsCache.refresh({
+        projectId: project.id,
+        repoUrl: project.repoUrl,
+        repoType: project.repoType,
+        credential: credential ?? undefined,
+      });
+
+    if (warmCacheSync) {
+      const refreshResult = await runPrewarm();
+      if (!refreshResult.success) {
+        await mimoContext.repos.projects.delete(project.id);
+        return c.json(
+          errorResponse(
+            `Project cache pre-warm failed: ${refreshResult.error ?? "unknown error"}`,
+            500,
+          ),
+          500,
+        );
+      }
+    } else {
+      // Optional background pre-warm.
+      queueMicrotask(async () => {
+        try {
+          const refreshResult = await runPrewarm();
+          if (!refreshResult.success) {
+            logger.warn("[projects] cache pre-warm failed", {
+              projectId: project.id,
+              error: refreshResult.error,
+            });
+          }
+        } catch (error) {
+          logger.warn("[projects] cache pre-warm failed", {
+            projectId: project.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      });
+    }
+
     return c.json(
       successResponse({
         project: toProjectResponse(project),
@@ -280,6 +332,7 @@ export async function deleteProjectHandler(
     return c.json(errorResponse("Project not found", 404), 404);
   }
 
+  await mimoContext.services.projectVcsCache.clear(project.id, project.repoType);
   await mimoContext.repos.projects.delete(id);
 
   return c.json(successResponse({ success: true }));

@@ -967,11 +967,11 @@ describe("Session Management Integration Tests", () => {
       expect(createBranchCalled).toBe(false);
     });
 
-    it("passes project SSH credential to cloneRepository", async () => {
+    it("passes project SSH credential to projectVcsCache.clone", async () => {
       const app = createTestApp(mimoContext, sessionRoutes);
 
       let cloneArgs: any[] | null = null;
-      mimoContext.services.vcs.cloneRepository = async (...args: any[]) => {
+      mimoContext.services.projectVcsCache.clone = async (...args: any[]) => {
         cloneArgs = args;
         return { success: true };
       };
@@ -1017,10 +1017,11 @@ describe("Session Management Integration Tests", () => {
       });
 
       expect(res.status).toBe(302);
-      expect(cloneArgs?.[3]).toBeDefined();
-      expect(cloneArgs?.[3].type).toBe("ssh");
-      expect(cloneArgs?.[3].id).toBe(credential.id);
-      expect(cloneArgs?.[4]).toBe("feature/existing");
+      expect(cloneArgs?.[0]).toBeDefined();
+      expect(cloneArgs?.[0].credential).toBeDefined();
+      expect(cloneArgs?.[0].credential.type).toBe("ssh");
+      expect(cloneArgs?.[0].credential.id).toBe(credential.id);
+      expect(cloneArgs?.[0].branch).toBe("feature/existing");
     });
 
     it("persists session.branch in sync mode for push flow", async () => {

@@ -74,6 +74,7 @@ export function createSessionsRoutes(
   const sessionStateService = mimoContext.services.sessionState;
   const sharedFossilServer = mimoContext.services.sharedFossil;
   const vcs = mimoContext.services.vcs;
+  const projectVcsCache = mimoContext.services.projectVcsCache;
   const platformUrl =
     mimoContext.env?.PLATFORM_URL ??
     `http://${mimoContext.env?.MIMO_HOST ?? DEFAULT_MIMO_HOST}:3000`;
@@ -365,13 +366,14 @@ export function createSessionsRoutes(
       // the project's configured sourceBranch.
       const cloneBranch =
         branchMode === "sync" ? branchName! : project.sourceBranch;
-      const cloneResult = await vcs.cloneRepository(
-        project.repoUrl,
-        project.repoType,
-        session.upstreamPath,
-        projectCredential,
-        cloneBranch,
-      );
+      const cloneResult = await projectVcsCache.clone({
+        projectId: project.id,
+        repoUrl: project.repoUrl,
+        repoType: project.repoType,
+        targetPath: session.upstreamPath,
+        credential: projectCredential,
+        branch: cloneBranch,
+      });
 
       if (!cloneResult.success) {
         // Cleanup: delete session via Internal API Client

@@ -57,6 +57,7 @@ export interface CreateProjectRequest {
   newBranch?: string;
   agentSubpath?: string;
   instructions?: string;
+  warmCacheSync?: boolean;
 }
 
 /**

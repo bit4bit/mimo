@@ -3,6 +3,8 @@ import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync } from "fs";
+import { mkdirSync, writeFileSync } from "fs";
+import { execSync } from "child_process";
 
 import { resetGlobalState } from "./test-helpers.js";
 
@@ -12,6 +14,7 @@ let sessionRepository: any;
 let userRepository: any;
 let mimoContext: any;
 let testHome: string;
+let reachableRepoUrl: string;
 
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any, _projectsR: any): Hono {
@@ -94,6 +97,18 @@ describe("Project Management Integration Tests", () => {
     projectRepository = ctx.repos.projects;
     sessionRepository = ctx.repos.sessions;
 
+    const upstreamRepo = join(testHome, "upstream-src");
+    const bareRepo = join(testHome, "upstream.git");
+    mkdirSync(upstreamRepo, { recursive: true });
+    execSync("git init -q", { cwd: upstreamRepo });
+    execSync('git config user.email "test@example.com"', { cwd: upstreamRepo });
+    execSync('git config user.name "test"', { cwd: upstreamRepo });
+    writeFileSync(join(upstreamRepo, "README.md"), "# test\n");
+    execSync("git add README.md", { cwd: upstreamRepo });
+    execSync('git commit -qm "initial"', { cwd: upstreamRepo });
+    execSync(`git clone --bare ${upstreamRepo} ${bareRepo}`);
+    reachableRepoUrl = `file://${bareRepo}`;
+
     const { createProjectsRoutes } =
       await import("../src/web/features/projects/pages/projects.tsx");
     projectRoutes = createProjectsRoutes(ctx);
@@ -121,7 +136,7 @@ describe("Project Management Integration Tests", () => {
 
       const formData = new URLSearchParams();
       formData.append("name", "My Test Project");
-      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoUrl", reachableRepoUrl);
       formData.append("repoType", "git");
 
       const res = await app.request("/projects", {
@@ -147,7 +162,7 @@ describe("Project Management Integration Tests", () => {
 
       const formData = new URLSearchParams();
       formData.append("name", "Test Project");
-      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoUrl", reachableRepoUrl);
 
       const res = await app.request("/projects", {
         method: "POST",
@@ -169,7 +184,7 @@ describe("Project Management Integration Tests", () => {
       const token = await mimoContext.services.auth.generateToken("testuser");
 
       const formData = new URLSearchParams();
-      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoUrl", reachableRepoUrl);
 
       const res = await app.request("/projects", {
         method: "POST",
@@ -422,7 +437,7 @@ describe("Project Management Integration Tests", () => {
 
       const formData = new URLSearchParams();
       formData.append("name", "Project with Description");
-      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoUrl", reachableRepoUrl);
       formData.append("repoType", "git");
       formData.append("description", "A test project description");
 
@@ -454,7 +469,7 @@ describe("Project Management Integration Tests", () => {
 
       const formData = new URLSearchParams();
       formData.append("name", "Project Without Description");
-      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoUrl", reachableRepoUrl);
       formData.append("repoType", "git");
 
       const res = await app.request("/projects", {
@@ -486,7 +501,7 @@ describe("Project Management Integration Tests", () => {
       const longDescription = "a".repeat(501);
       const formData = new URLSearchParams();
       formData.append("name", "Test Project");
-      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoUrl", reachableRepoUrl);
       formData.append("repoType", "git");
       formData.append("description", longDescription);
 
@@ -517,7 +532,7 @@ describe("Project Management Integration Tests", () => {
 
       const formData = new URLSearchParams();
       formData.append("name", "Project with Agent Subpath");
-      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoUrl", reachableRepoUrl);
       formData.append("repoType", "git");
       formData.append("agentSubpath", "packages/backend");
 
@@ -549,7 +564,7 @@ describe("Project Management Integration Tests", () => {
 
       const formData = new URLSearchParams();
       formData.append("name", "Project Without Agent Subpath");
-      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoUrl", reachableRepoUrl);
       formData.append("repoType", "git");
 
       const res = await app.request("/projects", {
@@ -673,7 +688,7 @@ describe("Project Management Integration Tests", () => {
 
       const formData = new URLSearchParams();
       formData.append("name", "Project with Source Branch");
-      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoUrl", reachableRepoUrl);
       formData.append("repoType", "git");
       formData.append("sourceBranch", "feature/v2");
 
@@ -706,7 +721,7 @@ describe("Project Management Integration Tests", () => {
 
       const formData = new URLSearchParams();
       formData.append("name", "Project with New Branch");
-      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoUrl", reachableRepoUrl);
       formData.append("repoType", "git");
       formData.append("newBranch", "ai-session-my-feature");
 
@@ -739,7 +754,7 @@ describe("Project Management Integration Tests", () => {
 
       const formData = new URLSearchParams();
       formData.append("name", "Project with Both Branches");
-      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoUrl", reachableRepoUrl);
       formData.append("repoType", "git");
       formData.append("sourceBranch", "main");
       formData.append("newBranch", "ai-session-feature-x");
@@ -773,7 +788,7 @@ describe("Project Management Integration Tests", () => {
 
       const formData = new URLSearchParams();
       formData.append("name", "Project Without Branches");
-      formData.append("repoUrl", "https://github.com/user/repo.git");
+      formData.append("repoUrl", reachableRepoUrl);
       formData.append("repoType", "git");
 
       const res = await app.request("/projects", {
