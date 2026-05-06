@@ -231,6 +231,7 @@ export function createSessionsRoutes(
     const branchMode: "new" | "sync" =
       branchModeRaw === "sync" ? "sync" : "new";
     const priorityRaw = (body.priority as string) || undefined;
+    const instructions = (body.instructions as string) || undefined;
     if (
       priorityRaw !== undefined &&
       !["high", "medium", "low"].includes(priorityRaw)
@@ -339,6 +340,7 @@ export function createSessionsRoutes(
         mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
         sessionTtlDays,
         priority,
+        instructions,
       },
     );
 

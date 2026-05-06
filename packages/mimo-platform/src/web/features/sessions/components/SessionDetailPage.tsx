@@ -34,6 +34,7 @@ interface Session {
   createdAt: Date;
   lastActivityAt: string | null;
   closeReason?: string;
+  instructions?: string;
 }
 
 interface ChatMessage {
@@ -206,7 +207,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
     >
       <script
         dangerouslySetInnerHTML={{
-          __html: `window.MIMO_DEFAULT_INSTRUCTIONS = ${JSON.stringify(session.instructions || project.instructions || "")};`,
+          __html: `window.MIMO_DEFAULT_INSTRUCTIONS = ${JSON.stringify(session.instructions || "")};`,
         }}
       />
       <div class="session-container">
