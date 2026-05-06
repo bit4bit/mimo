@@ -1689,7 +1689,9 @@ export class MimoAgent {
       return;
     }
 
-    await this.sendPrompt(acpClient, sessionId, chatThreadId, content);
+    // Generate a promptId for initial prompts so the streaming pipeline can track responses
+    const promptId = crypto.randomUUID();
+    await this.sendPrompt(acpClient, sessionId, chatThreadId, content, promptId);
   }
 
   private async ensureThreadRuntime(
