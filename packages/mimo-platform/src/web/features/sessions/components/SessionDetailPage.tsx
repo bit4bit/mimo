@@ -1026,6 +1026,70 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           white-space: pre-wrap;
           word-break: break-word;
         }
+        .permission-card {
+          margin: 10px 0;
+          padding: 12px;
+          background: #252525;
+          border: 1px solid #444;
+          border-radius: 6px;
+        }
+        .permission-card__header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+          font-weight: 500;
+        }
+        .permission-kind {
+          font-size: 11px;
+          color: #888;
+          text-transform: uppercase;
+        }
+        .permission-locations {
+          margin: 8px 0;
+          padding-left: 16px;
+          font-size: 12px;
+          color: #aaa;
+        }
+        .permission-card__actions {
+          display: flex;
+          gap: 8px;
+          margin-top: 10px;
+        }
+        .permission-btn {
+          padding: 6px 14px;
+          border: 1px solid #555;
+          border-radius: 4px;
+          background: #2d2d2d;
+          color: #ddd;
+          cursor: pointer;
+          font-size: 13px;
+          transition: background-color 0.15s, border-color 0.15s;
+        }
+        .permission-btn:hover {
+          background: #3d3d3d;
+          border-color: #666;
+        }
+        .permission-btn:focus {
+          outline: 2px solid #4dabf7;
+          outline-offset: 2px;
+        }
+        .permission-btn--approve {
+          border-color: #2b8a3e;
+          color: #69db7c;
+        }
+        .permission-btn--approve:hover {
+          background: #2b4a2e;
+          border-color: #40c057;
+        }
+        .permission-btn--reject {
+          border-color: #c92a2a;
+          color: #ff6b6b;
+        }
+        .permission-btn--reject:hover {
+          background: #4a2020;
+          border-color: #ff6b6b;
+        }
         .view-toggle-btn {
           background: none;
           border: 1px solid #555;

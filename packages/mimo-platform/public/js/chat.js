@@ -80,6 +80,10 @@ const ChatState = {
     rightCollapsed: false,
   },
 
+  // Permission cards focus management
+  permissionCards: [],
+  previousFocus: null,
+
   // Constants
   STREAMING_TIMEOUT_MS:
     (typeof window !== "undefined" && window.MIMO_STREAMING_TIMEOUT_MS) ||
@@ -3433,6 +3437,11 @@ function showPermissionCard(data) {
   const { requestId, toolCall, options } = data;
   const card = renderPermissionCard(requestId, toolCall, options);
 
+  // Save current focus before showing card (only if no other cards)
+  if (ChatState.permissionCards.length === 0) {
+    ChatState.previousFocus = document.activeElement;
+  }
+
   card.querySelectorAll(".permission-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const optionId = btn.dataset.optionId;
@@ -3451,6 +3460,66 @@ function showPermissionCard(data) {
 
   container.appendChild(card);
   scrollToBottom();
+
+  // Track this card and auto-focus first button
+  ChatState.permissionCards.push(card);
+  const firstBtn = card.querySelector(".permission-btn");
+  if (firstBtn) {
+    firstBtn.focus();
+  }
+}
+
+// Focus trap handler for permission cards
+function handlePermissionCardKeydown(event) {
+  if (ChatState.permissionCards.length === 0) return false;
+
+  const newestCard = ChatState.permissionCards[ChatState.permissionCards.length - 1];
+  const buttons = Array.from(newestCard.querySelectorAll(".permission-btn"));
+  if (buttons.length === 0) return false;
+
+  // Handle Escape to cancel
+  if (event.key === "Escape") {
+    event.preventDefault();
+    // Find the reject/negative option or just remove the card
+    const rejectBtn = buttons.find((btn) =>
+      btn.classList.contains("permission-btn--reject")
+    );
+    if (rejectBtn) {
+      rejectBtn.click();
+    } else {
+      // Remove without sending response (cancel)
+      const requestId = newestCard.dataset.requestId;
+      removePermissionCard(requestId);
+    }
+    return true;
+  }
+
+  // Only handle Tab key
+  if (event.key !== "Tab") return false;
+
+  const currentFocus = document.activeElement;
+  const currentIndex = buttons.indexOf(currentFocus);
+
+  // If focus is not in the card buttons, move it to first button
+  if (currentIndex === -1) {
+    event.preventDefault();
+    buttons[0].focus();
+    return true;
+  }
+
+  // Handle Tab cycling within buttons
+  event.preventDefault();
+  let nextIndex;
+  if (event.shiftKey) {
+    // Shift+Tab: go to previous, wrap to last if at first
+    nextIndex = currentIndex === 0 ? buttons.length - 1 : currentIndex - 1;
+  } else {
+    // Tab: go to next, wrap to first if at last
+    nextIndex = currentIndex === buttons.length - 1 ? 0 : currentIndex + 1;
+  }
+
+  buttons[nextIndex].focus();
+  return true;
 }
 
 // DOM: Remove permission card
@@ -3458,7 +3527,24 @@ function removePermissionCard(requestId) {
   const card = document.querySelector(
     `.permission-card[data-request-id="${requestId}"]`,
   );
-  if (card) card.remove();
+  if (card) {
+    // Remove from tracking array
+    const index = ChatState.permissionCards.indexOf(card);
+    if (index !== -1) {
+      ChatState.permissionCards.splice(index, 1);
+    }
+    card.remove();
+  }
+
+  // Restore previous focus when all cards are gone
+  if (ChatState.permissionCards.length === 0 && ChatState.previousFocus) {
+    const previousFocus = ChatState.previousFocus;
+    ChatState.previousFocus = null;
+    if (previousFocus && typeof previousFocus.focus === "function") {
+      // Small delay to let DOM settle
+      setTimeout(() => previousFocus.focus(), 0);
+    }
+  }
 }
 
 // DOM: Scroll to bottom
@@ -3528,6 +3614,11 @@ function shouldIgnoreFocusShortcutTarget(target) {
 
 function setupEventListeners() {
   document.addEventListener("keydown", (e) => {
+    // Handle permission card focus trapping first
+    if (handlePermissionCardKeydown(e)) {
+      return;
+    }
+
     if (e.isComposing || e.metaKey || e.altKey) return;
     if (!e.ctrlKey || String(e.key).toLowerCase() !== "m") return;
     if (shouldIgnoreFocusShortcutTarget(e.target)) return;
