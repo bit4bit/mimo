@@ -674,6 +674,17 @@ export async function addChatThreadHandler(
       },
       thread.id,
     );
+
+    // Emit initial_prompt to agent so it processes the instruction
+    const agentId = thread.assignedAgentId || session.assignedAgentId;
+    if (agentId) {
+      await mimoContext.services.agents.sendToAgent(agentId, {
+        type: "initial_prompt",
+        sessionId,
+        chatThreadId: thread.id,
+        content: instructions,
+      });
+    }
   }
 
   // Update session activity
