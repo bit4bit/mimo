@@ -675,7 +675,11 @@ function updateThreadOptionSelects(selects, options) {
 }
 
 async function showCreateThreadDialog() {
+  const seedThread = getActiveThread();
   const agents = await fetchOnlineAgents();
+  const seedAgentId = seedThread?.assignedAgentId || "";
+  const hasSeedAgent =
+    seedAgentId && agents.some((agent) => agent.id === seedAgentId);
   let latestCapabilitiesRequest = 0;
 
   const dialog = document.createElement("div");
@@ -868,7 +872,18 @@ async function showCreateThreadDialog() {
         defaultModelId: caps.defaultModelId,
         defaultModeId: caps.defaultModeId,
       });
+
+      if (hasSeedAgent && agentId === seedAgentId) {
+        modelSelect.value = seedThread.model || modelSelect.value;
+        modeSelect.value = seedThread.mode || modeSelect.value;
+      }
     });
+
+  if (hasSeedAgent) {
+    const agentSelect = document.querySelector("#new-thread-agent");
+    agentSelect.value = seedAgentId;
+    agentSelect.dispatchEvent(new Event("change"));
+  }
 
   // Event handlers
   dialog.addEventListener("click", (e) => {
