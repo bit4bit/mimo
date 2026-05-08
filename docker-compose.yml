@@ -22,7 +22,7 @@ services:
       USER: "app"
       LOGNAME: "app"
       DEBUG: "1"
-      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      PATH: "/usr/local/cargo/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
       GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
     ports:
       - "3001:3001"
@@ -51,7 +51,7 @@ services:
       AGENT_PROVIDER: opencode
       AGENT_JWT: ${OPENCODE_AGENT_JWT}
       HOME: "/home/app"
-      PATH: "/home/app/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      PATH: "/usr/local/cargo/bin:/usr/local/go/bin:/home/app/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
       USER: "app"
       LOGNAME: "app"
       GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"

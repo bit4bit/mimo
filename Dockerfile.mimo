@@ -2,9 +2,40 @@ FROM oven/bun:1
 
 WORKDIR /app
 
+ARG GO_VERSION=1.23.6
+
+# Install system dependencies first (provides curl, python3, pip, etc.)
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl fossil git openssh-client python3 build-essential libgcc-s1 libstdc++6 ripgrep nodejs npm \
+  && apt-get install -y --no-install-recommends ca-certificates curl fossil git openssh-client python3 python3-pip build-essential libgcc-s1 libstdc++6 ripgrep nodejs npm gnupg unzip \
+  && install -m 0755 -d /etc/apt/keyrings \
+  && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+  && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends gh \
   && rm -rf /var/lib/apt/lists/*
+
+# Install Go
+RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-$(dpkg --print-architecture).tar.gz" -o /tmp/go.tar.gz \
+  && tar -C /usr/local -xzf /tmp/go.tar.gz \
+  && rm /tmp/go.tar.gz
+ENV PATH="/usr/local/go/bin:$PATH"
+
+# Install Rust (global location so any user can use it)
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH="/usr/local/cargo/bin:$PATH"
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path \
+  && . "$CARGO_HOME/env" \
+  && rustup default stable \
+  && chmod -R a+rX "$RUSTUP_HOME" "$CARGO_HOME"
+
+# Install Deno
+RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
+
+# Install openspdd
+RUN go install github.com/gszhangwei/open-spdd/cmd/openspdd@latest \
+  && cp "$(go env GOPATH)/bin/openspdd" /usr/local/bin/openspdd
 
 ENV ASDF_DIR=/opt/asdf
 RUN git clone https://github.com/asdf-vm/asdf.git "$ASDF_DIR" --branch v0.16.4
