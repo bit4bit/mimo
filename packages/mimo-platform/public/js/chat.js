@@ -1318,7 +1318,10 @@ function maybeExtendPendingPromptCompletion(promptId) {
   const pending = ChatState.pendingPromptCompletion;
   if (!pending) return;
   if (pending.promptId && promptId && pending.promptId !== promptId) return;
-  schedulePromptCompletionFinalize(pending.promptId || promptId, pending.duration);
+  schedulePromptCompletionFinalize(
+    pending.promptId || promptId,
+    pending.duration,
+  );
 }
 
 // Controller: Handle thought start
@@ -1389,7 +1392,10 @@ function handlePromptCompleted(promptId, usage, duration, durationMs) {
   if (typeof durationMs === "number" && durationMs > 0) {
     ChatState.totalDurationMs += durationMs;
   }
-  schedulePromptCompletionFinalize(promptId || ChatState.currentPromptId, duration);
+  schedulePromptCompletionFinalize(
+    promptId || ChatState.currentPromptId,
+    duration,
+  );
 }
 
 function clearPendingPromptCompletionTimer() {
@@ -2015,7 +2021,10 @@ function cancelStreaming() {
 }
 
 function makePromptId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
   return `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -3473,7 +3482,8 @@ function showPermissionCard(data) {
 function handlePermissionCardKeydown(event) {
   if (ChatState.permissionCards.length === 0) return false;
 
-  const newestCard = ChatState.permissionCards[ChatState.permissionCards.length - 1];
+  const newestCard =
+    ChatState.permissionCards[ChatState.permissionCards.length - 1];
   const buttons = Array.from(newestCard.querySelectorAll(".permission-btn"));
   if (buttons.length === 0) return false;
 
@@ -3482,7 +3492,7 @@ function handlePermissionCardKeydown(event) {
     event.preventDefault();
     // Find the reject/negative option or just remove the card
     const rejectBtn = buttons.find((btn) =>
-      btn.classList.contains("permission-btn--reject")
+      btn.classList.contains("permission-btn--reject"),
     );
     if (rejectBtn) {
       rejectBtn.click();

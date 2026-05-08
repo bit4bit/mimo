@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import type { BufferProps } from "./types.js";
 import type { McpServer } from "../mcp-servers/types.js";

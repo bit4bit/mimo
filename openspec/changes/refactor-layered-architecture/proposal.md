@@ -17,10 +17,12 @@ We need to establish a clean layered architecture that separates domain logic, A
 ## Capabilities
 
 ### New Capabilities
+
 - `layered-architecture`: Establishes the four-layer folder structure and dependency rules (domain → api → web, with infrastructure supporting all layers)
 
 ### Modified Capabilities
-- *(None — this refactoring preserves all existing requirements. No user-facing behavior changes.)*
+
+- _(None — this refactoring preserves all existing requirements. No user-facing behavior changes.)_
 
 ## Impact
 

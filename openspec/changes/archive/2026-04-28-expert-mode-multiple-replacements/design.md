@@ -12,6 +12,7 @@ interface Replacement {
 ```
 
 This design was chosen for simplicity, but real-world usage shows that many legitimate edit requests require changes in multiple, non-contiguous locations within the same file. For example:
+
 - Adding an import at the top AND modifying a function elsewhere
 - Updating multiple function signatures in a file
 - Refactoring a class property and its usages
@@ -19,6 +20,7 @@ This design was chosen for simplicity, but real-world usage shows that many legi
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Allow LLM to return multiple replacements in a single response
 - Apply all replacements atomically to produce final patched content
 - Maintain backward compatibility with single-object format
@@ -26,6 +28,7 @@ This design was chosen for simplicity, but real-world usage shows that many legi
 - Keep the change minimal and focused
 
 **Non-Goals:**
+
 - Multi-file editing (still one file per expert-mode session)
 - Interactive per-replacement approve/decline
 - Partial application of a replacements array
@@ -63,10 +66,13 @@ By applying from bottom to top, we avoid complex line number recalculation.
 **Rationale**: Overlapping ranges create ambiguity about which replacement takes precedence. Better to fail fast and let the LLM retry with non-overlapping ranges.
 
 Overlap detection logic:
+
 ```typescript
 function rangesOverlap(a: Replacement, b: Replacement): boolean {
-  return a.replace_start_line <= b.replace_end_line && 
-         b.replace_start_line <= a.replace_end_line;
+  return (
+    a.replace_start_line <= b.replace_end_line &&
+    b.replace_start_line <= a.replace_end_line
+  );
 }
 ```
 
@@ -105,6 +111,7 @@ If the task cannot be completed within this file alone, return:
 **Decision**: No API changes required. The patch file is written with the final content after all replacements are applied.
 
 The flow remains:
+
 1. Client receives LLM response with `replacements` array
 2. Client applies all replacements in-memory to get `patchedContent`
 3. Client POSTs `{originalPath, content: patchedContent}` to `/sessions/:sid/patches`
@@ -138,6 +145,7 @@ The flow remains:
 ### Test Coverage
 
 Update `expert-utils.test.ts`:
+
 - Parse `{"replacements": [...]}` array format
 - Parse legacy single-object format (backward compat)
 - Apply single replacement via array
@@ -174,13 +182,13 @@ PatchBuffer displays diff for review
 
 ## Error Handling
 
-| Error Condition | Behavior |
-|-----------------|----------|
-| Overlapping ranges | Throw error: "Replacements have overlapping line ranges" |
-| Empty replacements array | Throw error: "No replacements provided" |
-| Missing required field | Throw error: "Invalid replacement: missing [field]" |
-| Invalid line numbers | Throw error per existing single replacement logic |
-| Legacy format | Convert to single-element array and proceed |
+| Error Condition          | Behavior                                                 |
+| ------------------------ | -------------------------------------------------------- |
+| Overlapping ranges       | Throw error: "Replacements have overlapping line ranges" |
+| Empty replacements array | Throw error: "No replacements provided"                  |
+| Missing required field   | Throw error: "Invalid replacement: missing [field]"      |
+| Invalid line numbers     | Throw error per existing single replacement logic        |
+| Legacy format            | Convert to single-element array and proceed              |
 
 ## Risks / Trade-offs
 

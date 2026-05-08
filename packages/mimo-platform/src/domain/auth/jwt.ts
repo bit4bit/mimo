@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { SignJWT, jwtVerify } from "jose";
 
 export interface JWTPayload {

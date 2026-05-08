@@ -1,6 +1,7 @@
 # Spec: EditBuffer State Extension
 
 ## Responsibility
+
 Extend the client-side EditBufferState to track file checksums and outdated status.
 
 ## State Changes
@@ -19,14 +20,15 @@ Extend the client-side EditBufferState to track file checksums and outdated stat
   content: string;
   scrollPosition: number;
   // NEW:
-  contentChecksum: string;  // MD5 hash
-  isOutdated: boolean;      // Flag for outdated indicator
+  contentChecksum: string; // MD5 hash
+  isOutdated: boolean; // Flag for outdated indicator
 }
 ```
 
 ## New Methods
 
 ### computeChecksum(content)
+
 ```javascript
 function computeChecksum(content) {
   // Simple hash function for browser environment
@@ -35,9 +37,10 @@ function computeChecksum(content) {
 ```
 
 ### markOutdated(path)
+
 ```javascript
 function markOutdated(path) {
-  const file = openFiles.find(f => f.path === path);
+  const file = openFiles.find((f) => f.path === path);
   if (file) {
     file.isOutdated = true;
     renderEditBuffer();
@@ -46,9 +49,10 @@ function markOutdated(path) {
 ```
 
 ### clearOutdated(path)
+
 ```javascript
 function clearOutdated(path) {
-  const file = openFiles.find(f => f.path === path);
+  const file = openFiles.find((f) => f.path === path);
   if (file) {
     file.isOutdated = false;
   }
@@ -56,6 +60,7 @@ function clearOutdated(path) {
 ```
 
 ### reloadFile(path, sessionId)
+
 ```javascript
 function reloadFile(path, sessionId, callback) {
   // 1. Save scroll position
@@ -73,16 +78,16 @@ function reloadFile(path, sessionId, callback) {
 // Add to init() function:
 function initWebSocket() {
   const ws = new WebSocket(`/ws/sessions/${sessionId}/files`);
-  
+
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
-    if (data.type === 'file_outdated') {
+    if (data.type === "file_outdated") {
       markOutdated(data.path);
-    } else if (data.type === 'file_deleted') {
+    } else if (data.type === "file_deleted") {
       markOutdated(data.path); // Show as outdated/deleted
     }
   };
-  
+
   // Store ws reference for sending watch/unwatch messages
   window.EditBuffer.ws = ws;
 }
@@ -93,24 +98,34 @@ function initWebSocket() {
 ```javascript
 // In fetchAndAddFile - after loading file:
 function notifyWatchFile(sessionId, file) {
-  if (window.EditBuffer.ws && window.EditBuffer.ws.readyState === WebSocket.OPEN) {
-    window.EditBuffer.ws.send(JSON.stringify({
-      type: 'watch_file',
-      sessionId: sessionId,
-      path: file.path,
-      checksum: file.contentChecksum
-    }));
+  if (
+    window.EditBuffer.ws &&
+    window.EditBuffer.ws.readyState === WebSocket.OPEN
+  ) {
+    window.EditBuffer.ws.send(
+      JSON.stringify({
+        type: "watch_file",
+        sessionId: sessionId,
+        path: file.path,
+        checksum: file.contentChecksum,
+      }),
+    );
   }
 }
 
 // In remove - before removing file:
 function notifyUnwatchFile(sessionId, path) {
-  if (window.EditBuffer.ws && window.EditBuffer.ws.readyState === WebSocket.OPEN) {
-    window.EditBuffer.ws.send(JSON.stringify({
-      type: 'unwatch_file',
-      sessionId: sessionId,
-      path: path
-    }));
+  if (
+    window.EditBuffer.ws &&
+    window.EditBuffer.ws.readyState === WebSocket.OPEN
+  ) {
+    window.EditBuffer.ws.send(
+      JSON.stringify({
+        type: "unwatch_file",
+        sessionId: sessionId,
+        path: path,
+      }),
+    );
   }
 }
 ```

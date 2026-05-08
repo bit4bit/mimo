@@ -249,12 +249,16 @@ describe("AgentMessageRouter", () => {
       const deps = makeMocks();
       const router = makeRouter(deps);
 
-      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
-        type: "prompt_received",
-        sessionId: "sess-1",
-        chatThreadId: "thread-1",
-        promptId: "p1",
-      });
+      await router.handle(
+        "agent-1",
+        { data: { agentId: "agent-1" } },
+        {
+          type: "prompt_received",
+          sessionId: "sess-1",
+          chatThreadId: "thread-1",
+          promptId: "p1",
+        },
+      );
 
       expect(deps.pipeline.setPromptInFlight).toHaveBeenCalledWith(
         "sess-1",
@@ -271,11 +275,15 @@ describe("AgentMessageRouter", () => {
       }));
       const router = makeRouter(deps);
 
-      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
-        type: "prompt_received",
-        sessionId: "sess-1",
-        promptId: "p1",
-      });
+      await router.handle(
+        "agent-1",
+        { data: { agentId: "agent-1" } },
+        {
+          type: "prompt_received",
+          sessionId: "sess-1",
+          promptId: "p1",
+        },
+      );
 
       expect(deps.pipeline.setPromptInFlight).toHaveBeenCalledWith(
         "sess-1",
@@ -292,12 +300,16 @@ describe("AgentMessageRouter", () => {
       }));
       const router = makeRouter(deps);
 
-      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
-        type: "error_response",
-        sessionId: "sess-1",
-        chatThreadId: "thread-1",
-        error: "boom",
-      });
+      await router.handle(
+        "agent-1",
+        { data: { agentId: "agent-1" } },
+        {
+          type: "error_response",
+          sessionId: "sess-1",
+          chatThreadId: "thread-1",
+          error: "boom",
+        },
+      );
 
       expect(deps.pipeline.clearPromptInFlight).toHaveBeenCalledWith(
         "sess-1",
@@ -314,12 +326,16 @@ describe("AgentMessageRouter", () => {
       }));
       const router = makeRouter(deps);
 
-      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
-        type: "usage_update",
-        sessionId: "sess-1",
-        usage: { inputTokens: 1 },
-        promptId: "p1",
-      });
+      await router.handle(
+        "agent-1",
+        { data: { agentId: "agent-1" } },
+        {
+          type: "usage_update",
+          sessionId: "sess-1",
+          usage: { inputTokens: 1 },
+          promptId: "p1",
+        },
+      );
 
       expect(deps.pipeline.clearPromptInFlight).toHaveBeenCalledWith(
         "sess-1",
@@ -338,13 +354,17 @@ describe("AgentMessageRouter", () => {
       }));
       const router = makeRouter(deps);
 
-      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
-        type: "prompt_completed",
-        sessionId: "sess-1",
-        chatThreadId: "thread-1",
-        usage: { inputTokens: 5, outputTokens: 8 },
-        promptId: "p1",
-      });
+      await router.handle(
+        "agent-1",
+        { data: { agentId: "agent-1" } },
+        {
+          type: "prompt_completed",
+          sessionId: "sess-1",
+          chatThreadId: "thread-1",
+          usage: { inputTokens: 5, outputTokens: 8 },
+          promptId: "p1",
+        },
+      );
 
       expect(deps.pipeline.handlePromptCompleted).toHaveBeenCalledWith(
         "sess-1",

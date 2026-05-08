@@ -49,6 +49,7 @@ The system will continue to support the existing JSON format (`{"replacements": 
 ## Scope
 
 ### In Scope
+
 - Add SEARCH/REPLACE parsing and application engine
 - Implement fuzzy matching (exact → whitespace-normalized → partial)
 - Update LLM prompt to request SEARCH/REPLACE format
@@ -57,12 +58,14 @@ The system will continue to support the existing JSON format (`{"replacements": 
 - Maintain backward compatibility with JSON format
 
 ### Out of Scope
+
 - Multi-file editing in single expert-mode session
 - Interactive per-block approve/decline
 - AST-aware or semantic matching
 - Line-number format deprecation (future change)
 
 ## Success Criteria
+
 - LLM can reliably replace, insert, and delete code using SEARCH/REPLACE
 - Fuzzy matching handles minor whitespace variations
 - Multiple independent edits work in single response

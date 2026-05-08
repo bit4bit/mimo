@@ -7,11 +7,13 @@ The `ChatMessage` interface in `chat.ts` already has a `metadata?: Record<string
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Record the wall-clock duration of each agent response from first incoming signal to finalization.
 - Persist `duration` (formatted string) and `durationMs` (number) in `metadata` of the assistant `ChatMessage` in `chat.jsonl`.
 - Display `0m0s · <datetime>` in the Agent message header for both live and history messages.
 
 **Non-Goals:**
+
 - Do not track user message duration.
 - Do not change the `usage_update` payload schema visible to mimo-agent; duration is computed server-side.
 - Do not add new HTTP endpoints or change existing ones.

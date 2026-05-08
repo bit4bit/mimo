@@ -12,9 +12,11 @@ Creating a chat thread without an assigned agent leads to threads that cannot ex
 ## Capabilities
 
 ### New Capabilities
+
 - `chat-thread-management`: Defines thread creation rules, including required agent assignment.
 
 ### Modified Capabilities
+
 - None.
 
 ## Impact

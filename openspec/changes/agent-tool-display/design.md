@@ -45,8 +45,9 @@ ACP Process
 ### 1. ACP Provider Types (`types.ts`)
 
 Add callback types:
+
 ```typescript
-onToolCall: (sessionId: string, tool: { 
+onToolCall: (sessionId: string, tool: {
   toolCallId: string;
   title: string;
   kind?: string;
@@ -65,6 +66,7 @@ onToolCallUpdate: (sessionId: string, tool: {
 ### 2. Provider Mappings
 
 **opencode.ts**:
+
 ```typescript
 mapUpdateType(updateType: string): string | null {
   const mapping: Record<string, string | null> = {
@@ -84,6 +86,7 @@ mapUpdateType(updateType: string): string | null {
 ### 3. Client Handling (`client.ts`)
 
 Add case handlers in `handleSessionUpdate()`:
+
 ```typescript
 case "tool_call":
   // Tool starts - track toolCallId and initial state
@@ -110,6 +113,7 @@ case "tool_call_update":
 ### 4. mimo-agent Message Types (`index.ts`)
 
 Wire callbacks:
+
 ```typescript
 onToolCall: (sessionId, tool) => {
   this.send({
@@ -141,6 +145,7 @@ onToolCallUpdate: (sessionId, update) => {
 ### 5. mimo-platform Routing (`index.tsx`)
 
 Add case handlers after existing thought/message handlers:
+
 ```typescript
 // Buffer for persisting tool calls
 const toolCallBuffers = new Map<string, Map<string, any>>();
@@ -173,6 +178,7 @@ case "tool_call_update":
 **Critical**: Use `ChatState.streaming.thoughtElement` (agent's thought section), not `document.querySelector(".message-content")`.
 
 **New function** `renderToolCall(toolCallId, title, kind, status)`:
+
 - Tool title with icon mapped from `toolKind`
 - Status indicator based on `toolStatus`
 - Append to thought section (agent box only)

@@ -30,6 +30,7 @@
 ## 3. Move Feature-Specific Components
 
 ### Sessions Feature
+
 - [x] 3.1 Move `web/components/SessionDetailPage.tsx` → `web/features/sessions/components/SessionDetailPage.tsx`
 - [x] 3.2 Move `web/components/SessionCreatePage.tsx` → `web/features/sessions/components/SessionCreatePage.tsx`
 - [x] 3.3 Move `web/components/SessionSettingsPage.tsx` → `web/features/sessions/components/SessionSettingsPage.tsx`
@@ -39,32 +40,39 @@
 - [x] 3.7 Move `web/components/ImpactBuffer.tsx` → `web/features/sessions/components/ImpactBuffer.tsx`
 
 ### Projects Feature
+
 - [x] 3.8 Move `web/components/ProjectsSessionsPage.tsx` → `web/features/projects/components/ProjectsSessionsPage.tsx`
 - [x] 3.9 Move `web/components/ProjectCreatePage.tsx` → `web/features/projects/components/ProjectCreatePage.tsx`
 - [x] 3.10 Move `web/components/ProjectEditPage.tsx` → `web/features/projects/components/ProjectEditPage.tsx`
 - [x] 3.11 Move `web/components/ImpactHistoryPage.tsx` → `web/features/projects/components/ImpactHistoryPage.tsx`
 
 ### Auth Feature
+
 - [x] 3.12 Move `web/components/LoginPage.tsx` → `web/features/auth/components/LoginPage.tsx`
 - [x] 3.13 Move `web/components/RegisterPage.tsx` → `web/features/auth/components/RegisterPage.tsx`
 
 ### Dashboard Feature
+
 - [x] 3.14 Move `web/components/DashboardPage.tsx` → `web/features/dashboard/components/DashboardPage.tsx`
 - [x] 3.15 Move `web/components/LandingPage.tsx` → `web/features/dashboard/components/LandingPage.tsx`
 
 ### Credentials Feature
+
 - [x] 3.16 Move `web/components/CredentialsListPage.tsx` → `web/features/credentials/components/CredentialsListPage.tsx`
 - [x] 3.17 Move `web/components/CredentialCreatePage.tsx` → `web/features/credentials/components/CredentialCreatePage.tsx`
 - [x] 3.18 Move `web/components/CredentialEditPage.tsx` → `web/features/credentials/components/CredentialEditPage.tsx`
 
 ### MCP Servers Feature
+
 - [x] 3.19 Move `web/components/McpServerListPage.tsx` → `web/features/mcp-servers/components/McpServerListPage.tsx`
 - [x] 3.20 Move `web/components/McpServerFormPage.tsx` → `web/features/mcp-servers/components/McpServerFormPage.tsx`
 
 ### Config Feature
+
 - [x] 3.21 Move `web/components/ConfigEditorPage.tsx` → `web/features/config/components/ConfigEditorPage.tsx`
 
 ### Agents Feature
+
 - [x] 3.22 Move `web/components/DataTable.tsx` → `web/features/agents/components/DataTable.tsx`
 
 ## 4. Move Shared Components

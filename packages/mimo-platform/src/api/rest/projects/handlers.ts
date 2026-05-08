@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 /**
  * Request handlers for the projects internal API.
  *
@@ -144,7 +145,9 @@ export async function createProjectHandler(
       sourceBranch: body.sourceBranch,
       newBranch: body.newBranch,
       agentSubpath: body.agentSubpath?.trim() || undefined,
-      ...(body.instructions !== undefined && { instructions: body.instructions }),
+      ...(body.instructions !== undefined && {
+        instructions: body.instructions,
+      }),
     });
 
     const credential = project.credentialId
@@ -158,7 +161,10 @@ export async function createProjectHandler(
     // creation does not pay full clone cost for large repositories.
     const warmCacheSync = body.warmCacheSync ?? true;
 
-    const runPrewarm = async (): Promise<{ success: boolean; error?: string }> =>
+    const runPrewarm = async (): Promise<{
+      success: boolean;
+      error?: string;
+    }> =>
       mimoContext.services.projectVcsCache.refresh({
         projectId: project.id,
         repoUrl: project.repoUrl,
@@ -289,7 +295,9 @@ export async function updateProjectHandler(
       repoType: body.repoType,
       description: body.description,
       credentialId: body.credentialId,
-      ...(body.instructions !== undefined && { instructions: body.instructions }),
+      ...(body.instructions !== undefined && {
+        instructions: body.instructions,
+      }),
     });
 
     return c.json(
@@ -332,7 +340,10 @@ export async function deleteProjectHandler(
     return c.json(errorResponse("Project not found", 404), 404);
   }
 
-  await mimoContext.services.projectVcsCache.clear(project.id, project.repoType);
+  await mimoContext.services.projectVcsCache.clear(
+    project.id,
+    project.repoType,
+  );
   await mimoContext.repos.projects.delete(id);
 
   return c.json(successResponse({ success: true }));

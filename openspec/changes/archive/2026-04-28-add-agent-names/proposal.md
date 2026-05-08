@@ -16,9 +16,11 @@ Agents currently display only UUIDs like "550e8400..." which are not human-frien
 ## Capabilities
 
 ### New Capabilities
+
 <!-- No new capabilities - this extends existing agent-management -->
 
 ### Modified Capabilities
+
 - `agent-management`: Agent creation now requires a name field. All agents must have human-readable names for identification.
 
 ## Impact

@@ -19,6 +19,7 @@ apiClient.delete()            registered → 404
 ## Handler Implementation
 
 The `deleteChatThreadHandler` will:
+
 1. Extract `sessionId` and `threadId` from route parameters
 2. Call `sessionsRepository.removeChatThread(sessionId, threadId)`
 3. Return 200 with `{ success: true }` on success
@@ -29,6 +30,7 @@ Note: There is no restriction on deleting the last thread. A session may have ze
 ## Route Registration
 
 In `src/api/rest/sessions.ts`, add after the existing chat thread routes:
+
 ```typescript
 router.delete("/:id/chat-threads/:threadId", deleteChatThreadHandler);
 ```

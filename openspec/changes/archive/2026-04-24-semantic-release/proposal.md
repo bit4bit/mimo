@@ -29,6 +29,7 @@ Implement semantic versioning with automated cross-compilation and GitHub releas
 ## Scope
 
 ### In Scope
+
 - Root package.json with shared version
 - Version bump script
 - Asset embedding build step
@@ -36,6 +37,7 @@ Implement semantic versioning with automated cross-compilation and GitHub releas
 - AGENTS.md updates
 
 ### Out of Scope
+
 - Breaking change detection
 - Automated version bumping based on commits
 - Release notes generation

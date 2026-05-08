@@ -7,6 +7,7 @@ El nuevo modelo elimina el form del servidor y delega toda la creación del áre
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Burbuja editable visualmente idéntica a los mensajes "YOU" del historial.
 - Envío con `Ctrl+Enter` y click en botón `[⌃↵ Send]`.
 - El indicador de conexión `●` vive en el header de la burbuja editable.
@@ -14,6 +15,7 @@ El nuevo modelo elimina el form del servidor y delega toda la creación del áre
 - Soporte multilinea nativo con `contenteditable`.
 
 **Non-Goals:**
+
 - Keybinding configurable (Ctrl+Enter hardcodeado por ahora).
 - Soporte de formato rich text (bold, italic, etc.) — solo texto plano.
 - Edición de mensajes ya enviados.

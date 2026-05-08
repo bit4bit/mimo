@@ -12,7 +12,6 @@
 - [x] **Task 2.1**: Create `packages/mimo-platform/src/assets.ts`
   - Import all files from `public/` with `with { type: "file" }`
   - Export helpers for serving embedded assets
-  
 - [x] **Task 2.2**: Update platform to serve embedded assets
   - Import assets module in `index.tsx`
   - Check if running in compiled mode

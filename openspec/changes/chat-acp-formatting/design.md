@@ -1,6 +1,7 @@
 ## Context
 
 The mimo platform uses ACP (Agent Client Protocol) to communicate with coding agents. ACP sends streaming updates via `sessionUpdate` notifications containing raw JSON like:
+
 - `{sessionUpdate: "agent_thought_chunk", content: {...}}`
 - `{sessionUpdate: "agent_message_chunk", content: {...}}`
 - `{sessionUpdate: "usage_update", cost: {...}}`
@@ -11,6 +12,7 @@ Currently, mimo-agent forwards these as raw JSON strings, which display poorly i
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Parse ACP updates into structured event types
 - Display agent thoughts in a collapsible UI section
 - Stream message content cleanly without JSON wrapper
@@ -18,6 +20,7 @@ Currently, mimo-agent forwards these as raw JSON strings, which display poorly i
 - Hide `available_commands_update` (not relevant for chat UI)
 
 **Non-Goals:**
+
 - Modify ACP protocol itself
 - Implement command palette or available commands UI
 - Handle tool calls or file operations in chat
@@ -26,9 +29,11 @@ Currently, mimo-agent forwards these as raw JSON strings, which display poorly i
 ## Decisions
 
 ### 1. Parse updates in mimo-agent vs mimo-platform
+
 **Decision**: Parse in mimo-agent before forwarding to platform.
 
-**Rationale**: 
+**Rationale**:
+
 - Agent already has ACP SDK types and knows the protocol
 - Platform stays agnostic to ACP specifics
 - Easier to add new update types later in one place
@@ -36,25 +41,31 @@ Currently, mimo-agent forwards these as raw JSON strings, which display poorly i
 **Alternative considered**: Parse in platform. Rejected because it couples platform too tightly to ACP schema.
 
 ### 2. Separate thought and message streams
+
 **Decision**: Emit distinct event types (`thought_start/thought_chunk/thought_end` vs `message_chunk`).
 
 **Rationale**:
+
 - UI needs to render them differently (collapsible vs inline)
 - Thoughts are ephemeral, messages are persisted
 - Clearer separation of concerns
 
 ### 3. Buffer thoughts in agent vs stream each chunk
+
 **Decision**: Buffer thought chunks and forward as single `thought_start` → `thought_chunk`s → `thought_end` sequence.
 
 **Rationale**:
+
 - ACP already sends them as separate updates
 - UI can collapse/expand after receiving complete thought
 - Streaming each chunk separately adds no value for thoughts
 
 ### 4. CSS-only collapse vs JavaScript state
+
 **Decision**: Use CSS `display: none/block` with click handler, no persistent state.
 
 **Rationale**:
+
 - Simple implementation
 - Thoughts are transient, no need for persistence
 - Matches expected chat UI behavior

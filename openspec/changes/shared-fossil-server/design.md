@@ -1,6 +1,7 @@
 ## Context
 
 **Arquitectura Actual:**
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │              ARQUITECTURA ACTUAL - 1 Proceso por Sesión          │
@@ -21,6 +22,7 @@
 ```
 
 **Arquitectura Propuesta (Sin Symlinks):**
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │           ARQUITECTURA PROPUESTA - Servidor Compartido            │
@@ -52,6 +54,7 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Reducir memoria de 15MB × N sesiones a ~20MB constantes
 - Eliminar el límite artificial de ~1000 sesiones por rango de puertos
 - Simplificar gestión: un solo proceso en lugar de N
@@ -60,6 +63,7 @@
 - **NUEVO**: Guardar repo.fossil en directorio centralizado (sin symlinks)
 
 **Non-Goals:**
+
 - Cambiar el protocolo de sincronización (se mantiene HTTP)
 - Modificar el checkout local del agente (se mantiene igual)
 - Soporte para múltiples servidores Fossil (uno por instancia de plataforma)
@@ -74,16 +78,19 @@
 **Alternativa considerada:** Crear symlinks desde un directorio centralizado al repo.fossil en cada session directory.
 
 **Rationale:**
+
 - **Simplicidad:** Un solo lugar donde está el archivo, sin indirección
 - **No depende de symlinks:** Funciona en todos los filesystems (incluyendo Windows)
 - **Backup más simple:** Los archivos .fossil están todos juntos
 - **Menos operaciones:** Solo crear/mover archivo, no crear session + crear symlink
 
 **Trade-offs:**
+
 - El `repo.fossil` no está "cerca" de los otros archivos de la sesión (upstream/, agent-workspace/)
 - Hay que actualizar referencias en el código que asumen `repo.fossil` está en `sessionPath/`
 
 **Paths actualizados:**
+
 - Antes: `~/.mimo/projects/<project>/sessions/<session>/repo.fossil`
 - Después: `~/.mimo/session-fossils/<normalized-session-id>.fossil`
 
@@ -93,12 +100,14 @@
 
 **Rationale:**
 Fossil tiene restricciones estrictas en los nombres de archivo para el path de URL:
+
 - No permite `-` después de `/`
 - El punto debe estar rodeado de caracteres alfanuméricos
 
 `abc123-def456-ghi789` → `abc123_def456_ghi789.fossil`
 
 **Ejemplo:**
+
 - Session ID: `ses-abc123-def456-ghi789-jkl012`
 - Archivo: `~/.mimo/session-fossils/ses_abc123_def456_ghi789_jkl012.fossil`
 - URL: `http://localhost:8000/ses_abc123_def456_ghi789_jkl012.fossil/`
@@ -108,6 +117,7 @@ Fossil tiene restricciones estrictas en los nombres de archivo para el path de U
 **Elegido:** Usar `FOSSIL_SERVER_PORT` con default 8000.
 
 **Rationale:**
+
 - Simplicidad: no hay que asignar dinámicamente
 - Predecibilidad: agente y plataforma saben el puerto
 - Configuración explícita: si hay conflicto, el operador cambia la variable
@@ -120,11 +130,13 @@ Fossil tiene restricciones estrictas en los nombres de archivo para el path de U
 **Elegido:** El servidor se inicia una vez cuando la plataforma arranca y se detiene cuando termina.
 
 **Rationale:**
+
 - **Vida del servidor ≠ vida de las sesiones:** El servidor debe estar disponible para cualquier sesión en cualquier momento
 - **Simplicidad:** No hay que iniciar/detener por sesión
 - **Alta disponibilidad:** Si el servidor falla, se reinicia automáticamente
 
 **Responsabilidades:**
+
 - `SharedFossilServer`: Gestiona el proceso fossil server (singleton)
 - `SessionRepository`: Crea repo.fossil en `~/.mimo/session-fossils/` durante create()
 - `SessionRoutes`: Usa la URL compartida en lugar de URLs con puertos individuales
@@ -134,6 +146,7 @@ Fossil tiene restricciones estrictas en los nombres de archivo para el path de U
 **Elegido:** Actualizar la construcción de fossilUrl en el agente para incluir el path del repositorio.
 
 **Cambios necesarios:**
+
 ```typescript
 // Antes:
 const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
@@ -144,11 +157,13 @@ const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/${sessionId}.fos
 
 **Coordinación:**
 Este cambio debe desplegarse coordinadamente:
+
 1. Actualizar mimo-agent para soportar nuevo formato de URL
 2. Desplegar mimo-platform con servidor compartido
 3. Agentes nuevos usarán automáticamente el nuevo formato
 
 **Backwards compatibility:**
+
 - Antiguo: `http://host:8001/` → Nuevo: `http://host:8000/session-id.fossil/`
 - No hay forma de mantener compatibilidad retroactiva simple
 - Requiere actualización coordinada de ambos componentes
@@ -156,21 +171,27 @@ Este cambio debe desplegarse coordinadamente:
 ## Risks / Trade-offs
 
 ### [Riesgo] Coordinación de despliegue plataforma-agente
+
 **Mitigación:** Desplegar durante ventana de mantenimiento. Documentar que ambos deben actualizarse juntos.
 
 ### [Riesgo] Single point of failure (un solo proceso)
+
 **Mitigación:** Implementar watchdog que reinicia automáticamente el servidor si falla.
 
 ### [Riesgo] URL encoding de session IDs
+
 **Mitigación:** Usar función consistente `normalizeSessionIdForFossil()` tanto en plataforma como en agente.
 
 ### [Riesgo] Migración de sesiones existentes
+
 **Mitigación:** Script de migración que mueve `repo.fossil` existentes al nuevo directorio y renombra según formato normalizado.
 
 ### [Trade-off] Separación física de archivos
+
 **Análisis:** El `repo.fossil` ya no está en el mismo directorio que `upstream/` y `agent-workspace/`. Esto puede hacer debugging más difícil, pero mejora la organización.
 
 ### [Trade-off] Complejidad de migración
+
 **Análisis:** Hay que actualizar todas las referencias al path de `repo.fossil`. Requiere búsqueda cuidadosa de hardcoded paths en el código.
 
 ## Implementation Architecture
@@ -229,16 +250,19 @@ Este cambio debe desplegarse coordinadamente:
 ## Migration Plan
 
 ### Fase 1: Preparación
+
 1. Crear `SharedFossilServer` clase
 2. Actualizar `SessionRepository` para usar nuevo path de fossil
 3. Crear script de migración para mover sesiones existentes
 4. Añadir tests para nuevo comportamiento
 
 ### Fase 2: Actualización de Agente
+
 1. Actualizar `mimo-agent` para construir URLs con formato nuevo
 2. Desplegar nueva versión del agente
 
 ### Fase 3: Activación del Servidor Compartido
+
 1. Ejecutar script de migración para sesiones existentes
 2. Configurar `FOSSIL_SERVER_PORT` en plataforma
 3. Activar `sharedServer.start()` en `index.tsx`
@@ -246,6 +270,7 @@ Este cambio debe desplegarse coordinadamente:
 5. Deprecar y eliminar `FossilServerManager`
 
 ### Rollback Strategy
+
 - Revertir a `FossilServerManager` original
 - Script de rollback que mueve archivos .fossil de vuelta a session directories
 

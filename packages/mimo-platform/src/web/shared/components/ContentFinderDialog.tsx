@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 
 interface ContentFinderDialogProps {
@@ -14,9 +15,7 @@ export const ContentFinderDialog: FC<ContentFinderDialogProps> = ({
       class="dialog-overlay hidden"
     >
       <div class="mimo-modal-content dialog-xwide">
-        <div class="dialog-header">
-          Search Content
-        </div>
+        <div class="dialog-header">Search Content</div>
         <input
           id="content-finder-input"
           type="text"
@@ -29,7 +28,10 @@ export const ContentFinderDialog: FC<ContentFinderDialogProps> = ({
             Press Enter to search...
           </div>
         </div>
-        <div id="content-finder-status" class="status-bar text-xs text-subtle"></div>
+        <div
+          id="content-finder-status"
+          class="status-bar text-xs text-subtle"
+        ></div>
       </div>
     </div>
   );

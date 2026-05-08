@@ -29,12 +29,14 @@ MCP Servers already has `proxyToInternalApi()` showing a better pattern exists.
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Create shared InternalApiClient abstraction
 - Reduce route file boilerplate by ~70%
 - Standardize error handling across all routes
 - Make routes focus on business logic, not HTTP plumbing
 
 **Non-Goals:**
+
 - Changing internal API endpoints
 - Changing service implementations
 - Breaking existing functionality
@@ -55,7 +57,7 @@ function createInternalApiClient(c: Context, mimoContext: MimoContext) {
   };
 }
 
-type ApiResult<T> = 
+type ApiResult<T> =
   | { success: true; data: T; status: number }
   | { success: false; error: string; status: number };
 ```
@@ -97,24 +99,24 @@ src/api/internal/shared/
 // src/api/internal/shared/client.ts
 export function createInternalApiClient(c: Context, mimoContext: MimoContext) {
   const platformUrl = mimoContext.env.PLATFORM_URL;
-  
+
   async function request<T>(
-    method: string, 
-    path: string, 
-    body?: unknown
+    method: string,
+    path: string,
+    body?: unknown,
   ): Promise<ApiResult<T>> {
     const token = extractTokenFromCookie(c);
     if (!token) {
-      return { 
-        success: false, 
-        error: "Unauthorized", 
-        status: 401 
+      return {
+        success: false,
+        error: "Unauthorized",
+        status: 401,
       };
     }
 
     const headers: Record<string, string> = {
-      "Accept": "application/json",
-      "Authorization": `Bearer ${token}`,
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
     };
 
     if (body) {
@@ -129,7 +131,7 @@ export function createInternalApiClient(c: Context, mimoContext: MimoContext) {
       });
 
       const data = await response.json();
-      
+
       if (!response.ok || !data.success) {
         return {
           success: false,
@@ -164,10 +166,12 @@ export function createInternalApiClient(c: Context, mimoContext: MimoContext) {
 ### 5. Migration Strategy
 
 Phase 1: Create client
+
 - Implement `createInternalApiClient()`
 - Add comprehensive tests
 
 Phase 2: Update routes incrementally
+
 - Dashboard (simplest, test pattern)
 - Credentials (simple CRUD)
 - Projects (medium complexity)
@@ -175,17 +179,18 @@ Phase 2: Update routes incrementally
 - All remaining domains
 
 Phase 3: Remove old code
+
 - Remove `extractTokenFromCookie` imports from routes (keep in client)
 - Remove manual fetch boilerplate
 - Keep MCP Servers `proxyToInternalApi()` (compatible)
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
+| Risk                     | Mitigation                              |
+| ------------------------ | --------------------------------------- |
 | Breaking existing routes | Incremental migration, test each domain |
-| Different error handling | Maintain same error response format |
-| Loss of flexibility | Keep manual fetch option for edge cases |
+| Different error handling | Maintain same error response format     |
+| Loss of flexibility      | Keep manual fetch option for edge cases |
 
 ## Migration Plan
 

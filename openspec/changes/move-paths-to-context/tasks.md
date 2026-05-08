@@ -4,7 +4,6 @@
   - Create `createChatService(paths)` function
   - Change from singleton export to factory
   - Remove `getPaths()` import
-  
 - [x] 1.2 Refactor `src/sessions/frame-state.ts` to factory pattern
   - Create `createFrameStateService(paths)` function
   - Move path-dependent functions to service class

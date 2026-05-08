@@ -15,9 +15,11 @@ The current sync mechanism (`cleanCopyToUpstream`) copies files one-by-one from 
 ## Capabilities
 
 ### New Capabilities
+
 - `patch-sync`: Patch-based synchronization from agent-workspace to upstream, including diff generation, storage, and application
 
 ### Modified Capabilities
+
 - `session-management`: Sessions now include a `patches/` directory created at initialization for storing historical patch files
 
 ## Impact

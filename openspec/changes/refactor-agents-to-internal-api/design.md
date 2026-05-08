@@ -5,17 +5,20 @@ Agents routes handle agent management and capabilities. Creating an internal API
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Create internal API for agent CRUD
 - Create endpoints for capabilities management
 - Refactor routes to proxy
 
 **Non-Goals:**
+
 - Changing AgentService implementation
 - Agent token generation logic
 
 ## Decisions
 
 ### 1. Endpoint Mapping
+
 - `GET /api/internal/agents` → list agents
 - `GET /api/internal/agents/:id` → get agent
 - `POST /api/internal/agents` → create agent
@@ -25,14 +28,15 @@ Agents routes handle agent management and capabilities. Creating an internal API
 - `POST /api/internal/agents/:id/capabilities/refresh` → refresh capabilities
 
 ### 2. Agent Token Endpoints
+
 The `/api/internal/agents/me/sessions` endpoint (for agents) stays separate - it validates agent tokens, not user tokens.
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
+| Risk                     | Mitigation                                        |
+| ------------------------ | ------------------------------------------------- |
 | Dual auth (user + agent) | Keep agent endpoints separate with different auth |
-| Capability refresh async | API triggers refresh, returns status |
+| Capability refresh async | API triggers refresh, returns status              |
 
 ## Migration Plan
 

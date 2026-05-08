@@ -85,7 +85,9 @@ Sent when SCC calculation begins.
 {
   "type": "impact_updated",
   "sessionId": "uuid-string",
-  "metrics": { /* ImpactMetrics */ },
+  "metrics": {
+    /* ImpactMetrics */
+  },
   "stale": false
 }
 ```
@@ -132,11 +134,11 @@ Sent when SCC calculation fails.
 
 ## Error Handling
 
-| Error | UI Behavior |
-|-------|-------------|
-| SCC not installed | Show existing warning banner |
+| Error                | UI Behavior                  |
+| -------------------- | ---------------------------- |
+| SCC not installed    | Show existing warning banner |
 | SCC execution failed | Show error in Impact section |
-| Timeout | Show "Calculation timed out" |
+| Timeout              | Show "Calculation timed out" |
 
 ## Performance
 

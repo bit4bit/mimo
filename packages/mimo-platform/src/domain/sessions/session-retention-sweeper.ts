@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { logger as defaultLogger } from "../../logger.js";
 import type { SessionDeletionLike } from "./session-deletion.js";
 import { isSessionExpired, isSessionInactive } from "./session-retention.js";

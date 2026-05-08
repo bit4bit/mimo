@@ -18,7 +18,9 @@ let chatService: any;
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any): Hono {
   const { createInternalApiRouter } = require("../src/api/rest/index.ts");
-  const { createSessionsRoutes } = require("../src/web/features/sessions/pages/sessions.tsx");
+  const {
+    createSessionsRoutes,
+  } = require("../src/web/features/sessions/pages/sessions.tsx");
 
   const app = new Hono();
 
@@ -110,11 +112,13 @@ describe("Chat Thread Instructions", () => {
 
   describe("Project-level instructions", () => {
     it("when a thread is created, project instructions are saved as a system message in chat history", async () => {
-      const { app, project, session, token } = await setupUserProjectSession("agent-1");
+      const { app, project, session, token } =
+        await setupUserProjectSession("agent-1");
 
       // Update project with default instructions
       await projectRepository.update(project.id, {
-        instructions: "Before performing any task, try to locate and read the file `AGENTS.md` if not found inform the user and continue.",
+        instructions:
+          "Before performing any task, try to locate and read the file `AGENTS.md` if not found inform the user and continue.",
       });
 
       // Create thread
@@ -142,16 +146,20 @@ describe("Chat Thread Instructions", () => {
       const history = await chatService.loadHistory(session.id, thread.id);
       expect(history).toHaveLength(1);
       expect(history[0].role).toBe("system");
-      expect(history[0].content).toBe("Before performing any task, try to locate and read the file `AGENTS.md` if not found inform the user and continue.");
+      expect(history[0].content).toBe(
+        "Before performing any task, try to locate and read the file `AGENTS.md` if not found inform the user and continue.",
+      );
     });
   });
 
   describe("Session-level instructions override project", () => {
     it("when both project and session have instructions, session instructions are used", async () => {
-      const { app, project, session, token } = await setupUserProjectSession("agent-1");
+      const { app, project, session, token } =
+        await setupUserProjectSession("agent-1");
 
       await projectRepository.update(project.id, {
-        instructions: "Before performing any task, try to locate and read the file `AGENTS.md` if not found inform the user and continue.",
+        instructions:
+          "Before performing any task, try to locate and read the file `AGENTS.md` if not found inform the user and continue.",
       });
       await sessionRepository.update(session.id, {
         instructions: "Session: Focus on Django ORM.",
@@ -186,10 +194,12 @@ describe("Chat Thread Instructions", () => {
 
   describe("Thread-level instructions override session", () => {
     it("when thread has instructions, they take precedence over session and project", async () => {
-      const { app, project, session, token } = await setupUserProjectSession("agent-1");
+      const { app, project, session, token } =
+        await setupUserProjectSession("agent-1");
 
       await projectRepository.update(project.id, {
-        instructions: "Before performing any task, try to locate and read the file `AGENTS.md` if not found inform the user and continue.",
+        instructions:
+          "Before performing any task, try to locate and read the file `AGENTS.md` if not found inform the user and continue.",
       });
       await sessionRepository.update(session.id, {
         instructions: "Session: Focus on Django ORM.",
@@ -225,7 +235,8 @@ describe("Chat Thread Instructions", () => {
 
   describe("No instructions", () => {
     it("when no instructions exist at any level, no system message is added", async () => {
-      const { app, project, session, token } = await setupUserProjectSession("agent-1");
+      const { app, project, session, token } =
+        await setupUserProjectSession("agent-1");
 
       const res = await app.request(
         `/projects/${project.id}/sessions/${session.id}/chat-threads`,
@@ -292,7 +303,8 @@ describe("Chat Thread Instructions", () => {
     });
 
     it("PUT /sessions/:id/chat-threads/:threadId updates thread instructions", async () => {
-      const { app, project, session, token } = await setupUserProjectSession("agent-1");
+      const { app, project, session, token } =
+        await setupUserProjectSession("agent-1");
 
       const createRes = await app.request(
         `/projects/${project.id}/sessions/${session.id}/chat-threads`,
@@ -328,7 +340,9 @@ describe("Chat Thread Instructions", () => {
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.data.session.chatThreads[0].instructions).toBe("New thread instructions");
+      expect(body.data.session.chatThreads[0].instructions).toBe(
+        "New thread instructions",
+      );
     });
   });
 });

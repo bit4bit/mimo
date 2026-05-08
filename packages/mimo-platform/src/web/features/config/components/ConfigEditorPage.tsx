@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 /** @jsx jsx */
 import { jsx } from "hono/jsx";
 import { Layout } from "../../../shared/components/Layout.js";

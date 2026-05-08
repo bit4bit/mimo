@@ -5,6 +5,7 @@ This document describes the architecture of the MIMO platform.
 ## System Overview
 
 MIMO is a web-based development environment built with:
+
 - **Runtime**: Bun (JavaScript/TypeScript runtime)
 - **Web Framework**: Hono (Lightweight web framework)
 - **Frontend**: Server-side rendered JSX with vanilla JavaScript
@@ -24,6 +25,7 @@ MIMO is a web-based development environment built with:
 - **ConfigEditorPage.tsx**: Configuration UI
 
 **Key Features**:
+
 - Server-side rendered JSX (no client-side framework)
 - Vanilla JavaScript for interactivity
 - WebSocket for real-time chat
@@ -36,45 +38,53 @@ MIMO is a web-based development environment built with:
 #### Core Modules
 
 **Authentication** (`auth/`)
+
 - JWT-based authentication
 - Password hashing with bcrypt
 - Session management via cookies
 
 **Projects** (`projects/`)
+
 - Project CRUD operations
 - Repository import (Git → Fossil)
 - Filesystem structure: `~/.mimo/projects/{id}/`
 
 **Sessions** (`sessions/`)
+
 - Session lifecycle management
 - Fossil worktree setup
 - Chat history storage (JSONL format)
 - WebSocket chat endpoint
 
 **Agents** (`agents/`)
+
 - Agent process spawning
 - JWT token generation for agents
 - WebSocket agent endpoint (`/ws/agent`)
 - Process monitoring and cleanup
 
 **File Sync** (`sync/`)
+
 - MD5 checksum-based change detection
 - Conflict detection with baseline tracking
 - Bidirectional sync (session ↔ original repo)
 - REST API for sync operations
 
 **Commits** (`commits/`)
+
 - Fossil commit operations
 - Push to remote repositories
 - Conflict resolution
 - Status and history endpoints
 
 **VCS** (`vcs/`)
+
 - Fossil CLI abstraction
 - Server management
 - Port auto-assignment (8000-9000)
 
 **Configuration** (`config/`)
+
 - YAML configuration loading
 - Validation with helpful errors
 - Default values with merge
@@ -84,12 +94,14 @@ MIMO is a web-based development environment built with:
 **Location**: `packages/mimo-agent/`
 
 A standalone TypeScript/Bun binary that:
+
 - Connects to platform via WebSocket
 - Watches files for changes
 - Proxies ACP (Agent Communication Protocol) requests
 - Reports file changes to platform
 
 **Communication Flow**:
+
 ```
 Browser ←→ Platform WebSocket ←→ Agent WebSocket
                       ↓
@@ -156,12 +168,14 @@ Browser ←→ Platform WebSocket ←→ Agent WebSocket
 ### Chat WebSocket (`/ws/chat/:sessionId`)
 
 **Messages from Client**:
+
 - `send_message`: Send chat message
 - `request_replay`: Request chat history replay
 - `refresh_impact`: Trigger manual SCC impact refresh
 - `request_impact_stale`: Request current impact stale status
 
 **Messages to Client**:
+
 - `history`: Full chat history
 - `message`: New message (user or assistant)
 - `impact_stale`: Impact cache became stale after file changes
@@ -174,12 +188,14 @@ Browser ←→ Platform WebSocket ←→ Agent WebSocket
 **Query Parameter**: `token` (JWT)
 
 **Messages from Agent**:
+
 - `agent_ready`: Agent connected successfully
 - `acp_response`: Response from ACP process
 - `file_changed`: File modification notification
 - `ping`: Keepalive
 
 **Messages to Agent**:
+
 - `pong`: Keepalive response
 - `acp_request`: Forward request to ACP
 - `cancel_request`: Cancel current ACP request
@@ -190,11 +206,13 @@ Browser ←→ Platform WebSocket ←→ Agent WebSocket
 ### JWT Tokens
 
 **User Tokens**:
+
 - Stored in HTTP-only cookies
 - Expire after 24 hours
 - Signed with `JWT_SECRET` env var
 
 **Agent Tokens**:
+
 - Generated per-agent
 - Include agentId, sessionId, projectId, owner
 - Passed via WebSocket query parameter
@@ -218,11 +236,13 @@ Browser ←→ Platform WebSocket ←→ Agent WebSocket
 ## Scalability Limits
 
 Current design assumes:
+
 - Single instance deployment
 - Filesystem-based storage
 - WebSocket connections maintained in memory
 
 For horizontal scaling, would need:
+
 - External session store (Redis)
 - Shared storage (NFS/S3)
 - Load balancer with sticky sessions

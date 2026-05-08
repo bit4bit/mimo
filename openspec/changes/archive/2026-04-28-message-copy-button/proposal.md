@@ -17,7 +17,7 @@ The chat session view shows message bubbles for "Agent" and "You" but lacks a qu
 
 ### Modified Capabilities
 
-- *(none)*
+- _(none)_
 
 ## Impact
 

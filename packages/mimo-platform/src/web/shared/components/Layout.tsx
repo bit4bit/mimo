@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import { raw } from "hono/html";
 import type {
@@ -1207,9 +1208,7 @@ export const Layout: FC<LayoutProps> = ({
               </a>
             </div>
           </nav>
-          <main class="flex flex-col flex-grow main-content">
-            {children}
-          </main>
+          <main class="flex flex-col flex-grow main-content">{children}</main>
           {showStatusLine && (
             <div class="status-line">
               <span class="status-line-message"></span>

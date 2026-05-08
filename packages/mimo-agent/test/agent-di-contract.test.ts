@@ -1,6 +1,6 @@
 /**
  * Agent Dependency Injection Contract Tests
- * 
+ *
  * Defines the expected behavior AFTER refactoring to DI:
  * - Agent receives all dependencies via constructor
  * - No internal construction of dependencies
@@ -30,7 +30,12 @@ describe("Agent DI Contract", () => {
         stat: () => ({ isFile: () => true, isDirectory: () => false }),
       },
       command: {
-        run: async () => ({ success: true, output: "", error: "", exitCode: 0 }),
+        run: async () => ({
+          success: true,
+          output: "",
+          error: "",
+          exitCode: 0,
+        }),
       },
       path: {
         join: (...parts: string[]) => parts.join("/").replace(/\/+/g, "/"),
@@ -77,7 +82,7 @@ describe("Agent DI Contract", () => {
     it("should receive OS as constructor dependency", async () => {
       // This test documents the expected constructor signature
       // After refactor: new MimoAgent({ os, ... })
-      
+
       // For now, this is a documentation test
       // Implementation will be added after refactor
       expect(mockOS).toBeDefined();
@@ -89,7 +94,7 @@ describe("Agent DI Contract", () => {
     it("should use injected OS for all filesystem operations", async () => {
       // Contract: Agent must NOT create its own OS
       // All fs/command/path calls must use injected mockOS
-      
+
       const spyCalls: string[] = [];
       const instrumentedOS = {
         ...mockOS,
@@ -101,7 +106,7 @@ describe("Agent DI Contract", () => {
           },
         },
       };
-      
+
       // After refactor, Agent should use instrumentedOS
       expect(instrumentedOS).toBeDefined();
       expect(spyCalls).toBeInstanceOf(Array);
@@ -118,7 +123,7 @@ describe("Agent DI Contract", () => {
     it("should delegate session operations to injected SessionManager", () => {
       // Contract: Agent must NOT create SessionManager internally
       // All session calls must use injected mockSessionManager
-      
+
       const session = mockSessionManager.getSession("test");
       expect(session).toBeDefined();
       expect(session.checkoutPath).toBeDefined();
@@ -133,7 +138,7 @@ describe("Agent DI Contract", () => {
         agentToken: "test-token",
         acpProvider: "opencode",
       };
-      
+
       // Contract: Agent should receive config, not read from process.argv
       expect(config.workDir).toBe("/tmp/test-workdir");
       expect(config.platformUrl).toBe("ws://localhost:3000");
@@ -143,7 +148,7 @@ describe("Agent DI Contract", () => {
       // Contract: parseArgs should happen at system boundary, not inside Agent
       // Current violation: Agent calls this.parseArgs() in constructor
       // Expected: config passed in from index.ts
-      
+
       expect(true).toBe(true); // Documentation test
     });
   });
@@ -160,7 +165,7 @@ describe("Agent DI Contract", () => {
         ...mockWebSocket,
         send: (data: string) => sent.push(JSON.parse(data)),
       };
-      
+
       // After refactor, Agent should use instrumentedWS
       instrumentedWS.send(JSON.stringify({ type: "test" }));
       expect(sent.length).toBe(1);
@@ -175,7 +180,7 @@ describe("Agent DI Contract", () => {
       // - process.env (must be injected)
       // - module-level singletons
       // - static shared state
-      
+
       expect(true).toBe(true); // Documentation test
     });
 
@@ -183,7 +188,7 @@ describe("Agent DI Contract", () => {
       // Contract: OS must be injected, not created inside Agent
       // Current violation: constructor calls createOS({ ...process.env })
       // Expected: OS passed in as dependency
-      
+
       expect(true).toBe(true); // Documentation test
     });
 
@@ -191,7 +196,7 @@ describe("Agent DI Contract", () => {
       // Contract: SessionManager must be injected
       // Current violation: constructor creates new SessionManager()
       // Expected: SessionManager passed in as dependency
-      
+
       expect(true).toBe(true); // Documentation test
     });
   });
@@ -203,7 +208,7 @@ describe("Agent DI Contract", () => {
       // - Create missing directories
       // - Run fossil commands
       // - Handle credentials
-      
+
       expect(mockOS.command.run).toBeDefined();
     });
 
@@ -212,7 +217,7 @@ describe("Agent DI Contract", () => {
       // - Get session from SessionManager
       // - Run fossil addremove/changes/commit/push
       // - Send sync_now_result messages
-      
+
       expect(mockSessionManager.getSession).toBeDefined();
     });
 
@@ -222,7 +227,7 @@ describe("Agent DI Contract", () => {
       // - Route session_ready to setupCheckout
       // - Route sync_now to handleSyncNow
       // - Route expert_* messages to handlers
-      
+
       expect(true).toBe(true); // Documentation test
     });
   });
@@ -233,18 +238,18 @@ describe("Agent Current Violations (Pre-Refactor)", () => {
    * These tests document current violations of DI rules.
    * They will be deleted after refactor is complete.
    */
-  
+
   it("VIOLATION: Agent creates OS internally", () => {
     // Location: src/index.ts:66
     // Code: this.os = createOS({ ...process.env });
-    // 
+    //
     // This violates:
     // - DI Rule: "Never use singletons"
     // - Environment Rule: "process.env only in index.ts"
     // - Testing Rule: "Tests control their dependencies"
     //
     // FIX: Pass OS as constructor parameter
-    
+
     expect(true).toBe(true); // Documentation
   });
 
@@ -257,7 +262,7 @@ describe("Agent Current Violations (Pre-Refactor)", () => {
     // - Testing Rule: Can't inject mock SessionManager
     //
     // FIX: Pass SessionManager as constructor parameter
-    
+
     expect(true).toBe(true); // Documentation
   });
 
@@ -270,7 +275,7 @@ describe("Agent Current Violations (Pre-Refactor)", () => {
     // - Environment Rule: process.argv only at boundary
     //
     // FIX: Pass config object as constructor parameter
-    
+
     expect(true).toBe(true); // Documentation
   });
 
@@ -286,7 +291,7 @@ describe("Agent Current Violations (Pre-Refactor)", () => {
     //
     // FIX: Pass WebSocket or factory as constructor parameter
     //      Move connection logic to index.ts
-    
+
     expect(true).toBe(true); // Documentation
   });
 });

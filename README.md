@@ -184,3 +184,5 @@ cd packages/mimo-platform && bun run dev
 GNU Affero General Public License v3.0 only (AGPL-3.0-only)
 
 Copyright (C) 2026 Jovany Leandro G.C <bit4bit@riseup.net>
+
+See [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md) for third-party component licenses (including LGPL dependencies).

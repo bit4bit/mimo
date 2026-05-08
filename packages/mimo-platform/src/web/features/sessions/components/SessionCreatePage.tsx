@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import { Layout } from "../../../shared/components/Layout.js";
 
@@ -70,9 +71,12 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
               placeholder="Behavior instructions for this session (e.g., Focus on Django ORM. Review all models.)"
               class="session-create-textarea"
               data-help-id="session-create-page-instructions-textarea"
-            >{project.instructions || ""}</textarea>
+            >
+              {project.instructions || ""}
+            </textarea>
             <p class="session-create-help">
-              These instructions will override project-level instructions for all threads in this session.
+              These instructions will override project-level instructions for
+              all threads in this session.
             </p>
           </div>
 
@@ -179,10 +183,7 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
                 </p>
               ) : (
                 mcpServers.map((server) => (
-                  <label
-                    key={server.id}
-                    class="mcp-server-option"
-                  >
+                  <label key={server.id} class="mcp-server-option">
                     <input
                       type="checkbox"
                       name="mcpServerIds"

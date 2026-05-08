@@ -11,12 +11,14 @@ The complexity values showing variance (e.g., Cyclomatic: -16, -242, 0, 99) are 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Provide complete visibility into the impact calculation pipeline via debug logging
 - Make complexity values interpretable by showing absolute + delta
 - Identify the root cause of variance through diagnostic testing
 - Implement reliability fixes based on diagnostic findings
 
 **Non-Goals:**
+
 - Replace SCC with a different complexity tool
 - Add runtime performance monitoring beyond debug logs
 - Change the fundamental caching strategy (only fix bugs in existing strategy)
@@ -33,6 +35,7 @@ Rationale: Consistency with existing logging patterns; no additional dependencie
 ### Decision: Log structure (key-value for grepability)
 
 All debug logs will use structured format with brackets for easy grep:
+
 ```
 [scc:cache] hit for /path/to/dir
 [scc:ignore] built from .gitignore (42 patterns)
@@ -46,6 +49,7 @@ Rationale: Structured prefixes enable filtering with `DEBUG=1 npm test 2>&1 | gr
 ### Decision: Show absolute + delta in UI
 
 **Options Considered:**
+
 1. **Delta only** (current): `Cyclomatic: +6 ↑` - Hard to interpret, hides absolute scale
 2. **Delta with sign**: `Cyclomatic: +6 (was 100)` - Better but verbose
 3. **Absolute with delta**: `Cyclomatic: 100 → 106 (+6) ↑` - Best clarity
@@ -69,6 +73,7 @@ Rationale: The force parameter exists for explicit refresh; it should actually r
 ### Decision: Coerce anomalous deltas to 0 with warning
 
 Define anomaly thresholds:
+
 - Single-file delta > 500% of file's original complexity
 - Total delta > 1000 complexity points
 
@@ -79,6 +84,7 @@ Rationale: Extreme values are almost certainly bugs, not real complexity changes
 ## Logging Points
 
 ### SccService
+
 - `[scc:cache:check] directory=${dir} force=${force}`
 - `[scc:cache:hit] directory=${dir} age=${age}ms`
 - `[scc:cache:miss] directory=${dir} reason=${reason}`
@@ -90,12 +96,14 @@ Rationale: Extreme values are almost certainly bugs, not real complexity changes
 - `[scc:cache:update] directory=${dir} files=${count}`
 
 ### ChangedFiles
+
 - `[files:scan] dir=${dir} files=${count}`
 - `[files:compare] upstream=${upCount} workspace=${wsCount}`
 - `[files:result] added=${added} modified=${modified} deleted=${deleted}`
 - `[files:detail] path=${path} status=${status} checksum=${checksum} size=${size}`
 
 ### ImpactCalculator
+
 - `[impact:upstream] complexity=${total} files=${count}`
 - `[impact:workspace] complexity=${total} files=${count}`
 - `[impact:delta:file] path=${path} old=${old} new=${new} delta=${delta}`

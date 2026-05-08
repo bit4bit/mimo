@@ -45,7 +45,11 @@ describe("write_file message handler", () => {
   });
 
   // Simulated handleWriteFile function (mirrors the implementation in index.ts)
-  async function handleWriteFile(message: any, sessionMgr: MockSessionManager, sendFn: (msg: any) => void) {
+  async function handleWriteFile(
+    message: any,
+    sessionMgr: MockSessionManager,
+    sendFn: (msg: any) => void,
+  ) {
     const { sessionId, filePath, content } = message;
     if (!sessionId || !filePath || content === undefined) {
       // Missing fields - silently return (matches implementation)
@@ -106,7 +110,7 @@ describe("write_file message handler", () => {
       await handleWriteFile(
         { sessionId, filePath, content },
         sessionManager,
-        (msg) => sentMessages.push(msg)
+        (msg) => sentMessages.push(msg),
       );
 
       // Verify file was written
@@ -133,7 +137,7 @@ describe("write_file message handler", () => {
       await handleWriteFile(
         { sessionId, filePath, content },
         sessionManager,
-        (msg) => sentMessages.push(msg)
+        (msg) => sentMessages.push(msg),
       );
 
       const fileChanged = sentMessages.find((m) => m.type === "file_changed");
@@ -160,7 +164,7 @@ describe("write_file message handler", () => {
       await handleWriteFile(
         { sessionId, filePath, content },
         sessionManager,
-        (msg) => sentMessages.push(msg)
+        (msg) => sentMessages.push(msg),
       );
 
       // Verify directories were created
@@ -192,7 +196,7 @@ describe("write_file message handler", () => {
       await handleWriteFile(
         { sessionId, filePath, content: newContent },
         sessionManager,
-        (msg) => sentMessages.push(msg)
+        (msg) => sentMessages.push(msg),
       );
 
       // Verify file was overwritten
@@ -212,7 +216,7 @@ describe("write_file message handler", () => {
       await handleWriteFile(
         { sessionId, filePath, content },
         sessionManager,
-        (msg) => sentMessages.push(msg)
+        (msg) => sentMessages.push(msg),
       );
 
       const fullPath = join(checkoutPath, filePath);
@@ -227,7 +231,7 @@ describe("write_file message handler", () => {
       await handleWriteFile(
         { filePath: "test.txt", content: "test" },
         sessionManager,
-        (msg) => sentMessages.push(msg)
+        (msg) => sentMessages.push(msg),
       );
 
       expect(sentMessages).toHaveLength(0);
@@ -237,7 +241,7 @@ describe("write_file message handler", () => {
       await handleWriteFile(
         { sessionId: "test", content: "test" },
         sessionManager,
-        (msg) => sentMessages.push(msg)
+        (msg) => sentMessages.push(msg),
       );
 
       expect(sentMessages).toHaveLength(0);
@@ -247,7 +251,7 @@ describe("write_file message handler", () => {
       await handleWriteFile(
         { sessionId: "test", filePath: "test.txt" },
         sessionManager,
-        (msg) => sentMessages.push(msg)
+        (msg) => sentMessages.push(msg),
       );
 
       expect(sentMessages).toHaveLength(0);
@@ -257,7 +261,7 @@ describe("write_file message handler", () => {
       await handleWriteFile(
         { sessionId: "test", filePath: "test.txt", content: null },
         sessionManager,
-        (msg) => sentMessages.push(msg)
+        (msg) => sentMessages.push(msg),
       );
 
       expect(sentMessages).toHaveLength(0);
@@ -267,7 +271,7 @@ describe("write_file message handler", () => {
       await handleWriteFile(
         { sessionId: "non-existent", filePath: "test.txt", content: "test" },
         sessionManager,
-        (msg) => sentMessages.push(msg)
+        (msg) => sentMessages.push(msg),
       );
 
       expect(sentMessages).toHaveLength(0);
@@ -287,7 +291,7 @@ describe("write_file message handler", () => {
         await handleWriteFile(
           { sessionId, filePath, content: "test" },
           sessionManager,
-          (msg) => sentMessages.push(msg)
+          (msg) => sentMessages.push(msg),
         );
 
         // If we get here, verify error was sent
@@ -315,7 +319,7 @@ describe("write_file message handler", () => {
       await handleWriteFile(
         { sessionId, filePath, content },
         sessionManager,
-        (msg) => sentMessages.push(msg)
+        (msg) => sentMessages.push(msg),
       );
 
       const fullPath = join(checkoutPath, filePath);
@@ -335,7 +339,7 @@ describe("write_file message handler", () => {
       await handleWriteFile(
         { sessionId, filePath, content },
         sessionManager,
-        (msg) => sentMessages.push(msg)
+        (msg) => sentMessages.push(msg),
       );
 
       const fullPath = join(checkoutPath, filePath);

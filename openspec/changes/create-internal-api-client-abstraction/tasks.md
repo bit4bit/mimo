@@ -108,30 +108,37 @@
 **Completed: 69/69 tasks** (100%)
 
 ### Results
+
 - **Client created**: `src/api/internal/shared/client.ts` with comprehensive error handling
 - **All routes refactored**: Dashboard, Credentials, Projects, Sessions, Agents, Config, MCP Servers, Summary
 - **Code reduction achieved**: ~35-45% fewer lines in route files
-- **Tests updated**: 
+- **Tests updated**:
   - Agents tests: ✅ 19/19 passing (with fetch mocking)
   - Client unit tests: ✅ 12/12 passing
   - Full suite: 767 passing, 116 failing (improved from 766/117)
 - **Test helper created**: `test/helpers/mock-fetch.ts` for mocking internal API calls
 
 ### Test Status
+
 - **Client unit tests**: 12/12 passing
 - **Agents integration tests**: 19/19 passing (with fetch mocking)
 - **Full test suite**: 767 passing, 116 failing
 
 The 116 failing tests require fetch mocking to handle internal API calls. The pattern is established in:
+
 - `test/agents.test.ts` - fully working with fetch mocking
 - `test/helpers/mock-fetch.ts` - reusable helper for other tests
 
 ### Key Achievement
+
 Routes now use the clean client pattern:
+
 ```typescript
 const apiClient = createInternalApiClient(c, mimoContext);
 const result = await apiClient.get<DataType>("/endpoint");
-if (!result.success) { return c.text(result.error, result.status); }
+if (!result.success) {
+  return c.text(result.error, result.status);
+}
 // Use result.data
 ```
 

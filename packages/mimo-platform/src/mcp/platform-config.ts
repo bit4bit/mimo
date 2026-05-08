@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { McpServerConfig } from "../domain/mcp-servers/types.js";
 
 function trimTrailingSlash(url: string): string {

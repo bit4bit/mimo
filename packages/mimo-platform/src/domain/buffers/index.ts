@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { registerBuffer } from "./registry.js";
 import { ChatThreadsBuffer } from "./ChatThreadsBuffer.js";
 import { NotesBuffer } from "./NotesBuffer.js";

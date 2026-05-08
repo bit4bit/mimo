@@ -10,6 +10,7 @@ Tests describe **behavior from the outside**, not internal implementation detail
 Focus on what the system does, not how it does it.
 
 #### Rules
+
 - Write the integration test **before** any implementation
 - Tests must be **high-coverage integration tests** - they cross real boundaries (API, DB, file system)
 - Test must **fail first**, then implement the minimum code to make it pass
@@ -17,6 +18,7 @@ Focus on what the system does, not how it does it.
 - No low-value or trivial tests - if it doesn't describe meaningful behavior, don't write it
 
 #### What is a behavior test
+
 - "when a user submits an invalid form, it returns a validation error"
 - "when payment succeeds, the order status becomes confirmed"
 - Not testing the value of a variable
@@ -24,6 +26,7 @@ Focus on what the system does, not how it does it.
 - Not testing internal state that is not observable from outside
 
 #### Bug Fixing Workflow
+
 1. **Write a failing test** that reproduces the bug exactly
 2. **Confirm the test fails** - this proves the bug is real and the test is valid
 3. **Fix the bug** with the minimum code change necessary

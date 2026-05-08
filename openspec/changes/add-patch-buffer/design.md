@@ -41,9 +41,9 @@ interface PatchRecord {
   filePath: string;
   originalContent: string;
   replacements: Replacement[];
-  patchedContent: string;   // pre-computed at creation time
+  patchedContent: string; // pre-computed at creation time
   createdAt: Date;
-  status: "pending";        // only pending records are kept; resolved ones are deleted
+  status: "pending"; // only pending records are kept; resolved ones are deleted
 }
 ```
 
@@ -54,6 +54,7 @@ Key: `sessionId:filePath` (URL-decoded path).
 Replacements are applied in **reverse line-order** (highest `replace_start_line` first) so that earlier line numbers remain valid as later replacements are inserted.
 
 Steps:
+
 1. Sort replacements by `replace_start_line` descending.
 2. Split `originalContent` into lines array.
 3. For each replacement: splice out lines `[replace_start_line-1 .. replace_end_line-1]` (0-indexed), insert `replacement.split("\n")`.
@@ -61,12 +62,12 @@ Steps:
 
 ### REST API
 
-| Method | Path | Body | Response |
-|--------|------|------|----------|
-| `POST` | `/sessions/:sid/patch-buffers` | `{filePath, originalContent, replacements[]}` | `PatchRecord` |
-| `GET` | `/sessions/:sid/patch-buffers/:encodedPath` | — | `PatchRecord` or 404 |
-| `POST` | `/sessions/:sid/patch-buffers/:encodedPath/approve` | — | `{ok: true}` |
-| `DELETE` | `/sessions/:sid/patch-buffers/:encodedPath` | — | `{ok: true}` |
+| Method   | Path                                                | Body                                          | Response             |
+| -------- | --------------------------------------------------- | --------------------------------------------- | -------------------- |
+| `POST`   | `/sessions/:sid/patch-buffers`                      | `{filePath, originalContent, replacements[]}` | `PatchRecord`        |
+| `GET`    | `/sessions/:sid/patch-buffers/:encodedPath`         | —                                             | `PatchRecord` or 404 |
+| `POST`   | `/sessions/:sid/patch-buffers/:encodedPath/approve` | —                                             | `{ok: true}`         |
+| `DELETE` | `/sessions/:sid/patch-buffers/:encodedPath`         | —                                             | `{ok: true}`         |
 
 `encodedPath` = `encodeURIComponent(filePath)`.
 
@@ -77,6 +78,7 @@ Steps:
 ## LLM Prompt Schema Change (ExpertMode)
 
 ### Old output schema
+
 ```json
 {
   "file": "<FILE_PATH>",
@@ -87,6 +89,7 @@ Steps:
 ```
 
 ### New output schema
+
 ```json
 {
   "replacements": [
@@ -101,6 +104,7 @@ Steps:
 ```
 
 Error case (unchanged):
+
 ```json
 { "file": "<FILE_PATH>", "error": "OUT_OF_SCOPE_CHANGE_REQUIRED" }
 ```
@@ -155,6 +159,7 @@ Multiple patch tabs can coexist (one per pending `filePath`).
 ### Browser Reload Recovery
 
 On buffer mount:
+
 1. Read `sessionId` and `filePath` from the tab's `data-*` attributes.
 2. `GET /sessions/:sid/patch-buffers/:encodedPath`.
 3. If 404 → buffer auto-closes (patch was already resolved).

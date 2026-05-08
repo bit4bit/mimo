@@ -14,9 +14,11 @@ The auth domain handles user authentication (login, logout, registration). Creat
 ## Capabilities
 
 ### New Capabilities
+
 - `internal-api-auth`: Internal REST API for authentication (login, logout, register, token verification)
 
 ### Modified Capabilities
+
 <!-- None - this is implementation refactoring -->
 
 ## Impact

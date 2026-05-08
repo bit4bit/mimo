@@ -14,9 +14,11 @@ The credentials domain manages SSH and HTTPS credentials for repository access. 
 ## Capabilities
 
 ### New Capabilities
+
 - `internal-api-credentials`: Internal REST API for credential management (list, get, create, update, delete credentials for both HTTPS and SSH types)
 
 ### Modified Capabilities
+
 <!-- None - this is implementation refactoring, no behavior changes -->
 
 ## Impact

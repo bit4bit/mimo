@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { OS } from "../../infrastructure/os/types.js";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
@@ -697,7 +698,10 @@ export class SessionRepository {
     sessionId: string,
     threadId: string,
     updates: Partial<
-      Pick<ChatThread, "name" | "model" | "mode" | "acpSessionId" | "state" | "instructions">
+      Pick<
+        ChatThread,
+        "name" | "model" | "mode" | "acpSessionId" | "state" | "instructions"
+      >
     >,
   ): Promise<ChatThread | null> {
     const session = await this.findById(sessionId);

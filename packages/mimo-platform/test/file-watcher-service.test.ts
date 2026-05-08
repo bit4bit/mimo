@@ -132,7 +132,9 @@ describe("FileWatcherService", () => {
       // Write same content (should not trigger outdated change)
       writeFileSync(filePath, "Same content");
 
-      await expect(waitForEvent(anyEventPromise, { timeout: 250 })).rejects.toThrow();
+      await expect(
+        waitForEvent(anyEventPromise, { timeout: 250 }),
+      ).rejects.toThrow();
 
       // Should not have received outdated event for same content
       const outdatedEvents = receivedEvents.filter(
@@ -260,8 +262,8 @@ describe("FileWatcherService", () => {
       // Wait for both events with explicit timeout
       try {
         await Promise.all([
-            waitForEvent(promiseA, { timeout: 3000 }),
-            waitForEvent(promiseB, { timeout: 3000 }),
+          waitForEvent(promiseA, { timeout: 3000 }),
+          waitForEvent(promiseB, { timeout: 3000 }),
         ]);
       } catch {
         // At least one watcher may not fire on all platforms

@@ -1,9 +1,11 @@
 ## MODIFIED Requirements
 
 ### Requirement: Agent connects successfully
+
 The system SHALL allow agent to establish WebSocket connection and receive session information.
 
 #### Scenario: Agent connects with valid token
+
 - **WHEN** mimo-agent connects via WebSocket with valid token
 - **AND** agent sends agent_ready message with {agentId, workdir}
 - **THEN** system updates agent.yaml status to "online"
@@ -13,6 +15,7 @@ The system SHALL allow agent to establish WebSocket connection and receive sessi
 - **AND** system logs "Agent connected" to console
 
 #### Scenario: Agent connects with multiple sessions
+
 - **WHEN** agent connects with 3 assigned sessions
 - **THEN** system sends session_ready with all 3 sessions
 - **AND** each session has fossilUrl pointing to shared server with unique path
@@ -20,6 +23,7 @@ The system SHALL allow agent to establish WebSocket connection and receive sessi
 - **AND** agent spawns 3 ACP processes
 
 #### Scenario: Agent handles session_ready with shared server URLs
+
 - **WHEN** agent receives session_ready message
 - **THEN** agent parses each session in sessions array
 - **AND** agent extracts sessionId from fossilUrl path
@@ -29,12 +33,14 @@ The system SHALL allow agent to establish WebSocket connection and receive sessi
 - **AND** agent sends agent_sessions_ready to platform with {sessionIds: [...]}
 
 #### Scenario: Agent connects with no sessions
+
 - **WHEN** agent connects with valid token
 - **AND** agent has no sessions assigned
 - **THEN** system sends session_ready with empty sessions array
 - **AND** agent remains connected waiting for session assignment
 
 #### Scenario: Agent reconnects after disconnect
+
 - **WHEN** agent disconnects unexpectedly
 - **AND** agent reconnects within 30 seconds
 - **THEN** system sends session_ready with same sessions
@@ -43,9 +49,11 @@ The system SHALL allow agent to establish WebSocket connection and receive sessi
 - **AND** agent spawns new ACP processes
 
 ### Requirement: Agent disconnects gracefully
+
 The system SHALL handle agent disconnections and maintain shared Fossil server availability.
 
 #### Scenario: Agent disconnects with cleanup
+
 - **WHEN** agent disconnects
 - **THEN** system updates agent.yaml status to "offline"
 - **AND** system does NOT stop the shared Fossil server (other agents may be using it)
@@ -55,18 +63,22 @@ The system SHALL handle agent disconnections and maintain shared Fossil server a
 ## ADDED Requirements
 
 ### Requirement: Agent constructs fossilUrl from sessionId
+
 The system SHALL provide sessionId to agent for URL construction.
 
 #### Scenario: Agent derives repository URL from sessionId
+
 - **WHEN** agent receives session data from platform
 - **THEN** agent constructs fossilUrl as `http://<platformHost>:<port>/<session-id>.fossil/`
 - **AND** agent uses this URL for fossil sync operations
 - **AND** agent includes credentials in URL for authentication
 
 ### Requirement: Agent handles shared server availability
+
 The system SHALL ensure agent can sync when shared server is temporarily unavailable.
 
 #### Scenario: Agent retries sync on server error
+
 - **WHEN** agent attempts fossil sync against shared server
 - **AND** server returns 503 or connection refused
 - **THEN** agent retries sync after 2 second delay

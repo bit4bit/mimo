@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { MiddlewareHandler } from "hono";
 import type { JwtService } from "../domain/auth/jwt.js";
 

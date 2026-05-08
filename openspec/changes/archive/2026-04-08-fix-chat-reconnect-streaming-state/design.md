@@ -9,6 +9,7 @@ The chat system uses WebSocket for real-time streaming of agent responses. When 
 The server accumulates chunks in `thoughtBuffers` and `streamingBuffers` Maps (per session). Assistant messages are only persisted to `chat.jsonl` when `usage_update` arrives.
 
 **Current reconnect behavior** (index.tsx lines 195-214):
+
 - Load history from `chat.jsonl` → sends incomplete history (missing assistant response)
 - Client sees `lastRole = 'user'` → no input box shown
 - User cannot type until streaming completes and `usage_update` arrives
@@ -16,11 +17,13 @@ The server accumulates chunks in `thoughtBuffers` and `streamingBuffers` Maps (p
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Reconstruct active streaming state on page refresh/reconnect
 - Show agent box with accumulated thought and message content
 - Restore user experience seamlessly
 
 **Non-Goals:**
+
 - Handle multiple simultaneous clients (existing limitation)
 - Persist partial streaming state to disk
 - Change the chunk accumulation logic
@@ -62,8 +65,8 @@ The frontend already has `startThoughtSection()`, `appendThoughtChunk()`, `endTh
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
-| Agent completes before buffer is sent | `usage_update` will clear buffers and send final state - client handles both |
-| Multiple clients with different streaming states | Acceptable limitation - each client reconstructs independently |
-| Race between reconnect and buffer clear | `usage_update` arrives after buffer content is already sent on reconnect; client handles duplicate chunks gracefully |
+| Risk                                             | Mitigation                                                                                                           |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Agent completes before buffer is sent            | `usage_update` will clear buffers and send final state - client handles both                                         |
+| Multiple clients with different streaming states | Acceptable limitation - each client reconstructs independently                                                       |
+| Race between reconnect and buffer clear          | `usage_update` arrives after buffer content is already sent on reconnect; client handles duplicate chunks gracefully |

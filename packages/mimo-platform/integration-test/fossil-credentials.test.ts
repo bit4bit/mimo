@@ -50,7 +50,10 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
 
     // Create fresh SharedFossilServer instance with test-specific port and reposDir via constructor
     const reposDir = join(testHome, "session-fossils");
-    sharedFossilServer = new SharedFossilServer({ port: testPort, reposDir }, os);
+    sharedFossilServer = new SharedFossilServer(
+      { port: testPort, reposDir },
+      os,
+    );
   });
 
   afterEach(async () => {

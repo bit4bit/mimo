@@ -5,16 +5,18 @@ The codebase contains 330 inline style declarations scattered across TSX files, 
 ## What Changes
 
 - **Deduplicate buffer components**: Eliminate byte-identical copies of buffer components by consolidating to a single canonical location and updating imports.
-- **Introduce conceptual CSS classes**: Create semantic CSS classes in `Layout.tsx`'s global `<style>` block to replace duplicated inline styles. Classes will describe *what* a component is (e.g., `.dialog-overlay`, `.buffer-container`, `.text-muted`) rather than *how it looks*.
+- **Introduce conceptual CSS classes**: Create semantic CSS classes in `Layout.tsx`'s global `<style>` block to replace duplicated inline styles. Classes will describe _what_ a component is (e.g., `.dialog-overlay`, `.buffer-container`, `.text-muted`) rather than _how it looks_.
 - **Migrate inline styles to classes**: Replace inline `style={{...}}` and `style="..."` attributes with `className="..."` across all affected components.
 - **Standardize visibility toggles**: Convert the 43 `display: none` inline patterns to conditional className toggling (e.g., `.toolbar.hidden`).
 
 ## Capabilities
 
 ### New Capabilities
+
 - `ui-conceptual-css`: A standardized set of semantic CSS classes for common UI patterns (dialogs, buffers, typography, layout primitives) that replaces inline styling across the application.
 
 ### Modified Capabilities
+
 <!-- No existing capability requirements are changing - this is a pure refactoring. -->
 
 ## Impact

@@ -10,6 +10,7 @@
 ## Phase 1: Core Engine (`expert-utils.js`)
 
 ### Parsing
+
 - [x] Implement `extractSearchReplaceBlocks(response)`
   - [x] Strip `\u003cdetails\u003e` tags
   - [x] Parse `\u003c<<<<<< SEARCH\n...\n=======\n...\n>>>>>>> REPLACE` pattern
@@ -18,6 +19,7 @@
   - [x] Handle missing blocks gracefully (return empty array)
 
 ### Matching
+
 - [x] Implement `applySearchReplaceBlock(content, block, focusLine?)`
   - [x] Level 1: Exact match (`content.indexOf(search)`)
   - [x] Level 2: Whitespace-normalized match
@@ -26,12 +28,14 @@
   - [x] Throw descriptive errors for not-found, ambiguous, empty-search
 
 ### Batch Application
+
 - [x] Implement `applySearchReplaceBlocks(content, blocks)`
   - [x] Apply blocks sequentially
   - [x] Track content state across blocks
   - [x] Abort on first failure with block number in error
 
 ### Integration
+
 - [x] Update `extractReplacement(response)` to detect both formats
   - [x] Try SEARCH/REPLACE first
   - [x] Fallback to JSON format

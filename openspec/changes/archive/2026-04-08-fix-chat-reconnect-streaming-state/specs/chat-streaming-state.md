@@ -22,6 +22,7 @@ Sent immediately after `history` when reconnecting during active streaming.
 ```
 
 **Behavior:**
+
 - `thoughtContent` may be empty string if no thought chunks received yet
 - `messageContent` may be empty string if no message chunks received yet
 - Client reconstructs streaming UI from these values

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { OS } from "../../infrastructure/os/types.js";
 import { dump, load } from "js-yaml";
 import type {

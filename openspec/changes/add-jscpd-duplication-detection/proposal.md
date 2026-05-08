@@ -18,9 +18,11 @@ When using AI agents for code generation, duplication is a common side effect—
 ## Capabilities
 
 ### New Capabilities
+
 - `jscpd-duplication-detection`: Code duplication detection using jscpd, showing duplicate blocks introduced by agent changes with cross-file and intra-file breakdown
 
 ### Modified Capabilities
+
 - `frame-buffers`: Extend Impact Buffer to display duplication metrics alongside existing SCC metrics
 
 ## Impact

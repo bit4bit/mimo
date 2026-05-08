@@ -7,12 +7,14 @@ The new behavior must be browser-compatible and avoid collisions with common bro
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Provide one consistent, browser-safe key profile for session actions.
 - Keep behavior reliable across Chrome, Firefox, Safari, and Edge.
 - Keep native typing behavior intact in text inputs and textareas.
 - Provide discoverable help, including automatic help hints.
 
 **Non-Goals:**
+
 - Global app-wide shortcut system outside session page.
 - User-custom keymap editor in this change.
 - Replacing existing click handlers; keyboard should reuse existing actions.
@@ -22,6 +24,7 @@ The new behavior must be browser-compatible and avoid collisions with common bro
 ### D1: Default browser-safe key profile
 
 **Decision**: Use `Mod+Shift` shortcuts for core actions (`Mod = Meta on macOS, Ctrl on Windows/Linux):
+
 - `Mod+Shift+ArrowRight` -> next thread
 - `Mod+Shift+ArrowLeft` -> previous thread
 - `Mod+Shift+N` -> create new thread
@@ -31,6 +34,7 @@ The new behavior must be browser-compatible and avoid collisions with common bro
 - `Mod+Shift+/` -> open shortcuts help
 
 **Alternatives considered**:
+
 - Emacs-like chords (`C-x`, `C-c`) in browser context.
 - Heavy `Ctrl/Cmd` combinations that conflict with browser defaults.
 
@@ -45,6 +49,7 @@ The new behavior must be browser-compatible and avoid collisions with common bro
 ### D3: Safe execution boundaries
 
 **Decision**:
+
 - Ignore shortcuts while focus is in `input`, `textarea`, `select`, or `[contenteditable]`.
 - Exception: `Mod+Shift+/` help can always open.
 - Call `preventDefault()` only when a known shortcut is handled.
@@ -54,6 +59,7 @@ The new behavior must be browser-compatible and avoid collisions with common bro
 ### D4: Auto-help behavior
 
 **Decision**:
+
 - Show help overlay automatically on first session-page visit.
 - Show a compact hint after an unrecognized `Mod+Shift+<key>` attempt in session context.
 - Persist dismissal preference in `localStorage`.
@@ -63,6 +69,7 @@ The new behavior must be browser-compatible and avoid collisions with common bro
 ### D5: Browser compatibility strategy
 
 **Decision**:
+
 - Match on `event.key` with `event.code` fallback.
 - Keep shortcuts limited to keys with stable browser behavior.
 - Define explicit no-conflict policy in spec acceptance criteria.

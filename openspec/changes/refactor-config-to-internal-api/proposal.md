@@ -14,9 +14,11 @@ The config domain manages user and system configuration settings. Creating an in
 ## Capabilities
 
 ### New Capabilities
+
 - `internal-api-config`: Internal REST API for configuration management (get, update, reset configuration with validation)
 
 ### Modified Capabilities
+
 <!-- None - existing /config/api will redirect to new internal endpoints -->
 
 ## Impact

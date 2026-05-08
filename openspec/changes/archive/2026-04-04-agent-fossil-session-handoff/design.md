@@ -3,6 +3,7 @@
 ## Context
 
 ### Current State
+
 - Platform creates checkout directory during session creation (`sessions/routes.tsx:157-166`)
 - Fossil server starts when agent connects, not during session creation
 - Agent sends `agent_ready` on connect but never handles `session_ready`
@@ -10,13 +11,16 @@
 - `@agentclientprotocol/sdk` is not installed despite task marked complete
 
 ### Problem
+
 The agent receives `{sessionId, port}` but lacks:
+
 1. Checkout path (relative to workdir)
 2. Platform URL for fossil clone
 3. Handler for `session_ready` message
 4. Multi-session management
 
 ### Constraints
+
 - Agent must support multiple concurrent sessions
 - Checkout paths must be relative to agent workdir for portability
 - Platform may be remote (not always localhost)
@@ -25,6 +29,7 @@ The agent receives `{sessionId, port}` but lacks:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Agent receives complete session info on connect
 - Agent clones from fossil proxy to create checkout
 - Agent spawns ACP process per session
@@ -32,6 +37,7 @@ The agent receives `{sessionId, port}` but lacks:
 - Platform stops creating checkout during session bootstrap
 
 **Non-Goals:**
+
 - Real-time session addition/removal (future: agent would need to handle `session_added`/`session_removed` messages)
 - Session migration between agents
 - ACP process multiplexing (one ACP per session is the model)
@@ -43,12 +49,14 @@ The agent receives `{sessionId, port}` but lacks:
 **Decision:** Single `session_ready` message with complete session array
 
 **Rationale:**
+
 - Simpler state management
 - Agent can batch initialize all sessions
 - Avoids race conditions with incremental messages
 - Consistent with existing message patterns
 
 **Message Structure:**
+
 ```json
 {
   "type": "session_ready",
@@ -69,6 +77,7 @@ The agent receives `{sessionId, port}` but lacks:
 **Note:** Agent uses `{workdir}/{sessionId}` as checkout path. Platform doesn't need to compute or send checkout paths.
 
 **Alternative considered:** Send checkoutPath in message
+
 - Rejected: More complex, requires path coordination between platform and agent
 
 ### 2. Checkout Path Strategy
@@ -76,18 +85,21 @@ The agent receives `{sessionId, port}` but lacks:
 **Decision:** Agent derives checkout path from sessionId and workdir
 
 **Rationale:**
+
 - Simple: `{workdir}/{sessionId}` is deterministic
 - Platform doesn't need to know agent's workdir
 - No path coordination required
 - Agent has full control over checkout location
 
 **Implementation:**
+
 ```typescript
 // Agent side
 const checkoutPath = join(workdir, sessionId);
 ```
 
 **Alternative considered:** Platform sends relative checkoutPath
+
 - Rejected: Unnecessary coordination between platform and agent
 
 ### 3. Multi-Session Architecture
@@ -95,11 +107,13 @@ const checkoutPath = join(workdir, sessionId);
 **Decision:** Map<sessionId, SessionContext> with per-session ACP process
 
 **Rationale:**
+
 - Clean separation between sessions
 - Each session has independent ACP lifecycle
 - File watcher per session enables concurrent work
 
 **Data Structure:**
+
 ```typescript
 interface SessionContext {
   sessionId: string;
@@ -117,6 +131,7 @@ private sessions: Map<string, SessionContext> = new Map();
 **Decision:** Sequential clone → ACP spawn per session
 
 **Sequence:**
+
 ```
 session_ready received
 │
@@ -141,11 +156,13 @@ session_ready received
 **Decision:** Use `@agentclientprotocol/sdk` for ACP communication
 
 **Rationale:**
+
 - Standard protocol implementation
 - Handles message framing
 - Already mentioned in tasks
 
 **Alternative:** Custom stdio framing
+
 - Rejected: Reinventing wheel, SDK handles edge cases
 
 ## Risks / Trade-offs
@@ -172,11 +189,13 @@ session_ready received
 ## Migration Plan
 
 ### Phase 1: Platform Changes
+
 1. Update `session_ready` message in `index.tsx`
 2. Remove `openFossilCheckout` from `sessions/routes.tsx`
 3. Add `workdir` field to agent registration/handshake
 
 ### Phase 2: Agent Changes
+
 1. Add `@agentclientprotocol/sdk` to package.json
 2. Add `sessions` map and `SessionContext` interface
 3. Implement `session_ready` handler
@@ -186,12 +205,14 @@ session_ready received
 7. Update README with multi-session info
 
 ### Phase 3: Testing
+
 1. Unit tests for relative path computation
 2. Integration tests for agent bootstrap
 3. E2E tests for multi-session scenarios
 4. Test clone failures and recovery
 
 ### Rollback
+
 - If issues arise, platform can revert to creating checkout (feature flag)
 - Agent falls back to error reporting if `session_ready` missing required fields
 

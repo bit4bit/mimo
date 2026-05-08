@@ -5,12 +5,14 @@ After `extract-chat-streaming-pipeline`, `handleAgentMessage` still handles: cap
 ## Goals / Non-Goals
 
 **Goals:**
+
 - `AgentMessageRouter` owns all agent-message-related state and dependencies
 - `index.tsx` `handleAgentMessage` becomes `return agentRouter.handle(ws.data.agentId, data)`
 - Each message type maps to a private typed method (reveals intention)
 - Full integration test coverage via injected fakes
 
 **Non-Goals:**
+
 - Changing any message handling behavior
 - Extracting `handleChatMessage` (a separate future concern)
 - Changing the WebSocket upgrade/auth flow in `index.tsx`
@@ -43,16 +45,16 @@ class AgentMessageRouter {
 
   constructor(private deps: AgentMessageRouterDeps) {}
 
-  async handle(agentId: string, ws: any, data: any): Promise<void>
-  private async handleAgentReady(agentId, ws, data): Promise<void>
-  private handleAgentCapabilities(agentId, data): Promise<void>
-  private handleSessionInitialized(data): Promise<void>
-  private handleModelState(data): Promise<void>
-  private handleModeState(data): Promise<void>
-  private handleAcpThreadCreated(data): Promise<void>
-  private handleAcpThreadCleared(data): Promise<void>
-  private handleFileChanged(data): Promise<void>
-  private handlePermissionRequest(ws, data): void
+  async handle(agentId: string, ws: any, data: any): Promise<void>;
+  private async handleAgentReady(agentId, ws, data): Promise<void>;
+  private handleAgentCapabilities(agentId, data): Promise<void>;
+  private handleSessionInitialized(data): Promise<void>;
+  private handleModelState(data): Promise<void>;
+  private handleModeState(data): Promise<void>;
+  private handleAcpThreadCreated(data): Promise<void>;
+  private handleAcpThreadCleared(data): Promise<void>;
+  private handleFileChanged(data): Promise<void>;
+  private handlePermissionRequest(ws, data): void;
   // ... etc
 }
 ```

@@ -11,12 +11,14 @@ This change focuses on completing the Sessions routes to use the HTTP proxy patt
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Refactor Sessions routes to use HTTP `fetch()` to internal API
 - Remove all 59 direct `sessionRepository` calls from Sessions routes
 - Remove direct `chatService` and `agentService` calls from Sessions routes
 - Achieve 100% HTTP proxy pattern across all domains
 
 **Non-Goals:**
+
 - Changing MCP Servers or Summary (they use helper pattern which is correct)
 - Changing any other domain (already complete)
 - Changing internal API endpoints
@@ -93,16 +95,17 @@ Sessions routes has ~59 direct repository calls that need to be replaced:
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
-| Session routes are complex (large file) | Refactor incrementally, one route at a time |
-| 59 calls to replace | Start with CRUD operations, then chat, then utilities |
-| Internal API may lack some fields | Add needed fields to internal API response |
-| Breaking session functionality | Comprehensive testing after each batch |
+| Risk                                    | Mitigation                                            |
+| --------------------------------------- | ----------------------------------------------------- |
+| Session routes are complex (large file) | Refactor incrementally, one route at a time           |
+| 59 calls to replace                     | Start with CRUD operations, then chat, then utilities |
+| Internal API may lack some fields       | Add needed fields to internal API response            |
+| Breaking session functionality          | Comprehensive testing after each batch                |
 
 ## Migration Plan
 
 ### Phase 1: Session CRUD Operations
+
 1. Replace `sessionRepository.create()` with HTTP POST
 2. Replace `sessionRepository.findById()` with HTTP GET
 3. Replace `sessionRepository.update()` with HTTP PUT
@@ -110,19 +113,23 @@ Sessions routes has ~59 direct repository calls that need to be replaced:
 5. Replace `sessionRepository.listByProject()` with HTTP GET + query param
 
 ### Phase 2: Chat Operations
+
 1. Replace `chatService.loadHistory()` with HTTP GET to `/chat`
 2. Replace `chatService.saveMessage()` with HTTP POST to `/chat`
 
 ### Phase 3: Agent Operations
+
 1. Replace agent assignment with HTTP POST to `/assign-agent`
 2. Replace capability refresh with HTTP POST to `/agents/:id/capabilities/refresh`
 
 ### Phase 4: Utility Functions
+
 1. Add any missing fields to internal API responses
 2. Replace `sessionRepository.getFossilPath()` and similar utilities
 3. Update tests to mock HTTP calls
 
 ### Phase 5: Cleanup
+
 1. Verify no direct service/repository calls remain in sessions routes
 2. Run full test suite
 3. Manual testing of session workflows

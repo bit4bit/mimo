@@ -32,7 +32,7 @@
 - [x] 4.2 Add `calculateDuplication(changedFiles, workspacePath)` private method to `ImpactCalculator`
 - [x] 4.3 Integrate jscpd service call into `calculateImpact()` method
 - [x] 4.4 Implement clone filtering logic: keep clones where at least one file is in changed files
-- [x] 4.5 Calculate `percentage` as (duplicatedLines / totalChangedLines) * 100
+- [x] 4.5 Calculate `percentage` as (duplicatedLines / totalChangedLines) \* 100
 - [x] 4.6 Group clones by file in `byFile` map
 - [x] 4.7 Add duplication data to returned `ImpactMetrics` object
 

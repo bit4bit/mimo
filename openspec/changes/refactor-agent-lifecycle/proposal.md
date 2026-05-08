@@ -17,9 +17,11 @@ The current agent lifecycle model ties agents to sessions at creation time, with
 ## Capabilities
 
 ### New Capabilities
+
 - `agent-management`: CRUD operations for agents independent of sessions, token generation (one-time view, always visible), online/offline status tracking via WebSocket
 
 ### Modified Capabilities
+
 - `agent-lifecycle`: Remove platform-spawned process management, agent now connects to platform with token, one agent can serve multiple sessions in parallel
 - `session-management`: Add agent assignment via dropdown on session creation, session references agent via `assignedAgentId`
 

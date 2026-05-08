@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import type { FileInfo } from "../../../domain/files/types.js";
 
@@ -13,9 +14,7 @@ export const FileFinderDialog: FC<FileFinderDialogProps> = ({ sessionId }) => {
       class="dialog-overlay hidden"
     >
       <div class="mimo-modal-content dialog-wide">
-        <div class="dialog-header">
-          Open File
-        </div>
+        <div class="dialog-header">Open File</div>
         <input
           id="file-finder-input"
           type="text"

@@ -13,9 +13,11 @@ Before refactoring individual domains to use the internal API, we need the found
 ## Capabilities
 
 ### New Capabilities
+
 - `internal-api-infrastructure`: Core infrastructure for the internal REST API layer including routing, auth forwarding, and response standardization
 
 ### Modified Capabilities
+
 <!-- None - this is pure infrastructure addition -->
 
 ## Impact

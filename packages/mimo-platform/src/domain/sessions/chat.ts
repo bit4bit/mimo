@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { MimoPaths } from "../../infrastructure/context/mimo-context.js";
 import type { OS } from "../../infrastructure/os/types.js";
 

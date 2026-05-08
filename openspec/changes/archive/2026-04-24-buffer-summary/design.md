@@ -3,6 +3,7 @@
 The right frame currently holds Notes, Impact, and MCP buffers. Each is a static `BufferConfig` registered in `buffers/index.ts` and rendered by `Frame.tsx`. The `ChatService` stores thread history as `.jsonl` per thread. The `AgentService` routes messages to agents via WebSocket ACP. The `ConfigService` reads/writes a YAML config file using `js-yaml`, with a well-established `sanitize*` pattern for each config section.
 
 The Summary buffer needs to:
+
 1. Read history from one thread
 2. Send it to another thread's live agent
 3. Stream the response back to the client
@@ -11,6 +12,7 @@ The Summary buffer needs to:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - New right-frame `Summary` buffer with two thread selectors and Refresh button
 - Async summarization: load history → send to agent via ACP → stream back
 - Configurable system prompt via `config.yaml` under `summary.prompt`
@@ -18,6 +20,7 @@ The Summary buffer needs to:
 - Thread state indicators (🟢/🔴/⏳) on selectors
 
 **Non-Goals:**
+
 - Persisting summaries (ephemeral only)
 - Auto-refresh on history change
 - Hiding the summary request from the summarize-via thread's history
@@ -64,6 +67,7 @@ The Summary buffer needs to:
 **Rationale:** Consistent with how all other config sections work. Users already know where to configure behavior.
 
 **Default prompt:**
+
 ```
 Analyze the following conversation history in chronological order.
 Produce a concise structured summary covering: main topics discussed,

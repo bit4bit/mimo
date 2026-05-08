@@ -7,6 +7,7 @@ This change introduces a dedicated close page that captures a reason before clos
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Provide a form page for closing sessions that captures a reason
 - Persist close reason in session data
 - Display close reason in session list views for closed sessions
@@ -14,6 +15,7 @@ This change introduces a dedicated close page that captures a reason before clos
 - Maintain backward compatibility (existing closed sessions have no reason)
 
 **Non-Goals:**
+
 - Close reason is not required (optional field)
 - No validation rules on reason content (free text)
 - No search/filter by close reason
@@ -22,18 +24,22 @@ This change introduces a dedicated close page that captures a reason before clos
 ## Decisions
 
 ### Dedicated page vs inline modal
+
 **Decision**: Dedicated `GET /projects/:projectId/sessions/:id/close` page
 **Rationale**: Matches existing server-rendered pattern (edit pages, settings pages). Works without JavaScript. Clean separation. Easy to extend later (e.g., "Close and commit" checkbox).
 
 ### Return navigation
+
 **Decision**: Use `Referer` header with fallback to session detail page
 **Rationale**: Simple, works with existing navigation patterns. If user opens close page directly (no referer), fallback to `/projects/:projectId/sessions/:id`.
 
 ### Data model approach
+
 **Decision**: Add `closeReason?: string` to Session/SessionData interfaces
 **Rationale**: Minimal change. YAML file storage means no migration script needed — existing files just won't have the field (undefined). Clean and backward compatible.
 
 ### Display in lists
+
 **Decision**: Show close reason as muted text next to status badge in ProjectsSessionsPage
 **Rationale**: SessionList component is generic and used in multiple contexts. Only show in full session list, not in compact finder. Tooltip on hover if reason is long.
 

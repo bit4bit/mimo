@@ -1,15 +1,18 @@
 ## ADDED Requirements
 
 ### Requirement: Chat UI shows ACP status indicator
+
 The system SHALL display the current ACP session status in the chat interface.
 
 #### Scenario: Show active status
+
 - **GIVEN** a session with active ACP connection
 - **WHEN** the chat page loads or receives status update
 - **THEN** the UI SHALL display an "active" indicator showing the ACP is connected
 - **AND** the model and mode selectors SHALL be enabled
 
 #### Scenario: Show parked status
+
 - **GIVEN** a session with parked ACP connection
 - **WHEN** the chat page loads or receives status update
 - **THEN** the UI SHALL display a "parked" indicator (e.g., sleeping icon)
@@ -17,6 +20,7 @@ The system SHALL display the current ACP session status in the chat interface.
 - **AND** the model and mode selectors SHALL remain visible but disabled
 
 #### Scenario: Show waking status
+
 - **GIVEN** a session transitioning from parked to active
 - **WHEN** the user sends a prompt or resumption begins
 - **THEN** the UI SHALL display a "waking" indicator (e.g., spinner)
@@ -24,9 +28,11 @@ The system SHALL display the current ACP session status in the chat interface.
 - **AND** any queued messages SHALL show "waiting" state
 
 ### Requirement: WebSocket broadcasts ACP status changes
+
 The system SHALL broadcast ACP status changes to all connected chat clients.
 
 #### Scenario: Status broadcast on parking
+
 - **GIVEN** an active ACP session
 - **WHEN** the session parks due to idle timeout
 - **THEN** the system SHALL broadcast to all chat WebSocket clients:
@@ -39,6 +45,7 @@ The system SHALL broadcast ACP status changes to all connected chat clients.
   ```
 
 #### Scenario: Status broadcast on resumption
+
 - **GIVEN** a parked ACP session
 - **WHEN** resumption completes successfully
 - **THEN** the system SHALL broadcast to all chat WebSocket clients:
@@ -51,6 +58,7 @@ The system SHALL broadcast ACP status changes to all connected chat clients.
   ```
 
 #### Scenario: Status broadcast during wake-up
+
 - **GIVEN** a parked ACP session
 - **WHEN** resumption begins (before ACP is ready)
 - **THEN** the system SHALL broadcast to all chat WebSocket clients:
@@ -63,6 +71,7 @@ The system SHALL broadcast ACP status changes to all connected chat clients.
   ```
 
 #### Scenario: Session reset notification
+
 - **GIVEN** a session where `loadSession()` failed during resumption
 - **WHEN** a new session is created instead
 - **THEN** the system SHALL broadcast:

@@ -15,9 +15,11 @@ The system excludes VCS-internal paths (`.git`, `.fossil`, `.fossil-settings`, e
 ## Capabilities
 
 ### New Capabilities
+
 - `path-exclusion-policy`: A centralized policy for built-in VCS and Mimo-internal path exclusions, consumed by file finder, impact analysis, VCS sync, and diff rendering to ensure consistent behavior.
 
 ### Modified Capabilities
+
 - `file-finder`: The file finder SHALL automatically exclude built-in system paths (`.git`, `.fossil`, `.fossil-settings`, `.mimo`, etc.) in addition to user-defined `.gitignore` and `.mimoignore` patterns.
 - `vcs-integration`: The fossil `ignore-glob` sync SHALL derive default patterns from the centralized exclusion list instead of its own `DEFAULT_FOSSIL_IGNORE_PATTERNS`.
 - `impact-tracking`: Impact analysis SHALL use the centralized exclusion function instead of its own `IMPACT_EXCLUDED_PATHS`.

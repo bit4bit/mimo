@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import type { BufferProps } from "./types.js";
 
@@ -13,18 +14,12 @@ export const PatchBuffer: FC<PatchBufferProps> = ({ sessionId }) => {
       class="buffer-container"
     >
       {/* Patch Tabs Bar */}
-      <div
-        id="patch-buffer-tabs"
-        class="tab-bar tab-bar-panel"
-      >
+      <div id="patch-buffer-tabs" class="tab-bar tab-bar-panel">
         {/* Tabs rendered by JS */}
       </div>
 
       {/* Context Bar */}
-      <div
-        id="patch-context-bar"
-        class="patch-context-bar hidden"
-      >
+      <div id="patch-context-bar" class="patch-context-bar hidden">
         <span id="patch-file-path" class="text-primary"></span>
         <div class="flex-grow"></div>
         <button
@@ -44,9 +39,7 @@ export const PatchBuffer: FC<PatchBufferProps> = ({ sessionId }) => {
       >
         {/* Original pane */}
         <div class="pane-column flex-grow flex flex-col">
-          <div class="pane-header with-divider">
-            ORIGINAL
-          </div>
+          <div class="pane-header with-divider">ORIGINAL</div>
           <div id="patch-original-pane" class="mono-pane"></div>
         </div>
 
@@ -55,9 +48,7 @@ export const PatchBuffer: FC<PatchBufferProps> = ({ sessionId }) => {
 
         {/* Patched pane */}
         <div class="pane-column flex-grow flex flex-col">
-          <div class="pane-header">
-            PATCHED
-          </div>
+          <div class="pane-header">PATCHED</div>
           <div id="patch-patched-pane" class="mono-pane"></div>
         </div>
       </div>

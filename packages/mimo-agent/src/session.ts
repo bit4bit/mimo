@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import {
   SessionInfo,
   FileChange,
@@ -55,7 +56,7 @@ export class SessionManager {
 
     // Clone/checkout logic handled by platform via fossil server
     // Just ensure the checkout directory exists
-    if (!await this.os.fs.exists(checkoutPath)) {
+    if (!(await this.os.fs.exists(checkoutPath))) {
       await this.os.fs.mkdir(checkoutPath, { recursive: true });
     }
 
@@ -134,7 +135,10 @@ export class SessionManager {
     }
 
     const ignored = (watchPath: string): boolean => {
-      const relativePath = relative(checkoutPath, watchPath).replaceAll("\\", "/");
+      const relativePath = relative(checkoutPath, watchPath).replaceAll(
+        "\\",
+        "/",
+      );
       if (relativePath === "." || relativePath.length === 0) {
         return false;
       }

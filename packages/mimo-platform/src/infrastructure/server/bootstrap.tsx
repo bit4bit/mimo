@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import type { MimoContext } from "../context/mimo-context.js";

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FileInfo, FileService } from "./types.js";
 import type { OS } from "../../infrastructure/os/types.js";
 import { isExcluded } from "./path-policy.js";

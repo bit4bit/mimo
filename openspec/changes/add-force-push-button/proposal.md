@@ -15,9 +15,11 @@ When the commit succeeds but push fails (e.g., non-fast-forward rejection), the 
 ## Capabilities
 
 ### New Capabilities
+
 - `force-push`: manual force-push of upstream commits from session UI
 
 ### Modified Capabilities
+
 - `session-management`: adds force-push action to session detail page
 
 ## Impact

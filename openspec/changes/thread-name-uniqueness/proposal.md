@@ -13,9 +13,11 @@ Currently, multiple chat threads within the same session can have identical name
 ## Capabilities
 
 ### New Capabilities
+
 - (none)
 
 ### Modified Capabilities
+
 - `chat-threads`: Add requirement that thread names must be unique per session (case-sensitive)
 
 ## Impact

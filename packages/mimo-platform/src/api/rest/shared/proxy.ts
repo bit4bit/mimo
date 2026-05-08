@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 /**
  * Shared proxy helper utilities for internal API calls.
  *

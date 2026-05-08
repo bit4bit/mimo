@@ -29,6 +29,7 @@ The platform uses Fossil as an intermediary between Git/Fossil upstream reposito
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Session creation clones repo → imports to Fossil → opens checkout
 - Fossil server starts on agent connect, stops on disconnect
 - Agent fetches sessions via `GET /api/agents/me/sessions`
@@ -37,6 +38,7 @@ The platform uses Fossil as an intermediary between Git/Fossil upstream reposito
 - User commits from `checkout/` → exports to `upstream/` → pushes
 
 **Non-Goals:**
+
 - Bi-directional sync from upstream to Fossil proxy (one-time import only)
 - Real-time file watching from platform
 - Multi-user session collaboration
@@ -56,11 +58,13 @@ sessions/<session-id>/
 ```
 
 **Rationale:**
+
 - `upstream/` preserves original repository for pushing
 - `repo.fossil` isolates agent work from upstream
 - `checkout/` is canonical for file sync and commits
 
 **Alternative:** Single Fossil repo with push back to upstream
+
 - **Rejected:** Requires bidirectional sync, more complex
 
 ### 2. Fossil Server Lifecycle
@@ -73,11 +77,13 @@ Agent disconnects → stop fossil servers → release ports
 ```
 
 **Rationale:**
+
 - No server running = no resource waste when idle
 - Agent-driven lifecycle = clear ownership
 - Platform tracks port assignments in memory (could persist to session.yaml later)
 
 **Alternative:** Start on session creation, stop on session delete
+
 - **Rejected:** Wastes ports when session has no active agent
 
 ### 3. Token Design
@@ -85,9 +91,9 @@ Agent disconnects → stop fossil servers → release ports
 **Decision:** Tokens contain only `{agentId, owner}`.
 
 ```typescript
-const token = await new SignJWT({ 
-  agentId: agent.id, 
-  owner: agent.owner 
+const token = await new SignJWT({
+  agentId: agent.id,
+  owner: agent.owner,
 })
   .setProtectedHeader({ alg: "HS256" })
   .setIssuedAt()
@@ -96,11 +102,13 @@ const token = await new SignJWT({
 ```
 
 **Rationale:**
+
 - One agent can have multiple sessions
 - Session assignments change dynamically
 - Agent fetches current sessions via API
 
 **Alternative:** Token includes sessionIds array
+
 - **Rejected:** Requires re-issuing token when sessions assigned/unassigned
 
 ### 4. Agent Session Discovery
@@ -115,17 +123,19 @@ const token = await new SignJWT({
     projectId: "...",
     sessionName: "fix-auth-bug",
     status: "active",
-    port: 8042
-  }
-]
+    port: 8042,
+  },
+];
 ```
 
 **Rationale:**
+
 - Simple REST call on agent startup and after connect
 - No state in token, all state in API
 - Can add filtering/pagination later
 
 **Alternative:** WebSocket message with session list
+
 - **Rejected:** REST is simpler for one-time fetch; WebSocket for real-time updates
 
 ### 5. Commit Flow
@@ -149,11 +159,13 @@ git push origin main
 ```
 
 **Rationale:**
+
 - Fossil tracks all changes in `repo.fossil`
 - `upstream/` stays in sync for push to origin
 - Conflicts detected during `fossil export`
 
 **Alternative:** Direct git commit in upstream, sync to fossil
+
 - **Rejected:** Loses fossil benefits (audit trail, simpler merge)
 
 ### 6. Port Management
@@ -176,11 +188,13 @@ function assignPort(): number | null {
 ```
 
 **Rationale:**
+
 - Simple implementation
 - Restart-safe (ports released on process restart)
 - 1000 sessions supported
 
 **Alternative:** Persist ports in session.yaml
+
 - **Rejected:** Complexity for little benefit; ports released on restart anyway
 
 ## Risks / Trade-offs

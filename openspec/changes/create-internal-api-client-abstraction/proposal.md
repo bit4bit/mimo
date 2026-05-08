@@ -16,6 +16,7 @@ const result = await response.json();
 ```
 
 This pattern is repeated 100+ times across the codebase, making it:
+
 - Error-prone (inconsistent error handling)
 - Hard to maintain (change token extraction in 20 places)
 - Verbose (obscures business logic)
@@ -34,6 +35,7 @@ Create a shared **Internal API Client** abstraction that provides:
 5. **Reduced boilerplate**: 5 lines → 1 line per API call
 
 Before:
+
 ```typescript
 const token = extractTokenFromCookie(c);
 if (!token) return c.redirect("/auth/login");
@@ -45,6 +47,7 @@ const result = await res.json();
 ```
 
 After:
+
 ```typescript
 const apiClient = createInternalApiClient(c, mimoContext);
 const result = await apiClient.get('/sessions');
@@ -54,9 +57,11 @@ if (!result.success) { return c.html(<ErrorPage />, result.code); }
 ## Capabilities
 
 ### New Capabilities
+
 - `internal-api-client`: Shared abstraction for calling internal API from web routes
 
 ### Modified Capabilities
+
 <!-- None - this is refactoring existing code -->
 
 ## Impact

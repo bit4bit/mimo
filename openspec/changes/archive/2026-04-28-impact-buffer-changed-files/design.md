@@ -3,6 +3,7 @@
 ### 1. `window.EditBuffer.openFile(path)`
 
 New public method on `window.EditBuffer` that:
+
 - Calls `fetchAndAddFile(sessionId, path, callback)`
 - Switches the left frame to the edit buffer tab
 - Focuses the edit buffer content area
@@ -47,8 +48,8 @@ preserving current approve/decline behavior.
 ```javascript
 window.MIMO_PATCH_BUFFER.addPatch({
   sessionId,
-  originalPath: path,       // relative path — fetched from upstream endpoint
-  patchPath: path,           // same relative path — fetched from workspace endpoint
+  originalPath: path, // relative path — fetched from upstream endpoint
+  patchPath: path, // same relative path — fetched from workspace endpoint
   originalEndpoint: "files/upstream-content",
   sourceBufferId: "impact",
 });
@@ -57,6 +58,7 @@ window.MIMO_PATCH_BUFFER.addPatch({
 ### 6. CSS in `ImpactBuffer.tsx`
 
 Classes (already implemented):
+
 - `.impact-file-row` — flex row, cursor pointer, hover highlight
 - `.impact-file-status` — colored monospace badge (12px)
 - `.impact-file-path` — truncated monospace path (12px)

@@ -19,9 +19,11 @@ Users need a fast, reliable way to clone the current session's agent workspace o
 ## Capabilities
 
 ### New Capabilities
+
 - `session-clone-command`: Provide a session-level UI action that displays and copies an authenticated Fossil open command for cloning the current agent workspace.
 
 ### Modified Capabilities
+
 - `session-management`: Extend session provisioning to ensure every session has a persisted `dev` Fossil user credential pair and a migration path for older sessions.
 
 ## Impact

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 
 export interface SessionListItem {
@@ -127,9 +128,7 @@ export const SessionList: FC<SessionListProps> = ({
                   <div>
                     <span class={`session-status ${s.status}`}>{s.status}</span>
                     {s.status === "closed" && s.closeReason && (
-                      <div class="text-muted text-xs mt-2">
-                        {s.closeReason}
-                      </div>
+                      <div class="text-muted text-xs mt-2">{s.closeReason}</div>
                     )}
                   </div>
                 </td>

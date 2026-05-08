@@ -7,12 +7,14 @@ El UI actual crea el elemento del mensaje "Agent" cuando llega `thought_start` o
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Confirmar visualmente que el agente recibió el mensaje y que el proveedor está en proceso, antes de que llegue el primer chunk.
 - Reutilizar el mismo elemento DOM del mensaje Agent a lo largo de todo el ciclo (espera → pensando → respondiendo).
 - No modificar la persistencia del chat (chat.jsonl) ni el protocolo HTTP.
 
 **Non-Goals:**
-- No confirmar que el *proveedor* (opencode/claude) está activamente generando — eso ya lo hace `thought_start`.
+
+- No confirmar que el _proveedor_ (opencode/claude) está activamente generando — eso ya lo hace `thought_start`.
 - No agregar timeouts ni reintentos si el agente no responde.
 - No cambiar el comportamiento cuando no hay agente conectado.
 

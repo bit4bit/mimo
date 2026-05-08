@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 /**
  * Mock OS Adapter — Test double for OS abstractions.
  *
@@ -140,7 +141,11 @@ export class MockFileSystem implements FileSystem {
     return node.content ?? "";
   }
 
-  async writeFile(path: string, content: string, options?: WriteFileOptions): Promise<void> {
+  async writeFile(
+    path: string,
+    content: string,
+    options?: WriteFileOptions,
+  ): Promise<void> {
     const parentInfo = this.getParent(path);
     if (!parentInfo) throw new Error(`ENOENT: ${path}`);
     const { parent, name } = parentInfo;
@@ -211,7 +216,10 @@ export class MockFileSystem implements FileSystem {
     await this.unlink(oldPath);
   }
 
-  async rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void> {
+  async rm(
+    path: string,
+    options?: { recursive?: boolean; force?: boolean },
+  ): Promise<void> {
     const node = this.getNode(path);
     if (!node) {
       if (options?.force) return;
@@ -225,7 +233,10 @@ export class MockFileSystem implements FileSystem {
     parentInfo.parent.delete(parentInfo.name);
   }
 
-  async readdir(path: string, options?: ReadDirOptions): Promise<string[] | DirEnt[]> {
+  async readdir(
+    path: string,
+    options?: ReadDirOptions,
+  ): Promise<string[] | DirEnt[]> {
     const node = this.getNode(path);
     if (!node) throw new Error(`ENOENT: ${path}`);
     if (node.type !== "dir") throw new Error(`ENOTDIR: ${path}`);
@@ -258,7 +269,11 @@ export class MockFileSystem implements FileSystem {
     };
   }
 
-  async cp(src: string, dest: string, options?: { recursive?: boolean }): Promise<void> {
+  async cp(
+    src: string,
+    dest: string,
+    options?: { recursive?: boolean },
+  ): Promise<void> {
     const srcNode = this.getNode(src);
     if (!srcNode) throw new Error(`ENOENT: ${src}`);
     if (srcNode.type === "dir" && !options?.recursive) {
@@ -266,16 +281,22 @@ export class MockFileSystem implements FileSystem {
     }
     if (srcNode.type === "dir") {
       await this.mkdir(dest, { recursive: true });
-      const entries = await this.readdir(src) as string[];
+      const entries = (await this.readdir(src)) as string[];
       for (const entry of entries) {
-        await this.cp(`${src}/${entry}`, `${dest}/${entry}`, { recursive: true });
+        await this.cp(`${src}/${entry}`, `${dest}/${entry}`, {
+          recursive: true,
+        });
       }
     } else {
       await this.writeFile(dest, srcNode.content ?? "");
     }
   }
 
-  async utimes(path: string, atime: Date | number, mtime: Date | number): Promise<void> {
+  async utimes(
+    path: string,
+    atime: Date | number,
+    mtime: Date | number,
+  ): Promise<void> {
     const node = this.getNode(path);
     if (!node) throw new Error(`ENOENT: ${path}`);
     node.atime = atime instanceof Date ? atime : new Date(atime);

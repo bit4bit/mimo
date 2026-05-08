@@ -92,7 +92,9 @@ describe("Chat Input Recovery", () => {
       // Simulate usage_update arriving
       clearStreamingTimeoutMock();
 
-      return expect(waitForEvent(timeoutEvent, { timeout: 100 })).rejects.toThrow();
+      return expect(
+        waitForEvent(timeoutEvent, { timeout: 100 }),
+      ).rejects.toThrow();
     });
   });
 

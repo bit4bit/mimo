@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import { Layout } from "../../../shared/components/Layout.js";
 import {
@@ -119,9 +120,7 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
       label: "Close Reason",
       render: (session) =>
         session.status === "closed" && session.closeReason ? (
-          <span class="close-reason-text">
-            {session.closeReason}
-          </span>
+          <span class="close-reason-text">{session.closeReason}</span>
         ) : (
           <span class="close-reason-empty">—</span>
         ),

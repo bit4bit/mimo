@@ -4,7 +4,8 @@ import type { AcpClientCallbacks } from "../src/acp/client.js";
 // Track WebSocket messages sent
 const recordedMessages: Array<Record<string, unknown>> = [];
 // Track lifecycleManager.recordActivity calls
-const recordedActivities: Array<{ sessionId: string; chatThreadId: string }> = [];
+const recordedActivities: Array<{ sessionId: string; chatThreadId: string }> =
+  [];
 
 // Mock jose before importing index.ts
 mock.module("jose", () => ({

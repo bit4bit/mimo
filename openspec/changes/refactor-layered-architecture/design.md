@@ -13,6 +13,7 @@ This co-location makes it impossible to answer "where is the business logic?" wi
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Establish a strict four-layer architecture: Domain → API → Web, supported by Infrastructure
 - Ensure each layer has a single, well-defined responsibility
 - Make business logic discoverable and testable in isolation
@@ -20,6 +21,7 @@ This co-location makes it impossible to answer "where is the business logic?" wi
 - Keep all files related to a domain feature within a clear layer boundary
 
 **Non-Goals:**
+
 - No behavioral changes to any endpoint, page, or WebSocket handler
 - No changes to external API contracts or database schemas
 - No new features or capabilities beyond the structural reorganization
@@ -28,18 +30,23 @@ This co-location makes it impossible to answer "where is the business logic?" wi
 ## Decisions
 
 ### Decision 1: Four-layer structure over three-layer
+
 **Rationale**: We evaluated a three-layer approach (combine API + Infrastructure), but the DI context and server bootstrap are fundamentally different from API controllers. Infrastructure code has no HTTP knowledge, while API code is entirely HTTP-centric. Separating them prevents circular dependencies and makes testing easier.
 
 ### Decision 2: Merge `api/internal/` into `api/rest/` rather than keep parallel structures
+
 **Rationale**: The `api/internal/` directory exists because it uses JWT Bearer token auth instead of cookie auth. However, both serve the same purpose: JSON REST APIs. Instead of maintaining two parallel API hierarchies, we unify them under `api/rest/` with sub-folders or naming conventions for auth variants. This reduces cognitive load.
 
 ### Decision 3: Move `components/` to `web/components/` and `*/routes.tsx` (HTML) to `web/pages/`
+
 **Rationale**: The current `components/` folder contains full page components (e.g., `DashboardPage.tsx`) and shared UI primitives (e.g., `DataTable.tsx`). Moving all frontend code to `web/` establishes a clear presentation layer boundary. Pages become route handlers; shared components become reusable UI.
 
 ### Decision 4: Keep domain services and repositories in the same `domain/` subfolder
+
 **Rationale**: Services and repositories are tightly coupled — services depend on repositories. Separating them into `services/` and `repositories/` folders would fragment domain logic and make navigation harder. Co-locating them in `domain/<feature>/` preserves the "related code together" principle.
 
 ### Decision 5: Preserve existing file names during migration
+
 **Rationale**: Renaming files adds cognitive overhead during code review. We move files first, then optionally rename in follow-up changes. This makes the diff focused on location changes rather than content + location changes.
 
 ## Risks / Trade-offs

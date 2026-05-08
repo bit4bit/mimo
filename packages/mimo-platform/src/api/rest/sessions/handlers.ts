@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 /**
  * Request handlers for the sessions internal API.
  *
@@ -244,7 +245,9 @@ export async function createSessionHandler(
       mcpServerIds: body.mcpServerIds,
       sessionTtlDays: body.sessionTtlDays,
       priority: body.priority,
-      ...(body.instructions !== undefined && { instructions: body.instructions }),
+      ...(body.instructions !== undefined && {
+        instructions: body.instructions,
+      }),
     });
 
     return c.json(
@@ -336,7 +339,8 @@ export async function updateSessionHandler(
     if (body.frameState !== undefined) updates.frameState = body.frameState;
     if (body.status !== undefined) updates.status = body.status;
     if (body.closeReason !== undefined) updates.closeReason = body.closeReason;
-    if (body.instructions !== undefined) updates.instructions = body.instructions;
+    if (body.instructions !== undefined)
+      updates.instructions = body.instructions;
 
     const updated = await mimoContext.repos.sessions.update(id, updates);
 
@@ -641,12 +645,16 @@ export async function addChatThreadHandler(
   if (!instructions) {
     instructions = session.instructions;
     if (!instructions) {
-      const project = await mimoContext.repos.projects.findById(session.projectId);
+      const project = await mimoContext.repos.projects.findById(
+        session.projectId,
+      );
       instructions = project?.instructions;
     }
   }
 
-  let thread: Awaited<ReturnType<typeof mimoContext.repos.sessions.addChatThread>>;
+  let thread: Awaited<
+    ReturnType<typeof mimoContext.repos.sessions.addChatThread>
+  >;
   try {
     thread = await mimoContext.repos.sessions.addChatThread(sessionId, {
       name: body.name,
@@ -740,7 +748,9 @@ export async function updateChatThreadHandler(
   if (body.state !== undefined) updates.state = body.state;
   if (body.instructions !== undefined) updates.instructions = body.instructions;
 
-  let updated: Awaited<ReturnType<typeof mimoContext.repos.sessions.updateChatThread>>;
+  let updated: Awaited<
+    ReturnType<typeof mimoContext.repos.sessions.updateChatThread>
+  >;
   try {
     updated = await mimoContext.repos.sessions.updateChatThread(
       sessionId,

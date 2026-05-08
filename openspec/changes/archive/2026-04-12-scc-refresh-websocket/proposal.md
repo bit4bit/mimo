@@ -15,6 +15,7 @@ Current implementation polls `/sessions/:id/impact` every 5 seconds, causing unn
 ## Scope
 
 **In Scope:**
+
 - Remove automatic polling from SessionDetailPage
 - Add refresh button to ImpactBuffer
 - Add WebSocket message handlers for impact updates
@@ -22,6 +23,7 @@ Current implementation polls `/sessions/:id/impact` every 5 seconds, causing unn
 - Track calculation state to prevent duplicate requests
 
 **Out of Scope:**
+
 - Changing SCC installation/behavior
 - Modifying cache mechanism (just expose stale status)
 - Auto-recalculation on file change (must be manual)
@@ -36,11 +38,11 @@ Current implementation polls `/sessions/:id/impact` every 5 seconds, causing unn
 
 ## Risks
 
-| Risk | Mitigation |
-|------|------------|
-| WebSocket disconnections | Stale status recalculated on reconnect |
-| Long-running scc | Show progress indicator, allow cancellation |
-| Concurrent refreshes | Track `calculating` state per session |
+| Risk                     | Mitigation                                  |
+| ------------------------ | ------------------------------------------- |
+| WebSocket disconnections | Stale status recalculated on reconnect      |
+| Long-running scc         | Show progress indicator, allow cancellation |
+| Concurrent refreshes     | Track `calculating` state per session       |
 
 ## Related
 

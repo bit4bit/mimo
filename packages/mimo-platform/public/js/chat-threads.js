@@ -907,7 +907,9 @@ async function showCreateThreadDialog() {
       const modelSelect = document.querySelector("#new-thread-model");
       const modeSelect = document.querySelector("#new-thread-mode");
       const agentSelect = document.querySelector("#new-thread-agent");
-      const instructionsInput = document.querySelector("#new-thread-instructions");
+      const instructionsInput = document.querySelector(
+        "#new-thread-instructions",
+      );
 
       const name = nameInput?.value.trim();
       if (!name) {
@@ -936,7 +938,13 @@ async function showCreateThreadDialog() {
 
       const instructions = instructionsInput?.value.trim() || "";
 
-      const newThread = await createThread(name, model, mode, assignedAgentId, instructions);
+      const newThread = await createThread(
+        name,
+        model,
+        mode,
+        assignedAgentId,
+        instructions,
+      );
       if (newThread) {
         dialog.remove();
 
@@ -988,11 +996,16 @@ async function showCreateThreadDialog() {
 
 function getThreadStateIcon(state) {
   switch (state) {
-    case "active": return "🟢";
-    case "disconnected": return "🔴";
-    case "waking": return "⏳";
-    case "parked": return "🟡";
-    default: return "⚪";
+    case "active":
+      return "🟢";
+    case "disconnected":
+      return "🔴";
+    case "waking":
+      return "⏳";
+    case "parked":
+      return "🟡";
+    default:
+      return "⚪";
   }
 }
 

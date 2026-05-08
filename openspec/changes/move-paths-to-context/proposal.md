@@ -15,16 +15,21 @@ The codebase currently has two sources of truth for path management: `config/pat
 ## Capabilities
 
 ### New Capabilities
+
 <!-- No new capabilities - this is pure refactoring with no behavioral changes -->
-*None*
+
+_None_
 
 ### Modified Capabilities
+
 <!-- No spec-level requirement changes - pure implementation refactoring -->
-*None*
+
+_None_
 
 ## Impact
 
 **Affected Code:**
+
 - `src/config/paths.ts` (deleted)
 - `src/sessions/chat.ts` (refactored to service)
 - `src/sessions/frame-state.ts` (refactored to service)
@@ -37,9 +42,11 @@ The codebase currently has two sources of truth for path management: `config/pat
 - 4+ test files using path imports
 
 **Breaking Changes:**
+
 - None for external APIs
 - Internal: Services must be obtained from mimoContext rather than direct import
 
 **Dependencies:**
+
 - Requires mimoContext to be initialized before any path-dependent operations
 - No new external dependencies

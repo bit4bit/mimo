@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { Hono } from "hono";
 import { Credential } from "../../../../domain/credentials/repository";
 import { createAuthMiddleware } from "../../../../auth/middleware";
@@ -116,8 +117,15 @@ export function createProjectsRoutes(
   projects.get("/new", auth, async (c) => {
     const user = c.get("user") as { username: string };
     const credentials = await credentialRepository.findByOwner(user.username);
-    const defaultInstructions = mimoContext.services.config.get("defaultProjectInstructions") as string;
-    return c.html(<ProjectCreatePage credentials={credentials} defaultInstructions={defaultInstructions} />);
+    const defaultInstructions = mimoContext.services.config.get(
+      "defaultProjectInstructions",
+    ) as string;
+    return c.html(
+      <ProjectCreatePage
+        credentials={credentials}
+        defaultInstructions={defaultInstructions}
+      />,
+    );
   });
 
   // Create project (POST /projects)
@@ -245,7 +253,11 @@ export function createProjectsRoutes(
     if (!result.success) {
       const credentials = await credentialRepository.findByOwner(user.username);
       return c.html(
-        <ProjectCreatePage credentials={credentials} error={result.error} defaultInstructions={instructions} />,
+        <ProjectCreatePage
+          credentials={credentials}
+          error={result.error}
+          defaultInstructions={instructions}
+        />,
         result.status >= 400 && result.status < 500 ? result.status : 500,
       );
     }

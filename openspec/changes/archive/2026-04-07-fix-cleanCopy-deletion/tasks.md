@@ -3,10 +3,12 @@
 ## Tasks
 
 ### Task 1: Write Failing Test
+
 - [x] **Verify tests exist** - Tests already in `commits-bug-fix.test.ts`
 - [x] **Run tests to confirm failure** - Tests were failing with original implementation
 
 ### Task 2: Implement Fixed Algorithm
+
 - [x] **Read current `cleanCopyToUpstream` implementation**
 - [x] **Add `fossil ls` and `git ls-files` comparison** to detect deleted files
 - [x] **Rewrite sync logic**:
@@ -16,10 +18,12 @@
 - [x] **Exclude VCS metadata** (`.git/`, `.fossil`, `.fslckout`) from copy
 
 ### Task 3: Verify Implementation
+
 - [x] **Run existing tests** - All 3 tests in `commits-bug-fix.test.ts` pass
 - [x] **Run related test suites** - commits.test.ts and sessions.test.ts pass
 
 ## Acceptance Criteria
+
 - [x] `.opencode/` directories are preserved in upstream
 - [x] Files deleted via `fossil rm` are removed from upstream
 - [x] New files created by agent are copied to upstream

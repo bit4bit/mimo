@@ -17,9 +17,11 @@ The mimo-agent package currently mixes synchronous and asynchronous operations. 
 ## Capabilities
 
 ### New Capabilities
+
 - `async-filesystem`: Asynchronous file system abstraction with Promise-based API
 
 ### Modified Capabilities
+
 - (none — this is a pure implementation refactor with no behavioral changes to user-facing capabilities)
 
 ## Impact

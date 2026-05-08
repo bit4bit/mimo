@@ -13,9 +13,11 @@ The Lines of Code section in the Impact Buffer currently displays only delta val
 ## Capabilities
 
 ### New Capabilities
+
 <!-- None - this is a UI refinement of existing impact-buffer capability -->
 
 ### Modified Capabilities
+
 - `impact-buffer`: Update LOC display to show absolute values with deltas matching complexity format
 
 ## Impact

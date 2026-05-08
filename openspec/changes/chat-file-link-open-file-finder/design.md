@@ -34,6 +34,7 @@ This ordering is implemented in both server-side filtering (`findFiles`) and cli
 ### 4) File token detection
 
 Tokens are matched as file-like using two rules:
+
 1. **Path tokens** — token contains `/` or `\`; accepted regardless of extension
 2. **Filename tokens** — token matches `name.ext` where `ext` is in the known extension set
 

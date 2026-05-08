@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { AcpClient } from "./acp/index.js";
 import type { ModelState, ModeState } from "./types.js";
 

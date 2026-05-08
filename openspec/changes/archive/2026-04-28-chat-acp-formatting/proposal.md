@@ -20,10 +20,12 @@ The chat UI currently displays raw JSON from ACP responses, making it unreadable
 ## Capabilities
 
 ### New Capabilities
+
 - `acp-chat-formatting`: Parse and format ACP streaming responses with proper separation of thoughts, messages, and metadata
 
 ### Modified Capabilities
-- *(none - no existing spec changes)*
+
+- _(none - no existing spec changes)_
 
 ## Impact
 

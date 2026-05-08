@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { BufferConfig, FrameId } from "./types.js";
 
 const registry: BufferConfig[] = [];

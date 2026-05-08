@@ -12,9 +12,11 @@ The summary domain handles session summary generation by coordinating with agent
 ## Capabilities
 
 ### New Capabilities
+
 - `internal-api-summary`: Internal REST API for session summary operations (refresh summary, get latest summary)
 
 ### Modified Capabilities
+
 <!-- None - this is implementation refactoring -->
 
 ## Impact

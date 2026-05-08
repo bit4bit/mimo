@@ -7,12 +7,14 @@ The Codex ACP adapter (`codex-acp`) is distributed by Zed as an ACP-compliant bi
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Allow mimo-agent to spawn Codex via the existing provider abstraction.
 - Surface Codex model and mode configuration to the platform without custom wiring.
 - Forward key streaming updates (thought, message, usage, plan/tool metadata) using the existing callback pathways.
 - Document setup requirements so operators can install `codex-acp` and supply credentials.
 
 **Non-Goals:**
+
 - Build Codex-specific UI in mimo-platform or change ACP transport semantics.
 - Introduce runtime detection or auto-installation of the `codex-acp` binary.
 - Support per-session provider switching beyond the current agent-level flag.
@@ -21,29 +23,38 @@ The Codex ACP adapter (`codex-acp`) is distributed by Zed as an ACP-compliant bi
 ## Decisions
 
 ### Provider implementation mirrors existing pattern
+
 Create `CodexProvider` under `src/acp/providers` implementing `IAcpProvider`. `spawn()` executes `codex-acp` (no args) with stdio pipes. This keeps provider logic encapsulated alongside Opencode/Claude and lets the session manager treat Codex identically to other adapters.
 
 ### Prefer configOptions for state extraction, fall back to legacy fields
+
 Codex returns `config_options` for model and mode selections; we will parse these first to populate `ModelState` / `ModeState`. If absent (older builds), we fall back to `models`/`modes` fields. This mirrors Claude’s approach and keeps behaviour consistent across providers.
 
 ### Use setSessionConfigOption for model/mode updates
+
 Unlike Opencode, Codex implements the standard ACP `set_session_config_option`. `CodexProvider.setModel`/`setMode` will call `connection.setSessionConfigOption` using the option IDs captured during initialization. This avoids Codex-specific RPCs in the core client.
 
 ### Map streaming updates conservatively
+
 `mapUpdateType` will translate:
+
 - `agent_thought_chunk` → `thought_chunk`
 - `agent_message_chunk` → `message_chunk`
 - `usage_update` → `usage_update`
 - `plan_update`, `tool_call_update`, `config_option_update`, `available_commands_update` → return strings so they flow through `onGenericUpdate` (allowing the platform to log them) rather than discarding. Unrecognized updates are dropped (return `null`).
 
 ### Add dependency on npm package
+
 Add `@zed-industries/codex-acp` (pin latest stable, currently `0.11.1`) to `packages/mimo-agent/package.json`. While the agent ultimately shells out to the binary, bundling the package simplifies local installs (`bun install` provides `node_modules/.bin/codex-acp`). We document that operators may also install a system binary as long as `codex-acp` is on PATH.
 
 ### Extend provider selection CLI validation
+
 Update `AgentConfig.provider` type union, CLI parsing, and error messaging so `--provider codex` is accepted and unknown values print the expanded list. Provider mapping table stays in `index.ts`.
 
 ### Test coverage mirrors existing providers
+
 Add Bun tests that:
+
 - Assert the agent starts (logs “Starting…”) when `--provider codex` is passed.
 - Validate `CodexProvider.mapUpdateType` / `extractState` / `setModel` contract stubs similar to the existing provider test suites (mocking the connection).
 - Ensure provider name constant and CLI validation reflect the new option.

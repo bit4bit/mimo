@@ -7,12 +7,14 @@
 Location: `packages/*/test/`
 
 Characteristics:
+
 - Fast (milliseconds)
 - No external process spawning
 - Mocked external dependencies
 - Isolated business logic
 
 Examples:
+
 - Repository/database tests with temp directories
 - Hono route handler tests
 - Pure function tests
@@ -24,17 +26,20 @@ Examples:
 Location: `packages/*/integration-test/`
 
 Characteristics:
+
 - Slower (seconds+)
 - Spawn external processes via `Bun.spawn`
 - Cross-system/provider interactions
 - May include external network dependencies
 
 Belongs here:
+
 - Agent process spawning and CLI argument parsing
 - Provider selection and auth flows
 - Cross-system workflows that spawn external tools
 
 Does not belong here:
+
 - VCS module tests for module functionality
 - External command usage tied to module internals
 - Module-internal execSync tests

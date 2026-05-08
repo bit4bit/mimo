@@ -17,9 +17,11 @@ Users need a way to clear the ACP agent's context/memory while preserving the ch
 ## Capabilities
 
 ### New Capabilities
+
 - `session-clear`: Ability to clear/reset an ACP session while preserving chat history and mimo session state
 
 ### Modified Capabilities
+
 - None (this is purely a new feature that doesn't change existing spec-level requirements)
 
 ## Impact

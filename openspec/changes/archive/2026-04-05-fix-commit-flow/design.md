@@ -5,6 +5,7 @@
 ### Current State
 
 The session directory structure is:
+
 ```
 sessions/<session-id>/
 ├── session.yaml
@@ -14,10 +15,12 @@ sessions/<session-id>/
 ```
 
 The current commit implementation in `commits/service.ts`:
+
 1. Calls `vcs.commit(checkoutPath, message)` - **FAILS** because checkout/ has no repository
 2. Calls `vcs.sync(checkoutPath, "push")` - **FAILS** because there's no repo to push from
 
 The agent workflow is:
+
 1. Agent clones from `repo.fossil` to its local workdir
 2. Agent makes edits and continuously commits/pushes to `repo.fossil`
 3. Platform should sync from `repo.fossil` → `checkout/` → `upstream/` → remote
@@ -40,6 +43,7 @@ The agent workflow is:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Rename `checkout/` to `agent-workspace/` for clarity
 - Implement correct commit flow: fossil sync → copy → upstream commit → push
 - Support both Git and Fossil upstream repositories
@@ -47,6 +51,7 @@ The agent workflow is:
 - Handle errors gracefully with user-friendly messages
 
 **Non-Goals:**
+
 - Real-time bidirectional sync (out of scope)
 - Conflict resolution UI (just fail and show message)
 - Partial file commits (always commit all changes)
@@ -59,17 +64,20 @@ The agent workflow is:
 **Decision:** Rename `checkoutPath` to `agentWorkspacePath` throughout codebase
 
 **Rationale:**
+
 - "checkout" implies a repository checkout, but this is just a working directory
 - "agent-workspace" clearly indicates it's for agent file operations
 - Aligns with the actual usage pattern
 
 **Implementation:**
+
 - Update `sessions/repository.ts`: `getCheckoutPath()` → `getAgentWorkspacePath()`
 - Update Session interface: `checkoutPath: string` → `agentWorkspacePath: string`
 - Update SessionData YAML structure
 - Update all references in routes and services
 
 **Alternative:** Keep existing name
+
 - **Rejected:** The name is actively misleading about the architecture
 
 ### 2. Commit Flow Architecture
@@ -112,12 +120,14 @@ User clicks "Commit"
 ```
 
 **Rationale:**
+
 - Agent continuously pushes to fossil, so we must sync first
 - Clean slate ensures no stale files in upstream
 - Commit in upstream is where the original repository lives
 - Push sends to the user's remote repository
 
 **Commit Message Format:**
+
 ```typescript
 const message = `Mimo commit at ${new Date().toISOString()}`;
 // Example: "Mimo commit at 2026-04-05T14:30:00.000Z"
@@ -133,25 +143,26 @@ async fossilUp(agentWorkspacePath: string): Promise<VCSResult>
 
 // Copy files from agent-workspace to upstream (clean slate)
 async cleanCopyToUpstream(
-  agentWorkspacePath: string, 
+  agentWorkspacePath: string,
   upstreamPath: string
 ): Promise<VCSResult>
 
 // Commit in upstream with timestamp message
 async commitUpstream(
-  upstreamPath: string, 
+  upstreamPath: string,
   repoType: "git" | "fossil"
 ): Promise<VCSResult>
 
 // Push upstream to remote
 async pushUpstream(
-  upstreamPath: string, 
+  upstreamPath: string,
   repoType: "git" | "fossil",
   branch?: string
 ): Promise<VCSResult>
 ```
 
 **Rationale:**
+
 - Each step is independent and testable
 - Separates concerns: sync, copy, commit, push
 - Allows specific error handling per step
@@ -159,13 +170,16 @@ async pushUpstream(
 **Clean Slate Copy Details:**
 
 Preserve in upstream/:
+
 - `.git/` directory (for Git repos)
 - `.fossil` file (for Fossil repos)
 
 Delete from upstream/:
+
 - All other files and directories
 
 Copy from agent-workspace/:
+
 - All files and directories
 - Exclude: `.fossil` file (agent's fossil DB)
 - Exclude: `.fslckout/` directory
@@ -174,16 +188,17 @@ Copy from agent-workspace/:
 
 **Decision:** Fail fast with clear error messages
 
-| Step | Error | Behavior |
-|------|-------|----------|
-| fossil up | Sync fails | Return error: "Failed to sync with agent" |
-| Clean copy | Copy fails | Return error: "Failed to copy files" |
-| Commit | No changes | Return: "No changes to commit" |
-| Commit | Commit fails | Return error: "Failed to commit" |
-| Push | Push rejected | Return error: "Push failed" (show git/fossil output) |
-| Push | Network error | Return error: "Network error during push" |
+| Step       | Error         | Behavior                                             |
+| ---------- | ------------- | ---------------------------------------------------- |
+| fossil up  | Sync fails    | Return error: "Failed to sync with agent"            |
+| Clean copy | Copy fails    | Return error: "Failed to copy files"                 |
+| Commit     | No changes    | Return: "No changes to commit"                       |
+| Commit     | Commit fails  | Return error: "Failed to commit"                     |
+| Push       | Push rejected | Return error: "Push failed" (show git/fossil output) |
+| Push       | Network error | Return error: "Network error during push"            |
 
 **Rationale:**
+
 - Simple failure model - no retry logic
 - Each step validates before proceeding
 - User sees exactly what went wrong
@@ -193,16 +208,19 @@ Copy from agent-workspace/:
 **Decision:** Rename field in session.yaml
 
 From:
+
 ```yaml
 checkoutPath: /path/to/checkout
 ```
 
 To:
+
 ```yaml
 agentWorkspacePath: /path/to/agent-workspace
 ```
 
 **Rationale:**
+
 - Breaking change but necessary for clarity
 - Existing sessions will need to be recreated or migrated
 
@@ -235,6 +253,7 @@ agentWorkspacePath: /path/to/agent-workspace
 ## Migration Plan
 
 ### Phase 1: Code Changes
+
 1. Update `sessions/repository.ts` with renamed methods and field
 2. Update `sessions/routes.tsx` with new path references
 3. Update `sync/service.ts` with renamed paths
@@ -243,11 +262,13 @@ agentWorkspacePath: /path/to/agent-workspace
 6. Update all tests
 
 ### Phase 2: Session Recreation
+
 - Old sessions with `checkoutPath` won't work
 - Users need to create new sessions
 - Document this as a breaking change
 
 ### Rollback
+
 - If issues arise, can revert to previous commit
 - Old code still exists in git history
 

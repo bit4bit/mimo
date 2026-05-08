@@ -101,13 +101,17 @@ File content (first line of file content is line 1):
 ## Key Design Decisions
 
 ### 1. No Line Numbers
+
 The prompt explicitly says "Do NOT use line numbers." This prevents the root cause of failures.
 
 ### 2. Exact Copy Emphasis
+
 Repeated emphasis on copying EXACT code including indentation prevents mismatch failures.
 
 ### 3. Four Concrete Examples
+
 The prompt includes:
+
 - Replace (most common)
 - Insert (anchor pattern)
 - Delete (empty replace)
@@ -116,27 +120,30 @@ The prompt includes:
 This covers all operations the LLM needs.
 
 ### 4. Minimal Explanations
+
 "Do NOT add explanations outside the blocks" keeps responses clean and parseable.
 
 ### 5. Clear Out-of-Scope Signal
+
 Simple string `OUT_OF_SCOPE_CHANGE_REQUIRED` for cases requiring multi-file changes.
 
 ## Comparison with Old Prompt
 
-| Aspect | Old (Line Numbers) | New (SEARCH/REPLACE) |
-|--------|-------------------|---------------------|
-| Format | JSON with line numbers | Text blocks with delimiters |
-| Line counting | Required (failure-prone) | Not needed |
-| Insertion | Special syntax (`end_line = start_line - 1`) | Natural (anchor pattern) |
-| Deletion | Set replacement to empty string | Empty REPLACE block |
-| Multiple edits | Array of objects | Multiple blocks |
-| Whitespace sensitivity | N/A (line-based) | Handled by fuzzy matching |
-| Error recovery | Search field fallback | Fuzzy matching levels |
-| Human readability | Poor (numbers) | Excellent (shows actual code) |
+| Aspect                 | Old (Line Numbers)                           | New (SEARCH/REPLACE)          |
+| ---------------------- | -------------------------------------------- | ----------------------------- |
+| Format                 | JSON with line numbers                       | Text blocks with delimiters   |
+| Line counting          | Required (failure-prone)                     | Not needed                    |
+| Insertion              | Special syntax (`end_line = start_line - 1`) | Natural (anchor pattern)      |
+| Deletion               | Set replacement to empty string              | Empty REPLACE block           |
+| Multiple edits         | Array of objects                             | Multiple blocks               |
+| Whitespace sensitivity | N/A (line-based)                             | Handled by fuzzy matching     |
+| Error recovery         | Search field fallback                        | Fuzzy matching levels         |
+| Human readability      | Poor (numbers)                               | Excellent (shows actual code) |
 
 ## Prompt Length
 
 The new prompt is approximately **2x longer** than the old one due to examples. This is acceptable because:
+
 - Examples are critical for LLM compliance
 - Aider uses similar-length prompts successfully
 - The reliability improvement justifies the token cost
@@ -144,6 +151,7 @@ The new prompt is approximately **2x longer** than the old one due to examples. 
 ## LLM Compliance Tips
 
 To maximize compliance:
+
 1. **Show examples before the input** — LLMs follow patterns they see
 2. **Use consistent indentation in examples** — matches typical code style
 3. **Include the anchor pattern** — many LLMs don't know this trick naturally

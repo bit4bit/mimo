@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { ModelState, ModeState } from "./types";
 import { logger } from "./logger.js";
 import { decodeJwt } from "jose";
@@ -744,7 +745,9 @@ export class MimoAgent {
       onPromptCompleted: (sid) => {
         const key = acpKey(sid, chatThreadId);
         const promptId = this.promptIdsByThread.get(key);
-        logger.debug(`[mimo-agent] onPromptCompleted fired for session ${sid}, thread ${chatThreadId}`);
+        logger.debug(
+          `[mimo-agent] onPromptCompleted fired for session ${sid}, thread ${chatThreadId}`,
+        );
         this.send({
           type: "prompt_completed",
           sessionId: sid,
@@ -752,7 +755,9 @@ export class MimoAgent {
           ...(promptId ? { promptId } : {}),
           timestamp: new Date().toISOString(),
         });
-        logger.debug(`[mimo-agent] prompt_completed sent for session ${sid}, thread ${chatThreadId}`);
+        logger.debug(
+          `[mimo-agent] prompt_completed sent for session ${sid}, thread ${chatThreadId}`,
+        );
       },
       onGenericUpdate: (sid, content) => {
         this.send({
@@ -1554,7 +1559,13 @@ export class MimoAgent {
         if (!acpClient) {
           throw new Error("ACP client not available after wake-up");
         }
-        await this.sendPrompt(acpClient, sessionId, chatThreadId, content, promptId);
+        await this.sendPrompt(
+          acpClient,
+          sessionId,
+          chatThreadId,
+          content,
+          promptId,
+        );
       } catch (err) {
         logger.error(
           `[mimo-agent] Failed to wake thread ${chatThreadId}:`,
@@ -1618,7 +1629,13 @@ export class MimoAgent {
         if (!acpClient) {
           throw new Error("ACP client not available after initialization");
         }
-        await this.sendPrompt(acpClient, sessionId, chatThreadId, content, promptId);
+        await this.sendPrompt(
+          acpClient,
+          sessionId,
+          chatThreadId,
+          content,
+          promptId,
+        );
       } catch (err) {
         logger.error(
           `[mimo-agent] Failed to queue prompt for initializing thread ${chatThreadId}:`,
@@ -1654,7 +1671,13 @@ export class MimoAgent {
     }
 
     this.lifecycleManager.recordActivity(sessionId, chatThreadId);
-    await this.sendPrompt(acpClient, sessionId, chatThreadId, content, promptId);
+    await this.sendPrompt(
+      acpClient,
+      sessionId,
+      chatThreadId,
+      content,
+      promptId,
+    );
   }
 
   private async handleInitialPrompt(message: any): Promise<void> {
@@ -1691,7 +1714,13 @@ export class MimoAgent {
 
     // Generate a promptId for initial prompts so the streaming pipeline can track responses
     const promptId = crypto.randomUUID();
-    await this.sendPrompt(acpClient, sessionId, chatThreadId, content, promptId);
+    await this.sendPrompt(
+      acpClient,
+      sessionId,
+      chatThreadId,
+      content,
+      promptId,
+    );
   }
 
   private async ensureThreadRuntime(

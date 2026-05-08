@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 const isDebug = !!process.env.DEBUG;
 
 export const logger = {

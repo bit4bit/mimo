@@ -13,9 +13,11 @@ Currently, mimo-agent accepts a `--provider` flag but there's no enforcement tha
 ## Capabilities
 
 ### New Capabilities
+
 - `agent-provider-enforcement`: Platform-authoritative provider validation that ensures agents can only run with the provider they were created for
 
 ### Modified Capabilities
+
 - `agents`: Add `provider` field to Agent model and include it in JWT token generation
 
 ## Impact

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import { useState } from "hono/jsx";
 import type { BufferProps } from "./buffers/types.js";
@@ -46,14 +47,10 @@ export const SummaryBuffer: FC<SummaryBufferProps> = ({
   );
 
   return (
-    <div
-      class="summary-buffer"
-    >
+    <div class="summary-buffer">
       <div class="summary-selectors">
         <div class="summary-column">
-          <label class="summary-label">
-            Analyze
-          </label>
+          <label class="summary-label">Analyze</label>
           <select
             class="summary-analyze-select summary-select"
             value={analyzeThreadId}
@@ -68,7 +65,10 @@ export const SummaryBuffer: FC<SummaryBufferProps> = ({
           </select>
         </div>
         <div class="summary-column">
-          <label data-help-id="summary-buffer-summarize-via-label" class="summary-label">
+          <label
+            data-help-id="summary-buffer-summarize-via-label"
+            class="summary-label"
+          >
             Summarize via
           </label>
           <select

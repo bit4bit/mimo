@@ -12,11 +12,13 @@ if (activeTab && activeTab.getAttribute("data-buffer-id") === "patches") { ... }
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Every shortcut dispatches only in the buffer it logically belongs to.
 - Unrelated shortcuts fall through (no `preventDefault()`) so the browser's native behavior runs — this is what makes `Alt+Shift+Arrow` stop swallowing macOS word-selection when the user is not in the Edit buffer.
 - Single, centralized helper. No duplicated `querySelector` calls across branches.
 
 **Non-Goals:**
+
 - Rebinding any shortcut. `DEFAULT_KEYBINDINGS` is untouched.
 - Element-level focus checks (`document.activeElement.closest(...)`). Tab-level gating is sufficient for the reported bug. Element-level gating would break the existing README contract: "Session shortcuts are active even while focus is inside text inputs and editable chat content."
 - Right-frame scoping. The notes-focus shortcuts remain global because they are "jump to notes" navigation commands, not notes-scoped actions.
@@ -29,6 +31,7 @@ if (activeTab && activeTab.getAttribute("data-buffer-id") === "patches") { ... }
 **Decision:** Context is derived from `.frame-tab[data-frame-id="left"|"right"].active`, read fresh on each `keydown`.
 
 **Alternatives considered:**
+
 - Subscribe to `ChatState.frames` internal state — rejected: couples the handler to `chat.js` internals, and DOM is already the source of truth.
 - Track last-focused element via `focusin`/`focusout` listeners — rejected: more moving parts, and the "active tab" signal already answers the question.
 
@@ -38,18 +41,19 @@ if (activeTab && activeTab.getAttribute("data-buffer-id") === "patches") { ... }
 
 **Decision:** Each binding is classified as `chat`, `edit`, `patches`, or `global`. Binding fires only when `leftBufferId` matches, or unconditionally when `global`.
 
-| Binding | Context |
-|---|---|
-| `newThread`, `nextThread`, `previousThread` | `chat` |
-| `openFileFinder`, `closeFile`, `reloadFile`, `nextFile`, `previousFile` | `edit` |
-| `toggleExpertMode`, `expertInput`, `moveFocusUp`, `moveFocusDown`, `centerFocus`, `increaseFocus`, `decreaseFocus` | `edit` (plus existing `expertState.enabled` check where present) |
-| `approvePatch`, `declinePatch` | `patches` |
-| `commit`, `projectNotes`, `sessionNotes`, `shortcutsHelp`, `closeModal`, `nextLeftBuffer`, `previousLeftBuffer`, `toggleRightFrame` | `global` |
+| Binding                                                                                                                             | Context                                                          |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `newThread`, `nextThread`, `previousThread`                                                                                         | `chat`                                                           |
+| `openFileFinder`, `closeFile`, `reloadFile`, `nextFile`, `previousFile`                                                             | `edit`                                                           |
+| `toggleExpertMode`, `expertInput`, `moveFocusUp`, `moveFocusDown`, `centerFocus`, `increaseFocus`, `decreaseFocus`                  | `edit` (plus existing `expertState.enabled` check where present) |
+| `approvePatch`, `declinePatch`                                                                                                      | `patches`                                                        |
+| `commit`, `projectNotes`, `sessionNotes`, `shortcutsHelp`, `closeModal`, `nextLeftBuffer`, `previousLeftBuffer`, `toggleRightFrame` | `global`                                                         |
 
 **Rationale:**
+
 - Thread nav is conceptually a chat action. User complaint was explicit.
 - File finder / per-file nav assumes an open file — only meaningful in `edit`.
-- Expert-mode shortcuts already have an "enabled" gate; adding an `edit`-tab gate closes the macOS word-selection bug without changing semantics when the Edit buffer *is* active.
+- Expert-mode shortcuts already have an "enabled" gate; adding an `edit`-tab gate closes the macOS word-selection bug without changing semantics when the Edit buffer _is_ active.
 - Cross-buffer and session-level commands stay global so users can always jump to commit, notes, or help from anywhere.
 
 ### D3: Early-return, not `handled = true`
@@ -60,7 +64,7 @@ if (activeTab && activeTab.getAttribute("data-buffer-id") === "patches") { ... }
 
 ### D4: Expert-mode stacked gate
 
-**Decision:** For expert-mode shortcuts, keep the existing `expertState.enabled && state !== "processing"` check. Add a `leftBufferId === "edit"` check *in addition*.
+**Decision:** For expert-mode shortcuts, keep the existing `expertState.enabled && state !== "processing"` check. Add a `leftBufferId === "edit"` check _in addition_.
 
 **Rationale:** Expert mode is a persisted per-session flag. Leaving its gate intact preserves existing behavior (e.g., `Enter` opening the instruction input still requires expert mode to be on). The tab gate is purely additive and closes the cross-buffer leakage path.
 

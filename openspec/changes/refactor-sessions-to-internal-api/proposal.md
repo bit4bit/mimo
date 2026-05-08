@@ -15,9 +15,11 @@ The sessions domain has complex HTML routes with forms, chat interfaces, and ses
 ## Capabilities
 
 ### New Capabilities
+
 - `internal-api-sessions`: Internal REST API for session management (CRUD, chat history, agent assignment)
 
 ### Modified Capabilities
+
 <!-- None - this is implementation refactoring -->
 
 ## Impact

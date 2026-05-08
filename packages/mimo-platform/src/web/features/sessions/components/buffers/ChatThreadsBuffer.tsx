@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import type { BufferProps } from "./types.js";
 
@@ -102,9 +103,7 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
 
             {/* Model Selector for active thread - always show */}
             <div class="thread-model-selector thread-selector">
-              <label class="thread-selector-label">
-                Model:
-              </label>
+              <label class="thread-selector-label">Model:</label>
               <select
                 id="thread-model-select"
                 data-thread-id={activeThread.id}
@@ -127,9 +126,7 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
 
             {/* Mode Selector for active thread - always show */}
             <div class="thread-mode-selector thread-selector">
-              <label class="thread-selector-label">
-                Mode:
-              </label>
+              <label class="thread-selector-label">Mode:</label>
               <select
                 id="thread-mode-select"
                 data-thread-id={activeThread.id}

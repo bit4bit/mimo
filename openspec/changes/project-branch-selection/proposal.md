@@ -1,6 +1,7 @@
 ## Why
 
 Currently, all projects clone from the default branch of the remote repository. Users need the ability to:
+
 1. Start from a specific branch (e.g., `feature/v2` instead of `main`)
 2. Create a dedicated branch for AI sessions (e.g., `ai-session-feature-x`)
 
@@ -21,6 +22,7 @@ This enables workflows where Mimo projects can work on feature branches or creat
 ### New Capabilities
 
 ### Modified Capabilities
+
 - `projects`: Extend project creation to support branch selection and branch creation
 - `vcs`: Add methods for cloning specific branches and creating new branches in both Git and Fossil
 

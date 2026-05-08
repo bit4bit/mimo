@@ -7,6 +7,7 @@ Four route files (`createAuthRoutes`, `createSessionsRoutes`, `createProjectsRou
 ## Goals / Non-Goals
 
 **Goals:**
+
 - All route handlers receive repos/services from `mimoContext`, not from module-level singletons
 - `MimoContext.services` is extended to cover every service used at route level
 - `CommitService` and `FileSyncService` gain constructor injection so they can be wired via context
@@ -14,6 +15,7 @@ Four route files (`createAuthRoutes`, `createSessionsRoutes`, `createProjectsRou
 - No change to external HTTP API shape, database layout, or wire protocols
 
 **Non-Goals:**
+
 - Refactoring the mimo-agent (separate package)
 - Changing any business logic or service behavior
 - Making `mimoContext` required (factory functions keep optional param for test ergonomics)

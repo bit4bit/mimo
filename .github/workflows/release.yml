@@ -30,6 +30,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Verify license headers
+      run: bash scripts/verify-license-headers.sh
+
     - name: Setup Bun
       uses: oven-sh/setup-bun@v2
       with:
@@ -183,8 +186,11 @@ jobs:
           dist/mimo-platform-*
           dist/mimo-agent-*
           dist/checksums.txt
+          LICENSE
         body: |
           ## Mimo ${{ steps.get_version.outputs.IS_LATEST == 'true' && 'Latest' || 'v' }}${{ steps.get_version.outputs.VERSION }}
+
+          **License:** [AGPL-3.0-only](https://www.gnu.org/licenses/agpl-3.0.html) — Source code available at https://github.com/${{ github.repository }}
 
           ${{ steps.get_version.outputs.IS_LATEST == 'true' && '**This is the latest development build from the main branch.**' || '' }}
 

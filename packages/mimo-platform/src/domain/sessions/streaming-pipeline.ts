@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { ChatMessage } from "./chat.ts";
 
 export interface StreamingSnapshot {
@@ -106,7 +107,11 @@ export class ChatStreamingPipeline {
     return fullContent;
   }
 
-  handleThoughtStart(sessionId: string, threadId: string, promptId?: string): void {
+  handleThoughtStart(
+    sessionId: string,
+    threadId: string,
+    promptId?: string,
+  ): void {
     this.extendPendingPromptCompletion(sessionId, threadId, promptId);
     const threadKey = streamKey(sessionId, threadId);
     if (promptId) {
@@ -146,7 +151,11 @@ export class ChatStreamingPipeline {
     });
   }
 
-  handleThoughtEnd(sessionId: string, threadId: string, promptId?: string): void {
+  handleThoughtEnd(
+    sessionId: string,
+    threadId: string,
+    promptId?: string,
+  ): void {
     this.extendPendingPromptCompletion(sessionId, threadId, promptId);
     this.broadcast(sessionId, {
       type: "thought_end",
@@ -464,7 +473,8 @@ export class ChatStreamingPipeline {
     promptId?: string,
   ): Promise<void> {
     const effectivePromptId =
-      promptId || this.currentPromptByThread.get(streamKey(sessionId, threadId));
+      promptId ||
+      this.currentPromptByThread.get(streamKey(sessionId, threadId));
     const key = effectivePromptId
       ? promptStreamKey(sessionId, threadId, effectivePromptId)
       : streamKey(sessionId, threadId);
@@ -527,9 +537,10 @@ export class ChatStreamingPipeline {
     const promptId = threadId
       ? this.currentPromptByThread.get(streamKey(sessionId, threadId))
       : undefined;
-    const key = threadId && promptId
-      ? promptStreamKey(sessionId, threadId, promptId)
-      : streamKey(sessionId, threadId);
+    const key =
+      threadId && promptId
+        ? promptStreamKey(sessionId, threadId, promptId)
+        : streamKey(sessionId, threadId);
     return {
       thoughtContent: this.thoughtBuffers.get(key) || "",
       messageContent: this.streamingBuffers.get(key) || "",

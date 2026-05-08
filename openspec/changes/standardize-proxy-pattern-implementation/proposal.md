@@ -13,6 +13,7 @@ The Sessions routes were marked complete in tasks but the actual implementation 
 ### Complete Sessions Routes Refactor to HTTP Proxy Pattern
 
 **Current State (WRONG):**
+
 ```typescript
 // Sessions routes currently call services directly:
 const session = await sessionRepository.create({...});
@@ -21,13 +22,14 @@ await chatService.loadHistory(sessionId, threadId);
 ```
 
 **Target State (CORRECT):**
+
 ```typescript
 // Sessions routes should use HTTP fetch:
 const token = extractTokenFromCookie(c);
 const response = await fetch(`${platformUrl}/api/internal/sessions`, {
   method: "POST",
   headers: { Authorization: `Bearer ${token}` },
-  body: JSON.stringify(sessionData)
+  body: JSON.stringify(sessionData),
 });
 const result = await response.json();
 ```
@@ -54,9 +56,11 @@ const result = await response.json();
 ## Capabilities
 
 ### New Capabilities
+
 - `sessions-proxy-pattern-completion`: Complete the HTTP proxy pattern implementation for Sessions routes
 
 ### Modified Capabilities
+
 <!-- None - this completes existing implementation -->
 
 ## Impact

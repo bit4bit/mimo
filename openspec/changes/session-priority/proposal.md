@@ -14,6 +14,7 @@ Sessions in the list have no way to express urgency or importance. All sessions 
 ## Capabilities
 
 ### Modified Capabilities
+
 - `session-management`: Sessions now carry a priority field. List ordering reflects priority before recency.
 
 ## Impact

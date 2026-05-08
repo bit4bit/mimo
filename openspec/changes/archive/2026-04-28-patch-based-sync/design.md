@@ -1,6 +1,7 @@
 ## Context
 
 The current `cleanCopyToUpstream` method in `vcs/index.ts` synchronizes agent-workspace to upstream by:
+
 1. Listing fossil-tracked files (`fossil ls`)
 2. Listing upstream-tracked files (`git ls-files`)
 3. Copying files one-by-one with `copyFileSync`
@@ -9,6 +10,7 @@ The current `cleanCopyToUpstream` method in `vcs/index.ts` synchronizes agent-wo
 This works but: (a) leaves no record of what changed per sync cycle, (b) uses custom file-walking logic that has accumulated edge cases (VCS metadata exclusions, `fossil rm` without unlink), and (c) only supports git upstream (uses `git ls-files` even when upstream is fossil).
 
 The session directory structure is fixed:
+
 ```
 sessions/{projectId}/{sessionId}/
 ├── session.yaml
@@ -21,12 +23,14 @@ Both directories share the same parent, which is key for `git diff --no-index`.
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace file-copy sync with patch-based sync (generate diff, store, apply)
 - Store every patch as a historical artifact in `session/patches/`
 - Support both git and fossil upstream repos
 - Handle all file states: new, modified, deleted, untracked, `fossil rm`-without-unlink
 
 **Non-Goals:**
+
 - Patch replay/revert from UI (patches are stored for audit, not interactive use)
 - `git apply --check` for pre-validation (no conflicts expected in this flow)
 - Changes to the `FileSyncService` in `sync/service.ts` (that handles real-time file change events, separate from the commit-time sync)
@@ -39,6 +43,7 @@ Both directories share the same parent, which is key for `git diff --no-index`.
 **Choice**: Run `git diff --binary --no-index -- upstream/ agent-workspace/` from the session directory.
 
 **Why over alternatives**:
+
 - `diff -ur` (POSIX): doesn't handle binary files well, no `--binary` equivalent
 - Per-file `diff -u`: requires assembling individual diffs, handling new/deleted files manually
 - Git index manipulation (`GIT_INDEX_FILE`): complex, tightly coupled to git internals
@@ -54,6 +59,7 @@ Both directories share the same parent, which is key for `git diff --no-index`.
 **Why**: Since the directory names are fixed (`upstream/` and `agent-workspace/`), this is a deterministic string replacement, not a fragile regex. The normalized patch has relative paths like `a/src/app.ts` that `git apply` and `patch -p1` can apply directly in the upstream directory.
 
 Lines to transform:
+
 ```
 diff --git a/upstream/X b/agent-workspace/X  →  diff --git a/X b/X
 --- a/upstream/X                             →  --- a/X
@@ -77,6 +83,7 @@ rename to agent-workspace/X                  →  rename to X
 ### 5. Apply strategy per upstream type
 
 **Choice**:
+
 - Git upstream: `git apply --binary {patchFile}` in upstream directory
 - Fossil upstream: `patch -p1 < {patchFile}` in upstream directory (POSIX `patch` command)
 

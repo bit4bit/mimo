@@ -1,6 +1,7 @@
 ## Summary
 
 **FINAL STATUS: 865 pass, 19 fail**
+
 - **Before:** 116 failing tests
 - **After:** 19 failing tests
 - **Fixed:** 97 tests now passing! 🎉
@@ -20,6 +21,7 @@
 | Chat Threads API | 0 pass | 8 pass |
 
 **Key Code Changes:**
+
 1. Refactored auth routes to use direct service calls (no HTTP proxy for no-JWT routes)
 2. Added `fetchFn` parameter to route deps for test injection
 3. Added missing internal API endpoints: `touch` and `config`
@@ -28,6 +30,7 @@
 6. Updated 9 test files to use `createTestApp` pattern with internal API mounting
 
 **Remaining 19 Failures (unrelated to proxy pattern):**
+
 - VCS Integration (3) - Live git/fossil operations
 - Session Settings (5) - Field persistence issues
 - Frame State (1) - Logic issue

@@ -1,6 +1,7 @@
 ## Context
 
 Currently three separate pages handle project/session browsing:
+
 - `ProjectsListPage` at `GET /projects` — project list only
 - `ProjectDetailPage` at `GET /projects/:id` — project metadata + embedded sessions
 - `SessionListPage` at `GET /projects/:id/sessions` — full sessions table
@@ -12,6 +13,7 @@ The stack is Hono + server-rendered JSX. No client-side framework, no HTMX. JS i
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Single page at `/projects` combines project list (left) and session list (right)
 - Project selection via query param: `GET /projects?selected=:projectId`
 - Right panel shows project summary + sessions when a project is selected; empty otherwise
@@ -20,6 +22,7 @@ The stack is Hono + server-rendered JSX. No client-side framework, no HTMX. JS i
 - Full page reload on project click (no JS required)
 
 **Non-Goals:**
+
 - Infinite scroll or pagination of projects (DataTable already handles this)
 - Inline project editing within the unified page
 - Cross-project session view (AllSessionsPage at `/sessions` unchanged)
@@ -33,6 +36,7 @@ The stack is Hono + server-rendered JSX. No client-side framework, no HTMX. JS i
 `GET /projects?selected=:projectId` — the server renders the full page with the correct project and sessions pre-loaded. No JS fetch, no partial updates.
 
 **Alternatives considered:**
+
 - JS fetch to `/projects/:id/sessions` → inject into DOM: snappier but adds JS complexity for a non-session page. Unjustified.
 - HTMX: not in the stack, adds a dependency.
 
@@ -43,6 +47,7 @@ The stack is Hono + server-rendered JSX. No client-side framework, no HTMX. JS i
 `ProjectsListPage`, `ProjectDetailPage`, and `SessionListPage` are replaced by a single `ProjectsSessionsPage` component. The old files are deleted.
 
 **Alternatives considered:**
+
 - Keep old files, add new page: dead code accumulates.
 
 **Chosen because:** clean cut, no dead code. The old pages have no callers after the route update.
@@ -50,6 +55,7 @@ The stack is Hono + server-rendered JSX. No client-side framework, no HTMX. JS i
 ### D3: Right panel layout — metadata header + sessions table
 
 When a project is selected, the right panel renders:
+
 1. Header row: project name + `[✎]` (→ edit) + `[📊]` (→ impacts) + `[+ New Session]` button
 2. Metadata line: repo type · repo URL · branch (if set) · credential name (if set)
 3. Sessions DataTable with search (reuses existing DataTable component)
@@ -63,6 +69,7 @@ Sessions are sorted and rendered identically to the current `SessionListPage` (p
 ### D5: `/projects/:id` route retained for edit/impacts redirects
 
 `GET /projects/:id` currently serves `ProjectDetailPage`. After this change it has no UI purpose. Two options:
+
 - Redirect `GET /projects/:id` → `GET /projects?selected=:id`
 - Remove the route
 

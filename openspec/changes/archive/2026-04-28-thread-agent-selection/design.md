@@ -7,12 +7,14 @@ The `ChatThread` entity already has its own `acpSessionId` and `state` fields, s
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Move agent selection from session creation to thread creation
 - Each thread independently owns its `assignedAgentId`
 - Agent advertises model/mode capabilities on connect so the thread creation dialog can populate synchronously
 - Capabilities are persisted on the agent entity and served via a dedicated endpoint
 
 **Non-Goals:**
+
 - Changing the fossil checkout or VCS lifecycle (still session-scoped)
 - Supporting agents from different providers in the same thread
 - Migrating existing sessions with `assignedAgentId` (backward compat handled by nullability)

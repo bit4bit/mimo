@@ -13,9 +13,11 @@ The web-facing route for deleting chat threads (`DELETE /sessions/:id/chat-threa
 ## Capabilities
 
 ### New Capabilities
+
 - none
 
 ### Modified Capabilities
+
 - `session-management`: Chat thread deletion now works end-to-end via the internal API; users may delete any thread including the last one
 
 ## Impact

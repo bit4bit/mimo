@@ -14,9 +14,11 @@ Actualmente, mimo-platform inicia un proceso fossil server dedicado por cada age
 ## Capabilities
 
 ### New Capabilities
+
 - `shared-fossil-server`: Servidor Fossil único que expone múltiples repositorios vía URL pathname
 
 ### Modified Capabilities
+
 - `session-management`: Sesiones ya no almacenan `port` individual. El port es global para todos.
 - `agent-communication`: Agente construye URLs con formato `http://host:port/session-id.fossil/`
 

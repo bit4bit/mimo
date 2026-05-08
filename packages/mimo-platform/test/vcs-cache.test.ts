@@ -1,13 +1,22 @@
 import { describe, it, expect } from "bun:test";
 import path from "path";
-import type { OS, CommandResult, RunOptions } from "../src/infrastructure/os/types.js";
+import type {
+  OS,
+  CommandResult,
+  RunOptions,
+} from "../src/infrastructure/os/types.js";
 import { createProjectVcsCache } from "../src/domain/projects/vcs-cache.js";
 
 type CommandCall = { command: string[]; options?: RunOptions };
 
 function createMockOS(
   onRun: (command: string[], options?: RunOptions) => Promise<CommandResult>,
-): { os: OS; calls: CommandCall[]; files: Map<string, string>; dirs: Set<string> } {
+): {
+  os: OS;
+  calls: CommandCall[];
+  files: Map<string, string>;
+  dirs: Set<string>;
+} {
   const calls: CommandCall[] = [];
   const files = new Map<string, string>();
   const dirs = new Set<string>();
@@ -116,11 +125,19 @@ describe("ProjectVcsCache unit", () => {
     const cachePath = path.join(projectsPath, projectId, "cache.git");
 
     const { os, calls, dirs } = createMockOS(async (command) => {
-      if (command[0] === "git" && command[1] === "clone" && command[2] === "--bare") {
+      if (
+        command[0] === "git" &&
+        command[1] === "clone" &&
+        command[2] === "--bare"
+      ) {
         dirs.add(cachePath);
         return { success: true, output: "", error: "", exitCode: 0 };
       }
-      if (command[0] === "git" && command[1] === "clone" && command[2] === "--reference") {
+      if (
+        command[0] === "git" &&
+        command[1] === "clone" &&
+        command[2] === "--reference"
+      ) {
         return { success: true, output: "", error: "", exitCode: 0 };
       }
       return { success: true, output: "", error: "", exitCode: 0 };
@@ -129,7 +146,9 @@ describe("ProjectVcsCache unit", () => {
     const cache = createProjectVcsCache({
       os,
       projectsPath,
-      vcs: { cloneRepository: async () => ({ success: true, output: "", error: "" }) } as any,
+      vcs: {
+        cloneRepository: async () => ({ success: true, output: "", error: "" }),
+      } as any,
     });
 
     const result = await cache.clone({
@@ -141,7 +160,9 @@ describe("ProjectVcsCache unit", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(calls.some((c) => c.command.join(" ").includes("git clone --bare"))).toBe(true);
+    expect(
+      calls.some((c) => c.command.join(" ").includes("git clone --bare")),
+    ).toBe(true);
     expect(
       calls.some(
         (c) =>
@@ -162,11 +183,19 @@ describe("ProjectVcsCache unit", () => {
       if (command[0] === "git" && command[1] === "fsck") {
         return { success: false, output: "", error: "corrupt", exitCode: 1 };
       }
-      if (command[0] === "git" && command[1] === "clone" && command[2] === "--bare") {
+      if (
+        command[0] === "git" &&
+        command[1] === "clone" &&
+        command[2] === "--bare"
+      ) {
         dirs.add(cachePath);
         return { success: true, output: "", error: "", exitCode: 0 };
       }
-      if (command[0] === "git" && command[1] === "clone" && command[2] === "--reference") {
+      if (
+        command[0] === "git" &&
+        command[1] === "clone" &&
+        command[2] === "--reference"
+      ) {
         return { success: true, output: "", error: "", exitCode: 0 };
       }
       return { success: true, output: "", error: "", exitCode: 0 };
@@ -176,7 +205,9 @@ describe("ProjectVcsCache unit", () => {
     const cache = createProjectVcsCache({
       os,
       projectsPath,
-      vcs: { cloneRepository: async () => ({ success: true, output: "", error: "" }) } as any,
+      vcs: {
+        cloneRepository: async () => ({ success: true, output: "", error: "" }),
+      } as any,
     });
 
     const result = await cache.clone({
@@ -187,8 +218,13 @@ describe("ProjectVcsCache unit", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(calls.some((c) => c.command[0] === "git" && c.command[1] === "fsck")).toBe(true);
-    expect(calls.filter((c) => c.command.join(" ").includes("git clone --bare")).length).toBe(1);
+    expect(
+      calls.some((c) => c.command[0] === "git" && c.command[1] === "fsck"),
+    ).toBe(true);
+    expect(
+      calls.filter((c) => c.command.join(" ").includes("git clone --bare"))
+        .length,
+    ).toBe(1);
   });
 
   it("uses fossil cache clone and sync", async () => {
@@ -207,7 +243,9 @@ describe("ProjectVcsCache unit", () => {
     const cache = createProjectVcsCache({
       os,
       projectsPath,
-      vcs: { cloneRepository: async () => ({ success: true, output: "", error: "" }) } as any,
+      vcs: {
+        cloneRepository: async () => ({ success: true, output: "", error: "" }),
+      } as any,
     });
 
     const result = await cache.clone({
@@ -219,9 +257,17 @@ describe("ProjectVcsCache unit", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(calls.some((c) => c.command[0] === "fossil" && c.command[1] === "clone")).toBe(true);
-    expect(calls.some((c) => c.command[0] === "fossil" && c.command[1] === "open")).toBe(true);
-    expect(calls.some((c) => c.command[0] === "fossil" && c.command[1] === "checkout")).toBe(true);
+    expect(
+      calls.some((c) => c.command[0] === "fossil" && c.command[1] === "clone"),
+    ).toBe(true);
+    expect(
+      calls.some((c) => c.command[0] === "fossil" && c.command[1] === "open"),
+    ).toBe(true);
+    expect(
+      calls.some(
+        (c) => c.command[0] === "fossil" && c.command[1] === "checkout",
+      ),
+    ).toBe(true);
   });
 
   it("clears and rebuilds fossil cache when verify fails", async () => {
@@ -247,7 +293,9 @@ describe("ProjectVcsCache unit", () => {
     const cache = createProjectVcsCache({
       os,
       projectsPath,
-      vcs: { cloneRepository: async () => ({ success: true, output: "", error: "" }) } as any,
+      vcs: {
+        cloneRepository: async () => ({ success: true, output: "", error: "" }),
+      } as any,
     });
 
     const result = await cache.clone({
@@ -258,7 +306,12 @@ describe("ProjectVcsCache unit", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(calls.some((c) => c.command[0] === "fossil" && c.command[1] === "verify")).toBe(true);
-    expect(calls.filter((c) => c.command[0] === "fossil" && c.command[1] === "clone").length).toBe(1);
+    expect(
+      calls.some((c) => c.command[0] === "fossil" && c.command[1] === "verify"),
+    ).toBe(true);
+    expect(
+      calls.filter((c) => c.command[0] === "fossil" && c.command[1] === "clone")
+        .length,
+    ).toBe(1);
   });
 });

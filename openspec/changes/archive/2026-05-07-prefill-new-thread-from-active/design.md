@@ -5,11 +5,13 @@ The create-thread dialog (`showCreateThreadDialog()` in `chat-threads.js`) today
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Pre-select agent, model, and mode from the active thread when the dialog opens
 - Trigger capabilities fetch eagerly on open (same logic as the existing agent change handler)
 - Graceful fallback to blank form when active thread has no agent or agent is not online
 
 **Non-Goals:**
+
 - Prefilling thread name or instructions
 - Any backend or API changes
 - Changes to thread creation validation logic

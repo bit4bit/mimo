@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 /**
  * Patch preview parser for commit modal change tree.
  * Extracts file-level status and modified-file hunks from unified diff patches.

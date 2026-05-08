@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 /**
  * Mock OS Adapter — Test double for OS abstractions.
  *

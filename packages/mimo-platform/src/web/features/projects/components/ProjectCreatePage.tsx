@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import { Layout } from "../../../shared/components/Layout.js";
 import type { Credential } from "../../../../domain/credentials/repository";
@@ -50,9 +51,13 @@ export const ProjectCreatePage: FC<ProjectCreateProps> = ({
               placeholder="Behavior instructions for the AI agent (e.g., You are a Python expert. Focus on clean code.)"
               class="project-textarea"
               data-help-id="project-create-page-instructions-textarea"
-            >{defaultInstructions}</textarea>
+            >
+              {defaultInstructions}
+            </textarea>
             <small class="form-help">
-              These instructions will be used as a default for all sessions and threads in this project. Can be overridden at the session or thread level.
+              These instructions will be used as a default for all sessions and
+              threads in this project. Can be overridden at the session or
+              thread level.
             </small>
           </div>
 

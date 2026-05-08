@@ -16,9 +16,11 @@ This change introduces a platform-hosted MCP HTTP endpoint that ACPs can call to
 ## Capabilities
 
 ### New Capabilities
+
 - `platform-mcp-server`: Platform-hosted MCP HTTP endpoint, authenticated per session, exposing platform tools to ACPs
 
 ### Modified Capabilities
+
 - `session-management`: Sessions gain a `mcpToken` field generated at creation; the `session_ready` message includes the MCP server config
 
 ## Impact

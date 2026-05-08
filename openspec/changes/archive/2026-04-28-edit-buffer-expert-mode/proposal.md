@@ -16,6 +16,7 @@ Expert mode closes this gap by letting the user issue edit/refactor instructions
 ### PatchBuffer (New Component)
 
 A dedicated buffer for reviewing and acting on proposed file patches:
+
 - **Tabs**: one tab per pending patch (multiple files can have concurrent pending patches)
 - **Context bar**: shows the original file path; **Approve** and **Decline** buttons
 - **Vertical split diff**: left pane = original file, right pane = patched file; changed lines highlighted inline
@@ -44,6 +45,7 @@ A dedicated buffer for reviewing and acting on proposed file patches:
 ## Impact
 
 ### Server-Side (mimo-platform)
+
 - `packages/mimo-platform/src/buffers/EditBuffer.tsx`: Add expert mode toggle, focus guide, instruction input
 - `packages/mimo-platform/src/buffers/PatchBuffer.tsx`: New buffer component — tabs, context bar, vertical split diff
 - `packages/mimo-platform/public/js/patch-buffer.js`: New client JS — tab state, diff rendering, approve/decline
@@ -54,12 +56,14 @@ A dedicated buffer for reviewing and acting on proposed file patches:
 - `packages/mimo-platform/public/js/edit-buffer.js`: Expert mode state, focus guide, instruction input, patch dispatch on LLM response
 
 ### Client-Side
+
 - `packages/mimo-platform/public/js/edit-buffer.js`: Expert mode toggle, focus guide, instruction input, LLM response handling
 - `packages/mimo-platform/public/js/patch-buffer.js`: Patch tabs, vertical split, Approve/Decline
 - `packages/mimo-platform/public/js/session-keybindings.js`: Add `toggleExpertMode` (Alt+Shift+E), `expertInput` (Enter), focus resize shortcuts
 - `packages/mimo-platform/src/components/Layout.tsx`: Load `patch-buffer.js`
 
 ### Tests
+
 - `packages/mimo-platform/test/expert-mode-service.test.ts`: Existing + patch file operations
 - `packages/mimo-platform/test/expert-mode-api.test.ts`: Existing + patch endpoints
 - `packages/mimo-platform/test/patch-buffer.test.ts`: PatchBuffer state and diff rendering

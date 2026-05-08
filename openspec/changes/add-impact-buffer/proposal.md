@@ -19,11 +19,13 @@ The current session view shows a "Changes" buffer that simply lists modified fil
 ## Capabilities
 
 ### New Capabilities
+
 - `impact-tracking`: Real-time and historical tracking of code change impact including file counts, LOC, and complexity metrics
 - `scc-integration`: Automatic installation and execution of scc for code complexity analysis
 - `impact-history`: Persistence and retrieval of impact records per project with session correlation
 
 ### Modified Capabilities
+
 - `session-ui`: Modify SessionDetailPage to replace Changes buffer with Impact buffer (2-buffer layout)
 
 ## Impact

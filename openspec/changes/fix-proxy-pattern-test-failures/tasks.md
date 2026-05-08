@@ -66,11 +66,13 @@
 ## Summary
 
 **Progress: Outstanding improvement from the original 116 failing tests**
+
 - **Before:** 116 failing tests
 - **After:** 32 failing tests
 - **Fixed:** 84 tests now passing! 🎉
 
 **Completed:**
+
 - Auth routes: Fixed - all tests passing (14/14)
 - Projects routes: Fixed - all 26 tests passing!
 - MCP Server API: Fixed - all 13 tests passing!
@@ -81,6 +83,7 @@
 - Sessions routes: 34 pass, 5 remaining failures
 
 **Critical Fix Found:**
+
 - `createSessionsRoutes` inside `createProjectsRoutes` was NOT receiving the `fetchFn` dep, causing auth failures in all nested session routes called from projects
 - Fixed: `const sessions = createSessionsRoutes(mimoContext, { fetchFn: deps.fetchFn });`
 

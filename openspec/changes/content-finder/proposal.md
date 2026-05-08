@@ -17,9 +17,11 @@ The existing fileFinder (Ctrl+P) only searches by filename, but users often need
 ## Capabilities
 
 ### New Capabilities
+
 - `content-search`: Search file contents within a session workspace using ripgrep
 
 ### Modified Capabilities
+
 - (none - this is a purely additive feature)
 
 ## Impact

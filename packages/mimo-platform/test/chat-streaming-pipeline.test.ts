@@ -124,10 +124,17 @@ describe("ChatStreamingPipeline", () => {
       const { pipeline } = makePipeline(undefined, mockBroadcast);
 
       pipeline.handleMessageChunk("s1", "t1", "answer");
-      await pipeline.handleUsageUpdate("s1", "t1", { cost: 1 }, { activeChatThreadId: "t1" });
+      await pipeline.handleUsageUpdate(
+        "s1",
+        "t1",
+        { cost: 1 },
+        { activeChatThreadId: "t1" },
+      );
 
       const calls = (mockBroadcast as ReturnType<typeof mock>).mock.calls;
-      const usageCalls = calls.filter((c: any[]) => c[1]?.type === "usage_update");
+      const usageCalls = calls.filter(
+        (c: any[]) => c[1]?.type === "usage_update",
+      );
       expect(usageCalls.length).toBe(1);
       expect(usageCalls[0][1].usage).toEqual({ cost: 1 });
     });
@@ -145,12 +152,20 @@ describe("ChatStreamingPipeline", () => {
       pipeline.handleThoughtChunk("s1", "t1", "deep thought");
       pipeline.handleMessageChunk("s1", "t1", "the answer");
 
-      await pipeline.handlePromptCompleted("s1", "t1", { activeChatThreadId: "t1" });
+      await pipeline.handlePromptCompleted("s1", "t1", {
+        activeChatThreadId: "t1",
+      });
 
       expect(savedMessage).not.toBeNull();
-      expect((savedMessage as unknown as ChatMessage).content).toContain("<details>");
-      expect((savedMessage as unknown as ChatMessage).content).toContain("deep thought");
-      expect((savedMessage as unknown as ChatMessage).content).toContain("the answer");
+      expect((savedMessage as unknown as ChatMessage).content).toContain(
+        "<details>",
+      );
+      expect((savedMessage as unknown as ChatMessage).content).toContain(
+        "deep thought",
+      );
+      expect((savedMessage as unknown as ChatMessage).content).toContain(
+        "the answer",
+      );
     });
 
     it("uses plain message content when no thoughts present", async () => {
@@ -162,11 +177,17 @@ describe("ChatStreamingPipeline", () => {
 
       pipeline.handleMessageChunk("s1", "t1", "direct answer");
 
-      await pipeline.handlePromptCompleted("s1", "t1", { activeChatThreadId: "t1" });
+      await pipeline.handlePromptCompleted("s1", "t1", {
+        activeChatThreadId: "t1",
+      });
 
       expect(savedMessage).not.toBeNull();
-      expect((savedMessage as unknown as ChatMessage).content).toBe("direct answer");
-      expect((savedMessage as unknown as ChatMessage).content).not.toContain("<details>");
+      expect((savedMessage as unknown as ChatMessage).content).toBe(
+        "direct answer",
+      );
+      expect((savedMessage as unknown as ChatMessage).content).not.toContain(
+        "<details>",
+      );
     });
 
     it("clears buffers after handlePromptCompleted completes", async () => {
@@ -176,7 +197,9 @@ describe("ChatStreamingPipeline", () => {
       pipeline.handleThoughtChunk("s1", "t1", "some thought");
       pipeline.handleMessageChunk("s1", "t1", "some message");
 
-      await pipeline.handlePromptCompleted("s1", "t1", { activeChatThreadId: "t1" });
+      await pipeline.handlePromptCompleted("s1", "t1", {
+        activeChatThreadId: "t1",
+      });
 
       const snap = pipeline.getStreamingSnapshot("s1", "t1");
       expect(snap.thoughtContent).toBe("");
@@ -187,7 +210,9 @@ describe("ChatStreamingPipeline", () => {
       const mockSave = mock(async () => {});
       const { pipeline } = makePipeline(mockSave as any);
 
-      await pipeline.handlePromptCompleted("s1", "t1", { activeChatThreadId: "t1" });
+      await pipeline.handlePromptCompleted("s1", "t1", {
+        activeChatThreadId: "t1",
+      });
 
       expect((mockSave as ReturnType<typeof mock>).mock.calls.length).toBe(0);
     });
@@ -197,10 +222,14 @@ describe("ChatStreamingPipeline", () => {
       const { pipeline } = makePipeline(undefined, mockBroadcast);
 
       pipeline.handleMessageChunk("s1", "t1", "answer");
-      await pipeline.handlePromptCompleted("s1", "t1", { activeChatThreadId: "t1" });
+      await pipeline.handlePromptCompleted("s1", "t1", {
+        activeChatThreadId: "t1",
+      });
 
       const calls = (mockBroadcast as ReturnType<typeof mock>).mock.calls;
-      const completedCalls = calls.filter((c: any[]) => c[1]?.type === "prompt_completed");
+      const completedCalls = calls.filter(
+        (c: any[]) => c[1]?.type === "prompt_completed",
+      );
       expect(completedCalls.length).toBe(1);
     });
 
@@ -217,9 +246,14 @@ describe("ChatStreamingPipeline", () => {
       );
 
       const calls = (mockBroadcast as ReturnType<typeof mock>).mock.calls;
-      const completedCalls = calls.filter((c: any[]) => c[1]?.type === "prompt_completed");
+      const completedCalls = calls.filter(
+        (c: any[]) => c[1]?.type === "prompt_completed",
+      );
       expect(completedCalls.length).toBe(1);
-      expect(completedCalls[0][1].usage).toEqual({ inputTokens: 12, outputTokens: 34 });
+      expect(completedCalls[0][1].usage).toEqual({
+        inputTokens: 12,
+        outputTokens: 34,
+      });
     });
   });
 
@@ -299,11 +333,9 @@ describe("ChatStreamingPipeline", () => {
         pipeline.handleThoughtStart("s1", "t1");
         pipeline.handleMessageChunk("s1", "t1", "answer");
 
-        await pipeline.handlePromptCompleted(
-          "s1",
-          "t1",
-          { activeChatThreadId: "t1" },
-        );
+        await pipeline.handlePromptCompleted("s1", "t1", {
+          activeChatThreadId: "t1",
+        });
       } finally {
         Date.now = originalNow;
       }
@@ -400,11 +432,9 @@ describe("ChatStreamingPipeline", () => {
 
       // Next turn — normal save should happen on prompt_completed.
       pipeline.handleMessageChunk("s1", "t1", "second");
-      await pipeline.handlePromptCompleted(
-        "s1",
-        "t1",
-        { activeChatThreadId: "t1" },
-      );
+      await pipeline.handlePromptCompleted("s1", "t1", {
+        activeChatThreadId: "t1",
+      });
       expect((mockSave as ReturnType<typeof mock>).mock.calls.length).toBe(2);
       const lastCall = (mockSave as ReturnType<typeof mock>).mock.calls[1];
       expect(lastCall[1].metadata?.cancelled).toBeUndefined();
@@ -419,7 +449,12 @@ describe("ChatStreamingPipeline", () => {
       pipeline.handleThoughtChunk("s1", "t1", "thinking");
       pipeline.handleMessageChunk("s1", "t1", "first chunk");
 
-      await pipeline.handleUsageUpdate("s1", "t1", {}, { activeChatThreadId: "t1" });
+      await pipeline.handleUsageUpdate(
+        "s1",
+        "t1",
+        {},
+        { activeChatThreadId: "t1" },
+      );
 
       const snap = pipeline.getStreamingSnapshot("s1", "t1");
       expect(snap.thoughtContent).toBe("thinking");
@@ -435,7 +470,9 @@ describe("ChatStreamingPipeline", () => {
 
       pipeline.handleMessageChunk("s1", "t1", "the answer");
 
-      await pipeline.handlePromptCompleted("s1", "t1", { activeChatThreadId: "t1" });
+      await pipeline.handlePromptCompleted("s1", "t1", {
+        activeChatThreadId: "t1",
+      });
 
       expect(saved.length).toBe(1);
       expect(saved[0].content).toBe("the answer");
@@ -453,12 +490,19 @@ describe("ChatStreamingPipeline", () => {
 
       pipeline.handleMessageChunk("s1", "t1", "phase one ");
 
-      await pipeline.handleUsageUpdate("s1", "t1", {}, { activeChatThreadId: "t1" });
+      await pipeline.handleUsageUpdate(
+        "s1",
+        "t1",
+        {},
+        { activeChatThreadId: "t1" },
+      );
       expect(saved.length).toBe(0);
 
       pipeline.handleMessageChunk("s1", "t1", "phase two");
 
-      await pipeline.handlePromptCompleted("s1", "t1", { activeChatThreadId: "t1" });
+      await pipeline.handlePromptCompleted("s1", "t1", {
+        activeChatThreadId: "t1",
+      });
 
       expect(saved.length).toBe(1);
       expect(saved[0].content).toBe("phase one phase two");

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { Session } from "./repository.js";
 
 export const DEFAULT_SESSION_TTL_DAYS = 180;

@@ -5,6 +5,7 @@ The EditBuffer displays files read-only with a tab system, file context bar, and
 Expert mode bridges these: it lets the user issue edit/refactor instructions from within the EditBuffer, using an active chat thread as the LLM conduit. When the LLM responds, the proposed change is written to a `.mimo-patches/` folder in the workspace and handed to the **PatchBuffer** — a new dedicated buffer for reviewing, approving, and declining proposed file patches.
 
 Key files:
+
 - `packages/mimo-platform/src/buffers/EditBuffer.tsx` — server-rendered HTML shell
 - `packages/mimo-platform/src/buffers/PatchBuffer.tsx` — new buffer component (server-rendered HTML shell)
 - `packages/mimo-platform/public/js/edit-buffer.js` — client-side state, file finder, rendering
@@ -18,6 +19,7 @@ Key files:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Allow users to instruct the LLM to edit the file currently open in EditBuffer
 - Use the selected chat thread's ACP session for LLM communication
 - Provide a visual focus guide showing the user's area of interest
@@ -27,6 +29,7 @@ Key files:
 - Minimal changes to the agent — it receives a normal user_message
 
 **Non-Goals:**
+
 - Multi-file editing in a single expert-mode session
 - Partial-apply or merge of LLM changes (approve-all or decline-all only)
 - Conflict resolution UI for concurrent external edits (warn only)
@@ -89,36 +92,43 @@ Key files:
 ### EditBuffer UI States
 
 **State 1: Expert Mode OFF**
+
 - Toggle button in context bar shows "Expert Mode", inactive style
 - No focus guide, no instruction input
 
 **State 2: Expert Mode ON — Idle**
+
 - Toggle button shows "Expert Mode" active style
 - Thread selector dropdown visible in context bar
 - Focus guide overlay visible (7 lines centered on scroll position)
 - Instruction input hidden until user presses `Enter`
 
 **State 3: Expert Mode ON — Processing**
+
 - Instruction input becomes read-only, shows "Processing..."
 - Cancel button appears
 - Focus guide stays visible
 
 **State 4: Expert Mode ON — Done (returns to Idle)**
+
 - After patch is dispatched to PatchBuffer, returns immediately to Idle
 - Brief "Patch sent to PatchBuffer" toast
 
 ### PatchBuffer UI States
 
 **State 1: Empty**
+
 - Placeholder: "No pending patches"
 
 **State 2: Patch Tab Active**
+
 - Tabs bar shows one tab per pending patch
 - Context bar shows file path + Approve / Decline buttons
 - Vertical split diff: left = original, right = patched
 - Changed lines highlighted inline in both panes
 
 **State 3: Approved / Declined**
+
 - Tab closes after action
 - Brief toast "Approved" or "Declined"
 - If no more tabs, returns to Empty state
@@ -195,6 +205,7 @@ File content:
 ```
 
 Key points:
+
 - `FILE_CONTENT` is the **unescaped** raw file content.
 - The client applies the replacement in memory, then writes the patched result to `.mimo-patches/`.
 
@@ -214,6 +225,7 @@ workspace/
 ### D4: PatchBuffer — Vertical Split Diff (Left = Original, Right = Patched)
 
 **Decision**: PatchBuffer renders a vertical split with the original file on the left and the patched file on the right. Both panes are line-numbered and scroll independently. Changed lines are highlighted inline:
+
 - Lines removed from original: red background, red left border (left pane only)
 - Lines added in patched: green background, green left border (right pane only)
 - Unchanged lines: normal styling in both panes
@@ -248,7 +260,7 @@ interface ExpertMode {
   inputVisible: boolean;
   focusRange: string | null;
   originalPath: string | null;
-  originalContent: string | null;  // cleared after patch is dispatched
+  originalContent: string | null; // cleared after patch is dispatched
   instruction: string | null;
 }
 ```
@@ -359,6 +371,7 @@ interface ExpertMode {
 ### PatchBuffer.tsx (Server-Side HTML Shell)
 
 New buffer component:
+
 - Patch tabs bar (id="patch-buffer-tabs")
 - Context bar with file path (id="patch-file-path"), Approve button (id="patch-approve-btn"), Decline button (id="patch-decline-btn")
 - Split container: left pane (id="patch-original-pane"), right pane (id="patch-patched-pane") with equal width, independent scroll
@@ -382,6 +395,7 @@ interface PatchBufferState {
 ```
 
 Functions:
+
 - `addPatch({ sessionId, originalPath, patchPath })` — adds tab, loads content, renders diff
 - `approve()` — POST patches/approve, close tab
 - `decline()` — DELETE patches, close tab
@@ -392,6 +406,7 @@ Functions:
 ### ExpertService (expert-service.ts)
 
 New functions:
+
 - `writePatchFile(workspacePath, originalPath, content)` — writes to `.mimo-patches/<originalPath>`, creates parent dirs
 - `approvePatch(workspacePath, originalPath)` — reads `.mimo-patches/<originalPath>`, writes to `<originalPath>`, deletes patch
 - `declinePatch(workspacePath, patchPath)` — deletes patch file; `patchPath` must start with `.mimo-patches/`

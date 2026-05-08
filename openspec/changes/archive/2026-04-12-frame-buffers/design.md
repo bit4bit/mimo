@@ -29,9 +29,9 @@
 ```typescript
 // components/Frame.tsx
 interface FrameProps {
-  frameId: 'left' | 'right';
+  frameId: "left" | "right";
   sessionId: string;
-  buffers: BufferConfig[];  // Buffers in this frame
+  buffers: BufferConfig[]; // Buffers in this frame
   activeBufferId: string; // Currently visible buffer
   onBufferSwitch: (bufferId: string) => void;
 }
@@ -43,6 +43,7 @@ interface FrameProps {
 ```
 
 **Responsibilities:**
+
 - Render tab bar based on registered buffers for this frame
 - Display active buffer component
 - Handle tab switching (calls onBufferSwitch)
@@ -53,25 +54,26 @@ interface FrameProps {
 ```typescript
 // buffers/registry.ts
 interface BufferConfig {
-  id: string;                    // 'chat', 'impact', 'notes'
-  name: string;                  // Display name
-  icon?: string;                 // Optional icon
-  frame: 'left' | 'right';      // Which frame this buffer belongs to
-  component: FC<BufferProps>;   // The component to render
+  id: string; // 'chat', 'impact', 'notes'
+  name: string; // Display name
+  icon?: string; // Optional icon
+  frame: "left" | "right"; // Which frame this buffer belongs to
+  component: FC<BufferProps>; // The component to render
 }
 
 interface BufferProps {
   sessionId: string;
-  isActive: boolean;            // Whether this buffer is currently visible
+  isActive: boolean; // Whether this buffer is currently visible
 }
 
 // Registry functions
 export function registerBuffer(config: BufferConfig): void;
-export function getBuffersForFrame(frameId: 'left' | 'right'): BufferConfig[];
+export function getBuffersForFrame(frameId: "left" | "right"): BufferConfig[];
 export function getBufferById(id: string): BufferConfig | undefined;
 ```
 
 **Responsibilities:**
+
 - Maintain static registry of available buffers
 - Group buffers by frame assignment
 - Provide lookup by ID
@@ -83,10 +85,10 @@ export function getBufferById(id: string): BufferConfig | undefined;
 // sessions/frame-state.ts
 interface FrameState {
   leftFrame: {
-    activeBufferId: string;     // 'chat' | etc
+    activeBufferId: string; // 'chat' | etc
   };
   rightFrame: {
-    activeBufferId: string;     // 'impact' | 'notes' | etc
+    activeBufferId: string; // 'impact' | 'notes' | etc
   };
 }
 
@@ -95,6 +97,7 @@ interface FrameState {
 ```
 
 **Storage:**
+
 - Persisted in session storage (file-based, alongside session.yaml)
 - Loaded on page render
 - Updated via API endpoint when switching
@@ -102,6 +105,7 @@ interface FrameState {
 ### 4. Buffer Components
 
 **ChatBuffer** (migrated from inline JSX + chat.js)
+
 ```typescript
 // buffers/ChatBuffer.tsx
 interface ChatBufferProps extends BufferProps {
@@ -114,12 +118,14 @@ interface ChatBufferProps extends BufferProps {
 ```
 
 **ImpactBuffer** (already exists, wrap it)
+
 ```typescript
 // ImpactBuffer stays mostly the same
 // Just needs to accept BufferProps
 ```
 
 **NotesBuffer** (new)
+
 ```typescript
 // buffers/NotesBuffer.tsx
 interface NotesBufferProps extends BufferProps {
@@ -132,6 +138,7 @@ interface NotesBufferProps extends BufferProps {
 ## Data Flow
 
 ### Initial Load
+
 ```
 SessionDetailPage.tsx
   ├── Load frame state from session repository
@@ -149,6 +156,7 @@ Buffer component
 ```
 
 ### Tab Switch
+
 ```
 User clicks tab
   └── Frame.onBufferSwitch(bufferId)
@@ -189,11 +197,8 @@ interface Session {
 }
 
 // Session YAML structure (addition)
-frame_state:
-  left_frame:
-    active_buffer_id: chat
-  right_frame:
-    active_buffer_id: impact
+frame_state: left_frame: active_buffer_id: chat;
+right_frame: active_buffer_id: impact;
 ```
 
 ## File Structure
@@ -219,21 +224,25 @@ packages/mimo-platform/src/
 ## Migration Strategy
 
 ### Phase 1: Create Frame Infrastructure
+
 1. Create buffer registry with types
 2. Create Frame component
 3. Add frame state to session model
 
 ### Phase 2: Migrate Existing Buffers
+
 1. Wrap Chat in ChatBuffer component
 2. Update ImpactBuffer to accept BufferProps
 3. Register both with registry
 
 ### Phase 3: Add New Buffer
+
 1. Create NotesBuffer component
 2. Register with right frame
 3. Test tab switching
 
 ### Phase 4: Update SessionDetailPage
+
 1. Replace inline buffer JSX with Frame components
 2. Add frame state loading
 3. Wire up tab switching API
@@ -241,21 +250,25 @@ packages/mimo-platform/src/
 ## Key Decisions
 
 ### Why tabs instead of other switching mechanisms?
+
 - **Familiar**: Browser-like mental model
 - **Visible**: Users can see available buffers
 - **Simple**: Click to switch, no hidden state
 
 ### Why static frame assignment?
+
 - **Predictable**: Chat always in left; Impact and Notes in right
 - **Simple**: No complex layout management
 - **Sufficient**: Covers current and planned use cases
 
 ### Why per-session frame state?
+
 - **Contextual**: Different sessions may prefer different layouts
 - **Persistent**: User's preference survives reload
 - **Isolated**: One session's layout doesn't affect others
 
 ### Why isActive prop on buffers?
+
 - **Performance**: Buffers can pause expensive operations when hidden
 - **Lifecycle**: Buffers can initialize/finalize based on visibility
 - **Flexibility**: Buffers can choose to keep state or cleanup
@@ -263,17 +276,21 @@ packages/mimo-platform/src/
 ## Edge Cases
 
 ### What if active buffer is unregistered?
+
 - Fallback to first buffer in frame
 - Log warning
 
 ### What if frame has no buffers?
+
 - Render empty state: "No buffers configured"
 
 ### What happens to chat.js when Chat buffer is hidden?
+
 - chat.js continues running (WebSocket stays connected)
 - Messages accumulate but don't render
 - When shown again, chat.js catches up
 
 ### What happens to Notes when hidden?
+
 - Auto-save triggers regardless of visibility
 - Content persists

@@ -1,11 +1,13 @@
 # Spec: UI Reload Indicator
 
 ## Responsibility
+
 Add visual indicator and reload button to EditBuffer context bar when file is outdated.
 
 ## Context Bar Changes
 
 ### Current Context Bar (EditBuffer.tsx lines 43-68)
+
 ```jsx
 <div id="edit-buffer-context" style="display: none; ...">
   <span id="edit-buffer-filepath"></span>
@@ -17,20 +19,21 @@ Add visual indicator and reload button to EditBuffer context bar when file is ou
 ```
 
 ### New Context Bar Structure
+
 ```jsx
 <div id="edit-buffer-context" style="display: none; ...">
   <span id="edit-buffer-filepath"></span>
   <span id="edit-buffer-linecount"></span>
   <span id="edit-buffer-language"></span>
-  
+
   <!-- NEW: Outdated indicator (hidden by default) -->
-  <span 
-    id="edit-buffer-outdated-indicator" 
+  <span
+    id="edit-buffer-outdated-indicator"
     style="display: none; color: #ff9800; font-size: 11px; margin-left: 12px;"
   >
     ● Outdated
   </span>
-  
+
   <!-- NEW: Reload button (hidden by default) -->
   <button
     type="button"
@@ -40,7 +43,7 @@ Add visual indicator and reload button to EditBuffer context bar when file is ou
   >
     ↻ Reload
   </button>
-  
+
   <div style="flex: 1;"></div>
   <button id="close-file-btn">✕ Close</button>
 </div>
@@ -89,32 +92,32 @@ Add visual indicator and reload button to EditBuffer context bar when file is ou
 function renderContextBar() {
   const ctx = document.getElementById("edit-buffer-context");
   if (!ctx) return;
-  
+
   const active = EditBufferState.getActive();
   if (!active) {
     ctx.style.display = "none";
     return;
   }
-  
+
   ctx.style.display = "flex";
-  
+
   // Existing elements
   const pathEl = document.getElementById("edit-buffer-filepath");
   const linesEl = document.getElementById("edit-buffer-linecount");
   const langEl = document.getElementById("edit-buffer-language");
-  
+
   if (pathEl) pathEl.textContent = active.path;
   if (linesEl) linesEl.textContent = "Lines: " + active.lineCount;
   if (langEl) langEl.textContent = active.language;
-  
+
   // NEW: Show/hide outdated indicator and reload button
   const outdatedEl = document.getElementById("edit-buffer-outdated-indicator");
   const reloadBtn = document.getElementById("reload-file-btn");
-  
+
   if (outdatedEl) {
     outdatedEl.style.display = active.isOutdated ? "flex" : "none";
   }
-  
+
   if (reloadBtn) {
     reloadBtn.style.display = active.isOutdated ? "block" : "none";
   }
@@ -126,30 +129,31 @@ function renderContextBar() {
 ```javascript
 function init() {
   // ... existing wiring ...
-  
+
   // Wire reload button
   const reloadBtn = document.getElementById("reload-file-btn");
   if (reloadBtn) {
     reloadBtn.addEventListener("click", reloadCurrentFile);
   }
-  
+
   // ... rest of init ...
 }
 
 function reloadCurrentFile() {
   const active = EditBufferState.getActive();
   if (!active || !active.isOutdated) return;
-  
+
   const sessionId = getSessionId();
   if (!sessionId) return;
-  
-  EditBufferState.reloadFile(active.path, sessionId, function() {
+
+  EditBufferState.reloadFile(active.path, sessionId, function () {
     renderEditBuffer();
   });
 }
 ```
 
 ## Accessibility
+
 - Button has clear label "Reload"
 - Tooltip shows keyboard shortcut
 - Visual indicator uses color + text (not just color)

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { ModelState, ModeState, McpServerConfig } from "../types";
 import { IAcpProvider, NewSessionResponse } from "./types";
 import { logger } from "../logger.js";
@@ -377,17 +378,23 @@ export class AcpClient {
     // Reset thought buffer at start of prompt
     this.session.currentThoughtBuffer = "";
 
-    logger.debug(`[acp-client] prompt() starting for session ${this.sessionId}`);
+    logger.debug(
+      `[acp-client] prompt() starting for session ${this.sessionId}`,
+    );
     try {
       const response = await this.session.connection.prompt({
         sessionId: this.session.acpSessionId,
         prompt: [{ type: "text", text: content }],
       });
-      logger.debug(`[acp-client] prompt() resolved for session ${this.sessionId}, calling onPromptCompleted`);
+      logger.debug(
+        `[acp-client] prompt() resolved for session ${this.sessionId}, calling onPromptCompleted`,
+      );
       this.callbacks.onPromptCompleted(this.sessionId);
       return response;
     } catch (err) {
-      logger.debug(`[acp-client] prompt() errored for session ${this.sessionId}, calling onPromptCompleted before throw`);
+      logger.debug(
+        `[acp-client] prompt() errored for session ${this.sessionId}, calling onPromptCompleted before throw`,
+      );
       this.callbacks.onPromptCompleted(this.sessionId);
       throw err;
     }

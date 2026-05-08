@@ -42,10 +42,10 @@
 
 ## Build Targets
 
-| Package        | Linux x64 | macOS x64 | macOS ARM64 |
-|----------------|-----------|-----------|-------------|
-| mimo-platform  | ✓         | ✓         | ✓           |
-| mimo-agent     | ✓         | ✓         | ✓           |
+| Package       | Linux x64 | macOS x64 | macOS ARM64 |
+| ------------- | --------- | --------- | ----------- |
+| mimo-platform | ✓         | ✓         | ✓           |
+| mimo-agent    | ✓         | ✓         | ✓           |
 
 ## Asset Embedding Strategy (Native Bun)
 
@@ -79,7 +79,8 @@ import "./assets.js"; // Trigger asset embedding
 const staticRoutes: Record<string, Blob> = {};
 for (const blob of embeddedFiles) {
   // Convert "$bunfs/filename-hash.ext" to "/path/filename.ext"
-  const urlPath = "/" + blob.name.replace(/^\$bunfs\//, "").replace(/-[a-f0-9]+\./, ".");
+  const urlPath =
+    "/" + blob.name.replace(/^\$bunfs\//, "").replace(/-[a-f0-9]+\./, ".");
   staticRoutes[urlPath] = blob;
 }
 
@@ -155,15 +156,16 @@ strategy:
       - os: ubuntu-latest
         target: bun-linux-x64
         suffix: linux-x64
-      - os: macos-13  # Intel
+      - os: macos-13 # Intel
         target: bun-darwin-x64
         suffix: darwin-x64
-      - os: macos-14  # Apple Silicon
+      - os: macos-14 # Apple Silicon
         target: bun-darwin-arm64
         suffix: darwin-arm64
 ```
 
 Each runner builds natively for its platform, producing:
+
 - `mimo-platform-{suffix}`
 - `mimo-agent-{suffix}`
 

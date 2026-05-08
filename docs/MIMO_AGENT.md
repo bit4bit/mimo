@@ -5,6 +5,7 @@ A standalone TypeScript/Bun agent that connects to mimo-platform and provides fi
 ## Overview
 
 mimo-agent is a separate binary that runs alongside the platform. It:
+
 - Connects to the platform via WebSocket
 - Watches files in the session worktree for changes
 - Proxies communication with ACP agents
@@ -112,12 +113,14 @@ This creates `dist/mimo-agent` which is a self-contained executable (~50MB).
 The agent uses Node.js `fs.watch` to monitor the working directory recursively.
 
 **Behavior**:
+
 - Changes are debounced (500ms) to batch rapid modifications
 - Ignores hidden files (starting with `.`)
 - Ignores common directories: `node_modules`, `__pycache__`
 - Ignores temporary files: `*.tmp`, files ending with `~`
 
 **Change Detection**:
+
 - New files: `isNew: true`
 - Modified files: `isNew: false`
 - Deleted files: Currently reported as modified (implementation detail)
@@ -181,6 +184,7 @@ WebSocket closed with code 1008: Invalid token
 ### File Watching Not Working
 
 **Check**:
+
 1. `--workdir` points to correct directory
 2. Directory exists and is readable
 3. Not a network-mounted filesystem (may have issues)

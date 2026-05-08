@@ -20,6 +20,7 @@ This design fails in practice because LLMs miscount lines, leading to cascading 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Eliminate line-number-based failures entirely
 - Support replace, insert, and delete operations
 - Handle multiple edits in one response
@@ -27,6 +28,7 @@ This design fails in practice because LLMs miscount lines, leading to cascading 
 - Maintain backward compatibility during migration
 
 **Non-Goals:**
+
 - Multi-file editing
 - Per-block interactive approval
 - Semantic/AST-aware matching
@@ -39,6 +41,7 @@ This design fails in practice because LLMs miscount lines, leading to cascading 
 **Decision**: Use standard `<<<<<<< SEARCH` / `=======` / `>>>>>>> REPLACE` delimiters.
 
 **Rationale**:
+
 - Proven at scale (Aider has processed millions of edits with this format)
 - Human-readable and reviewable
 - No line numbers = no miscounting
@@ -66,19 +69,23 @@ This design fails in practice because LLMs miscount lines, leading to cascading 
 **Rationale**: LLMs sometimes slightly alter indentation or add/remove blank lines. Fuzzy matching handles these variations while still being safe. The ±5 line fallback handles cases where the LLM includes nearby context that moved.
 
 ```typescript
-function findMatch(content: string, search: string, focusLine: number): MatchResult {
+function findMatch(
+  content: string,
+  search: string,
+  focusLine: number,
+): MatchResult {
   // Level 1: Exact
   const exactIdx = content.indexOf(search);
   if (exactIdx !== -1) return { found: true, index: exactIdx };
-  
+
   // Level 2: Whitespace-normalized
   const normalizedSearch = normalizeWhitespace(search);
   const normalizedContent = normalizeWhitespace(content);
   const fuzzyIdx = normalizedContent.indexOf(normalizedSearch);
   if (fuzzyIdx !== -1) return { found: true, index: fuzzyIdx };
-  
+
   // Level 3: Search near focus line
-  return searchNearLine(content, search, focusLine, radius = 5);
+  return searchNearLine(content, search, focusLine, (radius = 5));
 }
 ```
 
@@ -93,16 +100,18 @@ function findMatch(content: string, search: string, focusLine: number): MatchRes
 **Decision**: Support both SEARCH/REPLACE and JSON formats simultaneously during migration.
 
 **Rationale**: This is a core mechanism change. We need a safe migration path:
+
 1. Add SEARCH/REPLACE support alongside JSON
 2. Update prompt to request SEARCH/REPLACE
 3. Monitor for 2-4 weeks
 4. Deprecate JSON in a future change
 
 The `extractReplacement()` function returns a tagged union:
+
 ```typescript
-type ReplacementFormat = 
-  | { format: 'search_replace'; blocks: SearchReplaceBlock[] }
-  | { format: 'json'; replacements: JsonReplacement[] };
+type ReplacementFormat =
+  | { format: "search_replace"; blocks: SearchReplaceBlock[] }
+  | { format: "json"; replacements: JsonReplacement[] };
 ```
 
 ### D5: Error Handling — Fail Fast with Context
@@ -112,6 +121,7 @@ type ReplacementFormat =
 **Rationale**: Partial application is dangerous — it could leave the file in an inconsistent state. Better to fail fast and let the user retry or decline.
 
 Error messages include:
+
 - Which block failed (1st, 2nd, etc.)
 - The search text that wasn't found
 - Suggestion: "The file may have changed since the LLM analyzed it"
@@ -184,6 +194,7 @@ PatchBuffer displays diff for review
 ### Test Coverage
 
 Update `expert-utils.test.ts`:
+
 - Parse single SEARCH/REPLACE block
 - Parse multiple blocks
 - Apply exact match
@@ -197,13 +208,13 @@ Update `expert-utils.test.ts`:
 
 ## Error Handling
 
-| Error Condition | Behavior |
-|-----------------|----------|
-| SEARCH block not found | Try fuzzy match, then partial match. If still not found: throw "Could not find code to replace" |
-| Ambiguous match (multiple exact matches) | Throw "Multiple matches found. Make search text more specific." |
-| Empty SEARCH block | Throw "Empty search block" |
-| Invalid block format (missing delimiters) | Skip invalid block, continue parsing others |
-| Block application fails mid-way | Abort all changes, throw error with block number |
+| Error Condition                           | Behavior                                                                                        |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| SEARCH block not found                    | Try fuzzy match, then partial match. If still not found: throw "Could not find code to replace" |
+| Ambiguous match (multiple exact matches)  | Throw "Multiple matches found. Make search text more specific."                                 |
+| Empty SEARCH block                        | Throw "Empty search block"                                                                      |
+| Invalid block format (missing delimiters) | Skip invalid block, continue parsing others                                                     |
+| Block application fails mid-way           | Abort all changes, throw error with block number                                                |
 
 ## Risks / Trade-offs
 

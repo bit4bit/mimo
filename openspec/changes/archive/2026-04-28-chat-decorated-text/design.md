@@ -19,12 +19,12 @@ renderMessage(msg)
 
 ### Block-level: Fenced Code Blocks
 
-```
+````
 State machine while iterating lines:
   - See ```lang  → enter fence mode, emit fence-open div
   - In fence     → emit line inside <pre> block
   - See ```      → exit fence mode, emit fence-close div
-```
+````
 
 The fence markers (` ``` `) and language tag remain visible inside the styled block.
 
@@ -46,6 +46,7 @@ After inline decoration, each line still goes through the existing `splitTokenAf
 ## Plain Renderer
 
 `renderPlainContent(text, container)` is a stripped-down version:
+
 - Split by `\n`, create `<div>` per line
 - `div.textContent = line` (no styling, no links, no file-ref buttons)
 - Empty lines → `<br>`

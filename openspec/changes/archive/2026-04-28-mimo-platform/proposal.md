@@ -18,6 +18,7 @@ Emacs is outdated for modern collaborative development. We need a web-based edit
 ## Capabilities
 
 ### New Capabilities
+
 - `user-auth`: Simple username/password authentication, filesystem-based credential storage
 - `project-management`: CRUD operations for projects, repository linking, project switching
 - `session-management`: Session CRUD with worktree creation, chat with streaming, file viewing with syntax highlighting
@@ -26,6 +27,7 @@ Emacs is outdated for modern collaborative development. We need a web-based edit
 - `file-sync`: Bidirectional file synchronization between agent worktree and original repository
 
 ### Modified Capabilities
+
 - None
 
 ## Impact

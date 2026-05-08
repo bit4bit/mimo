@@ -1,15 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 
 export const SessionFinderDialog: FC = () => {
   return (
-    <div
-      id="session-finder-dialog"
-      class="dialog-overlay hidden"
-    >
+    <div id="session-finder-dialog" class="dialog-overlay hidden">
       <div class="mimo-modal-content dialog-compact">
         <div class="dialog-header">
-          Find Session{" "}
-          <span class="dialog-help">Esc to close</span>
+          Find Session <span class="dialog-help">Esc to close</span>
         </div>
         <input
           id="session-finder-input"

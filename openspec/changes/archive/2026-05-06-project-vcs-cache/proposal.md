@@ -13,9 +13,11 @@ Currently, every session creation performs a full clone from the remote VCS repo
 ## Capabilities
 
 ### New Capabilities
+
 - `project-vcs-cache`: Project-level repository caching for fast session creation with Git and Fossil support
 
 ### Modified Capabilities
+
 - None - this is an internal optimization that doesn't change external behavior
 
 ## Impact

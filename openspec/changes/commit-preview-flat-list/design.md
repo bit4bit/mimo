@@ -3,11 +3,13 @@
 ## Context
 
 Current commit preview (`commit.js`) builds an expandable tree with:
+
 - Directory nodes with tri-state checkboxes
 - File nodes with word-status badges ("Added"/"Modified"/"Deleted")
 - Inline unified diff for expanded modified files
 
 ImpactBuffer (`chat.js`) changed-files section uses:
+
 - Flat list of file rows
 - Symbol badges: `+` (new), `~` (changed), `-` (deleted)
 - Truncated paths via `shortPath()`
@@ -22,21 +24,25 @@ ImpactBuffer (`chat.js`) changed-files section uses:
 ## Decisions
 
 ### Decision: Flat list over tree
+
 **Choice:** Replace tree with flat list in commit preview.
 
 **Rationale:** ImpactBuffer already uses flat list successfully. Users don't need directory grouping for commit review. Flat list is simpler, faster, consistent.
 
 ### Decision: Keep inline diff in commit preview
+
 **Choice:** Modified files in commit preview expand inline diff on click (same as original behavior). ImpactBuffer opens PatchBuffer on click.
 
 **Rationale:** Commit preview is the review surface before committing — inline diff provides immediate context without leaving the modal. ImpactBuffer is for navigation, so PatchBuffer makes sense there.
 
 ### Decision: Shared render function
+
 **Choice:** Extract `renderChangedFileRow()` and `shortPath()` to `public/js/utils.js`.
 
 **Rationale:** Both commit preview and ImpactBuffer render identical file rows. Shared function prevents style drift.
 
 ### Decision: Symbol badges
+
 **Choice:** `+`/`~`/`-` symbols for all changed-files surfaces.
 
 **Rationale:** Matches ImpactBuffer. Monospace, compact, color-coded. Word labels ("Added"/"Modified"/"Deleted") are verbose and inconsistent with ImpactBuffer.
@@ -50,9 +56,9 @@ New shared utility module:
 ```javascript
 // Constants
 const FILE_STATUS_META = {
-  added:     { badge: "+", cssClass: "file-status-new",     color: "#51cf66" },
-  modified:  { badge: "~", cssClass: "file-status-changed",  color: "#74c0fc" },
-  deleted:   { badge: "-", cssClass: "file-status-deleted",  color: "#ff6b6b" },
+  added: { badge: "+", cssClass: "file-status-new", color: "#51cf66" },
+  modified: { badge: "~", cssClass: "file-status-changed", color: "#74c0fc" },
+  deleted: { badge: "-", cssClass: "file-status-deleted", color: "#ff6b6b" },
 };
 
 // Truncate path to last 2 segments
@@ -75,6 +81,7 @@ function openFileInPatchBuffer(path, sessionId, opts = {}) {
 ### 2. Commit Preview (`commit.js`)
 
 Changes:
+
 - Remove `buildTree()`, `renderTreeNodes()`, `renderFileDiff()`, `getDescendantFiles()`
 - Remove `expandedFiles`, `expandedDirs` state
 - Flatten visible files into sorted list
@@ -84,6 +91,7 @@ Changes:
 - Keep directory tri-state logic? No — flat list, no directories
 
 Selection behavior for flat list:
+
 - Each row has its own checkbox
 - No directory-level selection
 - Select All / Deselect All? Future enhancement
@@ -91,6 +99,7 @@ Selection behavior for flat list:
 ### 3. ImpactBuffer (`chat.js`)
 
 Changes:
+
 - Replace inline `changedFilesHtml` string building with `renderChangedFileRow()` calls
 - Import `shortPath()` and `FILE_STATUS_META` from utils
 - Keep existing click behavior (EditBuffer for new, PatchBuffer for changed)
@@ -98,11 +107,13 @@ Changes:
 ### 4. CSS (`SessionDetailPage.tsx`)
 
 Remove tree-specific rules:
+
 - `.tree-node`, `.tree-node-row`, `.tree-toggle`, `.tree-children`
 - `.tree-icon`, `.tree-icon--folder`, `.tree-icon--file`
 - `.file-diff`, `.file-diff-header`, `.diff-hunk`, `.diff-line`
 
 Add flat-list rules (match ImpactBuffer):
+
 - `.commit-file-row` — flex, gap, padding, hover
 - `.commit-file-status` — monospace, colored symbol
 - `.commit-file-path` — truncated monospace path
@@ -137,11 +148,13 @@ Extracts file change detection from impact calculator into reusable module:
 ### Updated `commits/service.ts`
 
 **Preview (`getPreview`):**
+
 1. Uses `detectChangedFiles()` for accurate file list
 2. Also generates patch via `generatePatch()` for inline diff hunks
 3. Merges results: file list from detection + hunks from patch parsing
 
 **Commit (`commitAndPushSelective`):**
+
 1. Uses `detectChangedFiles()` for accurate file list
 2. Validates selected paths against detected files
 3. Uses `applySelectedFiles()` to copy selected files to upstream

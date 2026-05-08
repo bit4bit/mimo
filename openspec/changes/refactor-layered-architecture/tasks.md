@@ -5,21 +5,27 @@ This change reorganizes the mimo-platform codebase into a strict four-layer arch
 ## Task Files
 
 ### [Infrastructure Layer](./tasks/infrastructure.md)
+
 Server bootstrap, DI context, OS adapters. Must be completed first.
 
 ### [Domain Layer](./tasks/domain.md)
+
 All business logic, services, repositories. **No HTTP or frontend code allowed.**
 
 ### [API Layer](./tasks/api.md)
+
 REST controllers, WebSocket handlers, MCP endpoints. Delegates to domain layer.
 
 ### [Frontend/Web Layer](./tasks/frontend.md)
+
 JSX page routes and shared UI components. Communicates via HTTP APIs only.
 
 ### [Root Index & Bootstrap](./tasks/index-bootstrap.md)
+
 Simplify `index.tsx` to a thin entry point.
 
 ### [Validation & Cleanup](./tasks/validation.md)
+
 Verify layer boundaries, run tests, cleanup empty directories.
 
 ## Execution Order

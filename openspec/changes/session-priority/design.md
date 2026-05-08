@@ -3,6 +3,7 @@
 Sessions are sorted by `createdAt` descending in all four list methods (`listByProject`, `listAll`, `findByAssignedAgentId`, `findByThreadAgentId`) and also in the UI components (`SessionList.tsx`, `SessionListPage.tsx`). The Session interface in `repository.ts` stores all persistent session fields in `session.yaml`.
 
 The change touches three layers:
+
 1. **Data layer**: Session interface + YAML persistence + backward-compat coercion on read
 2. **API layer**: POST creation and PATCH config routes accept priority
 3. **UI layer**: Creation form, settings page, list page
@@ -10,6 +11,7 @@ The change touches three layers:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Every session has a priority (`high`, `medium`, or `low`)
 - Priority is set at creation (optional, defaults to `medium`)
 - Priority is editable via session settings after creation
@@ -17,6 +19,7 @@ The change touches three layers:
 - Existing sessions without priority field silently coerce to `medium`
 
 **Non-Goals:**
+
 - Filtering sessions by priority
 - Custom priority ordering beyond the three tiers
 - Priority affecting agent scheduling or resource allocation
@@ -27,6 +30,7 @@ The change touches three layers:
 ### Decision: Three tiers (not numeric)
 
 **Options Considered:**
+
 1. **Numeric priority (1-10)** - Flexible, but arbitrary values, hard to present in UI meaningfully
 2. **Three named tiers** - Clear semantics, simple UI, easy to validate
 
@@ -41,6 +45,7 @@ Rationale: Most sessions are normal work. Requiring an explicit choice adds fric
 ### Decision: Coerce missing field to `medium` on read (not migrate)
 
 **Options Considered:**
+
 1. **One-time migration script** - Writes `priority: medium` to all existing `session.yaml` files
 2. **Coerce on read** - Missing field treated as `medium` in memory, written on next save
 
@@ -55,6 +60,7 @@ Rationale: Repository is the authoritative source of ordering. UI components alr
 ## Sort Algorithm
 
 Priority weight function (pure, injectable):
+
 ```
 high   → 0
 medium → 1

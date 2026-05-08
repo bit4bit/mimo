@@ -15,6 +15,7 @@ The issue is in the message flow between the platform and mimo-agent when handli
 ### User Impact
 
 User sees:
+
 - ✅ System message: "Before performing any task, try to locate and read the file `AGENTS.md`..."
 - ❌ No agent response
 
@@ -25,11 +26,13 @@ The streaming pipeline in `AgentMessageRouter` was designed to require `promptId
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Ensure agent responses to initial instructions are displayed to users
 - Maintain compatibility with existing streaming pipeline
 - Keep changes minimal and focused
 
 **Non-Goals:**
+
 - Redesigning the streaming architecture
 - Adding new message types
 - Changing the ACP protocol
@@ -64,7 +67,8 @@ The streaming pipeline in `AgentMessageRouter` was designed to require `promptId
 ## Migration Plan
 
 This is a bug fix with no migration needed:
+
 1. Deploy mimo-agent changes
 2. Deploy platform changes (order doesn't matter as the change is backward compatible)
 3. Existing threads without responses will not be retroactively fixed (they're already created)
-3. New threads created after deployment will show agent responses correctly
+4. New threads created after deployment will show agent responses correctly

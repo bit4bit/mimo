@@ -1,6 +1,7 @@
 # Spec: Reload Keybinding
 
 ## Responsibility
+
 Add Alt+Shift+R keybinding to reload the currently active file when it's outdated.
 
 ## Keybinding Configuration
@@ -27,14 +28,14 @@ function getConfiguredKeybindings() {
   if (!raw || typeof raw !== "object") {
     return configured;
   }
-  
+
   // Load all existing keybindings...
-  
+
   // NEW: Load reloadFile keybinding
   if (typeof raw.reloadFile === "string" && raw.reloadFile.trim().length > 0) {
     configured.reloadFile = raw.reloadFile.trim();
   }
-  
+
   return configured;
 }
 ```
@@ -48,18 +49,18 @@ In onKeyDown function, add after closeFile handling:
 ```javascript
 function onKeyDown(event) {
   // ... existing escape/modal handling ...
-  
+
   let handled = false;
-  
+
   // ... existing edit buffer keybindings ...
-  
+
   // NEW: Reload file keybinding
   if (bindingMatches(event, keybindings.reloadFile)) {
     if (window.EditBuffer) {
       handled = window.EditBuffer.reloadCurrentFile();
     }
   }
-  
+
   // ... rest of keybindings ...
 }
 ```
@@ -82,26 +83,26 @@ window.EditBuffer = {
 ```javascript
 function reloadCurrentFile() {
   const active = EditBufferState.getActive();
-  
+
   // Only reload if there's an active file and it's outdated
   if (!active || !active.isOutdated) {
     return false;
   }
-  
+
   const sessionId = getSessionId();
   if (!sessionId) return false;
-  
+
   // Save scroll position before reload
   const contentEl = document.getElementById("edit-buffer-content");
   if (contentEl && active) {
     EditBufferState.setScrollPosition(active.path, contentEl.scrollTop);
   }
-  
+
   // Perform reload
-  EditBufferState.reloadFile(active.path, sessionId, function() {
+  EditBufferState.reloadFile(active.path, sessionId, function () {
     renderEditBuffer();
   });
-  
+
   return true;
 }
 ```
@@ -109,6 +110,7 @@ function reloadCurrentFile() {
 ## Return Value Semantics
 
 The reloadCurrentFile function returns:
+
 - `true` - Reload was initiated (file was outdated)
 - `false` - No reload occurred (no active file, or file not outdated)
 
@@ -117,11 +119,13 @@ This allows the keybinding handler to properly handle the event (prevent default
 ## Shortcut Help Integration
 
 If there's a shortcuts help display, add:
+
 - Reload file: Alt+Shift+R
 
 ## Conflict Resolution
 
 The reloadFile keybinding (Alt+Shift+R) should not conflict with existing bindings:
+
 - openFileFinder: Mod+Shift+F
 - closeFile: Alt+Shift+W
 - nextFile: Mod+Alt+ArrowRight

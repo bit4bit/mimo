@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 const LANG_MAP: Record<string, string> = {
   ts: "typescript",
   tsx: "typescript",

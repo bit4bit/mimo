@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import { Layout } from "../../../shared/components/Layout.js";
 import type { Credential } from "../../../../domain/credentials/repository";
@@ -68,7 +69,9 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({
               {project.instructions || ""}
             </textarea>
             <small class="form-help">
-              These instructions will be used as a default for all sessions and threads in this project. Can be overridden at the session or thread level.
+              These instructions will be used as a default for all sessions and
+              threads in this project. Can be overridden at the session or
+              thread level.
             </small>
           </div>
 

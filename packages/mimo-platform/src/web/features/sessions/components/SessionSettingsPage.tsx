@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import { Layout } from "../../../shared/components/Layout.js";
 
@@ -58,30 +59,20 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
 
         {creationSettings && (
           <div class="creation-settings-box">
-            <h2 class="creation-settings-title">
-              Creation Settings
-            </h2>
+            <h2 class="creation-settings-title">Creation Settings</h2>
             <div class="creation-settings-content">
               <div class="settings-row">
-                <span class="settings-label">
-                  Session Name
-                </span>
-                <div class="settings-value">
-                  {creationSettings.sessionName}
-                </div>
+                <span class="settings-label">Session Name</span>
+                <div class="settings-value">{creationSettings.sessionName}</div>
               </div>
               <div class="settings-row">
-                <span class="settings-label">
-                  Assigned Agent
-                </span>
+                <span class="settings-label">Assigned Agent</span>
                 <div class="settings-value">
                   {creationSettings.assignedAgentName || "None"}
                 </div>
               </div>
               <div class="settings-row">
-                <span class="settings-label">
-                  Agent working directory
-                </span>
+                <span class="settings-label">Agent working directory</span>
                 <div class="settings-value">
                   {creationSettings.agentSubpath || "Repository root"}
                 </div>
@@ -93,9 +84,7 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
                 </div>
               </div>
               <div class="settings-row">
-                <span class="settings-label">
-                  MCP Servers
-                </span>
+                <span class="settings-label">MCP Servers</span>
                 <div class="settings-value">
                   {creationSettings.mcpServerNames.length > 0
                     ? creationSettings.mcpServerNames.join(", ")
@@ -103,20 +92,14 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
                 </div>
               </div>
               <div>
-                <span class="settings-label">
-                  Session Type
-                </span>
-                <div class="settings-value">
-                  {creationSettings.sessionType}
-                </div>
+                <span class="settings-label">Session Type</span>
+                <div class="settings-value">{creationSettings.sessionType}</div>
               </div>
             </div>
           </div>
         )}
 
-        <h2 class="runtime-settings-title">
-          Runtime Settings
-        </h2>
+        <h2 class="runtime-settings-title">Runtime Settings</h2>
 
         <form
           method="POST"
@@ -249,9 +232,7 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
           </div>
 
           <div class="form-group current-setting-box">
-            <label class="current-setting-label">
-              Current Setting
-            </label>
+            <label class="current-setting-label">Current Setting</label>
             <div class="current-setting-value">
               {formatTimeout(session.idleTimeoutMs)}
             </div>
@@ -275,17 +256,13 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
               </div>
               <div class="mt-8">
                 <span class="text-muted">Auto-delete TTL: </span>
-                <span class="text-primary">
-                  {session.sessionTtlDays} days
-                </span>
+                <span class="text-primary">{session.sessionTtlDays} days</span>
               </div>
             </div>
           </div>
 
           <div class="form-group tips-box">
-            <label class="tips-label">
-              💡 Tips
-            </label>
+            <label class="tips-label">💡 Tips</label>
             <ul class="tips-list">
               <li class="mb-8">
                 <strong>Short timeouts (1-2 min):</strong> Good for quick tasks.

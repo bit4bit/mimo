@@ -7,6 +7,7 @@ This change is a **bug fix** that requires no new specifications. The existing b
 ## Current Spec Coverage
 
 The existing chat streaming pipeline specification already covers:
+
 - `message_chunk` events require a `promptId` for tracking
 - Agent responses are streamed via `message_chunk`, `thought_chunk`, `usage_update`, and `prompt_completed` events
 - The `promptId` links the outgoing prompt to incoming response chunks

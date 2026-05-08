@@ -5,12 +5,14 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Single source of truth for ACP callback construction
 - Idle-timer resets (`recordActivity`) applied consistently in both spawn paths
 - Reduce `index.ts` by ~200 lines
 - All existing behavior preserved; tests pass
 
 **Non-Goals:**
+
 - Changing the ACP protocol or callback signatures
 - Merging `spawnAcpProcess` and `respawnAcpProcess` into one method (they have different initialization logic)
 - Modifying lifecycle state machine behavior

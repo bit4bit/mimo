@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 // assets.ts - Embed all static assets for compiled executable
 // This module imports all public assets with `with { type: "file" }`
 // which tells Bun to embed them in the compiled binary.

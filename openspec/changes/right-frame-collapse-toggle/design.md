@@ -7,12 +7,14 @@ Current persisted state tracks only active buffer IDs. There is no notion of fra
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Allow users to collapse and restore the right frame from a visible button.
 - Support the requested default keybinding `Alt+Shift+Control+F`.
 - Persist collapsed state per session and restore it on page load.
 - Keep existing buffer switching behavior unchanged.
 
 **Non-Goals:**
+
 - Collapsing the left frame.
 - Adding arbitrary frame resizing in this change.
 - Introducing a global keybinding system outside the session page.
@@ -26,12 +28,14 @@ Current persisted state tracks only active buffer IDs. There is no notion of fra
 **Rationale**: Collapse state is session-specific UI context and belongs with existing persisted frame state.
 
 **Compatibility**:
+
 - Missing `isCollapsed` values normalize to `false`.
 - Existing `POST /frame-state` payloads that only update `activeBufferId` remain valid.
 
 ### D2: Single toggle behavior for both button and keyboard
 
 **Decision**: Implement one toggle path in session scripts and call it from:
+
 - right-frame toggle button click
 - `toggleRightFrame` keybinding action
 
@@ -40,6 +44,7 @@ Current persisted state tracks only active buffer IDs. There is no notion of fra
 ### D3: Layout model
 
 **Decision**:
+
 - Collapsed state adds a container class (for example: `right-frame-collapsed`) that hides right-frame content and expands left frame.
 - A compact restore control remains visible so users can reopen without keyboard.
 
@@ -48,6 +53,7 @@ Current persisted state tracks only active buffer IDs. There is no notion of fra
 ### D4: Keybinding profile and configuration
 
 **Decision**:
+
 - Add `toggleRightFrame` to session keybinding defaults with value `Alt+Shift+Control+F`.
 - Make it configurable via `sessionKeybindings.toggleRightFrame`.
 
@@ -56,6 +62,7 @@ Current persisted state tracks only active buffer IDs. There is no notion of fra
 ### D5: Focus and accessibility
 
 **Decision**:
+
 - Toggle controls include accessible labels and `aria-expanded` state.
 - If collapse is triggered while focus is inside right frame, move focus to a stable left-frame target.
 

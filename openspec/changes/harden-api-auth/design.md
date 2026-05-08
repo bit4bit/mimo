@@ -12,6 +12,7 @@ The WebSocket upgrade path is handled in a custom `fetch` function outside Hono,
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Every HTTP route is protected by default; no new route can be added without explicitly opting into the public allowlist.
 - `/ws/chat` WebSocket requires a valid JWT and session ownership before upgrade.
 - Remove dead/debug code (`/api/test` ×2, empty `protectedRoutes`).
@@ -19,6 +20,7 @@ The WebSocket upgrade path is handled in a custom `fetch` function outside Hono,
 - Pattern B routes gain JWT enforcement without modifying their files.
 
 **Non-Goals:**
+
 - Migrating Pattern B helpers to use `authMiddleware` directly (the global middleware makes this unnecessary for correctness; it can be done as a separate cleanup).
 - Changing the public allowlist contents beyond what is explored (e.g., making `/api/help` private).
 - Any change to the MCP Bearer token auth path (`/api/mimo-mcp`).
@@ -53,6 +55,7 @@ All other paths require a valid JWT cookie. The check happens before Hono dispat
 ### Decision 3: `/ws/chat` fix mirrors `/ws/files` exactly
 
 The `/ws/files` handler (lines 457-474 of `index.tsx`) already does:
+
 1. Parse `Cookie` header for JWT token
 2. `authService.verifyToken(token)` → get username
 3. Verify `session.owner === username`

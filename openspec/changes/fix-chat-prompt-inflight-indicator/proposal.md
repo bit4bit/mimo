@@ -12,9 +12,11 @@ The "Received, processing..." indicator that appears after sending a chat messag
 ## Capabilities
 
 ### New Capabilities
-- *(none)*
+
+- _(none)_
 
 ### Modified Capabilities
+
 - `chat-streaming-state`: Server must send `streaming_state` when agent is processing a prompt even if no chunks have been received yet. Client must reconstruct streaming UI from empty state.
 - `chat-threads`: Thread switching must properly handle the prompt-in-flight indicator state.
 

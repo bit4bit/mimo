@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { McpServerRepository } from "./repository.js";
 import {
   McpServer,

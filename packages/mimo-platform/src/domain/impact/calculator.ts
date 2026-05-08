@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { SccService, SccMetrics, SccFileMetrics } from "./scc-service.js";
 import type { JscpdService, Clone } from "./jscpd-service.js";
 import type { OS } from "../../infrastructure/os/types.js";

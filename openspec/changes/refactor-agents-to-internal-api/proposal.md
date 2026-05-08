@@ -14,9 +14,11 @@ The agents domain handles agent registration, capabilities, and lifecycle manage
 ## Capabilities
 
 ### New Capabilities
+
 - `internal-api-agents`: Internal REST API for agent management (CRUD, capabilities)
 
 ### Modified Capabilities
+
 <!-- None - this is implementation refactoring -->
 
 ## Impact

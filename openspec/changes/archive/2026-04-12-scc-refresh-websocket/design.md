@@ -153,12 +153,12 @@ interface ImpactErrorMessage {
 
 ## Error Handling
 
-| Scenario | Action |
-|----------|--------|
-| SCC not installed | Show warning (existing behavior) |
-| SCC execution fails | Send `impact_error`, keep stale=true |
-| Concurrent refresh | Send `impact_calculating`, ignore duplicate |
-| WebSocket disconnect | Reconnect and re-request stale status |
+| Scenario             | Action                                      |
+| -------------------- | ------------------------------------------- |
+| SCC not installed    | Show warning (existing behavior)            |
+| SCC execution fails  | Send `impact_error`, keep stale=true        |
+| Concurrent refresh   | Send `impact_calculating`, ignore duplicate |
+| WebSocket disconnect | Reconnect and re-request stale status       |
 
 ## Testing Strategy
 

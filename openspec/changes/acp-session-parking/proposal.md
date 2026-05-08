@@ -6,7 +6,7 @@ ACP (Agent Client Protocol) providers like opencode and claude-agent-acp keep th
 
 - **Per-session idle timeout configuration**: Add `idleTimeoutMs` field to session storage (persisted to disk in `session.yaml`, default: 10 minutes)
 - **ACP session caching**: Cache `acpSessionId`, `modelState`, and `modeState` in mimo-platform when ACP is parked
-- **Smart session parking in mimo-agent**: 
+- **Smart session parking in mimo-agent**:
   - Monitor activity (user prompts, ACP messages/thoughts)
   - Kill ACP process after idle timeout
   - Stop file watcher to save resources
@@ -21,11 +21,13 @@ ACP (Agent Client Protocol) providers like opencode and claude-agent-acp keep th
 ## Capabilities
 
 ### New Capabilities
+
 - `acp-session-parking`: Automatic idle detection and resource cleanup for ACP processes
 - `acp-session-resumption`: Transparent session restoration with cached configuration
 - `session-idle-config`: Per-session idle timeout configuration API
 
 ### Modified Capabilities
+
 - `session-management`: Add `idleTimeoutMs`, `acpSessionId`, `modelState`, `modeState` to session storage schema
 - `chat-streaming-state`: Add ACP status indicator to chat UI
 

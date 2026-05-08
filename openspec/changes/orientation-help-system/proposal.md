@@ -16,9 +16,11 @@ Users need contextual documentation to understand UI elements without leaving th
 ## Capabilities
 
 ### New Capabilities
+
 - `orientation-help`: Contextual documentation tooltips on hover, loaded from local help.yaml with markdown rendering and configurable display delays
 
 ### Modified Capabilities
+
 <!-- No existing capabilities require spec-level changes -->
 
 ## Impact

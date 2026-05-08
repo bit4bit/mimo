@@ -9,6 +9,7 @@ The current streaming architecture only tracks **accumulated content buffers** (
 5. Agent eventually sends chunks → buffers fill → `streaming_state` includes content
 
 The gap: if the user switches threads or reloads between steps 4-5, the frontend has no way to know a prompt is in flight because:
+
 - `request_state` only checks content buffers (empty)
 - `prompt_received` was ephemeral broadcast, not persisted
 - `isAgentAlive` only tells us the agent process exists, not that it's processing THIS thread
@@ -16,11 +17,13 @@ The gap: if the user switches threads or reloads between steps 4-5, the frontend
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Ensure "Received, processing..." indicator survives thread switches
 - Ensure indicator survives browser reloads
 - Do this with minimal changes to existing architecture
 
 **Non-Goals:**
+
 - Redesigning the entire streaming protocol
 - Adding new WebSocket message types
 - Changing agent behavior
@@ -40,6 +43,7 @@ isPromptInFlight(sessionId, threadId) { return this.promptInFlight.has(streamKey
 ```
 
 **Set locations:**
+
 - **Set**: `handlePromptReceived` in `message-router.ts` (when agent broadcasts `prompt_received`)
 - **Clear**: `handleUsageUpdate` and `handleErrorResponse` in `message-router.ts` (when the turn ends)
 
@@ -68,27 +72,30 @@ Update `handleStreamingState` to always insert the streaming element:
 ```javascript
 function handleStreamingState(data) {
   const { thoughtContent, messageContent } = data;
-  
+
   ChatState.streaming.reconstructed = true;
-  
+
   removeEditableBubble();
-  
+
   if (thoughtContent) {
     insertStreamingMessage();
     insertThoughtSection();
     // ... update thought
   }
-  
+
   // Always insert message element for reconstructed state
-  if (!ChatState.streaming.messageElement || !ChatState.streaming.messageElement.isConnected) {
+  if (
+    !ChatState.streaming.messageElement ||
+    !ChatState.streaming.messageElement.isConnected
+  ) {
     insertStreamingMessage();
   }
-  
+
   if (messageContent) {
     ChatState.streaming.content += messageContent;
     updateMessageContent(messageContent);
   }
-  
+
   // ... fallback timeout
 }
 ```
@@ -101,11 +108,11 @@ function handleStreamingState(data) {
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|-----------|
-| Stale `promptInFlight` if agent crashes mid-prompt | The flag is also cleared on WebSocket disconnect. Add `clearPromptInFlight` to agent disconnect handler. |
-| False positive indicator if agent is alive but processing a different thread | The Set is keyed by `sessionId:threadId`, so it's thread-scoped. Correct. |
-| `streaming_state` with empty content triggers unnecessary DOM operations | The `handleStreamingState` already has a guard: `if (!ChatState.streaming.messageElement)` prevents duplicates. |
+| Risk                                                                         | Mitigation                                                                                                      |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Stale `promptInFlight` if agent crashes mid-prompt                           | The flag is also cleared on WebSocket disconnect. Add `clearPromptInFlight` to agent disconnect handler.        |
+| False positive indicator if agent is alive but processing a different thread | The Set is keyed by `sessionId:threadId`, so it's thread-scoped. Correct.                                       |
+| `streaming_state` with empty content triggers unnecessary DOM operations     | The `handleStreamingState` already has a guard: `if (!ChatState.streaming.messageElement)` prevents duplicates. |
 
 ## Open Questions
 

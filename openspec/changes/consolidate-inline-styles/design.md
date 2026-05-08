@@ -1,6 +1,7 @@
 ## Context
 
 The codebase has 330 inline style declarations across TSX files in `packages/mimo-platform/src/web/`. The highest-frequency patterns are:
+
 - 74× `color: #888`
 - 53× `font-size: 12px`
 - 43× `display: none`
@@ -8,6 +9,7 @@ The codebase has 330 inline style declarations across TSX files in `packages/mim
 - 26× `flex: 1`
 
 Additionally, there are byte-identical copies of buffer components in:
+
 - `packages/mimo-platform/src/domain/buffers/`
 - `packages/mimo-platform/src/web/features/sessions/components/buffers/`
 
@@ -16,12 +18,14 @@ The existing `Layout.tsx` already contains a ~400-line global `<style>` block wi
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Eliminate duplicated inline styles by replacing them with reusable conceptual CSS classes
 - Deduplicate byte-identical buffer component copies
 - Improve maintainability and consistency of the UI styling
 - Establish a semantic naming convention (what it is, not how it looks)
 
 **Non-Goals:**
+
 - No new visual design or color scheme changes
 - No changes to component behavior or user interactions
 - No introduction of external CSS frameworks (Tailwind, Bootstrap, etc.)
@@ -31,20 +35,24 @@ The existing `Layout.tsx` already contains a ~400-line global `<style>` block wi
 ## Decisions
 
 **1. Use Layout.tsx global `<style>` block as the CSS root**
-- *Rationale*: The application already uses this pattern successfully. No build pipeline changes needed.
-- *Alternative considered*: External CSS file in `public/` — rejected because it would require additional asset serving logic and the current inline approach works with the compiled binary.
+
+- _Rationale_: The application already uses this pattern successfully. No build pipeline changes needed.
+- _Alternative considered_: External CSS file in `public/` — rejected because it would require additional asset serving logic and the current inline approach works with the compiled binary.
 
 **2. Semantic/conceptual class naming over utility classes**
-- *Rationale*: `.dialog-overlay` is more meaningful than `.flex.justify-center.items-start.pt-20`. The codebase is small enough that conceptual names are self-documenting.
-- *Alternative considered*: Utility-first (Tailwind-style) — rejected because it would create class soup in JSX and doesn't match the existing codebase style.
+
+- _Rationale_: `.dialog-overlay` is more meaningful than `.flex.justify-center.items-start.pt-20`. The codebase is small enough that conceptual names are self-documenting.
+- _Alternative considered_: Utility-first (Tailwind-style) — rejected because it would create class soup in JSX and doesn't match the existing codebase style.
 
 **3. Handle `display: none` via `.hidden` modifier classes**
-- *Rationale*: The 43 occurrences of `display: none` are mostly conditional visibility. Using a modifier class (`.toolbar.hidden`) allows JavaScript to toggle visibility by adding/removing a class.
-- *Pattern*: Base class defines layout (`.toolbar { display: flex; ... }`), modifier hides (`.toolbar.hidden { display: none; }`).
+
+- _Rationale_: The 43 occurrences of `display: none` are mostly conditional visibility. Using a modifier class (`.toolbar.hidden`) allows JavaScript to toggle visibility by adding/removing a class.
+- _Pattern_: Base class defines layout (`.toolbar { display: flex; ... }`), modifier hides (`.toolbar.hidden { display: none; }`).
 
 **4. Consolidate buffer copies to `web/features/sessions/components/buffers/`**
-- *Rationale*: The `web/` tree is the active UI layer. `domain/buffers/` appears to be an older copy.
-- *Action*: Delete `domain/buffers/`, update any imports pointing to it.
+
+- _Rationale_: The `web/` tree is the active UI layer. `domain/buffers/` appears to be an older copy.
+- _Action_: Delete `domain/buffers/`, update any imports pointing to it.
 
 ## Risks / Trade-offs
 

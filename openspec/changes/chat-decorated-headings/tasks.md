@@ -5,7 +5,7 @@
 - [ ] 1.3 Add test: `#hashtag` (no space) does NOT produce a heading token
 - [ ] 1.4 Add test: bare `#` does NOT produce a heading token
 - [ ] 1.5 Add test: inline bold inside heading — `## **Bold**` produces `html` with `<b class="decorated-bold">**Bold**</b>`
-- [ ] 1.6 Add test: inline code span inside heading — `### \`code\`` produces `html` with `<code class="decorated-code">`
+- [ ] 1.6 Add test: inline code span inside heading — `### \`code\``produces`html`with`<code class="decorated-code">`
 - [ ] 1.7 Add test: XSS — `# <script>alert(1)</script>` produces escaped html with no `<script>` tag
 - [ ] 1.8 Confirm all new tests fail (red) before implementation
 

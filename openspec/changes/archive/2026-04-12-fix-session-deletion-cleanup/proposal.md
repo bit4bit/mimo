@@ -15,23 +15,29 @@ When users delete a session from mimo-platform, the platform sends a `session_en
 ## Capabilities
 
 ### New Capabilities
+
 - `agent-session-lifecycle`: Agent-side session lifecycle management and cleanup coordination
 
 ### Modified Capabilities
+
 - `session-management`: Update to include agent notification requirements when session is deleted
 
 ## Impact
 
 **Affected Code:**
+
 - `packages/mimo-agent/src/index.ts` - Add message handler and cleanup method
 - `packages/mimo-agent/src/session.ts` - May need adjustments for proper cleanup
 
 **APIs:**
+
 - WebSocket message protocol between platform and agent (adds `session_ended` handling)
 
 **Dependencies:**
+
 - No new dependencies
 
 **Systems:**
+
 - mimo-agent process lifecycle
 - ACP provider process management (opencode, claude-agent)

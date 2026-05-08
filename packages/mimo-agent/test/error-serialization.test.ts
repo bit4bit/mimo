@@ -16,7 +16,10 @@ mock.module("@agentclientprotocol/sdk", () => {
     closed = Promise.resolve();
     constructor(_factory: unknown, _stream: unknown) {}
     async initialize() {
-      return { protocolVersion: "1.0", agentCapabilities: { loadSession: true } };
+      return {
+        protocolVersion: "1.0",
+        agentCapabilities: { loadSession: true },
+      };
     }
     async newSession() {
       return { sessionId: "test-acp-session" };
@@ -27,7 +30,9 @@ mock.module("@agentclientprotocol/sdk", () => {
   }
   class AgentSideConnection {
     closed = Promise.resolve();
-    get signal() { return new AbortController().signal; }
+    get signal() {
+      return new AbortController().signal;
+    }
     constructor(_factory: unknown, _stream: unknown) {}
   }
   return {
@@ -55,11 +60,17 @@ describe("error_response serialization", () => {
         },
         input: new WritableStream<Uint8Array>(),
         output: new ReadableStream<Uint8Array>({
-          start(controller) { controller.close(); },
+          start(controller) {
+            controller.close();
+          },
         }),
       }),
       extractState: () => ({
-        modelState: { currentModelId: "m", availableModels: [], optionId: "mo" },
+        modelState: {
+          currentModelId: "m",
+          availableModels: [],
+          optionId: "mo",
+        },
         modeState: { currentModeId: "md", availableModes: [], optionId: "mdo" },
       }),
       setModel: async () => {},
@@ -69,7 +80,10 @@ describe("error_response serialization", () => {
 
     const deps = {
       os: {
-        path: { join: (...parts: string[]) => parts.join("/"), homeDir: () => "/tmp" },
+        path: {
+          join: (...parts: string[]) => parts.join("/"),
+          homeDir: () => "/tmp",
+        },
         fs: {
           exists: async () => false,
           mkdir: async () => {},
@@ -98,7 +112,10 @@ describe("error_response serialization", () => {
           modeState: undefined,
         }),
         setSessionAcpProcess: () => {},
-        createSession: async () => ({ sessionId: "s1", checkoutPath: "/tmp/s1" }),
+        createSession: async () => ({
+          sessionId: "s1",
+          checkoutPath: "/tmp/s1",
+        }),
         setSessionState: () => {},
         setSessionMcpServers: () => {},
         setSessionAgentSubpath: () => {},

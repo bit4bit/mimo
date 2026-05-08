@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 export { AcpClient } from "./client";
 export type {
   AcpClientSession,

@@ -7,6 +7,7 @@ The ACP protocol supports session resumption via `loadSession()` for both openco
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Automatically "park" idle ACP sessions after a configurable timeout (default: 10 minutes)
 - Transparently resume parked sessions when user sends a new prompt
 - Cache ACP configuration (model, mode, session ID) in mimo-platform for seamless resumption
@@ -15,6 +16,7 @@ The ACP protocol supports session resumption via `loadSession()` for both openco
 - Support both opencode and claude-agent-acp providers uniformly
 
 **Non-Goals:**
+
 - Persist LLM conversation context across parking (ACP provider handles this via loadSession)
 - Support parking for providers that don't implement session/load
 - Implement server-side LLM context caching
@@ -81,7 +83,7 @@ The ACP protocol supports session resumption via `loadSession()` for both openco
 1. **Schema migration**: Session YAML gets new optional fields with defaults:
    - `idleTimeoutMs`: 600000 (backward compatible - existing sessions get default)
    - `acpSessionId`: null
-   - `modelState`: null  
+   - `modelState`: null
    - `modeState`: null
    - `acpStatus`: "active"
 

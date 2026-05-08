@@ -1,6 +1,7 @@
 ## Why
 
 When using the Claude agent provider, a single user prompt can trigger **multi-phase responses** where the agent emits `message_chunk` data, then `usage_update`, then additional `message_chunk` data for the same prompt. The current streaming pipeline treats each `usage_update` as a signal that the entire response is complete, causing the UI to:
+
 1. Finalize the first chunk as a completed message
 2. Leave the second chunk stranded in a "● Received, processing..." box that never resolves
 
@@ -16,9 +17,11 @@ This degrades the chat experience because users see their response split across 
 ## Capabilities
 
 ### New Capabilities
-- *(none — this is a behavioral fix to existing capability)*
+
+- _(none — this is a behavioral fix to existing capability)_
 
 ### Modified Capabilities
+
 - `chat-streaming-pipeline`: The end-of-stream signal changes from `usage_update` to `prompt_completed`. `usage_update` becomes an intermediate metadata event that updates usage display without finalizing the message.
 - `agent-processing-feedback`: Agent now emits `prompt_completed` after `acpClient.prompt()` resolves, providing a clear lifecycle boundary for the UI.
 

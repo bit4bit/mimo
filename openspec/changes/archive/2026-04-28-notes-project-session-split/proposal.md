@@ -17,10 +17,12 @@ Mixing both levels in the same textarea forces users to either duplicate cross-s
 ## Capabilities
 
 ### Modified Capabilities
+
 - `notes-buffer`: Extend to render two independent note sections (project-level and session-level).
 - `frame-state-service`: Extend with project-notes load/save methods.
 
 ### New Capabilities
+
 - `project-notes`: Persistent, project-scoped freeform notes accessible from any session of that project.
 
 ## Impact

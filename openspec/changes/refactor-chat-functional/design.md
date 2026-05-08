@@ -1,6 +1,7 @@
 ## Context
 
 The current chat.js is a 1557-line IIFE with:
+
 - 31 mutable state variables scattered throughout
 - Mixed concerns: DOM manipulation, WebSocket handling, business logic entangled
 - No clear boundaries between views, services, and controllers
@@ -12,6 +13,7 @@ The file handles WebSocket communication, message rendering, streaming UI, thoug
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Organize code into clear sections with single responsibilities
 - Establish a global state object as the single source of truth
 - Separate pure view functions from DOM manipulation
@@ -21,6 +23,7 @@ The file handles WebSocket communication, message rendering, streaming UI, thoug
 - Preserve all existing behavior
 
 **Non-Goals:**
+
 - No pure functional programming (allow mutable state)
 - No Redux/Flux architecture (too heavy)
 - No module splitting (keep single file)
@@ -30,9 +33,11 @@ The file handles WebSocket communication, message rendering, streaming UI, thoug
 ## Decisions
 
 ### 1. Single Global State Object
+
 **Decision:** Use a single `ChatState` object at the top of the file.
 
 **Rationale:**
+
 - All mutable state lives in one place, easy to find and track
 - Functions receive state they need, no hidden dependencies
 - Simpler than immutable updates for this refactoring scope
@@ -40,39 +45,49 @@ The file handles WebSocket communication, message rendering, streaming UI, thoug
 **Alternative considered:** Immutable state with reducer pattern - rejected as overkill for this codebase.
 
 ### 2. Views are Pure Functions
+
 **Decision:** View functions (`render*`) take data, return DOM elements, do nothing else.
 
 **Rationale:**
+
 - Can be tested in isolation
 - No hidden DOM queries or state mutations
 - Clear input/output contract
 
 ### 3. Services are Pure Functions
+
 **Decision:** Service functions transform data, parse content, calculate values - no side effects.
 
 **Rationale:**
+
 - Business logic is testable without DOM
 - Reusable across different contexts
 - Clear separation from rendering
 
 ### 4. Controller Coordinates
+
 **Decision:** Controller functions handle events, call services, call views, update state.
 
 **Rationale:**
+
 - Single place where side effects happen
 - Easy to trace execution flow
 - WebSocket handlers live here
 
 ### 5. DOM Section for Mutations
+
 **Decision:** All actual DOM mutations (insert, update, remove) live in their own section.
 
 **Rationale:**
+
 - View functions create elements, DOM functions put them in the document
 - Clear boundary between "what to render" and "where to put it"
 - Makes debugging easier
 
 ### 6. Naming Conventions
+
 **Decision:** Establish clear prefixes:
+
 - `render*` - pure view functions
 - `insert*` - add elements to DOM
 - `update*` - modify existing DOM
@@ -81,21 +96,23 @@ The file handles WebSocket communication, message rendering, streaming UI, thoug
 - `calculate*` - computed values
 
 **Rationale:**
+
 - Function name tells you what it does and where it belongs
 - Easier to navigate the file
 - Self-documenting code
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
-| Breaking existing functionality | Keep all public APIs identical; no behavior changes |
-| Merge conflicts with other work | Complete refactoring in one PR; coordinate with team |
-| Test coverage gaps | Manual testing of all chat features; existing tests should pass |
-| Performance regression | Views are still recreated on each call; no virtualization added |
-| State access confusion | All state mutations happen via setters for potential interception |
+| Risk                            | Mitigation                                                        |
+| ------------------------------- | ----------------------------------------------------------------- |
+| Breaking existing functionality | Keep all public APIs identical; no behavior changes               |
+| Merge conflicts with other work | Complete refactoring in one PR; coordinate with team              |
+| Test coverage gaps              | Manual testing of all chat features; existing tests should pass   |
+| Performance regression          | Views are still recreated on each call; no virtualization added   |
+| State access confusion          | All state mutations happen via setters for potential interception |
 
 **Trade-offs:**
+
 - Slightly more indirection (functions calling functions)
 - More lines of code due to separation
 - But: Much easier to understand and modify

@@ -585,8 +585,16 @@ describe("Chat Threads API", () => {
         `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
-          body: JSON.stringify({ name: "Reviewer", model: "claude-3", mode: "review", assignedAgentId: "agent-xyz" }),
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Reviewer",
+            model: "claude-3",
+            mode: "review",
+            assignedAgentId: "agent-xyz",
+          }),
         },
       );
       expect(r1.status).toBe(201);
@@ -595,8 +603,16 @@ describe("Chat Threads API", () => {
         `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
-          body: JSON.stringify({ name: "Reviewer", model: "gpt-4", mode: "code", assignedAgentId: "agent-xyz" }),
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Reviewer",
+            model: "gpt-4",
+            mode: "code",
+            assignedAgentId: "agent-xyz",
+          }),
         },
       );
       expect(r2.status).toBe(400);
@@ -611,8 +627,16 @@ describe("Chat Threads API", () => {
         `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
-          body: JSON.stringify({ name: "Reviewer", model: "claude-3", mode: "review", assignedAgentId: "agent-xyz" }),
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Reviewer",
+            model: "claude-3",
+            mode: "review",
+            assignedAgentId: "agent-xyz",
+          }),
         },
       );
       expect(r1.status).toBe(201);
@@ -621,8 +645,16 @@ describe("Chat Threads API", () => {
         `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
-          body: JSON.stringify({ name: "Main", model: "gpt-4", mode: "code", assignedAgentId: "agent-xyz" }),
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Main",
+            model: "gpt-4",
+            mode: "code",
+            assignedAgentId: "agent-xyz",
+          }),
         },
       );
       expect(r2.status).toBe(201);
@@ -632,7 +664,10 @@ describe("Chat Threads API", () => {
         `/projects/${project.id}/sessions/${session.id}/chat-threads/${mainThread.id}`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
           body: JSON.stringify({ name: "Reviewer" }),
         },
       );
@@ -648,8 +683,16 @@ describe("Chat Threads API", () => {
         `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
-          body: JSON.stringify({ name: "foo", model: "claude-3", mode: "code", assignedAgentId: "agent-xyz" }),
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "foo",
+            model: "claude-3",
+            mode: "code",
+            assignedAgentId: "agent-xyz",
+          }),
         },
       );
       expect(r1.status).toBe(201);
@@ -658,8 +701,16 @@ describe("Chat Threads API", () => {
         `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
-          body: JSON.stringify({ name: "Foo", model: "gpt-4", mode: "review", assignedAgentId: "agent-xyz" }),
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Foo",
+            model: "gpt-4",
+            mode: "review",
+            assignedAgentId: "agent-xyz",
+          }),
         },
       );
       expect(r2.status).toBe(201);
@@ -672,8 +723,16 @@ describe("Chat Threads API", () => {
         `/projects/${project.id}/sessions/${session.id}/chat-threads`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
-          body: JSON.stringify({ name: "Reviewer", model: "claude-3", mode: "review", assignedAgentId: "agent-xyz" }),
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Reviewer",
+            model: "claude-3",
+            mode: "review",
+            assignedAgentId: "agent-xyz",
+          }),
         },
       );
       expect(r1.status).toBe(201);
@@ -683,7 +742,10 @@ describe("Chat Threads API", () => {
         `/projects/${project.id}/sessions/${session.id}/chat-threads/${thread.id}`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json", Cookie: `token=${token}` },
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
           body: JSON.stringify({ name: "Reviewer" }),
         },
       );

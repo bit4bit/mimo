@@ -34,14 +34,15 @@ mock.module("jose", () => ({
   decodeJwt: () => ({ sub: "test-user" }),
 }));
 
-
-
 mock.module("@agentclientprotocol/sdk", () => {
   class ClientSideConnection {
     closed = Promise.resolve();
     constructor(_factory: unknown, _stream: unknown) {}
     async initialize() {
-      return { protocolVersion: "1.0", agentCapabilities: { loadSession: true } };
+      return {
+        protocolVersion: "1.0",
+        agentCapabilities: { loadSession: true },
+      };
     }
     async newSession() {
       return { sessionId: "test-acp-session" };
@@ -52,7 +53,9 @@ mock.module("@agentclientprotocol/sdk", () => {
   }
   class AgentSideConnection {
     closed = Promise.resolve();
-    get signal() { return new AbortController().signal; }
+    get signal() {
+      return new AbortController().signal;
+    }
     constructor(_factory: unknown, _stream: unknown) {}
   }
   return {
@@ -88,8 +91,13 @@ describe("Thread pre-warm: SessionLifecycleManager", () => {
 
     manager
       .queueThreadPrompt("s1", "t1", "hello")
-      .then(() => { settled = true; })
-      .catch(() => { rejected = true; settled = true; });
+      .then(() => {
+        settled = true;
+      })
+      .catch(() => {
+        rejected = true;
+        settled = true;
+      });
 
     // Should remain pending (queued, not resolved or rejected)
     expect(rejected).toBe(false);
@@ -104,9 +112,9 @@ describe("Thread pre-warm: SessionLifecycleManager", () => {
 
     let resolved = false;
 
-    manager
-      .queueThreadPrompt("s1", "t1", "hello")
-      .then(() => { resolved = true; });
+    manager.queueThreadPrompt("s1", "t1", "hello").then(() => {
+      resolved = true;
+    });
 
     expect(resolved).toBe(false);
 
@@ -190,7 +198,11 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
         output: new ReadableStream<Uint8Array>(),
       }),
       extractState: () => ({
-        modelState: { currentModelId: "m", availableModels: [], optionId: "mo" },
+        modelState: {
+          currentModelId: "m",
+          availableModels: [],
+          optionId: "mo",
+        },
         modeState: { currentModeId: "md", availableModes: [], optionId: "mdo" },
       }),
       setModel: async () => {},
@@ -204,7 +216,10 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       lifecycleManager,
       deps: {
         os: {
-          path: { join: (...parts: string[]) => parts.join("/"), homeDir: () => "/tmp" },
+          path: {
+            join: (...parts: string[]) => parts.join("/"),
+            homeDir: () => "/tmp",
+          },
           fs: {
             exists: async () => false,
             mkdir: async () => {},

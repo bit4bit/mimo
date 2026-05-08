@@ -14,9 +14,11 @@ The dashboard aggregates data from multiple sources (projects, agents, sessions)
 ## Capabilities
 
 ### New Capabilities
+
 - `internal-api-dashboard`: Internal REST API for dashboard data aggregation
 
 ### Modified Capabilities
+
 <!-- None - this is implementation refactoring -->
 
 ## Impact

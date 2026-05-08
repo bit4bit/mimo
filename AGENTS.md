@@ -66,6 +66,7 @@ This project uses **semantic versioning** with shared versions across all packag
 ### Current Version
 
 Check the root `package.json`:
+
 ```sh
 node -p "require('./package.json').version"
 ```
@@ -95,6 +96,7 @@ From the repository root:
 ```
 
 This updates:
+
 - Root `package.json`
 - `packages/mimo-platform/package.json`
 - `packages/mimo-agent/package.json`
@@ -126,15 +128,16 @@ Pushing a tag starting with `v` triggers the release workflow:
 
 ### Release Artifacts
 
-| Artifact | Description |
-|----------|-------------|
-| `mimo-platform-{platform}` | Web platform server |
-| `mimo-agent-{platform}` | Agent CLI tool |
-| `checksums.txt` | SHA256 checksums for verification |
+| Artifact                   | Description                       |
+| -------------------------- | --------------------------------- |
+| `mimo-platform-{platform}` | Web platform server               |
+| `mimo-agent-{platform}`    | Agent CLI tool                    |
+| `checksums.txt`            | SHA256 checksums for verification |
 
 ### Cross-Compilation
 
 The release workflow uses Bun's native cross-compilation:
+
 ```sh
 bun build --compile --target=bun-linux-x64 ./src/index.ts --outfile myapp
 ```

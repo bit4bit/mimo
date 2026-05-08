@@ -5,11 +5,13 @@ mimo-agent is a Bun/TypeScript process that proxies the ACP protocol between mim
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add `ClaudeAgentProvider` implementing `IAcpProvider`, spawning `claude-agent-acp`
 - Add `--provider` CLI flag to mimo-agent for provider selection at startup
 - Keep `opencode` as the default (no behavior change for existing users)
 
 **Non-Goals:**
+
 - Per-session provider switching (provider is fixed at agent startup)
 - Platform UI changes or session model changes
 - Managing `ANTHROPIC_API_KEY` — the user is responsible for setting it in their environment
@@ -18,15 +20,19 @@ mimo-agent is a Bun/TypeScript process that proxies the ACP protocol between mim
 ## Decisions
 
 ### `--provider` flag over a config file
+
 A CLI flag is consistent with how mimo-agent is already configured (`--token`, `--platform`, `--workdir`). A config file would add complexity with no benefit at this stage.
 
 ### `ClaudeAgentProvider.setModel` / `setMode` use `setSessionConfigOption`
+
 opencode uses custom `extMethod` calls (`session/set_model`, `session/set_mode`) because it predates the standard ACP config option mechanism. `claude-agent-acp` implements `setSessionConfigOption` natively, so we use that instead. The `AcpClient` already calls `provider.setModel` / `provider.setMode` — the provider encapsulates which wire call to make.
 
 ### `mapUpdateType` skips `tool_call_update` and others
+
 `claude-agent-acp` emits additional update types (`tool_call_update`, `config_option_update`, `current_mode_update`) that opencode does not. Returning `null` from `mapUpdateType` for unknown types is the existing skip pattern — no changes to `AcpClient` needed.
 
 ### Single binary, provider selected at startup
+
 The agent process selects a provider once in its constructor. This is the simplest model: one agent process = one provider. Users who want both providers run two separate agent processes.
 
 ## Risks / Trade-offs

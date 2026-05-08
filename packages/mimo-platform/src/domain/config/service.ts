@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { load, dump } from "js-yaml";
 import { logger } from "../../logger.js";
 import type { OS } from "../../infrastructure/os/types.js";
@@ -175,7 +176,8 @@ export const defaultConfig: Config = {
   sessionKeybindings: { ...defaultSessionKeybindings },
   globalKeybindings: { ...defaultGlobalKeybindings },
   chatFileExtensions: [...defaultChatFileExtensions],
-  defaultProjectInstructions: "Before performing any task, try to locate and read the file `AGENTS.md` if not found inform the user and continue.",
+  defaultProjectInstructions:
+    "Before performing any task, try to locate and read the file `AGENTS.md` if not found inform the user and continue.",
 };
 
 function sanitizeSessionKeybindings(
@@ -334,7 +336,9 @@ export class ConfigService {
           loaded.chatFileExtensions,
         ),
         summary: sanitizeSummaryConfig(loaded.summary),
-        defaultProjectInstructions: loaded.defaultProjectInstructions ?? defaultConfig.defaultProjectInstructions,
+        defaultProjectInstructions:
+          loaded.defaultProjectInstructions ??
+          defaultConfig.defaultProjectInstructions,
       };
 
       return this.config;

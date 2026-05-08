@@ -13,9 +13,11 @@ Impact buffer refresh currently produces inconsistent metrics for the same code 
 ## Capabilities
 
 ### New Capabilities
+
 - `impact-metrics-reliability`: Deterministic impact refresh contract, invariants, and validation behavior for files, LOC, and complexity outputs.
 
 ### Modified Capabilities
+
 - None.
 
 ## Impact

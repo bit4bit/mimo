@@ -7,6 +7,7 @@ Display real-time tool execution information inline within the agent's thought s
 ## Message Types
 
 ### tool_call (starts a tool)
+
 ```typescript
 {
   type: "tool_call",
@@ -22,6 +23,7 @@ Display real-time tool execution information inline within the agent's thought s
 ```
 
 ### tool_call_update (progress/result)
+
 ```typescript
 {
   type: "tool_call_update",
@@ -37,6 +39,7 @@ Display real-time tool execution information inline within the agent's thought s
 ## UI Components
 
 ### Tool Execution Row (Agent Box)
+
 - **Location**: Inside thought section of agent's streaming message bubble
 - **Icon**: Mapped from `toolKind`:
   - `read`, `file` → 📁
@@ -53,30 +56,38 @@ Display real-time tool execution information inline within the agent's thought s
   - `failed`: ✗ (red #ff6b6b)
 
 ### Layout
+
 - Inserted inside thought section after thought_start
 - Stacked vertically for multiple tools
 - Collapsed when thought section is collapsed
 - Updated in place when `tool_call_update` arrives (matched by toolCallId)
 
 ### State Management
+
 - Platform maintains `toolCallBuffers` Map for history persistence
 - On `tool_call`: add new entry to buffer, forward to client
 - On `tool_call_update`: update existing entry in buffer, forward to client
 - On `usage_update`: generate HTML, append to message content for storage
 
 ## History Persistence
+
 Tool calls are stored as structured JSON inside the thought section:
 
 ```html
-<details><summary>Thought Process</summary>
+<details>
+  <summary>Thought Process</summary>
   ...thought text...
-  <tools>[{"title": "Read file", "kind": "read", "status": "completed", "input": "src/index.ts"}, ...]</tools>
+  <tools
+    >[{"title": "Read file", "kind": "read", "status": "completed", "input":
+    "src/index.ts"}, ...]</tools
+  >
 </details>
 ```
 
 Format: `<tools>[{title, kind, status, input}, ...]</tools>`
 
 Benefits:
+
 - Clean separation: store data, not presentation
 - Easy to parse and render with correct icons/status on history load
 - Future-proof if we want to change UI

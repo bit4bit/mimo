@@ -22,9 +22,11 @@ Users cannot view or create sessions from the project detail page. When viewing 
 ## Impact
 
 **Files Modified:**
+
 - `src/components/ProjectDetailPage.tsx` - Add session list section and "New Session" button
 
 **Dependencies:**
+
 - Existing session routes (`/projects/:projectId/sessions`)
 - Existing session repository (`listByProject`)
 - Existing ProjectDetailPage component

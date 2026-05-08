@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 /** @jsx jsx */
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";
@@ -1022,10 +1023,7 @@ export function createSessionsRoutes(
               <button type="submit" class="btn-secondary">
                 Close Session
               </button>
-              <a
-                href={referer}
-                class="btn-secondary link-no-underline"
-              >
+              <a href={referer} class="btn-secondary link-no-underline">
                 Cancel
               </a>
             </div>
@@ -2027,7 +2025,9 @@ export function createSessionsRoutes(
         acpSessionId: body.acpSessionId || null,
         assignedAgentId,
         state: "active",
-        ...(body.instructions !== undefined && { instructions: body.instructions }),
+        ...(body.instructions !== undefined && {
+          instructions: body.instructions,
+        }),
       },
     );
 

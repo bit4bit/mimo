@@ -23,17 +23,18 @@ Add JSON parse error handling to auth routes success paths:
 
 ```typescript
 // Before (fails on non-JSON response):
-const result = await response.json() as { data: RegisterResponse };
+const result = (await response.json()) as { data: RegisterResponse };
 
 // After (handles non-JSON gracefully):
-const result = await response.json().catch(() => ({ 
-  error: "Invalid response from server" 
-})) as { data?: RegisterResponse; error?: string };
+const result = (await response.json().catch(() => ({
+  error: "Invalid response from server",
+}))) as { data?: RegisterResponse; error?: string };
 ```
 
 ### Fix 2: Debug and Fix 404 Errors
 
 Investigate why sessions/projects return 404:
+
 - Verify internal API endpoints exist and are mounted correctly
 - Check request paths match between routes and internal API
 - Ensure internal API handlers return proper responses
@@ -42,6 +43,7 @@ Investigate why sessions/projects return 404:
 ### Fix 3: Improve Error Handling
 
 Add consistent error handling across all routes:
+
 - Network error handling (try/catch around fetch)
 - Non-JSON response handling (.catch() on .json())
 - Proper error messages to users
@@ -49,9 +51,11 @@ Add consistent error handling across all routes:
 ## Capabilities
 
 ### New Capabilities
+
 - `proxy-pattern-test-fixes`: Fix test failures caused by proxy pattern implementation
 
 ### Modified Capabilities
+
 <!-- Fixes existing implementation -->
 
 ## Impact

@@ -5,12 +5,14 @@ The chat session page (`SessionDetailPage.tsx`) renders messages in `#chat-messa
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Copy button inline with role label, right-aligned
 - Always visible
 - Copies only message content text (no role, no timestamp)
 - No feedback after click
 
 **Non-Goals:**
+
 - Keyboard shortcut
 - Visual feedback or state change
 - Copy with role label or timestamp
@@ -22,6 +24,7 @@ The chat session page (`SessionDetailPage.tsx`) renders messages in `#chat-messa
 **Decision**: The copy button is placed inside `.message-header` flex container, right after the role label.
 
 **Alternatives considered**:
+
 - Inside the bubble at bottom-right — adds complexity, visually heavier
 - Hover-only visibility — explicitly rejected per requirements
 

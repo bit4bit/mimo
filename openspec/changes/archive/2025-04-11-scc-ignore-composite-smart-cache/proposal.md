@@ -22,10 +22,12 @@ SCC (Sloc Cloc and Code) currently scans all files including external libraries 
 ## Capabilities
 
 ### New Capabilities
+
 - `scc-ignore-composite`: Composite ignore file generation that merges multiple ignore sources for accurate code statistics
 - `scc-smart-cache`: Intelligent caching system that invalidates only when agent reports changes via WebSocket
 
 ### Modified Capabilities
+
 - `scc-service`: Existing SCC service will be modified to support composite ignore files and smart caching (implementation changes only, no API changes)
 
 ## Impact
@@ -35,10 +37,8 @@ SCC (Sloc Cloc and Code) currently scans all files including external libraries 
   - `packages/mimo-platform/src/sync/service.ts` - FileSyncService to call invalidateCache on changes
   - `packages/mimo-platform/test/scc-ignore.test.ts` - New test file for ignore functionality
   - `packages/mimo-platform/test/scc-cache.test.ts` - New test file for cache functionality
-  
 - **New Files Created**:
   - `.mimoignore` - Project-specific ignore patterns (template/example)
-  
 - **Cache Directory**: `.mimo/cache/` will store composite ignore file and cache metadata
 
 - **Behavior Changes**:

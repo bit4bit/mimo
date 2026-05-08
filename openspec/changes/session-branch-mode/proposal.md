@@ -3,6 +3,7 @@
 Today, the session creation form accepts an optional branch name, and the handler always clones the project's default `sourceBranch` and then runs `git checkout -B <branchName>` locally. That works when the branch is new, but there is no way to start a session that resumes work already pushed to an existing remote branch — for example continuing a teammate's PR branch or a user's own branch from another machine.
 
 Users need to declare intent at session-creation time:
+
 1. **Sync existing branch** — the branch already lives on the remote; clone it directly and push back to it.
 2. **Create new branch** — the branch does not exist yet; current behavior.
 

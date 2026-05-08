@@ -1,12 +1,14 @@
 # Tasks: EditBuffer Outdated File Detection
 
 ## Prerequisites
+
 - [ ] Install chokidar: `bun add chokidar` in packages/mimo-platform
 - [ ] Add @types/chokidar if needed for TypeScript
 
 ## Server-Side Tasks
 
 ### File Watcher Service
+
 - [ ] Create `src/files/file-watcher-service.ts`
   - Implement createFileWatcherService() factory
   - Implement watchFile() with chokidar
@@ -22,6 +24,7 @@
   - Test debouncing behavior
 
 ### WebSocket Endpoint
+
 - [ ] Create WebSocket route `/ws/sessions/:id/files`
   - Add to sessions/routes.tsx or create separate ws handler
   - Handle watch_file/unwatch_file messages from client
@@ -33,6 +36,7 @@
   - Test disconnect cleanup
 
 ### Dependency Injection
+
 - [ ] Add fileWatcherService to MimoContext
   - Update context type definition
   - Initialize in index.tsx
@@ -41,6 +45,7 @@
 ## Client-Side Tasks
 
 ### EditBuffer State Extension (edit-buffer.js)
+
 - [ ] Add computeChecksum(content) function
   - Use SubtleCrypto.digest if available
   - Fallback to simple hash for older browsers
@@ -59,6 +64,7 @@
 - [ ] Update fetchAndAddFile to compute and store checksum
 
 ### WebSocket Integration (edit-buffer.js)
+
 - [ ] Add initWebSocket() function
   - Connect to `/ws/sessions/:id/files`
   - Listen for file_outdated events
@@ -72,6 +78,7 @@
 - [ ] Wire notifyUnwatchFile into remove() function
 
 ### UI Changes (EditBuffer.tsx)
+
 - [ ] Add outdated indicator span to context bar
   - Display: none by default
   - Orange dot + "Outdated" text
@@ -81,12 +88,14 @@
   - title="Reload file (Alt+Shift+R)"
 
 ### UI Logic (edit-buffer.js)
+
 - [ ] Update renderContextBar() to show/hide outdated indicator
 - [ ] Update renderContextBar() to show/hide reload button
 - [ ] Add reload button event listener in init()
 - [ ] Wire reload button to reloadCurrentFile function
 
 ### Keybinding (session-keybindings.js)
+
 - [ ] Add `reloadFile: "Alt+Shift+R"` to DEFAULT_KEYBINDINGS
 - [ ] Add reloadFile to configurable keybindings loading
 - [ ] Add keydown handler for reloadFile
@@ -94,17 +103,20 @@
   - Prevent default if handled
 
 ### Exposed API (edit-buffer.js)
+
 - [ ] Add reloadCurrentFile to window.EditBuffer object
 
 ## Testing Tasks
 
 ### Unit Tests
+
 - [ ] Test computeChecksum produces consistent hashes
 - [ ] Test markOutdated updates state and triggers render
 - [ ] Test reloadFile fetches and updates content
 - [ ] Test scroll position preservation
 
 ### Integration Tests
+
 - [ ] Test full flow: open file -> modify externally -> see outdated indicator
 - [ ] Test reload button updates content
 - [ ] Test Alt+Shift+R keyboard shortcut reloads file
@@ -113,10 +125,12 @@
 - [ ] Test file deletion shows outdated indicator
 
 ### E2E Tests
+
 - [ ] Simulate agent modifying file while user has it open
 - [ ] Verify user sees notification and can reload
 
 ## Verification Checklist
+
 - [ ] `bun test` passes
 - [ ] `bun run typecheck` passes
 - [ ] Manual test: Open file, edit externally, see outdated indicator
@@ -127,6 +141,7 @@
 - [ ] Manual test: Close file, reopen - outdated state cleared
 
 ## Files to Modify
+
 1. `packages/mimo-platform/package.json` - add chokidar dependency
 2. `packages/mimo-platform/src/files/file-watcher-service.ts` - NEW
 3. `packages/mimo-platform/src/files/types.ts` - extend types

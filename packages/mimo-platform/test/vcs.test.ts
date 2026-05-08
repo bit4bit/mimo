@@ -791,9 +791,8 @@ describe("VCS Integration Tests", () => {
       it("should derive default ignore patterns from centralized EXCLUDED_PATHS", async () => {
         const vcs = new VCS({ os });
         const { readFileSync } = await import("fs");
-        const { EXCLUDED_PATHS } = await import(
-          "../src/domain/files/path-policy.ts"
-        );
+        const { EXCLUDED_PATHS } =
+          await import("../src/domain/files/path-policy.ts");
 
         const upstreamPath = join(testHome, "upstream-policy-check");
         const agentWorkspacePath = join(testHome, "agent-policy-check");

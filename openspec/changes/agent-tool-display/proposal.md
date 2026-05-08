@@ -1,6 +1,7 @@
 ## Why
 
 The chat UI currently shows no information about what tools the agent is using during execution. Users see only the final response without understanding the agent's actions. This lack of visibility makes it difficult to:
+
 - Track which tools are being called (e.g., grep, read, edit, bash)
 - Understand the sequence of operations the agent performs
 - Identify slow or failing tool calls for debugging
@@ -25,10 +26,12 @@ The chat UI currently shows no information about what tools the agent is using d
 ## Capabilities
 
 ### New Capabilities
+
 - `agent-tool-display`: Display real-time tool execution information in chat thread
 
 ### Modified Capabilities
-- *(none - no existing spec changes)*
+
+- _(none - no existing spec changes)_
 
 ## Impact
 

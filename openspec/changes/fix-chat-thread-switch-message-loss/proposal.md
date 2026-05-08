@@ -13,9 +13,11 @@ Chat messages that are in-progress or cancelled are lost when users switch betwe
 ## Capabilities
 
 ### New Capabilities
-- *(none - this is a bug fix)*
+
+- _(none - this is a bug fix)_
 
 ### Modified Capabilities
+
 - `chat-threads`: Thread switching behavior must properly clear frontend streaming state and pending message tracking
 - `chat-streaming-state`: Streaming state reconstruction must guard against detached DOM nodes and verify element connectivity
 

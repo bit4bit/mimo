@@ -7,6 +7,7 @@ The `chat-decorated-text` change is fully shipped. This change adds a new token 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Detect `#{1,6}` heading lines in `buildDecoratedLines()` and emit a `heading` token
 - Render heading tokens as `<h2>`–`<h6>` in `renderDecoratedContent()`
 - Apply `decorateInlineMarkup()` to heading content (inline markup works inside headings)
@@ -14,6 +15,7 @@ The `chat-decorated-text` change is fully shipped. This change adds a new token 
 - Add CSS scale for heading levels
 
 **Non-Goals:**
+
 - Lists, blockquotes, tables, or any other block-level markdown
 - Setext-style headings (`===` / `---` underlines)
 - Heading anchors or IDs
@@ -31,6 +33,7 @@ Alternative considered: `<div class="decorated-heading-N">` with CSS-only sizing
 ### 2. New `heading` token type in `buildDecoratedLines()`
 
 Detection lives in the utility layer (not the renderer) so it stays testable without DOM. The token carries:
+
 - `type: "heading"`
 - `level`: integer 1–6 (markdown level, not HTML level — the renderer does `level + 1` for the HTML tag)
 - `text`: raw original line (for plain mode)
@@ -45,6 +48,7 @@ Alternative considered: detect headings inside `decorateInlineMarkup()`. Rejecte
 Consistent with existing `.decorated-bold`, `.decorated-italic`, `.decorated-code`, `.decorated-fence` naming. `.decorated-heading` carries shared base styles (margin, line-height reset); `.decorated-heading-N` (N = 1–5, matching markdown levels 1–5; level 6 falls back to base) carries size.
 
 Size scale (relative to chat body text):
+
 ```
 level 1 (#)   → 1.5em
 level 2 (##)  → 1.3em

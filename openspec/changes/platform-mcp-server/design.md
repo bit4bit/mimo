@@ -1,6 +1,7 @@
 ## Context
 
 The platform already has:
+
 - `McpServerConfig` type with `headers` support — token delivery is free
 - `broadcastToSession` — for pushing messages to UI WebSocket clients
 - `GET /api/sessions/:id/files/content` — EditBuffer already uses this to load files
@@ -13,12 +14,14 @@ The mimo-agent passes `mcpServers` directly to `acpClient.initialize()`, so any 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Platform-hosted MCP endpoint, secure and per-session
 - Token generated once at session creation, stable across agent restarts
 - `open_file` tool triggers EditBuffer to show a file to the user
 - Zero coordination needed on agent restart (platform is always up)
 
 **Non-Goals:**
+
 - Per-thread MCP isolation (session-level is sufficient)
 - MCP tool for writing/editing files (read/open only for now)
 - Exposing the platform MCP to users as a configurable MCP server
@@ -27,23 +30,29 @@ The mimo-agent passes `mcpServers` directly to `acpClient.initialize()`, so any 
 ## Decisions
 
 ### Decision 1: Token is a UUID, generated once at session creation
+
 **Rationale**: Simple, stable, no expiry needed. The token is only transmitted over the already-authenticated agent WebSocket channel. Rotation would require ACP reconnect to MCP on every agent restart with no security benefit.
 
 **Alternatives considered:**
+
 - JWT with sessionId claim: More complex, same security properties since channel is already authenticated
 - Rotate on each `session_ready`: Adds reconnect overhead, no benefit
 
 ### Decision 2: Platform hosts the MCP endpoint at `/api/mimo-mcp`
+
 **Rationale**: Platform is the stable process. Agent restarts are transparent — same URL, token reissued in `session_ready` headers, ACP reconnects to same endpoint with zero coordination.
 
 **Alternatives considered:**
+
 - stdio MCP subprocess per ACP: Can't communicate back to platform UI without IPC seam
 - HTTP server on mimo-agent: Dies on agent restart; port management complexity
 
 ### Decision 3: Token → sessionId lookup via in-memory map on platform
+
 **Rationale**: Sessions are loaded at startup from the YAML store. The map is rebuilt from session records (which persist `mcpToken`). Fast O(1) lookup on every MCP request.
 
 **Token registration flow:**
+
 ```
 platform start → load all sessions → populate token map
 session create → generate UUID → store in Session.mcpToken → add to token map
@@ -51,11 +60,13 @@ session delete → remove from token map
 ```
 
 ### Decision 4: `open_file` broadcasts WS event; EditBuffer JS loads file via existing API
+
 **Rationale**: Decoupled. The MCP handler doesn't need to know how the editor works — it just broadcasts `{ type: "open_file_in_editbuffer", sessionId, path }`. The EditBuffer JS already knows how to load files via `GET /api/sessions/:id/files/content`.
 
 **Broadcast target:** `broadcastToSession(chatSessions, sessionId, message)` — existing utility, reaches all UI clients for the session.
 
 ### Decision 5: File path validated against session workspace before broadcast
+
 **Rationale**: Defense in depth. The MCP handler must confirm the requested path is within the session's workspace before opening it in the UI, using the same boundary check already in `FileService.readFile`.
 
 ## Architecture
@@ -83,6 +94,7 @@ POST /api/mimo-mcp  ←── ACP MCP client call
 The endpoint implements the MCP streamable HTTP transport (single POST endpoint).
 
 **Tool definition:**
+
 ```json
 {
   "name": "open_file",
@@ -101,14 +113,13 @@ The endpoint implements the MCP streamable HTTP transport (single POST endpoint)
 ```
 
 **McpServerConfig injected in session_ready:**
+
 ```json
 {
   "type": "http",
   "name": "mimo",
   "url": "http://localhost:{PORT}/api/mimo-mcp",
-  "headers": [
-    { "name": "Authorization", "value": "Bearer {mcpToken}" }
-  ]
+  "headers": [{ "name": "Authorization", "value": "Bearer {mcpToken}" }]
 }
 ```
 

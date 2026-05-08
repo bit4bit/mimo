@@ -1,9 +1,11 @@
 ## MODIFIED Requirements
 
 ### Requirement: Agent connects successfully
+
 The system SHALL allow agent to establish WebSocket connection and receive session information including ACP session ID.
 
 #### Scenario: Agent connects with valid token
+
 - **WHEN** mimo-agent connects via WebSocket with valid token
 - **AND** agent sends agent_ready message with {agentId, workdir}
 - **THEN** system updates agent.yaml status to "online"
@@ -14,6 +16,7 @@ The system SHALL allow agent to establish WebSocket connection and receive sessi
 - **AND** system logs "Agent connected" to console
 
 #### Scenario: Agent connects with multiple sessions
+
 - **WHEN** agent connects with 3 assigned sessions
 - **THEN** system starts 3 fossil servers on ports 8080, 8081, 8082
 - **AND** system sends session_ready with all 3 sessions including acpSessionId for each
@@ -21,6 +24,7 @@ The system SHALL allow agent to establish WebSocket connection and receive sessi
 - **AND** agent spawns 3 ACP processes
 
 #### Scenario: Agent handles session_ready
+
 - **WHEN** agent receives session_ready message
 - **THEN** agent parses each session in sessions array
 - **AND** agent extracts acpSessionId from each session object
@@ -32,9 +36,11 @@ The system SHALL allow agent to establish WebSocket connection and receive sessi
 ## ADDED Requirements
 
 ### Requirement: Agent reports ACP session creation
+
 The system SHALL receive acp_session_created message from agent after ACP session initialization.
 
 #### Scenario: Agent creates new ACP session
+
 - **WHEN** agent initializes ACP for a session
 - **AND** agent either calls newSession() or loadSession()
 - **THEN** agent sends acp_session_created to platform
@@ -42,14 +48,17 @@ The system SHALL receive acp_session_created message from agent after ACP sessio
 - **AND** wasReset is true if newSession() was used when loadSession was possible
 
 #### Scenario: Agent reports session resumption
+
 - **WHEN** agent successfully calls loadSession() with existing acpSessionId
 - **THEN** agent sends acp_session_created with wasReset: false
 - **AND** chat history continues seamlessly without reset notification
 
 ### Requirement: Agent handles ACP capability detection
+
 The system SHALL detect ACP agent capabilities and choose appropriate session initialization method.
 
 #### Scenario: ACP supports loadSession
+
 - **WHEN** agent initializes ACP connection
 - **AND** ACP initialize response has agentCapabilities.loadSession: true
 - **AND** session_ready provided acpSessionId: "acp-abc123"
@@ -58,6 +67,7 @@ The system SHALL detect ACP agent capabilities and choose appropriate session in
 - **AND** if fails, agent falls back to newSession() with wasReset: true
 
 #### Scenario: ACP does not support loadSession
+
 - **WHEN** agent initializes ACP connection
 - **AND** ACP initialize response has agentCapabilities.loadSession: false or undefined
 - **AND** session_ready provided acpSessionId: "acp-abc123"
@@ -66,6 +76,7 @@ The system SHALL detect ACP agent capabilities and choose appropriate session in
 - **AND** resetReason is "loadSession not supported"
 
 #### Scenario: No persisted session ID
+
 - **WHEN** agent initializes ACP connection
 - **AND** session_ready provided acpSessionId: null
 - **THEN** agent calls connection.newSession({cwd, mcpServers})

@@ -25,7 +25,7 @@ After refactoring path management into `mimoContext` (commit `c7594f6`), all leg
 
 ### Modified Capabilities
 
-*(none — no user-visible requirements change; this is a structural implementation fix)*
+_(none — no user-visible requirements change; this is a structural implementation fix)_
 
 ## Impact
 

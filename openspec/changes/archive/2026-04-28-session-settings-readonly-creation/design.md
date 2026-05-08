@@ -5,11 +5,13 @@ Session creation captures several optional inputs (`assignedAgentId`, `agentSubp
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Show creation-time session configuration in a read-only section on settings page.
 - Reuse persisted session data; avoid adding new storage.
 - Provide explicit fallback labels when optional values are empty.
 
 **Non-Goals:**
+
 - Editing creation fields from settings page.
 - Changing session creation behavior or validation logic.
 - Changing idle-timeout update behavior.
@@ -31,6 +33,7 @@ Session creation captures several optional inputs (`assignedAgentId`, `agentSubp
 ### D3: Standardized fallback labels for empty values
 
 **Decision**: Use deterministic fallback labels:
+
 - Assigned Agent: `None`
 - Agent working directory: `Repository root`
 - Branch: `Not set`

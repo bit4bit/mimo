@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import type { BufferProps } from "./buffers/types.js";
 
@@ -13,10 +14,7 @@ export const ImpactBuffer: FC<ImpactBufferProps> = ({ sessionId }) => {
       <div class="buffer-header">
         <span>Impact</span>
         <div class="inline-flex-row impact-header-actions">
-          <span
-            id="impact-stale-badge"
-            class="impact-stale-badge hidden"
-          >
+          <span id="impact-stale-badge" class="impact-stale-badge hidden">
             ⚠ Outdated
           </span>
           <span

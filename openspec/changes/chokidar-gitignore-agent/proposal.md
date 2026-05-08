@@ -6,7 +6,7 @@ The chokidar directory watcher in mimo-agent fires change events for files users
 
 - Add `"ignore"` npm package (^7.0.5) to mimo-agent dependencies for full gitignore-spec pattern matching.
 - Extend `FileSystem.watch()` options with an optional `ignored?: (path: string) => boolean` predicate — the OS abstraction stays generic; no gitignore knowledge leaks into the adapter.
-- `session.ts` builds the predicate at watcher startup: VCS_INTERNALS fast-path + default patterns (node_modules, __pycache__, *.tmp, *~) + patterns from `.gitignore` and `.mimoignore` at the checkout root.
+- `session.ts` builds the predicate at watcher startup: VCS_INTERNALS fast-path + default patterns (node_modules, **pycache**, _.tmp, _~) + patterns from `.gitignore` and `.mimoignore` at the checkout root.
 - Remove the existing hardcoded filter block from the callback — suppression now happens inside chokidar before events are emitted.
 
 ## Capabilities

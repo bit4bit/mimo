@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import crypto from "crypto";
 import { logger } from "../../logger.js";
 import type { SccService } from "../impact/scc-service.js";

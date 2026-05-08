@@ -174,7 +174,11 @@ describe("mimo-agent", () => {
         onSessionError: () => {},
       };
 
-      const manager = new SessionManager(tempDir, mockCallbacks, createMockOS());
+      const manager = new SessionManager(
+        tempDir,
+        mockCallbacks,
+        createMockOS(),
+      );
 
       // Create a session
       const sessionId = "test-session-1";
@@ -203,7 +207,11 @@ describe("mimo-agent", () => {
         onSessionError: () => {},
       };
 
-      const manager = new SessionManager(tempDir, mockCallbacks, createMockOS());
+      const manager = new SessionManager(
+        tempDir,
+        mockCallbacks,
+        createMockOS(),
+      );
 
       const sessionId = "test-session-2";
       await manager.createSession(
@@ -230,7 +238,11 @@ describe("mimo-agent", () => {
         onSessionError: () => {},
       };
 
-      const manager = new SessionManager(tempDir, mockCallbacks, createMockOS());
+      const manager = new SessionManager(
+        tempDir,
+        mockCallbacks,
+        createMockOS(),
+      );
 
       // Terminate a session that was never created (should not throw)
       expect(() =>
@@ -247,7 +259,11 @@ describe("mimo-agent", () => {
         onSessionError: () => {},
       };
 
-      const manager = new SessionManager(tempDir, mockCallbacks, createMockOS());
+      const manager = new SessionManager(
+        tempDir,
+        mockCallbacks,
+        createMockOS(),
+      );
 
       const sessionId = "test-session-3";
       const session = await manager.createSession(

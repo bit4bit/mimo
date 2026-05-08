@@ -1,9 +1,11 @@
 ## MODIFIED Requirements
 
 ### Requirement: Real-time impact metrics
+
 The system SHALL calculate and display file impact metrics in real-time, comparing agent-workspace against upstream.
 
 #### Scenario: Calculate file counts
+
 - **WHEN** the Impact buffer is loaded or refreshed
 - **THEN** the system SHALL scan both upstream/ and agent-workspace/ directories
 - **AND** calculate new files (in workspace, not in upstream)
@@ -12,6 +14,7 @@ The system SHALL calculate and display file impact metrics in real-time, compari
 - **AND** exclude VCS-internal and Mimo-internal paths from all counts
 
 #### Scenario: Impact analysis excludes system paths
+
 - **GIVEN** the workspace contains `.git/`, `.fossil/`, `.mimo/`, `.sccignore`, or `.jscpdignore`
 - **WHEN** impact metrics are calculated
 - **THEN** these paths are not counted as added, changed, or deleted

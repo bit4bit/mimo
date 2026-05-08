@@ -15,9 +15,11 @@ When working with AI agents in mimo, users cannot directly test changes in their
 ## Capabilities
 
 ### New Capabilities
+
 - `local-dev-mirror`: Sync agent workspace changes to a user-specified local directory for immediate testing
 
 ### Modified Capabilities
+
 - `agent-communication`: Extend `session_ready` WebSocket message to include `localDevMirrorPath` field
 
 ## Impact

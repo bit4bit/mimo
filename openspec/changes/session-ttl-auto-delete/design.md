@@ -8,6 +8,7 @@ Need new retention layer independent from parking.
 ## Goals / Non-Goals
 
 **Goals:**
+
 - TTL configured in days.
 - default 180 days for new + legacy sessions.
 - sweeper cadence fixed to 10 minutes.
@@ -16,6 +17,7 @@ Need new retention layer independent from parking.
 - UI delete button shown only for inactive sessions.
 
 **Non-Goals:**
+
 - deleting active sessions automatically.
 - changing ACP parking semantics (`idleTimeoutMs`).
 - per-project retention policy.
@@ -25,6 +27,7 @@ Need new retention layer independent from parking.
 ### D1: Data model fields
 
 **Decision**
+
 - Add `sessionTtlDays: number`.
 - Add `lastActivityAt: string | null` (ISO8601).
 - Defaults on read/write:
@@ -38,6 +41,7 @@ ISO string keeps YAML simple and comparable.
 ### D2: Expiry + inactivity predicates
 
 **Decision**
+
 - `expired` when `now >= createdAt + sessionTtlDays*24h`.
 - `inactive` when:
   - `lastActivityAt == null`, or
@@ -51,6 +55,7 @@ Prevents destructive delete during active usage windows.
 
 **Decision**
 Update `lastActivityAt` on externally visible session activity:
+
 - user sends message
 - assistant stream/thought/usage event arrives
 - other session interaction events already routed through platform chat/session handlers
@@ -62,10 +67,12 @@ Retention safety must use real interaction signals, not ACP internal state only.
 
 **Decision**
 Extract delete workflow into single function/service used by:
+
 - manual route `POST /sessions/:id/delete`
 - TTL sweeper
 
 Function must preserve current behavior parity:
+
 1. repository delete
 2. clear session state
 3. sync cleanup
@@ -78,6 +85,7 @@ No cleanup drift between manual and automatic delete paths.
 ### D5: Sweeper execution model
 
 **Decision**
+
 - Run periodic sweep every 10 minutes from platform process.
 - For each session: evaluate predicates, then delete via shared use-case.
 - Per-session try/catch; continue loop on errors.
@@ -88,6 +96,7 @@ Simple + deterministic cadence; robust against one bad session record.
 ### D6: UI behavior
 
 **Decision**
+
 - `Session Settings`: edit `sessionTtlDays` runtime setting.
 - `Session Detail`: render Delete button only when inactive predicate true.
 

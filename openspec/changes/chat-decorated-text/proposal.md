@@ -23,10 +23,12 @@ Agent messages contain markdown syntax (`**bold**`, `` `code` ``, fenced blocks,
 ## Capabilities
 
 ### New Capabilities
+
 - `decorated-text-rendering`: Render agent message content with visual markdown styling while keeping syntax markers visible, with per-message toggle to plain text view.
 
 ### Modified Capabilities
-- *(none)*
+
+- _(none)_
 
 ## Impact
 

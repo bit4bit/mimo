@@ -1,6 +1,7 @@
 ## Why
 
 The `web/` folder currently contains all frontend code in two flat directories: `components/` (28 files) and `pages/` (9 files). This makes it difficult to:
+
 - Understand which components belong to which feature
 - Navigate the codebase as it grows
 - Delete or refactor a feature without hunting across folders
@@ -21,10 +22,12 @@ We need to organize frontend code by feature/domain so related components and pa
 ## Capabilities
 
 ### New Capabilities
+
 - `frontend-feature-organization`: Establishes feature-based folder structure for all web frontend code
 
 ### Modified Capabilities
-- *(None — pure reorganization with no behavior changes)*
+
+- _(None — pure reorganization with no behavior changes)_
 
 ## Impact
 

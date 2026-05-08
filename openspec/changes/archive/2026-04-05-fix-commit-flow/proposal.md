@@ -16,9 +16,11 @@ The current commit implementation is broken. When users click "Commit", the syst
 ## Capabilities
 
 ### New Capabilities
+
 - `commit-flow`: Defines the complete workflow for committing agent changes to upstream and pushing to remote, including fossil sync, file copy, and VCS operations
 
 ### Modified Capabilities
+
 - `session-management`: Rename `checkoutPath` field to `agentWorkspacePath` in session data structure
 
 ## Impact

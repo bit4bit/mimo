@@ -14,9 +14,11 @@ Currently, mimo-platform routes mix HTML rendering with direct service calls, ti
 ## Capabilities
 
 ### New Capabilities
+
 - `internal-api-layer`: Provides internal REST API infrastructure with standardized request/response handling, auth forwarding, and service delegation for projects, sessions, agents, dashboard, credentials, config, and auth domains
 
 ### Modified Capabilities
+
 <!-- This is implementation refactoring. No spec-level requirements change - routes continue to work as before. -->
 
 ## Impact

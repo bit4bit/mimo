@@ -5,6 +5,7 @@
 Currently, expert mode only supports single replacement operations. The LLM returns a single `replacement` object with `replace_start_line`, `replace_end_line`, and `replacement` fields. This limits the LLM's ability to make multiple discrete edits to a file in response to a single instruction.
 
 When a user asks for changes that affect multiple, non-contiguous areas of a file, the LLM must either:
+
 1. Return a single large replacement that includes unchanged code, which is inefficient and harder to review
 2. Only make one of the requested changes
 3. Return an error indicating out-of-scope changes are required
@@ -16,6 +17,7 @@ Allow the LLM to return an array of replacements (`replacements`) instead of a s
 ## Proposed Change
 
 ### Current Format
+
 ```json
 {
   "file": "src/utils/helpers.ts",
@@ -26,6 +28,7 @@ Allow the LLM to return an array of replacements (`replacements`) instead of a s
 ```
 
 ### New Format (Backward Compatible)
+
 ```json
 {
   "replacements": [
@@ -46,6 +49,7 @@ Allow the LLM to return an array of replacements (`replacements`) instead of a s
 ```
 
 The system will:
+
 1. Apply replacements in order from highest line number to lowest (to preserve line number validity)
 2. Reject overlapping replacement ranges
 3. Maintain backward compatibility by also supporting the single-object format
@@ -53,6 +57,7 @@ The system will:
 ## Scope
 
 ### In Scope
+
 - Update `expert-utils.js` to parse `replacements` array
 - Add `applyReplacements()` function for multiple replacements
 - Update prompt template to request array format
@@ -61,11 +66,13 @@ The system will:
 - Maintain backward compatibility with single-object format
 
 ### Out of Scope
+
 - Multi-file editing in a single expert-mode session (each `replacements` array targets one file)
 - Interactive selection of which replacements to apply
 - Partial apply/reject of individual replacements within an array
 
 ## Success Criteria
+
 - LLM can return multiple replacements for a single file
 - Replacements are applied correctly to produce the final patched content
 - Overlapping ranges are detected and rejected with clear error

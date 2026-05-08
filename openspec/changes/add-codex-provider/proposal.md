@@ -12,9 +12,11 @@ mimo-agent currently supports only the opencode and Claude ACP adapters. Teams r
 ## Capabilities
 
 ### New Capabilities
+
 - `codex-provider`: mimo-agent can spawn the Codex ACP adapter, surface its model/mode configuration, and forward streaming updates.
 
 ### Modified Capabilities
+
 - `agent-lifecycle`: Provider selection must recognise Codex as a first-class option during agent startup.
 
 ## Impact

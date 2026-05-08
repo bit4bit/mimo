@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import { Layout } from "../../../shared/components/Layout.js";
 import { Frame } from "../../../shared/components/Frame.js";
@@ -681,12 +682,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       {cloneWorkspaceCommand && (
         <div id="clone-workspace-dialog" class="modal hidden">
           <div class="modal-content clone-workspace-modal">
-            <h3 class="modal-title mb-10">
-              Clone Workspace Command
-            </h3>
-            <p class="clone-workspace-help">
-              Click the command to copy it.
-            </p>
+            <h3 class="modal-title mb-10">Clone Workspace Command</h3>
+            <p class="clone-workspace-help">Click the command to copy it.</p>
             <pre
               id="clone-workspace-command"
               class="clone-workspace-command"

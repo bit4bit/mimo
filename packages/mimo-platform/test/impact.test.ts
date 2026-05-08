@@ -392,8 +392,12 @@ echo '[]'`;
       expect(result.metrics.files.unchanged).toBe(1);
       expect(result.metrics.files.new).toBe(0);
       expect(result.metrics.files.changed).toBe(0);
-      expect(result.metrics.absoluteLoc.total.upstream).toBeGreaterThanOrEqual(0);
-      expect(result.metrics.absoluteLoc.total.workspace).toBeGreaterThanOrEqual(0);
+      expect(result.metrics.absoluteLoc.total.upstream).toBeGreaterThanOrEqual(
+        0,
+      );
+      expect(result.metrics.absoluteLoc.total.workspace).toBeGreaterThanOrEqual(
+        0,
+      );
       expect(result.metrics.absoluteLoc.added.upstream).toBe(0);
       expect(result.metrics.absoluteLoc.removed.upstream).toBe(0);
     });
@@ -682,7 +686,12 @@ echo '[]'`;
       writeFileSync(keepFile, "export const keep = 1;\n");
       writeFileSync(removeFile, "export const remove = 2;\n");
 
-      await calculator.calculateImpact(sessionId, upstreamDir, workspaceDir, true);
+      await calculator.calculateImpact(
+        sessionId,
+        upstreamDir,
+        workspaceDir,
+        true,
+      );
 
       rmSync(removeFile, { force: true });
 
@@ -702,33 +711,29 @@ echo '[]'`;
 
 describe("impact exclusion uses centralized path policy", () => {
   it("excludes .git/ paths from impact counts", async () => {
-    const { shouldIncludeImpactPath } = await import(
-      "../src/domain/files/impact-file-policy.ts"
-    );
+    const { shouldIncludeImpactPath } =
+      await import("../src/domain/files/impact-file-policy.ts");
     expect(shouldIncludeImpactPath(".git/config")).toBe(false);
     expect(shouldIncludeImpactPath(".git/HEAD")).toBe(false);
   });
 
   it("excludes .mimo/ paths from impact counts", async () => {
-    const { shouldIncludeImpactPath } = await import(
-      "../src/domain/files/impact-file-policy.ts"
-    );
+    const { shouldIncludeImpactPath } =
+      await import("../src/domain/files/impact-file-policy.ts");
     expect(shouldIncludeImpactPath(".mimo")).toBe(false);
     expect(shouldIncludeImpactPath(".mimo/patches/file.patch")).toBe(false);
   });
 
   it("excludes .sccignore and .jscpdignore from impact counts", async () => {
-    const { shouldIncludeImpactPath } = await import(
-      "../src/domain/files/impact-file-policy.ts"
-    );
+    const { shouldIncludeImpactPath } =
+      await import("../src/domain/files/impact-file-policy.ts");
     expect(shouldIncludeImpactPath(".sccignore")).toBe(false);
     expect(shouldIncludeImpactPath(".jscpdignore")).toBe(false);
   });
 
   it("includes normal project files in impact counts", async () => {
-    const { shouldIncludeImpactPath } = await import(
-      "../src/domain/files/impact-file-policy.ts"
-    );
+    const { shouldIncludeImpactPath } =
+      await import("../src/domain/files/impact-file-policy.ts");
     expect(shouldIncludeImpactPath("src/index.ts")).toBe(true);
     expect(shouldIncludeImpactPath("package.json")).toBe(true);
   });

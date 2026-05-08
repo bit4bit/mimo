@@ -6,6 +6,7 @@ The Sessions routes have been **partially refactored** to use the HTTP proxy pat
 - **Remaining**: 57+ direct service/repository calls across other routes still need refactoring
 
 Direct calls found:
+
 - `sessionRepository.create()` - POST `/sessions` (create session)
 - `sessionRepository.delete()` - Multiple locations (delete session)
 - `sessionRepository.update()` - Update operations
@@ -50,9 +51,11 @@ Routes needing refactoring:
 ## Capabilities
 
 ### New Capabilities
+
 - `sessions-proxy-pattern-completion`: Complete HTTP proxy pattern for all remaining Sessions routes
 
 ### Modified Capabilities
+
 <!-- None - completes existing implementation -->
 
 ## Impact

@@ -25,9 +25,11 @@ The chat.js file has grown to 1557 lines with scattered mutable state, mixed con
 ## Capabilities
 
 ### New Capabilities
+
 - None - this is a pure refactoring
 
 ### Modified Capabilities
+
 - None - no spec-level behavior changes
 
 ## Impact

@@ -7,6 +7,7 @@ Users currently need to manually construct a clone/open command from separate bi
 In addition, session repositories need a consistent cloning identity: a Fossil user named `dev` with full permissions, password auto-generated once during session creation, and persisted in session metadata. Existing sessions must be backfilled via migration.
 
 Constraints:
+
 - Keep command format to exactly one command: `fossil open "<AUTH_URL>" --workdir "<SESSION_NAME>"`.
 - Place the action button next to the ACP status indicator in the session header.
 - Use session name for `--workdir`, sanitizing only path separators (`/`, `\\`) to `-`.
@@ -15,6 +16,7 @@ Constraints:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Provide a discoverable `Clone Workspace` action in session detail.
 - Render a modal with a ready-to-run authenticated command.
 - Support single-click copy of the command with immediate UI feedback.
@@ -23,6 +25,7 @@ Constraints:
 - Provide an idempotent migration to backfill `dev` user/password for existing sessions.
 
 **Non-Goals:**
+
 - Rotating or masking credentials in this flow.
 - Changing agent bootstrap clone behavior.
 - Supporting multiple command variants (Git, SSH, multi-step shell scripts).
@@ -92,6 +95,7 @@ Constraints:
 7. Verify behavior manually on desktop/mobile widths and with session names containing spaces/slashes.
 
 Rollback strategy:
+
 - Revert the new command props and modal/button/script include. Existing session page behavior remains intact because clone flow is additive.
 
 ## Open Questions

@@ -3,6 +3,7 @@
 ## Providers
 
 ### opencode
+
 - `newSession`: supported
 - `loadSession`: supported
 - `unstable_closeSession`: not supported
@@ -10,6 +11,7 @@
 - Context reset: call `newSession` (old session is abandoned)
 
 ### claude-agent-acp
+
 - `newSession`: supported
 - `loadSession`: supported
 - `unstable_closeSession`: supported
@@ -26,17 +28,20 @@ Agent creates new ACP session, updates `acpSessionId`, and platform persists/bro
 Idle sessions are parked to free resources.
 
 ### States
+
 - `ACTIVE`: normal operation
 - `PARKED`: ACP terminated after idle timeout
 - `WAKING`: ACP respawning and prompt queue draining
 
 ### Idle Timer Reset Events
+
 - User messages
 - ACP thought events
 - ACP message chunks
 - ACP usage updates
 
 ### Config
+
 - API: `PATCH /sessions/:id/config`
 - Field: `idleTimeoutMs`
 - Minimum: `10000`
@@ -44,6 +49,7 @@ Idle sessions are parked to free resources.
 - Default: `600000` (10 minutes)
 
 ### Resume Behavior
+
 1. Move to `WAKING`
 2. Spawn ACP process
 3. Attempt `loadSession(acpSessionId)`
@@ -70,6 +76,7 @@ If load fails: fallback to `newSession`, keep chat history, show fresh-context n
   - Block default: 30% (blocks commit)
 
 Key files:
+
 - `packages/mimo-platform/src/impact/jscpd-service.ts`
 - `packages/mimo-platform/src/impact/calculator.ts`
 - `packages/mimo-platform/src/web/components/ImpactBuffer.tsx`

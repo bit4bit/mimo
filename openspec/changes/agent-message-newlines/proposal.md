@@ -12,6 +12,7 @@ Agent message content is rendered using CSS `white-space: pre-wrap` with literal
 ## Capabilities
 
 ### New Capabilities
+
 - `agent-message-rendering`: How agent message content is rendered into the DOM — newline preservation, copy-paste fidelity, and clipboard format behavior.
 
 ### Modified Capabilities

@@ -34,7 +34,9 @@ describe("ProjectVcsCache integration", () => {
     mkdirSync(remoteWorktree, { recursive: true });
 
     execSync("git init -q", { cwd: remoteWorktree });
-    execSync('git config user.email "test@example.com"', { cwd: remoteWorktree });
+    execSync('git config user.email "test@example.com"', {
+      cwd: remoteWorktree,
+    });
     execSync('git config user.name "test"', { cwd: remoteWorktree });
     writeFileSync(join(remoteWorktree, "README.md"), "hello\n");
     execSync("git add README.md", { cwd: remoteWorktree });
@@ -84,7 +86,9 @@ describe("ProjectVcsCache integration", () => {
     mkdirSync(sourceCheckout, { recursive: true });
 
     execSync(`fossil init ${sourceFossil}`);
-    execSync(`fossil open ${sourceFossil} --workdir ${sourceCheckout} --nested --force`);
+    execSync(
+      `fossil open ${sourceFossil} --workdir ${sourceCheckout} --nested --force`,
+    );
     execSync("fossil user new mimo-test-user mimo-test-pass", {
       cwd: sourceCheckout,
     });
@@ -105,7 +109,9 @@ describe("ProjectVcsCache integration", () => {
     });
 
     expect(firstResult.success).toBe(true);
-    expect(existsSync(join(projectsPath, projectId, "cache.fossil"))).toBe(true);
+    expect(existsSync(join(projectsPath, projectId, "cache.fossil"))).toBe(
+      true,
+    );
     expect(existsSync(join(firstTarget, "README.md"))).toBe(true);
 
     writeFileSync(join(sourceCheckout, "NOTES.md"), "notes\n");
@@ -134,7 +140,9 @@ describe("ProjectVcsCache integration", () => {
     mkdirSync(remoteWorktree, { recursive: true });
 
     execSync("git init -q", { cwd: remoteWorktree });
-    execSync('git config user.email "test@example.com"', { cwd: remoteWorktree });
+    execSync('git config user.email "test@example.com"', {
+      cwd: remoteWorktree,
+    });
     execSync('git config user.name "test"', { cwd: remoteWorktree });
     writeFileSync(join(remoteWorktree, "A.md"), "a\n");
     execSync("git add A.md", { cwd: remoteWorktree });

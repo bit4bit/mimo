@@ -7,12 +7,14 @@ Because the assistant message is the durable artifact users review later, tool-c
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Show tool-call information in the assistant message box after a response completes.
 - Include both approved and rejected/cancelled tool calls in that summary.
 - Persist that information in chat history for reload/replay.
 - Keep the existing approval interaction unchanged.
 
 **Non-Goals:**
+
 - Building a full audit log across sessions.
 - Rendering raw tool input/output payloads.
 - Changing ACP provider APIs.
@@ -80,6 +82,7 @@ Rejected or cancelled examples:
 **Decision:** In the assistant message box, each tool-call row shows only the tool title in collapsed state. Clicking the row toggles an expanded detail panel.
 
 Expanded panel includes:
+
 - decision (`approved` / `rejected` / `cancelled`)
 - tool kind
 - selected option kind when present

@@ -13,9 +13,11 @@ The MCP servers domain manages MCP (Model Context Protocol) server configuration
 ## Capabilities
 
 ### New Capabilities
+
 - `internal-api-mcp-servers`: Internal REST API for MCP server management (list, get, create, update, delete MCP servers)
 
 ### Modified Capabilities
+
 <!-- None - this is implementation refactoring -->
 
 ## Impact

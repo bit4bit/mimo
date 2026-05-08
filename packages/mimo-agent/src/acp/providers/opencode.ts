@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { IAcpProvider, AcpProcessHandle, NewSessionResponse } from "../types";
 import { ModelState, ModeState } from "../../types";
 import { spawn } from "child_process";
@@ -26,7 +27,9 @@ export class OpencodeProvider implements IAcpProvider {
     return {
       process: proc as unknown as AcpProcessHandle,
       input: Writable.toWeb(proc.stdin!) as WritableStream<Uint8Array>,
-      output: Readable.toWeb(proc.stdout!) as unknown as ReadableStream<Uint8Array>,
+      output: Readable.toWeb(
+        proc.stdout!,
+      ) as unknown as ReadableStream<Uint8Array>,
     };
   }
 

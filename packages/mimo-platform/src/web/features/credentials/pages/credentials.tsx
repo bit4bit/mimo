@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { Hono } from "hono";
 import type { Credential } from "../../../../domain/credentials/repository";
 import { createAuthMiddleware } from "../../../../auth/middleware";

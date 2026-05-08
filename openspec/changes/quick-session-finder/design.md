@@ -7,6 +7,7 @@ Sessions are scoped to projects and owners. No cross-project session listing end
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Keyboard-triggered global session finder available on every page
 - Fuzzy (substring) match against session name OR project name
 - Recent sessions shown on open (empty query, sorted by last activity)
@@ -14,6 +15,7 @@ Sessions are scoped to projects and owners. No cross-project session listing end
 - Keybinding configurable via YAML (`openSessionFinder`)
 
 **Non-Goals:**
+
 - Ranked/scored fuzzy matching (substring is sufficient)
 - Creating or deleting sessions from the finder
 - Showing session content preview

@@ -12,12 +12,14 @@ The file finder is the clearest symptom: it does not exclude VCS folders, so a u
 ## Goals / Non-Goals
 
 **Goals:**
+
 - One module (`domain/files/path-policy.ts`) owns the canonical list of excluded paths.
 - One pure function `isExcluded(path)` decides if a path is invisible machinery.
 - Every consumer of exclusion logic imports from this module.
 - Existing behavior is preserved for every consumer after migration.
 
 **Non-Goals:**
+
 - Change the contents of the exclusion list (we merge the existing lists, not expand them).
 - Refactor how `.gitignore` / `.mimoignore` patterns are parsed and applied (those remain workspace-specific and live in `files/service.ts`).
 - Introduce globs or regexes into the central policy (the existing consumers match by exact name, prefix, or path component; this is sufficient).
@@ -33,6 +35,7 @@ The file finder is the clearest symptom: it does not exclude VCS folders, so a u
 **Rationale:** We considered splitting into `getPrefixes()`, `getExactPaths()`, `getGlobs()` for different consumers, but the lists overlap heavily and every consumer can work with a single predicate. Fewer exports, fewer tests, less surface area.
 
 The function handles three cases:
+
 1. Exact match (`path === ".git"`)
 2. Prefix match (`path.startsWith(".git/")`)
 3. Component match at any depth (`"src/.git/config"` contains `.git`)
@@ -47,11 +50,11 @@ The function handles three cases:
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|-----------|
-| Miss a consumer during migration | Audited every file that imports `VCS_INTERNALS` or defines `IMPACT_*`. We will delete the old constants to prevent silent re-use. |
+| Risk                                                                    | Mitigation                                                                                                                                                          |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Miss a consumer during migration                                        | Audited every file that imports `VCS_INTERNALS` or defines `IMPACT_*`. We will delete the old constants to prevent silent re-use.                                   |
 | `isExcluded` is slightly slower than a `Set` lookup for `scanDirectory` | Negligible — the array has <20 elements and the function runs in microsecond range. If it becomes a hotspot, we can add an internal `Set` without changing the API. |
-| Fossil `ignore-glob` needs trailing-`/**` patterns | `syncIgnoresToFossil` maps `EXCLUDED_PATHS` to glob syntax locally; the policy module stays agnostic of glob formatting. |
+| Fossil `ignore-glob` needs trailing-`/**` patterns                      | `syncIgnoresToFossil` maps `EXCLUDED_PATHS` to glob syntax locally; the policy module stays agnostic of glob formatting.                                            |
 
 ## Migration Plan
 

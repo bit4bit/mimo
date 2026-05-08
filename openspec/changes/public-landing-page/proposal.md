@@ -38,10 +38,12 @@ MIMO currently lacks a public landing page. Users are immediately redirected to 
 ## Impact
 
 **Files Created:**
+
 - `src/components/LandingPage.tsx` - Public landing page component
 - `src/projects/public.ts` - Public project listing endpoint
 
 **Files Modified:**
+
 - `src/index.ts` - Add GET `/` route for landing page
 - `src/projects/repository.ts` - Add description field to Project interface
 - `src/projects/routes.tsx` - Add public listing endpoint, update project creation

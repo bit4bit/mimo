@@ -9,10 +9,14 @@ describe("SessionManager with MCP Servers", () => {
 
   beforeEach(() => {
     const os = createOS({ ...process.env });
-    sessionManager = new SessionManager(testWorkDir, {
-      onFileChange: () => {},
-      onSessionError: () => {},
-    }, os);
+    sessionManager = new SessionManager(
+      testWorkDir,
+      {
+        onFileChange: () => {},
+        onSessionError: () => {},
+      },
+      os,
+    );
   });
 
   describe("setSessionMcpServers", () => {

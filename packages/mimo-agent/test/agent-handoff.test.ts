@@ -318,5 +318,4 @@ describe("Agent Handoff Tests", () => {
       expect(capabilities.loadSession).toBe(true);
     });
   });
-
 });

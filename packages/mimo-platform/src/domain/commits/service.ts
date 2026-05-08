@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { logger } from "../../logger.js";
 import type { VCS } from "../vcs/index.js";
 import type { OS } from "../../infrastructure/os/types.js";

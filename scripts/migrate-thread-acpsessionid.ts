@@ -10,12 +10,7 @@
 
 import { join } from "path";
 import { homedir } from "os";
-import {
-  existsSync,
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-} from "fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "fs";
 import { load, dump } from "js-yaml";
 
 const MIMO_HOME = process.env.MIMO_HOME || join(homedir(), ".mimo");
@@ -57,7 +52,10 @@ function findSessionFiles(dir: string): string[] {
   return files;
 }
 
-function migrateSession(sessionPath: string): { migrated: boolean; reason?: string } {
+function migrateSession(sessionPath: string): {
+  migrated: boolean;
+  reason?: string;
+} {
   const content = readFileSync(sessionPath, "utf-8");
   const data = load(content) as SessionData;
 

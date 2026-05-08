@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 /** @jsx jsx */
 import { jsx } from "hono/jsx";
 import type { FC } from "hono/jsx";
@@ -36,13 +37,7 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
       <div class="container mcp-form-container">
         <h1>{title}</h1>
 
-        {error && (
-          <div
-            class="error-message page-error-banner"
-          >
-            {error}
-          </div>
-        )}
+        {error && <div class="error-message page-error-banner">{error}</div>}
 
         <form method="post" action={action} class="mcp-server-form">
           {isEditing && (
@@ -58,9 +53,7 @@ export const McpServerFormPage: FC<McpServerFormPageProps> = ({
             <label htmlFor="name">
               Name *
               {isEditing && (
-                <span class="field-meta-id">
-                  (ID: {server?.id})
-                </span>
+                <span class="field-meta-id">(ID: {server?.id})</span>
               )}
             </label>
             <input
@@ -226,9 +219,7 @@ X-Custom-Header: value`}
         </form>
 
         <div class="transport-examples">
-          <h3 class="transport-examples-title">
-            Transport Type Examples
-          </h3>
+          <h3 class="transport-examples-title">Transport Type Examples</h3>
 
           <div class="transport-example-block">
             <strong class="transport-example-label">

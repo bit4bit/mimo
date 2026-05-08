@@ -9,11 +9,13 @@ The fix is a wiring change: remove the singletons and thread the properly-constr
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Single `JwtService` instance constructed once with the env secret, shared across all auth paths
 - Startup fails loudly when `JWT_SECRET` is missing rather than silently using a guessable default
 - No module-level singletons with hardcoded secrets
 
 **Non-Goals:**
+
 - Changing the JWT algorithm, expiry, or token shape
 - Adding token rotation or refresh flows
 - Modifying the agent token path (`verifyAgentToken`)

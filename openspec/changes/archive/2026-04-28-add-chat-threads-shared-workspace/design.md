@@ -13,6 +13,7 @@ At the same time, cloning separate repositories for each chat context is unneces
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Multiple chat threads per session
 - One ACP runtime per chat thread
 - Shared filesystem and fossil repository for all threads in that session
@@ -21,6 +22,7 @@ At the same time, cloning separate repositories for each chat context is unneces
 - Thread-aware reconnect/stream restoration behavior
 
 **Non-Goals:**
+
 - Multi-checkout or branch-per-thread isolation in v1
 - Automatic merge/conflict resolution between thread outputs
 - Cross-thread shared prompt memory
@@ -29,32 +31,39 @@ At the same time, cloning separate repositories for each chat context is unneces
 ## Decisions
 
 ### Decision: Canonical term is `chat-thread`
+
 All user-facing and API-facing names use `chat-thread` / `chatThreadId` to avoid ambiguity with UI-only "buffers".
 
 ### Decision: Shared workspace, isolated ACP contexts
+
 Each thread gets its own ACP runtime and ACP session identity, but all runtimes execute in the same checkout path.
 
 **Rationale:** maximizes collaboration and minimizes storage/process overhead from duplicate clones.
 
 ### Decision: Per-thread model/mode persistence
+
 Thread metadata includes `model` and `mode`. Switching or updating one thread does not mutate others.
 
 ### Decision: Runtime routing key is composite
+
 All runtime state is keyed by `{sessionId, chatThreadId}`.
 
 **Rationale:** session ID alone is no longer unique for ACP runtime state.
 
 ### Decision: Default thread on session creation
+
 New sessions create a default thread named `Main`.
 
 **Rationale:** keeps current UX working with no extra required step.
 
 ### Decision: Programmatic API is first-class
+
 Thread CRUD is available via HTTP routes, not only UI clicks.
 
 **Rationale:** enables automation and external orchestration of multiple LLM workers.
 
 ### Decision: Idle timeout is session-scoped, not thread-scoped
+
 The idle timer is shared across all threads in a session. Any activity on any thread resets the single session-level timer. All threads park together only when no thread has had activity for `idleTimeoutMs`.
 
 **Rationale:** a user working in one thread is actively using the session. Parking a sibling thread mid-session would silently discard its ACP context, which is unexpected and harmful. Parking should signal that the whole session is idle, not just one thread.
@@ -62,9 +71,11 @@ The idle timer is shared across all threads in a session. Any activity on any th
 ## Data Model
 
 Session-level fields:
+
 - `activeChatThreadId: string`
 
 Thread record:
+
 - `id: string`
 - `name: string`
 - `model: string`
@@ -92,6 +103,7 @@ Thread record:
 All chat and stream messages include `chatThreadId`.
 
 Examples:
+
 - user input: `{ type: "user_message", sessionId, chatThreadId, content }`
 - stream chunk: `{ type: "message_chunk", sessionId, chatThreadId, chunk }`
 - thought chunk: `{ type: "thought_chunk", sessionId, chatThreadId, chunk }`
@@ -109,12 +121,15 @@ Examples:
 ## Risks / Trade-offs
 
 **[Risk]** Two threads can modify overlapping files concurrently
+
 - **Mitigation:** keep VCS truth in shared fossil history; surface conflicts at commit/sync boundaries
 
 **[Risk]** Process count increases with many threads
+
 - **Mitigation:** keep parking enabled with session-level idle timer; all threads park together when the session goes quiet
 
 **[Risk]** Message routing bugs can leak events across threads
+
 - **Mitigation:** require `chatThreadId` in all chat protocol types and integration tests
 
 ## Migration Plan

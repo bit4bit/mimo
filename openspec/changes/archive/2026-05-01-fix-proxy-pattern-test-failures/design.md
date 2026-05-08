@@ -10,12 +10,14 @@ After the proxy pattern refactor, 116 tests are failing:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Fix JSON parsing errors in auth routes
 - Debug and fix 404 errors in sessions/projects
 - Improve error handling consistency
 - Get all tests passing
 
 **Non-Goals:**
+
 - Changing internal API endpoints structure
 - Breaking existing functionality
 - Major refactors
@@ -31,8 +33,8 @@ The issue is at line 48 in `auth/routes.tsx`:
 const result = await response.json() as { data: RegisterResponse };
 
 // Fixed:
-const result = await response.json().catch(() => ({ 
-  error: "Invalid response from server" 
+const result = await response.json().catch(() => ({
+  error: "Invalid response from server"
 })) as { data?: RegisterResponse; error?: string };
 
 if (result.error || !result.data) {
@@ -45,6 +47,7 @@ if (result.error || !result.data) {
 Steps to debug:
 
 1. Check if internal API endpoints exist:
+
    ```typescript
    // Should exist:
    GET /api/internal/sessions
@@ -56,6 +59,7 @@ Steps to debug:
    ```
 
 2. Verify routes are calling correct paths:
+
    ```typescript
    // Check for path mismatches
    // e.g., /sessions vs /sessions/:id
@@ -72,8 +76,10 @@ async function callInternalApi<T>(
   c: Context,
   mimoContext: MimoContext,
   path: string,
-  options?: RequestInit
-): Promise<{ success: true; data: T } | { success: false; error: string; status: number }> {
+  options?: RequestInit,
+): Promise<
+  { success: true; data: T } | { success: false; error: string; status: number }
+> {
   try {
     const token = extractTokenFromCookie(c);
     if (!token) {

@@ -42,16 +42,17 @@
 
 ## Build Targets
 
-| Package        | Linux x64 | macOS x64 | macOS ARM64 |
-|----------------|-----------|-----------|-------------|
-| mimo-platform  | ✓         | ✓         | ✓           |
-| mimo-agent     | ✓         | ✓         | ✓           |
+| Package       | Linux x64 | macOS x64 | macOS ARM64 |
+| ------------- | --------- | --------- | ----------- |
+| mimo-platform | ✓         | ✓         | ✓           |
+| mimo-agent    | ✓         | ✓         | ✓           |
 
 ## Asset Embedding Strategy
 
 **Problem:** Bun's `--compile` doesn't automatically bundle filesystem assets.
 
 **Solution:** Create a build-time script that:
+
 1. Reads all files from `packages/mimo-platform/public/`
 2. Generates `packages/mimo-platform/src/assets-embedded.ts`
 3. Exports a virtual filesystem map: `path → content`
@@ -67,7 +68,7 @@ export const EMBEDDED_ASSETS = {
 
 export function getEmbeddedAsset(path: string): Uint8Array | null {
   const base64 = EMBEDDED_ASSETS[path];
-  return base64 ? Uint8Array.from(Buffer.from(base64, 'base64')) : null;
+  return base64 ? Uint8Array.from(Buffer.from(base64, "base64")) : null;
 }
 ```
 
@@ -104,6 +105,7 @@ Root `package.json` is the source of truth:
 ```
 
 Both sub-packages will have:
+
 ```json
 {
   "name": "mimo-platform",
@@ -136,6 +138,7 @@ strategy:
 ```
 
 Bun's `--compile` produces native binaries for the current platform. We need to:
+
 1. Build platform-specific binaries on each runner
 2. Upload artifacts
 3. Create release from a single job that collects all artifacts

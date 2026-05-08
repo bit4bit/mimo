@@ -16,9 +16,11 @@ When mimo-agent restarts, the ACP session is lost even though the chat history p
 ## Capabilities
 
 ### New Capabilities
+
 - `session-acp-persistence`: Persist ACP session IDs in mimo-platform and enable session resumption across agent restarts
 
 ### Modified Capabilities
+
 - `agent-communication`: Extend WebSocket protocol with `acpSessionId` field in `session_ready` message and new `acp_session_created` message type
 
 ## Impact

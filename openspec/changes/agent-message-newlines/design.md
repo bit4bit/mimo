@@ -1,6 +1,7 @@
 ## Context
 
 Agent messages are rendered in `chat.js` via two paths:
+
 1. **Streaming**: `updateMessageContent(text)` appends text chunks to a `div.message-response` using `textContent +=`. After streaming ends, `finalizeMessageStream()` removes the cursor.
 2. **History**: `renderChatHistory()` reconstructs messages from `chat.jsonl` chunks, accumulates them into a string, then calls `insertMessage()` → `renderMessage()` which sets `content.textContent = message.content`.
 
@@ -9,12 +10,14 @@ Both paths rely on `white-space: pre-wrap` CSS to render `\n` characters as visi
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Agent message newlines survive copy-paste into any app (Notion, Slack, Docs, terminal)
 - No XSS risk — content is never passed through `innerHTML` unsanitized
 - Both streamed and historical messages are consistent
 - Empty lines are preserved (not collapsed)
 
 **Non-Goals:**
+
 - Markdown rendering (bold, headers, code blocks) — out of scope
 - Changing how user messages are rendered
 - Modifying the copy button behavior (it already writes `text/plain` via `navigator.clipboard.writeText`)

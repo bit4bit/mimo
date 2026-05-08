@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { createHash } from "crypto";
 import chokidar from "chokidar";
 import type { OS } from "../../infrastructure/os/types.js";

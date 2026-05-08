@@ -17,9 +17,11 @@ The current implementation has a critical gap: when an agent connects, the platf
 ## Capabilities
 
 ### New Capabilities
+
 - `session-bootstrap`: Defines how agents receive session information and bootstrap their worktree by cloning from fossil proxy
 
 ### Modified Capabilities
+
 - `agent-lifecycle`: Agent now handles `session_ready` message, maintains multi-session state, spawns ACP per session
 - `session-management`: Session creation no longer creates checkout; only creates repo.fossil. Checkout creation moves to agent bootstrap phase.
 

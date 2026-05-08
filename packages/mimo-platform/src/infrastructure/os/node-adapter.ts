@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 /**
  * Node.js / Bun OS Adapter — Real implementation backed by Node APIs.
  *

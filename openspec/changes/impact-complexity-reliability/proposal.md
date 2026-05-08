@@ -7,6 +7,7 @@ The root cause is likely non-deterministic behavior in the SCC (Source Code Coun
 ## What Changes
 
 ### Phase 1: Diagnostic Infrastructure
+
 - Add comprehensive debug logging to the entire impact calculation pipeline
 - Log SCC cache hits/misses with directory paths and timestamps
 - Log ignore file pattern resolution (which files are excluded and why)
@@ -15,18 +16,21 @@ The root cause is likely non-deterministic behavior in the SCC (Source Code Coun
 - Log impact delta calculations with per-file breakdowns showing old vs new values
 
 ### Phase 2: Enhanced Display Format
+
 - Modify the UI to show absolute values + delta instead of just delta
 - Current: `Cyclomatic: +6 ↑` (delta only)
 - New: `Cyclomatic: 156 → 162 (+6) ↑` (absolute + delta)
 - This makes the values interpretable and helps identify when absolute values are inconsistent
 
 ### Phase 3: Diagnostic Test
+
 - Create a concurrency stress test that simulates file modifications during impact calculation
 - Run impact calculation multiple times in rapid succession
 - Capture variance in results and identify which stage causes inconsistency
 - Validate that logging provides sufficient traceability to diagnose issues
 
 ### Phase 4: Reliability Fixes
+
 - Sort SCC output by file path before processing to ensure consistent ordering
 - Force cache bypass on explicit refresh (respect `force` parameter in cache lookup)
 - Add validation for anomalous deltas (flag deltas >500% or absolute changes >1000)
@@ -35,6 +39,7 @@ The root cause is likely non-deterministic behavior in the SCC (Source Code Coun
 ## Capabilities
 
 ### Modified Capabilities
+
 - `impact-calculation`: Enhanced with comprehensive debug logging and improved reliability
 - `impact-display`: Enhanced to show absolute values alongside deltas
 

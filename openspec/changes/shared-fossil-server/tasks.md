@@ -53,12 +53,12 @@
 
 ## Resumen de Tests
 
-| Test Suite | Estado | Notas |
-|------------|--------|-------|
-| shared-fossil-server.test.ts | ✅ 12/12 pass | Tests del nuevo servidor compartido |
-| fossil-server.test.ts | ✅ 11/11 pass | Tests del servidor antiguo (legacy) |
-| fossil-credentials.test.ts | ✅ 6/6 pass | Tests de credenciales de fossil |
-| commits.test.ts | ⚠️ Falla | Error de git "src refspec master" - no relacionado con este cambio | en `test/shared-fossil-server.test.ts`
+| Test Suite                   | Estado        | Notas                                                              |
+| ---------------------------- | ------------- | ------------------------------------------------------------------ | -------------------------------------- |
+| shared-fossil-server.test.ts | ✅ 12/12 pass | Tests del nuevo servidor compartido                                |
+| fossil-server.test.ts        | ✅ 11/11 pass | Tests del servidor antiguo (legacy)                                |
+| fossil-credentials.test.ts   | ✅ 6/6 pass   | Tests de credenciales de fossil                                    |
+| commits.test.ts              | ⚠️ Falla      | Error de git "src refspec master" - no relacionado con este cambio | en `test/shared-fossil-server.test.ts` |
 
 ## 8. Migración de Datos
 
@@ -89,12 +89,14 @@ Todos los componentes principales han sido implementados:
 6. **Tests**: Tests básicos para SharedFossilServer
 
 **Archivos Creados:**
+
 - `src/vcs/shared-fossil-server.ts`
 - `test/shared-fossil-server.test.ts`
 - `scripts/migrate-fossil-repos.ts`
 - `scripts/rollback-fossil-repos.ts`
 
 **Archivos Modificados:**
+
 - `src/sessions/repository.ts`
 - `src/sessions/routes.tsx`
 - `src/index.tsx`
@@ -103,6 +105,7 @@ Todos los componentes principales han sido implementados:
 - `mimo-agent/src/index.ts`
 
 **Próximos Pasos:**
+
 1. Ejecutar migración: `bun scripts/migrate-fossil-repos.ts`
 2. Actualizar mimo-agent en todas las máquinas
 3. Reiniciar plataforma

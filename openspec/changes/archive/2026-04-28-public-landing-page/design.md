@@ -3,18 +3,21 @@
 MIMO currently has no public landing page. The root route (`/`) immediately redirects to login for unauthenticated users. This creates a poor experience for new users who want to understand the platform before creating an account.
 
 The platform uses:
+
 - Hono framework with JSX server-side rendering
 - Filesystem-based storage (YAML files in `~/.mimo/`)
 - JWT authentication with cookie-based sessions
 - Protected routes via auth middleware
 
 Current route structure:
+
 - `/` → redirects to `/auth/login` or `/projects` based on auth
 - All project/session routes are protected
 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Create public landing page showing platform description and features
 - Display public project list (names, descriptions, owners, types) without authentication
 - Add optional `description` field to projects for better discoverability
@@ -22,6 +25,7 @@ Current route structure:
 - Allow clicking projects from landing page (redirect to login if needed)
 
 **Non-Goals:**
+
 - Public project detail pages (full details remain protected)
 - Public search/filtering of projects
 - Public user profiles or browsing
@@ -35,15 +39,18 @@ Current route structure:
 **Decision:** Change root route to render public landing page instead of redirecting.
 
 **Rationale:**
+
 - Common pattern for web applications
 - Provides natural entry point for new users
 - Keeps all protected routes under `/projects`, `/sessions`, `/config`, etc.
 
 **Alternatives considered:**
+
 - `/landing` route, `/` redirects to `/projects` if authenticated: More routes, doesn't improve SEO/UX significantly
 - `/welcome` route: Non-standard, harder to remember
 
 **Implementation:**
+
 ```typescript
 // In index.ts
 app.get("/", async (c) => {
@@ -57,11 +64,13 @@ app.get("/", async (c) => {
 **Decision:** Show only sanitized public data: name, description, repo type, owner, created date.
 
 **Rationale:**
+
 - Repo URLs could be private/reveal sensitive info
 - Session counts add query complexity for public endpoint
 - Basic info suffices for discoverability
 
 **Not shown:**
+
 - Repo URLs (may contain credentials or private repos)
 - Session details
 - Work-in-progress information
@@ -71,20 +80,22 @@ app.get("/", async (c) => {
 **Decision:** Add `description?: string` as optional field, max ~200 characters recommended.
 
 **Rationale:**
+
 - Backwards compatible with existing projects
 - Optional allows gradual adoption
 - 200 chars fits on a card without truncation
 
 **Implementation:**
+
 ```typescript
 interface Project {
   // ... existing fields
-  description?: string;  // Optional, displayed in cards
+  description?: string; // Optional, displayed in cards
 }
 
 // In project.yaml
-name: my-app
-description: "A web application for..."
+name: my - app;
+description: "A web application for...";
 ```
 
 ### 4. Public API Endpoint
@@ -92,11 +103,13 @@ description: "A web application for..."
 **Decision:** Create `/api/projects/public` endpoint returning sanitized project array.
 
 **Rationale:**
+
 - Separates data fetching from rendering
 - Enables future client-side features (search, filter)
 - Clear contract for what's public vs private
 
 **Alternatives considered:**
+
 - Inline data in LandingPage SSR: Works but less flexible
 - Full public API with filtering: Over-engineered for current needs
 
@@ -105,15 +118,17 @@ description: "A web application for..."
 **Decision:** Clicking a project card navigates to `/projects/:id`. Auth middleware handles redirect to login if needed.
 
 **Rationale:**
+
 - Reuses existing auth flow
 - No special landing-page routing logic needed
 - After login, user lands naturally on project detail
 
 **Flow:**
+
 ```
 Unauthenticated:
   Click project → /projects/:id → auth middleware → /auth/login?redirect=/projects/:id
-  
+
 Authenticated:
   Click project → /projects/:id → project detail page
 ```

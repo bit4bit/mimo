@@ -1,20 +1,25 @@
 ## Tasks
 
 ### Proposal
+
 - [x] Create `openspec/changes/edit-buffer/proposal.md` with feature overview
 
 ### Design
+
 - [x] Create `openspec/changes/edit-buffer/design.md` with component architecture
 
 ### Specs
+
 - [x] Create `openspec/changes/edit-buffer/specs/file-finder/spec.md` with detailed requirements
 
 ### Tasks
+
 - [x] Create `openspec/changes/edit-buffer/tasks.md` (this file)
 
 ### Implementation
 
 #### 1. Configuration Updates
+
 - [ ] Update `packages/mimo-platform/src/config/service.ts`
   - Add `openFileFinder`, `closeFile` keybinding defaults
   - Add keybinding type definitions
@@ -24,6 +29,7 @@
   - Add `openFileFinder`, `closeFile` to valid keybindings list
 
 #### 2. API Endpoint
+
 - [ ] Create `packages/mimo-platform/src/files/routes.ts`
   - Add GET `/api/sessions/:id/files` endpoint
   - Returns list of files in session workspace
@@ -37,6 +43,7 @@
 #### 3. Core Components
 
 ##### 3.1 Syntax Highlighting Module (using highlight.js)
+
 - [ ] Create `packages/mimo-platform/src/files/syntax-highlighter.ts`
   - `detectLanguage(filePath: string): string` - detect language from extension
   - `highlightContent(content: string, language: string): string` - use hljs.highlight()
@@ -46,6 +53,7 @@
   - Include `escapeHtml()` helper for server-side rendering
 
 ##### 3.1b Layout Integration (highlight.js CDN)
+
 - [ ] Update `packages/mimo-platform/src/components/Layout.tsx`
   - Add highlight.js CDN script in `<head>`:
     - `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js`
@@ -54,12 +62,14 @@
   - Ensure hljs available globally for EditBuffer component
 
 ##### 3.2 File Service
+
 - [ ] Create `packages/mimo-platform/src/files/service.ts`
   - `findFiles(pattern: string, fileService: FileService): Promise<FileInfo[]>`
   - `matchesPattern(filePath: string, pattern: string): boolean`
   - Pure functions only
 
 ##### 3.3 Dialog Component
+
 - [ ] Create `packages/mimo-platform/src/components/FileFinderDialog.tsx`
   - Props: `isOpen`, `files`, `selectedIndex`, `searchPattern`, callbacks
   - Render modal with search input and file list
@@ -68,6 +78,7 @@
   - Inline styles (no CSS file)
 
 ##### 3.4 EditBuffer Component (ChatThreadsBuffer Pattern)
+
 - [ ] Create `packages/mimo-platform/src/buffers/EditBuffer.tsx`
   - **Follow ChatThreadsBuffer.tsx structure exactly:**
   - Tab bar at top with horizontal scroll
@@ -82,6 +93,7 @@
   - Render empty state when no files open
 
 ##### 3.5 Styling (Mirror ChatThreadsBuffer)
+
 - [ ] Apply ChatThreadsBuffer styling patterns:
   - Tab bar: `background: #2d2d2d`, `border-bottom: 1px solid #444`
   - Tab: `padding: 8px 16px`, `border-right: 1px solid #444`
@@ -93,6 +105,7 @@
   - Context bar: `background: #252525`, `padding: 8px 12px`
 
 ##### 3.6 File Content Component
+
 - [ ] Create inline in EditBuffer or separate component
   - Display line numbers
   - Display syntax highlighted content
@@ -102,6 +115,7 @@
 #### 4. Client-Side JavaScript
 
 ##### 4.1 Keybinding Updates
+
 - [ ] Update `packages/mimo-platform/public/js/session-keybindings.js`
   - Add `openFileFinder`, `closeFile` to DEFAULT_KEYBINDINGS
   - Add `isFileFinderOpen()` function
@@ -112,6 +126,7 @@
   - Add handlers for PageUp/PageDown in edit buffer
 
 ##### 4.2 File Finder Logic
+
 - [ ] Create inline in session-keybindings.js or separate file
   - Fetch file list from API
   - Filter based on search input
@@ -119,6 +134,7 @@
   - Open selected file in EditBuffer
 
 ##### 4.3 Edit Buffer State Management
+
 - [x] Create inline in edit-buffer.js
   - Store open files in JS closure state (`EditBufferState`)
   - Track active file index
@@ -126,6 +142,7 @@
   - Handle file closing
 
 ##### 4.4 Ignore File Filtering
+
 - [ ] Update `packages/mimo-platform/src/files/service.ts`
   - Add `loadIgnorePatterns(workspacePath: string): string[]` — reads `.gitignore` and `.mimoignore` from workspace root, returns combined pattern lines (skip blanks and `#` comments)
   - Add `applyIgnorePatterns(files: FileInfo[], patterns: string[]): FileInfo[]` — pure function, filters out files matching any pattern
@@ -139,6 +156,7 @@
   - Test `loadIgnorePatterns` returns empty array when neither file exists
 
 ##### 4.5 Open-File Persistence (localStorage)
+
 - [ ] Update `packages/mimo-platform/public/js/edit-buffer.js`
   - Add `persistState()` — writes `{ openPaths, activePath }` to `localStorage` key `mimo:edit-buffer:<sessionId>`
   - Call `persistState()` on every add, remove, and setActive operation
@@ -149,18 +167,21 @@
 #### 5. Integration
 
 ##### 5.1 Buffer Registration
+
 - [ ] Update `packages/mimo-platform/src/buffers/index.ts`
   - Register EditBuffer with id 'edit'
   - Assign to 'left' frame
   - Add to default buffer configs
 
 ##### 5.2 Session Detail Page
+
 - [ ] Update `packages/mimo-platform/src/components/SessionDetailPage.tsx`
   - Add FileFinderDialog to layout
   - Pass file finder props
   - Add styles for dialog and edit buffer
 
 ##### 5.3 Keybindings Display
+
 - [ ] Update `packages/mimo-platform/src/components/SessionDetailPage.tsx`
   - Add file finder keybinding to shortcuts bar
   - Add file navigation keybinding to shortcuts bar
@@ -168,6 +189,7 @@
 #### 6. Testing
 
 ##### 6.1 Unit Tests
+
 - [ ] Create `packages/mimo-platform/test/files-service.test.ts`
   - Test `findFiles()` with various patterns
   - Test `matchesPattern()` edge cases
@@ -175,6 +197,7 @@
   - Test `highlightSyntax()` output
 
 ##### 6.2 Integration Tests
+
 - [ ] Create `packages/mimo-platform/test/edit-buffer.test.ts`
   - Test opening file finder with keybinding
   - Test typing filters files
@@ -185,6 +208,7 @@
   - Test PageUp/PageDown scrolling
 
 ##### 6.3 Component Tests
+
 - [ ] Create `packages/mimo-platform/test/file-finder-dialog.test.tsx`
   - Test FileFinderDialog renders correctly
   - Test props are handled correctly
@@ -192,11 +216,13 @@
 #### 7. Documentation
 
 ##### 7.1 Code Documentation
+
 - [ ] Add JSDoc to all exported functions
 - [ ] Document component props
 - [ ] Document keybinding configuration options
 
 ##### 7.2 Update AGENTS.md (if needed)
+
 - [ ] Document new file service patterns
 - [ ] Document syntax highlighting approach
 
@@ -239,6 +265,7 @@
 ## Files Created/Modified
 
 ### New Files
+
 - `packages/mimo-platform/src/files/routes.ts`
 - `packages/mimo-platform/src/files/service.ts`
 - `packages/mimo-platform/src/files/syntax-highlighter.ts`
@@ -249,6 +276,7 @@
 - `packages/mimo-platform/test/edit-buffer.test.ts`
 
 ### Modified Files
+
 - `packages/mimo-platform/src/config/service.ts`
 - `packages/mimo-platform/src/config/validator.ts`
 - `packages/mimo-platform/src/buffers/index.ts`

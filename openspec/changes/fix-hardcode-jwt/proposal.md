@@ -15,9 +15,11 @@ When `JWT_SECRET` is set in the environment, login mints tokens signed with that
 ## Capabilities
 
 ### New Capabilities
+
 <!-- none -->
 
 ### Modified Capabilities
+
 - `user-auth`: JWT secret is now required at startup (no silent fallback); the HTTP route guard uses the same injected `JwtService` instance as the login flow.
 
 ## Impact

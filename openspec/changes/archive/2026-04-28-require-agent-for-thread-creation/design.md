@@ -5,11 +5,13 @@ The platform currently allows thread creation without an `assignedAgentId`. This
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Enforce agent assignment at thread creation in both UI and API layers.
 - Fail fast with clear validation when an agent is not selected.
 - Keep thread data model backward compatible for existing persisted threads.
 
 **Non-Goals:**
+
 - Migrating existing threads with `assignedAgentId: null`.
 - Changing thread update semantics (`PATCH`) or delete behavior.
 - Introducing new agent discovery APIs.

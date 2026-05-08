@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 /**
  * VCS (Version Control System) abstraction.
  *
@@ -15,7 +16,6 @@ export interface VCSResult {
   error?: string;
   port?: number;
 }
-
 
 import { DEFAULT_MIMO_HOST } from "../../infrastructure/context/mimo-context.js";
 

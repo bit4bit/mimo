@@ -13,10 +13,12 @@ The `agentSubpath` field needs to flow from session creation through to the agen
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Let users set an optional subdirectory as the agent's starting working directory at session creation time
 - Flow the subpath from `session.yaml` → `session_ready` → ACP `cwd`
 
 **Non-Goals:**
+
 - Validating or sanitizing the subpath (trusted input from the session owner)
 - Restricting the agent to the subpath (it's a starting directory, not a jail)
 - Changing the file watcher scope (stays on the full checkout root)
@@ -30,6 +32,7 @@ The `agentSubpath` field needs to flow from session creation through to the agen
 **Decision:** Store exactly what the user typed (e.g., `packages/backend`). No normalization, no leading-slash stripping, no trailing-slash handling — Node's `path.join()` handles those edge cases cleanly when combining with `checkoutPath`.
 
 **Alternatives considered:**
+
 - Normalize on write (strip slashes, resolve `.` etc.) — adds complexity with no real benefit since `path.join` already handles it.
 
 ### D2: Apply subpath only at ACP initialization, not at checkout setup

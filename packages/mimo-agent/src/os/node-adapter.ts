@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 /**
  * Node.js / Bun OS Adapter — Real implementation backed by Node APIs.
  *
@@ -5,10 +6,7 @@
  * NOT read from process.env. This keeps the boundary clean.
  */
 import { spawn as nodeSpawn, type ChildProcess } from "child_process";
-import {
-  promises as fs,
-  type Dirent,
-} from "fs";
+import { promises as fs, type Dirent } from "fs";
 import chokidar from "chokidar";
 import { homedir, tmpdir } from "os";
 import { join, dirname, basename, relative, resolve } from "path";
@@ -167,7 +165,10 @@ class NodeFileSystem implements FileSystem {
     }
   }
 
-  async readFile(path: string, encoding: BufferEncoding = "utf8"): Promise<string> {
+  async readFile(
+    path: string,
+    encoding: BufferEncoding = "utf8",
+  ): Promise<string> {
     return fs.readFile(path, encoding);
   }
 
@@ -195,11 +196,17 @@ class NodeFileSystem implements FileSystem {
     await fs.rename(oldPath, newPath);
   }
 
-  async rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void> {
+  async rm(
+    path: string,
+    options?: { recursive?: boolean; force?: boolean },
+  ): Promise<void> {
     await fs.rm(path, options as any);
   }
 
-  async readdir(path: string, options?: ReadDirOptions): Promise<string[] | DirEnt[]> {
+  async readdir(
+    path: string,
+    options?: ReadDirOptions,
+  ): Promise<string[] | DirEnt[]> {
     const entries = options
       ? await fs.readdir(path, options as any)
       : await fs.readdir(path);
@@ -275,7 +282,11 @@ class NodeFileSystem implements FileSystem {
     };
   }
 
-  async utimes(path: string, atime: Date | number, mtime: Date | number): Promise<void> {
+  async utimes(
+    path: string,
+    atime: Date | number,
+    mtime: Date | number,
+  ): Promise<void> {
     await fs.utimes(path, atime, mtime);
   }
 

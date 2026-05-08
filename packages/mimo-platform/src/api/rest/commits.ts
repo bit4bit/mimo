@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 /** @jsx jsx */
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";

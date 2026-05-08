@@ -11,9 +11,11 @@ When a chat thread is created with instructions (project/session/thread level), 
 ## Capabilities
 
 ### New Capabilities
+
 <!-- No new capabilities - this is a bug fix -->
 
 ### Modified Capabilities
+
 <!-- This is an internal implementation fix that doesn't change any external behavior or contracts -->
 
 ## Impact
@@ -21,7 +23,6 @@ When a chat thread is created with instructions (project/session/thread level), 
 - **Files Modified**:
   - `packages/mimo-agent/src/index.ts` - `handleInitialPrompt` method
   - `packages/mimo-platform/src/web/features/sessions/pages/sessions.tsx` - `initial_prompt` message structure
-  
 - **Behavior Change**: When creating threads with instructions, users will now see the agent's response (acknowledgment/helpful response) instead of just the system message
 
 - **Breaking Changes**: None - this is a pure bug fix with no API changes

@@ -5,9 +5,11 @@
 The goal is to build a minimal, Emacs-style web editor for collaborative AI-assisted development. The system avoids databases entirely, using the filesystem as the single source of truth. The architecture uses Fossil as an intermediary layer between original repositories (Git or Fossil) and the agent's worktree, allowing consistent cloning and synchronization regardless of the original VCS.
 
 ### Current State
+
 This is a greenfield project with no existing codebase to extend.
 
 ### Constraints
+
 - **No database**: Everything stored in YAML/JSONL files
 - **Single-file agent**: mimo-agent must compile to one Bun executable
 - **Filesystem-driven**: Projects, sessions, and chat history are directories and files
@@ -17,6 +19,7 @@ This is a greenfield project with no existing codebase to extend.
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Build minimal TypeScript/Bun platform with filesystem-based state
 - Support Git and Fossil repositories seamlessly
 - One Fossil server per session with auto-assigned ports
@@ -25,6 +28,7 @@ This is a greenfield project with no existing codebase to extend.
 - Keybindings: C-c C-c to cancel, C-x c to commit
 
 **Non-Goals:**
+
 - Multi-user sessions (single user per session)
 - Conflict auto-resolution (manual only)
 - Real-time collaborative editing
@@ -34,21 +38,26 @@ This is a greenfield project with no existing codebase to extend.
 ## Decisions
 
 ### 1. Fossil as Intermediary Layer
+
 **Decision:** Import all repositories (Git or Fossil) into Fossil for session management.
 
 **Rationale:**
+
 - Fossil supports both Git import and native operation
 - Provides consistent HTTP cloning interface for agents
 - Self-contained with built-in server
 - Simplifies mimo-agent (always clones from Fossil HTTP)
 
 **Alternative:** Native Git worktrees with Fossil worktree simulation
+
 - **Rejected:** Added complexity in mimo-agent to handle different VCS
 
 ### 2. Platform Architecture
+
 **Decision:** Build platform using TypeScript/Bun with Hono framework for minimal footprint.
 
 **Rationale:**
+
 - Single language stack (TypeScript for both platform and agent)
 - Fast startup and low memory footprint
 - Bun built-in WebSocket support
@@ -57,9 +66,11 @@ This is a greenfield project with no existing codebase to extend.
 **Framework Decision:** Hono - minimal, fast, works great with Bun, JSX support for server-side rendering
 
 **Alternative:** Phoenix (Elixir)
+
 - **Rejected:** Too heavy for this use case, TypeScript provides sufficient concurrency with Bun
 
 ### 3. Filesystem Structure
+
 **Decision:** Use YAML for config, JSONL for append-only logs.
 
 ```
@@ -78,28 +89,35 @@ This is a greenfield project with no existing codebase to extend.
 ```
 
 **Rationale:**
+
 - Human-readable for debugging
 - JSONL allows streaming append without rewriting
 - Directory structure mirrors domain model
 
 **Alternative:** SQLite single file
+
 - **Rejected:** User explicitly wants no database
 
 ### 4. Agent Architecture
+
 **Decision:** Single-file Bun executable with embedded ACP SDK.
 
 **Rationale:**
+
 - Easy distribution (single binary ~50MB)
 - TypeScript for type safety
 - Built-in file watching (Bun.watch)
 
 **Alternative:** Deno compile
+
 - **Rejected:** Bun has better npm compatibility for @agentclientprotocol/sdk
 
 ### 5. UI Architecture
+
 **Decision:** Server-side rendered HTML using Hono's JSX support.
 
 **Rationale:**
+
 - Minimal client-side JavaScript (only for WebSocket and keybindings)
 - Type-safe templates with TypeScript JSX
 - No build step for frontend assets
@@ -107,6 +125,7 @@ This is a greenfield project with no existing codebase to extend.
 - Emacs-style interface with vanilla JS for interactivity
 
 **UI Library Options:**
+
 - **Hono JSX**: Type-safe, server-rendered, minimal
 - **HTMX**: HTML-over-the-wire, but adds dependency
 - **Alpine.js**: Lightweight reactivity, but more JS
@@ -115,6 +134,7 @@ This is a greenfield project with no existing codebase to extend.
 **Decision:** Hono JSX for rendering + vanilla JS for WebSocket/keybindings
 
 **Layout:**
+
 ```
 ┌──────────────────────────────┬──────────────────────────────┬──────────────────────────────┐
 │    File Buffer (Left)        │    Chat Buffer (Center)      │    Changes Buffer (Right)    │
@@ -148,12 +168,15 @@ keybindings:
 Users can customize via settings UI or by editing config file.
 
 **Alternative:** Tab-based interface
+
 - **Rejected:** Not Emacs-style
 
 ### 6. Authentication
+
 **Decision:** Simple BCrypt hashed passwords in YAML, JWT tokens for sessions.
 
 **Rationale:**
+
 - No email required (user constraint)
 - JWT is stateless (no DB session store)
 - Platform generates token, passes to agent via CLI

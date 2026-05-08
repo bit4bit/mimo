@@ -5,12 +5,14 @@ We need base infrastructure before any domain can be refactored. The internal AP
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Create mountable internal API router at `/api/internal/*`
 - Implement JWT forwarding from web layer to internal API
 - Create standardized response utilities
 - Set up dependency injection for services
 
 **Non-Goals:**
+
 - Domain-specific endpoints (those come later)
 - WebSocket handling (stays in routes layer)
 - Service changes
@@ -18,7 +20,9 @@ We need base infrastructure before any domain can be refactored. The internal AP
 ## Decisions
 
 ### 1. Response Utilities
+
 Simple functions for consistent JSON:
+
 ```typescript
 export function successResponse(data: any) {
   return { success: true, data };
@@ -30,17 +34,19 @@ export function errorResponse(message: string, code: number) {
 ```
 
 ### 2. Auth Middleware
+
 Extracts Bearer token from Authorization header and validates using JwtService from MimoContext.
 
 ### 3. Router Factory
+
 Function that accepts MimoContext and returns configured Hono router.
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
-| Auth validation duplicated | Keep validation logic in one place (shared auth middleware) |
-| Response format inconsistency | Use utility functions, enforce via code review |
+| Risk                          | Mitigation                                                  |
+| ----------------------------- | ----------------------------------------------------------- |
+| Auth validation duplicated    | Keep validation logic in one place (shared auth middleware) |
+| Response format inconsistency | Use utility functions, enforce via code review              |
 
 ## Migration Plan
 

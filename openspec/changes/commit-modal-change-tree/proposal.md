@@ -19,9 +19,11 @@ The current commit flow applies all detected changes without a review and select
 ## Capabilities
 
 ### New Capabilities
+
 - `commit-review-selection`: interactive commit review and selective patch application from the commit modal
 
 ### Modified Capabilities
+
 - `session-management`: commit modal behavior and commit route payloads extended for selection-aware commits
 
 ## Impact

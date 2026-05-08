@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 /** @jsx jsx */
 import { jsx } from "hono/jsx";
 import type { FC } from "hono/jsx";
@@ -119,13 +120,7 @@ export const McpServerListPage: FC<McpServerListPageProps> = ({
           </a>
         </div>
 
-        {error && (
-          <div
-            class="error-message page-error-banner"
-          >
-            {error}
-          </div>
-        )}
+        {error && <div class="error-message page-error-banner">{error}</div>}
 
         <DataTable
           rows={servers}

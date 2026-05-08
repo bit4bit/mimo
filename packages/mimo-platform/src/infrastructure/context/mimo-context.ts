@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { AgentRepository } from "../../domain/agents/repository.js";
 import { SessionRepository } from "../../domain/sessions/repository.js";
 import { AgentService } from "../../domain/agents/service.js";

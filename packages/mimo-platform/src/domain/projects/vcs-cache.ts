@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { Credential } from "../credentials/repository.js";
 import type { OS } from "../../infrastructure/os/types.js";
 import { logger } from "../../logger.js";
@@ -29,7 +30,9 @@ export interface ProjectVcsCache {
 
 interface CacheEngine {
   refresh(params: RefreshParams): Promise<{ success: boolean; error?: string }>;
-  cloneFromCache(params: CloneParams): Promise<{ success: boolean; error?: string }>;
+  cloneFromCache(
+    params: CloneParams,
+  ): Promise<{ success: boolean; error?: string }>;
   clear(projectId: string): Promise<void>;
   isCorrupted(projectId: string): Promise<boolean>;
 }
@@ -110,7 +113,12 @@ function injectHttpsCredentials(url: string, credential: Credential): string {
   );
 }
 
-function cachePathFor(os: OS, projectsPath: string, projectId: string, repoType: RepoType): string {
+function cachePathFor(
+  os: OS,
+  projectsPath: string,
+  projectId: string,
+  repoType: RepoType,
+): string {
   const projectPath = os.path.join(projectsPath, projectId);
   return repoType === "git"
     ? os.path.join(projectPath, "cache.git")
@@ -136,8 +144,15 @@ class GitCacheEngine implements CacheEngine {
     private readonly projectsPath: string,
   ) {}
 
-  async refresh(params: RefreshParams): Promise<{ success: boolean; error?: string }> {
-    const cachePath = cachePathFor(this.os, this.projectsPath, params.projectId, "git");
+  async refresh(
+    params: RefreshParams,
+  ): Promise<{ success: boolean; error?: string }> {
+    const cachePath = cachePathFor(
+      this.os,
+      this.projectsPath,
+      params.projectId,
+      "git",
+    );
     const projectPath = this.os.path.dirname(cachePath);
 
     return withProjectLock(this.os, projectPath, async () => {
@@ -148,7 +163,10 @@ class GitCacheEngine implements CacheEngine {
       if (params.credential) {
         if (params.credential.type === "https" && !isSshUrl(params.repoUrl)) {
           url = injectHttpsCredentials(params.repoUrl, params.credential);
-        } else if (params.credential.type === "ssh" && isSshUrl(params.repoUrl)) {
+        } else if (
+          params.credential.type === "ssh" &&
+          isSshUrl(params.repoUrl)
+        ) {
           sshKeyPath = this.os.path.join(
             this.os.path.tempDir(),
             `mimo-cache-key-${params.projectId}-${Date.now()}`,
@@ -168,13 +186,21 @@ class GitCacheEngine implements CacheEngine {
 
       try {
         if (!this.os.fs.exists(cachePath)) {
-          logger.info("[cache] creating git cache", { projectId: params.projectId });
-          const clone = await this.os.command.run(["git", "clone", "--bare", url, cachePath], {
-            env,
-            timeoutMs: 300000,
+          logger.info("[cache] creating git cache", {
+            projectId: params.projectId,
           });
+          const clone = await this.os.command.run(
+            ["git", "clone", "--bare", url, cachePath],
+            {
+              env,
+              timeoutMs: 300000,
+            },
+          );
           if (!clone.success) {
-            return { success: false, error: clone.error || "Failed to create git cache" };
+            return {
+              success: false,
+              error: clone.error || "Failed to create git cache",
+            };
           }
           return { success: true };
         }
@@ -185,18 +211,28 @@ class GitCacheEngine implements CacheEngine {
           timeoutMs: 120000,
         });
         if (!fsck.success) {
-          logger.warn("[cache] git cache corruption detected", { projectId: params.projectId });
-          await this.clear(params.projectId);
-          const reclone = await this.os.command.run(["git", "clone", "--bare", url, cachePath], {
-            env,
-            timeoutMs: 300000,
+          logger.warn("[cache] git cache corruption detected", {
+            projectId: params.projectId,
           });
+          await this.clear(params.projectId);
+          const reclone = await this.os.command.run(
+            ["git", "clone", "--bare", url, cachePath],
+            {
+              env,
+              timeoutMs: 300000,
+            },
+          );
           return reclone.success
             ? { success: true }
-            : { success: false, error: reclone.error || "Failed to rebuild git cache" };
+            : {
+                success: false,
+                error: reclone.error || "Failed to rebuild git cache",
+              };
         }
 
-        logger.debug("[cache] refreshing git cache", { projectId: params.projectId });
+        logger.debug("[cache] refreshing git cache", {
+          projectId: params.projectId,
+        });
         const fetch = await this.os.command.run(["git", "fetch", "--all"], {
           cwd: cachePath,
           env,
@@ -204,7 +240,10 @@ class GitCacheEngine implements CacheEngine {
         });
         return fetch.success
           ? { success: true }
-          : { success: false, error: fetch.error || "Failed to refresh git cache" };
+          : {
+              success: false,
+              error: fetch.error || "Failed to refresh git cache",
+            };
       } finally {
         if (sshKeyPath && this.os.fs.exists(sshKeyPath)) {
           this.os.fs.unlink(sshKeyPath);
@@ -213,8 +252,15 @@ class GitCacheEngine implements CacheEngine {
     });
   }
 
-  async cloneFromCache(params: CloneParams): Promise<{ success: boolean; error?: string }> {
-    const cachePath = cachePathFor(this.os, this.projectsPath, params.projectId, "git");
+  async cloneFromCache(
+    params: CloneParams,
+  ): Promise<{ success: boolean; error?: string }> {
+    const cachePath = cachePathFor(
+      this.os,
+      this.projectsPath,
+      params.projectId,
+      "git",
+    );
     const args = ["git", "clone", "--reference", cachePath];
     if (params.branch) {
       args.push("--branch", params.branch);
@@ -224,11 +270,19 @@ class GitCacheEngine implements CacheEngine {
     const result = await this.os.command.run(args, { timeoutMs: 300000 });
     return result.success
       ? { success: true }
-      : { success: false, error: result.error || "Failed to clone from git cache" };
+      : {
+          success: false,
+          error: result.error || "Failed to clone from git cache",
+        };
   }
 
   async clear(projectId: string): Promise<void> {
-    const cachePath = cachePathFor(this.os, this.projectsPath, projectId, "git");
+    const cachePath = cachePathFor(
+      this.os,
+      this.projectsPath,
+      projectId,
+      "git",
+    );
     if (this.os.fs.exists(cachePath)) {
       logger.info("[cache] clearing git cache", { projectId });
       this.os.fs.rm(cachePath, { recursive: true, force: true });
@@ -236,7 +290,12 @@ class GitCacheEngine implements CacheEngine {
   }
 
   async isCorrupted(projectId: string): Promise<boolean> {
-    const cachePath = cachePathFor(this.os, this.projectsPath, projectId, "git");
+    const cachePath = cachePathFor(
+      this.os,
+      this.projectsPath,
+      projectId,
+      "git",
+    );
     if (!this.os.fs.exists(cachePath)) {
       return false;
     }
@@ -254,46 +313,82 @@ class FossilCacheEngine implements CacheEngine {
     private readonly projectsPath: string,
   ) {}
 
-  async refresh(params: RefreshParams): Promise<{ success: boolean; error?: string }> {
-    const cachePath = cachePathFor(this.os, this.projectsPath, params.projectId, "fossil");
+  async refresh(
+    params: RefreshParams,
+  ): Promise<{ success: boolean; error?: string }> {
+    const cachePath = cachePathFor(
+      this.os,
+      this.projectsPath,
+      params.projectId,
+      "fossil",
+    );
     const projectPath = this.os.path.dirname(cachePath);
 
     return withProjectLock(this.os, projectPath, async () => {
       if (!this.os.fs.exists(cachePath)) {
-        logger.info("[cache] creating fossil cache", { projectId: params.projectId });
-        const clone = await this.os.command.run(["fossil", "clone", params.repoUrl, cachePath], {
-          timeoutMs: 300000,
+        logger.info("[cache] creating fossil cache", {
+          projectId: params.projectId,
         });
+        const clone = await this.os.command.run(
+          ["fossil", "clone", params.repoUrl, cachePath],
+          {
+            timeoutMs: 300000,
+          },
+        );
         return clone.success
           ? { success: true }
-          : { success: false, error: clone.error || "Failed to create fossil cache" };
+          : {
+              success: false,
+              error: clone.error || "Failed to create fossil cache",
+            };
       }
 
-      const verify = await this.os.command.run(["fossil", "verify", cachePath], {
-        timeoutMs: 120000,
-      });
+      const verify = await this.os.command.run(
+        ["fossil", "verify", cachePath],
+        {
+          timeoutMs: 120000,
+        },
+      );
       if (!verify.success) {
-        logger.warn("[cache] fossil cache corruption detected", { projectId: params.projectId });
-        await this.clear(params.projectId);
-        const reclone = await this.os.command.run(["fossil", "clone", params.repoUrl, cachePath], {
-          timeoutMs: 300000,
+        logger.warn("[cache] fossil cache corruption detected", {
+          projectId: params.projectId,
         });
+        await this.clear(params.projectId);
+        const reclone = await this.os.command.run(
+          ["fossil", "clone", params.repoUrl, cachePath],
+          {
+            timeoutMs: 300000,
+          },
+        );
         return reclone.success
           ? { success: true }
-          : { success: false, error: reclone.error || "Failed to rebuild fossil cache" };
+          : {
+              success: false,
+              error: reclone.error || "Failed to rebuild fossil cache",
+            };
       }
 
-      logger.debug("[cache] refreshing fossil cache", { projectId: params.projectId });
-      const sync = await this.os.command.run(["fossil", "sync", "-R", cachePath], {
-        timeoutMs: 180000,
+      logger.debug("[cache] refreshing fossil cache", {
+        projectId: params.projectId,
       });
+      const sync = await this.os.command.run(
+        ["fossil", "sync", "-R", cachePath],
+        {
+          timeoutMs: 180000,
+        },
+      );
       return sync.success
         ? { success: true }
-        : { success: false, error: sync.error || "Failed to refresh fossil cache" };
+        : {
+            success: false,
+            error: sync.error || "Failed to refresh fossil cache",
+          };
     });
   }
 
-  async cloneFromCache(params: CloneParams): Promise<{ success: boolean; error?: string }> {
+  async cloneFromCache(
+    params: CloneParams,
+  ): Promise<{ success: boolean; error?: string }> {
     this.os.fs.mkdir(params.targetPath, { recursive: true });
     const open = await this.os.command.run([
       "fossil",
@@ -306,23 +401,37 @@ class FossilCacheEngine implements CacheEngine {
     ]);
 
     if (!open.success) {
-      return { success: false, error: open.error || "Failed to open from fossil cache" };
+      return {
+        success: false,
+        error: open.error || "Failed to open from fossil cache",
+      };
     }
 
     if (!params.branch) {
       return { success: true };
     }
 
-    const checkout = await this.os.command.run(["fossil", "checkout", params.branch], {
-      cwd: params.targetPath,
-    });
+    const checkout = await this.os.command.run(
+      ["fossil", "checkout", params.branch],
+      {
+        cwd: params.targetPath,
+      },
+    );
     return checkout.success
       ? { success: true }
-      : { success: false, error: checkout.error || `Failed to checkout '${params.branch}'` };
+      : {
+          success: false,
+          error: checkout.error || `Failed to checkout '${params.branch}'`,
+        };
   }
 
   async clear(projectId: string): Promise<void> {
-    const cachePath = cachePathFor(this.os, this.projectsPath, projectId, "fossil");
+    const cachePath = cachePathFor(
+      this.os,
+      this.projectsPath,
+      projectId,
+      "fossil",
+    );
     if (this.os.fs.exists(cachePath)) {
       logger.info("[cache] clearing fossil cache", { projectId });
       this.os.fs.unlink(cachePath);
@@ -330,7 +439,12 @@ class FossilCacheEngine implements CacheEngine {
   }
 
   async isCorrupted(projectId: string): Promise<boolean> {
-    const cachePath = cachePathFor(this.os, this.projectsPath, projectId, "fossil");
+    const cachePath = cachePathFor(
+      this.os,
+      this.projectsPath,
+      projectId,
+      "fossil",
+    );
     if (!this.os.fs.exists(cachePath)) {
       return false;
     }
@@ -353,7 +467,9 @@ export function createProjectVcsCache(deps: {
     repoType === "git" ? gitEngine : fossilEngine;
 
   return {
-    async clone(params: CloneParams): Promise<{ success: boolean; error?: string }> {
+    async clone(
+      params: CloneParams,
+    ): Promise<{ success: boolean; error?: string }> {
       const engine = engineFor(params.repoType);
       const refreshResult = await engine.refresh(params);
       if (!refreshResult.success) {
@@ -381,10 +497,13 @@ export function createProjectVcsCache(deps: {
         return cloneResult;
       }
 
-      logger.warn("[cache] clone from cache failed, retrying with cache reset", {
-        projectId: params.projectId,
-        error: cloneResult.error,
-      });
+      logger.warn(
+        "[cache] clone from cache failed, retrying with cache reset",
+        {
+          projectId: params.projectId,
+          error: cloneResult.error,
+        },
+      );
       await engine.clear(params.projectId);
       const retryRefresh = await engine.refresh(params);
       if (retryRefresh.success) {
@@ -405,7 +524,9 @@ export function createProjectVcsCache(deps: {
         ? { success: true }
         : { success: false, error: fallback.error || cloneResult.error };
     },
-    async refresh(params: RefreshParams): Promise<{ success: boolean; error?: string }> {
+    async refresh(
+      params: RefreshParams,
+    ): Promise<{ success: boolean; error?: string }> {
       return engineFor(params.repoType).refresh(params);
     },
     async clear(projectId: string, repoType: RepoType): Promise<void> {

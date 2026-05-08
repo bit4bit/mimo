@@ -78,6 +78,7 @@
 ## Final Test Results
 
 **SCC-Related Tests: 33/33 passing (100%)**
+
 - scc-ignore.test.ts: 6/6 ✅
 - scc-cache.test.ts: 9/9 ✅
 - scc-determinism.test.ts: 6/6 ✅

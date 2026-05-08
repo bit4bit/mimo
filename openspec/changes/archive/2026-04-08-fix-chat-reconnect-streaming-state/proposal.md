@@ -10,9 +10,11 @@ When a user refreshes the chat page while an agent is actively responding, the b
 ## Capabilities
 
 ### New Capabilities
+
 - `chat-streaming-state`: Capability for preserving and reconstructing in-progress streaming state on page refresh/reconnect
 
 ### Modified Capabilities
+
 <!-- No spec-level behavior changes - this is a bug fix within existing streaming behavior -->
 
 ## Impact

@@ -12,6 +12,7 @@ Users have no way to quickly navigate to a changed file without leaving the impa
 ## Capabilities
 
 ### Modified Capabilities
+
 - `impact-buffer-ui`: Add "Changed Files" section below existing metrics, showing clickable file rows
 - `edit-buffer-api`: Expose `openFile(path)` on `window.EditBuffer` for cross-component use
 

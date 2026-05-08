@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { which } from "bun";
 import type { ContentSearchResult } from "./types.js";
 import type { SearchOptions, SearchService } from "./types.js";

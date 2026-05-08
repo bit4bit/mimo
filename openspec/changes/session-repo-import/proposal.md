@@ -33,7 +33,7 @@ Session creation currently creates empty worktrees without actual repository fil
 
 ## Impact
 
-- **Affected Code**: 
+- **Affected Code**:
   - `sessions/repository.ts`: Add directory creation for `upstream/` and `checkout/`
   - `sessions/routes.tsx`: Add VCS operations on session creation
   - `agents/service.ts`: Modify token generation, remove sessionId/projectId
@@ -41,11 +41,8 @@ Session creation currently creates empty worktrees without actual repository fil
   - `vcs/index.ts`: Add Fossil HTTP server management methods
   - New API route: `GET /api/agents/me/sessions`
   - WebSocket handler: Add `session_ready` message type
-  
 - **Affected Storage**:
   - `sessions/<id>/session.yaml`: Add `port` field
   - `agents/<id>/agent.yaml`: Change `sessionId` to `sessionIds`
-  
 - **Dependencies**: Fossil SCM must be installed on platform server
-  
 - **Network**: Fossil HTTP servers on ports 8000-9000 per session

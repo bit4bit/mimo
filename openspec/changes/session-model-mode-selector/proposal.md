@@ -18,10 +18,12 @@ Users need to manually select which LLM model and operational mode to use for ea
 ## Capabilities
 
 ### New Capabilities
+
 - `session-model-selector`: UI component and WebSocket handling for selecting LLM models from available options provided by the ACP server
 - `session-mode-selector`: UI component and WebSocket handling for selecting operational modes (explore, code, review, etc.) from available options
 
 ### Modified Capabilities
+
 - None (this is purely additive functionality)
 
 ## Impact

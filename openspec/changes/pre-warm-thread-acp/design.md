@@ -7,12 +7,14 @@ The browser sends `request_state` whenever it switches to a thread or reconnects
 ## Goals / Non-Goals
 
 **Goals:**
+
 - ACP spawn begins on `request_state` for a cold thread (no ACP client present)
 - `request_state` reply is not blocked by the spawn
 - Prompts arriving while spawn is in progress are queued and drained once active
 - First `user_message` after a `request_state` finds ACP already running (or nearly so)
 
 **Non-Goals:**
+
 - Pre-warming on page load before `request_state` (no earlier signal exists)
 - Cancelling a pre-warm if the user never sends a message
 - Changing the parked → waking flow (already correct)
@@ -26,6 +28,7 @@ export type AcpSessionState = "active" | "parked" | "waking" | "initializing";
 ```
 
 `"initializing"` means: ACP process has been spawned but `initialize()` has not yet completed. Transitions:
+
 - `(none)` → `"initializing"` on `handleRequestState` when no ACP client exists
 - `"initializing"` → `"active"` when `spawnAcpProcess`/`respawnAcpProcess` completes
 - `"initializing"` + incoming `user_message` → queue prompt, send once `"active"`
@@ -62,7 +65,11 @@ private async handleRequestState(message: any): Promise<void> {
 ```ts
 if (threadState === "initializing") {
   // Queue and wait — same pattern as "waking"
-  await this.lifecycleManager.queueThreadPrompt(sessionId, chatThreadId, content);
+  await this.lifecycleManager.queueThreadPrompt(
+    sessionId,
+    chatThreadId,
+    content,
+  );
   const acpClient = this.acpClients.get(key);
   if (acpClient) {
     await this.sendPrompt(acpClient, sessionId, chatThreadId, content);

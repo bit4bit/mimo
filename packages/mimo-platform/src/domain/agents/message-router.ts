@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { ChatStreamingPipeline } from "../sessions/streaming-pipeline.js";
 import { AgentRepository } from "./repository.js";
 import { SessionRepository } from "../sessions/repository.js";

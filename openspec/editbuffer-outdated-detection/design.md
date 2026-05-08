@@ -45,6 +45,7 @@
 ## Data Flow
 
 ### 1. File Open Flow
+
 1. User opens file via file finder
 2. Client fetches file content from `/sessions/:id/files/content`
 3. Client stores file path, content, and computes checksum in EditBufferState
@@ -52,6 +53,7 @@
 5. Server adds file path to chokidar watcher for that session
 
 ### 2. File Change Detection Flow
+
 1. chokidar detects file change on disk
 2. Server reads file and computes checksum
 3. Server compares with last known checksum from client
@@ -60,6 +62,7 @@
 6. Client re-renders to show outdated indicator and reload button
 
 ### 3. File Reload Flow
+
 1. User clicks reload button or presses Alt+Shift+R
 2. Client saves current scroll position
 3. Client fetches fresh content from `/sessions/:id/files/content`
@@ -70,6 +73,7 @@
 ## State Changes
 
 ### EditBufferState Extension
+
 ```typescript
 interface OpenFile {
   path: string;
@@ -79,16 +83,18 @@ interface OpenFile {
   content: string;
   scrollPosition: number;
   // NEW FIELDS:
-  contentChecksum: string;     // MD5 hash of content
-  isOutdated: boolean;         // True if disk version differs
-  lastModified: number;        // Last known mtime
+  contentChecksum: string; // MD5 hash of content
+  isOutdated: boolean; // True if disk version differs
+  lastModified: number; // Last known mtime
 }
 ```
 
 ## UI Changes
 
 ### Context Bar Modifications
+
 The context bar (id="edit-buffer-context") will show:
+
 - Current file path
 - Line count
 - Language
@@ -97,14 +103,17 @@ The context bar (id="edit-buffer-context") will show:
   - Reload button with "Reload (Alt+Shift+R)" tooltip
 
 ### Keybinding Addition
+
 Add to DEFAULT_KEYBINDINGS in session-keybindings.js:
+
 ```javascript
-reloadFile: "Alt+Shift+R"
+reloadFile: "Alt+Shift+R";
 ```
 
 ## Server-Side Components
 
 ### FileWatcherService
+
 ```typescript
 interface FileWatcherService {
   watchFile(sessionId: string, filePath: string): void;
@@ -115,38 +124,41 @@ interface FileWatcherService {
 ```
 
 ### WebSocket Event Schema
+
 ```typescript
 // Client -> Server
 interface WatchFileMessage {
-  type: 'watch_file';
+  type: "watch_file";
   path: string;
   checksum: string;
 }
 
 interface UnwatchFileMessage {
-  type: 'unwatch_file';
+  type: "unwatch_file";
   path: string;
 }
 
 // Server -> Client
 interface FileOutdatedEvent {
-  type: 'file_outdated';
+  type: "file_outdated";
   path: string;
 }
 
 interface FileChangedEvent {
-  type: 'file_changed';
+  type: "file_changed";
   path: string;
   checksum: string;
 }
 ```
 
 ## Error Handling
+
 - File deleted externally: Mark as outdated, show "File deleted" indicator
 - Permission denied: Log error, skip watching
 - Watcher errors: Log and degrade gracefully (no notifications)
 
 ## Performance Considerations
+
 - Only watch files currently open in EditBuffer
 - Use chokidar's native fsevents on macOS for efficiency
 - Debounce rapid successive changes (300ms)

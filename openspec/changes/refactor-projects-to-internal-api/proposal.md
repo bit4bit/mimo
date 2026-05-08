@@ -15,9 +15,11 @@ The projects domain currently has HTML routes that directly call services and re
 ## Capabilities
 
 ### New Capabilities
+
 - `internal-api-projects`: Internal REST API for project management (list, get, create, update, delete projects and list project sessions)
 
 ### Modified Capabilities
+
 <!-- None - this is implementation refactoring, no behavior changes -->
 
 ## Impact

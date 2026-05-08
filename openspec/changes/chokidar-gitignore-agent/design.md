@@ -7,12 +7,14 @@ The `FileSystem` interface in `os/types.ts` abstracts OS-level operations. The `
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Chokidar never emits events for gitignored, mimoignored, VCS-internal, or built-in artifact paths.
 - `FileSystem.watch()` interface gains an `ignored` predicate — generic, not gitignore-specific.
 - `session.ts` builds the predicate using the `ignore` npm package and injects it.
 - The existing callback filter block is removed entirely.
 
 **Non-Goals:**
+
 - mimo-platform watcher — out of scope.
 - Nested `.gitignore` files (subdirectory-level) — only the checkout root is read.
 - Hot-reloading ignore rules if `.gitignore`/`.mimoignore` change while a session is active.

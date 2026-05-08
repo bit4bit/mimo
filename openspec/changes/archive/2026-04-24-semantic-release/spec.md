@@ -23,14 +23,14 @@
 
 ## §T Test Matrix
 
-| Test Case | Platform | Asset Embedding | Expected Result |
-|-----------|----------|-----------------|-----------------|
-| Build platform | Current | Yes | Single binary runs, serves UI |
-| Build agent | Current | N/A | Single binary runs, connects to platform |
-| Cross-compile | Linux x64 | Yes | Binary runs on Ubuntu 22.04+ |
-| Cross-compile | macOS x64 | Yes | Binary runs on macOS 13+ (Intel) |
-| Cross-compile | macOS ARM64 | Yes | Binary runs on macOS 14+ (Apple Silicon) |
-| Version check | All | N/A | `--version` outputs correct version |
+| Test Case      | Platform    | Asset Embedding | Expected Result                          |
+| -------------- | ----------- | --------------- | ---------------------------------------- |
+| Build platform | Current     | Yes             | Single binary runs, serves UI            |
+| Build agent    | Current     | N/A             | Single binary runs, connects to platform |
+| Cross-compile  | Linux x64   | Yes             | Binary runs on Ubuntu 22.04+             |
+| Cross-compile  | macOS x64   | Yes             | Binary runs on macOS 13+ (Intel)         |
+| Cross-compile  | macOS ARM64 | Yes             | Binary runs on macOS 14+ (Apple Silicon) |
+| Version check  | All         | N/A             | `--version` outputs correct version      |
 
 ## §B Backlog
 

@@ -3,6 +3,7 @@
 The mimo-agent package currently uses a synchronous `FileSystem` abstraction (`src/os/types.ts`) backed by Node.js `*Sync` APIs (`existsSync`, `readFileSync`, etc.). The `CommandRunner` interface includes both `run()` (async) and `runSync()` (sync). `AcpClient` exposes synchronous getters for state (`acpSessionId`, `modelState`, `modeState`, `availableCommands`).
 
 This creates three problems:
+
 1. **Event loop blocking**: File I/O and command execution block the event loop
 2. **API inconsistency**: Mixed sync/async surface makes the codebase harder to reason about
 3. **Portability barrier**: Sync file system APIs prevent running in environments without synchronous fs access
@@ -12,6 +13,7 @@ The codebase already uses async/await extensively for WebSocket handling, ACP co
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Convert `FileSystem` interface to fully asynchronous (all methods return `Promise`)
 - Remove `runSync()` from `CommandRunner` interface and all implementations
 - Convert `AcpClient` getters to async methods
@@ -20,6 +22,7 @@ The codebase already uses async/await extensively for WebSocket handling, ACP co
 - Maintain identical runtime behavior (no functional changes)
 
 **Non-Goals:**
+
 - Making `JSON.parse`/`JSON.stringify` async (CPU-bound, not I/O)
 - Converting `Bun.which()` to async (no async equivalent in Bun API)
 - Converting timer APIs (`setTimeout`, `clearTimeout`)

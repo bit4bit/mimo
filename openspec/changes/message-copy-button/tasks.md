@@ -5,7 +5,7 @@
 
 ## 2. Add copy button to streaming messages
 
-- [x] 2.1 In `chat.js`, add copy button to `createWaitingAgentMessage()` 
+- [x] 2.1 In `chat.js`, add copy button to `createWaitingAgentMessage()`
 - [x] 2.2 In `chat.js`, add copy button to `startThoughtSection()` (when creating message element)
 - [x] 2.3 In `chat.js`, add copy button to `appendMessageChunk()` (when creating message element)
 

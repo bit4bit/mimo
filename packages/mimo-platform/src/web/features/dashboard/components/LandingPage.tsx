@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import { Layout } from "../../../shared/components/Layout.js";
 
@@ -25,8 +26,7 @@ export const LandingPage: FC<LandingPageProps> = ({
             {isAuthenticated ? (
               <>
                 <span class="text-muted">
-                  Logged in as{" "}
-                  <strong class="text-primary">{username}</strong>
+                  Logged in as <strong class="text-primary">{username}</strong>
                 </span>
                 <a
                   href="/auth/logout"
@@ -54,9 +54,7 @@ export const LandingPage: FC<LandingPageProps> = ({
         </div>
 
         <div class="landing-intro">
-          <h2 class="landing-subtitle">
-            Minimal IDE for Modern Operations
-          </h2>
+          <h2 class="landing-subtitle">Minimal IDE for Modern Operations</h2>
           <p class="landing-copy">
             MIMO provides a web-based interface for session-based development
             with AI integration. Manage projects, run agents, and sync files
@@ -68,12 +66,12 @@ export const LandingPage: FC<LandingPageProps> = ({
               buffer-based interface for focused workflows
             </li>
             <li>
-              <strong class="text-primary">Session Management</strong> -
-              Create isolated development sessions
+              <strong class="text-primary">Session Management</strong> - Create
+              isolated development sessions
             </li>
             <li>
-              <strong class="text-primary">AI Integration</strong> - Work
-              with AI agents in your workspace
+              <strong class="text-primary">AI Integration</strong> - Work with
+              AI agents in your workspace
             </li>
             <li>
               <strong class="text-primary">File Sync</strong> - Automatic
@@ -84,15 +82,11 @@ export const LandingPage: FC<LandingPageProps> = ({
 
         <div class="landing-stats-row">
           <div>
-            <div class="landing-stat-value">
-              {projectCount}
-            </div>
+            <div class="landing-stat-value">{projectCount}</div>
             <div class="text-muted">Projects</div>
           </div>
           <div>
-            <div class="landing-stat-value">
-              {sessionCount}
-            </div>
+            <div class="landing-stat-value">{sessionCount}</div>
             <div class="text-muted">Sessions</div>
           </div>
           <div>

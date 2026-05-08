@@ -10,7 +10,7 @@ The ImpactBuffer currently shows code metrics (files changed, LOC, complexity, d
 - Compare upstream vs workspace dependency graphs to detect added/removed connections
 - Display changes in tree format showing:
   - `+ source → target` for new dependencies
-  `- source → target` for removed dependencies
+    `- source → target` for removed dependencies
   - Changed files grouped under each connection
 
 ## Capabilities

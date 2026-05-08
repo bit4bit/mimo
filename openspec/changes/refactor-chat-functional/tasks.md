@@ -33,7 +33,7 @@
 - [ ] 5.1 Create initChat function
 - [ ] 5.2 Create connectWebSocket function
 - [ ] 5.3 Create handleWebSocketMessage switch statement
-- [ ] 5.4 Create all handle* action functions
+- [ ] 5.4 Create all handle\* action functions
 - [ ] 5.5 Create sendMessage and sendMessageHttp functions
 - [ ] 5.6 Create cancelStreaming function
 - [ ] 5.7 Create clearSession function

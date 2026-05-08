@@ -3,11 +3,13 @@
 The ACP protocol defines a `requestPermission` callback that fires whenever the agent wants to execute a tool. `AcpClient` currently hardcodes this to always return `approved`. The feature adds a round-trip: the callback suspends until the user responds via the chat UI.
 
 Current flow:
+
 ```
 claude-agent-acp → requestPermission → hardcoded "approved" → tool executes
 ```
 
 Target flow:
+
 ```
 claude-agent-acp → requestPermission (Promise) → agent sends "permission_request" to platform
     → platform broadcasts to chat clients → user clicks option
@@ -19,6 +21,7 @@ The agent WebSocket (`/ws/agent`) and chat WebSocket (`/ws/chat/{sessionId}`) al
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Surface every tool approval request in the chat UI before the tool executes
 - Work for all ACP providers (opencode, claude) — the callback is provider-agnostic
 - Show all permission options returned by the ACP SDK (allow_once, allow_always, reject_once, reject_always)
@@ -26,6 +29,7 @@ The agent WebSocket (`/ws/agent`) and chat WebSocket (`/ws/chat/{sessionId}`) al
 - Dismiss duplicate cards across multiple browser tabs once a decision is made
 
 **Non-Goals:**
+
 - Persisting approval decisions (e.g., "remember allow_always" across sessions)
 - Server-side audit log of approval decisions
 - Per-tool-kind allow-lists or policies
@@ -38,6 +42,7 @@ The agent WebSocket (`/ws/agent`) and chat WebSocket (`/ws/chat/{sessionId}`) al
 **Decision:** Add `onPermissionRequest` to `AcpClientCallbacks`. `MimoAgent` implements it and holds the pending Promise map. `AcpClient` stays decoupled from the platform transport.
 
 **Alternatives considered:**
+
 - Pass the platform WebSocket directly into `AcpClient` — couples transport to ACP logic, harder to test.
 - Use an EventEmitter — adds indirection with no benefit here.
 
@@ -50,6 +55,7 @@ The agent WebSocket (`/ws/agent`) and chat WebSocket (`/ws/chat/{sessionId}`) al
 **Decision:** `MimoAgent` holds `pendingPermissions: Map<string, (r: RequestPermissionResponse) => void>`. When the platform sends `permission_response`, `MimoAgent` looks up and resolves the Promise.
 
 **Alternatives considered:**
+
 - Store in `AcpClient` — would require `AcpClient` to know about the platform transport.
 - Store in platform — the platform doesn't own the ACP Promise, the agent does.
 
@@ -58,6 +64,7 @@ The agent WebSocket (`/ws/agent`) and chat WebSocket (`/ws/chat/{sessionId}`) al
 **Decision:** Platform tracks per-session pending permission requests (`pendingPermissions: Map<requestId, agentWs>`). In the WebSocket `close` handler, when a chat session's subscriber Set becomes empty, all pending requests for that session are rejected by sending `permission_response` with `outcome: "cancelled"` to the agent.
 
 **Alternatives considered:**
+
 - Timer-based auto-reject — harder to tune, adds background work.
 - Never auto-reject — agent blocks indefinitely, session becomes unusable after tab close.
 
@@ -72,6 +79,7 @@ The agent WebSocket (`/ws/agent`) and chat WebSocket (`/ws/chat/{sessionId}`) al
 ## Message Protocol
 
 **Agent → Platform**
+
 ```json
 {
   "type": "permission_request",
@@ -83,6 +91,7 @@ The agent WebSocket (`/ws/agent`) and chat WebSocket (`/ws/chat/{sessionId}`) al
 ```
 
 **Platform → Chat clients**
+
 ```json
 {
   "type": "permission_request",
@@ -93,6 +102,7 @@ The agent WebSocket (`/ws/agent`) and chat WebSocket (`/ws/chat/{sessionId}`) al
 ```
 
 **Chat → Platform**
+
 ```json
 {
   "type": "permission_response",
@@ -102,6 +112,7 @@ The agent WebSocket (`/ws/agent`) and chat WebSocket (`/ws/chat/{sessionId}`) al
 ```
 
 **Platform → Agent**
+
 ```json
 {
   "type": "permission_response",
@@ -111,6 +122,7 @@ The agent WebSocket (`/ws/agent`) and chat WebSocket (`/ws/chat/{sessionId}`) al
 ```
 
 **Platform → Chat clients** (broadcast after resolution)
+
 ```json
 {
   "type": "permission_resolved",
@@ -119,6 +131,7 @@ The agent WebSocket (`/ws/agent`) and chat WebSocket (`/ws/chat/{sessionId}`) al
 ```
 
 **Platform → Agent** (on last client disconnect, for each pending request)
+
 ```json
 {
   "type": "permission_response",

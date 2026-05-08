@@ -1,6 +1,7 @@
 ## Context
 
 Currently, when a session is deleted from mimo-platform, the platform properly:
+
 1. Deletes the session directory and fossil file
 2. Sends a `session_ended` WebSocket message to the assigned agent via `agentService.notifySessionEnded()`
 
@@ -11,12 +12,14 @@ This results in a resource leak where ACP process count exceeds active session c
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Handle `session_ended` messages from platform in mimo-agent
 - Properly terminate ACP provider processes when sessions are deleted
 - Clean up all session-related resources (file watchers, timers, Maps)
 - Ensure cleanup is idempotent (safe if called multiple times)
 
 **Non-Goals:**
+
 - Changing platform behavior (platform already sends correct message)
 - Modifying the session deletion flow in platform
 - Adding new session lifecycle states
@@ -26,6 +29,7 @@ This results in a resource leak where ACP process count exceeds active session c
 ### Decision: Reuse Existing `terminateSession()` Method
 
 **Choice:** Use `SessionManager.terminateSession()` which already exists and handles:
+
 - Killing ACP process with SIGTERM
 - Closing file watcher
 - Clearing pending changes and timers
@@ -54,14 +58,17 @@ This results in a resource leak where ACP process count exceeds active session c
 ## Risks / Trade-offs
 
 **[Risk] ACP process doesn't terminate cleanly**
+
 - Current `terminateSession()` uses `process.kill("SIGTERM")` which gives the process a chance to clean up
 - **Mitigation:** If SIGTERM fails, we may need SIGKILL fallback. For now, monitor logs for orphaned processes.
 
 **[Risk] Platform sends session_ended for non-existent session in agent**
+
 - If agent restarts, it may receive session_ended for sessions it doesn't know about
 - **Mitigation:** Handler checks if session exists before attempting cleanup (idempotent by nature of Map operations)
 
 **[Risk] Race condition between session_ended and active ACP request**
+
 - User deletes session while ACP request is in flight
 - **Mitigation:** `cancelCurrentRequest()` already handles aborting in-flight requests. The cleanup will kill the process which terminates any ongoing work.
 

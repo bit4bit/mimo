@@ -14,9 +14,11 @@ When closing a session, users currently just confirm a prompt without capturing 
 ## Capabilities
 
 ### New Capabilities
+
 - `session-close-reason`: Capturing and displaying why a session was closed
 
 ### Modified Capabilities
+
 - `session-management`: Close operation now requires reason input and persists it. Session list display includes close reason for closed sessions.
 
 ## Impact

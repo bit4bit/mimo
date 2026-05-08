@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { join } from "path";
 import { logger } from "../../logger.js";
 import { handleRefreshImpact } from "../../domain/impact/refresh-handler.js";
@@ -1023,17 +1024,25 @@ export function createWebSocketSetup(deps: WebSocketSetupDeps) {
         const agentId = ws.data.agentId;
         if (agentId) {
           await agentService.handleAgentDisconnect(agentId);
-          const [sessionLevelSessions, threadLevelSessions] = await Promise.all([
-            sessionRepository.findByAssignedAgentId(agentId),
-            sessionRepository.findByThreadAgentId(agentId),
-          ]);
+          const [sessionLevelSessions, threadLevelSessions] = await Promise.all(
+            [
+              sessionRepository.findByAssignedAgentId(agentId),
+              sessionRepository.findByThreadAgentId(agentId),
+            ],
+          );
           const seenSessionIds = new Set<string>();
-          for (const session of [...sessionLevelSessions, ...threadLevelSessions]) {
+          for (const session of [
+            ...sessionLevelSessions,
+            ...threadLevelSessions,
+          ]) {
             if (seenSessionIds.has(session.id)) {
               continue;
             }
             seenSessionIds.add(session.id);
-            pipeline.clearPromptInFlight(session.id, session.activeChatThreadId);
+            pipeline.clearPromptInFlight(
+              session.id,
+              session.activeChatThreadId,
+            );
             if (Array.isArray(session.chatThreads)) {
               for (const thread of session.chatThreads) {
                 if (thread?.id) {

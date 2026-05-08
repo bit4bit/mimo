@@ -15,9 +15,11 @@ Projects currently cannot authenticate with private Git or Fossil repositories. 
 ## Capabilities
 
 ### New Capabilities
+
 - `vcs-credentials`: User-scoped storage and management of VCS authentication credentials (HTTPS username/password/tokens and SSH private keys)
 
 ### Modified Capabilities
+
 - `projects`: Add optional `credentialId` field to project model for associating a credential with a project's repository
 
 ## Impact

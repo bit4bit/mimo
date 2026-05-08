@@ -51,7 +51,7 @@ WebSocket payload (`open_file_in_editbuffer`) becomes:
   "type": "open_file_in_editbuffer",
   "sessionId": "...",
   "path": "src/mcp/server.ts",
-  "line": 138        // optional; only present when valid
+  "line": 138 // optional; only present when valid
 }
 ```
 
@@ -86,6 +86,7 @@ If the call has no `line`, we don't override — the user's prior scroll positio
 ### Test boundaries
 
 Server-side (integration, behavior-only):
+
 - Valid `path + line` → broadcast includes `line`
 - Valid `path`, no `line` → broadcast omits `line` (current behavior preserved)
 - `line: 0` / `line: -3` / `line: "abc"` / `line: 1.5` → broadcast omits `line`, call still succeeds

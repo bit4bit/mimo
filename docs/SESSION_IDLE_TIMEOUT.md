@@ -21,10 +21,12 @@ PATCH /sessions/:id/config
 ```
 
 **Headers:**
+
 - `Content-Type: application/json`
 - `Cookie: token=<jwt-token>` (or use authentication header)
 
 **Request Body:**
+
 ```json
 {
   "idleTimeoutMs": 120000
@@ -32,12 +34,14 @@ PATCH /sessions/:id/config
 ```
 
 **Parameters:**
+
 - `idleTimeoutMs` (number): Idle timeout in milliseconds
   - Minimum: 10000 (10 seconds)
   - Maximum: No maximum (use reasonable values)
   - 0: Disables automatic parking
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -50,11 +54,13 @@ PATCH /sessions/:id/config
 ```
 
 **Error Responses:**
+
 - `400 Bad Request`: Invalid idleTimeoutMs (below minimum)
 - `401 Unauthorized`: Not authenticated
 - `404 Not Found`: Session not found or not owned by user
 
 **Example:**
+
 ```bash
 curl -X PATCH \
   https://mimo.example.com/sessions/abc-123/config \
@@ -68,17 +74,20 @@ curl -X PATCH \
 Sessions can be in one of three ACP states:
 
 ### Active
+
 - ACP process is running and ready
 - User can send messages normally
 - Status indicator shows "● Agent ready"
 
 ### Parked
+
 - ACP process has been terminated to save resources
 - Session context is cached (model, mode, session ID)
 - Next message will trigger resumption
 - Status indicator shows "💤 Agent sleeping"
 
 ### Waking
+
 - ACP process is respawning
 - Previous session context is being restored
 - Input is temporarily disabled
@@ -98,6 +107,7 @@ The platform broadcasts ACP status changes via WebSocket to all connected client
 ```
 
 **Session Reset Notification:**
+
 ```json
 {
   "type": "acp_status",
@@ -123,21 +133,27 @@ The following events reset the idle timer:
 ### Development Workflows
 
 **Short sessions (under 30 minutes):**
+
 ```json
-{ "idleTimeoutMs": 120000 }  // 2 minutes
+{ "idleTimeoutMs": 120000 } // 2 minutes
 ```
+
 Good for quick tasks where you don't want resources tied up between messages.
 
 **Long sessions (multi-hour work):**
+
 ```json
-{ "idleTimeoutMs": 1800000 }  // 30 minutes
+{ "idleTimeoutMs": 1800000 } // 30 minutes
 ```
+
 Prevents interruptions during focused work periods.
 
 **Always-available sessions:**
+
 ```json
-{ "idleTimeoutMs": 0 }  // Disabled
+{ "idleTimeoutMs": 0 } // Disabled
 ```
+
 For critical sessions where immediate response is always required. Note: This consumes resources continuously.
 
 ### Resource Management
@@ -152,6 +168,7 @@ For critical sessions where immediate response is always required. Note: This co
 ### Session not parking
 
 1. Check if `idleTimeoutMs` is set correctly:
+
    ```bash
    curl https://mimo.example.com/sessions/:id \
      -H "Cookie: token=your-token"
@@ -172,6 +189,7 @@ For critical sessions where immediate response is always required. Note: This co
 ### Session reset on resume
 
 This occurs when the ACP provider no longer has the session cached:
+
 - Normal behavior after extended idle periods
 - Chat history is preserved
 - Model and mode preferences are restored

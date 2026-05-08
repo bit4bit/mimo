@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { join } from "path";
 import { homedir } from "os";
 import { createOS } from "./infrastructure/os/node-adapter.js";

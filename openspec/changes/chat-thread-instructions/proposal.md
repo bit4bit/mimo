@@ -13,9 +13,11 @@ Users need a way to provide behavior instructions (system prompts) to the LLM on
 ## Capabilities
 
 ### New Capabilities
+
 - `chat-thread-instructions`: Configurable behavior instructions with project/session/thread override hierarchy, automatic injection into chat history on thread creation
 
 ### Modified Capabilities
+
 - `chat-threads`: Thread creation and updates now accept an optional `instructions` field; threads expose `instructions` in responses
 - `session-management`: Sessions now support an `instructions` field via create and update APIs
 - `projects`: Projects now support an `instructions` field via create and update APIs

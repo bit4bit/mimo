@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 /**
  * OS Abstraction Layer — Interfaces
  *
@@ -70,7 +71,11 @@ export interface FileWatcher {
 export interface FileSystem {
   exists(path: string): Promise<boolean>;
   readFile(path: string, encoding?: BufferEncoding): Promise<string>;
-  writeFile(path: string, content: string, options?: WriteFileOptions): Promise<void>;
+  writeFile(
+    path: string,
+    content: string,
+    options?: WriteFileOptions,
+  ): Promise<void>;
   mkdir(path: string, options?: MkdirOptions): Promise<void>;
   unlink(path: string): Promise<void>;
   copyFile(src: string, dest: string): Promise<void>;
@@ -81,7 +86,10 @@ export interface FileSystem {
     options?: { recursive?: boolean; ignored?: (path: string) => boolean },
     listener?: (eventType: string, filename: string | null) => void,
   ): FileWatcher;
-  rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
+  rm(
+    path: string,
+    options?: { recursive?: boolean; force?: boolean },
+  ): Promise<void>;
   readdir(path: string, options?: ReadDirOptions): Promise<string[] | DirEnt[]>;
   stat(path: string): Promise<{
     isDirectory(): boolean;
@@ -99,7 +107,11 @@ export interface FileSystem {
     dest: string,
     options?: { recursive?: boolean; preserveTimestamps?: boolean },
   ): Promise<void>;
-  utimes(path: string, atime: Date | number, mtime: Date | number): Promise<void>;
+  utimes(
+    path: string,
+    atime: Date | number,
+    mtime: Date | number,
+  ): Promise<void>;
   realpath(path: string): Promise<string>;
   mkdtemp(prefix: string): Promise<string>;
 }

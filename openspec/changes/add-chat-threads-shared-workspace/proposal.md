@@ -20,9 +20,11 @@ This change adds first-class chat threads inside a session so users can run a se
 ## Capabilities
 
 ### New Capabilities
+
 - `chat-threads`: multi-thread chat orchestration inside a single session
 
 ### Modified Capabilities
+
 - `agent-lifecycle`: ACP runtime management becomes thread-aware
 - `chat-streaming-state`: reconnect and stream state become thread-aware
 - `frame-buffers`: left-frame chat UI becomes dynamic tabs for chat threads

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { FileService } from "../../domain/files/types.js";

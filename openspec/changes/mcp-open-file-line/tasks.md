@@ -21,7 +21,7 @@
 
 ## 3. End-to-End Verification
 
-- [x] 3.1 Run `cd packages/mimo-platform && bun test` — all green. *(866 pass, 5 fail; failures pre-existing on `main` and unrelated to this change: VCS/fossil/agent-bootstrap.)*
-- [x] 3.2 Run `cd packages/mimo-platform && bun run test.full` — all green. *(866 pass, 12 fail; failures pre-existing and unrelated: VCS/fossil/agent-bootstrap. New `mcp-server-routes.test.ts` cases all pass.)*
-- [x] 3.3 Run `cd packages/mimo-agent && bun test` — confirm agent suite remains green (no agent changes expected). *(144 pass, 0 fail.)*
-- [x] 3.4 Run `openspec validate mcp-open-file-line --strict` and resolve any findings. *(Valid.)*
+- [x] 3.1 Run `cd packages/mimo-platform && bun test` — all green. _(866 pass, 5 fail; failures pre-existing on `main` and unrelated to this change: VCS/fossil/agent-bootstrap.)_
+- [x] 3.2 Run `cd packages/mimo-platform && bun run test.full` — all green. _(866 pass, 12 fail; failures pre-existing and unrelated: VCS/fossil/agent-bootstrap. New `mcp-server-routes.test.ts` cases all pass.)_
+- [x] 3.3 Run `cd packages/mimo-agent && bun test` — confirm agent suite remains green (no agent changes expected). _(144 pass, 0 fail.)_
+- [x] 3.4 Run `openspec validate mcp-open-file-line --strict` and resolve any findings. _(Valid.)_

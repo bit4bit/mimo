@@ -161,11 +161,15 @@ describe("ClaudeAgentProvider", () => {
 
   describe("mapUpdateType", () => {
     it("should map agent_thought_chunk to thought_chunk", () => {
-      expect(provider.mapUpdateType("agent_thought_chunk")).toBe("thought_chunk");
+      expect(provider.mapUpdateType("agent_thought_chunk")).toBe(
+        "thought_chunk",
+      );
     });
 
     it("should map agent_message_chunk to message_chunk", () => {
-      expect(provider.mapUpdateType("agent_message_chunk")).toBe("message_chunk");
+      expect(provider.mapUpdateType("agent_message_chunk")).toBe(
+        "message_chunk",
+      );
     });
 
     it("should return null for unknown update types", () => {
@@ -212,6 +216,5 @@ describe("ClaudeAgentProvider", () => {
       ).rejects.toThrow(/working directory does not exist/);
       expect(mockSpawn).not.toHaveBeenCalled();
     });
-
   });
 });

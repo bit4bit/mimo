@@ -1,8 +1,9 @@
 ## Context
 
-The mimo system allows running multiple agents, each connecting to the platform via WebSocket. Each agent spawns an ACP (Agent Communication Protocol) provider process - either `opencode` or `claude`. 
+The mimo system allows running multiple agents, each connecting to the platform via WebSocket. Each agent spawns an ACP (Agent Communication Protocol) provider process - either `opencode` or `claude`.
 
 Currently:
+
 - Agents are created without a designated provider
 - The `--provider` flag on mimo-agent defaults to "opencode"
 - There's no validation that the running provider matches what was intended
@@ -13,6 +14,7 @@ The goal is to make the platform the authority: when an agent is created, it's c
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Platform decides provider at agent creation time
 - Agent token embeds the expected provider
 - Agent validates its declared provider matches token on startup
@@ -20,6 +22,7 @@ The goal is to make the platform the authority: when an agent is created, it's c
 - Support multiple agents with different providers on same machine
 
 **Non-Goals:**
+
 - Runtime provider switching (out of scope)
 - Provider capability negotiation
 - Migration of existing agents (they'll need recreation)
@@ -30,11 +33,13 @@ The goal is to make the platform the authority: when an agent is created, it's c
 ### Decision: Include provider in JWT token payload
 
 **Rationale**: JWT is already the trust boundary between platform and agent. Embedding provider there means:
+
 - Agent can validate locally without network call
 - Tampering is cryptographically prevented
 - Simple implementation
 
 **Alternative considered**: Platform-side validation via WebSocket message exchange
+
 - Rejected: Requires network round-trip before rejection, adds complexity
 
 ### Decision: Make `--provider` required on mimo-agent

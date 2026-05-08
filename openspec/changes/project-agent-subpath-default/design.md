@@ -7,12 +7,14 @@ Sessions already support `agentSubpath` — a relative path within the cloned ch
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add `agentSubpath?: string` to the `Project` model, persisted at creation time.
 - Resolve effective `agentSubpath` at session creation: non-empty form value → project default → undefined (repo root).
 - Pre-fill the session creation form with the project's `agentSubpath`.
 - Show `agentSubpath` field on `ProjectCreatePage`.
 
 **Non-Goals:**
+
 - Editing `agentSubpath` after project creation.
 - Propagating a project `agentSubpath` change to existing sessions.
 - Any agent-side changes (agent already handles `agentSubpath` correctly).
@@ -28,9 +30,11 @@ Alternative: resolve lazily when the agent bootstraps by fetching the project. R
 ### D2 — Empty string from the form treated as "not provided"
 
 In the session creation route:
+
 ```
 const effectiveSubpath = (agentSubpath?.trim() || undefined) ?? project.agentSubpath ?? undefined
 ```
+
 An empty or whitespace-only form submission falls through to the project default, then to `undefined` (repo root). This prevents a user accidentally clearing an inherited default by submitting a blank field.
 
 ### D3 — Field not exposed in `ProjectRepository.update()`

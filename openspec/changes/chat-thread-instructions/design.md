@@ -7,6 +7,7 @@ The ACP protocol's `newSession` request does not accept an `instructions` or `pr
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Allow users to set behavior instructions at project, session, and chat thread levels
 - Implement override hierarchy: Thread > Session > Project
 - Automatically inject resolved instructions into chat history when a thread is created
@@ -14,6 +15,7 @@ The ACP protocol's `newSession` request does not accept an `instructions` or `pr
 - Support CRUD operations for instructions via REST API
 
 **Non-Goals:**
+
 - Modifying the ACP protocol or provider internals
 - Supporting instructions at the global/platform level
 - Real-time instruction updates to active ACP sessions
@@ -22,19 +24,23 @@ The ACP protocol's `newSession` request does not accept an `instructions` or `pr
 ## Decisions
 
 **1. Store instructions as `role: "system"` in JSONL chat history**
+
 - Rationale: Makes instructions visible in the UI and preserves them in history replays
 - Alternative: Store in a separate metadata file — rejected because it separates instructions from the conversation context
 
 **2. Override resolution at thread creation time**
+
 - Rationale: Deterministic and captured in history; changing parent instructions later won't retroactively affect existing threads
 - Alternative: Dynamic resolution on every prompt — rejected because it would be confusing to have thread behavior change mid-conversation
 
 **3. No synthetic ACP turn for initial prompt**
+
 - Rationale: The ACP protocol only processes user prompts. Creating a synthetic user message would cost tokens and create an artificial conversation turn. Instead, instructions are saved as system messages for UI visibility only.
 - Alternative: Send instructions as first user message to ACP — rejected per user preference for Approach B (synthetic turn), but after investigation, storing as system message provides UI visibility without token cost
 - **Correction**: After further analysis, the user explicitly requested Approach B (synthetic first turn). The implementation will save instructions as system message AND trigger an initial ACP prompt.
 
 **4. Agent receives `initial_prompt` message type**
+
 - Rationale: Distinguishes behavior instructions from user messages, allowing the agent to handle them appropriately
 - Alternative: Reuse `user_message` type — rejected because it conflates user intent with system configuration
 

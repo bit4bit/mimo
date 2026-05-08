@@ -5,6 +5,7 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - `ChatStreamingPipeline` class owns all streaming buffers; constructed once at the `index.tsx` boundary and injected
 - Each ACP streaming event has a dedicated typed method on the pipeline
 - `handleUsageUpdate` assembles the full message and calls `ChatService.saveMessage` — same behavior as today, but testable
@@ -13,6 +14,7 @@
 - `index.tsx` streaming cases delegate entirely to the pipeline (one-liners)
 
 **Non-Goals:**
+
 - Changing the assembled message format (`<details>` wrapping)
 - Changing persistence timing (still saved at `usage_update`)
 - Extracting the full `handleAgentMessage` router (that is `extract-agent-message-router`)
@@ -22,7 +24,10 @@
 ### Class with injected `ChatService` and `broadcast` function
 
 ```ts
-type BroadcastFn = (sessionId: string, message: Record<string, unknown>) => void;
+type BroadcastFn = (
+  sessionId: string,
+  message: Record<string, unknown>,
+) => void;
 
 class ChatStreamingPipeline {
   private streamingBuffers = new Map<string, string>();
@@ -37,19 +42,47 @@ class ChatStreamingPipeline {
     private broadcast: BroadcastFn,
   ) {}
 
-  handleThoughtStart(sessionId: string, threadId: string): void
-  handleThoughtChunk(sessionId: string, threadId: string, content: string): void
-  handleThoughtEnd(sessionId: string, threadId: string): void
-  handleMessageChunk(sessionId: string, threadId: string, content: string): void
-  handleToolCall(sessionId: string, threadId: string, tool: ToolCallData): void
-  handleToolCallUpdate(sessionId: string, threadId: string, update: ToolCallUpdate): void
-  handleUsageUpdate(sessionId: string, threadId: string, usage: UsageData, session: SessionRecord): Promise<void>
-  handleAvailableCommandsUpdate(sessionId: string, threadId: string, commands: CommandList): void
-  getStreamingSnapshot(sessionId: string, threadId?: string): StreamingSnapshot
-  clearBuffers(sessionId: string, threadId?: string): void
-  setExpertPending(sessionId: string, threadId: string, entry: ExpertPendingEntry): void
-  getExpertPending(sessionId: string, threadId: string): ExpertPendingEntry | undefined
-  deleteExpertPending(sessionId: string, threadId: string): void
+  handleThoughtStart(sessionId: string, threadId: string): void;
+  handleThoughtChunk(
+    sessionId: string,
+    threadId: string,
+    content: string,
+  ): void;
+  handleThoughtEnd(sessionId: string, threadId: string): void;
+  handleMessageChunk(
+    sessionId: string,
+    threadId: string,
+    content: string,
+  ): void;
+  handleToolCall(sessionId: string, threadId: string, tool: ToolCallData): void;
+  handleToolCallUpdate(
+    sessionId: string,
+    threadId: string,
+    update: ToolCallUpdate,
+  ): void;
+  handleUsageUpdate(
+    sessionId: string,
+    threadId: string,
+    usage: UsageData,
+    session: SessionRecord,
+  ): Promise<void>;
+  handleAvailableCommandsUpdate(
+    sessionId: string,
+    threadId: string,
+    commands: CommandList,
+  ): void;
+  getStreamingSnapshot(sessionId: string, threadId?: string): StreamingSnapshot;
+  clearBuffers(sessionId: string, threadId?: string): void;
+  setExpertPending(
+    sessionId: string,
+    threadId: string,
+    entry: ExpertPendingEntry,
+  ): void;
+  getExpertPending(
+    sessionId: string,
+    threadId: string,
+  ): ExpertPendingEntry | undefined;
+  deleteExpertPending(sessionId: string, threadId: string): void;
 }
 ```
 

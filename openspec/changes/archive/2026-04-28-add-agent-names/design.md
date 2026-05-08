@@ -5,6 +5,7 @@ Agents in the mimo platform currently lack human-readable identifiers. The Agent
 Sessions already have a required `name` field (e.g., "Feature Branch", "Bug Fix Session") that serves as the primary identifier. Agents should follow this same pattern for consistency and usability.
 
 The change affects three layers:
+
 1. **Data Layer**: Agent repository stores name in agent.yaml
 2. **Service Layer**: Agent creation requires name input
 3. **UI Layer**: Forms, list views, and detail pages display names
@@ -12,6 +13,7 @@ The change affects three layers:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Every agent has a human-readable name shown as primary identifier
 - Agent creation requires name at form submission (validation)
 - Names are 1-64 characters, alphanumeric with spaces/hyphens/underscores
@@ -19,6 +21,7 @@ The change affects three layers:
 - UI displays names prominently, IDs secondarily
 
 **Non-Goals:**
+
 - Editing agent names after creation (future enhancement)
 - Uniqueness constraints (same user can have "Work Laptop" twice)
 - Special character escaping beyond basic sanitization
@@ -29,6 +32,7 @@ The change affects three layers:
 ### Decision: Required at Creation (not optional)
 
 **Options Considered:**
+
 1. **Optional with auto-generated default** - Less friction, but leads to messy data like "Agent on hostname-12345"
 2. **Optional with ID fallback** - Simpler migration, but inconsistent UX (some have names, some don't)
 3. **Required at creation** - User must provide name, clean data from day one
@@ -36,6 +40,7 @@ The change affects three layers:
 **Chosen: Option 3 (Required)**
 
 Rationale:
+
 - Aligns with Session pattern (sessions require names)
 - Forces thoughtful naming upfront
 - No ambiguity in UI - every agent has a name
@@ -44,6 +49,7 @@ Rationale:
 ### Decision: 64 Character Limit
 
 **Options Considered:**
+
 1. **No limit** - Risk of UI breakage with extremely long names
 2. **255 characters** - Standard VARCHAR, but rarely needed
 3. **64 characters** - Reasonable for most use cases, fits UI well
@@ -51,6 +57,7 @@ Rationale:
 **Chosen: Option 3 (64 chars)**
 
 Rationale:
+
 - "MacBook Pro Dev" is 17 chars, "Work Laptop Personal Projects" is 31 chars
 - 64 chars accommodates descriptive names without UI overflow
 - Easy to validate client-side and server-side
@@ -58,6 +65,7 @@ Rationale:
 ### Decision: Backfill with "Agent {id.slice(0,8)}" Pattern
 
 **Options Considered:**
+
 1. **Leave name null, fallback in UI** - No migration, but inconsistent schema
 2. **Require user to name existing agents on first view** - Interactive, but blocks usage
 3. **Auto-generate from ID pattern** - Clean migration, users can edit later if needed
@@ -65,6 +73,7 @@ Rationale:
 **Chosen: Option 3 (Auto-generate)**
 
 Rationale:
+
 - One-time migration script runs on startup
 - Generated names are recognizable ("Agent 550e8400")
 - Future "edit name" feature can let users rename

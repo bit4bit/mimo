@@ -5,31 +5,36 @@ Config routes handle loading, saving, and validating user configuration. The rou
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Create internal API for config get/update/reset
 - Migrate existing `/config/api` endpoints to internal API
 - Refactor routes to proxy to internal API
 
 **Non-Goals:**
+
 - Changing ConfigService or configValidator
 - New configuration options
 
 ## Decisions
 
 ### 1. Endpoint Mapping
+
 - `GET /api/internal/config` → get current configuration
 - `PUT /api/internal/config` → update configuration (validates first)
 - `POST /api/internal/config/reset` → reset to defaults
 
 ### 2. Existing /config/api Migration
+
 The existing `/config/api` endpoints will become simple redirects/proxies to internal API.
 
 ### 3. Validation Flow
+
 Internal API validates config before saving using configValidator.
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
+| Risk                                  | Mitigation                                           |
+| ------------------------------------- | ---------------------------------------------------- |
 | Breaking existing /config/api clients | Keep same response format, just change internal path |
 
 ## Migration Plan

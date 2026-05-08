@@ -13,7 +13,6 @@
   - Scan `packages/mimo-platform/public/`
   - Generate base64-encoded asset map
   - Output to `src/assets-embedded.ts`
-  
 - [ ] **Task 2.2**: Create embedded asset middleware
   - Add `src/middleware/embedded-static.ts`
   - Serve from EMBEDDED_ASSETS in production

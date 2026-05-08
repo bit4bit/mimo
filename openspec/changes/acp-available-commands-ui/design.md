@@ -5,12 +5,14 @@ The chat pipeline already supports typed ACP updates (`thought_chunk`, `message_
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Surface ACP-provided command availability in session chat UI.
 - Keep behavior session/thread scoped, matching existing chat stream isolation.
 - Provide low-friction UX for discovery and insertion into chat input.
 - Preserve existing send/approval flow (user still submits prompt explicitly).
 
 **Non-Goals:**
+
 - Executing commands directly from UI without user prompt submission.
 - Defining provider-specific command semantics beyond rendering/insertion.
 - Persisting command lists into chat history.
@@ -32,6 +34,7 @@ The chat pipeline already supports typed ACP updates (`thought_chunk`, `message_
 ### D3: Dual-entry UX (button + slash trigger)
 
 **Decision:**
+
 - Add a `Commands` button near chat input to open a picker/list.
 - Also open filtered picker when user types `/`.
 - Selection inserts command text/template into the input cursor position.

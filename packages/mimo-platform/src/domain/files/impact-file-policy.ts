@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import { isExcluded } from "./path-policy.js";
 
 const NORMALIZE_SEP = /\\/g;

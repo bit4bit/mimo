@@ -3,6 +3,7 @@
 The session page uses a frame-based buffer system with buffers registered per frame. The existing keybinding system in `session-keybindings.js` handles keyboard shortcuts like `Mod+Shift+N` for new threads, `Mod+Shift+ArrowRight/Left` for thread switching.
 
 Key files:
+
 - `packages/mimo-platform/src/buffers/types.ts`: BufferProps interface and BufferConfig
 - `packages/mimo-platform/src/buffers/`: Existing buffer components (ChatBuffer, NotesBuffer, etc.)
 - `packages/mimo-platform/public/js/session-keybindings.js`: Client-side keyboard handling
@@ -11,12 +12,14 @@ Key files:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Clean, reusable component architecture using functional paradigm
 - Minimal code duplication
 - Easy to read and understand (prioritize clarity over optimization)
 - Follow existing patterns in the codebase
 
 **Non-Goals:**
+
 - File editing/saving (read-only view for now)
 - Advanced editor features (folding, minimap, etc.)
 - File system operations (create, delete, rename)
@@ -101,7 +104,7 @@ export interface FileService {
 
 export const findFiles = async (
   pattern: string,
-  fileService: FileService
+  fileService: FileService,
 ): Promise<FileInfo[]> => {
   const files = await fileService.listFiles("*");
   return files.filter((file) => matchesPattern(file.path, pattern));
@@ -159,10 +162,7 @@ export const detectLanguage = (filePath: string): string => {
   return langMap[ext] || "plaintext";
 };
 
-export const highlightContent = (
-  content: string,
-  language: string
-): string => {
+export const highlightContent = (content: string, language: string): string => {
   // Use hljs from global scope (loaded via CDN)
   if (typeof window !== "undefined" && (window as any).hljs) {
     const hljs = (window as any).hljs;
@@ -188,7 +188,8 @@ const escapeHtml = (text: string): string => {
 };
 ```
 
-**Rationale**: 
+**Rationale**:
+
 - highlight.js is battle-tested with support for 190+ languages
 - Provides consistent, professional syntax highlighting
 - Atom One Dark theme matches the existing dark UI
@@ -216,12 +217,13 @@ interface EditBufferState {
 // localStorage key: `mimo:edit-buffer:<sessionId>`
 // Stored value (JSON):
 interface PersistedEditBufferState {
-  openPaths: string[];   // ordered list of open file paths
+  openPaths: string[]; // ordered list of open file paths
   activePath: string | null;
 }
 ```
 
 Persistence rules:
+
 - Persist **paths only** — content is always re-fetched to stay fresh.
 - Storage key: `mimo:edit-buffer:<sessionId>` (session-scoped, no cross-session leakage).
 - Write to `localStorage` on every add/remove/switch operation.
@@ -250,14 +252,15 @@ Persistence rules:
 // Pure function — takes file list and raw ignore content, returns filtered list
 export function applyIgnorePatterns(
   files: FileInfo[],
-  ignorePatterns: string[],  // combined lines from .gitignore + .mimoignore
-): FileInfo[]
+  ignorePatterns: string[], // combined lines from .gitignore + .mimoignore
+): FileInfo[];
 
 // Reads .gitignore and .mimoignore from workspacePath, returns combined pattern lines
-export function loadIgnorePatterns(workspacePath: string): string[]
+export function loadIgnorePatterns(workspacePath: string): string[];
 ```
 
 Pattern matching rules (subset of gitignore spec sufficient for practical use):
+
 - Lines starting with `#` are comments — skip.
 - Blank lines are skipped.
 - A leading `!` negates a pattern — matched files are re-included.
@@ -305,18 +308,23 @@ Pattern matching rules (subset of gitignore spec sufficient for practical use):
 ## Key Components
 
 ### FileFinderDialog
+
 Pure component for file search UI (modal dialog).
 
 ### EditBuffer (Main Component)
+
 Composes all sub-components following ChatThreadsBuffer pattern:
+
 - FileTabsBar: Horizontal tab bar with close button
 - FileContextBar: File metadata display
 - FileContentView: Syntax highlighted content with line numbers
 
 ### fileService
+
 Pure functions for file system operations.
 
 ### syntaxHighlighter
+
 Pure functions for syntax highlighting.
 
 ## EditBuffer Component Structure (Close Button in Context Bar)
@@ -325,23 +333,26 @@ Pure functions for syntax highlighting.
 // Based on ChatThreadsBuffer.tsx - close button moved to context bar
 export const EditBuffer: FC<EditBufferProps> = ({
   sessionId,
-  openFiles = [],          // like threads
-  activeFilePath,          // like activeThreadId
+  openFiles = [], // like threads
+  activeFilePath, // like activeThreadId
 }) => {
-  const activeFile = openFiles.find((f) => f.path === activeFilePath) ?? openFiles[0];
+  const activeFile =
+    openFiles.find((f) => f.path === activeFilePath) ?? openFiles[0];
 
   return (
     <div class="edit-buffer-container">
       {/* File Tabs Bar - like ChatThreadsBuffer tabs */}
       <div class="edit-buffer-tabs">
         {openFiles.map((file) => (
-          <button class={`edit-file-tab ${file.path === activeFilePath ? "active" : ""}`}>
+          <button
+            class={`edit-file-tab ${file.path === activeFilePath ? "active" : ""}`}
+          >
             {/* File icon based on language */}
             <span class="file-icon">{getFileIcon(file.language)}</span>
             {file.name}
           </button>
         ))}
-        
+
         {/* Open file button - like "+ New Thread" */}
         <button id="open-file-finder-btn">+ Open File</button>
       </div>
@@ -352,10 +363,10 @@ export const EditBuffer: FC<EditBufferProps> = ({
           <span>File: {activeFile.path}</span>
           <span>Lines: {activeFile.lineCount}</span>
           <span>Language: {activeFile.language}</span>
-          
+
           {/* Spacer pushes close button to right */}
           <div style="flex: 1;"></div>
-          
+
           {/* Close button - far right, like Delete in ChatThreadsBuffer */}
           <button id="close-file-btn" data-file-path={activeFile.path}>
             ✕ Close
@@ -366,12 +377,14 @@ export const EditBuffer: FC<EditBufferProps> = ({
       {/* File Content View - like Chat Messages Wrapper */}
       <div class="edit-file-content-wrapper">
         {activeFile ? (
-          <FileContentView 
+          <FileContentView
             content={activeFile.content}
             language={activeFile.language}
           />
         ) : (
-          <div class="no-file-state">No file open. Press Mod+Shift+F to open a file.</div>
+          <div class="no-file-state">
+            No file open. Press Mod+Shift+F to open a file.
+          </div>
         )}
       </div>
     </div>

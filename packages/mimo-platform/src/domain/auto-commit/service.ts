@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 import type { CommitAndPushResult } from "../commits/service.js";
 
 export type SyncState = "idle" | "syncing" | "error";
