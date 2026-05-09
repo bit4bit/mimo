@@ -1164,6 +1164,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           padding: 0 4px;
           text-decoration: underline;
           text-underline-offset: 2px;
+          user-select: text;
+          -webkit-user-select: text;
         }
         .chat-file-ref:hover {
           background: #263242;

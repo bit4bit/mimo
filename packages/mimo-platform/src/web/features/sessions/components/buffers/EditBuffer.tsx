@@ -29,7 +29,7 @@ export const EditBuffer: FC<EditBufferProps> = ({ sessionId }) => {
 
       {/* File Context Bar */}
       <div id="edit-buffer-context" class="edit-context-bar hidden">
-        <span id="edit-buffer-filepath" class="text-primary"></span>
+        <span id="edit-buffer-filepath" class="text-primary" title="Click to copy filepath"></span>
         <span id="edit-buffer-linecount"></span>
         <span id="edit-buffer-language"></span>
         {/* Expert mode toggle button */}
