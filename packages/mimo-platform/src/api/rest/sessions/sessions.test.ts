@@ -237,6 +237,7 @@ describe("Sessions Internal API", () => {
       expect(json.data.session.status).toBe("active");
       expect(json.data.session.createdAt).toBeDefined();
       expect(json.data.session.updatedAt).toBeDefined();
+      expect(json.data.session.idleTimeoutMs).toBe(600000);
     });
   });
 

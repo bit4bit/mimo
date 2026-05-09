@@ -128,6 +128,35 @@ describe("Thread-aware SessionLifecycleManager", () => {
     });
   });
 
+  describe("updateIdleTimeout", () => {
+    it("uses the updated timeout value when recordActivity resets the timer", async () => {
+      const parkedThreads: string[] = [];
+      const manager = new SessionLifecycleManager(
+        makeCallbacks({
+          onStatusChange: (_sessionId, chatThreadId, status) => {
+            if (status === "parked")
+              parkedThreads.push(chatThreadId as string);
+          },
+          onTerminateThread: async () => {},
+        }),
+      );
+
+      const sessionId = "sess-update";
+      manager.initializeThread(sessionId, "t1", 600000);
+
+      // Update to a very short timeout so the test completes quickly
+      manager.updateIdleTimeout(sessionId, 50);
+
+      // Wait for the updated short timeout to fire
+      await waitFor(() => parkedThreads.includes("t1"), {
+        timeout: 500,
+        interval: 20,
+      });
+
+      expect(parkedThreads).toContain("t1");
+    });
+  });
+
   // Task 1.8 — incoming prompt wakes only targeted thread
   describe("Selective thread wake on incoming prompt", () => {
     it("wakes only the targeted parked thread, leaves sibling threads parked", async () => {

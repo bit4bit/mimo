@@ -61,6 +61,7 @@ export interface SessionInfo {
   mcpServers?: McpServerConfig[];
   agentSubpath?: string;
   branch?: string;
+  idleTimeoutMs?: number;
 }
 
 export interface FileChange {

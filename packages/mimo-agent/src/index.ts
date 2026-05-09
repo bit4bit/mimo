@@ -272,6 +272,7 @@ export class MimoAgent {
         modeState,
         agentSubpath,
         branch,
+        idleTimeoutMs,
         mcpServers,
         chatThreads,
       } = session;
@@ -317,6 +318,12 @@ export class MimoAgent {
           agentWorkspacePassword,
           branch ?? undefined,
         );
+
+        // Store idle timeout so thread spawns use the session's configured value
+        if (idleTimeoutMs !== undefined) {
+          sessionInfo.idleTimeoutMs = idleTimeoutMs;
+          this.lifecycleManager.updateIdleTimeout(sessionId, idleTimeoutMs);
+        }
 
         // Store cached model/mode so it can be restored after ACP initialization
         this.sessionManager.setSessionState(
@@ -1794,7 +1801,11 @@ export class MimoAgent {
       return null;
     }
 
-    this.lifecycleManager.initializeThread(sessionId, chatThreadId, 600000);
+    this.lifecycleManager.initializeThread(
+      sessionId,
+      chatThreadId,
+      session.idleTimeoutMs ?? 600000,
+    );
     this.lifecycleManager.setThreadState(
       sessionId,
       chatThreadId,

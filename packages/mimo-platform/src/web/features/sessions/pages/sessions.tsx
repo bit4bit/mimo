@@ -2123,6 +2123,7 @@ export function createSessionsRoutes(
               {
                 sessionId,
                 name: session.name,
+                idleTimeoutMs: session.idleTimeoutMs,
                 upstreamPath: session.upstreamPath,
                 agentWorkspacePath: session.agentWorkspacePath,
                 fossilUrl,
