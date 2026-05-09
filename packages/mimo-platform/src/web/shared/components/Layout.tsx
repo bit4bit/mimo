@@ -836,6 +836,16 @@ export const Layout: FC<LayoutProps> = ({
               color: #888;
             }
 
+            #edit-buffer-filepath {
+              cursor: pointer;
+              user-select: text;
+              -webkit-user-select: text;
+            }
+            #edit-buffer-filepath:hover {
+              color: #fff;
+              text-decoration: underline;
+            }
+
             .expert-actions-bar {
               border-bottom: none;
               border-top: 1px solid #444;

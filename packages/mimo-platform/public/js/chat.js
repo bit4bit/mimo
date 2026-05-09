@@ -437,12 +437,13 @@ function renderAgentMessageContent(text, container) {
           return;
         }
         if (prefix) div.appendChild(document.createTextNode(prefix));
-        const fileRefBtn = document.createElement("button");
-        fileRefBtn.type = "button";
+        const fileRefBtn = document.createElement("span");
         fileRefBtn.className = "chat-file-ref";
         fileRefBtn.textContent = core;
         fileRefBtn.setAttribute("data-file-query", normalizedQuery);
-        fileRefBtn.title = `Open file finder for ${normalizedQuery}`;
+        fileRefBtn.setAttribute("role", "button");
+        fileRefBtn.setAttribute("tabindex", "0");
+        fileRefBtn.title = `Open file finder for ${normalizedQuery} (click to copy)`;
         div.appendChild(fileRefBtn);
         if (suffix) div.appendChild(document.createTextNode(suffix));
       });
@@ -533,12 +534,13 @@ function renderLineWithFileRefs(line, container) {
       return;
     }
     if (prefix) container.appendChild(document.createTextNode(prefix));
-    const fileRefBtn = document.createElement("button");
-    fileRefBtn.type = "button";
+    const fileRefBtn = document.createElement("span");
     fileRefBtn.className = "chat-file-ref";
     fileRefBtn.textContent = core;
     fileRefBtn.setAttribute("data-file-query", normalizedQuery);
-    fileRefBtn.title = `Open file finder for ${normalizedQuery}`;
+    fileRefBtn.setAttribute("role", "button");
+    fileRefBtn.setAttribute("tabindex", "0");
+    fileRefBtn.title = `Open file finder for ${normalizedQuery} (click to copy)`;
     container.appendChild(fileRefBtn);
     if (suffix) container.appendChild(document.createTextNode(suffix));
   });
@@ -577,12 +579,13 @@ function applyFileRefsToTextNodes(container) {
       }
       hasFileRef = true;
       if (prefix) frag.appendChild(document.createTextNode(prefix));
-      const fileRefBtn = document.createElement("button");
-      fileRefBtn.type = "button";
+      const fileRefBtn = document.createElement("span");
       fileRefBtn.className = "chat-file-ref";
       fileRefBtn.textContent = core;
       fileRefBtn.setAttribute("data-file-query", normalizedQuery);
-      fileRefBtn.title = `Open file finder for ${normalizedQuery}`;
+      fileRefBtn.setAttribute("role", "button");
+      fileRefBtn.setAttribute("tabindex", "0");
+      fileRefBtn.title = `Open file finder for ${normalizedQuery} (click to copy)`;
       frag.appendChild(fileRefBtn);
       if (suffix) frag.appendChild(document.createTextNode(suffix));
     });
@@ -628,12 +631,13 @@ function renderUserMessageContent(text, container) {
       container.appendChild(document.createTextNode(prefix));
     }
 
-    const fileRefBtn = document.createElement("button");
-    fileRefBtn.type = "button";
+    const fileRefBtn = document.createElement("span");
     fileRefBtn.className = "chat-file-ref";
     fileRefBtn.textContent = core;
     fileRefBtn.setAttribute("data-file-query", normalizedQuery);
-    fileRefBtn.title = `Open file finder for ${normalizedQuery}`;
+    fileRefBtn.setAttribute("role", "button");
+    fileRefBtn.setAttribute("tabindex", "0");
+    fileRefBtn.title = `Open file finder for ${normalizedQuery} (click to copy)`;
     container.appendChild(fileRefBtn);
 
     if (suffix) {
@@ -3650,6 +3654,11 @@ function setupEventListeners() {
       event.preventDefault();
       const query =
         fileRef.getAttribute("data-file-query") || fileRef.textContent || "";
+
+      // Copy file path to clipboard
+      if (navigator.clipboard && query) {
+        navigator.clipboard.writeText(query).catch(() => {});
+      }
 
       if (
         typeof window.EditBuffer !== "undefined" &&

@@ -2108,6 +2108,17 @@
     const closeBtn = document.getElementById("close-file-btn");
     if (closeBtn) closeBtn.addEventListener("click", closeCurrentFile);
 
+    // Wire filepath click to copy
+    const filepathEl = document.getElementById("edit-buffer-filepath");
+    if (filepathEl) {
+      filepathEl.addEventListener("click", function () {
+        var text = filepathEl.textContent || "";
+        if (text && navigator.clipboard) {
+          navigator.clipboard.writeText(text).catch(function () {});
+        }
+      });
+    }
+
     // Wire file finder input
     const input = document.getElementById("file-finder-input");
     if (input) {
