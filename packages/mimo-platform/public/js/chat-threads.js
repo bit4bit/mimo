@@ -675,6 +675,9 @@ function updateThreadOptionSelects(selects, options) {
 }
 
 async function showCreateThreadDialog() {
+  if (document.querySelector("#create-thread-dialog")) {
+    return;
+  }
   const seedThread = getActiveThread();
   const agents = await fetchOnlineAgents();
   const seedAgentId = seedThread?.assignedAgentId || "";

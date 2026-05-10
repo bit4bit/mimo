@@ -328,6 +328,11 @@
   }
 
   function openCreateThreadDialog() {
+    const existingDialog = document.querySelector("#create-thread-dialog");
+    if (existingDialog) {
+      existingDialog.remove();
+      return true;
+    }
     const createButton = document.querySelector("#create-thread-btn");
     if (!createButton) {
       return false;
