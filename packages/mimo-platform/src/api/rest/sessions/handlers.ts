@@ -228,6 +228,19 @@ export async function createSessionHandler(
     }
   }
 
+  // Validate idleTimeoutMs if provided
+  if (body.idleTimeoutMs !== undefined) {
+    if (body.idleTimeoutMs !== 0 && body.idleTimeoutMs < 10000) {
+      return c.json(
+        errorResponse(
+          "idleTimeoutMs must be at least 10000ms or 0 to disable",
+          400,
+        ),
+        400,
+      );
+    }
+  }
+
   // Verify project exists and belongs to user
   const project = await mimoContext.repos.projects.findById(body.projectId);
   if (!project || project.owner !== user.username) {
@@ -244,6 +257,7 @@ export async function createSessionHandler(
       branchName: body.branchName,
       mcpServerIds: body.mcpServerIds,
       sessionTtlDays: body.sessionTtlDays,
+      idleTimeoutMs: body.idleTimeoutMs,
       priority: body.priority,
       ...(body.instructions !== undefined && {
         instructions: body.instructions,

@@ -109,6 +109,30 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
           </div>
 
           <div class="form-group">
+            <label>Idle Timeout</label>
+            <select
+              name="idleTimeoutMs"
+              required
+              data-help-id="session-create-page-idle-timeout-ms-select"
+            >
+              <option value="0">Never (Always Active)</option>
+              <option value="60000">1 minute</option>
+              <option value="120000">2 minutes</option>
+              <option value="300000">5 minutes</option>
+              <option value="600000" selected>
+                10 minutes (Default)
+              </option>
+              <option value="900000">15 minutes</option>
+              <option value="1800000">30 minutes</option>
+            </select>
+            <p class="session-create-help">
+              When inactive for this duration, the ACP agent will automatically
+              "park" to save resources. The agent will wake up when you send a
+              new message.
+            </p>
+          </div>
+
+          <div class="form-group">
             <label>Agent working directory (optional)</label>
             <input
               type="text"

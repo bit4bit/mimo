@@ -229,6 +229,8 @@ export function createSessionsRoutes(
     const branchName = (body.branchName as string) || null;
     const sessionTtlDaysRaw = (body.sessionTtlDays as string) || "180";
     const sessionTtlDays = parseInt(sessionTtlDaysRaw, 10);
+    const idleTimeoutMsRaw = (body.idleTimeoutMs as string) || "600000";
+    const idleTimeoutMs = parseInt(idleTimeoutMsRaw, 10);
     const branchModeRaw = (body.branchMode as string) || "new";
     const branchMode: "new" | "sync" =
       branchModeRaw === "sync" ? "sync" : "new";
@@ -262,6 +264,16 @@ export function createSessionsRoutes(
       sessionTtlDays < 1
     ) {
       return c.text("sessionTtlDays must be an integer >= 1", 400);
+    }
+
+    if (
+      isNaN(idleTimeoutMs) ||
+      (idleTimeoutMs !== 0 && idleTimeoutMs < 10000)
+    ) {
+      return c.text(
+        "idleTimeoutMs must be at least 10000ms or 0 to disable",
+        400,
+      );
     }
 
     const project = await projectRepository.findById(projectId);
@@ -341,6 +353,7 @@ export function createSessionsRoutes(
         branchName,
         mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
         sessionTtlDays,
+        idleTimeoutMs,
         priority,
         instructions,
       },

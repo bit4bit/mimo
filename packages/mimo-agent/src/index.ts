@@ -80,6 +80,8 @@ export class MimoAgent {
     Array<{ name: string; description?: string; template?: string }>
   > = new Map();
   private promptIdsByThread: Map<string, string> = new Map();
+  // Session idle timeout from platform config (keyed by sessionId)
+  private sessionIdleTimeouts: Map<string, number> = new Map();
 
   private static readonly CAPABILITY_PROBE_SESSION_ID = "capability-probe";
 
@@ -274,7 +276,14 @@ export class MimoAgent {
         branch,
         mcpServers,
         chatThreads,
+        idleTimeoutMs,
       } = session;
+
+      // Store session idle timeout from platform config
+      this.sessionIdleTimeouts.set(
+        sessionId,
+        typeof idleTimeoutMs === "number" ? idleTimeoutMs : 600000,
+      );
 
       // Register a per-session bootstrap promise so user_message /
       // request_state arriving mid-clone can await readiness instead of
@@ -1794,7 +1803,8 @@ export class MimoAgent {
       return null;
     }
 
-    this.lifecycleManager.initializeThread(sessionId, chatThreadId, 600000);
+    const idleTimeoutMs = this.sessionIdleTimeouts.get(sessionId) ?? 600000;
+    this.lifecycleManager.initializeThread(sessionId, chatThreadId, idleTimeoutMs);
     this.lifecycleManager.setThreadState(
       sessionId,
       chatThreadId,
@@ -2185,6 +2195,7 @@ export class MimoAgent {
     }
 
     this.sessionAvailableCommands.delete(sessionId);
+    this.sessionIdleTimeouts.delete(sessionId);
 
     // Terminate session - handles process, watcher, timers, fossil close, folder cleanup
     await this.sessionManager.terminateSession(sessionId);
@@ -2404,8 +2415,9 @@ export class MimoAgent {
       config,
     );
 
-    // Update lifecycle manager with new idle timeout
+    // Update lifecycle manager and cache with new idle timeout
     if (config.idleTimeoutMs !== undefined) {
+      this.sessionIdleTimeouts.set(sessionId, config.idleTimeoutMs);
       this.lifecycleManager.updateIdleTimeout(sessionId, config.idleTimeoutMs);
     }
   }

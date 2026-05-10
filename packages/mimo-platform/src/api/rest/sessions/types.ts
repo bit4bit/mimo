@@ -25,6 +25,7 @@ export interface SessionResponse {
   port: number | null;
   priority: "high" | "medium" | "low";
   sessionTtlDays: number;
+  idleTimeoutMs: number;
   closeReason?: string;
   assignedAgentId?: string;
   agentSubpath?: string;
@@ -89,6 +90,7 @@ export interface CreateSessionRequest {
   branchName?: string;
   mcpServerIds?: string[];
   sessionTtlDays?: number;
+  idleTimeoutMs?: number;
   priority?: SessionPriority;
   instructions?: string;
 }
@@ -158,6 +160,7 @@ export function toSessionResponse(session: Session): SessionResponse {
     port: session.port,
     priority: session.priority,
     sessionTtlDays: session.sessionTtlDays,
+    idleTimeoutMs: session.idleTimeoutMs,
     ...(session.closeReason && { closeReason: session.closeReason }),
     ...(session.assignedAgentId && {
       assignedAgentId: session.assignedAgentId,

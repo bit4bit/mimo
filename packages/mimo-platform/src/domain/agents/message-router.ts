@@ -387,6 +387,7 @@ export class AgentMessageRouter {
             modeState: sessionWithCreds?.modeState ?? null,
             agentSubpath: sessionWithCreds?.agentSubpath ?? null,
             branch: sessionWithCreds?.branch ?? null,
+            idleTimeoutMs: sessionWithCreds?.idleTimeoutMs ?? 600000,
             mcpServers: mcpServers.length > 0 ? mcpServers : undefined,
             chatThreads: threadBootstrap,
             activeChatThreadId: sessionWithCreds?.activeChatThreadId ?? null,
