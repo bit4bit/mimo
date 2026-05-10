@@ -901,10 +901,21 @@ async function showCreateThreadDialog() {
       dialog.remove();
     });
 
+  let isSubmitting = false;
+
   document
     .querySelector("#create-thread-form")
     ?.addEventListener("submit", async (e) => {
       e.preventDefault();
+
+      if (isSubmitting) return;
+      isSubmitting = true;
+
+      const submitBtn = document.querySelector("#confirm-create-thread");
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Creating...";
+      }
 
       const nameInput = document.querySelector("#new-thread-name");
       const modelSelect = document.querySelector("#new-thread-model");
@@ -914,46 +925,62 @@ async function showCreateThreadDialog() {
         "#new-thread-instructions",
       );
 
-      const name = nameInput?.value.trim();
-      if (!name) {
-        alert("Please enter a thread name");
-        return;
+      function resetSubmitBtn() {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Create";
+        }
       }
 
-      const model = modelSelect?.value || "";
-      const mode = modeSelect?.value || "";
+      try {
+        const name = nameInput?.value.trim();
+        if (!name) {
+          alert("Please enter a thread name");
+          resetSubmitBtn();
+          return;
+        }
 
-      if (!model) {
-        alert("Please select a model");
-        return;
-      }
+        const model = modelSelect?.value || "";
+        const mode = modeSelect?.value || "";
 
-      if (!mode) {
-        alert("Please select a mode");
-        return;
-      }
+        if (!model) {
+          alert("Please select a model");
+          resetSubmitBtn();
+          return;
+        }
 
-      const assignedAgentId = agentSelect?.value || "";
-      if (!assignedAgentId) {
-        alert("Please select an agent");
-        return;
-      }
+        if (!mode) {
+          alert("Please select a mode");
+          resetSubmitBtn();
+          return;
+        }
 
-      const instructions = instructionsInput?.value.trim() || "";
+        const assignedAgentId = agentSelect?.value || "";
+        if (!assignedAgentId) {
+          alert("Please select an agent");
+          resetSubmitBtn();
+          return;
+        }
 
-      const newThread = await createThread(
-        name,
-        model,
-        mode,
-        assignedAgentId,
-        instructions,
-      );
-      if (newThread) {
-        dialog.remove();
+        const instructions = instructionsInput?.value.trim() || "";
 
-        // Add the new thread tab and switch to it
-        updateThreadTabsUI();
-        switchToThread(newThread.id);
+        const newThread = await createThread(
+          name,
+          model,
+          mode,
+          assignedAgentId,
+          instructions,
+        );
+        if (newThread) {
+          dialog.remove();
+
+          // Add the new thread tab and switch to it
+          updateThreadTabsUI();
+          switchToThread(newThread.id);
+        }
+      } finally {
+        isSubmitting = false;
+        resetSubmitBtn();
       }
     });
 

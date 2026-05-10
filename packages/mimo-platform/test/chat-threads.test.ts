@@ -902,6 +902,61 @@ describe("Chat Threads API", () => {
       expect(body.error).toContain("Thread not found");
     });
 
+    it("allows recreating a thread with the same name after deletion", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
+      // Create a thread
+      const r1 = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Test Thread",
+            model: "claude-3",
+            mode: "code",
+            assignedAgentId: "agent-xyz",
+          }),
+        },
+      );
+      expect(r1.status).toBe(201);
+      const thread = await r1.json();
+
+      // Delete it
+      const del = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads/${thread.id}`,
+        {
+          method: "DELETE",
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+      expect(del.status).toBe(204);
+
+      // Create a new thread with the same name — should succeed
+      const r2 = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Test Thread",
+            model: "claude-3",
+            mode: "code",
+            assignedAgentId: "agent-xyz",
+          }),
+        },
+      );
+      expect(r2.status).toBe(201);
+      const body = await r2.json();
+      expect(body.name).toBe("Test Thread");
+    });
+
     it("DELETE /sessions/:id/chat-threads/:threadId returns 401 for unauthenticated requests", async () => {
       const { app, project, session } = await createUserProjectSession();
 

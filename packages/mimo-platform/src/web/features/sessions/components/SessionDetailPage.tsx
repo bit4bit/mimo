@@ -683,7 +683,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         <div id="clone-workspace-dialog" class="modal hidden">
           <div class="modal-content clone-workspace-modal">
             <h3 class="modal-title mb-10">Clone Workspace Command</h3>
-            <p class="clone-workspace-help">Click the command to copy it.</p>
+            <p class="clone-workspace-help">The purpose of this copy is to let you check changes locally. Changes made locally are not reflected in mimo-platform. If any changes are required, please use mimo-platform to make them.</p>
+            <p class="clone-workspace-help">Copy and paste this command into your terminal to clone the repository. Later, you can resync changes by running 'fossil update'.</p>
             <pre
               id="clone-workspace-command"
               class="clone-workspace-command"
