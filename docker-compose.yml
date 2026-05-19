@@ -65,6 +65,7 @@ services:
       - ~/.mimo-agent-container:/home/app/.mimo-agent
       - ~/.config/opencode:/home/app/.config/opencode
       - ~/.ssh-mimo:/home/app/.ssh:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
 volumes:

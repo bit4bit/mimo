@@ -23,4 +23,5 @@ services:
       - ~/.claude.json:/home/app/.claude.json
       - ~/.mimo-agent-container:/home/app/.mimo-agent
       - ~/.ssh-mimo:/home/app/.ssh:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
