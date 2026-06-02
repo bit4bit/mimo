@@ -16,6 +16,10 @@
     credentials))
 
 
+(defn created-at [cred]
+  (let [meta (load-credentials-meta cred)]
+    (:createdAt meta)))
+
 (defn verify-password? [credentials password]
   (try
     (let [credentials-meta (load-credentials-meta credentials)

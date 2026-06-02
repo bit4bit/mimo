@@ -3,8 +3,11 @@
             [mimo-platform.core :refer :all]
             [io.pedestal.connector.test :refer [response-for]]
             [clojure.data.json :as json]
+            [clojure.java.io :as io]
             [matcher-combinators.test]
-            [mimo-platform.core :as core])) 
+            [mimo-platform.core :as core])
+  (:import [org.mindrot.jbcrypt BCrypt]
+           [java.util UUID])) 
 
 (defn response-json [& args]
   (let [response (apply response-for args)
@@ -16,18 +19,41 @@
     (assoc response :body coerced-body))
   )
 
+(defn temp-mimo-dir []
+  (doto (io/file (System/getProperty "java.io.tmpdir")
+                 (str "mimo-platform-test-" (UUID/randomUUID)))
+    (.mkdirs)))
+
+(defn write-test-credentials [mimo username password]
+  (let [mimo-dir (:mimo-dir mimo)
+        user-dir (io/file mimo-dir "users" username)]
+    (.mkdirs user-dir)
+    (spit (io/file user-dir "credentials.yaml")
+          (str "passwordHash: \""
+               (BCrypt/hashpw password (BCrypt/gensalt))
+               "\"\n"))))
+
+(defn mimo-test []
+  (let [mimo-dir (temp-mimo-dir)]
+    (core/make-mimo
+     :http-port 0
+     :mimo-dir (temp-mimo-dir)
+     :jwt-secret "secret")))
+   
 (deftest greet-test
-  (let [connector (core/create-connector)]
+  (let [mimo (mimo-test)
+        connector (core/create-connector mimo)]
     (testing "e2e /greet"
       (is (= {"success" true "data" {}} (:body (response-json connector :get "/greet")))))))
 
 (deftest internal-auth-login
-  ;; TODO add create credentials
-  (let [connector (core/create-connector)
+  (let [mimo (mimo-test)
+        connector (core/create-connector mimo)
         test-user "jova"
         test-password "localhost"]
+    (write-test-credentials mimo test-user test-password)
     (testing "successful"
-      (is (match? {"success" true "data" {"token" any? "username" test-user}}
+      (is (match? {"success" true "data" {"token" any? "username" test-user "createdAt" any?}}
                   (:body
                    (response-json
                     connector

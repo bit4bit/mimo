@@ -1,3 +1,9 @@
+x-platform-volumes: &platform-volumes
+  - mimo-home-platform:/home/app
+  - ~/.mimo-container:/home/app/.mimo
+  - ~/.mimo-gitconfig:/home/app/.gitconfig:ro
+  - ~/.ssh-mimo:/home/app/.ssh:ro
+
 services:
   platform:
     build:
@@ -27,13 +33,39 @@ services:
     ports:
       - "3001:3001"
       - "8001:8001"
-    volumes:
-      - mimo-home-platform:/home/app
-      - ~/.mimo-container:/home/app/.mimo
-      - ~/.mimo-gitconfig:/home/app/.gitconfig:ro
-      - ~/.ssh-mimo:/home/app/.ssh:ro
+    volumes: *platform-volumes
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  platform-v2:
+    build:
+      context: .
+      dockerfile: Dockerfile.mimo-v2
+    image: mimo-platform-v2:local
+    user: "${UID}:${GID}"
+    working_dir: /app/v2/mimo-platform
+    command: ["lein", "run"]
+    mem_limit: 4g
+    memswap_limit: 4g
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: "8890"
+      PLATFORM_URL: "http://localhost:3002"
+      MIMO_HOME: "${MIMO_HOME:-/home/app/.mimo}"
+      HOME: "/home/app"
+      USER: "app"
+      LOGNAME: "app"
+      GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    ports:
+      - "3002:8890"
+    volumes: *platform-volumes
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8890/greet"]
       interval: 10s
       timeout: 5s
       retries: 10
