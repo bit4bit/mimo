@@ -34,6 +34,7 @@ const sharedFossilServer = createSharedFossilServer(
   {
     PORT: _port,
     PLATFORM_URL: process.env.PLATFORM_URL ?? `http://${_host}:${_port}`,
+    PLATFORM_V2_URL: process.env.PLATFORM_V2_URL,
     JWT_SECRET: process.env.JWT_SECRET,
     MIMO_HOME: mimoHome,
     FOSSIL_REPOS_DIR: fossilReposDir,
@@ -50,6 +51,7 @@ const mimoContext = createMimoContext({
   env: {
     PORT: _port,
     PLATFORM_URL: process.env.PLATFORM_URL ?? `http://${_host}:${_port}`,
+    PLATFORM_V2_URL: process.env.PLATFORM_V2_URL,
     JWT_SECRET: process.env.JWT_SECRET,
     MIMO_HOME: mimoHome,
     FOSSIL_REPOS_DIR: fossilReposDir,

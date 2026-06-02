@@ -9,7 +9,7 @@
  * - Handle errors appropriately
  */
 
-import { describe, it, expect, beforeAll } from "bun:test";
+import { describe, it, expect, beforeAll, mock } from "bun:test";
 import { Hono } from "hono";
 import { createInternalApiRouter } from "../index.js";
 import { createMimoContext } from "../../../infrastructure/context/mimo-context.js";
@@ -51,6 +51,7 @@ describe("Auth Internal API", () => {
         JWT_SECRET: "test-jwt-secret-for-auth-api-tests",
         PORT: 3000,
         PLATFORM_URL: "http://localhost:3000",
+        PLATFORM_V2_URL: "http://platform-v2:8890",
         MIMO_HOME: "/tmp/test-mimo-auth",
         FOSSIL_REPOS_DIR: "/tmp/test-mimo-auth/session-fossils",
         MIMO_SHARED_FOSSIL_SERVER_PORT: 8000,
@@ -165,13 +166,25 @@ describe("Auth Internal API", () => {
   });
 
   describe("Login", () => {
-    it("should login with valid credentials", async () => {
-      // Create user first
-      const passwordHash = await Bun.password.hash("testpass", {
-        algorithm: "bcrypt",
-        cost: 10,
+    it("should proxy login with valid credentials to platform v2", async () => {
+      const fetchFn = mock(async () => {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: { token: "v2-token", username: "logintestuser" },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       });
-      await mimoContext.repos.users.create("logintestuser", passwordHash);
+
+      const proxiedApp = new Hono();
+      proxiedApp.route(
+        "/api/internal",
+        createInternalApiRouter(mimoContext, { fetchFn }),
+      );
 
       const req = new Request("http://localhost:3000/api/internal/auth/login", {
         method: "POST",
@@ -184,17 +197,38 @@ describe("Auth Internal API", () => {
         }),
       });
 
-      const res = await app.fetch(req);
+      const res = await proxiedApp.fetch(req);
       const json = await res.json();
 
+      expect(fetchFn).toHaveBeenCalledTimes(1);
       expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(json.data.token).toBeDefined();
-      expect(json.data.user.username).toBe("logintestuser");
-      expect(json.data.user.createdAt).toBeDefined();
+      expect(json).toEqual({
+        success: true,
+        data: { token: "v2-token", username: "logintestuser" },
+      });
     });
 
-    it("should return 400 when username is missing", async () => {
+    it("should pass through v2 validation errors", async () => {
+      const fetchFn = mock(async () => {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Username and password required",
+            code: 400,
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      });
+
+      const proxiedApp = new Hono();
+      proxiedApp.route(
+        "/api/internal",
+        createInternalApiRouter(mimoContext, { fetchFn }),
+      );
+
       const req = new Request("http://localhost:3000/api/internal/auth/login", {
         method: "POST",
         headers: {
@@ -205,41 +239,37 @@ describe("Auth Internal API", () => {
         }),
       });
 
-      const res = await app.fetch(req);
+      const res = await proxiedApp.fetch(req);
       const json = await res.json();
 
       expect(res.status).toBe(400);
-      expect(json.success).toBe(false);
-      expect(json.error).toBe("Username and password required");
+      expect(json).toEqual({
+        success: false,
+        error: "Username and password required",
+        code: 400,
+      });
     });
 
-    it("should return 401 for non-existent user", async () => {
-      const req = new Request("http://localhost:3000/api/internal/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: "nonexistentuser",
-          password: "password123",
-        }),
+    it("should pass through v2 invalid credential responses", async () => {
+      const fetchFn = mock(async () => {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "invalid credentials",
+            code: 401,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       });
 
-      const res = await app.fetch(req);
-      const json = await res.json();
-
-      expect(res.status).toBe(401);
-      expect(json.success).toBe(false);
-      expect(json.error).toBe("Invalid credentials");
-    });
-
-    it("should return 401 for invalid password", async () => {
-      // Create user first
-      const passwordHash = await Bun.password.hash("correctpass", {
-        algorithm: "bcrypt",
-        cost: 10,
-      });
-      await mimoContext.repos.users.create("passcheckuser", passwordHash);
+      const proxiedApp = new Hono();
+      proxiedApp.route(
+        "/api/internal",
+        createInternalApiRouter(mimoContext, { fetchFn }),
+      );
 
       const req = new Request("http://localhost:3000/api/internal/auth/login", {
         method: "POST",
@@ -252,12 +282,15 @@ describe("Auth Internal API", () => {
         }),
       });
 
-      const res = await app.fetch(req);
+      const res = await proxiedApp.fetch(req);
       const json = await res.json();
 
-      expect(res.status).toBe(401);
-      expect(json.success).toBe(false);
-      expect(json.error).toBe("Invalid credentials");
+      expect(res.status).toBe(200);
+      expect(json).toEqual({
+        success: false,
+        error: "invalid credentials",
+        code: 401,
+      });
     });
   });
 
@@ -388,12 +421,26 @@ describe("Auth Internal API", () => {
     });
 
     it("login should not require authentication", async () => {
-      // Create user first
-      const passwordHash = await Bun.password.hash("testpass", {
-        algorithm: "bcrypt",
-        cost: 10,
+      const fetchFn = mock(async (_url: string, init?: RequestInit) => {
+        expect(new Headers(init?.headers).get("authorization")).toBeNull();
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: { token: "v2-token", username: "nosessionuser" },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       });
-      await mimoContext.repos.users.create("nosessionuser", passwordHash);
+
+      const proxiedApp = new Hono();
+      proxiedApp.route(
+        "/api/internal",
+        createInternalApiRouter(mimoContext, { fetchFn }),
+      );
 
       const req = new Request("http://localhost:3000/api/internal/auth/login", {
         method: "POST",
@@ -406,10 +453,11 @@ describe("Auth Internal API", () => {
         }),
       });
 
-      const res = await app.fetch(req);
+      const res = await proxiedApp.fetch(req);
 
       // Should succeed, not require auth
       expect(res.status).toBe(200);
+      expect(fetchFn).toHaveBeenCalledTimes(1);
     });
 
     it("verify should not require authentication (just validates token)", async () => {

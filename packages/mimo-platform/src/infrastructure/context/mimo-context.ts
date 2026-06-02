@@ -46,6 +46,7 @@ export const DEFAULT_MIMO_HOST = "localhost";
 export interface MimoEnv {
   PORT: number;
   PLATFORM_URL: string;
+  PLATFORM_V2_URL?: string;
   JWT_SECRET: string;
   MIMO_HOME: string;
   FOSSIL_REPOS_DIR: string;
@@ -170,6 +171,7 @@ export function createMimoContext(
   const env: MimoEnv = {
     PORT: port,
     PLATFORM_URL: overrides.env?.PLATFORM_URL ?? `http://${host}:${port}`,
+    PLATFORM_V2_URL: overrides.env?.PLATFORM_V2_URL,
     JWT_SECRET: overrides.env?.JWT_SECRET ?? "",
     MIMO_HOME: mimoHome,
     FOSSIL_REPOS_DIR:

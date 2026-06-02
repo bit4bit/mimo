@@ -42,6 +42,11 @@ export interface InternalApiClientOptions {
    * If not provided, uses global fetch.
    */
   fetchFn?: typeof fetch;
+  /**
+   * Whether this client call requires a bearer token from the browser cookie.
+   * Public internal endpoints such as auth login/register use "none".
+   */
+  auth?: "required" | "none";
 }
 
 /**
@@ -121,6 +126,7 @@ export function createInternalApiClient(
 ): InternalApiClient {
   const platformUrl = mimoContext.env.PLATFORM_URL;
   const fetchFn = options?.fetchFn ?? fetch;
+  const authMode = options?.auth ?? "required";
 
   /**
    * Core request function that handles all HTTP methods.
@@ -135,23 +141,26 @@ export function createInternalApiClient(
     path: string,
     body?: unknown,
   ): Promise<ApiResult<T>> {
-    // Extract token from cookie
-    const token = extractTokenFromCookie(c);
-
-    // Return 401 if no token present
-    if (!token) {
-      return {
-        success: false,
-        error: "Unauthorized",
-        status: 401,
-      };
-    }
-
     // Build headers
     const headers: Record<string, string> = {
       Accept: "application/json",
-      Authorization: `Bearer ${token}`,
     };
+
+    if (authMode === "required") {
+      // Extract token from cookie
+      const token = extractTokenFromCookie(c);
+
+      // Return 401 if no token present
+      if (!token) {
+        return {
+          success: false,
+          error: "Unauthorized",
+          status: 401,
+        };
+      }
+
+      headers.Authorization = `Bearer ${token}`;
+    }
 
     // Add Content-Type for requests with body
     if (body !== undefined) {

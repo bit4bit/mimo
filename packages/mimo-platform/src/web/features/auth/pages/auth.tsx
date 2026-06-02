@@ -2,15 +2,36 @@
 /** @jsx jsx */
 import { jsx } from "hono/jsx";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import type { MimoContext } from "../../../../infrastructure/context/mimo-context.js";
 import { LoginPage } from "../components/LoginPage.js";
 import { RegisterPage } from "../components/RegisterPage.js";
 import type { StatusCode } from "hono/utils/http-status";
+import { createInternalApiClient } from "../../../../api/rest/index.js";
+import type {
+  LoginResponse,
+  RegisterResponse,
+} from "../../../../api/rest/auth/types.js";
 
 type AuthRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
 
-export function createAuthRoutes(mimoContext: AuthRoutesContext) {
+interface AuthRoutesDeps {
+  /** Optional custom fetch function for testing (routes to internal API). */
+  fetchFn?: typeof fetch;
+}
+
+export function createAuthRoutes(
+  mimoContext: AuthRoutesContext,
+  deps: AuthRoutesDeps = {},
+) {
   const auth = new Hono();
+
+  function createPublicApiClient(c: Context) {
+    return createInternalApiClient(c, mimoContext as MimoContext, {
+      fetchFn: deps.fetchFn,
+      auth: "none",
+    });
+  }
 
   // GET /auth/register - Show registration page
   auth.get("/register", (c) => {
@@ -31,19 +52,17 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
       );
     }
 
-    // Check if username already exists
-    const existingUser = await mimoContext.repos.users.getCredentials(username);
-    if (existingUser) {
-      return c.html(<RegisterPage error="Username already exists" />, 409);
+    const result = await createPublicApiClient(c).post<RegisterResponse>(
+      "/auth/register",
+      { username, password },
+    );
+
+    if (!result.success) {
+      return c.html(
+        <RegisterPage error={result.error ?? "Registration failed"} />,
+        result.status as StatusCode,
+      );
     }
-
-    // Hash password and create user
-    const passwordHash = await Bun.password.hash(password, {
-      algorithm: "bcrypt",
-      cost: 10,
-    });
-
-    await mimoContext.repos.users.create(username, passwordHash);
 
     return c.redirect("/auth/login");
   });
@@ -64,23 +83,23 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
       return c.html(<LoginPage error="Username and password required" />, 400);
     }
 
-    // Get user credentials
-    const credentials = await mimoContext.repos.users.getCredentials(username);
-    if (!credentials) {
-      return c.html(<LoginPage error="Invalid credentials" />, 401);
-    }
-
-    // Verify password
-    const isValidPassword = await Bun.password.verify(
-      password,
-      credentials.passwordHash,
+    const result = await createPublicApiClient(c).post<LoginResponse>(
+      "/auth/login",
+      { username, password },
     );
-    if (!isValidPassword) {
-      return c.html(<LoginPage error="Invalid credentials" />, 401);
+
+    if (!result.success) {
+      return c.html(
+        <LoginPage error={result.error ?? "Invalid credentials"} />,
+        result.status as StatusCode,
+      );
     }
 
-    // Generate token
-    const token = await mimoContext.services.auth.generateToken(username);
+    const token = result.data.token as string;
+    const authenticatedUsername =
+      (result.data.username as string | undefined) ??
+      (result.data.user?.username as string | undefined) ??
+      username;
 
     // Set cookie with token and username
     c.header(
@@ -89,7 +108,7 @@ export function createAuthRoutes(mimoContext: AuthRoutesContext) {
     );
     c.header(
       "Set-Cookie",
-      `username=${encodeURIComponent(username)}; Path=/; Max-Age=604800; SameSite=Strict`,
+      `username=${encodeURIComponent(authenticatedUsername)}; Path=/; Max-Age=604800; SameSite=Strict`,
       { append: true },
     );
 

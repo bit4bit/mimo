@@ -20,6 +20,10 @@ import { createMcpServersInternalRouter } from "./mcp-servers.js";
 import { createSummaryInternalRouter } from "./summary.js";
 import { createAuthInternalRouter } from "./auth.js";
 import { createChatInternalRouter } from "./chat.js";
+import {
+  createInternalApiMigrationGateway,
+  type MigrationGatewayOptions,
+} from "./migration-gateway.js";
 
 /**
  * Creates the internal API router with all routes and middleware.
@@ -40,7 +44,10 @@ import { createChatInternalRouter } from "./chat.js";
  * app.route("/api/internal", internalRouter);
  * ```
  */
-export function createInternalApiRouter(mimoContext: MimoContext): Hono {
+export function createInternalApiRouter(
+  mimoContext: MimoContext,
+  options: MigrationGatewayOptions = {},
+): Hono {
   const router = new Hono();
 
   // Inject MimoContext into all requests
@@ -48,6 +55,8 @@ export function createInternalApiRouter(mimoContext: MimoContext): Hono {
     c.set("mimoContext", mimoContext);
     await next();
   });
+
+  router.use("/*", createInternalApiMigrationGateway(mimoContext, options));
 
   // Mount auth internal API (no auth required for register/login/verify)
   router.route("/auth", createAuthInternalRouter(mimoContext));

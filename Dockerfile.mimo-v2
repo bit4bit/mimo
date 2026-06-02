@@ -2,10 +2,16 @@ FROM clojure:temurin-21-lein-bookworm
 
 WORKDIR /app/v2/mimo-platform
 
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends curl \
+  && rm -rf /var/lib/apt/lists/*
+
 COPY v2/mimo-platform/project.clj ./
 RUN lein deps
 
 COPY v2/mimo-platform ./
+RUN mkdir -p target /home/app/.lein /home/app/.m2 \
+  && chmod -R a+rwX /app/v2/mimo-platform /home/app
 
 EXPOSE 8890
 

@@ -29,8 +29,11 @@
 (defn greet-handler [_request]
   {:status 200 :body {:success true :data {}}})
 
-(defn make-mimo [& {:keys [mimo-dir jwt-secret http-port]}]
-  {:mimo-dir mimo-dir :jwt-secret jwt-secret :http-port http-port})
+(defn make-mimo [& {:keys [mimo-dir jwt-secret http-port listen-host]}]
+  {:mimo-dir mimo-dir
+   :jwt-secret jwt-secret
+   :http-port http-port
+   :listen-host listen-host})
 
 (defn auth-login [{:keys [mimo-dir jwt-secret]} request]
   (let [username (get-in request [:json-params :username])
@@ -50,15 +53,22 @@
                                        (partial auth-login mimo)] :route-name :auth-login]}
   )
 
-(defn create-connector [{:keys [http-port] :as mimo}]
+(defn create-connector [{:keys [http-port listen-host] :as mimo}]
   (-> (conn/default-connector-map http-port)
+      (assoc :host listen-host)
       (conn/with-default-interceptors)
       (conn/with-routes (routes {:mimo mimo}))
       (hk/create-connector nil)))
 
+(defn parse-port [value default]
+  (if value
+    (Integer/parseInt value)
+    default))
+
 (defn -main [& _]
   (conn/start! (create-connector
                 (make-mimo
-                 :http-port (Integer/parseInt (System/getenv "PORT") 8890)
+                 :http-port (parse-port (System/getenv "PORT") 8890)
+                 :listen-host (or (System/getenv "MIMO_LISTEN_HOST") "0.0.0.0")
                  :mimo-dir (or (System/getenv "MIMO_HOME") "/home/app/.mimo")
                  :jwt-secret (or (System/getenv "JWT_SECRET") "secret")))))

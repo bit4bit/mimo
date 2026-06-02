@@ -4,6 +4,7 @@
             [io.pedestal.connector.test :refer [response-for]]
             [clojure.data.json :as json]
             [clojure.java.io :as io]
+            [buddy.sign.jwt :as jwt]
             [matcher-combinators.test]
             [mimo-platform.core :as core])
   (:import [org.mindrot.jbcrypt BCrypt]
@@ -38,13 +39,18 @@
     (core/make-mimo
      :http-port 0
      :mimo-dir (temp-mimo-dir)
-     :jwt-secret "secret")))
+     :jwt-secret "secret"
+     :listen-host "127.0.0.1")))
    
 (deftest greet-test
   (let [mimo (mimo-test)
         connector (core/create-connector mimo)]
     (testing "e2e /greet"
       (is (= {"success" true "data" {}} (:body (response-json connector :get "/greet")))))))
+
+(deftest parse-port-test
+  (is (= 8890 (core/parse-port nil 8890)))
+  (is (= 3002 (core/parse-port "3002" 8890))))
 
 (deftest internal-auth-login
   (let [mimo (mimo-test)
@@ -53,13 +59,17 @@
         test-password "localhost"]
     (write-test-credentials mimo test-user test-password)
     (testing "successful"
-      (is (match? {"success" true "data" {"token" any? "username" test-user "createdAt" any?}}
-                  (:body
-                   (response-json
-                    connector
-                    :post "/api/internal/auth/login"
-                    :headers {:content-type "application/json"}
-                    :body (json/write-str {:username test-user :password test-password}))))))
+      (let [body (:body
+                  (response-json
+                   connector
+                   :post "/api/internal/auth/login"
+                   :headers {:content-type "application/json"}
+                   :body (json/write-str {:username test-user :password test-password})))
+            token (get-in body ["data" "token"])
+            claims (jwt/unsign token (:jwt-secret mimo) {:alg :hs256})]
+        (is (match? {"success" true "data" {"token" any? "username" test-user "createdAt" any?}}
+                    body))
+        (is (= test-user (:username claims)))))
     (testing "invalid username"
       (is (match? {"success" false "error" "invalid credentials" "code" 401}
                   (:body

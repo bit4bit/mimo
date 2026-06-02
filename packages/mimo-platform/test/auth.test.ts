@@ -25,14 +25,52 @@ describe("Authentication Integration Tests", () => {
     const { createMimoContext } =
       await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
-      env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+      env: {
+        MIMO_HOME: testHome,
+        JWT_SECRET: "test-secret-key-for-testing",
+        PLATFORM_URL: "http://localhost",
+        PLATFORM_V2_URL: "http://platform-v2",
+      },
     });
     userRepository = ctx.repos.users;
     testAuth = ctx.services.auth;
 
+    const { createInternalApiRouter } = await import(
+      "../src/api/rest/index.ts"
+    );
+    const { createAuthInternalRouter } = await import(
+      "../src/api/rest/auth.ts"
+    );
     const { createAuthRoutes } =
       await import("../src/web/features/auth/pages/auth.tsx");
-    authRoutes = createAuthRoutes(ctx);
+    const authUpstreamApp = new Hono();
+    authUpstreamApp.use("*", async (c, next) => {
+      c.set("mimoContext", ctx);
+      await next();
+    });
+    authUpstreamApp.route("/api/internal/auth", createAuthInternalRouter(ctx));
+    const authApp = new Hono();
+    authApp.route(
+      "/api/internal",
+      createInternalApiRouter(ctx, {
+        fetchFn: ((input, init) =>
+          authUpstreamApp.fetch(new Request(input, init))) as typeof fetch,
+      }),
+    );
+    authRoutes = createAuthRoutes(
+      {
+        ...ctx,
+        env: {
+          ...ctx.env,
+          PLATFORM_URL: "http://localhost",
+          PLATFORM_V2_URL: "http://platform-v2",
+        },
+      },
+      {
+        fetchFn: ((input, init) =>
+          authApp.fetch(new Request(input, init))) as typeof fetch,
+      },
+    );
 
     const middlewareModule = await import("../src/auth/middleware.ts");
     createAuthMiddleware = middlewareModule.createAuthMiddleware;

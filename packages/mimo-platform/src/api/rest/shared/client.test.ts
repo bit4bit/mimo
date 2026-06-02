@@ -162,6 +162,48 @@ describe("createInternalApiClient", () => {
     });
   });
 
+  describe("public internal API request", () => {
+    it("should allow requests without a cookie token when auth is none", async () => {
+      fetchSpy = spyOn(global, "fetch").mockImplementation(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              success: true,
+              data: { token: "auth-token", username: "jova" },
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        ),
+      );
+
+      const c = createMockContext({});
+      const client = createInternalApiClient(c, mimoContext, { auth: "none" });
+      const result = await client.post<{ token: string; username: string }>(
+        "/auth/login",
+        { username: "jova", password: "localhost" },
+      );
+
+      expect(result.success).toBe(true);
+      expect(fetchSpy).toHaveBeenCalled();
+      const fetchCall = fetchSpy.mock.calls[0];
+      expect(fetchCall).toBeDefined();
+      if (fetchCall) {
+        expect(fetchCall[1]).toMatchObject({
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+        });
+      }
+
+      fetchSpy.mockRestore();
+    });
+  });
+
   describe("successful PUT request", () => {
     it("should PUT JSON body with Content-Type header", async () => {
       const requestBody = { name: "Updated Session" };

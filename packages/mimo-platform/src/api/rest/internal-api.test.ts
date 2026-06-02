@@ -9,7 +9,7 @@
  * - Provides the health check endpoint
  */
 
-import { describe, it, expect, beforeAll } from "bun:test";
+import { describe, it, expect, beforeAll, mock } from "bun:test";
 import { Hono } from "hono";
 import { createInternalApiRouter } from "./index.js";
 import { createMimoContext } from "../../infrastructure/context/mimo-context.js";
@@ -51,6 +51,7 @@ describe("Internal API Router", () => {
         JWT_SECRET: "test-jwt-secret-for-internal-api-tests",
         PORT: 3000,
         PLATFORM_URL: "http://localhost:3000",
+        PLATFORM_V2_URL: "http://platform-v2:8890",
         MIMO_HOME: "/tmp/test-mimo",
         FOSSIL_REPOS_DIR: "/tmp/test-mimo/session-fossils",
         MIMO_SHARED_FOSSIL_SERVER_PORT: 8000,
@@ -202,6 +203,135 @@ describe("Internal API Router", () => {
       const res = await app.fetch(req);
 
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe("v2 Migration Gateway", () => {
+    it("proxies manifest-owned internal API routes to platform v2", async () => {
+      const fetchFn = mock(async (url: string, init?: RequestInit) => {
+        const forwardedBody = await new Response(init?.body as BodyInit).text();
+
+        expect(url).toBe(
+          "http://platform-v2:8890/api/internal/auth/login?source=test",
+        );
+        expect(init?.method).toBe("POST");
+        expect(forwardedBody).toBe(
+          JSON.stringify({ username: "jova", password: "localhost" }),
+        );
+        expect(new Headers(init?.headers).get("content-type")).toBe(
+          "application/json",
+        );
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: { token: "v2-token", username: "jova" },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      });
+
+      const proxiedApp = new Hono();
+      proxiedApp.route(
+        "/api/internal",
+        createInternalApiRouter(mimoContext, { fetchFn }),
+      );
+
+      const req = new Request(
+        "http://localhost:3000/api/internal/auth/login?source=test",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: "jova", password: "localhost" }),
+        },
+      );
+
+      const res = await proxiedApp.fetch(req);
+      const json = await res.json();
+
+      expect(fetchFn).toHaveBeenCalledTimes(1);
+      expect(res.status).toBe(200);
+      expect(json).toEqual({
+        success: true,
+        data: { token: "v2-token", username: "jova" },
+      });
+    });
+
+    it("does not proxy routes outside the migration manifest", async () => {
+      const fetchFn = mock(async () => {
+        throw new Error("unexpected proxy call");
+      });
+
+      const proxiedApp = new Hono();
+      proxiedApp.route(
+        "/api/internal",
+        createInternalApiRouter(mimoContext, { fetchFn }),
+      );
+
+      const req = new Request("http://localhost:3000/api/internal/health", {
+        headers: {
+          Authorization: `Bearer ${validToken}`,
+        },
+      });
+
+      const res = await proxiedApp.fetch(req);
+      const json = await res.json();
+
+      expect(fetchFn).not.toHaveBeenCalled();
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+    });
+
+    it("does not proxy different methods for a migrated path", async () => {
+      const fetchFn = mock(async () => {
+        throw new Error("unexpected proxy call");
+      });
+
+      const proxiedApp = new Hono();
+      proxiedApp.route(
+        "/api/internal",
+        createInternalApiRouter(mimoContext, { fetchFn }),
+      );
+
+      const req = new Request("http://localhost:3000/api/internal/auth/login", {
+        method: "GET",
+      });
+
+      const res = await proxiedApp.fetch(req);
+
+      expect(fetchFn).not.toHaveBeenCalled();
+      expect(res.status).toBe(401);
+    });
+
+    it("fails closed when platform v2 is unavailable", async () => {
+      const fetchFn = mock(async () => {
+        throw new Error("connect ECONNREFUSED");
+      });
+
+      const proxiedApp = new Hono();
+      proxiedApp.route(
+        "/api/internal",
+        createInternalApiRouter(mimoContext, { fetchFn }),
+      );
+
+      const req = new Request("http://localhost:3000/api/internal/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: "jova", password: "localhost" }),
+      });
+
+      const res = await proxiedApp.fetch(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(503);
+      expect(json).toEqual({
+        success: false,
+        error: "Authentication service unavailable",
+        code: 503,
+      });
     });
   });
 });

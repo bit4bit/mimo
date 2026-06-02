@@ -20,7 +20,7 @@
   (let [meta (load-credentials-meta cred)]
     (:createdAt meta)))
 
-(defn verify-password? [credentials password]
+(defn- verify-password? [credentials password]
   (try
     (let [credentials-meta (load-credentials-meta credentials)
           password-hash (get credentials-meta :passwordHash)
@@ -36,4 +36,8 @@
     (let [exp (-> (Instant/now)
                   (.plus (Duration/ofDays 7))
                   (.getEpochSecond))]
-      (jwt/sign {:sub (:username credentials) :exp exp} secret {:alg :hs256}))))
+      (jwt/sign {:sub (:username credentials)
+                 :username (:username credentials)
+                 :exp exp}
+                secret
+                {:alg :hs256}))))

@@ -22,6 +22,7 @@ services:
       MIMO_LISTEN_HOST: "0.0.0.0"
       MIMO_SHARED_FOSSIL_SERVER_HOST: "platform"
       PLATFORM_URL: "http://localhost:3001"
+      PLATFORM_V2_URL: "http://platform-v2:8890"
       MIMO_HOME: "${MIMO_HOME:-/home/app/.mimo}"
       MIMO_SHARED_FOSSIL_SERVER_PORT: "8001"
       HOME: "/home/app"
@@ -55,11 +56,13 @@ services:
     environment:
       JWT_SECRET: ${JWT_SECRET}
       PORT: "8890"
+      MIMO_LISTEN_HOST: "0.0.0.0"
       PLATFORM_URL: "http://localhost:3002"
       MIMO_HOME: "${MIMO_HOME:-/home/app/.mimo}"
       HOME: "/home/app"
       USER: "app"
       LOGNAME: "app"
+      PATH: "/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin"
       GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
     ports:
       - "3002:8890"
