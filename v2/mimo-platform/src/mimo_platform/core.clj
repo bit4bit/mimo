@@ -3,9 +3,8 @@
             [io.pedestal.http.http-kit :as hk]
             [clojure.data.json :as json]
             [clojure.java.io :as io]
-            [clj-yaml.core :as yaml]
-            [io.pedestal.http.content-negotiation :as content-negotiation])
-  (:import [org.mindrot.jbcrypt BCrypt]))
+            [mimo-platform.credentials :as credentials]
+            [io.pedestal.http.content-negotiation :as content-negotiation]))
 
 (def supported-types ["application/json"])
 
@@ -30,28 +29,12 @@
 (defn greet-handler [_request]
   {:status 200 :body {:success true :data {}}})
 
-(defn load-credentials [username & {:keys [mimo-dir]}]
-  "Read credentials for USERNAME"
-  (let [credentials-path (format "%s/users/%s/credentials.yaml" mimo-dir username)
-        credentials-content (slurp (io/file credentials-path))
-        credentials (yaml/parse-string credentials-content)]
-    credentials)
-  )
-
-(defn credentials-verify-password? [credentials password]
-  (println (get credentials :passwordHash))
-  (let [password-hash (get credentials :passwordHash)
-        normalized-password-hash (clojure.string/replace password-hash #"^\$2b\$" (fn [_] "$2a$"))]
-    (BCrypt/checkpw password normalized-password-hash))
-  )
-
 (defn auth-login [request]
   (let [username (get-in request [:json-params :username])
         password (get-in request [:json-params :password])
-        credentials (load-credentials username :mimo-dir "/home/bit4bit/.mimo")
-        ]
-    (if (credentials-verify-password? credentials password)
-      {:status 200 :body {:success true :data {:username username}}}
+        cred (credentials/make-credentials username :mimo-dir "/home/bit4bit/.mimo")]
+    (if-let [auth-token (credentials/generate-token cred password "secret")]
+      {:status 200 :body {:success true :data {:token auth-token :username username}}}
       {:status 200 :body {:success false :error "invalid credentials" :code 401}})))
 
 (def routes

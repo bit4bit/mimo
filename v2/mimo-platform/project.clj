@@ -8,6 +8,7 @@
                  [org.clojure/data.json "2.5.2"]
                  [clj-commons/clj-yaml "1.0.29"]
                  [org.mindrot/jbcrypt "0.4"]
+                 [buddy/buddy-sign "3.6.1-359"]
                  [nubank/matcher-combinators "3.10.0"]]
   :repl-options {:init-ns mimo-platform.core}
   :main mimo-platform.core)

@@ -27,14 +27,22 @@
         test-user "jova"
         test-password "localhost"]
     (testing "successful"
-      (is (match? {"success" true "data" {"username" test-user}}
+      (is (match? {"success" true "data" {"token" any? "username" test-user}}
                   (:body
                    (response-json
                     connector
                     :post "/api/internal/auth/login"
                     :headers {:content-type "application/json"}
                     :body (json/write-str {:username test-user :password test-password}))))))
-    (testing "invalid credentials"
+    (testing "invalid username"
+      (is (match? {"success" false "error" "invalid credentials" "code" 401}
+                  (:body
+                   (response-json
+                    connector
+                    :post "/api/internal/auth/login"
+                    :headers {:content-type "application/json"}
+                    :body (json/write-str {:username "invalid-user" :password test-password}))))))
+    (testing "invalid password"
       (is (match? {"success" false "error" "invalid credentials" "code" 401}
                   (:body
                    (response-json
