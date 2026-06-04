@@ -10,6 +10,7 @@ interface SessionSettingsPageProps {
     sessionTtlDays: number;
     acpStatus: string;
     priority: "high" | "medium" | "low";
+    browserNotificationsEnabled?: boolean;
   };
   project: {
     id: string;
@@ -278,6 +279,87 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
               </li>
             </ul>
           </div>
+
+          <div class="form-group">
+            <label>
+              <input
+                type="checkbox"
+                id="browser-notifications-toggle"
+                checked={!!session.browserNotificationsEnabled}
+                style="margin-right: 8px;"
+              />
+              Browser notifications
+            </label>
+            <p class="form-help">
+              Show a desktop notification when the agent responds while this tab is not visible.
+            </p>
+            <p
+              id="browser-notifications-permission-msg"
+              class="form-help"
+              style={{ color: "#888", display: "none" }}
+            ></p>
+          </div>
+
+          <script dangerouslySetInnerHTML={{ __html: `
+            (function () {
+              const toggle = document.getElementById('browser-notifications-toggle');
+              const msg = document.getElementById('browser-notifications-permission-msg');
+              if (!toggle) return;
+
+              async function requestPermission() {
+                if (!('Notification' in window)) return 'unsupported';
+                if (Notification.permission === 'granted') return 'granted';
+                if (Notification.permission === 'denied') return 'denied';
+                return await Notification.requestPermission();
+              }
+
+              toggle.addEventListener('change', async function () {
+                const sessionId = '${session.id}';
+                const enabled = toggle.checked;
+
+                // When enabling, request browser permission first
+                if (enabled) {
+                  const result = await requestPermission();
+                  if (result === 'denied') {
+                    toggle.checked = false;
+                    if (msg) {
+                      msg.textContent = 'Notification permission was denied. You can re-enable it in your browser settings.';
+                      msg.style.display = 'block';
+                    }
+                    return;
+                  }
+                  if (result === 'unsupported') {
+                    toggle.checked = false;
+                    if (msg) {
+                      msg.textContent = 'This browser does not support notifications.';
+                      msg.style.display = 'block';
+                    }
+                    return;
+                  }
+                }
+
+                if (msg) {
+                  msg.style.display = 'none';
+                  msg.textContent = '';
+                }
+
+                try {
+                  const res = await fetch('/sessions/' + sessionId + '/config', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ browserNotificationsEnabled: enabled }),
+                  });
+                  if (!res.ok) {
+                    console.error('Failed to update notification preference:', await res.text());
+                    toggle.checked = !enabled;
+                  }
+                } catch (err) {
+                  console.error('Failed to update notification preference:', err);
+                  toggle.checked = !enabled;
+                }
+              });
+            })();
+          `}} />
 
           <div class="actions">
             <button

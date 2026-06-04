@@ -105,6 +105,17 @@ export async function updateSessionConfigHandler(
     }
   }
 
+  // Validate browserNotificationsEnabled if provided
+  if (
+    body.browserNotificationsEnabled !== undefined &&
+    typeof body.browserNotificationsEnabled !== "boolean"
+  ) {
+    return c.json(
+      errorResponse("browserNotificationsEnabled must be a boolean", 400),
+      400,
+    );
+  }
+
   try {
     const updates: Parameters<typeof mimoContext.repos.sessions.update>[1] = {};
     if (body.priority !== undefined) updates.priority = body.priority;
@@ -112,6 +123,8 @@ export async function updateSessionConfigHandler(
       updates.sessionTtlDays = body.sessionTtlDays;
     if (body.idleTimeoutMs !== undefined)
       updates.idleTimeoutMs = body.idleTimeoutMs;
+    if (body.browserNotificationsEnabled !== undefined)
+      updates.browserNotificationsEnabled = body.browserNotificationsEnabled;
 
     const updated = await mimoContext.repos.sessions.update(id, updates);
 

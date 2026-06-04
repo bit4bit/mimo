@@ -84,6 +84,9 @@ const ChatState = {
   permissionCards: [],
   previousFocus: null,
 
+  // Browser notifications
+  browserNotificationsEnabled: false,
+
   // Constants
   STREAMING_TIMEOUT_MS:
     (typeof window !== "undefined" && window.MIMO_STREAMING_TIMEOUT_MS) ||
@@ -686,6 +689,28 @@ function renderPermissionCard(requestId, toolCall, options) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// SECTION 2.5: NOTIFICATION HELPERS
+// ═════════════════════════════════════════════════════════════════════════════
+
+function shouldShowNotification() {
+  if (!ChatState.browserNotificationsEnabled) return false;
+  if (!document.hidden) return false;
+  if (Notification.permission !== "granted") return false;
+  return true;
+}
+
+function showBrowserNotification() {
+  if (!shouldShowNotification()) return;
+  const notification = new Notification("Response ready");
+  notification.addEventListener("click", () => {
+    if (typeof window !== "undefined") {
+      window.focus();
+    }
+    notification.close();
+  });
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // SECTION 3: SERVICES (Business Logic)
 // Pure functions that transform data, parse content, make decisions.
 // No DOM access, no state mutations, no side effects.
@@ -954,6 +979,9 @@ async function toggleRightFrameCollapse(forcedState) {
 // Controller: Initialize chat for session
 function initChat(sessionId) {
   ChatState.sessionId = sessionId;
+  ChatState.browserNotificationsEnabled =
+    typeof window !== "undefined" &&
+    window.MIMO_BROWSER_NOTIFICATIONS_ENABLED === true;
   connectWebSocket(sessionId);
   insertEditableBubble();
   updateImpactUiState();
@@ -2651,6 +2679,9 @@ function finalizeMessageStream(duration) {
       detail: { chatThreadId: threadId },
     }),
   );
+
+  // Show browser notification if enabled and tab is hidden
+  showBrowserNotification();
 }
 
 // DOM: Insert thought section

@@ -530,6 +530,213 @@ describe("Session Management Integration Tests", () => {
       expect(patchRes.status).toBe(400);
     });
 
+    it("should default browserNotificationsEnabled to false on new session", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "Notification Test Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      const sessionId = (res.headers.get("location") || "").split("/").pop();
+      const session = await sessionRepository.findById(sessionId!);
+      expect(session).not.toBeNull();
+      expect(session?.browserNotificationsEnabled).toBe(false);
+    });
+
+    it("should update browserNotificationsEnabled via PATCH config", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "Notification Patch Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      const sessionId = (res.headers.get("location") || "").split("/").pop();
+
+      const patchRes = await app.request(
+        `/projects/${project.id}/sessions/${sessionId}/config`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({ browserNotificationsEnabled: true }),
+        },
+      );
+
+      expect(patchRes.status).toBe(200);
+      const updatedSession = await sessionRepository.findById(sessionId!);
+      expect(updatedSession?.browserNotificationsEnabled).toBe(true);
+    });
+
+    it("should update browserNotificationsEnabled via PATCH config", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "API Response Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      const sessionId = (res.headers.get("location") || "").split("/").pop();
+
+      const patchRes = await app.request(
+        `/projects/${project.id}/sessions/${sessionId}/config`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({ browserNotificationsEnabled: true }),
+        },
+      );
+
+      expect(patchRes.status).toBe(200);
+
+      // Verify persistence
+      const updatedSession = await sessionRepository.findById(sessionId!);
+      expect(updatedSession?.browserNotificationsEnabled).toBe(true);
+    });
+
+    it("should handle sessions without browserNotificationsEnabled field", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "Legacy Field Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      const sessionId = (res.headers.get("location") || "").split("/").pop();
+      const sessionPath = join(
+        testHome,
+        "projects",
+        project.id,
+        "sessions",
+        sessionId!,
+        "session.yaml",
+      );
+
+      const yamlData = (load(readFileSync(sessionPath, "utf-8")) as Record<string, unknown>)!;
+      delete yamlData.browserNotificationsEnabled;
+      writeFileSync(sessionPath, dump(yamlData), "utf-8");
+
+      const hydrated = await sessionRepository.findById(sessionId!);
+      expect(hydrated).not.toBeNull();
+      expect(hydrated?.browserNotificationsEnabled).toBe(false);
+    });
+
+    it("should reject non-boolean browserNotificationsEnabled in PATCH config", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+      const res = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "Validation Session" }).toString(),
+      });
+
+      expect(res.status).toBe(302);
+      const sessionId = (res.headers.get("location") || "").split("/").pop();
+
+      const patchRes = await app.request(
+        `/projects/${project.id}/sessions/${sessionId}/config`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({ browserNotificationsEnabled: "yes" }),
+        },
+      );
+
+      expect(patchRes.status).toBe(400);
+    });
+
     it("should reject session creation without authentication", async () => {
       const app = createTestApp(mimoContext, sessionRoutes);
 

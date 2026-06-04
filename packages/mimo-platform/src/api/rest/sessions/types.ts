@@ -51,6 +51,7 @@ export interface SessionResponse {
   frameState?: import("../../../domain/sessions/frame-state.js").FrameState;
   // Instructions
   instructions?: string;
+  browserNotificationsEnabled?: boolean;
 }
 
 /**
@@ -110,6 +111,7 @@ export interface UpdateSessionRequest {
   status?: "active" | "paused" | "closed";
   closeReason?: string;
   instructions?: string;
+  browserNotificationsEnabled?: boolean;
 }
 
 /**
@@ -192,6 +194,7 @@ export function toSessionResponse(session: Session): SessionResponse {
     ...(session.frameState && { frameState: session.frameState }),
     // Instructions
     ...(session.instructions && { instructions: session.instructions }),
+    browserNotificationsEnabled: session.browserNotificationsEnabled,
   };
 }
 

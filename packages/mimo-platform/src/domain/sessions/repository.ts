@@ -73,6 +73,7 @@ export interface Session {
   closeReason?: string;
   createdAt: Date;
   updatedAt: Date;
+  browserNotificationsEnabled: boolean;
 }
 
 export interface SessionData {
@@ -112,6 +113,7 @@ export interface SessionData {
   instructions?: string;
   createdAt: string;
   updatedAt: string;
+  browserNotificationsEnabled?: boolean;
 }
 
 export interface CreateSessionInput {
@@ -131,6 +133,7 @@ export interface UpdateSessionConfigInput {
   idleTimeoutMs?: number;
   sessionTtlDays?: number;
   priority?: SessionPriority;
+  browserNotificationsEnabled?: boolean;
 }
 
 const PRIORITY_WEIGHT: Record<SessionPriority, number> = {
@@ -326,6 +329,7 @@ export class SessionRepository {
 
     return {
       ...sessionData,
+      browserNotificationsEnabled: false,
       chatThreads: sessionData.chatThreads!,
       activeChatThreadId: sessionData.activeChatThreadId ?? null,
       createdAt: new Date(sessionData.createdAt),
@@ -380,6 +384,7 @@ export class SessionRepository {
               chatThreads,
               activeChatThreadId,
               mcpToken: data.mcpToken ?? "",
+              browserNotificationsEnabled: data.browserNotificationsEnabled ?? false,
             };
             return {
               ...sessionData,
@@ -421,6 +426,7 @@ export class SessionRepository {
       chatThreads,
       activeChatThreadId,
       mcpToken: data.mcpToken ?? "",
+      browserNotificationsEnabled: data.browserNotificationsEnabled ?? false,
     };
 
     return {
@@ -473,6 +479,7 @@ export class SessionRepository {
             chatThreads,
             activeChatThreadId,
             mcpToken: data.mcpToken ?? "",
+            browserNotificationsEnabled: data.browserNotificationsEnabled ?? false,
           };
           sessions.push({
             ...sessionData,
@@ -559,6 +566,7 @@ export class SessionRepository {
                   chatThreads,
                   activeChatThreadId,
                   mcpToken: data.mcpToken ?? "",
+                  browserNotificationsEnabled: data.browserNotificationsEnabled ?? false,
                 };
                 if (data.assignedAgentId === agentId) {
                   sessions.push({
@@ -631,6 +639,7 @@ export class SessionRepository {
           chatThreads,
           activeChatThreadId,
           mcpToken: data.mcpToken ?? "",
+          browserNotificationsEnabled: data.browserNotificationsEnabled ?? false,
           createdAt: new Date(data.createdAt),
           updatedAt: new Date(data.updatedAt),
         });
@@ -828,6 +837,12 @@ export class SessionRepository {
     }
 
     const updates: Partial<SessionData> = {};
+    if (config.browserNotificationsEnabled !== undefined) {
+      if (typeof config.browserNotificationsEnabled !== "boolean") {
+        throw new Error("browserNotificationsEnabled must be a boolean");
+      }
+      updates.browserNotificationsEnabled = config.browserNotificationsEnabled;
+    }
     if (config.idleTimeoutMs !== undefined) {
       updates.idleTimeoutMs = config.idleTimeoutMs;
     }

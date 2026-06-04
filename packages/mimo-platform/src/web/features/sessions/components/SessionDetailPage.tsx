@@ -36,6 +36,7 @@ interface Session {
   lastActivityAt: string | null;
   closeReason?: string;
   instructions?: string;
+  browserNotificationsEnabled?: boolean;
 }
 
 interface ChatMessage {
@@ -208,7 +209,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
     >
       <script
         dangerouslySetInnerHTML={{
-          __html: `window.MIMO_DEFAULT_INSTRUCTIONS = ${JSON.stringify(session.instructions || "")};`,
+          __html: `window.MIMO_DEFAULT_INSTRUCTIONS = ${JSON.stringify(session.instructions || "")};\nwindow.MIMO_BROWSER_NOTIFICATIONS_ENABLED = ${session.browserNotificationsEnabled ? "true" : "false"};`,
         }}
       />
       <div class="session-container">

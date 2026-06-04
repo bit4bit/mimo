@@ -1555,17 +1555,18 @@ export function createSessionsRoutes(
         body.sessionTtlDays === undefined
           ? undefined
           : Number(body.sessionTtlDays);
-      const { priority } = body;
+      const { priority, browserNotificationsEnabled } = body;
 
       if (
         idleTimeoutMs === undefined &&
         sessionTtlDays === undefined &&
-        priority === undefined
+        priority === undefined &&
+        browserNotificationsEnabled === undefined
       ) {
         return c.json(
           {
             error:
-              "Either idleTimeoutMs, sessionTtlDays, or priority is required",
+              "Either idleTimeoutMs, sessionTtlDays, priority, or browserNotificationsEnabled is required",
           },
           400,
         );
@@ -1581,6 +1582,16 @@ export function createSessionsRoutes(
         );
       }
 
+      if (
+        browserNotificationsEnabled !== undefined &&
+        typeof browserNotificationsEnabled !== "boolean"
+      ) {
+        return c.json(
+          { error: "browserNotificationsEnabled must be a boolean" },
+          400,
+        );
+      }
+
       // Update session config via Internal API Client
       const updateConfigResult = await apiClient.put<SessionResponse>(
         `/sessions/${sessionId}/config`,
@@ -1588,6 +1599,9 @@ export function createSessionsRoutes(
           ...(idleTimeoutMs !== undefined ? { idleTimeoutMs } : {}),
           ...(sessionTtlDays !== undefined ? { sessionTtlDays } : {}),
           ...(priority !== undefined ? { priority } : {}),
+          ...(browserNotificationsEnabled !== undefined
+            ? { browserNotificationsEnabled }
+            : {}),
         },
       );
 
@@ -1616,6 +1630,8 @@ export function createSessionsRoutes(
               config: {
                 idleTimeoutMs: updatedSession.idleTimeoutMs,
                 sessionTtlDays: updatedSession.sessionTtlDays,
+                browserNotificationsEnabled:
+                  updatedSession.browserNotificationsEnabled,
               },
               timestamp: new Date().toISOString(),
             }),
@@ -1630,6 +1646,7 @@ export function createSessionsRoutes(
           idleTimeoutMs: updatedSession.idleTimeoutMs,
           sessionTtlDays: updatedSession.sessionTtlDays,
           acpStatus: updatedSession.acpStatus,
+          browserNotificationsEnabled: updatedSession.browserNotificationsEnabled,
         },
       });
     } catch (error) {
@@ -1707,7 +1724,7 @@ export function createSessionsRoutes(
       streamingTimeoutMs = configResult.data.config.streamingTimeoutMs ?? 30000;
     }
 
-    return c.html(
+      return c.html(
       <SessionSettingsPage
         session={{
           id: session.id,
@@ -1716,6 +1733,7 @@ export function createSessionsRoutes(
           sessionTtlDays: session.sessionTtlDays,
           acpStatus: session.acpStatus,
           priority: session.priority,
+          browserNotificationsEnabled: session.browserNotificationsEnabled,
         }}
         project={{
           id: project.id,
