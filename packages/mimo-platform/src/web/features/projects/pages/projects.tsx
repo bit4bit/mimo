@@ -140,7 +140,32 @@ export function createProjectsRoutes(
     const newBranch = body.newBranch as string | undefined;
     const agentSubpath = body.agentSubpath as string | undefined;
     const instructions = body.instructions as string | undefined;
+    const clonePortRaw = body.clonePort as string | undefined;
     const user = c.get("user") as { username: string };
+
+    let clonePortValue: number | undefined;
+    if (clonePortRaw) {
+      const parsed = parseInt(clonePortRaw, 10);
+      if (
+        isNaN(parsed) ||
+        !Number.isInteger(parsed) ||
+        parsed < 1 ||
+        parsed > 65535
+      ) {
+        const credentials = await credentialRepository.findByOwner(
+          user.username,
+        );
+        return c.html(
+          <ProjectCreatePage
+            credentials={credentials}
+            error="SSH port must be an integer between 1 and 65535"
+            defaultInstructions={instructions}
+          />,
+          400,
+        );
+      }
+      clonePortValue = parsed;
+    }
 
     // Pre-validate before calling internal API
     if (!name || !repoUrl) {
@@ -248,6 +273,7 @@ export function createProjectsRoutes(
       newBranch,
       agentSubpath,
       ...(instructions && { instructions }),
+      ...(clonePortValue != null && { clonePort: clonePortValue }),
     });
 
     if (!result.success) {

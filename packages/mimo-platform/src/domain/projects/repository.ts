@@ -16,6 +16,7 @@ export interface Project {
   newBranch?: string;
   agentSubpath?: string;
   instructions?: string;
+  clonePort?: number;
 }
 
 export interface PublicProject {
@@ -44,6 +45,7 @@ export interface ProjectData {
   newBranch?: string;
   agentSubpath?: string;
   instructions?: string;
+  clonePort?: number;
 }
 
 export interface CreateProjectInput {
@@ -57,6 +59,7 @@ export interface CreateProjectInput {
   newBranch?: string;
   agentSubpath?: string;
   instructions?: string;
+  clonePort?: number;
 }
 
 interface ProjectRepositoryDeps {
@@ -119,6 +122,7 @@ export class ProjectRepository {
       ...(input.newBranch && { newBranch: input.newBranch }),
       ...(input.agentSubpath && { agentSubpath: input.agentSubpath }),
       ...(input.instructions && { instructions: input.instructions }),
+      ...(input.clonePort != null && { clonePort: input.clonePort }),
     };
 
     this.os.fs.writeFile(this.getProjectFilePath(id), dump(projectData), {
@@ -261,6 +265,7 @@ export class ProjectRepository {
       description?: string;
       credentialId?: string;
       instructions?: string;
+      clonePort?: number | null;
     },
   ): Promise<Project> {
     const project = await this.findById(id);
@@ -300,6 +305,15 @@ export class ProjectRepository {
       }
     } else if (project.instructions) {
       updatedData.instructions = project.instructions;
+    }
+
+    // Handle clonePort: undefined = keep existing; null = remove; number = set
+    if ("clonePort" in updates) {
+      if (updates.clonePort != null) {
+        updatedData.clonePort = updates.clonePort;
+      }
+    } else if (project.clonePort != null) {
+      updatedData.clonePort = project.clonePort;
     }
 
     this.os.fs.writeFile(this.getProjectFilePath(id), dump(updatedData), {

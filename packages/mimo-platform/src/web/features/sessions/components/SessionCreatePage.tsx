@@ -150,6 +150,22 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
           </div>
 
           <div class="form-group">
+            <label>Clone Port override (optional)</label>
+            <input
+              type="number"
+              name="clonePort"
+              placeholder="inherits from project"
+              min="1"
+              max="65535"
+              data-help-id="session-create-page-clone-port-input"
+            />
+            <p class="session-create-help">
+              Override the project's clone port for this session only (1–65535).
+              Leave empty to use the project default.
+            </p>
+          </div>
+
+          <div class="form-group">
             <label>Branch (optional)</label>
             <input
               type="text"

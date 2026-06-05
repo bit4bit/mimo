@@ -13,6 +13,7 @@ export interface CloneParams {
   targetPath: string;
   credential?: Credential;
   branch?: string;
+  clonePort?: number;
 }
 
 export interface RefreshParams {
@@ -487,6 +488,7 @@ export function createProjectVcsCache(deps: {
           params.targetPath,
           params.credential,
           params.branch,
+          params.clonePort,
         );
         return fallback.success
           ? { success: true }
@@ -519,6 +521,7 @@ export function createProjectVcsCache(deps: {
         params.targetPath,
         params.credential,
         params.branch,
+        params.clonePort,
       );
       return fallback.success
         ? { success: true }

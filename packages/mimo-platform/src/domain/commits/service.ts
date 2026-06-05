@@ -334,11 +334,14 @@ export class CommitService {
 
     // Push to remote
     const pushBranch = session.branch || project.newBranch || undefined;
+    const effectiveClonePort = session.clonePort ?? project.clonePort;
     const pushResult = await this.deps.vcs.pushUpstream(
       session.upstreamPath,
       repoType,
       pushCredential,
       pushBranch,
+      undefined,
+      effectiveClonePort,
     );
 
     if (!pushResult.success) {
@@ -405,12 +408,14 @@ export class CommitService {
     }
 
     // Push to remote with force flag
+    const effectiveClonePortForce = session.clonePort ?? project.clonePort;
     const pushResult = await this.deps.vcs.pushUpstream(
       session.upstreamPath,
       repoType,
       pushCredential,
       pushBranch,
       { force: true },
+      effectiveClonePortForce,
     );
 
     if (!pushResult.success) {

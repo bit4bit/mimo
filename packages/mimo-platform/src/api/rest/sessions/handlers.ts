@@ -254,6 +254,20 @@ export async function createSessionHandler(
     }
   }
 
+  // Validate clonePort if provided
+  if (body.clonePort !== undefined && body.clonePort !== null) {
+    if (
+      !Number.isInteger(body.clonePort) ||
+      body.clonePort < 1 ||
+      body.clonePort > 65535
+    ) {
+      return c.json(
+        errorResponse("SSH port must be an integer between 1 and 65535", 400),
+        400,
+      );
+    }
+  }
+
   // Verify project exists and belongs to user
   const project = await mimoContext.repos.projects.findById(body.projectId);
   if (!project || project.owner !== user.username) {
@@ -270,11 +284,11 @@ export async function createSessionHandler(
       branchName: body.branchName,
       mcpServerIds: body.mcpServerIds,
       sessionTtlDays: body.sessionTtlDays,
-      idleTimeoutMs: body.idleTimeoutMs,
       priority: body.priority,
       ...(body.instructions !== undefined && {
         instructions: body.instructions,
       }),
+      ...(body.clonePort != null && { clonePort: body.clonePort }),
     });
 
     return c.json(
@@ -315,6 +329,20 @@ export async function updateSessionHandler(
   }
 
   const body = (await c.req.json()) as UpdateSessionRequest;
+
+  // Validate clonePort if provided
+  if (body.clonePort !== undefined && body.clonePort !== null) {
+    if (
+      !Number.isInteger(body.clonePort) ||
+      body.clonePort < 1 ||
+      body.clonePort > 65535
+    ) {
+      return c.json(
+        errorResponse("SSH port must be an integer between 1 and 65535", 400),
+        400,
+      );
+    }
+  }
 
   // Validate priority if provided
   if (body.priority !== undefined) {
@@ -368,6 +396,8 @@ export async function updateSessionHandler(
     if (body.closeReason !== undefined) updates.closeReason = body.closeReason;
     if (body.instructions !== undefined)
       updates.instructions = body.instructions;
+    if (body.clonePort !== undefined)
+      updates.clonePort = body.clonePort ?? undefined;
 
     const updated = await mimoContext.repos.sessions.update(id, updates);
 

@@ -25,6 +25,7 @@ export interface ProjectResponse {
   newBranch?: string;
   agentSubpath?: string;
   instructions?: string;
+  clonePort?: number;
 }
 
 /**
@@ -59,6 +60,7 @@ export interface CreateProjectRequest {
   agentSubpath?: string;
   instructions?: string;
   warmCacheSync?: boolean;
+  clonePort?: number;
 }
 
 /**
@@ -71,6 +73,7 @@ export interface UpdateProjectRequest {
   description?: string;
   credentialId?: string;
   instructions?: string;
+  clonePort?: number | null;
 }
 
 /**
@@ -111,6 +114,7 @@ export function toProjectResponse(project: Project): ProjectResponse {
     ...(project.newBranch && { newBranch: project.newBranch }),
     ...(project.agentSubpath && { agentSubpath: project.agentSubpath }),
     ...(project.instructions && { instructions: project.instructions }),
+    ...(project.clonePort != null && { clonePort: project.clonePort }),
   };
 }
 

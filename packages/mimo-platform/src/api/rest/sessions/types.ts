@@ -52,6 +52,7 @@ export interface SessionResponse {
   // Instructions
   instructions?: string;
   browserNotificationsEnabled?: boolean;
+  clonePort?: number;
 }
 
 /**
@@ -94,6 +95,7 @@ export interface CreateSessionRequest {
   idleTimeoutMs?: number;
   priority?: SessionPriority;
   instructions?: string;
+  clonePort?: number;
 }
 
 /**
@@ -112,6 +114,7 @@ export interface UpdateSessionRequest {
   closeReason?: string;
   instructions?: string;
   browserNotificationsEnabled?: boolean;
+  clonePort?: number | null;
 }
 
 /**
@@ -195,6 +198,7 @@ export function toSessionResponse(session: Session): SessionResponse {
     // Instructions
     ...(session.instructions && { instructions: session.instructions }),
     browserNotificationsEnabled: session.browserNotificationsEnabled,
+    ...(session.clonePort != null && { clonePort: session.clonePort }),
   };
 }
 

@@ -51,6 +51,118 @@ describe("VCS Integration Tests", () => {
     });
   });
 
+  describe("buildGitSshCommand", () => {
+    it("key-only: includes -i and IdentitiesOnly, no -p", () => {
+      const vcs = new VCS({ os });
+      const cmd = (vcs as any).buildGitSshCommand("/tmp/key");
+      expect(cmd).toContain('-i "/tmp/key"');
+      expect(cmd).toContain("-o IdentitiesOnly=yes");
+      expect(cmd).not.toMatch(/-p /);
+    });
+
+    it("port-only: includes -p, no -i, no IdentitiesOnly", () => {
+      const vcs = new VCS({ os });
+      const cmd = (vcs as any).buildGitSshCommand(undefined, 3022);
+      expect(cmd).toContain("-p 3022");
+      expect(cmd).not.toContain("-i ");
+      expect(cmd).not.toContain("IdentitiesOnly");
+    });
+
+    it("key+port: includes both -i and -p", () => {
+      const vcs = new VCS({ os });
+      const cmd = (vcs as any).buildGitSshCommand("/tmp/key", 3022);
+      expect(cmd).toContain('-i "/tmp/key"');
+      expect(cmd).toContain("-p 3022");
+    });
+  });
+
+  describe("pushUpstream SSH port gate", () => {
+    it("sets GIT_SSH_COMMAND with -p when clonePort set and no SSH credential", async () => {
+      const capturedEnvs: Array<Record<string, string> | undefined> = [];
+      const mockOs = {
+        ...os,
+        env: { ...os.env, getAll: () => ({}) },
+        fs: { ...os.fs },
+        command: {
+          run: async (_args: string[], opts?: any) => {
+            capturedEnvs.push(opts?.env);
+            return { success: true, output: "", error: "" };
+          },
+        },
+        path: os.path,
+      };
+      const vcs = new VCS({ os: mockOs as any });
+      await vcs.pushUpstream("/tmp/upstream", "git", undefined, undefined, undefined, 3022);
+      const sshEnv = capturedEnvs.find((e) => e?.GIT_SSH_COMMAND);
+      expect(sshEnv?.GIT_SSH_COMMAND).toBeDefined();
+      expect(sshEnv?.GIT_SSH_COMMAND).toContain("-p 3022");
+      expect(sshEnv?.GIT_SSH_COMMAND).not.toContain("-i ");
+    });
+  });
+
+  describe("cloneRepository SSH port gate", () => {
+    it("sets GIT_SSH_COMMAND with -p when clonePort set and no SSH credential", async () => {
+      const capturedEnvs: Array<Record<string, string> | undefined> = [];
+      const mockOs = {
+        ...os,
+        env: { ...os.env, getAll: () => ({}) },
+        fs: {
+          ...os.fs,
+          mkdir: () => {},
+        },
+        command: {
+          run: async (_args: string[], opts?: any) => {
+            capturedEnvs.push(opts?.env);
+            return { success: true, output: "", error: "" };
+          },
+        },
+        path: os.path,
+      };
+      const vcs = new VCS({ os: mockOs as any });
+      await vcs.cloneRepository(
+        "git@example.com:test/repo.git",
+        "git",
+        "/tmp/target",
+        undefined,
+        undefined,
+        3022,
+      );
+      const sshEnv = capturedEnvs.find((e) => e?.GIT_SSH_COMMAND);
+      expect(sshEnv?.GIT_SSH_COMMAND).toBeDefined();
+      expect(sshEnv?.GIT_SSH_COMMAND).toContain("-p 3022");
+      expect(sshEnv?.GIT_SSH_COMMAND).not.toContain("-i ");
+    });
+
+    it("does not set GIT_SSH_COMMAND when no port and no SSH credential", async () => {
+      const capturedEnvs: Array<Record<string, string> | undefined> = [];
+      const mockOs = {
+        ...os,
+        env: { ...os.env, getAll: () => ({}) },
+        fs: {
+          ...os.fs,
+          mkdir: () => {},
+        },
+        command: {
+          run: async (_args: string[], opts?: any) => {
+            capturedEnvs.push(opts?.env);
+            return { success: true, output: "", error: "" };
+          },
+        },
+        path: os.path,
+      };
+      const vcs = new VCS({ os: mockOs as any });
+      await vcs.cloneRepository(
+        "git@example.com:test/repo.git",
+        "git",
+        "/tmp/target",
+        undefined,
+        undefined,
+      );
+      const sshEnv = capturedEnvs.find((e) => e?.GIT_SSH_COMMAND);
+      expect(sshEnv).toBeUndefined();
+    });
+  });
+
   describe("SSH credential handling", () => {
     it("normalizes escaped newlines before writing SSH key file", () => {
       const vcs = new VCS({ os });

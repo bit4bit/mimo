@@ -236,6 +236,20 @@ export function createSessionsRoutes(
       branchModeRaw === "sync" ? "sync" : "new";
     const priorityRaw = (body.priority as string) || undefined;
     const instructions = (body.instructions as string) || undefined;
+    const clonePortRaw = (body.clonePort as string) || null;
+    let clonePort: number | undefined;
+    if (clonePortRaw) {
+      const parsed = parseInt(clonePortRaw, 10);
+      if (
+        isNaN(parsed) ||
+        !Number.isInteger(parsed) ||
+        parsed < 1 ||
+        parsed > 65535
+      ) {
+        return c.text("SSH port must be an integer between 1 and 65535", 400);
+      }
+      clonePort = parsed;
+    }
     if (
       priorityRaw !== undefined &&
       !["high", "medium", "low"].includes(priorityRaw)
@@ -356,6 +370,7 @@ export function createSessionsRoutes(
         idleTimeoutMs,
         priority,
         instructions,
+        ...(clonePort != null && { clonePort }),
       },
     );
 
@@ -382,6 +397,7 @@ export function createSessionsRoutes(
       // the project's configured sourceBranch.
       const cloneBranch =
         branchMode === "sync" ? branchName! : project.sourceBranch;
+      const effectiveClonePort = clonePort ?? project.clonePort;
       const cloneResult = await projectVcsCache.clone({
         projectId: project.id,
         repoUrl: project.repoUrl,
@@ -389,6 +405,7 @@ export function createSessionsRoutes(
         targetPath: session.upstreamPath,
         credential: projectCredential,
         branch: cloneBranch,
+        ...(effectiveClonePort != null && { clonePort: effectiveClonePort }),
       });
 
       if (!cloneResult.success) {

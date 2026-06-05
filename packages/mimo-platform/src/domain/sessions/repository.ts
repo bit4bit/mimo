@@ -51,6 +51,7 @@ export interface Session {
   agentWorkspacePassword?: string;
   agentSubpath?: string;
   branch?: string;
+  clonePort?: number;
   priority: SessionPriority;
   // MCP Server attachments
   mcpServerIds: string[];
@@ -91,6 +92,7 @@ export interface SessionData {
   agentWorkspacePassword?: string;
   agentSubpath?: string;
   branch?: string;
+  clonePort?: number;
   priority?: SessionPriority;
   // MCP Server attachments
   mcpServerIds?: string[];
@@ -127,6 +129,7 @@ export interface CreateSessionInput {
   sessionTtlDays?: number;
   priority?: SessionPriority;
   instructions?: string;
+  clonePort?: number;
 }
 
 export interface UpdateSessionConfigInput {
@@ -316,6 +319,7 @@ export class SessionRepository {
       ...(input.agentSubpath && { agentSubpath: input.agentSubpath }),
       ...(input.branchName && { branch: input.branchName }),
       ...(input.instructions && { instructions: input.instructions }),
+      ...(input.clonePort != null && { clonePort: input.clonePort }),
     };
 
     this.os.fs.writeFile(

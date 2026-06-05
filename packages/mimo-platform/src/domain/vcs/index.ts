@@ -148,8 +148,16 @@ export class VCS {
     }
   }
 
-  private buildGitSshCommand(keyPath: string): string {
-    return `ssh -i "${keyPath}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`;
+  private buildGitSshCommand(keyPath?: string, clonePort?: number): string {
+    const parts = ["ssh"];
+    if (keyPath) {
+      parts.push(`-i "${keyPath}"`, "-o IdentitiesOnly=yes");
+    }
+    parts.push("-o StrictHostKeyChecking=no", "-o UserKnownHostsFile=/dev/null");
+    if (clonePort != null) {
+      parts.push(`-p ${clonePort}`);
+    }
+    return parts.join(" ");
   }
 
   private sanitizeGitUrl(repoUrl: string): string {
@@ -712,6 +720,7 @@ export class VCS {
     targetDir: string,
     credential?: Credential,
     sourceBranch?: string,
+    clonePort?: number,
   ): Promise<VCSResult> {
     try {
       this.os.fs.mkdir(targetDir, { recursive: true });
@@ -724,15 +733,18 @@ export class VCS {
       let sshKeyPath: string | null = null;
       let env: Record<string, string> | undefined = undefined;
 
-      if (credential) {
-        if (credential.type === "https" && !this.isSshUrl(repoUrl)) {
-          url = this.injectHttpsCredentials(repoUrl, credential);
-        } else if (credential.type === "ssh" && this.isSshUrl(repoUrl)) {
+      if (credential?.type === "https" && !this.isSshUrl(repoUrl)) {
+        url = this.injectHttpsCredentials(repoUrl, credential);
+      } else if (credential?.type === "ssh" || clonePort != null) {
+        if (credential?.type === "ssh") {
           sshKeyPath = this.createTempSshKeyFile(credential.privateKey);
-          env = {
-            GIT_SSH_COMMAND: this.buildGitSshCommand(sshKeyPath),
-          };
         }
+        env = {
+          GIT_SSH_COMMAND: this.buildGitSshCommand(
+            sshKeyPath ?? undefined,
+            clonePort,
+          ),
+        };
       }
 
       try {
@@ -1003,15 +1015,21 @@ export class VCS {
     repoType: "git" | "fossil",
     credential?: Credential,
     branch?: string,
+    clonePort?: number,
   ): Promise<VCSResult> {
     if (repoType === "git") {
       let sshKeyPath: string | null = null;
       let env: Record<string, string> | undefined = undefined;
 
-      if (credential?.type === "ssh") {
-        sshKeyPath = this.createTempSshKeyFile(credential.privateKey);
+      if (credential?.type === "ssh" || clonePort != null) {
+        if (credential?.type === "ssh") {
+          sshKeyPath = this.createTempSshKeyFile(credential.privateKey);
+        }
         env = {
-          GIT_SSH_COMMAND: this.buildGitSshCommand(sshKeyPath),
+          GIT_SSH_COMMAND: this.buildGitSshCommand(
+            sshKeyPath ?? undefined,
+            clonePort,
+          ),
         };
       }
 
@@ -1237,15 +1255,21 @@ export class VCS {
     credential?: Credential,
     branch?: string,
     options?: { force?: boolean },
+    clonePort?: number,
   ): Promise<VCSResult> {
     if (repoType === "git") {
       let sshKeyPath: string | null = null;
       let env: Record<string, string> | undefined = undefined;
 
-      if (credential?.type === "ssh") {
-        sshKeyPath = this.createTempSshKeyFile(credential.privateKey);
+      if (credential?.type === "ssh" || clonePort != null) {
+        if (credential?.type === "ssh") {
+          sshKeyPath = this.createTempSshKeyFile(credential.privateKey);
+        }
         env = {
-          GIT_SSH_COMMAND: this.buildGitSshCommand(sshKeyPath),
+          GIT_SSH_COMMAND: this.buildGitSshCommand(
+            sshKeyPath ?? undefined,
+            clonePort,
+          ),
         };
       }
 

@@ -109,6 +109,20 @@ export async function createProjectHandler(
     );
   }
 
+  // Validate clonePort if provided
+  if (body.clonePort !== undefined && body.clonePort !== null) {
+    if (
+      !Number.isInteger(body.clonePort) ||
+      body.clonePort < 1 ||
+      body.clonePort > 65535
+    ) {
+      return c.json(
+        errorResponse("SSH port must be an integer between 1 and 65535", 400),
+        400,
+      );
+    }
+  }
+
   // Validate credential if provided
   if (body.credentialId) {
     const credential = await mimoContext.repos.credentials.findById(
@@ -148,6 +162,7 @@ export async function createProjectHandler(
       ...(body.instructions !== undefined && {
         instructions: body.instructions,
       }),
+      ...(body.clonePort != null && { clonePort: body.clonePort }),
     });
 
     const credential = project.credentialId
@@ -247,6 +262,20 @@ export async function updateProjectHandler(
 
   const body = (await c.req.json()) as UpdateProjectRequest;
 
+  // Validate clonePort if provided
+  if (body.clonePort !== undefined && body.clonePort !== null) {
+    if (
+      !Number.isInteger(body.clonePort) ||
+      body.clonePort < 1 ||
+      body.clonePort > 65535
+    ) {
+      return c.json(
+        errorResponse("SSH port must be an integer between 1 and 65535", 400),
+        400,
+      );
+    }
+  }
+
   // Validate repo type if provided
   if (body.repoType && body.repoType !== "git" && body.repoType !== "fossil") {
     return c.json(
@@ -298,6 +327,7 @@ export async function updateProjectHandler(
       ...(body.instructions !== undefined && {
         instructions: body.instructions,
       }),
+      ...("clonePort" in body && { clonePort: body.clonePort }),
     });
 
     return c.json(

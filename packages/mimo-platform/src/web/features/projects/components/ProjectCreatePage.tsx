@@ -107,6 +107,22 @@ export const ProjectCreatePage: FC<ProjectCreateProps> = ({
           </div>
 
           <div class="form-group">
+            <label>Clone Port (optional)</label>
+            <input
+              type="number"
+              name="clonePort"
+              placeholder="22"
+              min="1"
+              max="65535"
+              data-help-id="project-create-page-clone-port-input"
+            />
+            <small class="form-help">
+              Port the remote Git server listens on (default: 22). Set when the
+              server uses a non-standard port, e.g. 3022.
+            </small>
+          </div>
+
+          <div class="form-group">
             <label>Source Branch (optional)</label>
             <input
               type="text"
