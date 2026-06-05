@@ -1311,6 +1311,14 @@ function handleWebSocketMessage(data) {
     case "impact_error":
       handleImpactError(data);
       break;
+    case "file_list_invalidated":
+      if (
+        window.EditBuffer &&
+        typeof window.EditBuffer.invalidateFileList === "function"
+      ) {
+        window.EditBuffer.invalidateFileList();
+      }
+      break;
   }
 }
 

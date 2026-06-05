@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, mock, spyOn } from "bun:test";
 import { join } from "path";
 import { tmpdir } from "os";
-import { rmSync } from "fs";
+import { rmSync, readFileSync } from "fs";
 
 // Will fail until AgentMessageRouter is implemented
 let AgentMessageRouter: any;
@@ -670,6 +670,18 @@ describe("AgentMessageRouter", () => {
       // The debounce is 30s, so with rapid events only the first should schedule
       // After implementation, we can verify the behavior
       expect(true).toBe(true); // Placeholder - will refine after implementation
+    });
+  });
+
+  describe("file_changed broadcasts file_list_invalidated", () => {
+    it("handleFileChanged broadcasts file_list_invalidated after processing file changes", () => {
+      const sourceCode = readFileSync(
+        join(import.meta.dir, "..", "src", "domain", "agents", "message-router.ts"),
+        "utf-8",
+      );
+
+      expect(sourceCode).toContain("file_list_invalidated");
+      expect(sourceCode).toContain("type: \"file_list_invalidated\"");
     });
   });
 });

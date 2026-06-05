@@ -638,6 +638,12 @@ export class AgentMessageRouter {
       sessionId,
       changes,
     );
+
+    this.deps.broadcast(sessionId, {
+      type: "file_list_invalidated",
+      sessionId,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   private handleSessionError(data: any): void {

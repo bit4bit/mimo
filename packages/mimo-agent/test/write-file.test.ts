@@ -66,6 +66,9 @@ describe("write_file message handler", () => {
     const dir = join(fullPath, "..").replace(/\\/g, "/");
 
     try {
+      // Check if file already exists before writing
+      const isNew = !existsSync(fullPath);
+
       // Ensure parent directory exists
       if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
@@ -84,7 +87,7 @@ describe("write_file message handler", () => {
       sendFn({
         type: "file_changed",
         sessionId,
-        files: [{ path: filePath, isNew: false, deleted: false }],
+        files: [{ path: filePath, isNew, deleted: false }],
         timestamp: new Date().toISOString(),
       });
     } catch (err) {
@@ -125,7 +128,7 @@ describe("write_file message handler", () => {
       expect(sentMessages[0].timestamp).toBeDefined();
     });
 
-    it("sends file_changed after writing so the platform sync picks up the change", async () => {
+    it("sends file_changed with isNew: true when writing a new file", async () => {
       const sessionId = "test-session-1b";
       const checkoutPath = join(tempDir, sessionId);
       mkdirSync(checkoutPath, { recursive: true });
@@ -145,7 +148,7 @@ describe("write_file message handler", () => {
       expect(fileChanged.sessionId).toBe(sessionId);
       expect(Array.isArray(fileChanged.files)).toBe(true);
       expect(fileChanged.files[0].path).toBe(filePath);
-      expect(fileChanged.files[0].isNew).toBe(false);
+      expect(fileChanged.files[0].isNew).toBe(true);
       expect(fileChanged.files[0].deleted).toBe(false);
     });
 
@@ -202,6 +205,34 @@ describe("write_file message handler", () => {
       // Verify file was overwritten
       expect(readFileSync(fullPath, "utf-8")).toBe(newContent);
       expect(sentMessages[0].type).toBe("file_written");
+    });
+
+    it("sends file_changed with isNew: false when overwriting an existing file", async () => {
+      const sessionId = "test-session-3b";
+      const checkoutPath = join(tempDir, sessionId);
+      mkdirSync(checkoutPath, { recursive: true });
+      sessionManager.addSession(sessionId, checkoutPath);
+
+      const filePath = "existing-file.ts";
+      const initialContent = "old content";
+      const newContent = "new content";
+
+      // Create initial file
+      const fullPath = join(checkoutPath, filePath);
+      const { writeFileSync } = await import("fs");
+      writeFileSync(fullPath, initialContent, "utf-8");
+
+      await handleWriteFile(
+        { sessionId, filePath, content: newContent },
+        sessionManager,
+        (msg) => sentMessages.push(msg),
+      );
+
+      const fileChanged = sentMessages.find((m) => m.type === "file_changed");
+      expect(fileChanged).toBeDefined();
+      expect(fileChanged.files[0].path).toBe(filePath);
+      expect(fileChanged.files[0].isNew).toBe(false);
+      expect(fileChanged.files[0].deleted).toBe(false);
     });
 
     it("handles empty content", async () => {

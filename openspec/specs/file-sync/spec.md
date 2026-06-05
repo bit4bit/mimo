@@ -2,7 +2,7 @@
 
 ### Requirement: Agent reports file changes to platform
 
-The system SHALL receive file change notifications from mimo-agent.
+The system SHALL receive file change notifications from mimo-agent. For newly created files, the `isNew` field SHALL be `true`.
 
 #### Scenario: Single file change
 
@@ -18,9 +18,15 @@ The system SHALL receive file change notifications from mimo-agent.
 
 #### Scenario: New file created
 
-- **WHEN** agent creates new file "src/new.ts"
-- **THEN** mimo-agent sends message: {type: "file_changed", files: ["src/new.ts"], is_new: true}
+- **WHEN** agent creates new file "src/new.ts" that does not exist on disk before the write
+- **THEN** mimo-agent sends message: {type: "file_changed", files: ["src/new.ts"], isNew: true}
 - **AND** platform marks file with [?] indicator
+
+#### Scenario: Existing file overwritten
+
+- **WHEN** agent writes to an existing file "src/existing.ts"
+- **THEN** mimo-agent sends message: {type: "file_changed", files: ["src/existing.ts"], isNew: false}
+- **AND** platform marks file with [M] indicator
 
 ### Requirement: Platform synchronizes changes to original repository
 

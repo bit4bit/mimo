@@ -1247,6 +1247,11 @@
     return true;
   }
 
+  function invalidateFileList() {
+    fileFinderLoaded = false;
+    allFiles = [];
+  }
+
   function loadFileList(pattern) {
     const sessionId = getSessionId();
     if (!sessionId) return;
@@ -2084,6 +2089,7 @@
     window.EditBuffer = {
       openFileFinder: openFileFinder,
       closeFileFinder: closeFileFinder,
+      invalidateFileList: invalidateFileList,
       isFileFinderOpen: isFileFinderOpen,
       openContentFinder: openContentFinder,
       closeContentFinder: closeContentFinder,

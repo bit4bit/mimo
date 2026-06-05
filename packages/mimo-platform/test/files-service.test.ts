@@ -4,6 +4,7 @@ import {
   findFiles,
   applyIgnorePatterns,
   loadIgnorePatterns,
+  createFileService,
 } from "../src/domain/files/service.js";
 import {
   detectLanguage,
@@ -12,6 +13,11 @@ import {
 import { createOS } from "../src/infrastructure/os/node-adapter.js";
 import { isExcluded } from "../src/domain/files/path-policy.js";
 import type { FileInfo } from "../src/domain/files/types.js";
+import {
+  createMockOS,
+  MockFileSystem,
+  MockCommandRunner,
+} from "../src/infrastructure/os/mock-adapter.js";
 
 // --- matchesPattern ---
 
@@ -263,5 +269,125 @@ describe("escapeHtml", () => {
 
   it("leaves plain text unchanged", () => {
     expect(escapeHtml("hello world")).toBe("hello world");
+  });
+});
+
+// --- listFiles (filesystem walk) ---
+
+describe("createFileService listFiles", () => {
+  it("returns files not tracked by VCS (new file on disk appears in listing)", async () => {
+    const fs = new MockFileSystem();
+    fs.seed({
+      "/workspace/src": null,
+      "/workspace/src/new-feature.ts": "export const x = 1;",
+      "/workspace/src/existing.ts": "export const y = 2;",
+    });
+    const os = createMockOS();
+    os.fs = fs;
+    const service = createFileService(os);
+    const files = await service.listFiles("/workspace");
+    const paths = files.map((f: FileInfo) => f.path);
+    expect(paths).toContain("src/new-feature.ts");
+    expect(paths).toContain("src/existing.ts");
+  });
+
+  it("excludes VCS-internal directories from listing", async () => {
+    const fs = new MockFileSystem();
+    fs.seed({
+      "/workspace/src": null,
+      "/workspace/src/main.ts": "content",
+      "/workspace/.git": null,
+      "/workspace/.git/config": "gitconfig",
+      "/workspace/.fossil": null,
+      "/workspace/.fossil/some-db": "fossil-data",
+      "/workspace/.fslckout": null,
+    });
+    const os = createMockOS();
+    os.fs = fs;
+    const service = createFileService(os);
+    const files = await service.listFiles("/workspace");
+    const paths = files.map((f: FileInfo) => f.path);
+    expect(paths).toContain("src/main.ts");
+    expect(paths).not.toContain(".git/config");
+    expect(paths).not.toContain(".git");
+    expect(paths).not.toContain(".fossil/some-db");
+    expect(paths).not.toContain(".fslckout");
+  });
+
+  it("respects .gitignore and .mimoignore patterns", async () => {
+    const fs = new MockFileSystem();
+    fs.seed({
+      "/workspace/src": null,
+      "/workspace/src/app.ts": "content",
+      "/workspace/dist": null,
+      "/workspace/dist/bundle.js": "bundled",
+      "/workspace/node_modules": null,
+      "/workspace/node_modules/lodash": null,
+      "/workspace/node_modules/lodash/index.js": "lodash",
+      "/workspace/.gitignore": "dist/\nnode_modules/\n",
+      "/workspace/.mimoignore": "*.log\n",
+      "/workspace/debug.log": "log content",
+    });
+    const os = createMockOS();
+    os.fs = fs;
+    const service = createFileService(os);
+    const files = await service.listFiles("/workspace");
+    const paths = files.map((f: FileInfo) => f.path);
+    expect(paths).toContain("src/app.ts");
+    expect(paths).not.toContain("dist/bundle.js");
+    expect(paths).not.toContain("node_modules/lodash/index.js");
+    expect(paths).not.toContain("debug.log");
+  });
+
+  it("does not return deleted files", async () => {
+    const fs = new MockFileSystem();
+    fs.seed({
+      "/workspace/src": null,
+      "/workspace/src/alive.ts": "content",
+      "/workspace/src/old.ts": "old content",
+    });
+    const os = createMockOS();
+    os.fs = fs;
+    const service = createFileService(os);
+
+    let files = await service.listFiles("/workspace");
+    let paths = files.map((f: FileInfo) => f.path);
+    expect(paths).toContain("src/alive.ts");
+    expect(paths).toContain("src/old.ts");
+
+    fs.unlink("/workspace/src/old.ts");
+
+    files = await service.listFiles("/workspace");
+    paths = files.map((f: FileInfo) => f.path);
+    expect(paths).toContain("src/alive.ts");
+    expect(paths).not.toContain("src/old.ts");
+  });
+
+  it("returns empty array for nonexistent workspace", async () => {
+    const os = createMockOS();
+    const service = createFileService(os);
+    const files = await service.listFiles("/nonexistent/workspace");
+    expect(files).toEqual([]);
+  });
+
+  it("prunes ignored directories during walk without descending into them", async () => {
+    const fs = new MockFileSystem();
+    fs.seed({
+      "/workspace/src": null,
+      "/workspace/src/app.ts": "content",
+      "/workspace/node_modules": null,
+      "/workspace/node_modules/lodash": null,
+      "/workspace/node_modules/lodash/index.js": "lodash",
+      "/workspace/node_modules/lodash/package.json": "{}",
+      "/workspace/.gitignore": "node_modules/\n",
+    });
+    const os = createMockOS();
+    os.fs = fs;
+    const service = createFileService(os);
+    const files = await service.listFiles("/workspace");
+    const paths = files.map((f: FileInfo) => f.path);
+    expect(paths).toContain("src/app.ts");
+    expect(paths).not.toContain("node_modules/lodash/index.js");
+    expect(paths).not.toContain("node_modules/lodash/package.json");
   });
 });

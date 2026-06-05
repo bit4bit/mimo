@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { FileInfo, FileService } from "./types.js";
-import type { OS } from "../../infrastructure/os/types.js";
+import type { DirEnt, OS } from "../../infrastructure/os/types.js";
 import { isExcluded } from "./path-policy.js";
 
 export function loadIgnorePatterns(workspacePath: string, os: OS): string[] {
@@ -150,15 +150,48 @@ export function findFiles(pattern: string, files: FileInfo[]): FileInfo[] {
     .map((entry) => entry.file);
 }
 
-async function fossilLs(workspacePath: string, os: OS): Promise<string[]> {
-  const result = await os.command.run(["fossil", "ls"], { cwd: workspacePath });
-  if (!result.success) {
-    return [];
+function isDirIgnoredByPatterns(
+  dirRelPath: string,
+  patterns: string[],
+): boolean {
+  for (const raw of patterns) {
+    if (raw.startsWith("!")) continue;
+    const p = raw.trim();
+    if (!p || p.startsWith("#")) continue;
+    const stripped = p.endsWith("/") ? p.slice(0, -1) : p;
+    if (stripped.includes("/")) continue;
+    if (matchesPart(stripped, dirRelPath.split("/").pop()!)) return true;
   }
-  return result.output
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
+  return false;
+}
+
+async function walkDir(
+  dirPath: string,
+  os: OS,
+  basePath: string,
+  results: string[],
+  ignorePatterns: string[],
+): Promise<void> {
+  const normalizedBase = basePath.replace(/\\/g, "/");
+  let entries: DirEnt[];
+  try {
+    entries = os.fs.readdir(dirPath, { withFileTypes: true }) as DirEnt[];
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const entryName = entry.name;
+    if (entry.isDirectory()) {
+      const relDir = normalizedBase ? `${normalizedBase}/${entryName}` : entryName;
+      if (isExcluded(relDir)) continue;
+      if (isDirIgnoredByPatterns(relDir, ignorePatterns)) continue;
+      await walkDir(os.path.join(dirPath, entryName), os, relDir, results, ignorePatterns);
+    } else if (entry.isFile()) {
+      const relPath = normalizedBase ? `${normalizedBase}/${entryName}` : entryName;
+      if (isExcluded(relPath)) continue;
+      results.push(relPath);
+    }
+  }
 }
 
 export function createFileService(
@@ -168,18 +201,17 @@ export function createFileService(
   return {
     listFiles: async (workspacePath: string): Promise<FileInfo[]> => {
       if (!os.fs.exists(workspacePath)) return [];
-      const paths = await fossilLs(workspacePath, os);
-      const all = paths
-        .filter((p) => !isExcluded(p))
-        .map((p) => ({
-          path: p,
-          name: getBasename(p),
-          size: 0,
-        }));
       const patterns = [
         ...additionalPatterns,
         ...loadIgnorePatterns(workspacePath, os),
       ];
+      const paths: string[] = [];
+      await walkDir(workspacePath, os, "", paths, patterns);
+      const all = paths.map((p) => ({
+        path: p,
+        name: getBasename(p),
+        size: 0,
+      }));
       return applyIgnorePatterns(all, patterns);
     },
     readFile: async (

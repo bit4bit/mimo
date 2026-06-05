@@ -2370,6 +2370,9 @@ export class MimoAgent {
     const dir = this.os.path.join(fullPath, "..").replace(/\\/g, "/");
 
     try {
+      // Check if file already exists before writing
+      const isNew = !(await this.os.fs.exists(fullPath));
+
       // Ensure parent directory exists
       if (!(await this.os.fs.exists(dir))) {
         await this.os.fs.mkdir(dir, { recursive: true });
@@ -2388,7 +2391,7 @@ export class MimoAgent {
       this.send({
         type: "file_changed",
         sessionId,
-        files: [{ path: filePath, isNew: false, deleted: false }],
+        files: [{ path: filePath, isNew, deleted: false }],
         timestamp: new Date().toISOString(),
       });
     } catch (err) {
