@@ -551,7 +551,9 @@ describe("Session Management Integration Tests", () => {
           "Content-Type": "application/x-www-form-urlencoded",
           Cookie: `token=${token}`,
         },
-        body: new URLSearchParams({ name: "Notification Test Session" }).toString(),
+        body: new URLSearchParams({
+          name: "Notification Test Session",
+        }).toString(),
       });
 
       expect(res.status).toBe(302);
@@ -582,7 +584,9 @@ describe("Session Management Integration Tests", () => {
           "Content-Type": "application/x-www-form-urlencoded",
           Cookie: `token=${token}`,
         },
-        body: new URLSearchParams({ name: "Notification Patch Session" }).toString(),
+        body: new URLSearchParams({
+          name: "Notification Patch Session",
+        }).toString(),
       });
 
       expect(res.status).toBe(302);
@@ -686,7 +690,10 @@ describe("Session Management Integration Tests", () => {
         "session.yaml",
       );
 
-      const yamlData = (load(readFileSync(sessionPath, "utf-8")) as Record<string, unknown>)!;
+      const yamlData = (load(readFileSync(sessionPath, "utf-8")) as Record<
+        string,
+        unknown
+      >)!;
       delete yamlData.browserNotificationsEnabled;
       writeFileSync(sessionPath, dump(yamlData), "utf-8");
 

@@ -15,9 +15,7 @@ describe("Chat @ mention detection", () => {
 
   it("prevents default on @ keypress to suppress character insertion", () => {
     // The function must call e.preventDefault() before opening file finder
-    const fnMatch = source.match(
-      /function handleAtMentionKeydown[\s\S]*?^}/m,
-    );
+    const fnMatch = source.match(/function handleAtMentionKeydown[\s\S]*?^}/m);
     expect(fnMatch).toBeTruthy();
     const fnBody = fnMatch![0];
     expect(fnBody).toContain("e.preventDefault()");
@@ -28,9 +26,7 @@ describe("Chat @ mention detection", () => {
   });
 
   it("opens file finder in mention mode with onSelect callback", () => {
-    expect(source).toContain(
-      'window.openFileFinder("", {',
-    );
+    expect(source).toContain('window.openFileFinder("", {');
     expect(source).toContain('mode: "mention"');
     expect(source).toContain("onSelect: function (file)");
   });

@@ -9,7 +9,9 @@ describe("EditBuffer file finder mention mode", () => {
   );
 
   it("openFileFinder accepts options parameter with mode and onSelect", () => {
-    expect(source).toContain("function openFileFinder(initialPattern, options)");
+    expect(source).toContain(
+      "function openFileFinder(initialPattern, options)",
+    );
     expect(source).toContain('options.mode === "mention"');
     expect(source).toContain("options.onSelect");
   });

@@ -1209,7 +1209,11 @@
     const pattern = isEventObject ? "" : String(initialPattern || "");
 
     // Store callback mode state
-    if (options && options.mode === "mention" && typeof options.onSelect === "function") {
+    if (
+      options &&
+      options.mode === "mention" &&
+      typeof options.onSelect === "function"
+    ) {
       fileFinderMode = "mention";
       fileFinderOnSelect = options.onSelect;
     } else {
@@ -1333,7 +1337,10 @@
           return f.path === path;
         });
         if (!file) return;
-        if (fileFinderMode === "mention" && typeof fileFinderOnSelect === "function") {
+        if (
+          fileFinderMode === "mention" &&
+          typeof fileFinderOnSelect === "function"
+        ) {
           var callback = fileFinderOnSelect;
           closeFileFinder();
           callback(file);
@@ -1373,7 +1380,10 @@
   function confirmSelection() {
     const file = filteredFiles[selectedResultIndex];
     if (!file) return;
-    if (fileFinderMode === "mention" && typeof fileFinderOnSelect === "function") {
+    if (
+      fileFinderMode === "mention" &&
+      typeof fileFinderOnSelect === "function"
+    ) {
       const callback = fileFinderOnSelect;
       closeFileFinder();
       callback(file);

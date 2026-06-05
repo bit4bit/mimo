@@ -185,6 +185,7 @@ export async function createProjectHandler(
         repoUrl: project.repoUrl,
         repoType: project.repoType,
         credential: credential ?? undefined,
+        clonePort: project.clonePort ?? undefined,
       });
 
     if (warmCacheSync) {

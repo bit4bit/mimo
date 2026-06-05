@@ -12,12 +12,15 @@ import { resetGlobalState } from "./test-helpers.js";
 let testHome: string;
 
 async function setupContext() {
-  testHome = join(tmpdir(), `mimo-bn-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  testHome = join(
+    tmpdir(),
+    `mimo-bn-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  );
   const ctx = createMimoContext({
     env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
     services: { sharedFossil: new DummySharedFossilServer() },
   });
-  
+
   // Mock VCS to avoid actual git/fossil operations
   ctx.services.vcs.cloneRepository = async () => ({ success: true });
   ctx.services.vcs.importToFossil = async () => ({ success: true });
@@ -27,8 +30,11 @@ async function setupContext() {
   ctx.services.vcs.openFossil = async () => ({ success: true });
   ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });
   ctx.services.vcs.createFossilUser = async () => ({ success: true });
-  ctx.services.vcs.getCurrentBranch = async () => ({ success: true, branch: "main" });
-  
+  ctx.services.vcs.getCurrentBranch = async () => ({
+    success: true,
+    branch: "main",
+  });
+
   return ctx;
 }
 
@@ -44,7 +50,10 @@ describe("Browser Notification Session Config", () => {
 
   it("should default browserNotificationsEnabled to false on new session", async () => {
     const ctx = await setupContext();
-    await ctx.repos.users.create("testuser", await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }));
+    await ctx.repos.users.create(
+      "testuser",
+      await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+    );
     const project = await ctx.repos.projects.create({
       name: "Test Project",
       repoUrl: "https://github.com/user/repo.git",
@@ -63,7 +72,10 @@ describe("Browser Notification Session Config", () => {
 
   it("should update browserNotificationsEnabled via updateSessionConfig", async () => {
     const ctx = await setupContext();
-    await ctx.repos.users.create("testuser", await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }));
+    await ctx.repos.users.create(
+      "testuser",
+      await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+    );
     const project = await ctx.repos.projects.create({
       name: "Test Project",
       repoUrl: "https://github.com/user/repo.git",
@@ -87,7 +99,10 @@ describe("Browser Notification Session Config", () => {
 
   it("should include browserNotificationsEnabled in toSessionResponse", async () => {
     const ctx = await setupContext();
-    await ctx.repos.users.create("testuser", await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }));
+    await ctx.repos.users.create(
+      "testuser",
+      await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+    );
     const project = await ctx.repos.projects.create({
       name: "Test Project",
       repoUrl: "https://github.com/user/repo.git",
@@ -101,14 +116,18 @@ describe("Browser Notification Session Config", () => {
       owner: "testuser",
     });
 
-    const { toSessionResponse } = await import("../src/api/rest/sessions/types.js");
+    const { toSessionResponse } =
+      await import("../src/api/rest/sessions/types.js");
     const response = toSessionResponse(session);
     expect(response.browserNotificationsEnabled).toBe(false);
   });
 
   it("should handle sessions without browserNotificationsEnabled field", async () => {
     const ctx = await setupContext();
-    await ctx.repos.users.create("testuser", await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }));
+    await ctx.repos.users.create(
+      "testuser",
+      await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+    );
     const project = await ctx.repos.projects.create({
       name: "Test Project",
       repoUrl: "https://github.com/user/repo.git",
@@ -123,8 +142,17 @@ describe("Browser Notification Session Config", () => {
     });
 
     // Manually remove the field from the yaml to simulate legacy sessions
-    const sessionPath = join(ctx.repos.sessions.getProjectsPath(), project.id, "sessions", session.id, "session.yaml");
-    const yamlData = load(readFileSync(sessionPath, "utf-8")) as Record<string, unknown>;
+    const sessionPath = join(
+      ctx.repos.sessions.getProjectsPath(),
+      project.id,
+      "sessions",
+      session.id,
+      "session.yaml",
+    );
+    const yamlData = load(readFileSync(sessionPath, "utf-8")) as Record<
+      string,
+      unknown
+    >;
     delete yamlData.browserNotificationsEnabled;
     writeFileSync(sessionPath, dump(yamlData), "utf-8");
 
@@ -135,7 +163,10 @@ describe("Browser Notification Session Config", () => {
 
   it("should reject non-boolean browserNotificationsEnabled in updateSessionConfig", async () => {
     const ctx = await setupContext();
-    await ctx.repos.users.create("testuser", await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }));
+    await ctx.repos.users.create(
+      "testuser",
+      await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+    );
     const project = await ctx.repos.projects.create({
       name: "Test Project",
       repoUrl: "https://github.com/user/repo.git",

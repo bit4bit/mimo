@@ -1663,7 +1663,8 @@ export function createSessionsRoutes(
           idleTimeoutMs: updatedSession.idleTimeoutMs,
           sessionTtlDays: updatedSession.sessionTtlDays,
           acpStatus: updatedSession.acpStatus,
-          browserNotificationsEnabled: updatedSession.browserNotificationsEnabled,
+          browserNotificationsEnabled:
+            updatedSession.browserNotificationsEnabled,
         },
       });
     } catch (error) {
@@ -1741,7 +1742,7 @@ export function createSessionsRoutes(
       streamingTimeoutMs = configResult.data.config.streamingTimeoutMs ?? 30000;
     }
 
-      return c.html(
+    return c.html(
       <SessionSettingsPage
         session={{
           id: session.id,

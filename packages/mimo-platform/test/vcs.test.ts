@@ -92,7 +92,14 @@ describe("VCS Integration Tests", () => {
         path: os.path,
       };
       const vcs = new VCS({ os: mockOs as any });
-      await vcs.pushUpstream("/tmp/upstream", "git", undefined, undefined, undefined, 3022);
+      await vcs.pushUpstream(
+        "/tmp/upstream",
+        "git",
+        undefined,
+        undefined,
+        undefined,
+        3022,
+      );
       const sshEnv = capturedEnvs.find((e) => e?.GIT_SSH_COMMAND);
       expect(sshEnv?.GIT_SSH_COMMAND).toBeDefined();
       expect(sshEnv?.GIT_SSH_COMMAND).toContain("-p 3022");

@@ -153,7 +153,10 @@ export class VCS {
     if (keyPath) {
       parts.push(`-i "${keyPath}"`, "-o IdentitiesOnly=yes");
     }
-    parts.push("-o StrictHostKeyChecking=no", "-o UserKnownHostsFile=/dev/null");
+    parts.push(
+      "-o StrictHostKeyChecking=no",
+      "-o UserKnownHostsFile=/dev/null",
+    );
     if (clonePort != null) {
       parts.push(`-p ${clonePort}`);
     }

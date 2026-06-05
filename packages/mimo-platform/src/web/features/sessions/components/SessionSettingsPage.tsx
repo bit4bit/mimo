@@ -291,7 +291,8 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
               Browser notifications
             </label>
             <p class="form-help">
-              Show a desktop notification when the agent responds while this tab is not visible.
+              Show a desktop notification when the agent responds while this tab
+              is not visible.
             </p>
             <p
               id="browser-notifications-permission-msg"
@@ -300,7 +301,9 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
             ></p>
           </div>
 
-          <script dangerouslySetInnerHTML={{ __html: `
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
             (function () {
               const toggle = document.getElementById('browser-notifications-toggle');
               const msg = document.getElementById('browser-notifications-permission-msg');
@@ -359,7 +362,9 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
                 }
               });
             })();
-          `}} />
+          `,
+            }}
+          />
 
           <div class="actions">
             <button

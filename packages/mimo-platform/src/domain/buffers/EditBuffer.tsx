@@ -45,7 +45,11 @@ export const EditBuffer: FC<EditBufferProps> = ({ sessionId }) => {
         id="edit-buffer-context"
         style="display: none; padding: 8px 12px; background: #252525; border-bottom: 1px solid #444; flex-direction: row; gap: 12px; align-items: center; flex-shrink: 0; font-size: 12px; color: #888;"
       >
-        <span id="edit-buffer-filepath" style="color: #d4d4d4;" title="Click to copy filepath"></span>
+        <span
+          id="edit-buffer-filepath"
+          style="color: #d4d4d4;"
+          title="Click to copy filepath"
+        ></span>
         <span id="edit-buffer-linecount"></span>
         <span id="edit-buffer-language"></span>
         {/* Expert mode toggle button */}

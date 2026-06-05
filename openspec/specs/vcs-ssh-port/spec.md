@@ -55,7 +55,11 @@ The system SHALL validate a submitted SSH port as an integer in the range 1 to
 
 The system SHALL inject `-p <port>` into the `ssh` command used for Git
 operations whenever an effective SSH port is configured, and SHALL build that
-command when either an SSH key credential or an SSH port is present.
+command when either an SSH key credential or an SSH port is present. This
+applies to the project-level VCS cache operations (`refresh` and the
+cache-backed `git clone --reference`) as well as direct clones; a configured
+SSH port SHALL NOT be silently dropped when an operation is served by the
+cache.
 
 #### Scenario: Port injected with an SSH key
 
@@ -71,3 +75,14 @@ command when either an SSH key credential or an SSH port is present.
 
 - **WHEN** an SSH-key credential is provided and no SSH port is set
 - **THEN** the SSH command includes `-i <keyfile>` and does not include `-p`
+
+#### Scenario: Port honored when refreshing the project cache
+
+- **WHEN** a project with a custom SSH port is pre-warmed or refreshed and the cache performs `git clone --bare` / `git fetch`
+- **THEN** the SSH command used for the cache operation includes `-p <port>`
+- **AND** the cache connects to the configured port rather than defaulting to 22
+
+#### Scenario: Port honored when cloning from the cache
+
+- **WHEN** a session clones from the project cache via `git clone --reference <cache> <repoUrl> <target>` and a custom SSH port is configured
+- **THEN** the SSH command for the cache-backed clone includes `-p <port>`

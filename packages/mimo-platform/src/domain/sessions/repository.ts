@@ -388,7 +388,8 @@ export class SessionRepository {
               chatThreads,
               activeChatThreadId,
               mcpToken: data.mcpToken ?? "",
-              browserNotificationsEnabled: data.browserNotificationsEnabled ?? false,
+              browserNotificationsEnabled:
+                data.browserNotificationsEnabled ?? false,
             };
             return {
               ...sessionData,
@@ -483,7 +484,8 @@ export class SessionRepository {
             chatThreads,
             activeChatThreadId,
             mcpToken: data.mcpToken ?? "",
-            browserNotificationsEnabled: data.browserNotificationsEnabled ?? false,
+            browserNotificationsEnabled:
+              data.browserNotificationsEnabled ?? false,
           };
           sessions.push({
             ...sessionData,
@@ -570,7 +572,8 @@ export class SessionRepository {
                   chatThreads,
                   activeChatThreadId,
                   mcpToken: data.mcpToken ?? "",
-                  browserNotificationsEnabled: data.browserNotificationsEnabled ?? false,
+                  browserNotificationsEnabled:
+                    data.browserNotificationsEnabled ?? false,
                 };
                 if (data.assignedAgentId === agentId) {
                   sessions.push({
@@ -643,7 +646,8 @@ export class SessionRepository {
           chatThreads,
           activeChatThreadId,
           mcpToken: data.mcpToken ?? "",
-          browserNotificationsEnabled: data.browserNotificationsEnabled ?? false,
+          browserNotificationsEnabled:
+            data.browserNotificationsEnabled ?? false,
           createdAt: new Date(data.createdAt),
           updatedAt: new Date(data.updatedAt),
         });

@@ -21,6 +21,7 @@ export interface RefreshParams {
   repoUrl: string;
   repoType: RepoType;
   credential?: Credential;
+  clonePort?: number;
 }
 
 export interface ProjectVcsCache {
@@ -69,8 +70,16 @@ async function withProjectLock<T>(
   }
 }
 
-function buildGitSshCommand(sshKeyPath: string): string {
-  return `ssh -i \"${sshKeyPath}\" -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`;
+function buildGitSshCommand(sshKeyPath?: string, clonePort?: number): string {
+  const parts = ["ssh"];
+  if (sshKeyPath) {
+    parts.push(`-i "${sshKeyPath}"`, "-o IdentitiesOnly=yes");
+  }
+  parts.push("-o StrictHostKeyChecking=no", "-o UserKnownHostsFile=/dev/null");
+  if (clonePort != null) {
+    parts.push(`-p ${clonePort}`);
+  }
+  return parts.join(" ");
 }
 
 function normalizePrivateKey(privateKey: string): string {
@@ -145,6 +154,48 @@ class GitCacheEngine implements CacheEngine {
     private readonly projectsPath: string,
   ) {}
 
+  private async withSshEnv<T>(
+    credential: Credential | undefined,
+    projectId: string,
+    clonePort: number | undefined,
+    fn: (env: Record<string, string> | undefined) => Promise<T>,
+  ): Promise<T> {
+    if (credential?.type !== "ssh" && clonePort == null) {
+      return fn(undefined);
+    }
+
+    let sshKeyPath: string | undefined;
+    if (credential?.type === "ssh") {
+      sshKeyPath = this.os.path.join(
+        this.os.path.tempDir(),
+        `mimo-cache-key-${projectId}-${Date.now()}`,
+      );
+      this.os.fs.writeFile(
+        sshKeyPath,
+        normalizePrivateKey(credential.privateKey),
+        { mode: 0o600, encoding: "utf-8" },
+      );
+      this.os.fs.chmod(sshKeyPath, 0o600);
+    }
+
+    const parentEnv = this.os.env.getAll();
+    const filteredParent = Object.fromEntries(
+      Object.entries(parentEnv).filter(([, v]) => v !== undefined),
+    ) as Record<string, string>;
+    const env = {
+      ...filteredParent,
+      GIT_SSH_COMMAND: buildGitSshCommand(sshKeyPath, clonePort),
+    };
+
+    try {
+      return await fn(env);
+    } finally {
+      if (sshKeyPath && this.os.fs.exists(sshKeyPath)) {
+        this.os.fs.unlink(sshKeyPath);
+      }
+    }
+  }
+
   async refresh(
     params: RefreshParams,
   ): Promise<{ success: boolean; error?: string }> {
@@ -158,98 +209,70 @@ class GitCacheEngine implements CacheEngine {
 
     return withProjectLock(this.os, projectPath, async () => {
       let url = params.repoUrl;
-      let env: Record<string, string> | undefined;
-      let sshKeyPath: string | null = null;
-
-      if (params.credential) {
-        if (params.credential.type === "https" && !isSshUrl(params.repoUrl)) {
-          url = injectHttpsCredentials(params.repoUrl, params.credential);
-        } else if (
-          params.credential.type === "ssh" &&
-          isSshUrl(params.repoUrl)
-        ) {
-          sshKeyPath = this.os.path.join(
-            this.os.path.tempDir(),
-            `mimo-cache-key-${params.projectId}-${Date.now()}`,
-          );
-          this.os.fs.writeFile(
-            sshKeyPath,
-            normalizePrivateKey(params.credential.privateKey),
-            {
-              mode: 0o600,
-              encoding: "utf-8",
-            },
-          );
-          this.os.fs.chmod(sshKeyPath, 0o600);
-          env = { GIT_SSH_COMMAND: buildGitSshCommand(sshKeyPath) };
-        }
+      if (params.credential?.type === "https" && !isSshUrl(params.repoUrl)) {
+        url = injectHttpsCredentials(params.repoUrl, params.credential);
       }
 
-      try {
-        if (!this.os.fs.exists(cachePath)) {
-          logger.info("[cache] creating git cache", {
-            projectId: params.projectId,
-          });
-          const clone = await this.os.command.run(
-            ["git", "clone", "--bare", url, cachePath],
-            {
-              env,
-              timeoutMs: 300000,
-            },
-          );
-          if (!clone.success) {
-            return {
-              success: false,
-              error: clone.error || "Failed to create git cache",
-            };
+      return this.withSshEnv(
+        params.credential,
+        params.projectId,
+        params.clonePort,
+        async (env) => {
+          if (!this.os.fs.exists(cachePath)) {
+            logger.info("[cache] creating git cache", {
+              projectId: params.projectId,
+            });
+            const clone = await this.os.command.run(
+              ["git", "clone", "--bare", url, cachePath],
+              { env, timeoutMs: 300000 },
+            );
+            if (!clone.success) {
+              return {
+                success: false,
+                error: clone.error || "Failed to create git cache",
+              };
+            }
+            return { success: true };
           }
-          return { success: true };
-        }
 
-        const fsck = await this.os.command.run(["git", "fsck"], {
-          cwd: cachePath,
-          env,
-          timeoutMs: 120000,
-        });
-        if (!fsck.success) {
-          logger.warn("[cache] git cache corruption detected", {
+          const fsck = await this.os.command.run(["git", "fsck"], {
+            cwd: cachePath,
+            env,
+            timeoutMs: 120000,
+          });
+          if (!fsck.success) {
+            logger.warn("[cache] git cache corruption detected", {
+              projectId: params.projectId,
+            });
+            await this.clear(params.projectId);
+            const reclone = await this.os.command.run(
+              ["git", "clone", "--bare", url, cachePath],
+              { env, timeoutMs: 300000 },
+            );
+            return reclone.success
+              ? { success: true }
+              : {
+                  success: false,
+                  error: reclone.error || "Failed to rebuild git cache",
+                };
+          }
+
+          logger.debug("[cache] refreshing git cache", {
             projectId: params.projectId,
           });
-          await this.clear(params.projectId);
-          const reclone = await this.os.command.run(
-            ["git", "clone", "--bare", url, cachePath],
-            {
-              env,
-              timeoutMs: 300000,
-            },
-          );
-          return reclone.success
+          const fetch = await this.os.command.run(["git", "fetch", "--all"], {
+            cwd: cachePath,
+            env,
+            timeoutMs: 180000,
+          });
+          return fetch.success
             ? { success: true }
             : {
                 success: false,
-                error: reclone.error || "Failed to rebuild git cache",
+                error: fetch.error || "Failed to refresh git cache",
               };
-        }
-
-        logger.debug("[cache] refreshing git cache", {
-          projectId: params.projectId,
-        });
-        const fetch = await this.os.command.run(["git", "fetch", "--all"], {
-          cwd: cachePath,
-          env,
-          timeoutMs: 180000,
-        });
-        return fetch.success
-          ? { success: true }
-          : {
-              success: false,
-              error: fetch.error || "Failed to refresh git cache",
-            };
-      } finally {
-        if (sshKeyPath && this.os.fs.exists(sshKeyPath)) {
-          this.os.fs.unlink(sshKeyPath);
-        }
-      }
+        },
+      );
     });
   }
 
@@ -262,19 +285,30 @@ class GitCacheEngine implements CacheEngine {
       params.projectId,
       "git",
     );
-    const args = ["git", "clone", "--reference", cachePath];
-    if (params.branch) {
-      args.push("--branch", params.branch);
-    }
-    args.push(params.repoUrl, params.targetPath);
 
-    const result = await this.os.command.run(args, { timeoutMs: 300000 });
-    return result.success
-      ? { success: true }
-      : {
-          success: false,
-          error: result.error || "Failed to clone from git cache",
-        };
+    return this.withSshEnv(
+      params.credential,
+      params.projectId,
+      params.clonePort,
+      async (env) => {
+        const args = ["git", "clone", "--reference", cachePath];
+        if (params.branch) {
+          args.push("--branch", params.branch);
+        }
+        args.push(params.repoUrl, params.targetPath);
+
+        const result = await this.os.command.run(args, {
+          env,
+          timeoutMs: 300000,
+        });
+        return result.success
+          ? { success: true }
+          : {
+              success: false,
+              error: result.error || "Failed to clone from git cache",
+            };
+      },
+    );
   }
 
   async clear(projectId: string): Promise<void> {
