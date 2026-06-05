@@ -1151,6 +1151,8 @@
   let filteredFiles = [];
   let selectedResultIndex = 0;
   let fileFinderLoaded = false;
+  let fileFinderMode = null;
+  let fileFinderOnSelect = null;
 
   function getSessionId() {
     const el = document.getElementById("edit-buffer-container");
@@ -1196,7 +1198,7 @@
     return Number.POSITIVE_INFINITY;
   }
 
-  function openFileFinder(initialPattern) {
+  function openFileFinder(initialPattern, options) {
     const dialog = document.getElementById("file-finder-dialog");
     if (!dialog) return false;
 
@@ -1205,6 +1207,15 @@
       typeof initialPattern === "object" &&
       typeof initialPattern.preventDefault === "function";
     const pattern = isEventObject ? "" : String(initialPattern || "");
+
+    // Store callback mode state
+    if (options && options.mode === "mention" && typeof options.onSelect === "function") {
+      fileFinderMode = "mention";
+      fileFinderOnSelect = options.onSelect;
+    } else {
+      fileFinderMode = null;
+      fileFinderOnSelect = null;
+    }
 
     dialog.style.display = "flex";
     const input = document.getElementById("file-finder-input");
@@ -1227,6 +1238,8 @@
     const dialog = document.getElementById("file-finder-dialog");
     if (!dialog) return false;
     dialog.style.display = "none";
+    fileFinderMode = null;
+    fileFinderOnSelect = null;
     return true;
   }
 
@@ -1319,7 +1332,14 @@
         const file = files.find(function (f) {
           return f.path === path;
         });
-        if (file) selectFile(file);
+        if (!file) return;
+        if (fileFinderMode === "mention" && typeof fileFinderOnSelect === "function") {
+          var callback = fileFinderOnSelect;
+          closeFileFinder();
+          callback(file);
+        } else {
+          selectFile(file);
+        }
       });
       el.addEventListener("mouseenter", function () {
         const idx = parseInt(el.getAttribute("data-index"), 10);
@@ -1352,7 +1372,14 @@
 
   function confirmSelection() {
     const file = filteredFiles[selectedResultIndex];
-    if (file) selectFile(file);
+    if (!file) return;
+    if (fileFinderMode === "mention" && typeof fileFinderOnSelect === "function") {
+      const callback = fileFinderOnSelect;
+      closeFileFinder();
+      callback(file);
+    } else {
+      selectFile(file);
+    }
   }
 
   // ── Content Finder ─────────────────────────────────────────────────────────────
@@ -2095,6 +2122,9 @@
         ExpertMode.centerFocusOnViewport();
       },
     };
+
+    // Expose openFileFinder on window for cross-module access (e.g. from chat.js)
+    window.openFileFinder = openFileFinder;
 
     // Wire "Open File" button
     const openBtn = document.getElementById("open-file-finder-btn");

@@ -2344,6 +2344,35 @@ function insertMessage(message) {
   scrollToBottom();
 }
 
+// @ mention: detect @ keypress and open file finder in mention mode
+function handleAtMentionKeydown(e, contentEl) {
+  if (e.key !== "@") return false;
+  e.preventDefault();
+
+  // Save cursor position before opening dialog
+  var savedRange = null;
+  var sel = window.getSelection();
+  if (sel && sel.rangeCount > 0) {
+    savedRange = sel.getRangeAt(0).cloneRange();
+  }
+
+  window.openFileFinder("", {
+    mode: "mention",
+    onSelect: function (file) {
+      // Restore cursor position and insert @file.path
+      contentEl.focus();
+      if (savedRange) {
+        var selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(savedRange);
+      }
+      document.execCommand("insertText", false, "@" + file.path);
+    },
+  });
+
+  return true;
+}
+
 // DOM: Insert editable bubble
 function insertEditableBubble() {
   const container = document.querySelector("#chat-messages");
@@ -2377,6 +2406,9 @@ function insertEditableBubble() {
   });
   content.addEventListener("keydown", (e) => {
     if (handleCommandPickerKeydown(e)) {
+      return;
+    }
+    if (handleAtMentionKeydown(e, content)) {
       return;
     }
     if (e.key === "Enter" && e.ctrlKey) {
@@ -2436,6 +2468,9 @@ function insertEditableBubbleWithContent(prefilledContent) {
   });
   content.addEventListener("keydown", (e) => {
     if (handleCommandPickerKeydown(e)) {
+      return;
+    }
+    if (handleAtMentionKeydown(e, content)) {
       return;
     }
     if (e.key === "Enter" && e.ctrlKey) {

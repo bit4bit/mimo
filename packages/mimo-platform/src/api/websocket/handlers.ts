@@ -15,6 +15,8 @@ import type { FileWatcherService } from "../../domain/files/file-watcher-service
 import type { ImpactCalculator } from "../../domain/impact/calculator.js";
 import type { SccService } from "../../domain/impact/scc-service.js";
 import type { JwtService } from "../../domain/auth/jwt.js";
+import type { FileService } from "../../domain/files/types.js";
+import { resolveAtMentions } from "../../domain/chat/resolve-at-mentions.js";
 
 export interface WebSocketHandlerDeps {
   sessionRepository: SessionRepository;
@@ -28,6 +30,7 @@ export interface WebSocketHandlerDeps {
   impactCalculator: ImpactCalculator;
   chatService: ChatService;
   fileWatcher: FileWatcherService;
+  fileService: FileService;
 }
 
 export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
@@ -43,6 +46,7 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
     impactCalculator,
     chatService,
     fileWatcher,
+    fileService,
   } = deps;
 
   function generateToolCallsHtml(toolCallsMap: Map<string, any>): string {
@@ -195,12 +199,25 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
         if (sendAgentId) {
           const agentWs = agentService.getAgentConnection(sendAgentId);
           if (agentWs && agentWs.readyState === 1) {
+            // Resolve @file mentions to inject file contents
+            let agentContent = data.content;
+            if (userSession?.agentWorkspacePath) {
+              try {
+                agentContent = await resolveAtMentions(
+                  data.content,
+                  userSession.agentWorkspacePath,
+                  fileService,
+                );
+              } catch (err) {
+                logger.error("[at-mention] Failed to resolve @mentions:", err);
+              }
+            }
             agentWs.send(
               JSON.stringify({
                 type: "user_message",
                 sessionId: sessionId,
                 chatThreadId: userThreadId,
-                content: data.content,
+                content: agentContent,
                 promptId: data.promptId,
               }),
             );

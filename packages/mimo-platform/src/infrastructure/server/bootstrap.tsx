@@ -209,6 +209,7 @@ export async function bootstrapMimoServer(deps: BootstrapDeps) {
     impactCalculator: mimoContext.services.impactCalculator,
     chatService: mimoContext.services.chat,
     fileWatcher: mimoContext.services.fileWatcher,
+    fileService: mimoContext.services.fileService,
     authService: mimoContext.services.auth,
   });
 
