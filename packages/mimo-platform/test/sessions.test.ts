@@ -1550,9 +1550,8 @@ describe("Session Management Integration Tests", () => {
   });
 
   describe("Session Close Reason", () => {
-    it("should render close page with form", async () => {
+    async function setupCloseTest() {
       const app = createTestApp(mimoContext, sessionRoutes);
-
       await userRepository.create(
         "testuser",
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
@@ -1563,53 +1562,61 @@ describe("Session Management Integration Tests", () => {
         repoType: "git",
         owner: "testuser",
       });
-
       const session = await sessionRepository.create({
         name: "Session To Close",
         projectId: project.id,
         owner: "testuser",
       });
-
       const token = await authService.generateToken("testuser");
+      return { app, project, session, token };
+    }
+
+    it("4.1 GET close page renders radio group (4 options) and note input with session name", async () => {
+      const { app, project, session, token } = await setupCloseTest();
 
       const res = await app.request(
         `/projects/${project.id}/sessions/${session.id}/close`,
-        {
-          headers: { Cookie: `token=${token}` },
-        },
+        { headers: { Cookie: `token=${token}` } },
       );
 
       expect(res.status).toBe(200);
       const html = await res.text();
       expect(html).toContain("Close Session");
       expect(html).toContain("Session To Close");
-      expect(html).toContain('name="closeReason"');
+      expect(html).toContain('name="reason"');
+      expect(html).toContain('value="implemented"');
+      expect(html).toContain('value="invalid expectations"');
+      expect(html).toContain('value="wrong implementation"');
+      expect(html).toContain('value="no reason"');
+      expect(html).toContain('name="note"');
       expect(html).toContain('action="/sessions/');
       expect(html).toContain("ctrlKey");
       expect(html).toContain("metaKey");
     });
 
-    it("should close session with reason", async () => {
-      const app = createTestApp(mimoContext, sessionRoutes);
+    it("4.2 POST close with radio selection and empty note persists radio label as closeReason", async () => {
+      const { app, project, session, token } = await setupCloseTest();
 
-      await userRepository.create(
-        "testuser",
-        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/close`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Cookie: `token=${token}`,
+          },
+          body: new URLSearchParams({ reason: "implemented", note: "" }).toString(),
+        },
       );
-      const project = await projectRepository.create({
-        name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
-        owner: "testuser",
-      });
 
-      const session = await sessionRepository.create({
-        name: "Session To Close",
-        projectId: project.id,
-        owner: "testuser",
-      });
+      expect(res.status).toBe(302);
+      const updated = await sessionRepository.findById(session.id);
+      expect(updated?.status).toBe("closed");
+      expect(updated?.closeReason).toBe("implemented");
+    });
 
-      const token = await authService.generateToken("testuser");
+    it("4.3 POST close with note overrides radio selection (stores note, not combined)", async () => {
+      const { app, project, session, token } = await setupCloseTest();
 
       const res = await app.request(
         `/projects/${project.id}/sessions/${session.id}/close`,
@@ -1620,39 +1627,110 @@ describe("Session Management Integration Tests", () => {
             Cookie: `token=${token}`,
           },
           body: new URLSearchParams({
-            closeReason: "Completed successfully",
+            reason: "implemented",
+            note: "shipped auth flow",
           }).toString(),
         },
       );
 
       expect(res.status).toBe(302);
-
       const updated = await sessionRepository.findById(session.id);
       expect(updated?.status).toBe("closed");
-      expect(updated?.closeReason).toBe("Completed successfully");
+      expect(updated?.closeReason).toBe("shipped auth flow");
+      expect(updated?.closeReason).not.toContain("implemented");
     });
 
-    it("should close session without reason", async () => {
-      const app = createTestApp(mimoContext, sessionRoutes);
+    it("4.4 POST close with no reason and empty note stores closeReason: undefined", async () => {
+      const { app, project, session, token } = await setupCloseTest();
 
-      await userRepository.create(
-        "testuser",
-        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/close`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Cookie: `token=${token}`,
+          },
+          body: new URLSearchParams({ reason: "no reason", note: "" }).toString(),
+        },
       );
-      const project = await projectRepository.create({
-        name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
-        owner: "testuser",
-      });
 
-      const session = await sessionRepository.create({
-        name: "Session To Close",
+      expect(res.status).toBe(302);
+      const updated = await sessionRepository.findById(session.id);
+      expect(updated?.status).toBe("closed");
+      expect(updated?.closeReason).toBeUndefined();
+    });
+
+    it("4.5 POST close with no reason and a note stores the note", async () => {
+      const { app, project, session, token } = await setupCloseTest();
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/close`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Cookie: `token=${token}`,
+          },
+          body: new URLSearchParams({
+            reason: "no reason",
+            note: "duplicate session",
+          }).toString(),
+        },
+      );
+
+      expect(res.status).toBe(302);
+      const updated = await sessionRepository.findById(session.id);
+      expect(updated?.status).toBe("closed");
+      expect(updated?.closeReason).toBe("duplicate session");
+    });
+
+    it("4.6 Cancel redirects back to session detail without closing", async () => {
+      const { app, project, session, token } = await setupCloseTest();
+
+      const closePageRes = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/close`,
+        {
+          headers: {
+            Cookie: `token=${token}`,
+            Referer: `/projects/${project.id}/sessions/${session.id}`,
+          },
+        },
+      );
+
+      expect(closePageRes.status).toBe(200);
+      const html = await closePageRes.text();
+      expect(html).toContain(`/projects/${project.id}/sessions/${session.id}`);
+
+      const unchanged = await sessionRepository.findById(session.id);
+      expect(unchanged?.status).toBe("active");
+    });
+
+    it("4.7 Close reason appears in session detail for closed sessions", async () => {
+      const { app, project, token } = await setupCloseTest();
+
+      const closedSession = await sessionRepository.create({
+        name: "Closed Session",
         projectId: project.id,
         owner: "testuser",
       });
+      await sessionRepository.update(closedSession.id, {
+        status: "closed",
+        closeReason: "wrong implementation",
+      });
 
-      const token = await authService.generateToken("testuser");
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${closedSession.id}`,
+        { headers: { Cookie: `token=${token}` } },
+      );
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("wrong implementation");
+    });
+
+    it("POST close with no body defaults to no reason (closeReason: undefined)", async () => {
+      const { app, project, session, token } = await setupCloseTest();
 
       const res = await app.request(
         `/projects/${project.id}/sessions/${session.id}/close`,
@@ -1667,89 +1745,9 @@ describe("Session Management Integration Tests", () => {
       );
 
       expect(res.status).toBe(302);
-
       const updated = await sessionRepository.findById(session.id);
       expect(updated?.status).toBe("closed");
       expect(updated?.closeReason).toBeUndefined();
-    });
-
-    it("should redirect to referer on cancel", async () => {
-      const app = createTestApp(mimoContext, sessionRoutes);
-
-      await userRepository.create(
-        "testuser",
-        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
-      );
-      const project = await projectRepository.create({
-        name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
-        owner: "testuser",
-      });
-
-      const session = await sessionRepository.create({
-        name: "Session To Close",
-        projectId: project.id,
-        owner: "testuser",
-      });
-
-      const token = await authService.generateToken("testuser");
-
-      // First, visit the close page from the session detail page
-      const closePageRes = await app.request(
-        `/projects/${project.id}/sessions/${session.id}/close`,
-        {
-          headers: {
-            Cookie: `token=${token}`,
-            Referer: `/projects/${project.id}/sessions/${session.id}`,
-          },
-        },
-      );
-
-      expect(closePageRes.status).toBe(200);
-      const html = await closePageRes.text();
-
-      // The cancel link should redirect back to the referer
-      expect(html).toContain(`/projects/${project.id}/sessions/${session.id}`);
-    });
-
-    it("should display close reason on session detail page", async () => {
-      const app = createTestApp(mimoContext, sessionRoutes);
-
-      await userRepository.create(
-        "testuser",
-        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
-      );
-      const project = await projectRepository.create({
-        name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
-        owner: "testuser",
-      });
-
-      const session = await sessionRepository.create({
-        name: "Closed Session",
-        projectId: project.id,
-        owner: "testuser",
-      });
-
-      await sessionRepository.update(session.id, {
-        status: "closed",
-        closeReason: "Refactored auth module",
-      });
-
-      const token = await authService.generateToken("testuser");
-
-      const res = await app.request(
-        `/projects/${project.id}/sessions/${session.id}`,
-        {
-          headers: { Cookie: `token=${token}` },
-        },
-      );
-
-      expect(res.status).toBe(200);
-      const html = await res.text();
-      expect(html).toContain("Refactored auth module");
     });
   });
 

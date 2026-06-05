@@ -5,8 +5,10 @@ When closing a session, users currently just confirm a prompt without capturing 
 ## What Changes
 
 - **New page**: `GET /projects/:projectId/sessions/:id/close` renders a form asking for close reason before closing
-- **New field**: `closeReason?: string` added to session data model
-- **Updated route**: `POST /sessions/:id/close` accepts `closeReason` body parameter and persists it
+- **Reason input**: A radio group with four options — `implemented`, `invalid expectations`, `wrong implementation`, `no reason` — plus an optional free-text note field
+- **Resolution rule**: Stored reason is the note when typed, otherwise the selected radio label. `no reason` with empty note stores no reason. Radio and note are never combined into one string.
+- **New field**: `closeReason?: string` added to session data model (single string; no separate note field)
+- **Updated route**: `POST /sessions/:id/close` accepts `reason` (radio value) and `note` body parameters, resolves them to a single `closeReason`, and persists it
 - **Updated UI**: Session list pages display close reason for closed sessions (e.g., tooltip or inline text)
 - **Navigation safety**: Close and Cancel buttons return to the originating session detail page
 - **Breaking**: None. Existing closed sessions will have `closeReason: undefined` (backward compatible)

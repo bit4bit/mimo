@@ -1038,15 +1038,26 @@ export function createSessionsRoutes(
             class="mt-20"
           >
             <div class="mb-16">
-              <label for="closeReason" class="label-strong">
-                Reason for closing (optional)
+              <fieldset
+                style="border:1px solid #444;border-radius:4px;padding:12px 16px;margin:0"
+              >
+                <legend class="label-strong">Reason for closing</legend>
+                <div style="margin:6px 0"><label><input type="radio" name="reason" value="implemented" /> implemented</label></div>
+                <div style="margin:6px 0"><label><input type="radio" name="reason" value="invalid expectations" /> invalid expectations</label></div>
+                <div style="margin:6px 0"><label><input type="radio" name="reason" value="wrong implementation" /> wrong implementation</label></div>
+                <div style="margin:6px 0"><label><input type="radio" name="reason" value="no reason" checked={true} /> no reason</label></div>
+              </fieldset>
+            </div>
+            <div class="mb-16">
+              <label for="note" class="label-strong">
+                Note (optional — overrides reason above)
               </label>
               <textarea
-                id="closeReason"
-                name="closeReason"
+                id="note"
+                name="note"
                 rows={3}
                 class="textarea-dark"
-                placeholder="e.g., Completed successfully, Refactored auth module..."
+                placeholder="Add details..."
               />
             </div>
             <div class="actions-row">
@@ -1104,14 +1115,17 @@ export function createSessionsRoutes(
     }
 
     const body = await c.req.parseBody();
-    const closeReason = (body.closeReason as string) || undefined;
+    const reason = (body.reason as string) || "no reason";
+    const note = ((body.note as string) || "").trim();
+    const closeReason =
+      note !== "" ? note : reason === "no reason" ? undefined : reason;
 
     // Update session via Internal API Client
     const updateResult = await apiClient.put<SessionResponse>(
       `/sessions/${sessionId}`,
       {
         status: "closed",
-        ...(closeReason && { closeReason }),
+        ...(closeReason !== undefined && { closeReason }),
       },
     );
 
