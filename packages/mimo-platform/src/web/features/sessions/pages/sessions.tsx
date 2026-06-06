@@ -2194,6 +2194,9 @@ export function createSessionsRoutes(
                   sessionWithCreds?.agentWorkspacePassword,
                 agentSubpath: sessionWithCreds?.agentSubpath ?? null,
                 branch: sessionWithCreds?.branch ?? null,
+                idleTimeoutMs: sessionWithCreds?.idleTimeoutMs ?? 600000,
+                modelState: sessionWithCreds?.modelState ?? null,
+                modeState: sessionWithCreds?.modeState ?? null,
                 chatThreads: [
                   {
                     chatThreadId: thread.id,

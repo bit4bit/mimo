@@ -969,4 +969,63 @@ describe("Chat Threads API", () => {
       expect(del.status).toBe(401);
     });
   });
+
+  describe("session_ready preserves idleTimeoutMs", () => {
+    it("should include current idleTimeoutMs in session_ready when creating a new thread", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
+      // 1. Set a custom idle timeout via config endpoint
+      const patchRes = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/config`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({ idleTimeoutMs: 1800000 }),
+        },
+      );
+      expect(patchRes.status).toBe(200);
+
+      // 2. Mock agent online to capture session_ready
+      const sentMessages: any[] = [];
+      const originalIsOnline = agentService.isAgentOnline.bind(agentService);
+      const originalGetConnection =
+        agentService.getAgentConnection.bind(agentService);
+
+      agentService.isAgentOnline = () => true;
+      agentService.getAgentConnection = () => ({
+        readyState: 1,
+        send: (payload: string) => sentMessages.push(JSON.parse(payload)),
+      });
+
+      try {
+        const res = await app.request(
+          `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Cookie: `token=${token}`,
+            },
+            body: JSON.stringify({
+              name: "Timeout Test Thread",
+              model: "claude-3",
+              mode: "code",
+              assignedAgentId: "agent-xyz",
+            }),
+          },
+        );
+
+        expect(res.status).toBe(201);
+        const ready = sentMessages.find((msg) => msg.type === "session_ready");
+        expect(ready).toBeDefined();
+        expect(ready.sessions[0].idleTimeoutMs).toBe(1800000);
+      } finally {
+        agentService.isAgentOnline = originalIsOnline;
+        agentService.getAgentConnection = originalGetConnection;
+      }
+    });
+  });
 });

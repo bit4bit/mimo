@@ -280,10 +280,11 @@ export class MimoAgent {
       } = session;
 
       // Store session idle timeout from platform config
-      this.sessionIdleTimeouts.set(
-        sessionId,
-        typeof idleTimeoutMs === "number" ? idleTimeoutMs : 600000,
-      );
+      // Only overwrite if the field is explicitly provided (defense against
+      // partial session_ready messages that omit it)
+      if (typeof idleTimeoutMs === "number") {
+        this.sessionIdleTimeouts.set(sessionId, idleTimeoutMs);
+      }
 
       // Register a per-session bootstrap promise so user_message /
       // request_state arriving mid-clone can await readiness instead of
