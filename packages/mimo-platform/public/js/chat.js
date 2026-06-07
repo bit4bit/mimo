@@ -49,6 +49,7 @@ const ChatState = {
   totalDurationMs: 0,
   currentPromptId: null,
   pendingPromptCompletion: null,
+  replayRequested: false,
 
   // Input
   editableBubble: null,
@@ -1334,7 +1335,13 @@ function hasPromptId(data, eventType) {
 
 // Controller: Handle prompt received (agent is responding)
 function handlePromptReceived(promptId) {
-  flushPendingPromptCompletion();
+  const pending = ChatState.pendingPromptCompletion;
+  if (pending && pending.promptId === ChatState.currentPromptId) {
+    flushPendingPromptCompletion();
+  } else if (pending) {
+    clearPendingPromptCompletionTimer();
+    ChatState.pendingPromptCompletion = null;
+  }
   ChatState.currentPromptId = promptId || null;
   removeEditableBubble();
   insertStreamingMessage();
@@ -1343,15 +1350,62 @@ function handlePromptReceived(promptId) {
 }
 
 function shouldAcceptStreamingEvent(data) {
+  const eventType = data.type;
   const eventPromptId = data.promptId;
+
   if (!ChatState.currentPromptId) {
+    if (
+      ChatState.streaming.messageElement &&
+      !ChatState.replayRequested
+    ) {
+      console.warn(
+        `[stream-protocol] ${eventType} rejected: currentPromptId is null, requesting replay`,
+        { eventPromptId, sessionId: data.sessionId, chatThreadId: data.chatThreadId },
+      );
+      ChatState.replayRequested = true;
+      if (window.MIMO_CHAT_SOCKET?.readyState === WebSocket.OPEN) {
+        const activeThreadId =
+          typeof ChatThreadsState !== "undefined" && ChatThreadsState
+            ? ChatThreadsState.activeThreadId
+            : undefined;
+        window.MIMO_CHAT_SOCKET.send(
+          JSON.stringify({
+            type: "request_replay",
+            sessionId: ChatState.sessionId,
+            ...(activeThreadId && { chatThreadId: activeThreadId }),
+          }),
+        );
+      }
+    } else {
+      console.warn(
+        `[stream-protocol] ${eventType} rejected: currentPromptId is null`,
+        { eventPromptId, sessionId: data.sessionId, chatThreadId: data.chatThreadId },
+      );
+    }
     return false;
   }
+
   const matches = ChatState.currentPromptId === eventPromptId;
   if (matches) {
     maybeExtendPendingPromptCompletion(eventPromptId);
+    return true;
   }
-  return matches;
+
+  if (typeof eventPromptId === "string" && eventPromptId.length > 0) {
+    console.warn(
+      `[stream-protocol] ${eventType} promptId mismatch: expected ${ChatState.currentPromptId}, got ${eventPromptId} — updating currentPromptId`,
+      { sessionId: data.sessionId, chatThreadId: data.chatThreadId },
+    );
+    ChatState.currentPromptId = eventPromptId;
+    maybeExtendPendingPromptCompletion(eventPromptId);
+    return true;
+  }
+
+  console.warn(
+    `[stream-protocol] ${eventType} rejected: no event promptId, current is ${ChatState.currentPromptId}`,
+    { sessionId: data.sessionId, chatThreadId: data.chatThreadId },
+  );
+  return false;
 }
 
 function maybeExtendPendingPromptCompletion(promptId) {
@@ -2139,7 +2193,12 @@ function handleStreamingTimeout() {
 
 // Controller: Handle streaming state (reconnection)
 function handleStreamingState(data) {
-  const { thoughtContent, messageContent } = data;
+  const { thoughtContent, messageContent, promptId } = data;
+
+  if (typeof promptId === "string" && promptId.length > 0) {
+    ChatState.currentPromptId = promptId;
+    ChatState.replayRequested = false;
+  }
 
   ChatState.streaming.reconstructed = true;
   ChatState.streaming.lastActivity = Date.now();
@@ -3238,6 +3297,7 @@ function loadChatHistory(messages) {
   ChatState.streaming.thoughtElement = null;
   ChatState.streaming.content = "";
   ChatState.streaming.thoughtContent = "";
+  ChatState.replayRequested = false;
 
   let currentThought = "";
   let currentMessage = "";

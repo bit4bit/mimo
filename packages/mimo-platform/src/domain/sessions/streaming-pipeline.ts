@@ -4,6 +4,7 @@ import type { ChatMessage } from "./chat.ts";
 export interface StreamingSnapshot {
   thoughtContent: string;
   messageContent: string;
+  promptId: string | null;
 }
 
 export interface ExpertPendingEntry {
@@ -544,6 +545,7 @@ export class ChatStreamingPipeline {
     return {
       thoughtContent: this.thoughtBuffers.get(key) || "",
       messageContent: this.streamingBuffers.get(key) || "",
+      promptId: promptId ?? null,
     };
   }
 

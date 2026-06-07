@@ -278,6 +278,28 @@ describe("ChatStreamingPipeline", () => {
       expect(snap.thoughtContent).toBe("");
       expect(snap.messageContent).toBe("");
     });
+
+    it("returns promptId when thread has an active prompt", async () => {
+      const { pipeline } = makePipeline();
+      pipeline.handleThoughtStart("s1", "t1", "prompt-abc");
+      pipeline.handleThoughtChunk("s1", "t1", "thinking...", "prompt-abc");
+      pipeline.handleMessageChunk("s1", "t1", "answer", "prompt-abc");
+
+      const snap = pipeline.getStreamingSnapshot("s1", "t1");
+      expect(snap.promptId).toBe("prompt-abc");
+    });
+
+    it("returns null promptId when no active prompt", async () => {
+      const { pipeline } = makePipeline();
+      const snap = pipeline.getStreamingSnapshot("s1", "t1");
+      expect(snap.promptId).toBeNull();
+    });
+
+    it("returns null promptId for unknown thread", async () => {
+      const { pipeline } = makePipeline();
+      const snap = pipeline.getStreamingSnapshot("unknown", "no-thread");
+      expect(snap.promptId).toBeNull();
+    });
   });
 
   describe("clearBuffers", () => {

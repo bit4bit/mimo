@@ -338,6 +338,7 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
               chatThreadId: stateThreadId,
               thoughtContent: stateSnap.thoughtContent,
               messageContent: stateSnap.messageContent,
+              promptId: stateSnap.promptId,
               timestamp: new Date().toISOString(),
             }),
           );
@@ -963,6 +964,7 @@ export function createWebSocketSetup(deps: WebSocketSetupDeps) {
               chatThreadId: activeThreadId,
               thoughtContent: openSnap.thoughtContent,
               messageContent: openSnap.messageContent,
+              promptId: openSnap.promptId,
               timestamp: new Date().toISOString(),
             }),
           );
