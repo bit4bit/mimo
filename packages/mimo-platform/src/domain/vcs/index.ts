@@ -15,6 +15,7 @@ export interface VCSResult {
   output?: string;
   error?: string;
   port?: number;
+  commitHash?: string;
 }
 
 import { DEFAULT_MIMO_HOST } from "../../infrastructure/context/mimo-context.js";
@@ -1173,10 +1174,23 @@ export class VCS {
         };
       }
 
+      // Extract commit hash after successful git commit
+      let commitHash: string | undefined;
+      if (commitResult.success) {
+        const logResult = await this.execCommand(
+          ["git", "log", "-1", "--pretty=%H"],
+          upstreamPath,
+        );
+        if (logResult.success) {
+          commitHash = logResult.output.trim();
+        }
+      }
+
       return {
         success: commitResult.success,
         output: commitResult.output,
         error: commitResult.error || undefined,
+        commitHash,
       };
     } else {
       for (const name of EXCLUDED_PATHS) {
@@ -1199,13 +1213,13 @@ export class VCS {
         };
       }
 
-      let commitResult = await this.execCommand(
+      let fossilCommitResult = await this.execCommand(
         ["fossil", "commit", "-m", commitMessage],
         upstreamPath,
       );
 
-      if (!commitResult.success) {
-        const combined = `${commitResult.output || ""}\n${commitResult.error || ""}`;
+      if (!fossilCommitResult.success) {
+        const combined = `${fossilCommitResult.output || ""}\n${fossilCommitResult.error || ""}`;
         if (combined.includes("Abandoning commit due to binary data in")) {
           const binaryFiles: string[] = [];
           for (const line of combined.split("\n")) {
@@ -1217,14 +1231,14 @@ export class VCS {
           for (const file of binaryFiles) {
             await this.execCommand(["fossil", "forget", file], upstreamPath);
           }
-          commitResult = await this.execCommand(
+          fossilCommitResult = await this.execCommand(
             ["fossil", "commit", "-m", commitMessage],
             upstreamPath,
           );
         }
 
         if (
-          !commitResult.success &&
+          !fossilCommitResult.success &&
           combined.includes("Abandoning commit due to long lines in")
         ) {
           const longLineFiles: string[] = [];
@@ -1237,17 +1251,35 @@ export class VCS {
           for (const file of longLineFiles) {
             await this.execCommand(["fossil", "forget", file], upstreamPath);
           }
-          commitResult = await this.execCommand(
+          fossilCommitResult = await this.execCommand(
             ["fossil", "commit", "-m", commitMessage],
             upstreamPath,
           );
         }
       }
 
+      // Extract commit hash after successful fossil commit
+      let commitHash: string | undefined;
+      if (fossilCommitResult.success) {
+        const infoResult = await this.execCommand(
+          ["fossil", "info"],
+          upstreamPath,
+        );
+        if (infoResult.success) {
+          const checkoutMatch = infoResult.output.match(
+            /checkout:\s+([0-9a-f]{10,})/i,
+          );
+          if (checkoutMatch) {
+            commitHash = checkoutMatch[1];
+          }
+        }
+      }
+
       return {
-        success: commitResult.success,
-        output: commitResult.output,
-        error: commitResult.error || undefined,
+        success: fossilCommitResult.success,
+        output: fossilCommitResult.output,
+        error: fossilCommitResult.error || undefined,
+        commitHash,
       };
     }
   }

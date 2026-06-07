@@ -285,25 +285,6 @@ export class CommitService {
       commitMessage,
     );
 
-    if (!commitResult.success) {
-      if (
-        commitResult.output?.includes("nothing to commit") ||
-        commitResult.output?.includes("No changes to commit")
-      ) {
-        return {
-          success: true,
-          message: "No changes to commit",
-          step: null,
-        };
-      }
-      return {
-        success: false,
-        message: "Failed to commit changes",
-        error: commitResult.error || "Commit failed",
-        step: "commit",
-      };
-    }
-
     if (
       commitResult.output?.includes("nothing to commit") ||
       commitResult.output?.includes("No changes to commit")
@@ -314,6 +295,71 @@ export class CommitService {
         step: null,
       };
     }
+
+    if (!commitResult.success) {
+      return {
+        success: false,
+        message: "Failed to commit changes",
+        error: commitResult.error || "Commit failed",
+        step: "commit",
+      };
+    }
+
+    // ── Create impact record for successful commit ─────────────────────────
+    try {
+      const { metrics } = await this.deps.impactCalculator.calculateImpact(
+        session.id,
+        session.upstreamPath,
+        session.agentWorkspacePath,
+      );
+
+      const complexityByLanguage =
+        metrics.byLanguage?.map((lang: any) => ({
+          language: lang.language,
+          files: lang.files ?? 0,
+          linesAdded: lang.linesAdded ?? 0,
+          linesRemoved: lang.linesRemoved ?? 0,
+          complexityDelta: lang.complexityDelta ?? 0,
+        })) ?? [];
+
+      const impactRecord = {
+        id: `${session.id}-${commitResult.commitHash || Date.now()}`,
+        sessionId: session.id,
+        sessionName: session.name,
+        projectId: session.projectId,
+        commitHash: commitResult.commitHash || "unknown",
+        commitDate: new Date(),
+        files: {
+          new: metrics.files?.new ?? 0,
+          changed: metrics.files?.changed ?? 0,
+          deleted: metrics.files?.deleted ?? 0,
+        },
+        linesOfCode: {
+          added: metrics.linesOfCode?.added ?? 0,
+          removed: metrics.linesOfCode?.removed ?? 0,
+          net: metrics.linesOfCode?.net ?? 0,
+        },
+        complexity: {
+          cyclomatic: metrics.complexity?.cyclomatic ?? 0,
+          cognitive: metrics.complexity?.cognitive ?? 0,
+          estimatedMinutes: metrics.complexity?.estimatedMinutes ?? 0,
+        },
+        complexityByLanguage,
+        fossilUrl: "",
+      };
+
+      this.deps.impactRepository.save(impactRecord);
+      logger.debug(
+        `[commit] Impact record saved for session ${session.id} commit ${impactRecord.commitHash}`,
+      );
+    } catch (impactError) {
+      // Impact recording is best-effort; do not fail the commit if it errors
+      logger.error(
+        `[commit] Failed to save impact record for session ${session.id}:`,
+        impactError,
+      );
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     let pushCredential: Credential | undefined;
     if (project.credentialId) {

@@ -32,7 +32,7 @@ export interface ImpactRecord {
     linesRemoved: number;
     complexityDelta: number;
   }>;
-  fossilUrl: string;
+  fossilUrl?: string;
 }
 
 interface ImpactRepositoryDeps {
