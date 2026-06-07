@@ -152,7 +152,10 @@ export class AcpClient {
           cwd,
           mcpServers: (mcpServers as any) || [],
         });
-        sessionResponse = loadResponse as acp.NewSessionResponse;
+        sessionResponse = {
+          ...loadResponse,
+          sessionId: existingSessionId,
+        } as unknown as acp.NewSessionResponse;
         logger.debug(
           `[mimo-agent] Session loaded successfully: ${sessionResponse.sessionId}`,
         );
