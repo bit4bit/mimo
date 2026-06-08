@@ -63,7 +63,7 @@ export interface AgentMessageRouterDeps {
 export class AgentMessageRouter {
   private pendingPermissions = new Map<
     string,
-    { agentWs: any; sessionId: string }
+    { agentWs: any; sessionId: string; chatThreadId?: string }
   >();
   private autoSyncInFlight = new Set<string>();
   private pendingActivityTouches = new Map<
@@ -1022,12 +1022,13 @@ export class AgentMessageRouter {
   }
 
   private handlePermissionRequest(ws: any, data: any): void {
-    const { sessionId, requestId, toolCall, options } = data;
+    const { sessionId, requestId, toolCall, options, chatThreadId } = data;
     if (!sessionId || !requestId) return;
 
     this.pendingPermissions.set(requestId, {
       agentWs: ws,
       sessionId,
+      chatThreadId,
     });
 
     const subscribers = this.deps.chatSessions.get(sessionId);
@@ -1040,6 +1041,7 @@ export class AgentMessageRouter {
               requestId,
               toolCall,
               options,
+              chatThreadId,
               timestamp: new Date().toISOString(),
             }),
           );
@@ -1073,6 +1075,7 @@ export class AgentMessageRouter {
             JSON.stringify({
               type: "permission_resolved",
               requestId,
+              chatThreadId: pending.chatThreadId,
             }),
           );
         }

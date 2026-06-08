@@ -711,6 +711,45 @@ function showBrowserNotification() {
   });
 }
 
+function showThreadAttentionNotification(chatThreadId, toolCallTitle) {
+  if (!ChatState.browserNotificationsEnabled) return;
+  if (Notification.permission !== "granted") return;
+
+  let threadName = chatThreadId;
+  if (
+    typeof ChatThreadsState !== "undefined" &&
+    ChatThreadsState?.threads
+  ) {
+    const thread = ChatThreadsState.threads.find(
+      (t) => t.id === chatThreadId,
+    );
+    if (thread?.name) threadName = thread.name;
+  }
+
+  const title = toolCallTitle
+    ? `Approval needed: ${toolCallTitle}`
+    : "Approval needed";
+  const body = `Thread "${threadName}" requires your attention`;
+
+  try {
+    const notification = new Notification(title, { body });
+    notification.addEventListener("click", () => {
+      if (typeof window !== "undefined") {
+        window.focus();
+        if (
+          typeof ChatThreadsState !== "undefined" &&
+          typeof switchToThread === "function"
+        ) {
+          switchToThread(chatThreadId);
+        }
+      }
+      notification.close();
+    });
+  } catch {
+    // Notification permission may be denied or API unavailable
+  }
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // SECTION 3: SERVICES (Business Logic)
 // Pure functions that transform data, parse content, make decisions.
@@ -1272,9 +1311,27 @@ function handleWebSocketMessage(data) {
       handleStreamingState(data);
       break;
     case "permission_request":
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
+        showThreadAttentionNotification(
+          data.chatThreadId,
+          data.toolCall?.title,
+        );
+        break;
+      }
       showPermissionCard(data);
       break;
     case "permission_resolved":
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
+        break;
+      }
       removePermissionCard(data.requestId);
       break;
     case "session_cleared":

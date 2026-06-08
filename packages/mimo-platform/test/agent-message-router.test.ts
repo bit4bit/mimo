@@ -555,6 +555,109 @@ describe("AgentMessageRouter", () => {
     });
   });
 
+  describe("permission_request includes chatThreadId in broadcast", () => {
+    it("should forward chatThreadId from agent message to chat subscribers", async () => {
+      expect(AgentMessageRouter).not.toBeNull();
+      const deps = makeMocks();
+      const router = makeRouter(deps);
+
+      const mockWs = { readyState: 1, send: mock(() => {}) };
+      deps.chatSessions.set("sess-1", new Set([mockWs]));
+
+      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
+        type: "permission_request",
+        sessionId: "sess-1",
+        requestId: "req-thread-1",
+        chatThreadId: "thread-abc",
+        toolCall: { toolTitle: "Edit" },
+        options: [{ id: "allow_once", label: "Allow Once" }],
+      });
+
+      const sentMessages = (mockWs.send as any).mock.calls.map((c: any[]) =>
+        JSON.parse(c[0]),
+      );
+      const permRequest = sentMessages.find(
+        (m: any) => m.type === "permission_request",
+      );
+      expect(permRequest).toBeDefined();
+      expect(permRequest.chatThreadId).toBe("thread-abc");
+      expect(permRequest.requestId).toBe("req-thread-1");
+    });
+
+    it("should include chatThreadId in permission_resolved broadcast", async () => {
+      expect(AgentMessageRouter).not.toBeNull();
+      const deps = makeMocks();
+      const router = makeRouter(deps);
+
+      const agentWs = { readyState: 1, send: mock(() => {}) };
+      const uiWs = { readyState: 1, send: mock(() => {}) };
+      deps.chatSessions.set("sess-1", new Set([uiWs]));
+
+      await router.handle("agent-1", agentWs, {
+        type: "permission_request",
+        sessionId: "sess-1",
+        requestId: "req-resolve-1",
+        chatThreadId: "thread-xyz",
+        toolCall: { toolTitle: "Bash" },
+        options: [],
+      });
+
+      await router.handle("agent-1", agentWs, {
+        type: "permission_response",
+        sessionId: "sess-1",
+        requestId: "req-resolve-1",
+        optionId: "allow",
+      });
+
+      const uiMessages = (uiWs.send as any).mock.calls.map((c: any[]) =>
+        JSON.parse(c[0]),
+      );
+      const permResolved = uiMessages.find(
+        (m: any) => m.type === "permission_resolved",
+      );
+      expect(permResolved).toBeDefined();
+      expect(permResolved.chatThreadId).toBe("thread-xyz");
+    });
+
+    it("should route permission_response correctly when chatThreadId is present", async () => {
+      expect(AgentMessageRouter).not.toBeNull();
+      const deps = makeMocks();
+      const router = makeRouter(deps);
+
+      const agentWs = { readyState: 1, send: mock(() => {}) };
+      const uiWs = { readyState: 1, send: mock(() => {}) };
+      deps.chatSessions.set("sess-1", new Set([uiWs]));
+
+      await router.handle("agent-1", agentWs, {
+        type: "permission_request",
+        sessionId: "sess-1",
+        requestId: "req-route-1",
+        chatThreadId: "thread-route",
+        toolCall: { toolTitle: "Read" },
+        options: [],
+      });
+
+      await router.handle("agent-1", agentWs, {
+        type: "permission_response",
+        sessionId: "sess-1",
+        requestId: "req-route-1",
+        optionId: "deny",
+      });
+
+      const agentMessages = (agentWs.send as any).mock.calls.map((c: any[]) =>
+        JSON.parse(c[0]),
+      );
+      const permResponse = agentMessages.find(
+        (m: any) => m.type === "permission_response",
+      );
+      expect(permResponse).toBeDefined();
+      expect(permResponse.outcome).toEqual({
+        outcome: "selected",
+        optionId: "deny",
+      });
+    });
+  });
+
   describe("agent_ready bootstrap session_ready", () => {
     it("includes session.branch so the agent can open fossil on the right branch", async () => {
       expect(AgentMessageRouter).not.toBeNull();
