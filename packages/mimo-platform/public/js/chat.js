@@ -3004,9 +3004,15 @@ function streamingRenderTick() {
   ChatState.streaming.renderTimer = null;
 
   if (!ChatState.streaming.messageElement) return;
-  const responseEl =
+  let responseEl =
     ChatState.streaming.messageElement.querySelector(".message-response");
-  if (!responseEl) return;
+  if (!responseEl) {
+    responseEl = document.createElement("div");
+    responseEl.className = "message-response";
+    ChatState.streaming.messageElement
+      .querySelector(".message-content")
+      ?.appendChild(responseEl);
+  }
 
   const content = ChatState.streaming.content;
   if (content.length === ChatState.streaming.lastRenderLength) return;
