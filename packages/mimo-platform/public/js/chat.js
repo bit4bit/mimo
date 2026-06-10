@@ -1543,7 +1543,6 @@ function handleMessageChunk(content) {
     removeEditableBubble();
     insertStreamingMessage();
   }
-  ChatState.streaming.content += content;
   updateMessageContent(content);
 }
 
@@ -2315,7 +2314,6 @@ function handleStreamingState(data) {
   }
 
   if (messageContent) {
-    ChatState.streaming.content += messageContent;
     updateMessageContent(messageContent);
   }
 
@@ -2994,6 +2992,10 @@ function getStreamingThrottleMs() {
 
 function scheduleStreamingRender() {
   if (ChatState.streaming.renderTimer !== null) return;
+  if (ChatState.streaming.lastRenderLength === 0) {
+    streamingRenderTick();
+    return;
+  }
   ChatState.streaming.renderTimer = setTimeout(
     streamingRenderTick,
     getStreamingThrottleMs(),

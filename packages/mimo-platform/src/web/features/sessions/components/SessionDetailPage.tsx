@@ -1033,6 +1033,9 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           white-space: pre-wrap;
           word-break: break-word;
         }
+        .message-response {
+          white-space: normal;
+        }
         .permission-card {
           margin: 10px 0;
           padding: 12px;
