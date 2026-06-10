@@ -1137,6 +1137,13 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           white-space: pre;
           overflow-x: auto;
         }
+        .decorated-fence .hljs-line {
+          white-space: pre;
+        }
+        .decorated-fence code {
+          background: transparent;
+          padding: 0;
+        }
         .decorated-link {
           color: #74c0fc;
           text-decoration: underline;

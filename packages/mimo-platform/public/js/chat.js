@@ -43,6 +43,8 @@ const ChatState = {
     lastActivity: null,
     reconstructed: false,
     startTime: null,
+    renderTimer: null,
+    lastRenderLength: 0,
   },
 
   // Duration tracking
@@ -481,12 +483,43 @@ function renderDecoratedContent(text, container) {
     if (token.type === "fence") {
       const fenceDiv = document.createElement("div");
       fenceDiv.className = "decorated-fence";
-      for (const fenceLineText of token.lines) {
+      const codeContent = [];
+      for (let i = 0; i < token.lines.length; i++) {
         const fenceLine = document.createElement("div");
-        fenceLine.textContent = fenceLineText;
+        fenceLine.textContent = token.lines[i];
+        if (i > 0 && i < token.lines.length - 1) {
+          codeContent.push(token.lines[i]);
+        }
         fenceDiv.appendChild(fenceLine);
       }
       container.appendChild(fenceDiv);
+
+      var langMatch = token.lines[0] && token.lines[0].match(/^```(\w+)/);
+      if (
+        langMatch &&
+        typeof hljs !== "undefined" &&
+        codeContent.length <= 100
+      ) {
+        try {
+          var codeEl = document.createElement("code");
+          codeEl.className = "language-" + langMatch[1];
+          codeEl.textContent = codeContent.join("\n");
+          hljs.highlightElement(codeEl);
+          var codeLines = codeEl.innerHTML.split("\n");
+          while (fenceDiv.childNodes.length > 2) {
+            fenceDiv.removeChild(fenceDiv.childNodes[1]);
+          }
+          for (var ci = 0; ci < codeLines.length; ci++) {
+            var highlightedLine = document.createElement("div");
+            highlightedLine.innerHTML = codeLines[ci] || " ";
+            highlightedLine.className = "hljs-line";
+            fenceDiv.insertBefore(
+              highlightedLine,
+              fenceDiv.lastChild,
+            );
+          }
+        } catch (e) {}
+      }
       continue;
     }
 
@@ -2681,15 +2714,21 @@ function insertStreamingMessage() {
     toggleBtn.addEventListener("click", () => {
       const responseEl = el.querySelector(".message-response");
       if (!responseEl) return;
-      const rawText = responseEl.textContent || "";
+      const accumulated = ChatState.streaming.content;
       if (el.dataset.viewMode === "decorated") {
         el.dataset.viewMode = "plain";
         toggleBtn.classList.remove("active");
-        renderPlainContent(rawText, responseEl);
+        if (ChatState.streaming.renderTimer !== null) {
+          clearTimeout(ChatState.streaming.renderTimer);
+          ChatState.streaming.renderTimer = null;
+        }
+        renderPlainContent(accumulated, responseEl);
       } else {
         el.dataset.viewMode = "decorated";
         toggleBtn.classList.add("active");
-        renderDecoratedContent(rawText, responseEl);
+        renderDecoratedContent(accumulated, responseEl);
+        ChatState.streaming.lastRenderLength = accumulated.length;
+        scheduleStreamingRender();
       }
     });
   }
@@ -2698,12 +2737,18 @@ function insertStreamingMessage() {
   ChatState.streaming.messageElement = el;
   ChatState.streaming.content = "";
   ChatState.streaming.active = true;
+  ChatState.streaming.lastRenderLength = 0;
+  ChatState.streaming.renderTimer = null;
   scrollToBottom();
 }
 
 // DOM: Remove streaming message
 function removeStreamingMessage() {
   if (ChatState.streaming.messageElement) {
+    if (ChatState.streaming.renderTimer !== null) {
+      clearTimeout(ChatState.streaming.renderTimer);
+      ChatState.streaming.renderTimer = null;
+    }
     ChatState.streaming.messageElement.remove();
     ChatState.streaming.messageElement = null;
     ChatState.streaming.thoughtElement = null;
@@ -2711,6 +2756,7 @@ function removeStreamingMessage() {
     ChatState.streaming.thoughtContent = "";
     ChatState.streaming.active = false;
     ChatState.streaming.startTime = null;
+    ChatState.streaming.lastRenderLength = 0;
   }
 }
 
@@ -2719,6 +2765,11 @@ function finalizeStreamingAsCancelled() {
   if (!ChatState.streaming.messageElement) return;
 
   const messageEl = ChatState.streaming.messageElement;
+
+  if (ChatState.streaming.renderTimer !== null) {
+    clearTimeout(ChatState.streaming.renderTimer);
+    ChatState.streaming.renderTimer = null;
+  }
 
   // Remove streaming indicator
   const indicator = messageEl.querySelector(".streaming-indicator");
@@ -2733,7 +2784,7 @@ function finalizeStreamingAsCancelled() {
   if (responseContent) {
     const cursor = responseContent.querySelector(".typing-cursor");
     if (cursor) cursor.remove();
-    const accumulated = responseContent.textContent;
+    const accumulated = ChatState.streaming.content;
     renderAgentMessageContent(accumulated, responseContent);
   }
 
@@ -2759,6 +2810,7 @@ function finalizeStreamingAsCancelled() {
   ChatState.streaming.thoughtContent = "";
   ChatState.streaming.active = false;
   ChatState.streaming.startTime = null;
+  ChatState.streaming.lastRenderLength = 0;
 
   // If expert mode was processing, abort it (clears badge without sending duplicate cancel_request)
   if (
@@ -2778,6 +2830,11 @@ function finalizeStreamingAsCancelled() {
 function finalizeMessageStream(duration) {
   if (!ChatState.streaming.messageElement) return;
 
+  if (ChatState.streaming.renderTimer !== null) {
+    clearTimeout(ChatState.streaming.renderTimer);
+    ChatState.streaming.renderTimer = null;
+  }
+
   const indicator = ChatState.streaming.messageElement.querySelector(
     ".streaming-indicator",
   );
@@ -2788,7 +2845,7 @@ function finalizeMessageStream(duration) {
   if (responseContent) {
     const cursor = responseContent.querySelector(".typing-cursor");
     if (cursor) cursor.remove();
-    const accumulated = responseContent.textContent;
+    const accumulated = ChatState.streaming.content;
     const viewMode = ChatState.streaming.messageElement.dataset.viewMode;
     if (viewMode === "plain") {
       renderPlainContent(accumulated, responseContent);
@@ -2827,6 +2884,8 @@ function finalizeMessageStream(duration) {
   ChatState.streaming.reconstructed = false;
   ChatState.streaming.active = false;
   ChatState.streaming.startTime = null;
+  ChatState.streaming.lastRenderLength = 0;
+  ChatState.streaming.renderTimer = null;
 
   // Dispatch event for summary auto-refresh
   const threadId =
@@ -2900,28 +2959,72 @@ function updateMessageContent(text) {
     document.querySelector("#chat-messages"),
   );
 
-  let responseEl =
-    ChatState.streaming.messageElement.querySelector(".message-response");
-  if (!responseEl) {
-    responseEl = document.createElement("div");
-    responseEl.className = "message-response";
-    ChatState.streaming.messageElement
-      .querySelector(".message-content")
-      ?.appendChild(responseEl);
+  ChatState.streaming.content += text;
+
+  const viewMode = ChatState.streaming.messageElement.dataset.viewMode;
+  if (viewMode === "plain") {
+    let responseEl =
+      ChatState.streaming.messageElement.querySelector(".message-response");
+    if (!responseEl) {
+      responseEl = document.createElement("div");
+      responseEl.className = "message-response";
+      ChatState.streaming.messageElement
+        .querySelector(".message-content")
+        ?.appendChild(responseEl);
+    }
+    const cursor = responseEl.querySelector(".typing-cursor");
+    if (cursor) cursor.remove();
+    responseEl.textContent += text;
+    const newCursor = document.createElement("span");
+    newCursor.className = "typing-cursor";
+    newCursor.textContent = "▋";
+    newCursor.style.color = "#51cf66";
+    newCursor.style.animation = "blink 1s infinite";
+    responseEl.appendChild(newCursor);
+  } else {
+    scheduleStreamingRender();
   }
 
-  const cursor = responseEl.querySelector(".typing-cursor");
-  if (cursor) cursor.remove();
+  scrollToBottom({ force: false, wasNearBottom: shouldAutoFollow });
+}
 
-  responseEl.textContent += text;
+function getStreamingThrottleMs() {
+  return ChatState.streaming.content.length > 50000 ? 500 : 150;
+}
 
-  const newCursor = document.createElement("span");
-  newCursor.className = "typing-cursor";
-  newCursor.textContent = "▋";
-  newCursor.style.color = "#51cf66";
-  newCursor.style.animation = "blink 1s infinite";
-  responseEl.appendChild(newCursor);
+function scheduleStreamingRender() {
+  if (ChatState.streaming.renderTimer !== null) return;
+  ChatState.streaming.renderTimer = setTimeout(
+    streamingRenderTick,
+    getStreamingThrottleMs(),
+  );
+}
 
+function streamingRenderTick() {
+  ChatState.streaming.renderTimer = null;
+
+  if (!ChatState.streaming.messageElement) return;
+  const responseEl =
+    ChatState.streaming.messageElement.querySelector(".message-response");
+  if (!responseEl) return;
+
+  const content = ChatState.streaming.content;
+  if (content.length === ChatState.streaming.lastRenderLength) return;
+
+  renderDecoratedContent(content, responseEl);
+
+  const cursor = document.createElement("span");
+  cursor.className = "typing-cursor";
+  cursor.textContent = "▋";
+  cursor.style.color = "#51cf66";
+  cursor.style.animation = "blink 1s infinite";
+  responseEl.appendChild(cursor);
+
+  ChatState.streaming.lastRenderLength = content.length;
+
+  const shouldAutoFollow = isNearBottom(
+    document.querySelector("#chat-messages"),
+  );
   scrollToBottom({ force: false, wasNearBottom: shouldAutoFollow });
 }
 
