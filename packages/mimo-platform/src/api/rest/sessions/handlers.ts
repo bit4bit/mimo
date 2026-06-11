@@ -720,6 +720,7 @@ export async function addChatThreadHandler(
       acpSessionId: body.acpSessionId || null,
       assignedAgentId: body.assignedAgentId,
       state: body.state || "active",
+      brainWash: body.brainWash ?? false,
       ...(instructions !== undefined && { instructions }),
     });
   } catch (error) {
@@ -803,7 +804,8 @@ export async function updateChatThreadHandler(
   if (body.mode !== undefined) updates.mode = body.mode;
   if (body.acpSessionId !== undefined) updates.acpSessionId = body.acpSessionId;
   if (body.state !== undefined) updates.state = body.state;
-  if (body.instructions !== undefined) updates.instructions = body.instructions;
+    if (body.instructions !== undefined) updates.instructions = body.instructions;
+    if (body.brainWash !== undefined) updates.brainWash = body.brainWash;
 
   let updated: Awaited<
     ReturnType<typeof mimoContext.repos.sessions.updateChatThread>

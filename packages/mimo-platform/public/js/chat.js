@@ -689,6 +689,24 @@ function renderPermissionCard(requestId, toolCall, options) {
   return card;
 }
 
+function showAutoAllowedIndicator(data) {
+  const container = document.querySelector("#chat-messages");
+  if (!container) return;
+
+  const { toolCall } = data;
+  const title = toolCall?.title || "Tool action";
+  const indicator = document.createElement("div");
+  indicator.className = "permission-card permission-card--auto-allowed";
+  indicator.innerHTML = `
+    <div class="permission-card__header">
+      <span class="permission-card__title">${escapeHtml(title)}</span>
+      <span class="permission-kind permission-kind--auto-allowed">Auto-allowed (brain-wash)</span>
+    </div>
+  `;
+  container.appendChild(indicator);
+  scrollToBottom();
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // SECTION 2.5: NOTIFICATION HELPERS
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1333,6 +1351,16 @@ function handleWebSocketMessage(data) {
         break;
       }
       removePermissionCard(data.requestId);
+      break;
+    case "permission_auto_allowed":
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
+        break;
+      }
+      showAutoAllowedIndicator(data);
       break;
     case "session_cleared":
       if (

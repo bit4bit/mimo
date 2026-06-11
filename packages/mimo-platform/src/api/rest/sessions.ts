@@ -76,6 +76,7 @@ export function createSessionsInternalRouter(_mimoContext: MimoContext): Hono {
 
   // Update chat thread
   router.put("/:id/chat-threads/:threadId", updateChatThreadHandler);
+  router.patch("/:id/chat-threads/:threadId", updateChatThreadHandler);
 
   // Delete chat thread
   router.delete("/:id/chat-threads/:threadId", deleteChatThreadHandler);

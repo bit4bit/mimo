@@ -66,6 +66,7 @@ export interface ChatThreadResponse {
   acpSessionId: string | null;
   assignedAgentId: string | null;
   state: "active" | "parked" | "waking" | "disconnected";
+  brainWash: boolean;
   instructions?: string;
   createdAt: string;
 }
@@ -214,6 +215,7 @@ export function toChatThreadResponse(thread: ChatThread): ChatThreadResponse {
     acpSessionId: thread.acpSessionId,
     assignedAgentId: thread.assignedAgentId,
     state: thread.state,
+    brainWash: thread.brainWash,
     ...(thread.instructions && { instructions: thread.instructions }),
     createdAt: thread.createdAt,
   };

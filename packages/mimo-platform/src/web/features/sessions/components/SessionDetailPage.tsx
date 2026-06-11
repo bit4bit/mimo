@@ -1097,6 +1097,15 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           background: #4a2020;
           border-color: #ff6b6b;
         }
+        .permission-card--auto-allowed {
+          border-color: #7928ca;
+          opacity: 0.75;
+        }
+        .permission-kind--auto-allowed {
+          background: #7928ca;
+          color: #e599f7;
+          border: 1px solid #9c36b5;
+        }
         .view-toggle-btn {
           background: none;
           border: 1px solid #555;

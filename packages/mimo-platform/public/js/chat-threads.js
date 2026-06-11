@@ -492,6 +492,20 @@ async function updateThreadContextUI() {
     </div>
   `;
 
+  // Brain-wash checkbox
+  html += `
+    <div class="thread-brainwash" style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+      <label style="font-size: 11px; color: #888; cursor: pointer; user-select: none;" for="brainwash-checkbox">
+        <input type="checkbox" id="brainwash-checkbox" data-thread-id="${activeThread.id}" ${activeThread.brainWash ? "checked" : ""} style="
+          accent-color: #e91e63;
+          cursor: pointer;
+          margin: 0;
+        ">
+        Brain-wash
+      </label>
+    </div>
+  `;
+
   // Spacer to push delete button to the right
   html += `<div style="flex: 1;"></div>`;
 
@@ -566,6 +580,26 @@ function attachThreadContextListeners() {
             type: "set_mode",
             chatThreadId: threadId,
             modeId: modeId,
+          }),
+        );
+      }
+    });
+  }
+
+  // Brain-wash checkbox
+  const brainwashCheckbox = document.querySelector("#brainwash-checkbox");
+  if (brainwashCheckbox) {
+    brainwashCheckbox.addEventListener("change", async (e) => {
+      const threadId = e.target.dataset.threadId;
+      const checked = e.target.checked;
+      await updateThread(threadId, { brainWash: checked });
+
+      if (window.MIMO_CHAT_SOCKET?.readyState === WebSocket.OPEN) {
+        window.MIMO_CHAT_SOCKET.send(
+          JSON.stringify({
+            type: "set_brainwash",
+            chatThreadId: threadId,
+            brainWash: checked,
           }),
         );
       }

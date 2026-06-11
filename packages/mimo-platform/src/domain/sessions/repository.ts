@@ -31,6 +31,7 @@ export interface ChatThread {
   assignedAgentId: string | null;
   state: "active" | "parked" | "waking" | "disconnected";
   instructions?: string;
+  brainWash: boolean;
   createdAt: string;
 }
 
@@ -248,7 +249,10 @@ export class SessionRepository {
     chatThreads: ChatThread[];
     activeChatThreadId: string | null;
   } {
-    const chatThreads = data.chatThreads ?? [];
+    const chatThreads = (data.chatThreads ?? []).map((t: any) => ({
+      ...t,
+      brainWash: t.brainWash ?? false,
+    }));
     const hasActiveThread =
       typeof data.activeChatThreadId === "string" &&
       chatThreads.some((thread) => thread.id === data.activeChatThreadId);
@@ -717,7 +721,13 @@ export class SessionRepository {
     updates: Partial<
       Pick<
         ChatThread,
-        "name" | "model" | "mode" | "acpSessionId" | "state" | "instructions"
+        | "name"
+        | "model"
+        | "mode"
+        | "acpSessionId"
+        | "state"
+        | "instructions"
+        | "brainWash"
       >
     >,
   ): Promise<ChatThread | null> {

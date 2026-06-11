@@ -287,6 +287,30 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
         }
         break;
 
+      case "set_brainwash":
+        const brainwashSession = await sessionRepository.findById(sessionId);
+        const brainwashThreadId =
+          data.chatThreadId || brainwashSession?.activeChatThreadId;
+        const brainwashAgentId = resolveAgentId(
+          brainwashSession,
+          brainwashThreadId,
+        );
+        if (brainwashAgentId) {
+          const brainwashAgentWs =
+            agentService.getAgentConnection(brainwashAgentId);
+          if (brainwashAgentWs && brainwashAgentWs.readyState === 1) {
+            brainwashAgentWs.send(
+              JSON.stringify({
+                type: "set_brainwash",
+                sessionId: sessionId,
+                chatThreadId: brainwashThreadId,
+                brainWash: data.brainWash ?? false,
+              }),
+            );
+          }
+        }
+        break;
+
       case "request_state":
         const stateSession = await sessionRepository.findById(sessionId);
         const stateThreadId =
@@ -311,6 +335,7 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
                 ...(stateThread?.acpSessionId && {
                   acpSessionId: stateThread.acpSessionId,
                 }),
+                brainWash: stateThread?.brainWash ?? false,
               }),
             );
           }

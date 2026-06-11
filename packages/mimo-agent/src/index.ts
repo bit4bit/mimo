@@ -72,7 +72,7 @@ export class MimoAgent {
   // Store thread-specific model/mode from platform (keyed by acpKey)
   private threadConfigs: Map<
     string,
-    { model?: string; mode?: string; acpSessionId?: string }
+    { model?: string; mode?: string; acpSessionId?: string; brainWash?: boolean }
   > = new Map();
   // Latest command inventory per session (thread fallback)
   private sessionAvailableCommands: Map<
@@ -194,6 +194,10 @@ export class MimoAgent {
 
       case "set_mode":
         this.handleSetMode(message);
+        break;
+
+      case "set_brainwash":
+        this.handleSetBrainwash(message);
         break;
 
       case "request_state":
@@ -359,6 +363,7 @@ export class MimoAgent {
                 acpSessionId: thread.acpSessionId,
                 ...(thread.model && { model: thread.model }),
                 ...(thread.mode && { mode: thread.mode }),
+                brainWash: thread.brainWash ?? false,
               });
               logger.debug(
                 `[mimo-agent] Stored bootstrap config for thread ${thread.chatThreadId}: acpSessionId=${thread.acpSessionId}, model=${thread.model}, mode=${thread.mode}`,
@@ -836,6 +841,36 @@ export class MimoAgent {
       },
       onPermissionRequest: (sid, requestId, params) => {
         return new Promise((resolve) => {
+          const threadKey = acpKey(sid, chatThreadId);
+          const config = this.threadConfigs.get(threadKey);
+
+          if (config?.brainWash) {
+            const allowAlways = params.options?.find(
+              (o: any) => o.kind === "allow_always",
+            );
+            const allowOnce = params.options?.find(
+              (o: any) => o.kind === "allow_once",
+            );
+            const anyApprove = params.options?.find(
+              (o: any) =>
+                o.kind === "allow_once" ||
+                o.kind === "allow_always",
+            );
+            const optionId = allowAlways?.optionId ?? allowOnce?.optionId ?? anyApprove?.optionId ?? "allow";
+
+            this.send({
+              type: "permission_auto_allowed",
+              sessionId: sid,
+              chatThreadId,
+              requestId,
+              toolCall: params.toolCall,
+              timestamp: new Date().toISOString(),
+            });
+
+            resolve({ outcome: { outcome: "selected" as const, optionId } });
+            return;
+          }
+
           this.pendingPermissions.set(requestId, resolve);
           this.send({
             type: "permission_request",
@@ -2032,6 +2067,30 @@ export class MimoAgent {
     }
   }
 
+  private handleSetBrainwash(message: any): void {
+    const { sessionId, brainWash } = message;
+    if (!sessionId) {
+      logger.debug("[mimo-agent] No sessionId in set_brainwash");
+      return;
+    }
+    const chatThreadId: string = message.chatThreadId;
+    if (!chatThreadId) {
+      logger.debug("[mimo-agent] No chatThreadId in set_brainwash");
+      return;
+    }
+
+    const key = acpKey(sessionId, chatThreadId);
+    const existing = this.threadConfigs.get(key);
+    this.threadConfigs.set(key, {
+      ...(existing || {}),
+      brainWash: brainWash ?? false,
+    });
+
+    logger.debug(
+      `[mimo-agent] Set brainWash for ${sessionId}/${chatThreadId}: ${brainWash}`,
+    );
+  }
+
   private async handleRequestState(message: any): Promise<void> {
     const { sessionId } = message;
     if (!sessionId) {
@@ -2046,12 +2105,15 @@ export class MimoAgent {
 
     // Store thread config from platform (model/mode/acpSessionId to apply on first spawn)
     const key = acpKey(sessionId, chatThreadId);
-    if (message.model || message.mode || message.acpSessionId) {
-      this.threadConfigs.set(key, {
-        ...(message.model && { model: message.model }),
-        ...(message.mode && { mode: message.mode }),
-        ...(message.acpSessionId && { acpSessionId: message.acpSessionId }),
-      });
+      if (message.model || message.mode || message.acpSessionId || message.brainWash !== undefined) {
+        const existing = this.threadConfigs.get(key);
+        this.threadConfigs.set(key, {
+          ...(existing || {}),
+          ...(message.model && { model: message.model }),
+          ...(message.mode && { mode: message.mode }),
+          ...(message.acpSessionId && { acpSessionId: message.acpSessionId }),
+          brainWash: message.brainWash ?? existing?.brainWash ?? false,
+        });
       logger.debug(
         `[mimo-agent] Stored thread config for ${sessionId}/${chatThreadId}: model=${message.model}, mode=${message.mode}, acpSessionId=${message.acpSessionId}`,
       );

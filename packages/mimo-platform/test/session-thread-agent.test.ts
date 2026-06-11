@@ -111,6 +111,68 @@ describe("Session findByThreadAgentId", () => {
     const found = await sessionRepository.findByThreadAgentId("agent-1");
     expect(found).toHaveLength(0);
   });
+
+  it("persists and reloads brainWash field via updateChatThread", async () => {
+    const project = await projectRepository.create({
+      name: "BrainWash Project",
+      repoUrl: "https://github.com/user/repo.git",
+      repoType: "git",
+      owner: "testuser",
+    });
+
+    const session = await sessionRepository.create({
+      name: "BrainWash Session",
+      projectId: project.id,
+      owner: "testuser",
+    });
+
+    await sessionRepository.addChatThread(session.id, {
+      name: "BrainWash Thread",
+      model: "model-x",
+      mode: "code",
+      acpSessionId: null,
+      assignedAgentId: "agent-1",
+      state: "active",
+    });
+
+    const freshSession = await sessionRepository.findById(session.id);
+    const thread = freshSession!.chatThreads[0];
+    expect(thread.brainWash).toBe(false);
+
+    await sessionRepository.updateChatThread(session.id, thread.id, {
+      brainWash: true,
+    });
+
+    const updated = await sessionRepository.findById(session.id);
+    expect(updated!.chatThreads[0].brainWash).toBe(true);
+  });
+
+  it("brainWash defaults to false for threads loaded from YAML without the field", async () => {
+    const project = await projectRepository.create({
+      name: "BackCompat Project",
+      repoUrl: "https://github.com/user/repo.git",
+      repoType: "git",
+      owner: "testuser",
+    });
+
+    const session = await sessionRepository.create({
+      name: "BackCompat Session",
+      projectId: project.id,
+      owner: "testuser",
+    });
+
+    await sessionRepository.addChatThread(session.id, {
+      name: "Legacy Thread",
+      model: "model-x",
+      mode: "code",
+      acpSessionId: null,
+      assignedAgentId: null,
+      state: "active",
+    });
+
+    const loaded = await sessionRepository.findById(session.id);
+    expect(loaded!.chatThreads[0].brainWash).toBe(false);
+  });
 });
 
 describe("Session creation without agent assignment", () => {

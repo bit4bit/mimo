@@ -373,6 +373,7 @@ export class AgentMessageRouter {
             mode: thread.mode,
             acpSessionId: thread.acpSessionId,
             state: thread.state,
+            brainWash: thread.brainWash ?? false,
           }));
 
           sessionsReady.push({
