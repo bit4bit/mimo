@@ -2,7 +2,7 @@
 import crypto from "crypto";
 import { logger } from "../../logger.js";
 import type { SccService } from "../impact/scc-service.js";
-import { isExcluded } from "../files/path-policy.js";
+import { isExcluded, isGeneratedOrVendorPath } from "../files/path-policy.js";
 import type { OS } from "../../infrastructure/os/types.js";
 
 export type FileStatus =
@@ -60,6 +60,7 @@ export class FileSyncService {
     sessionId: string,
     agentWorkspacePath: string,
     upstreamPath?: string,
+    fullBaseline = false,
   ): Promise<void> {
     // Get paths from session if not provided
     if (!upstreamPath || !agentWorkspacePath) {
@@ -85,7 +86,13 @@ export class FileSyncService {
     // Initialize empty pending changes buffer
     this.pendingChanges.set(sessionId, []);
 
-    // Scan current state
+    // Only perform a full recursive scan when explicitly requested.
+    if (fullBaseline) {
+      await this.scanSessionCheckout(sessionId);
+    }
+  }
+
+  async runFullBaselineScan(sessionId: string): Promise<void> {
     await this.scanSessionCheckout(sessionId);
   }
 
@@ -246,6 +253,16 @@ export class FileSyncService {
             this.os.fs.mkdir(originalDir, { recursive: true });
           }
 
+          // Record upstream baseline before we overwrite the original file.
+          if (
+            change.status === "modified" &&
+            !syncState.baselineChecksums.has(change.path) &&
+            this.os.fs.exists(originalPath)
+          ) {
+            const baseline = await this.calculateChecksum(originalPath);
+            syncState.baselineChecksums.set(change.path, baseline);
+          }
+
           // Copy file with permissions
           if (this.os.fs.exists(sessionPath)) {
             this.os.fs.copyFile(sessionPath, originalPath);
@@ -259,9 +276,14 @@ export class FileSyncService {
               );
             }
 
-            // Update baseline checksum
-            const newChecksum = await this.calculateChecksum(sessionPath);
-            syncState.baselineChecksums.set(change.path, newChecksum);
+            // Update baseline checksum. For new files we store the workspace
+            // checksum because there is no upstream original yet. For modified
+            // files the baseline was already captured above from the upstream
+            // version.
+            if (change.status === "new") {
+              const newChecksum = await this.calculateChecksum(sessionPath);
+              syncState.baselineChecksums.set(change.path, newChecksum);
+            }
           }
         }
       } catch (error) {
@@ -489,6 +511,7 @@ export class FileSyncService {
       const relativePath = this.os.path.relative(basePath, fullPath);
 
       if (isExcluded(entry.name)) continue;
+      if (isGeneratedOrVendorPath(relativePath)) continue;
 
       const entryStats = this.os.fs.lstat(fullPath);
       if (entryStats.isDirectory()) {

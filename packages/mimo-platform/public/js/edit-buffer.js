@@ -1255,13 +1255,17 @@
   function loadFileList(pattern) {
     const sessionId = getSessionId();
     if (!sessionId) return;
-    const url = "/sessions/" + sessionId + "/files";
+    const params = new URLSearchParams();
+    params.set("limit", "50");
+    const pat = String(pattern || "").trim();
+    if (pat) params.set("query", pat);
+    const url = "/sessions/" + sessionId + "/files?" + params.toString();
     fetch(url)
       .then(function (r) {
         return r.json();
       })
-      .then(function (files) {
-        allFiles = files;
+      .then(function (payload) {
+        allFiles = Array.isArray(payload) ? payload : payload.files || [];
         fileFinderLoaded = true;
         filterResults(pattern);
       })

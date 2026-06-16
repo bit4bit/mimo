@@ -13,8 +13,23 @@ export interface FileContent {
   lineCount: number;
 }
 
+export interface ListFilesOptions {
+  cursor?: string;
+  limit?: number;
+  query?: string;
+}
+
+export interface PaginatedFilesResult {
+  files: FileInfo[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 export interface FileService {
-  listFiles: (workspacePath: string) => Promise<FileInfo[]>;
+  listFiles: (
+    workspacePath: string,
+    options?: ListFilesOptions,
+  ) => Promise<FileInfo[] | PaginatedFilesResult>;
   readFile: (workspacePath: string, filePath: string) => Promise<string>;
 }
 

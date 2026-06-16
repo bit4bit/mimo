@@ -9,6 +9,7 @@ import type { OS } from "../../infrastructure/os/types.js";
 import type { Credential } from "../credentials/repository";
 import { logger } from "../../logger.js";
 import { EXCLUDED_PATHS, isExcluded } from "../files/path-policy.js";
+import { detectChangedFiles } from "../files/changed-files.js";
 
 export interface VCSResult {
   success: boolean;
@@ -24,11 +25,15 @@ export interface VCSConfig {
   os: OS;
   timeoutMs?: number;
   cloneTimeoutMs?: number;
+  importTimeoutMs?: number;
+  patchMaxSizeBytes?: number;
   host?: string;
 }
 
 const DEFAULT_TIMEOUT_MS = 30000;
 const DEFAULT_CLONE_TIMEOUT_MS = 10 * 60 * 1000;
+const DEFAULT_IMPORT_TIMEOUT_MS = 10 * 60 * 1000;
+const DEFAULT_PATCH_MAX_SIZE_BYTES = 5 * 1024 * 1024;
 
 const withTimeout = <T>(
   promise: Promise<T>,
@@ -79,12 +84,17 @@ export class VCS {
   private readonly os: OS;
   private readonly timeoutMs: number;
   private readonly cloneTimeoutMs: number;
+  private readonly importTimeoutMs: number;
+  private readonly patchMaxSizeBytes: number;
   private readonly host: string;
 
   constructor(config: VCSConfig) {
     this.os = config.os;
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.cloneTimeoutMs = config.cloneTimeoutMs ?? DEFAULT_CLONE_TIMEOUT_MS;
+    this.importTimeoutMs = config.importTimeoutMs ?? DEFAULT_IMPORT_TIMEOUT_MS;
+    this.patchMaxSizeBytes =
+      config.patchMaxSizeBytes ?? DEFAULT_PATCH_MAX_SIZE_BYTES;
     this.host = config.host ?? DEFAULT_MIMO_HOST;
   }
 
@@ -617,22 +627,70 @@ export class VCS {
       return initResult;
     }
 
-    const result = await this.execCommand(
-      ["fossil", "import", "--git", url, fossilPath],
-      workDir,
-      undefined,
-      this.cloneTimeoutMs,
-    );
+    // Phase 1: clone the Git repository into a temporary directory.
+    const tempCloneDir = this.os.path.join(workDir, ".mimo-git-clone-temp");
+    this.os.fs.mkdir(tempCloneDir, { recursive: true });
 
-    if (result.success) {
+    logger.info(`[vcs] git clone started: ${this.sanitizeGitUrl(url)}`);
+    let cloneResult;
+    try {
+      cloneResult = await this.execCommand(
+        ["git", "clone", url, tempCloneDir],
+        workDir,
+        undefined,
+        this.cloneTimeoutMs,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(`[vcs] git clone timed out after ${this.cloneTimeoutMs} ms`);
+      return {
+        success: false,
+        error: `Git clone timed out after ${this.cloneTimeoutMs} ms: ${message}`,
+      };
+    }
+
+    if (!cloneResult.success) {
+      logger.error(`[vcs] git clone failed: ${cloneResult.error}`);
+      return {
+        success: false,
+        output: cloneResult.output,
+        error: `Git clone failed: ${cloneResult.error || "unknown error"}`,
+      };
+    }
+    logger.info(`[vcs] git clone completed: ${this.sanitizeGitUrl(url)}`);
+
+    // Phase 2: import the cloned repository into Fossil.
+    logger.info(`[vcs] fossil import started for ${fossilPath}`);
+    let importResult;
+    try {
+      importResult = await this.execCommand(
+        ["fossil", "import", "--git", tempCloneDir, fossilPath],
+        workDir,
+        undefined,
+        this.importTimeoutMs,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(
+        `[vcs] fossil import timed out after ${this.importTimeoutMs} ms`,
+      );
+      return {
+        success: false,
+        error: `Fossil import timed out after ${this.importTimeoutMs} ms: ${message}`,
+      };
+    }
+
+    if (importResult.success) {
+      logger.info(`[vcs] fossil import completed for ${fossilPath}`);
       const openResult = await this.openFossil(fossilPath, workDir);
       return openResult;
     }
 
+    logger.error(`[vcs] fossil import failed: ${importResult.error}`);
     return {
       success: false,
-      output: result.output,
-      error: result.error || "Failed to import from Git",
+      output: importResult.output,
+      error: `Fossil import failed: ${importResult.error || "unknown error"}`,
     };
   }
 
@@ -1424,35 +1482,25 @@ export class VCS {
     upstreamPath: string,
   ): Promise<VCSResult & { patch?: string }> {
     const sessionDir = this.os.path.dirname(agentWorkspacePath);
-    const upstreamDirName = this.os.path.basename(upstreamPath);
-    const agentDirName = this.os.path.basename(agentWorkspacePath);
 
-    const proc = this.os.command.spawn(
-      [
-        "git",
-        "diff",
-        "--binary",
-        "--no-index",
-        "--no-color",
-        "--",
-        upstreamDirName,
-        agentDirName,
-      ],
-      { cwd: sessionDir },
-    );
-
-    const exitCode = await proc.exited;
-    const stdout = await new Response(proc.stdout).text();
-    const stderr = await new Response(proc.stderr).text();
-
-    if (exitCode > 1) {
+    // Determine changed paths instead of diffing the entire directories.
+    let changedFilesResult;
+    try {
+      changedFilesResult = await detectChangedFiles(
+        this.os,
+        upstreamPath,
+        agentWorkspacePath,
+      );
+    } catch (error) {
+      logger.error("[vcs] Failed to detect changed files for patch:", error);
       return {
         success: false,
-        error: `git diff failed: ${stderr}`,
+        error: "Failed to detect changed files for patch generation",
       };
     }
 
-    if (exitCode === 0 || !stdout.trim()) {
+    const changedFiles = changedFilesResult.files;
+    if (changedFiles.length === 0) {
       return {
         success: true,
         output: "No changes",
@@ -1460,22 +1508,160 @@ export class VCS {
       };
     }
 
-    let patch = this.normalizePatchPaths(stdout, upstreamDirName, agentDirName);
-    patch = this.filterVcsMetadata(patch);
+    // Build two temporary trees containing only the changed files. This lets
+    // us run a single `git diff --no-index` over the exact changed subset
+    // while preserving standard patch semantics for added/deleted/modified
+    // files and avoiding a full-directory diff.
+    const tempUpstream = this.os.path.join(sessionDir, ".mimo-patch-upstream");
+    const tempWorkspace = this.os.path.join(
+      sessionDir,
+      ".mimo-patch-workspace",
+    );
 
-    if (!patch.trim()) {
+    try {
+      this.os.fs.mkdir(tempUpstream, { recursive: true });
+      this.os.fs.mkdir(tempWorkspace, { recursive: true });
+
+      for (const change of changedFiles) {
+        const relPath = change.path;
+        if (change.status === "deleted") {
+          this.copyFileForPatch(
+            this.os.path.join(upstreamPath, relPath),
+            this.os.path.join(tempUpstream, relPath),
+          );
+        } else if (change.status === "added") {
+          this.copyFileForPatch(
+            this.os.path.join(agentWorkspacePath, relPath),
+            this.os.path.join(tempWorkspace, relPath),
+          );
+        } else {
+          this.copyFileForPatch(
+            this.os.path.join(upstreamPath, relPath),
+            this.os.path.join(tempUpstream, relPath),
+          );
+          this.copyFileForPatch(
+            this.os.path.join(agentWorkspacePath, relPath),
+            this.os.path.join(tempWorkspace, relPath),
+          );
+        }
+      }
+
+      const proc = this.os.command.spawn(
+        [
+          "git",
+          "diff",
+          "--binary",
+          "--no-index",
+          "--no-color",
+          "--",
+          this.os.path.basename(tempUpstream),
+          this.os.path.basename(tempWorkspace),
+        ],
+        { cwd: sessionDir },
+      );
+
+      let stdout = "";
+      let stderr = "";
+      const stdoutReader = proc.stdout.getReader();
+      const stderrReader = proc.stderr.getReader();
+
+      try {
+        while (true) {
+          const { done, value } = await stdoutReader.read();
+          if (done) break;
+          const chunk = new TextDecoder().decode(value);
+          stdout += chunk;
+          if (stdout.length > this.patchMaxSizeBytes) {
+            stdoutReader.releaseLock();
+            // Best-effort kill of the still-running process
+            try {
+              await proc.kill?.();
+            } catch {
+              /* ignore */
+            }
+            return {
+              success: false,
+              error:
+                `Patch exceeds maximum size of ${this.patchMaxSizeBytes} bytes. ` +
+                "Try committing smaller chunks of changes.",
+            };
+          }
+        }
+      } finally {
+        stdoutReader.releaseLock();
+      }
+
+      try {
+        while (true) {
+          const { done, value } = await stderrReader.read();
+          if (done) break;
+          stderr += new TextDecoder().decode(value);
+        }
+      } finally {
+        stderrReader.releaseLock();
+      }
+
+      const exitCode = await proc.exited;
+
+      if (exitCode > 1) {
+        return {
+          success: false,
+          error: `git diff failed: ${stderr}`,
+        };
+      }
+
+      if (exitCode === 0 || !stdout.trim()) {
+        return {
+          success: true,
+          output: "No changes",
+          patch: "",
+        };
+      }
+
+      let patch = this.normalizePatchPaths(
+        stdout,
+        this.os.path.basename(tempUpstream),
+        this.os.path.basename(tempWorkspace),
+      );
+      patch = this.filterVcsMetadata(patch);
+
+      if (!patch.trim()) {
+        return {
+          success: true,
+          output: "No changes",
+          patch: "",
+        };
+      }
+
       return {
         success: true,
-        output: "No changes",
-        patch: "",
+        output: `Patch generated (${patch.split("\n").length} lines)`,
+        patch,
       };
+    } finally {
+      this.cleanupPatchTrees(tempUpstream, tempWorkspace);
     }
+  }
 
-    return {
-      success: true,
-      output: `Patch generated (${patch.split("\n").length} lines)`,
-      patch,
-    };
+  private copyFileForPatch(sourcePath: string, destPath: string): void {
+    if (!this.os.fs.exists(sourcePath)) return;
+    const destDir = this.os.path.dirname(destPath);
+    if (!this.os.fs.exists(destDir)) {
+      this.os.fs.mkdir(destDir, { recursive: true });
+    }
+    this.os.fs.copyFile(sourcePath, destPath);
+  }
+
+  private cleanupPatchTrees(...trees: string[]): void {
+    for (const tree of trees) {
+      try {
+        if (this.os.fs.exists(tree)) {
+          this.os.fs.rm(tree, { recursive: true, force: true });
+        }
+      } catch {
+        // Ignore cleanup failures; these are temporary directories.
+      }
+    }
   }
 
   async storePatch(patchDir: string, patchContent: string): Promise<string> {

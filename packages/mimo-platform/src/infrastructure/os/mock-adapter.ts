@@ -415,6 +415,12 @@ export class MockPathResolver implements PathResolver {
     return parts[parts.length - 1] ?? "";
   }
 
+  extname(path: string): string {
+    const base = this.basename(path);
+    const dot = base.lastIndexOf(".");
+    return dot <= 0 ? "" : base.slice(dot);
+  }
+
   relative(from: string, to: string): string {
     // Simplified mock: just return to if it doesn't start with from
     if (to.startsWith(from + "/")) return to.slice(from.length + 1);

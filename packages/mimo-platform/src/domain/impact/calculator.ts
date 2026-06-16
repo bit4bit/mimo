@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import type { SccService, SccMetrics, SccFileMetrics } from "./scc-service.js";
+import type { SccService, SccMetrics, SccFileMetrics, SccLanguageMetrics } from "./scc-service.js";
 import type { JscpdService, Clone } from "./jscpd-service.js";
 import type { OS } from "../../infrastructure/os/types.js";
 import { logger } from "../../logger.js";
 import { detectChangedFiles } from "../files/changed-files.js";
+import type { FileChange as DetectedFileChange } from "../files/changed-files.js";
 import { shouldIncludeImpactPath } from "../files/impact-file-policy.js";
 import {
   buildDependencyGraph,
@@ -126,11 +127,18 @@ interface PreviousState {
   timestamp: number;
 }
 
+interface ImpactBaseline {
+  upstreamMetrics: SccMetrics;
+  workspaceMetrics: SccMetrics;
+  refreshedAt: number;
+}
+
 export class ImpactCalculator {
   private previousStates: Map<string, PreviousState> = new Map();
   private customSccService: SccService | undefined;
   private customJscpdService: JscpdService | undefined;
   private os: OS | undefined;
+  private impactBaselines: Map<string, ImpactBaseline> = new Map();
 
   constructor(
     customSccService?: SccService,
@@ -173,40 +181,80 @@ export class ImpactCalculator {
       await sccService.install();
     }
 
-    // Get scc metrics for both directories
-    let upstreamMetrics: ReturnType<typeof sccService.runScc> extends Promise<
-      infer T
-    >
-      ? T
-      : never | null = null;
-    let workspaceMetrics: ReturnType<typeof sccService.runScc> extends Promise<
-      infer T
-    >
-      ? T
-      : never | null = null;
-
-    try {
-      upstreamMetrics = await sccService.runScc(upstreamPath, forceRefresh);
-    } catch (error) {
-      logger.error(`[impact] Failed to get upstream metrics:`, error);
-    }
-
-    try {
-      workspaceMetrics = await sccService.runScc(
-        agentWorkspacePath,
-        forceRefresh,
-      );
-    } catch (error) {
-      logger.error(`[impact] Failed to get workspace metrics:`, error);
-    }
-
-    // Detect changed files using shared logic
+    // Detect changed files using shared logic.
     const changedFilesResult = await detectChangedFiles(
       this.os!,
       upstreamPath,
       agentWorkspacePath,
       { fileFilter: shouldIncludeImpactPath },
     );
+
+    const baselineKey = this.baselineCacheKey(upstreamPath, agentWorkspacePath);
+    let baseline = this.impactBaselines.get(baselineKey);
+
+    let upstreamMetrics: SccMetrics | null = null;
+    let workspaceMetrics: SccMetrics | null = null;
+
+    if (forceRefresh || !baseline) {
+      // Full scan: run scc over both directories and store the baseline.
+      try {
+        upstreamMetrics = await sccService.runScc(upstreamPath, forceRefresh);
+      } catch (error) {
+        logger.error(`[impact] Failed to get upstream metrics:`, error);
+      }
+
+      try {
+        workspaceMetrics = await sccService.runScc(
+          agentWorkspacePath,
+          forceRefresh,
+        );
+      } catch (error) {
+        logger.error(`[impact] Failed to get workspace metrics:`, error);
+      }
+
+      if (upstreamMetrics && workspaceMetrics) {
+        baseline = {
+          upstreamMetrics,
+          workspaceMetrics,
+          refreshedAt: Date.now(),
+        };
+        this.impactBaselines.set(baselineKey, baseline);
+      }
+    } else {
+      // Incremental: start from the cached baseline and update it with the
+      // changed files (plus a small sample of unchanged files for drift
+      // detection).
+      upstreamMetrics = baseline.upstreamMetrics;
+      workspaceMetrics = baseline.workspaceMetrics;
+
+      const existingChangedPaths = changedFilesResult.files
+        .filter((f) => f.status !== "deleted")
+        .map((f) => f.path);
+      const unchangedSample = this.pickUnchangedSample(
+        baseline.workspaceMetrics,
+        changedFilesResult.files.map((f) => f.path),
+        10,
+      );
+      const filesToScan = [...existingChangedPaths, ...unchangedSample];
+
+      if (filesToScan.length > 0) {
+        try {
+          const incrementalMetrics = await sccService.runSccOnFiles(
+            filesToScan.map((p) => this.os!.path.join(agentWorkspacePath, p)),
+            agentWorkspacePath,
+          );
+          workspaceMetrics = this.mergeIncrementalMetrics(
+            baseline.workspaceMetrics,
+            incrementalMetrics,
+            changedFilesResult.files,
+          );
+        } catch (error) {
+          logger.error(`[impact] Incremental scc run failed:`, error);
+          // Fall back to the cached baseline rather than failing entirely.
+          workspaceMetrics = baseline.workspaceMetrics;
+        }
+      }
+    }
 
     // Calculate file counts
     const files = {
@@ -493,6 +541,135 @@ export class ImpactCalculator {
     return { metrics, trends };
   }
 
+  private baselineCacheKey(upstreamPath: string, workspacePath: string): string {
+    return `${upstreamPath}\x00${workspacePath}`;
+  }
+
+  /**
+   * Refresh the cached impact baseline for a session. This should be called
+   * after a successful commit/push so that subsequent incremental refreshes are
+   * based on the latest synced state.
+   */
+  async refreshBaseline(
+    sessionId: string,
+    upstreamPath: string,
+    agentWorkspacePath: string,
+  ): Promise<void> {
+    const sccService = await this.getSccService();
+
+    if (!sccService.isInstalled()) {
+      await sccService.install();
+    }
+
+    try {
+      const upstreamMetrics = await sccService.runScc(upstreamPath, true);
+      const workspaceMetrics = await sccService.runScc(agentWorkspacePath, true);
+      this.impactBaselines.set(
+        this.baselineCacheKey(upstreamPath, agentWorkspacePath),
+        {
+          upstreamMetrics,
+          workspaceMetrics,
+          refreshedAt: Date.now(),
+        },
+      );
+    } catch (error) {
+      logger.error(`[impact] Failed to refresh baseline for ${sessionId}:`, error);
+    }
+  }
+
+  /**
+   * Pick a small, deterministic sample of unchanged files from the baseline
+   * to re-scan alongside changed files. This helps detect drift in files that
+   * have not been reported as changed.
+   */
+  private pickUnchangedSample(
+    baselineMetrics: SccMetrics,
+    changedPaths: string[],
+    sampleSize: number,
+  ): string[] {
+    const changedSet = new Set(changedPaths);
+    const unchanged = baselineMetrics.byFile
+      .map((f) => f.path)
+      .filter((p) => !changedSet.has(p));
+    return unchanged.slice(0, sampleSize);
+  }
+
+  /**
+   * Merge an incremental SCC run into a cached baseline, removing deleted
+   * files and updating metrics for changed/new files.
+   */
+  private mergeIncrementalMetrics(
+    baseline: SccMetrics,
+    incremental: SccMetrics,
+    changedFiles: import("../files/changed-files.js").FileChange[],
+  ): SccMetrics {
+    const filesByPath = new Map(baseline.byFile.map((f) => [f.path, f]));
+
+    for (const file of incremental.byFile) {
+      filesByPath.set(file.path, file);
+    }
+
+    for (const change of changedFiles) {
+      if (change.status === "deleted") {
+        filesByPath.delete(change.path);
+      }
+    }
+
+    const byFile = Array.from(filesByPath.values()).sort((a, b) =>
+      a.path.localeCompare(b.path),
+    );
+
+    let totalLines = 0;
+    let totalCode = 0;
+    let totalComplexity = 0;
+    const languageMap = new Map<string, import("./scc-service.js").SccLanguageMetrics>();
+
+    for (const file of byFile) {
+      totalLines += file.lines;
+      totalCode += file.code;
+      totalComplexity += file.complexity;
+
+      const existing = languageMap.get(file.language);
+      if (existing) {
+        existing.files++;
+        existing.lines += file.lines;
+        existing.code += file.code;
+        existing.comment += file.comment;
+        existing.blank += file.blank;
+        existing.complexity += file.complexity;
+      } else {
+        languageMap.set(file.language, {
+          language: file.language,
+          files: 1,
+          lines: file.lines,
+          code: file.code,
+          comment: file.comment,
+          blank: file.blank,
+          complexity: file.complexity,
+        });
+      }
+    }
+
+    return {
+      linesOfCode: {
+        added: totalCode,
+        removed: 0,
+        net: totalCode,
+      },
+      totalLines: {
+        upstream: baseline.totalLines.upstream,
+        workspace: totalLines,
+      },
+      complexity: {
+        cyclomatic: totalComplexity,
+        cognitive: 0,
+        estimatedMinutes: Math.ceil(totalCode / 10),
+      },
+      byLanguage: Array.from(languageMap.values()),
+      byFile,
+    };
+  }
+
   private calculateDependencyChanges(
     changedFiles: { path: string; status: "added" | "modified" | "deleted" }[],
     upstreamPath: string,
@@ -749,6 +926,19 @@ export class ImpactCalculator {
     } else {
       this.previousStates.clear();
     }
+  }
+
+  /**
+   * Drop the cached impact baseline for a session. Useful when the workspace
+   * is deleted or when a full resync is performed.
+   */
+  invalidateBaseline(
+    upstreamPath: string,
+    agentWorkspacePath: string,
+  ): void {
+    this.impactBaselines.delete(
+      this.baselineCacheKey(upstreamPath, agentWorkspacePath),
+    );
   }
 }
 

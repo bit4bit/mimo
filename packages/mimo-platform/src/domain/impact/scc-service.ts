@@ -254,6 +254,33 @@ export class SccService {
     await this.buildIgnoreFile(directory);
 
     const args = ["--by-file", "-f", "json", directory];
+    return this.runSccWithArgs(directory, args, force);
+  }
+
+  async runSccOnFiles(
+    filePaths: string[],
+    directory: string,
+  ): Promise<SccMetrics> {
+    if (filePaths.length === 0) {
+      return this.createEmptyMetrics();
+    }
+
+    if (!this.isInstalled()) {
+      throw new Error("scc is not installed. Run install() first.");
+    }
+
+    // Build composite ignore file before running
+    await this.buildIgnoreFile(directory);
+
+    const args = ["--by-file", "-f", "json", ...filePaths];
+    return this.runSccWithArgs(directory, args, false);
+  }
+
+  private async runSccWithArgs(
+    directory: string,
+    args: string[],
+    force: boolean,
+  ): Promise<SccMetrics> {
     const child = this.os.command.spawn([this.sccPath, ...args], {
       timeoutMs: 30000,
     });
@@ -302,6 +329,16 @@ export class SccService {
     } catch (error) {
       throw new Error(`Failed to parse scc output: ${error}`);
     }
+  }
+
+  private createEmptyMetrics(): SccMetrics {
+    return {
+      linesOfCode: { added: 0, removed: 0, net: 0 },
+      totalLines: { upstream: 0, workspace: 0 },
+      complexity: { cyclomatic: 0, cognitive: 0, estimatedMinutes: 0 },
+      byLanguage: [],
+      byFile: [],
+    };
   }
 
   private parseSccOutput(directory: string, output: SccJsonOutput): SccMetrics {

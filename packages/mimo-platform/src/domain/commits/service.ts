@@ -399,6 +399,25 @@ export class CommitService {
       };
     }
 
+    // Refresh the impact baseline now that upstream and workspace are synced.
+    try {
+      if (
+        this.deps.impactCalculator &&
+        typeof this.deps.impactCalculator.refreshBaseline === "function"
+      ) {
+        await this.deps.impactCalculator.refreshBaseline(
+          sessionId,
+          session.upstreamPath,
+          session.agentWorkspacePath,
+        );
+      }
+    } catch (baselineError) {
+      logger.error(
+        `[commit] Failed to refresh impact baseline for session ${session.id}:`,
+        baselineError,
+      );
+    }
+
     return {
       success: true,
       message: "Changes committed and pushed successfully",

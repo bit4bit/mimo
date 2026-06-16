@@ -59,6 +59,17 @@ If assistance with the running production environment is needed, ask the user fi
 - Keep dependencies explicit via injection.
 - Keep changes minimal, clear, and behavior-driven.
 
+## Environment Variables
+
+The platform reads the following optional environment variables at startup and
+injects them into services. No service reads `process.env` directly.
+
+| Variable | Used in | Default | Description |
+| --- | --- | --- | --- |
+| `MIMO_CLONE_TIMEOUT_MS` | `VCS` | `600000` (10 min) | Timeout for the Git clone/fetch phase when importing a repository into Fossil. |
+| `MIMO_IMPORT_TIMEOUT_MS` | `VCS` | `600000` (10 min) | Timeout for the Fossil import phase after a Git clone. |
+| `PATCH_MAX_SIZE_BYTES` | `VCS.generatePatch()` | `5242880` (5 MB) | Maximum size of a generated patch before aborting with a suggestion to commit smaller chunks. |
+
 ## Semantic Versioning
 
 This project uses **semantic versioning** with shared versions across all packages.

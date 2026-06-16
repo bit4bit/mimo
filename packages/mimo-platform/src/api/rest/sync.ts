@@ -91,6 +91,7 @@ export function createSyncRoutes(mimoContext: MimoContext): Hono {
     const body = (await c.req.json()) as {
       sessionWorktreePath: string;
       originalRepoPath?: string;
+      fullBaseline?: boolean;
     };
 
     try {
@@ -98,8 +99,26 @@ export function createSyncRoutes(mimoContext: MimoContext): Hono {
         sessionId,
         body.sessionWorktreePath,
         body.originalRepoPath,
+        body.fullBaseline ?? false,
       );
-      await service.scanSessionCheckout(sessionId);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        {
+          success: false,
+          error: (error as Error).message,
+        },
+        500,
+      );
+    }
+  });
+
+  // POST /sync/:sessionId/full-baseline - Run a full baseline scan
+  router.post("/:sessionId/full-baseline", async (c: Context) => {
+    const sessionId = c.req.param("sessionId");
+
+    try {
+      await service.runFullBaselineScan(sessionId);
       return c.json({ success: true });
     } catch (error) {
       return c.json(

@@ -9,6 +9,21 @@ import {
 } from "../../domain/files/syntax-highlighter.js";
 import { ExpertService } from "../../domain/files/expert-service.js";
 
+function hasPagination(response: unknown): response is {
+  files: unknown[];
+  nextCursor: string | null;
+  hasMore: boolean;
+} {
+  return (
+    typeof response === "object" &&
+    response !== null &&
+    "files" in response &&
+    Array.isArray((response as { files: unknown[] }).files) &&
+    "nextCursor" in response &&
+    "hasMore" in response
+  );
+}
+
 interface FilesRoutesContext {
   fileService: FileService;
   getWorkspacePath: (sessionId: string) => Promise<string | null>;
@@ -23,13 +38,28 @@ export function createFilesRoutes(ctx: FilesRoutesContext) {
     const sessionId = c.req.param("sessionId");
     const pattern = c.req.query("pattern") ?? "";
 
+    const limitParam = c.req.query("limit");
+    const cursorParam = c.req.query("cursor");
+    const queryParam = c.req.query("query");
+    const wantsPagination = limitParam !== undefined || cursorParam !== undefined;
+
     const workspacePath = await ctx.getWorkspacePath(sessionId);
     if (!workspacePath) {
       return c.json({ error: "Session not found" }, 404);
     }
 
+    if (wantsPagination) {
+      const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+      const result = await ctx.fileService.listFiles(workspacePath, {
+        limit,
+        cursor: cursorParam,
+        query: queryParam ?? pattern,
+      });
+      return c.json(result);
+    }
+
     const allFiles = await ctx.fileService.listFiles(workspacePath);
-    const filtered = findFiles(pattern, allFiles);
+    const filtered = findFiles(pattern, allFiles as import("../../domain/files/types.js").FileInfo[]);
     return c.json(filtered);
   });
 

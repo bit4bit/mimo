@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import type { FileInfo, FileService } from "./types.js";
+import type {
+  FileInfo,
+  FileService,
+  ListFilesOptions,
+  PaginatedFilesResult,
+} from "./types.js";
 import type { DirEnt, OS } from "../../infrastructure/os/types.js";
-import { isExcluded } from "./path-policy.js";
+import { isExcluded, isGeneratedOrVendorPath } from "./path-policy.js";
 
 export function loadIgnorePatterns(workspacePath: string, os: OS): string[] {
   const files = [".gitignore", ".mimoignore"];
@@ -103,6 +108,11 @@ export function matchesPattern(filePath: string, pattern: string): boolean {
   return filePath.toLowerCase().includes(pattern.toLowerCase().trim());
 }
 
+interface ListCandidate {
+  file: FileInfo;
+  score: number;
+}
+
 function normalizeQuery(query: string): string {
   return query.replace(/\\/g, "/").replace(/^\.\//, "").trim().toLowerCase();
 }
@@ -150,6 +160,20 @@ export function findFiles(pattern: string, files: FileInfo[]): FileInfo[] {
     .map((entry) => entry.file);
 }
 
+function isFileIgnoredByPatterns(filePath: string, patterns: string[]): boolean {
+  let ignored = false;
+  for (const raw of patterns) {
+    const p = raw.trim();
+    if (!p || p.startsWith("#")) continue;
+    const negate = p.startsWith("!");
+    const pattern = negate ? p.slice(1) : p;
+    if (patternMatchesFile(pattern, filePath)) {
+      ignored = !negate;
+    }
+  }
+  return ignored;
+}
+
 function isDirIgnoredByPatterns(
   dirRelPath: string,
   patterns: string[],
@@ -163,6 +187,72 @@ function isDirIgnoredByPatterns(
     if (matchesPart(stripped, dirRelPath.split("/").pop()!)) return true;
   }
   return false;
+}
+
+async function walkDirPaginated(
+  dirPath: string,
+  os: OS,
+  basePath: string,
+  ignorePatterns: string[],
+  query: string,
+  cursorPath: string | null,
+  limit: number,
+  candidates: ListCandidate[],
+): Promise<void> {
+  if (candidates.length >= limit + 1) return;
+
+  let entries: DirEnt[];
+  try {
+    entries = os.fs.readdir(dirPath, { withFileTypes: true }) as DirEnt[];
+  } catch {
+    return;
+  }
+
+  // Sort entries for deterministic traversal and cursor semantics.
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+
+  const normalizedBase = basePath.replace(/\\/g, "/");
+  for (const entry of entries) {
+    if (candidates.length >= limit + 1) break;
+
+    const entryName = entry.name;
+    if (entry.isDirectory()) {
+      const relDir = normalizedBase
+        ? `${normalizedBase}/${entryName}`
+        : entryName;
+      if (isExcluded(relDir)) continue;
+      if (isGeneratedOrVendorPath(relDir)) continue;
+      if (isDirIgnoredByPatterns(relDir, ignorePatterns)) continue;
+      await walkDirPaginated(
+        os.path.join(dirPath, entryName),
+        os,
+        relDir,
+        ignorePatterns,
+        query,
+        cursorPath,
+        limit,
+        candidates,
+      );
+    } else if (entry.isFile()) {
+      const relPath = normalizedBase
+        ? `${normalizedBase}/${entryName}`
+        : entryName;
+      if (isExcluded(relPath)) continue;
+      if (isGeneratedOrVendorPath(relPath)) continue;
+      if (isFileIgnoredByPatterns(relPath, ignorePatterns)) continue;
+
+      const score = query
+        ? scoreFileMatch(relPath, entryName, query)
+        : 0;
+      if (!Number.isFinite(score)) continue;
+      if (cursorPath && relPath <= cursorPath) continue;
+
+      candidates.push({
+        file: { path: relPath, name: entryName, size: 0 },
+        score,
+      });
+    }
+  }
 }
 
 async function walkDir(
@@ -184,11 +274,13 @@ async function walkDir(
     if (entry.isDirectory()) {
       const relDir = normalizedBase ? `${normalizedBase}/${entryName}` : entryName;
       if (isExcluded(relDir)) continue;
+      if (isGeneratedOrVendorPath(relDir)) continue;
       if (isDirIgnoredByPatterns(relDir, ignorePatterns)) continue;
       await walkDir(os.path.join(dirPath, entryName), os, relDir, results, ignorePatterns);
     } else if (entry.isFile()) {
       const relPath = normalizedBase ? `${normalizedBase}/${entryName}` : entryName;
       if (isExcluded(relPath)) continue;
+      if (isGeneratedOrVendorPath(relPath)) continue;
       results.push(relPath);
     }
   }
@@ -199,20 +291,72 @@ export function createFileService(
   additionalPatterns: string[] = [],
 ): FileService {
   return {
-    listFiles: async (workspacePath: string): Promise<FileInfo[]> => {
-      if (!os.fs.exists(workspacePath)) return [];
+    listFiles: async (
+      workspacePath: string,
+      options?: ListFilesOptions,
+    ): Promise<FileInfo[] | PaginatedFilesResult> => {
+      if (!os.fs.exists(workspacePath)) {
+        return options?.limit !== undefined
+          ? { files: [], nextCursor: null, hasMore: false }
+          : [];
+      }
+
       const patterns = [
         ...additionalPatterns,
         ...loadIgnorePatterns(workspacePath, os),
       ];
-      const paths: string[] = [];
-      await walkDir(workspacePath, os, "", paths, patterns);
-      const all = paths.map((p) => ({
-        path: p,
-        name: getBasename(p),
-        size: 0,
-      }));
-      return applyIgnorePatterns(all, patterns);
+
+      const wantsPagination =
+        options &&
+        (options.cursor !== undefined ||
+          options.limit !== undefined ||
+          options.query !== undefined);
+
+      if (!wantsPagination) {
+        const paths: string[] = [];
+        await walkDir(workspacePath, os, "", paths, patterns);
+        const all = paths.map((p) => ({
+          path: p,
+          name: getBasename(p),
+          size: 0,
+        }));
+        return applyIgnorePatterns(all, patterns);
+      }
+
+      const limit = options.limit ?? 50;
+      const query = options.query ?? "";
+      const cursorPath = options.cursor ?? null;
+      const candidates: ListCandidate[] = [];
+
+      await walkDirPaginated(
+        workspacePath,
+        os,
+        "",
+        patterns,
+        query,
+        cursorPath,
+        limit,
+        candidates,
+      );
+
+      // Candidates are already in path order due to sorted traversal.
+      const pageBoundaryPath =
+        candidates.length > limit ? candidates[limit].file.path : null;
+
+      // Present the page using the same ranking order as the client-side finder.
+      const files = candidates
+        .slice(0, limit)
+        .sort((a, b) => {
+          if (a.score !== b.score) return a.score - b.score;
+          return a.file.path.localeCompare(b.file.path);
+        })
+        .map((c) => c.file);
+
+      return {
+        files,
+        nextCursor: pageBoundaryPath,
+        hasMore: candidates.length > limit,
+      };
     },
     readFile: async (
       workspacePath: string,

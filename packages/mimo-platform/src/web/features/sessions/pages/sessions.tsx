@@ -15,6 +15,9 @@ import {
 import { logger } from "../../../../logger.js";
 import type { MimoContext } from "../../../../infrastructure/context/mimo-context.js";
 import { findFiles } from "../../../../domain/files/service.js";
+import type {
+  FileInfo,
+} from "../../../../domain/files/types.js";
 import {
   detectLanguage,
   escapeHtml,
@@ -1188,6 +1191,10 @@ export function createSessionsRoutes(
     if (!username) return c.json({ error: "Unauthorized" }, 401);
     const sessionId = c.req.param("id");
     const pattern = c.req.query("pattern") ?? "";
+    const limitParam = c.req.query("limit");
+    const cursorParam = c.req.query("cursor");
+    const queryParam = c.req.query("query");
+    const wantsPagination = limitParam !== undefined || cursorParam !== undefined;
 
     // Get session via Internal API Client
     const apiClient = createApiClient(c);
@@ -1207,7 +1214,22 @@ export function createSessionsRoutes(
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
     try {
-      const allFiles = await fileService.listFiles(session.agentWorkspacePath);
+      if (wantsPagination) {
+        const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+        const result = await fileService.listFiles(
+          session.agentWorkspacePath,
+          {
+            limit,
+            cursor: cursorParam,
+            query: queryParam ?? pattern,
+          },
+        );
+        return c.json(result);
+      }
+
+      const allFiles = (await fileService.listFiles(
+        session.agentWorkspacePath,
+      )) as FileInfo[];
       return c.json(findFiles(pattern, allFiles));
     } catch (err) {
       logger.error("[files] listFiles error:", err);

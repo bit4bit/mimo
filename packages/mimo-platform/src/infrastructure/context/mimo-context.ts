@@ -52,6 +52,9 @@ export interface MimoEnv {
   MIMO_SHARED_FOSSIL_SERVER_PORT: number | undefined;
   MIMO_HOST: string;
   MIMO_SHARED_FOSSIL_SERVER_HOST?: string;
+  MIMO_CLONE_TIMEOUT_MS?: number;
+  MIMO_IMPORT_TIMEOUT_MS?: number;
+  PATCH_MAX_SIZE_BYTES?: number;
 }
 
 export interface MimoPaths {
@@ -180,13 +183,24 @@ export function createMimoContext(
     MIMO_HOST: host,
     MIMO_SHARED_FOSSIL_SERVER_HOST:
       overrides.env?.MIMO_SHARED_FOSSIL_SERVER_HOST,
+    MIMO_CLONE_TIMEOUT_MS: overrides.env?.MIMO_CLONE_TIMEOUT_MS,
+    MIMO_IMPORT_TIMEOUT_MS: overrides.env?.MIMO_IMPORT_TIMEOUT_MS,
+    PATCH_MAX_SIZE_BYTES: overrides.env?.PATCH_MAX_SIZE_BYTES,
   };
 
   const paths = resolvePaths(env.MIMO_HOME, os);
   ensurePaths(paths, os);
 
-  // Create VCS with injected OS
-  const vcs = overrides.services?.vcs ?? new VCS({ os, host: env.MIMO_HOST });
+  // Create VCS with injected OS and configuration from environment
+  const vcs =
+    overrides.services?.vcs ??
+    new VCS({
+      os,
+      host: env.MIMO_HOST,
+      cloneTimeoutMs: env.MIMO_CLONE_TIMEOUT_MS,
+      importTimeoutMs: env.MIMO_IMPORT_TIMEOUT_MS,
+      patchMaxSizeBytes: env.PATCH_MAX_SIZE_BYTES,
+    });
 
   const repos: MimoContext["repos"] = {
     users:
