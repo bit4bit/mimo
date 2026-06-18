@@ -6,6 +6,7 @@ import { createOS } from "./os/node-adapter.js";
 import type { OS } from "./os/types.js";
 import { SessionManager } from "./session.js";
 import type { SessionCallbacks } from "./session.js";
+import { stampThreadHeader } from "./mcp-thread-header.js";
 import { SessionLifecycleManager } from "./lifecycle.js";
 import type {
   CachedAcpState,
@@ -953,7 +954,7 @@ export class MimoAgent {
         spawnResult.input,
         spawnResult.output,
         cachedState?.acpSessionId,
-        sessionInfo.mcpServers,
+        stampThreadHeader(sessionInfo.mcpServers, chatThreadId),
       );
 
       logger.debug(

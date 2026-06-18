@@ -1421,6 +1421,48 @@ function handleWebSocketMessage(data) {
         window.EditBuffer.invalidateFileList();
       }
       break;
+    case "chat_thread_created":
+      handleChatThreadCreated(data);
+      break;
+    case "chat_thread_create_failed":
+      handleChatThreadCreateFailed(data);
+      break;
+  }
+}
+
+// The LLM (or another caller) tried to spawn a thread via MCP but it was
+// rejected (e.g. invalid model/mode/agent). Surface it so the failure is never
+// silent.
+function handleChatThreadCreateFailed(data) {
+  const error = (data && data.error) || "Failed to create chat thread";
+  if (typeof showNotification === "function") {
+    // Keep creation errors up longer (20s) — they carry the valid model/agent
+    // list the user needs to read.
+    showNotification(`New thread not created: ${error}`, "error", 20000);
+  } else {
+    console.error("[chat] chat_thread_create_failed:", error);
+  }
+}
+
+// A thread was created out-of-band (e.g. spawned by the LLM via MCP). Add its
+// tab live without switching the user away from their current thread.
+function handleChatThreadCreated(data) {
+  const thread = data && data.thread;
+  if (
+    !thread ||
+    typeof ChatThreadsState === "undefined" ||
+    !ChatThreadsState ||
+    !Array.isArray(ChatThreadsState.threads)
+  ) {
+    return;
+  }
+  const exists = ChatThreadsState.threads.some((t) => t.id === thread.id);
+  if (exists) {
+    return;
+  }
+  ChatThreadsState.threads.push(thread);
+  if (typeof updateThreadTabsUI === "function") {
+    updateThreadTabsUI();
   }
 }
 
@@ -3313,7 +3355,7 @@ function renderDependencyChanges(dependencies) {
 }
 
 // DOM: Show notification
-function showNotification(message, type = "info") {
+function showNotification(message, type = "info", duration = 5000) {
   const container = document.querySelector("#chat-messages");
   if (!container) return;
 
@@ -3321,7 +3363,7 @@ function showNotification(message, type = "info") {
   container.appendChild(notification);
   scrollToBottom();
 
-  setTimeout(() => notification.remove(), 5000);
+  setTimeout(() => notification.remove(), duration);
 }
 
 // DOM: Insert error message

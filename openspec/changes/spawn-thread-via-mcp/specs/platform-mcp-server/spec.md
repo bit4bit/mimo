@@ -1,8 +1,5 @@
-## Purpose
+## MODIFIED Requirements
 
-The platform MCP server exposes platform capabilities to ACP agents over an
-MCP-protocol HTTP endpoint, scoped per session by Bearer token.
-## Requirements
 ### Requirement: Platform MCP HTTP Endpoint
 
 The platform SHALL expose an MCP-protocol HTTP endpoint at `POST /api/mimo-mcp` that ACPs can call to interact with platform capabilities.
@@ -28,37 +25,6 @@ The platform SHALL expose an MCP-protocol HTTP endpoint at `POST /api/mimo-mcp` 
 - **THEN** the endpoint SHALL resolve it to the corresponding `sessionId`
 - **AND** all tool calls SHALL be scoped to that session
 
-### Requirement: open_file Tool
-
-The MCP endpoint SHALL provide an `open_file` tool that opens a file in the session's EditBuffer.
-
-#### Tool Description
-
-- **WHEN** the ACP queries the tool list
-- **THEN** the `open_file` tool description SHALL instruct the ACP to use it when the user asks to open, view, see, or look at a file, or references a file path they want to examine
-- **AND** the description SHALL provide examples of trigger phrases: "open file x.ts", "show me README.md", "look at src/main.ts", "go to line 50 of app.js"
-- **AND** the `path` parameter description SHALL instruct the ACP to call the tool whenever the user mentions a file they want to open or view
-
-#### Scenario: Open a valid file
-
-- **WHEN** an ACP calls `open_file` with a path that exists within the session workspace
-- **THEN** the platform SHALL broadcast `{ type: "open_file_in_editbuffer", sessionId, path }` to all WebSocket clients for that session
-- **AND** the tool SHALL return `{ success: true, path }`
-
-#### Scenario: Path outside workspace
-
-- **WHEN** an ACP calls `open_file` with a path that traverses outside the session workspace (e.g., `../../etc/passwd`)
-- **THEN** the tool SHALL return an error result: `{ success: false, error: "Access denied: path outside workspace" }`
-- **AND** no broadcast SHALL be sent
-
-#### Scenario: File does not exist
-
-- **WHEN** an ACP calls `open_file` with a path that does not exist in the session workspace
-- **THEN** the tool SHALL return an error result: `{ success: false, error: "File not found" }`
-- **AND** no broadcast SHALL be sent
-
----
-
 ### Requirement: MCP Config Injection in session_ready
 
 The platform SHALL automatically include the platform MCP server config in the `session_ready` message so ACPs gain access without manual configuration. The mimo MCP config attached to each per-thread ACP runtime SHALL identify the calling thread via an `X-Mimo-Thread-Id` header.
@@ -80,4 +46,3 @@ The platform SHALL automatically include the platform MCP server config in the `
 - **WHEN** mimo-agent spawns the ACP runtime for a chat thread
 - **THEN** the mimo MCP config handed to that runtime SHALL include an `X-Mimo-Thread-Id` header whose value is that thread's `chatThreadId`
 - **AND** the endpoint SHALL use that header to identify the calling thread for tools that require it
-

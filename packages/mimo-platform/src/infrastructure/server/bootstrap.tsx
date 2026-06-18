@@ -308,6 +308,8 @@ export async function bootstrapMimoServer(deps: BootstrapDeps) {
         return session?.agentWorkspacePath ?? null;
       },
       fileService: mimoContext.services.fileService,
+      sessionRepository,
+      agentService: mimoContext.services.agents,
     }),
   );
 
