@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
 
-import { DummySharedFossilServer } from "../src/domain/vcs/shared-fossil-server.js";
+import { DummyGitHttpServer } from "../src/domain/vcs/git-http-server.js";
 
 let sessionRepository: any;
 let projectRepository: any;
@@ -53,7 +53,7 @@ describe("Session Search API", () => {
       await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
-      services: { sharedFossil: new DummySharedFossilServer() },
+      services: { sharedFossil: new DummyGitHttpServer() },
     });
     mimoContext = ctx;
 
@@ -64,6 +64,9 @@ describe("Session Search API", () => {
 
     ctx.services.vcs.cloneRepository = async () => ({ success: true });
     ctx.services.vcs.importToFossil = async () => ({ success: true });
+    ctx.services.vcs.seedSessionRepo = async () => ({ success: true });
+    ctx.services.vcs.clonePlatformCheckout = async () => ({ success: true });
+    ctx.services.vcs.syncIgnoresToGit = async () => ({ success: true });
     ctx.services.vcs.openFossil = async () => ({ success: true });
     ctx.services.vcs.createFossilUser = async () => ({ success: true });
   });

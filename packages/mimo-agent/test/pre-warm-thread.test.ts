@@ -324,10 +324,10 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
     expect(spawnCount).toBe(1); // only one spawn, not two
   });
 
-  // The branch session is only for upstream; mimo-agent checkout should work
-  // with a clean trunk. Even when session_ready carries a `branch`,
-  // setupCheckout must open fossil without the branch arg.
-  it("handleSessionReady opens fossil on trunk even when a branch is provided", async () => {
+  // handleSessionReady calls setupCheckout without a branch arg, so the agent
+  // clones the served repo (whose HEAD already points at the session branch)
+  // and does not run an explicit `git checkout`.
+  it("handleSessionReady clones the session repo without an explicit checkout", async () => {
     const { MimoAgent } = await import("../src/index.js");
     const { deps } = buildMockDeps();
 
@@ -338,8 +338,8 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       return { success: true, output: "" };
     }) as any;
 
-    // Simulate a fresh session: neither the .fossil file nor a prior checkout
-    // exists, forcing the clone branch of setupCheckout.
+    // Simulate a fresh session: no prior .git checkout exists, forcing the
+    // clone branch of setupCheckout.
     deps.os.fs.exists = (async () => false) as any;
     deps.os.fs.mkdir = (async () => {}) as any;
 
@@ -352,7 +352,7 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       sessions: [
         {
           sessionId: "s-branch",
-          fossilUrl: "http://localhost:8000/",
+          fossilUrl: "http://localhost:8000/s-branch.git/",
           agentWorkspaceUser: "dev",
           agentWorkspacePassword: "pw",
           agentSubpath: null,
@@ -362,32 +362,28 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       ],
     });
 
-    const openCmd = commandsRun.find(
-      (c) => c[0] === "fossil" && c[1] === "open",
+    const cloneCmd = commandsRun.find(
+      (c) => c[0] === "git" && c[1] === "clone",
     );
-    expect(openCmd).toBeDefined();
-    // Expected: fossil open --nosync <repoPath> (no branch arg)
-    expect(openCmd!).toContain("--nosync");
-    expect(openCmd!).not.toContain("feature/test");
+    expect(cloneCmd).toBeDefined();
+    const checkoutCmd = commandsRun.find(
+      (c) => c[0] === "git" && c[1] === "checkout",
+    );
+    expect(checkoutCmd).toBeUndefined();
   });
 
-  // Regression: a stray `.fslckout` in an ancestor of the per-session checkout
-  // makes `fossil open` print "there is already an open tree" and exit 1.
-  // Previously setupCheckout ignored os.command.run.success, so the empty
-  // checkout dir was silently propagated and only surfaced later as the much
-  // less helpful "ACP working directory does not exist" error.
-  it("handleSessionReady surfaces a session_error when fossil open fails", async () => {
+  // Regression: setupCheckout must surface a clone failure as a session_error
+  // rather than silently propagating an empty checkout directory.
+  it("handleSessionReady surfaces a session_error when git clone fails", async () => {
     const { MimoAgent } = await import("../src/index.js");
     const { deps } = buildMockDeps();
 
     deps.os.command.run = (async (args: string[]) => {
-      // Clone succeeds; open fails like fossil does when an ancestor dir is
-      // already an open tree.
-      if (args[0] === "fossil" && args[1] === "open") {
+      if (args[0] === "git" && args[1] === "clone") {
         return {
           success: false,
           output: "",
-          error: "there is already an open tree at /Users/x/.mimo-agent/",
+          error: "fatal: repository 'http://localhost:8000/' not found",
           exitCode: 1,
         };
       }
@@ -409,7 +405,7 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       sessions: [
         {
           sessionId: "s-poisoned",
-          fossilUrl: "http://localhost:8000/",
+          fossilUrl: "http://localhost:8000/s-poisoned.git/",
           agentWorkspaceUser: "dev",
           agentWorkspacePassword: "pw",
           agentSubpath: null,
@@ -422,11 +418,10 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
     const sessionError = sentMessages.find((m) => m.type === "session_error");
     expect(sessionError).toBeDefined();
     expect(sessionError.sessionId).toBe("s-poisoned");
-    expect(sessionError.error).toContain("fossil open failed");
-    expect(sessionError.error).toContain("already an open tree");
+    expect(sessionError.error).toContain("git clone failed");
   });
 
-  it("handleSessionReady falls back to branchless fossil open when no branch is provided", async () => {
+  it("handleSessionReady clones the session repo when no branch is provided", async () => {
     const { MimoAgent } = await import("../src/index.js");
     const { deps } = buildMockDeps();
 
@@ -447,7 +442,7 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       sessions: [
         {
           sessionId: "s-no-branch",
-          fossilUrl: "http://localhost:8000/",
+          fossilUrl: "http://localhost:8000/s-no-branch.git/",
           agentWorkspaceUser: "dev",
           agentWorkspacePassword: "pw",
           agentSubpath: null,
@@ -457,12 +452,10 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       ],
     });
 
-    const openCmd = commandsRun.find(
-      (c) => c[0] === "fossil" && c[1] === "open",
+    const cloneCmd = commandsRun.find(
+      (c) => c[0] === "git" && c[1] === "clone",
     );
-    expect(openCmd).toBeDefined();
-    // No branch arg should be appended.
-    expect(openCmd!.length).toBe(4); // fossil, open, --nosync, repoPath
+    expect(cloneCmd).toBeDefined();
   });
 
   // Regression: a user_message arriving while session_ready is still in flight

@@ -5,7 +5,7 @@ import { join } from "path";
 import { mkdirSync, writeFileSync, readFileSync, rmSync } from "fs";
 import { which } from "bun";
 
-import { DummySharedFossilServer } from "../src/domain/vcs/shared-fossil-server.js";
+import { DummyGitHttpServer } from "../src/domain/vcs/git-http-server.js";
 
 let sessionRepository: any;
 let userRepository: any;
@@ -58,7 +58,7 @@ describe("GET /sessions/:id/files/content", () => {
         JWT_SECRET: "test-secret-key",
         PLATFORM_URL: "http://localhost:3000",
       },
-      services: { sharedFossil: new DummySharedFossilServer() },
+      services: { sharedFossil: new DummyGitHttpServer() },
     });
     mimoContext = ctx;
 
@@ -69,6 +69,9 @@ describe("GET /sessions/:id/files/content", () => {
 
     ctx.services.vcs.cloneRepository = async () => ({ success: true });
     ctx.services.vcs.importToFossil = async () => ({ success: true });
+    ctx.services.vcs.seedSessionRepo = async () => ({ success: true });
+    ctx.services.vcs.clonePlatformCheckout = async () => ({ success: true });
+    ctx.services.vcs.syncIgnoresToGit = async () => ({ success: true });
     ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
     ctx.services.vcs.openFossil = async () => ({ success: true });
     ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });
@@ -165,7 +168,7 @@ describe("GET /sessions/:id/search", () => {
         JWT_SECRET: "test-secret-key",
         PLATFORM_URL: "http://localhost:3000",
       },
-      services: { sharedFossil: new DummySharedFossilServer() },
+      services: { sharedFossil: new DummyGitHttpServer() },
     });
     mimoContext = ctx;
 
@@ -176,6 +179,9 @@ describe("GET /sessions/:id/search", () => {
 
     ctx.services.vcs.cloneRepository = async () => ({ success: true });
     ctx.services.vcs.importToFossil = async () => ({ success: true });
+    ctx.services.vcs.seedSessionRepo = async () => ({ success: true });
+    ctx.services.vcs.clonePlatformCheckout = async () => ({ success: true });
+    ctx.services.vcs.syncIgnoresToGit = async () => ({ success: true });
     ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
     ctx.services.vcs.openFossil = async () => ({ success: true });
     ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });
@@ -272,7 +278,7 @@ describe("GET /sessions/:id/search", () => {
         PLATFORM_URL: "http://localhost:3000",
       },
       services: {
-        sharedFossil: new DummySharedFossilServer(),
+        sharedFossil: new DummyGitHttpServer(),
         search: {
           searchContent: async (workspacePath: string, query: string) => {
             searchCalls.push({ workspacePath, query });
@@ -284,6 +290,9 @@ describe("GET /sessions/:id/search", () => {
 
     ctx.services.vcs.cloneRepository = async () => ({ success: true });
     ctx.services.vcs.importToFossil = async () => ({ success: true });
+    ctx.services.vcs.seedSessionRepo = async () => ({ success: true });
+    ctx.services.vcs.clonePlatformCheckout = async () => ({ success: true });
+    ctx.services.vcs.syncIgnoresToGit = async () => ({ success: true });
     ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
     ctx.services.vcs.openFossil = async () => ({ success: true });
     ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });
@@ -354,7 +363,7 @@ describe("POST /sessions/:id/files/write", () => {
         JWT_SECRET: "test-secret-key",
         PLATFORM_URL: "http://localhost:3000",
       },
-      services: { sharedFossil: new DummySharedFossilServer() },
+      services: { sharedFossil: new DummyGitHttpServer() },
     });
     mimoContext = ctx;
 
@@ -365,6 +374,9 @@ describe("POST /sessions/:id/files/write", () => {
 
     ctx.services.vcs.cloneRepository = async () => ({ success: true });
     ctx.services.vcs.importToFossil = async () => ({ success: true });
+    ctx.services.vcs.seedSessionRepo = async () => ({ success: true });
+    ctx.services.vcs.clonePlatformCheckout = async () => ({ success: true });
+    ctx.services.vcs.syncIgnoresToGit = async () => ({ success: true });
     ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
     ctx.services.vcs.openFossil = async () => ({ success: true });
     ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });

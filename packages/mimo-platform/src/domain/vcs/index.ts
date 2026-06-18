@@ -589,6 +589,222 @@ export class VCS {
     };
   }
 
+  // ── Git session repository (replaces the Fossil session layer) ──────────
+
+  /**
+   * Seed the bare Git session repository (`<sid>.git`) served to agents.
+   *
+   * - Git upstream: `git clone --bare` from the upstream checkout (preserves history).
+   * - Fossil upstream: snapshot the upstream working tree into a single initial
+   *   commit (parity with the previous `importToFossil` behavior).
+   *
+   * Always enables `http.receivepack` so the agent can push back.
+   */
+  async seedSessionRepo(
+    upstreamPath: string,
+    repoType: "git" | "fossil",
+    repoPath: string,
+    branch?: string,
+  ): Promise<VCSResult> {
+    const branchName = branch || "main";
+
+    if (repoType === "git") {
+      // `--dissociate` is required: the upstream checkout is created with
+      // `git clone --reference <project-cache>`, so it borrows objects from the
+      // cache via `.git/objects/info/alternates`. Without `--dissociate` the
+      // bare seed inherits that alternate and owns no objects, so once the
+      // cache is refreshed/GC'd the served repo is missing objects and agents
+      // fail to clone with "fatal: expected 'packfile'". `--dissociate` copies
+      // the borrowed objects into the seed, making it self-contained.
+      const clone = await this.execCommand(
+        ["git", "clone", "--bare", "--dissociate", upstreamPath, repoPath],
+        undefined,
+        undefined,
+        this.cloneTimeoutMs,
+      );
+      if (!clone.success) {
+        return { success: false, error: `git clone --bare failed: ${clone.error}` };
+      }
+    } else {
+      const init = await this.execCommand([
+        "git",
+        "init",
+        "--bare",
+        "-b",
+        branchName,
+        repoPath,
+      ]);
+      if (!init.success) {
+        return { success: false, error: `git init --bare failed: ${init.error}` };
+      }
+
+      // Build a single "Initial import" commit from the upstream working tree,
+      // using a throwaway index and excluding Fossil internals.
+      const indexFile = this.os.path.join(repoPath, "mimo-seed-index");
+      const gitEnv: Record<string, string> = {
+        GIT_DIR: repoPath,
+        GIT_WORK_TREE: upstreamPath,
+        GIT_INDEX_FILE: indexFile,
+      };
+      const add = await this.execCommand(
+        [
+          "git",
+          "add",
+          "-A",
+          "--",
+          ".",
+          ":(exclude,glob).fossil*",
+          ":(exclude,glob).fslckout*",
+          ":(exclude)_FOSSIL_",
+        ],
+        upstreamPath,
+        gitEnv,
+        this.cloneTimeoutMs,
+      );
+      if (!add.success) {
+        return { success: false, error: `git add (seed) failed: ${add.error}` };
+      }
+      const writeTree = await this.execCommand(
+        ["git", "write-tree"],
+        upstreamPath,
+        gitEnv,
+      );
+      if (!writeTree.success) {
+        return { success: false, error: `git write-tree failed: ${writeTree.error}` };
+      }
+      const tree = writeTree.output.trim();
+      const commitEnv: Record<string, string> = {
+        ...gitEnv,
+        GIT_AUTHOR_NAME: "mimo",
+        GIT_AUTHOR_EMAIL: "mimo@local",
+        GIT_COMMITTER_NAME: "mimo",
+        GIT_COMMITTER_EMAIL: "mimo@local",
+      };
+      const commitTree = await this.execCommand(
+        ["git", "commit-tree", tree, "-m", "Initial import"],
+        upstreamPath,
+        commitEnv,
+      );
+      if (!commitTree.success) {
+        return { success: false, error: `git commit-tree failed: ${commitTree.error}` };
+      }
+      const commit = commitTree.output.trim();
+      const updateRef = await this.execCommand(
+        ["git", "update-ref", `refs/heads/${branchName}`, commit],
+        upstreamPath,
+        gitEnv,
+      );
+      if (!updateRef.success) {
+        return { success: false, error: `git update-ref failed: ${updateRef.error}` };
+      }
+      if (this.os.fs.exists(indexFile)) {
+        this.os.fs.unlink(indexFile);
+      }
+    }
+
+    const receivePack = await this.execCommand(
+      ["git", "config", "http.receivepack", "true"],
+      repoPath,
+    );
+    if (!receivePack.success) {
+      return {
+        success: false,
+        error: `git config http.receivepack failed: ${receivePack.error}`,
+      };
+    }
+    return { success: true };
+  }
+
+  /**
+   * Clone the bare session repo into the platform's own working checkout
+   * (`agentWorkspacePath`) via a local path. Replaces `openFossil` for the
+   * platform side.
+   */
+  async clonePlatformCheckout(
+    repoPath: string,
+    agentWorkspacePath: string,
+    branch?: string,
+  ): Promise<VCSResult> {
+    const clone = await this.execCommand(
+      ["git", "clone", repoPath, agentWorkspacePath],
+      undefined,
+      undefined,
+      this.cloneTimeoutMs,
+    );
+    if (!clone.success) {
+      return {
+        success: false,
+        error: `git clone (platform checkout) failed: ${clone.error}`,
+      };
+    }
+    if (branch) {
+      const checkout = await this.execCommand(
+        ["git", "checkout", branch],
+        agentWorkspacePath,
+      );
+      if (!checkout.success) {
+        return {
+          success: false,
+          error: `git checkout '${branch}' failed: ${checkout.error}`,
+        };
+      }
+    }
+    return { success: true };
+  }
+
+  /**
+   * Refresh the platform's own checkout after the agent pushes. Replaces
+   * `fossilUp`. Uses `--ff-only` so a divergent history fails loudly instead
+   * of creating a silent merge.
+   */
+  async gitPull(agentWorkspacePath: string): Promise<VCSResult> {
+    const result = await this.execCommand(
+      ["git", "pull", "--ff-only"],
+      agentWorkspacePath,
+    );
+    return {
+      success: result.success,
+      output: result.output,
+      error: result.error || undefined,
+    };
+  }
+
+  /**
+   * Write the platform checkout's `.git/info/exclude` from EXCLUDED_PATHS plus
+   * the upstream `.gitignore`/`.mimoignore`. Replaces `syncIgnoresToFossil`.
+   * (The remote agent writes its own exclude at clone time.)
+   */
+  async syncIgnoresToGit(
+    upstreamPath: string,
+    agentWorkspacePath: string,
+  ): Promise<VCSResult> {
+    const parsePatterns = (filePath: string): string[] =>
+      this.os.fs.exists(filePath)
+        ? this.os.fs
+            .readFile(filePath, "utf8")
+            .split("\n")
+            .map((line: string) => line.trim())
+            .filter((line: string) => line.length > 0 && !line.startsWith("#"))
+        : [];
+
+    const patterns = [
+      ...EXCLUDED_PATHS.flatMap((p) => [p, `${p}/`]),
+      ...parsePatterns(this.os.path.join(upstreamPath, ".gitignore")),
+      ...parsePatterns(this.os.path.join(upstreamPath, ".mimoignore")),
+    ];
+    const uniquePatterns = Array.from(new Set(patterns));
+
+    const infoDir = this.os.path.join(agentWorkspacePath, ".git", "info");
+    if (!this.os.fs.exists(infoDir)) {
+      this.os.fs.mkdir(infoDir, { recursive: true });
+    }
+    this.os.fs.writeFile(
+      this.os.path.join(infoDir, "exclude"),
+      uniquePatterns.join("\n") + "\n",
+    );
+    return { success: true };
+  }
+
   async importGitToFossil(
     gitUrl: string,
     workDir: string,

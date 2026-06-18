@@ -2,7 +2,7 @@ import { describe, it, expect } from "bun:test";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
-import { DummySharedFossilServer } from "../src/domain/vcs/shared-fossil-server.js";
+import { DummyGitHttpServer } from "../src/domain/vcs/git-http-server.js";
 
 describe("Debug", () => {
   it("debug session creation", async () => {
@@ -11,11 +11,14 @@ describe("Debug", () => {
       await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret" },
-      services: { sharedFossil: new DummySharedFossilServer() },
+      services: { sharedFossil: new DummyGitHttpServer() },
     });
 
     ctx.services.vcs.cloneRepository = async () => ({ success: true });
     ctx.services.vcs.importToFossil = async () => ({ success: true });
+    ctx.services.vcs.seedSessionRepo = async () => ({ success: true });
+    ctx.services.vcs.clonePlatformCheckout = async () => ({ success: true });
+    ctx.services.vcs.syncIgnoresToGit = async () => ({ success: true });
     ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
     ctx.services.vcs.openFossil = async () => ({ success: true });
     ctx.services.vcs.syncIgnoresToFossil = async () => ({ success: true });

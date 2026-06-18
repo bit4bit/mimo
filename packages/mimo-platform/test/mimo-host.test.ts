@@ -60,42 +60,44 @@ describe("MIMO_HOST environment variable", () => {
     expect(ctx.env.MIMO_HOST).toBe("example.com");
   });
 
-  test("should use MIMO_HOST in SharedFossilServer URL", async () => {
-    const { SharedFossilServer } =
-      await import("../src/domain/vcs/shared-fossil-server.js");
+  test("should use MIMO_HOST in GitHttpServer URL", async () => {
+    const { GitHttpServer } =
+      await import("../src/domain/vcs/git-http-server.js");
     const { createOS } =
       await import("../src/infrastructure/os/node-adapter.js");
     const os = createOS({ PATH: process.env.PATH, HOME: process.env.HOME });
 
-    const server = new SharedFossilServer(
+    const server = new GitHttpServer(
       {
         port: 8000,
         reposDir: testHome,
-        host: "fossil.example.com",
+        host: "git.example.com",
+        verifyCredentials: () => true,
       },
       os,
     );
 
     const url = server.getUrl("abc123-def456");
-    expect(url).toBe("http://fossil.example.com:8000/abc123_def456/");
+    expect(url).toBe("http://git.example.com:8000/abc123-def456.git/");
   });
 
-  test("should default SharedFossilServer host to localhost", async () => {
-    const { SharedFossilServer } =
-      await import("../src/domain/vcs/shared-fossil-server.js");
+  test("should default GitHttpServer host to localhost", async () => {
+    const { GitHttpServer } =
+      await import("../src/domain/vcs/git-http-server.js");
     const { createOS } =
       await import("../src/infrastructure/os/node-adapter.js");
     const os = createOS({ PATH: process.env.PATH, HOME: process.env.HOME });
 
-    const server = new SharedFossilServer(
+    const server = new GitHttpServer(
       {
         port: 8000,
         reposDir: testHome,
+        verifyCredentials: () => true,
       },
       os,
     );
 
     const url = server.getUrl("abc123-def456");
-    expect(url).toBe("http://localhost:8000/abc123_def456/");
+    expect(url).toBe("http://localhost:8000/abc123-def456.git/");
   });
 });

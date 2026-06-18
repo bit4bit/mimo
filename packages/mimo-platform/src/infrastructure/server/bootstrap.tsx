@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import type { MimoContext } from "../context/mimo-context.js";
 import type { OS } from "../os/types.js";
-import type { SharedFossilServer } from "../../domain/vcs/shared-fossil-server.js";
+import type { GitHttpServer } from "../../domain/vcs/git-http-server.js";
 import { MimoServer } from "./mimo-server.js";
 import { logger } from "../../logger.js";
 
@@ -47,7 +47,7 @@ import { getEmbeddedAssets, getMimeType } from "../../assets.js";
 export interface BootstrapDeps {
   mimoContext: MimoContext;
   os: OS;
-  sharedFossilServer: SharedFossilServer;
+  sharedFossilServer: GitHttpServer;
   host: string;
   port: number;
 }

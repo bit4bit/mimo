@@ -454,30 +454,20 @@ export function createSessionsRoutes(
         }
       }
 
-      // Step 3: Import to fossil proxy (repo.fossil) on trunk.
-      // The branch session is only for upstream; agent-workspace and
-      // mimo-agent checkout should work with a clean trunk.
-      const fossilPath = sessionRepository.getFossilPath(session.id);
-      const importResult = await vcs.importToFossil(
+      // Step 3: Seed the bare Git session repo served to the agent.
+      const repoPath = sessionRepository.getSessionRepoPath(session.id);
+      const seedResult = await vcs.seedSessionRepo(
         session.upstreamPath,
         project.repoType,
-        fossilPath,
+        repoPath,
+        desiredBranch ?? undefined,
       );
 
-      if (!importResult.success) {
+      if (!seedResult.success) {
         await apiClient.delete(`/sessions/${session.id}`);
-        return c.text(`Failed to import to fossil: ${importResult.error}`, 500);
-      }
-
-      // Set fossil project name to session name (non-fatal)
-      const nameResult = await vcs.setFossilProjectName(
-        fossilPath,
-        session.name,
-      );
-      if (!nameResult.success) {
-        logger.warn(
-          "[session] Failed to set fossil project name:",
-          nameResult.error,
+        return c.text(
+          `Failed to seed session repository: ${seedResult.error}`,
+          500,
         );
       }
 
@@ -487,27 +477,14 @@ export function createSessionsRoutes(
         });
       }
 
-      // Step 4: Create fossil user for agent access
+      // Step 4: Generate agent credentials. Auth is enforced by the
+      // GitHttpServer basic-auth verifier against these session-stored
+      // credentials, so no repo-side user is created.
       const agentWorkspaceUser = "dev";
       const agentWorkspacePassword = crypto
         .randomUUID()
         .replace(/-/g, "")
         .slice(0, 16);
-      const userResult = await vcs.createFossilUser(
-        fossilPath,
-        agentWorkspaceUser,
-        agentWorkspacePassword,
-        "s",
-      );
-
-      if (!userResult.success) {
-        logger.error(
-          "[session] Failed to create fossil user:",
-          userResult.error,
-        );
-        await apiClient.delete(`/sessions/${session.id}`);
-        return c.text("Failed to create session workspace user", 500);
-      }
 
       // Save credentials to session via Internal API Client
       await apiClient.put(`/sessions/${session.id}`, {
@@ -515,30 +492,29 @@ export function createSessionsRoutes(
         agentWorkspacePassword,
       });
 
-      // Step 5: Open fossil checkout in agent-workspace on trunk.
-      // The branch session is only for upstream; agent-workspace should work
-      // with a clean trunk.
-      const openResult = await vcs.openFossil(
-        fossilPath,
+      // Step 5: Clone the platform's own checkout from the bare repo.
+      const checkoutResult = await vcs.clonePlatformCheckout(
+        repoPath,
         session.agentWorkspacePath,
+        desiredBranch ?? undefined,
       );
-      if (!openResult.success) {
+      if (!checkoutResult.success) {
         logger.error(
-          "[session] Failed to open fossil in agent-workspace:",
-          openResult.error,
+          "[session] Failed to clone platform checkout:",
+          checkoutResult.error,
         );
         await apiClient.delete(`/sessions/${session.id}`);
-        return c.text("Failed to open fossil checkout", 500);
+        return c.text("Failed to clone session checkout", 500);
       }
 
-      // Step 5.5: Sync .gitignore and .mimoignore to .fossil-settings/ignore-glob in agent-workspace
-      const ignoreResult = await vcs.syncIgnoresToFossil(
+      // Step 5.5: Write .git/info/exclude from .gitignore and .mimoignore.
+      const ignoreResult = await vcs.syncIgnoresToGit(
         session.upstreamPath,
         session.agentWorkspacePath,
       );
       if (!ignoreResult.success) {
         logger.warn(
-          "[session] Failed to sync .gitignore to fossil ignore-glob:",
+          "[session] Failed to sync ignores to .git/info/exclude:",
           ignoreResult.error,
         );
         // Non-fatal: continue session creation
@@ -710,12 +686,12 @@ export function createSessionsRoutes(
       const modeState =
         sessionStateService.getModeState(sessionId) ?? session.modeState;
 
-      // Always generate fossil URL - the shared server should be running
-      // If it's not running yet, the URL will still be valid but the server won't respond
+      // Always generate the session repo URL - the git server should be running.
+      // If it's not running yet, the URL is still valid but the server won't respond.
       const fossilUrl = getBrowserFossilUrl(sessionId);
       const cloneWorkspaceCommand =
         session.agentWorkspaceUser && session.agentWorkspacePassword
-          ? `fossil open ${shellDoubleQuote(buildAuthenticatedUrl(fossilUrl, session.agentWorkspaceUser, session.agentWorkspacePassword))} --workdir ${shellDoubleQuote(sanitizeSessionNameForWorkdir(session.name))} --repodir ${shellDoubleQuote(sanitizeSessionNameForWorkdir(session.name))}`
+          ? `git clone ${shellDoubleQuote(buildAuthenticatedUrl(fossilUrl, session.agentWorkspaceUser, session.agentWorkspacePassword))} ${shellDoubleQuote(sanitizeSessionNameForWorkdir(session.name))}`
           : null;
 
       // Resolve attached MCP servers for display via Internal API Client
@@ -1334,22 +1310,25 @@ export function createSessionsRoutes(
 
       void (async () => {
         try {
-          const fossilPath = sessionRepository.getFossilPath(sessionId);
+          const repoPath = sessionRepository.getSessionRepoPath(sessionId);
           const { existsSync } = await import("fs");
           const { join } = await import("path");
-          const fslckoutPath = join(session.agentWorkspacePath, ".fslckout");
+          const gitDirPath = join(session.agentWorkspacePath, ".git");
 
-          if (existsSync(fossilPath)) {
-            if (!existsSync(fslckoutPath)) {
+          if (existsSync(repoPath)) {
+            if (!existsSync(gitDirPath)) {
               logger.debug(
-                `[impact] Initializing fossil checkout in agent-workspace...`,
+                `[impact] Initializing git checkout in agent-workspace...`,
               );
-              await vcs.openFossil(fossilPath, session.agentWorkspacePath);
+              await vcs.clonePlatformCheckout(
+                repoPath,
+                session.agentWorkspacePath,
+              );
             }
             logger.debug(
-              `[impact] Syncing agent-workspace with repo.fossil...`,
+              `[impact] Refreshing agent-workspace from session repo...`,
             );
-            await vcs.fossilUp(session.agentWorkspacePath);
+            await vcs.gitPull(session.agentWorkspacePath);
           }
 
           await handleRefreshImpact({
@@ -1392,23 +1371,23 @@ export function createSessionsRoutes(
 
     try {
       const impactCalculator = mimoContext.services.impactCalculator;
-      // Sync agent-workspace with repo.fossil before calculating impact
-      const fossilPath = sessionRepository.getFossilPath(sessionId);
+      // Refresh agent-workspace from the session repo before calculating impact
+      const repoPath = sessionRepository.getSessionRepoPath(sessionId);
       const { existsSync } = await import("fs");
       const { join } = await import("path");
-      const fslckoutPath = join(session.agentWorkspacePath, ".fslckout");
+      const gitDirPath = join(session.agentWorkspacePath, ".git");
 
-      if (existsSync(fossilPath)) {
-        if (!existsSync(fslckoutPath)) {
-          // Initialize fossil checkout if not exists
+      if (existsSync(repoPath)) {
+        if (!existsSync(gitDirPath)) {
+          // Initialize git checkout if not exists
           logger.debug(
-            `[impact] Initializing fossil checkout in agent-workspace...`,
+            `[impact] Initializing git checkout in agent-workspace...`,
           );
-          await vcs.openFossil(fossilPath, session.agentWorkspacePath);
+          await vcs.clonePlatformCheckout(repoPath, session.agentWorkspacePath);
         }
-        // Sync with repo.fossil to get latest changes from agent
-        logger.debug(`[impact] Syncing agent-workspace with repo.fossil...`);
-        await vcs.fossilUp(session.agentWorkspacePath);
+        // Pull latest changes from the agent
+        logger.debug(`[impact] Refreshing agent-workspace from session repo...`);
+        await vcs.gitPull(session.agentWorkspacePath);
       }
 
       // Check if scc is installed using mimoContext service

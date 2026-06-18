@@ -5,7 +5,7 @@ import { createOS } from "./infrastructure/os/node-adapter.js";
 import type { OS } from "./infrastructure/os/types.js";
 import {
   createMimoContext,
-  createSharedFossilServer,
+  createGitHttpServer,
   DEFAULT_MIMO_HOST,
 } from "./infrastructure/context/mimo-context.js";
 import { bootstrapMimoServer } from "./infrastructure/server/bootstrap.js";
@@ -30,40 +30,35 @@ const os: OS = createOS({
 
 const _host = process.env.MIMO_HOST ?? DEFAULT_MIMO_HOST;
 const sharedFossilHost = process.env.MIMO_SHARED_FOSSIL_SERVER_HOST;
-const sharedFossilServer = createSharedFossilServer(
-  {
-    PORT: _port,
-    PLATFORM_URL: process.env.PLATFORM_URL ?? `http://${_host}:${_port}`,
-    JWT_SECRET: process.env.JWT_SECRET,
-    MIMO_HOME: mimoHome,
-    FOSSIL_REPOS_DIR: fossilReposDir,
-    MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
-      ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
-      : 8000,
-    MIMO_HOST: _host,
-    MIMO_SHARED_FOSSIL_SERVER_HOST: sharedFossilHost,
-  },
-  os,
-);
 
-const mimoContext = createMimoContext({
-  env: {
-    PORT: _port,
-    PLATFORM_URL: process.env.PLATFORM_URL ?? `http://${_host}:${_port}`,
-    JWT_SECRET: process.env.JWT_SECRET,
-    MIMO_HOME: mimoHome,
-    FOSSIL_REPOS_DIR: fossilReposDir,
-    MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
-      ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
-      : 8000,
-    MIMO_HOST: _host,
-    MIMO_SHARED_FOSSIL_SERVER_HOST: sharedFossilHost,
-  },
-  services: {
-    sharedFossil: sharedFossilServer,
-  },
-  os,
+const env = {
+  PORT: _port,
+  PLATFORM_URL: process.env.PLATFORM_URL ?? `http://${_host}:${_port}`,
+  JWT_SECRET: process.env.JWT_SECRET,
+  MIMO_HOME: mimoHome,
+  FOSSIL_REPOS_DIR: fossilReposDir,
+  MIMO_SHARED_FOSSIL_SERVER_PORT: process.env.MIMO_SHARED_FOSSIL_SERVER_PORT
+    ? parseInt(process.env.MIMO_SHARED_FOSSIL_SERVER_PORT, 10)
+    : 8000,
+  MIMO_HOST: _host,
+  MIMO_SHARED_FOSSIL_SERVER_HOST: sharedFossilHost,
+};
+
+// Context is created first so the git server's credential verifier can look up
+// session-stored credentials.
+const mimoContext = createMimoContext({ env, os });
+
+// Basic-auth verifier: a request for <sid> is authorized when its credentials
+// match the session's stored agent-workspace user/password.
+const sharedFossilServer = createGitHttpServer(env, os, async (sid, user, pass) => {
+  const session = await mimoContext.repos.sessions.findById(sid);
+  return (
+    !!session &&
+    session.agentWorkspaceUser === user &&
+    session.agentWorkspacePassword === pass
+  );
 });
+mimoContext.services.sharedFossil = sharedFossilServer;
 
 mimoContext.services.scc.configure({ mimoHome });
 

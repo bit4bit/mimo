@@ -403,6 +403,53 @@ export class MimoAgent {
     });
   }
 
+  private buildAuthenticatedUrl(
+    url: string,
+    user?: string,
+    password?: string,
+  ): string {
+    if (!user || !password) return url;
+    try {
+      const parsed = new URL(url);
+      parsed.username = user;
+      parsed.password = password;
+      return parsed.toString();
+    } catch {
+      return url;
+    }
+  }
+
+  /**
+   * Write `.git/info/exclude` so `git add -A` skips platform internals and
+   * `.mimoignore` patterns. The repo's own `.gitignore` is honored natively.
+   */
+  private async writeGitExclude(checkoutPath: string): Promise<void> {
+    const internal = [
+      ".mimo",
+      ".mimo-patches",
+      ".sccignore",
+      ".jscpdignore",
+    ];
+    let mimoignore: string[] = [];
+    const mimoignorePath = this.os.path.join(checkoutPath, ".mimoignore");
+    if (await this.os.fs.exists(mimoignorePath)) {
+      const content = await this.os.fs.readFile(mimoignorePath, "utf8");
+      mimoignore = content
+        .split("\n")
+        .map((l: string) => l.trim())
+        .filter((l: string) => l.length > 0 && !l.startsWith("#"));
+    }
+    const patterns = Array.from(new Set([...internal, ...mimoignore]));
+    const infoDir = this.os.path.join(checkoutPath, ".git", "info");
+    if (!(await this.os.fs.exists(infoDir))) {
+      await this.os.fs.mkdir(infoDir, { recursive: true });
+    }
+    await this.os.fs.writeFile(
+      this.os.path.join(infoDir, "exclude"),
+      patterns.join("\n") + "\n",
+    );
+  }
+
   private async setupCheckout(
     sessionId: string,
     checkoutPath: string,
@@ -411,261 +458,72 @@ export class MimoAgent {
     agentWorkspacePassword?: string,
     branch?: string,
   ): Promise<void> {
-    const repoPath = this.os.path.join(
-      checkoutPath,
-      "..",
-      `${sessionId}.fossil`,
+    const cloneUrl = this.buildAuthenticatedUrl(
+      fossilUrl,
+      agentWorkspaceUser,
+      agentWorkspacePassword,
     );
-
-    // The branch session is only for upstream; mimo-agent checkout should
-    // work with a clean trunk. Fossil import always commits to trunk, so
-    // `fossil open` without a branch arg will open trunk with full content.
-    const ensureBranchCheckout = async () => {
-      if (!branch) return;
+    const safeUrl = (() => {
       try {
-        await this.os.command.run(["fossil", "checkout", branch], {
-          cwd: checkoutPath,
-          timeoutMs: 30000,
-        });
-        logger.debug(`[mimo-agent]   Checked out branch '${branch}'`);
-      } catch (err) {
-        logger.warn(
-          `[mimo-agent]   Failed to checkout branch '${branch}':`,
-          err,
-        );
-      }
-    };
-
-    if (await this.os.fs.exists(repoPath)) {
-      logger.debug(`[mimo-agent]   Fossil repo exists, opening`);
-      if (!(await this.os.fs.exists(checkoutPath))) {
-        await this.os.fs.mkdir(checkoutPath, { recursive: true });
-      }
-      try {
-        const openArgs = branch
-          ? ["fossil", "open", repoPath, branch]
-          : ["fossil", "open", repoPath];
-        await this.os.command.run(openArgs, {
-          cwd: checkoutPath,
-          timeoutMs: 30000,
-        });
+        const u = new URL(cloneUrl);
+        return `${u.protocol}//${u.username ? "****:****@" : ""}${u.host}${u.pathname}`;
       } catch {
-        // Already open or error, continue
+        return fossilUrl;
       }
-      await ensureBranchCheckout();
-      // Update remote URL to new port/credentials
+    })();
+    const gitDir = this.os.path.join(checkoutPath, ".git");
+
+    if (await this.os.fs.exists(gitDir)) {
+      logger.debug(`[mimo-agent]   Git checkout exists, refreshing`);
       if (agentWorkspaceUser && agentWorkspacePassword) {
-        const url = new URL(fossilUrl);
-        url.username = agentWorkspaceUser;
-        url.password = agentWorkspacePassword;
-        const remoteUrl = url.toString();
-        logger.debug(
-          `[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`,
+        await this.os.command.run(
+          ["git", "remote", "set-url", "origin", cloneUrl],
+          { cwd: checkoutPath, timeoutMs: 30000 },
         );
-        try {
-          await this.os.command.run(["fossil", "remote-url", remoteUrl], {
-            cwd: checkoutPath,
-            timeoutMs: 30000,
-          });
-        } catch {
-          // Ignore error, may already be correct
-        }
-        // Ensure local password matches server password
-        try {
-          await this.os.command.run(
-            [
-              "fossil",
-              "user",
-              "password",
-              agentWorkspaceUser,
-              agentWorkspacePassword,
-            ],
-            { cwd: checkoutPath, timeoutMs: 30000 },
-          );
-          logger.debug(`[mimo-agent]   Updated local user password`);
-        } catch {
-          // Ignore error
-        }
-        // Update/add named remote "server" with credentials
-        try {
-          // Remove existing remote if exists, then add new one
-          try {
-            await this.os.command.run(["fossil", "remote", "rm", "server"], {
-              cwd: checkoutPath,
-              timeoutMs: 30000,
-            });
-          } catch {
-            // Remote may not exist, ignore
-          }
-          await this.os.command.run(
-            ["fossil", "remote", "add", "server", remoteUrl],
-            {
-              cwd: checkoutPath,
-              timeoutMs: 30000,
-            },
-          );
-          logger.debug(`[mimo-agent]   Updated remote 'server'`);
-          // Do a sync using the named remote to verify credentials work
-          await this.os.command.run(["fossil", "sync", "server"], {
-            cwd: checkoutPath,
-            timeoutMs: CLONE_TIMEOUT_MS,
-          });
-          logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
-        } catch {
-          // Ignore error
-        }
       }
-    } else if (
-      await this.os.fs.exists(this.os.path.join(checkoutPath, ".fossil"))
-    ) {
-      logger.debug(`[mimo-agent]   Checkout exists, ensuring open`);
-      try {
-        await this.os.command.run(["fossil", "open"], {
-          cwd: checkoutPath,
-          timeoutMs: 30000,
-        });
-      } catch {
-        // Already open or error, continue
-      }
-      await ensureBranchCheckout();
-      // Update remote URL to new port/credentials
-      if (agentWorkspaceUser && agentWorkspacePassword) {
-        const url = new URL(fossilUrl);
-        url.username = agentWorkspaceUser;
-        url.password = agentWorkspacePassword;
-        const remoteUrl = url.toString();
-        logger.debug(
-          `[mimo-agent]   Updating remote URL to: ${url.protocol}//${url.username}:****@${url.host}/`,
-        );
-        try {
-          await this.os.command.run(["fossil", "remote-url", remoteUrl], {
-            cwd: checkoutPath,
-            timeoutMs: 30000,
-          });
-        } catch {
-          // Ignore error, may already be correct
-        }
-        // Ensure local password matches server password
-        try {
-          await this.os.command.run(
-            [
-              "fossil",
-              "user",
-              "password",
-              agentWorkspaceUser,
-              agentWorkspacePassword,
-            ],
-            { cwd: checkoutPath, timeoutMs: 30000 },
-          );
-          logger.debug(`[mimo-agent]   Updated local user password`);
-        } catch {
-          // Ignore error
-        }
-        // Update/add named remote "server" with credentials
-        try {
-          // Remove existing remote if exists, then add new one
-          try {
-            await this.os.command.run(["fossil", "remote", "rm", "server"], {
-              cwd: checkoutPath,
-              timeoutMs: 30000,
-            });
-          } catch {
-            // Remote may not exist, ignore
-          }
-          await this.os.command.run(
-            ["fossil", "remote", "add", "server", remoteUrl],
-            {
-              cwd: checkoutPath,
-              timeoutMs: 30000,
-            },
-          );
-          logger.debug(`[mimo-agent]   Updated remote 'server'`);
-          // Do a sync using the named remote to verify credentials work
-          await this.os.command.run(["fossil", "sync", "server"], {
-            cwd: checkoutPath,
-            timeoutMs: CLONE_TIMEOUT_MS,
-          });
-          logger.debug(`[mimo-agent]   Verified sync with remote 'server'`);
-        } catch {
-          // Ignore error
-        }
-      }
+      await this.os.command.run(["git", "pull", "--ff-only"], {
+        cwd: checkoutPath,
+        timeoutMs: CLONE_TIMEOUT_MS,
+      });
     } else {
-      logger.debug(`[mimo-agent]   Cloning from fossil`);
-      // Use credentials in URL if available
-      let cloneUrl = fossilUrl;
-      if (agentWorkspaceUser && agentWorkspacePassword) {
-        const url = new URL(fossilUrl);
-        url.username = agentWorkspaceUser;
-        url.password = agentWorkspacePassword;
-        cloneUrl = url.toString();
+      logger.debug(`[mimo-agent]   Cloning from git: ${safeUrl}`);
+      // Self-heal: a leftover fossil-era checkout has no `.git` but is
+      // non-empty, which makes `git clone` into it fail. Wipe it first.
+      if (await this.os.fs.exists(checkoutPath)) {
         logger.debug(
-          `[mimo-agent]   Using authenticated URL: ${url.protocol}//${url.username}:****@${url.host}/`,
+          `[mimo-agent]   Removing stale non-git checkout before clone`,
         );
+        await this.os.fs.rm(checkoutPath, { recursive: true, force: true });
       }
+      await this.os.fs.mkdir(checkoutPath, { recursive: true });
       const cloneResult = await this.os.command.run(
-        ["fossil", "clone", cloneUrl, repoPath],
+        ["git", "clone", cloneUrl, checkoutPath],
         { timeoutMs: CLONE_TIMEOUT_MS },
       );
       if (!cloneResult.success) {
         throw new Error(
-          `fossil clone failed for URL ${cloneUrl}: ${cloneResult.error || cloneResult.output}`,
+          `git clone failed for ${safeUrl}: ${cloneResult.error || cloneResult.output}`,
         );
       }
-      if (!(await this.os.fs.exists(checkoutPath))) {
-        await this.os.fs.mkdir(checkoutPath, { recursive: true });
-      }
-      // Open without sync first, then set remote with credentials.
-      // The branch session is only for upstream; mimo-agent checkout should
-      // work with a clean trunk. Fossil import always commits to trunk.
-      const openArgs = branch
-        ? ["fossil", "open", "--nosync", repoPath, branch]
-        : ["fossil", "open", "--nosync", repoPath];
-      const openResult = await this.os.command.run(openArgs, {
-        cwd: checkoutPath,
-        timeoutMs: 30000,
-      });
-      if (!openResult.success) {
-        // Common silent-failure case: a stray .fslckout in an ancestor of
-        // checkoutPath causes fossil to refuse the open with "there is already
-        // an open tree". Surfacing it here turns an empty-checkout mystery
-        // into a clear error in the session_error message.
-        throw new Error(
-          `fossil open failed in ${checkoutPath}: ${openResult.error || openResult.output}`,
-        );
-      }
-      // Set remote URL with credentials for future syncs
-      await this.os.command.run(["fossil", "remote-url", cloneUrl], {
-        cwd: checkoutPath,
-        timeoutMs: 30000,
-      });
-      // Set local password to match server password (fossil creates local admin with random password)
-      if (agentWorkspaceUser && agentWorkspacePassword) {
-        await this.os.command.run(
-          [
-            "fossil",
-            "user",
-            "password",
-            agentWorkspaceUser,
-            agentWorkspacePassword,
-          ],
-          { cwd: checkoutPath, timeoutMs: 30000 },
-        );
-        // Add a named remote "server" with credentials embedded
-        await this.os.command.run(
-          ["fossil", "remote", "add", "server", cloneUrl],
-          {
-            cwd: checkoutPath,
-            timeoutMs: 30000,
-          },
-        );
-        // Do an initial sync using the named remote with credentials
-        await this.os.command.run(["fossil", "sync", "server"], {
+      if (branch) {
+        await this.os.command.run(["git", "checkout", branch], {
           cwd: checkoutPath,
-          timeoutMs: CLONE_TIMEOUT_MS,
+          timeoutMs: 30000,
         });
       }
     }
+
+    // Configure commit identity for agent-side commits.
+    await this.os.command.run(
+      ["git", "config", "user.email", "agent@mimo.local"],
+      { cwd: checkoutPath, timeoutMs: 30000 },
+    );
+    await this.os.command.run(
+      ["git", "config", "user.name", "mimo-agent"],
+      { cwd: checkoutPath, timeoutMs: 30000 },
+    );
+
+    await this.writeGitExclude(checkoutPath);
   }
 
   /**
@@ -1339,201 +1197,93 @@ export class MimoAgent {
       return;
     }
 
-    const runFossil = async (args: string[]) => {
-      const result = await this.os.command.run(["fossil", ...args], {
+    const runGit = async (args: string[]) => {
+      return this.os.command.run(["git", ...args], {
         cwd: session.checkoutPath,
-        timeoutMs: 15000,
-        env: {
-          ...this.os.env.getAll(),
-          FOSSIL_FORCE_TTY: "0",
-        },
+        timeoutMs: 60000,
       });
-
-      return result;
     };
 
     try {
-      // --dotfiles flag is required to include dotfiles (hidden files starting with '.')
-      const addremoveResult = await runFossil(["addremove", "--dotfiles"]);
-      if (!addremoveResult.success) {
+      const addResult = await runGit(["add", "-A"]);
+      if (!addResult.success) {
         this.send({
           type: "sync_now_result",
           sessionId,
           requestId,
           success: false,
-          message: "Failed to stage changes in fossil checkout",
-          error:
-            addremoveResult.error ||
-            addremoveResult.output ||
-            "fossil addremove failed",
+          message: "Failed to stage changes in git checkout",
+          error: addResult.error || addResult.output || "git add failed",
           timestamp: new Date().toISOString(),
         });
         return;
       }
 
-      const changesResult = await runFossil(["changes"]);
-      if (!changesResult.success) {
+      const statusResult = await runGit(["status", "--porcelain"]);
+      if (!statusResult.success) {
         this.send({
           type: "sync_now_result",
           sessionId,
           requestId,
           success: false,
-          message: "Failed to inspect fossil changes",
+          message: "Failed to inspect git changes",
           error:
-            changesResult.error ||
-            changesResult.output ||
-            "fossil changes failed",
+            statusResult.error || statusResult.output || "git status failed",
           timestamp: new Date().toISOString(),
         });
         return;
       }
 
-      if (!changesResult.output) {
+      if (!statusResult.output || statusResult.output.trim().length === 0) {
         this.send({
           type: "sync_now_result",
           sessionId,
           requestId,
           success: true,
           noChanges: true,
-          message: "No changes to sync from mimo-agent fossil checkout",
+          message: "No changes to sync from mimo-agent git checkout",
           timestamp: new Date().toISOString(),
         });
         return;
       }
 
-      const commitMessage = `agent-sync(${sessionId}): sync fossil changes ${new Date().toISOString()}`;
-      let commitResult = await runFossil([
-        "commit",
-        "--nosign",
-        "--no-warnings",
-        "--ignore-oversize",
-        "--ignore-clock-skew",
-        "--allow-conflict",
-        "-m",
-        commitMessage,
-      ]);
+      const commitMessage = `agent-sync(${sessionId}): sync git changes ${new Date().toISOString()}`;
+      const commitResult = await runGit(["commit", "-m", commitMessage]);
       if (!commitResult.success) {
         const combined = `${commitResult.output}\n${commitResult.error}`;
-        if (combined.includes("nothing has changed")) {
+        if (combined.includes("nothing to commit")) {
           this.send({
             type: "sync_now_result",
             sessionId,
             requestId,
             success: true,
             noChanges: true,
-            message: "No changes to sync from mimo-agent fossil checkout",
+            message: "No changes to sync from mimo-agent git checkout",
             timestamp: new Date().toISOString(),
           });
           return;
         }
-
-        // Fossil refuses to commit binary files added as text. Forget the
-        // offending files and retry once so text-only changes still sync.
-        if (combined.includes("Abandoning commit due to binary data in")) {
-          const binaryFiles: string[] = [];
-          for (const line of combined.split("\n")) {
-            const match = line.match(
-              /Abandoning commit due to binary data in (.+)/,
-            );
-            if (match) binaryFiles.push(match[1].trim());
-          }
-          for (const file of binaryFiles) {
-            runFossil(["forget", file]);
-          }
-          commitResult = await runFossil(["commit", "-m", commitMessage]);
-          const retryCombined = `${commitResult.output}\n${commitResult.error}`;
-          if (
-            !commitResult.success &&
-            retryCombined.includes("nothing has changed")
-          ) {
-            this.send({
-              type: "sync_now_result",
-              sessionId,
-              requestId,
-              success: true,
-              noChanges: true,
-              message: "No changes to sync from mimo-agent fossil checkout",
-              timestamp: new Date().toISOString(),
-            });
-            return;
-          }
-        }
-
-        // Handle merge conflicts - try to update and resolve
-        if (
-          combined.includes("unresolved merge conflicts") ||
-          combined.includes("abort due to unresolved")
-        ) {
-          logger.debug(
-            `[mimo-agent] Merge conflicts detected for ${sessionId}, attempting to resolve...`,
-          );
-
-          // Try to update and merge
-          const updateResult = await runFossil(["update", "--nosync"]);
-          if (!updateResult.success) {
-            this.send({
-              type: "sync_now_result",
-              sessionId,
-              requestId,
-              success: false,
-              message:
-                "Failed to update fossil checkout - manual intervention required",
-              error: `Update failed: ${updateResult.error || updateResult.output}`,
-              timestamp: new Date().toISOString(),
-            });
-            return;
-          }
-
-          // Try commit again after update
-          commitResult = await runFossil([
-            "commit",
-            "-m",
-            commitMessage,
-            "--allow-conflict",
-          ]);
-          if (!commitResult.success) {
-            this.send({
-              type: "sync_now_result",
-              sessionId,
-              requestId,
-              success: false,
-              message: "Failed to commit after resolving conflicts",
-              error:
-                commitResult.error ||
-                commitResult.output ||
-                "fossil commit failed",
-              timestamp: new Date().toISOString(),
-            });
-            return;
-          }
-        }
-
-        if (!commitResult.success) {
-          this.send({
-            type: "sync_now_result",
-            sessionId,
-            requestId,
-            success: false,
-            message: "Failed to commit fossil changes",
-            error:
-              commitResult.error ||
-              commitResult.output ||
-              "fossil commit failed",
-            timestamp: new Date().toISOString(),
-          });
-          return;
-        }
+        this.send({
+          type: "sync_now_result",
+          sessionId,
+          requestId,
+          success: false,
+          message: "Failed to commit git changes",
+          error: commitResult.error || commitResult.output || "git commit failed",
+          timestamp: new Date().toISOString(),
+        });
+        return;
       }
 
-      const pushResult = await runFossil(["push"]);
+      const pushResult = await runGit(["push", "origin", "HEAD"]);
       if (!pushResult.success) {
         this.send({
           type: "sync_now_result",
           sessionId,
           requestId,
           success: false,
-          message: "Fossil committed but push failed",
-          error: pushResult.error || pushResult.output || "fossil push failed",
+          message: "Git committed but push failed",
+          error: pushResult.error || pushResult.output || "git push failed",
           timestamp: new Date().toISOString(),
         });
         return;
@@ -1544,7 +1294,7 @@ export class MimoAgent {
         sessionId,
         requestId,
         success: true,
-        message: "mimo-agent fossil commit and push completed",
+        message: "mimo-agent git commit and push completed",
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
@@ -1553,7 +1303,7 @@ export class MimoAgent {
         sessionId,
         requestId,
         success: false,
-        message: "Failed to sync from mimo-agent fossil checkout",
+        message: "Failed to sync from mimo-agent git checkout",
         error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString(),
       });

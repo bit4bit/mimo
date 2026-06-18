@@ -47,7 +47,7 @@ function makeMocks() {
     touchSessionActivity: mock(async () => {}),
     findByAssignedAgentId: mock(async () => []),
     findByThreadAgentId: mock(async () => []),
-    getFossilPath: mock(() => "/fake/fossil"),
+    getSessionRepoPath: mock(() => "/fake/repo.git"),
   };
 
   const agentRepository = {
@@ -102,7 +102,7 @@ function makeMocks() {
     triggerAutoCommit: mock(async () => ({ success: true })),
   };
   const sccService = { isStale: mock(() => false) };
-  const vcs = { fossilUp: mock(async () => ({ success: true })) };
+  const vcs = { gitPull: mock(async () => ({ success: true })) };
 
   const mimoContext = {
     services: {
@@ -118,7 +118,7 @@ function makeMocks() {
       },
       autoCommit: { triggerAutoCommit: mock(async () => ({ success: true })) },
       scc: { isStale: mock(() => false) },
-      vcs: { fossilUp: mock(async () => ({ success: true })) },
+      vcs: { gitPull: mock(async () => ({ success: true })) },
       impactCalculator: { calculateImpact: mock(async () => ({ files: [] })) },
       mcpServer: { resolveMcpServers: mock(async () => []) },
     },

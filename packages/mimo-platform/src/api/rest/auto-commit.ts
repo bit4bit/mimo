@@ -40,7 +40,7 @@ export interface AutoCommitRouterContext {
       sessionId: string,
       updates: Record<string, unknown>,
     ) => Promise<any | null>;
-    getFossilPath: (sessionId: string) => string;
+    getSessionRepoPath: (sessionId: string) => string;
   };
   agentService: {
     getAgentConnection: (agentId: string) => any;
@@ -174,29 +174,30 @@ export async function syncSessionViaAssignedAgent(
 
     if (agentResult.success) {
       if (!agentResult.noChanges) {
-        const fossilPath = context.sessionRepository.getFossilPath(sessionId);
+        const repoPath =
+          context.sessionRepository.getSessionRepoPath(sessionId);
         const checkoutMarkerPath = context.os.path.join(
           session.agentWorkspacePath,
-          ".fslckout",
+          ".git",
         );
 
         if (!context.os.fs.exists(checkoutMarkerPath)) {
-          const openResult = await context.vcs.openFossil(
-            fossilPath,
+          const cloneResult = await context.vcs.clonePlatformCheckout(
+            repoPath,
             session.agentWorkspacePath,
           );
-          if (!openResult.success) {
+          if (!cloneResult.success) {
             throw new Error(
-              openResult.error || "Failed to open local fossil checkout",
+              cloneResult.error || "Failed to clone local git checkout",
             );
           }
         }
 
-        const upResult = await context.vcs.fossilUp(session.agentWorkspacePath);
+        const upResult = await context.vcs.gitPull(session.agentWorkspacePath);
         if (!upResult.success) {
           throw new Error(
             upResult.error ||
-              "Failed to refresh local agent workspace from fossil",
+              "Failed to refresh local agent workspace from git",
           );
         }
 

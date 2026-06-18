@@ -228,27 +228,12 @@ export class SessionManager {
     this.sessions.delete(sessionId);
 
     const checkoutPath = this.os.path.join(this.workDir, sessionId);
-    const repoPath = this.os.path.join(this.workDir, `${sessionId}.fossil`);
 
+    // The git checkout is self-contained (.git lives inside checkoutPath), so
+    // removing the folder is enough — no separate repo file to delete.
     if (await this.os.fs.exists(checkoutPath)) {
-      logger.debug(
-        `[mimo-agent] Closing fossil repo for session: ${sessionId}`,
-      );
-      try {
-        await this.os.command.run(["fossil", "close"], {
-          cwd: checkoutPath,
-          timeoutMs: 10000,
-        });
-      } catch {
-        // Ignore — checkout may already be closed or not a fossil repo
-      }
       logger.debug(`[mimo-agent] Deleting session folder: ${checkoutPath}`);
       await this.os.fs.rm(checkoutPath, { recursive: true, force: true });
-    }
-
-    if (await this.os.fs.exists(repoPath)) {
-      logger.debug(`[mimo-agent] Deleting fossil repo file: ${repoPath}`);
-      await this.os.fs.unlink(repoPath);
     }
   }
 

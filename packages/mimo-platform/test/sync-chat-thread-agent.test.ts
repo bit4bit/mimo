@@ -39,7 +39,7 @@ describe("syncSessionViaAssignedAgent", () => {
       sessionRepository: {
         findById: async () => mockSession,
         update: async () => mockSession,
-        getFossilPath: () => "/test.fossil",
+        getSessionRepoPath: () => "/test.git",
       },
       agentService: {
         getAgentConnection: (agentId: string) => {
@@ -84,7 +84,7 @@ describe("syncSessionViaAssignedAgent", () => {
       sessionRepository: {
         findById: async () => mockSession,
         update: async () => mockSession,
-        getFossilPath: () => "/test.fossil",
+        getSessionRepoPath: () => "/test.git",
       },
       agentService: {
         getAgentConnection: (agentId: string) => {
@@ -139,7 +139,7 @@ describe("syncSessionViaAssignedAgent", () => {
       sessionRepository: {
         findById: async () => mockSession,
         update: async () => mockSession,
-        getFossilPath: () => "/test.fossil",
+        getSessionRepoPath: () => "/test.git",
       },
       agentService: {
         getAgentConnection: () => null,
@@ -204,7 +204,7 @@ describe("syncSessionViaAssignedAgent", () => {
       sessionRepository: {
         findById: async () => mockSession,
         update: async () => mockSession,
-        getFossilPath: () => "/test.fossil",
+        getSessionRepoPath: () => "/test.git",
       },
       agentService: {
         getAgentConnection: (agentId: string) => {

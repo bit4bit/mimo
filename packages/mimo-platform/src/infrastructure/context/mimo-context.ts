@@ -20,8 +20,14 @@ import { ConfigService } from "../../domain/config/service.js";
 import { ImpactCalculator } from "../../domain/impact/calculator.js";
 import { VCS } from "../../domain/vcs/index.js";
 import { sessionStateService } from "../../domain/sessions/state.js";
-import { SharedFossilServer } from "../../domain/vcs/shared-fossil-server.js";
-import type { SharedFossilServerConfig } from "../../domain/vcs/shared-fossil-server.js";
+import {
+  GitHttpServer,
+  DummyGitHttpServer,
+} from "../../domain/vcs/git-http-server.js";
+import type {
+  GitHttpServerConfig,
+  CredentialVerifier,
+} from "../../domain/vcs/git-http-server.js";
 import {
   createFileWatcherService,
   type FileWatcherService,
@@ -91,7 +97,7 @@ export interface MimoContext {
     impactCalculator: ImpactCalculator;
     vcs: VCS;
     sessionState: typeof sessionStateService;
-    sharedFossil: SharedFossilServer | DummySharedFossilServer | null;
+    sharedFossil: GitHttpServer | DummyGitHttpServer | null;
     fileWatcher: FileWatcherService;
     expert: ExpertService;
     search: SearchService;
@@ -128,13 +134,17 @@ function ensurePaths(paths: MimoPaths, os: OS): void {
 }
 
 /**
- * Factory function to create a SharedFossilServer with configuration from MimoEnv.
+ * Factory function to create a GitHttpServer with configuration from MimoEnv.
  * Port is required - throws error if not provided.
+ *
+ * @param verifyCredentials Basic-auth verifier; validates (sid, user, pass)
+ *   against the session-stored credentials.
  */
-export function createSharedFossilServer(
+export function createGitHttpServer(
   env: MimoEnv,
   os: OS,
-): SharedFossilServer {
+  verifyCredentials: CredentialVerifier,
+): GitHttpServer {
   const port = env.MIMO_SHARED_FOSSIL_SERVER_PORT;
   if (port === undefined) {
     throw new Error(
@@ -142,13 +152,14 @@ export function createSharedFossilServer(
     );
   }
 
-  const config: SharedFossilServerConfig = {
+  const config: GitHttpServerConfig = {
     port,
     reposDir: env.FOSSIL_REPOS_DIR,
     host: env.MIMO_SHARED_FOSSIL_SERVER_HOST ?? env.MIMO_HOST,
+    verifyCredentials,
   };
 
-  return new SharedFossilServer(config, os);
+  return new GitHttpServer(config, os);
 }
 
 export function createMimoContext(

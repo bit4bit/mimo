@@ -3,7 +3,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { readFileSync, writeFileSync } from "fs";
 import { load, dump } from "js-yaml";
-import { DummySharedFossilServer } from "../src/domain/vcs/shared-fossil-server.js";
+import { DummyGitHttpServer } from "../src/domain/vcs/git-http-server.js";
 import { syncSessionMcpTokens } from "../scripts/sync-session-mcp-tokens.ts";
 
 describe("sync-session-mcp-tokens script", () => {
@@ -20,7 +20,7 @@ describe("sync-session-mcp-tokens script", () => {
       await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key" },
-      services: { sharedFossil: new DummySharedFossilServer() },
+      services: { sharedFossil: new DummyGitHttpServer() },
     });
     sessionRepository = ctx.repos.sessions;
   });

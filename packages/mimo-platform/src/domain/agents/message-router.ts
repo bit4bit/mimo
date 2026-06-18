@@ -5,7 +5,7 @@ import { SessionRepository } from "../sessions/repository.js";
 import { AgentService } from "./service.js";
 import type { ChatService } from "../sessions/chat.js";
 import type { SessionModelState, SessionModeState } from "../sessions/state.js";
-import { SharedFossilServer } from "../vcs/shared-fossil-server.js";
+import { GitHttpServer } from "../vcs/git-http-server.js";
 import type { MimoContext } from "../../infrastructure/context/mimo-context.js";
 import { normalizeAvailableCommands } from "../sessions/available-commands.js";
 import { createPlatformMcpServerConfig } from "../../mcp/platform-config.js";
@@ -19,7 +19,7 @@ export type { ChatService };
 export type { SessionRepository };
 export type { AgentRepository };
 export type { AgentService };
-export type { SharedFossilServer };
+export type { GitHttpServer };
 export type { AutoCommitService };
 
 // Define minimal interfaces for service dependencies
@@ -28,7 +28,7 @@ export interface SCCServiceLike {
 }
 
 export interface VcsServiceLike {
-  fossilUp: (
+  gitPull: (
     workspacePath: string,
   ) => Promise<{ success: boolean; error?: string }>;
 }
@@ -51,7 +51,7 @@ export interface AgentMessageRouterDeps {
     setModeState(sessionId: string, state: SessionModeState): void;
   };
   chat: ChatService;
-  sharedFossilServer: InstanceType<typeof SharedFossilServer>;
+  sharedFossilServer: InstanceType<typeof GitHttpServer>;
   mimoContext: MimoContext;
   platformUrl: string;
   autoCommitService: AutoCommitService;
@@ -307,7 +307,7 @@ export class AgentMessageRouter {
 
         if (session.status === "active") {
           const fossilPath =
-            this.deps.sessionRepository.getFossilPath(sessionId);
+            this.deps.sessionRepository.getSessionRepoPath(sessionId);
           const fossilUrl = this.deps.sharedFossilServer.getUrl(sessionId);
 
           if (!this.deps.os.fs.exists(fossilPath)) {
@@ -615,7 +615,7 @@ export class AgentMessageRouter {
       return;
     }
 
-    const fossilUpResult = await this.deps.vcs.fossilUp(
+    const fossilUpResult = await this.deps.vcs.gitPull(
       session.agentWorkspacePath,
     );
     if (!fossilUpResult.success) {

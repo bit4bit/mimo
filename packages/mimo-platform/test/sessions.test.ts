@@ -7,7 +7,7 @@ import { rmSync, existsSync, readFileSync, mkdirSync, writeFileSync } from "fs";
 import { load, dump } from "js-yaml";
 
 // Re-import modules after setting up environment
-import { DummySharedFossilServer } from "../src/domain/vcs/shared-fossil-server.js";
+import { DummyGitHttpServer } from "../src/domain/vcs/git-http-server.js";
 import { resetGlobalState } from "./test-helpers.js";
 
 let sessionRoutes: any;
@@ -65,7 +65,7 @@ describe("Session Management Integration Tests", () => {
       await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
-      services: { sharedFossil: new DummySharedFossilServer() },
+      services: { sharedFossil: new DummyGitHttpServer() },
     });
     mimoContext = ctx;
 
@@ -83,6 +83,9 @@ describe("Session Management Integration Tests", () => {
     // Mock VCS methods to avoid actual git/fossil operations in these tests
     ctx.services.vcs.cloneRepository = async () => ({ success: true });
     ctx.services.vcs.importToFossil = async () => ({ success: true });
+    ctx.services.vcs.seedSessionRepo = async () => ({ success: true });
+    ctx.services.vcs.clonePlatformCheckout = async () => ({ success: true });
+    ctx.services.vcs.syncIgnoresToGit = async () => ({ success: true });
     ctx.services.vcs.createBranch = async () => ({ success: true });
     ctx.services.vcs.setFossilProjectName = async () => ({ success: true });
     ctx.services.vcs.openFossilCheckout = async () => ({ success: true });
@@ -318,12 +321,6 @@ describe("Session Management Integration Tests", () => {
         owner: "testuser",
       });
 
-      let createFossilUserArgs: any[] | null = null;
-      mimoContext.services.vcs.createFossilUser = async (...args: any[]) => {
-        createFossilUserArgs = args;
-        return { success: true };
-      };
-
       const token = await authService.generateToken("testuser");
 
       const res = await app.request(`/projects/${project.id}/sessions`, {
@@ -339,15 +336,14 @@ describe("Session Management Integration Tests", () => {
       const sessionId = (res.headers.get("location") || "").split("/").pop();
       const session = await sessionRepository.findById(sessionId!);
 
+      // Credentials are provisioned on the session; auth is enforced by the
+      // GitHttpServer verifier, so no repo-side user is created.
       expect(session).not.toBeNull();
       expect(session?.agentWorkspaceUser).toBe("dev");
       expect(session?.agentWorkspacePassword).toBeTruthy();
       expect(session?.agentWorkspacePassword?.length).toBeGreaterThanOrEqual(
         16,
       );
-      expect(createFossilUserArgs).not.toBeNull();
-      expect(createFossilUserArgs?.[1]).toBe("dev");
-      expect(createFossilUserArgs?.[3]).toBe("s");
     });
 
     it("should update idleTimeoutMs via updateSessionConfig", async () => {
@@ -932,7 +928,7 @@ describe("Session Management Integration Tests", () => {
       expect(res.status).toBe(404);
     });
 
-    it("should render clone workspace action with authenticated one-command fossil open", async () => {
+    it("should render clone workspace action with authenticated one-command git clone", async () => {
       const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
@@ -969,11 +965,9 @@ describe("Session Management Integration Tests", () => {
       const html = await res.text();
       expect(html).toContain("clone-workspace-btn");
       expect(html).toContain("clone-workspace-dialog");
-      expect(html).toContain("fossil open");
+      expect(html).toContain("git clone");
       expect(html).toContain("dev:p%40ss%20word@localhost:8000");
       expect(html).toContain("Fix-login-flow");
-      expect(html).toContain("--workdir");
-      expect(html).toContain("--repodir");
     });
   });
 

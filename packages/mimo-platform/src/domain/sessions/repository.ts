@@ -2,7 +2,6 @@
 import type { OS } from "../../infrastructure/os/types.js";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
-import { normalizeSessionIdForFossil } from "../vcs/shared-fossil-server.js";
 import {
   createDefaultFrameState,
   normalizeFrameState,
@@ -227,18 +226,14 @@ export class SessionRepository {
   }
 
   /**
-   * Get the filesystem path for a session's fossil repository.
-   * The file is stored in the centralized fossil directory, not in the session directory.
+   * Get the filesystem path for a session's bare Git repository.
+   * Git paths allow hyphens, so no normalization is applied.
    *
    * @param sessionId The session ID (e.g., "abc123-def456-ghi789")
-   * @returns The full path to the .fossil file (e.g., "~/.mimo/session-fossils/abc123_def456_ghi789.fossil")
+   * @returns The full path to the bare repo (e.g., "~/.mimo/session-repos/abc123-def456-ghi789.git")
    */
-  getFossilPath(sessionId: string): string {
-    const normalizedId = normalizeSessionIdForFossil(sessionId);
-    return this.os.path.join(
-      this.getFossilReposDir(),
-      `${normalizedId}.fossil`,
-    );
+  getSessionRepoPath(sessionId: string): string {
+    return this.os.path.join(this.getFossilReposDir(), `${sessionId}.git`);
   }
 
   private generateId(): string {
@@ -787,10 +782,10 @@ export class SessionRepository {
   async delete(projectId: string, sessionId: string): Promise<void> {
     const sessionPath = this.getSessionPath(projectId, sessionId);
 
-    // Delete the centralized fossil repository file
-    const fossilPath = this.getFossilPath(sessionId);
-    if (this.os.fs.exists(fossilPath)) {
-      this.os.fs.unlink(fossilPath);
+    // Delete the centralized bare git session repository
+    const repoPath = this.getSessionRepoPath(sessionId);
+    if (this.os.fs.exists(repoPath)) {
+      this.os.fs.rm(repoPath, { recursive: true, force: true });
     }
 
     // Delete entire session directory (includes upstream/, agent-workspace/, session.yaml)

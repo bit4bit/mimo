@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { join } from "path";
 import { tmpdir } from "os";
 import { rmSync } from "fs";
-import { DummySharedFossilServer } from "../src/domain/vcs/shared-fossil-server.js";
+import { DummyGitHttpServer } from "../src/domain/vcs/git-http-server.js";
 
 describe("Sessions routes with mimoContext", () => {
   let testHome: string;
@@ -27,7 +27,7 @@ describe("Sessions routes with mimoContext", () => {
         MIMO_HOME: testHome,
         JWT_SECRET: "sessions-context-secret-a",
       },
-      services: { sharedFossil: new DummySharedFossilServer() },
+      services: { sharedFossil: new DummyGitHttpServer() },
     });
 
     const token = await mimoContext.services.auth.generateToken("tester");
