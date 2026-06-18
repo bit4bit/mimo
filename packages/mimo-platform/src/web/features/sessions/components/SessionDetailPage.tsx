@@ -1171,6 +1171,73 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         .decorated-heading-5 {
           font-size: 1em;
         }
+        /* Markdown view mode: marked-rendered HTML inside message content */
+        .message-content table {
+          border-collapse: collapse;
+          margin: 4px 0;
+          font-size: 0.95em;
+        }
+        .message-content th,
+        .message-content td {
+          border: 1px solid #444;
+          padding: 4px 8px;
+          text-align: left;
+        }
+        .message-content th {
+          background: #2d2d2d;
+          font-weight: bold;
+        }
+        .message-content ul,
+        .message-content ol {
+          margin: 4px 0;
+          padding-left: 1.5em;
+        }
+        .message-content li {
+          margin: 2px 0;
+        }
+        .message-content blockquote {
+          margin: 4px 0;
+          padding: 0 0 0 10px;
+          border-left: 3px solid #4f667f;
+          color: #b5b5b5;
+        }
+        .message-content h1,
+        .message-content h2,
+        .message-content h3,
+        .message-content h4,
+        .message-content h5,
+        .message-content h6 {
+          font-weight: bold;
+          margin: 0.5em 0 0.25em;
+          line-height: 1.3;
+        }
+        .message-content h1 {
+          font-size: 1.5em;
+        }
+        .message-content h2 {
+          font-size: 1.3em;
+        }
+        .message-content h3 {
+          font-size: 1.15em;
+        }
+        .message-content pre {
+          background: #1e1e1e;
+          border: 1px solid #444;
+          border-radius: 4px;
+          padding: 8px;
+          margin: 4px 0;
+          overflow-x: auto;
+        }
+        .message-content pre code {
+          background: transparent;
+          padding: 0;
+        }
+        .message-content code {
+          font-family: monospace;
+          background: #383838;
+          padding: 1px 4px;
+          border-radius: 3px;
+        }
         .chat-file-ref {
           background: transparent;
           border: 1px solid #4f667f;

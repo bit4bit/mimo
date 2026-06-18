@@ -161,7 +161,7 @@ function renderMessage(message) {
     const toggleBtn = document.createElement("button");
     toggleBtn.className = "view-toggle-btn active";
     toggleBtn.textContent = "👁";
-    toggleBtn.title = "Toggle decorated/plain view";
+    toggleBtn.title = viewModeLabel("decorated");
     toggleBtn.style.marginLeft = "auto";
     header.appendChild(toggleBtn);
     copyBtn.style.marginLeft = "5px";
@@ -468,6 +468,22 @@ function renderPlainContent(text, container) {
     }
     container.appendChild(div);
   }
+}
+
+// Render raw text as full markdown via the vendored `marked` library.
+// Output is assigned to innerHTML WITHOUT sanitization (accepted XSS trade-off).
+// Falls back to plain rendering when `marked` is unavailable.
+function renderMarkdownContent(text, container) {
+  container.dataset.rawText = String(text || "");
+  const html = renderMarkdownHtml(
+    text,
+    typeof marked !== "undefined" ? marked : undefined,
+  );
+  if (html === null) {
+    renderPlainContent(text, container);
+    return;
+  }
+  container.innerHTML = html;
 }
 
 // escapeHtml and decorateInlineMarkup are loaded from chat-decorated-utils.js
@@ -2476,13 +2492,16 @@ function insertMessage(message) {
       const contentEl = el.querySelector(".message-content");
       if (!contentEl) return;
       const rawText = contentEl.dataset.rawText || "";
-      if (el.dataset.viewMode === "decorated") {
-        el.dataset.viewMode = "plain";
-        toggleBtn.classList.remove("active");
+      const mode = nextViewMode(el.dataset.viewMode);
+      el.dataset.viewMode = mode;
+      toggleBtn.title = viewModeLabel(mode);
+      // "active" indicator only in the default decorated mode
+      toggleBtn.classList.toggle("active", mode === "decorated");
+      if (mode === "plain") {
         renderPlainContent(rawText, contentEl);
+      } else if (mode === "markdown") {
+        renderMarkdownContent(rawText, contentEl);
       } else {
-        el.dataset.viewMode = "decorated";
-        toggleBtn.classList.add("active");
         renderDecoratedContent(rawText, contentEl);
       }
     });

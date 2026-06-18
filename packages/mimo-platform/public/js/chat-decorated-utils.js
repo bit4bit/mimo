@@ -114,8 +114,35 @@ function buildDecoratedLines(text) {
   return result;
 }
 
+// Per-message view-mode cycle: decorated -> plain -> markdown -> decorated.
+function nextViewMode(current) {
+  if (current === "plain") return "markdown";
+  if (current === "markdown") return "decorated";
+  return "plain";
+}
+
+// Human-readable label for the toggle button title in each view mode.
+function viewModeLabel(mode) {
+  if (mode === "plain") return "Plain view (click for markdown)";
+  if (mode === "markdown") return "Markdown view (click for decorated)";
+  return "Decorated view (click for plain)";
+}
+
+// Render raw text as markdown HTML via the marked library.
+// Returns null when marked is unavailable so callers can fall back to plain.
+// NOTE: output is intentionally NOT sanitized (accepted XSS trade-off).
+function renderMarkdownHtml(rawText, markedLib) {
+  if (!markedLib || typeof markedLib.parse !== "function") {
+    return null;
+  }
+  return markedLib.parse(String(rawText || ""), { gfm: true });
+}
+
 if (typeof window !== "undefined") {
   window.escapeHtml = escapeHtml;
   window.decorateInlineMarkup = decorateInlineMarkup;
   window.buildDecoratedLines = buildDecoratedLines;
+  window.nextViewMode = nextViewMode;
+  window.viewModeLabel = viewModeLabel;
+  window.renderMarkdownHtml = renderMarkdownHtml;
 }

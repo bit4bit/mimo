@@ -14,7 +14,14 @@ const wrappedCode = `(function (window) {\n${utilsCode}\n})(sandbox);`;
 // eslint-disable-next-line @typescript-eslint/no-implied-eval
 eval(wrappedCode);
 
-const { escapeHtml, decorateInlineMarkup, buildDecoratedLines } = sandbox;
+const {
+  escapeHtml,
+  decorateInlineMarkup,
+  buildDecoratedLines,
+  nextViewMode,
+  renderMarkdownHtml,
+  viewModeLabel,
+} = sandbox;
 
 // --- escapeHtml ---
 
@@ -307,26 +314,121 @@ describe("renderPlainContent contract", () => {
 
 // --- Toggle contract ---
 
-describe("toggle view mode contract", () => {
-  // The toggle handler in chat.js reads dataset.viewMode and switches between
-  // renderDecoratedContent and renderPlainContent. We test the state machine.
-
-  type ViewMode = "decorated" | "plain";
-
-  function toggleMode(current: ViewMode): ViewMode {
-    return current === "decorated" ? "plain" : "decorated";
-  }
-
-  it("toggles from decorated to plain", () => {
-    expect(toggleMode("decorated")).toBe("plain");
+describe("nextViewMode — three-way cycle", () => {
+  it("advances decorated to plain", () => {
+    expect(nextViewMode("decorated")).toBe("plain");
   });
 
-  it("toggles from plain to decorated", () => {
-    expect(toggleMode("plain")).toBe("decorated");
+  it("advances plain to markdown", () => {
+    expect(nextViewMode("plain")).toBe("markdown");
   });
 
-  it("round-trips back to original mode", () => {
-    expect(toggleMode(toggleMode("decorated"))).toBe("decorated");
+  it("advances markdown back to decorated", () => {
+    expect(nextViewMode("markdown")).toBe("decorated");
+  });
+
+  it("round-trips through all three modes back to start", () => {
+    expect(nextViewMode(nextViewMode(nextViewMode("decorated")))).toBe(
+      "decorated",
+    );
+  });
+
+  it("treats an unknown mode as decorated (advances to plain)", () => {
+    expect(nextViewMode("bogus")).toBe("plain");
+  });
+});
+
+describe("viewModeLabel — button title per mode", () => {
+  it("returns a distinct label for each of the three modes", () => {
+    const labels = [
+      viewModeLabel("decorated"),
+      viewModeLabel("plain"),
+      viewModeLabel("markdown"),
+    ];
+    expect(new Set(labels).size).toBe(3);
+    labels.forEach((l) => expect(typeof l).toBe("string"));
+  });
+
+  it("mentions the mode name in its label", () => {
+    expect(viewModeLabel("markdown").toLowerCase()).toContain("markdown");
+    expect(viewModeLabel("plain").toLowerCase()).toContain("plain");
+    expect(viewModeLabel("decorated").toLowerCase()).toContain("decorated");
+  });
+});
+
+describe("renderMarkdownHtml — marked-backed rendering", () => {
+  const fakeMarked = {
+    parse: (text: string) => `<p>${text}</p>`,
+  };
+
+  it("renders raw text via marked.parse when marked is available", () => {
+    expect(renderMarkdownHtml("hello", fakeMarked)).toBe("<p>hello</p>");
+  });
+
+  it("passes the source text to marked unchanged (sourced from raw text)", () => {
+    let received = "";
+    const spy = {
+      parse: (text: string) => {
+        received = text;
+        return "out";
+      },
+    };
+    renderMarkdownHtml("| a | b |\n| - | - |\n| 1 | 2 |", spy);
+    expect(received).toBe("| a | b |\n| - | - |\n| 1 | 2 |");
+  });
+
+  it("does not sanitize marked output (raw HTML passes through)", () => {
+    const hostile = {
+      parse: () => '<img src=x onerror="alert(1)">',
+    };
+    const out = renderMarkdownHtml("whatever", hostile);
+    expect(out).toBe('<img src=x onerror="alert(1)">');
+  });
+
+  it("returns null when marked is undefined (signals plain fallback)", () => {
+    expect(renderMarkdownHtml("hello", undefined)).toBeNull();
+  });
+
+  it("returns null when marked lacks a parse function", () => {
+    expect(renderMarkdownHtml("hello", {})).toBeNull();
+  });
+});
+
+describe("renderMarkdownHtml — vendored marked integration", () => {
+  // Load the actual vendored marked UMD bundle and confirm it renders
+  // GFM tables and lists (the dependency-version risk from design.md).
+  const markedPath = join(
+    import.meta.dir,
+    "../../../public/vendor/marked.min.js",
+  );
+  const markedCode = readFileSync(markedPath, "utf-8");
+  const markedExports: any = {};
+  const runMarked = new Function(
+    "module",
+    "exports",
+    `${markedCode}\nreturn exports;`,
+  );
+  const loaded = runMarked({ exports: markedExports }, markedExports);
+  const realMarked =
+    typeof loaded.parse === "function"
+      ? loaded
+      : typeof loaded.marked === "function" ||
+          (loaded.marked && typeof loaded.marked.parse === "function")
+        ? loaded.marked
+        : loaded;
+
+  it("renders a GFM table as an HTML <table>", () => {
+    const md = "| a | b |\n| - | - |\n| 1 | 2 |";
+    const html = renderMarkdownHtml(md, realMarked);
+    expect(html).toContain("<table");
+    expect(html).toContain("<td");
+  });
+
+  it("renders a markdown list as an HTML list", () => {
+    const md = "- one\n- two\n- three";
+    const html = renderMarkdownHtml(md, realMarked);
+    expect(html).toContain("<ul");
+    expect(html).toContain("<li");
   });
 });
 
