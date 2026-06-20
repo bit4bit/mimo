@@ -14,10 +14,16 @@ services:
       PORT: "3001"
       MIMO_HOST: "localhost"
       MIMO_LISTEN_HOST: "0.0.0.0"
-      MIMO_SHARED_FOSSIL_SERVER_HOST: "platform"
+      # Internal: hostname the agent uses to clone session repos (Docker service name).
+      MIMO_INTERNAL_VCS_HOST: "platform"
       PLATFORM_URL: "http://localhost:3001"
       MIMO_HOME: "${MIMO_HOME:-/home/app/.mimo}"
-      MIMO_SHARED_FOSSIL_SERVER_PORT: "8001"
+      MIMO_INTERNAL_VCS_PORT: "8001"
+      # External: public base URL for the `git clone` command shown to browser
+      # users. Leave unset locally (clones use the exposed 8001 port below). Set
+      # this behind a custom domain / reverse proxy, e.g. https://yourdomain.com/git
+      # See docs/DEPLOYMENT.md.
+      # MIMO_PUBLIC_VCS_URL: "https://yourdomain.com/git"
       HOME: "/home/app"
       USER: "app"
       LOGNAME: "app"

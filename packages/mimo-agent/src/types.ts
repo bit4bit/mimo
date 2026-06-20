@@ -48,9 +48,9 @@ export type McpServerConfig =
 export interface SessionInfo {
   sessionId: string;
   checkoutPath: string;
-  fossilUrl: string;
-  fossilUser?: string;
-  fossilPassword?: string;
+  cloneUrl: string;
+  vcsUser?: string;
+  vcsPassword?: string;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   acpProcess: import("./acp/types").AcpProcessHandle | null;

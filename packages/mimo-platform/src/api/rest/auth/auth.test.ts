@@ -29,7 +29,7 @@ describe("Auth Internal API", () => {
         JWT_SECRET: "test-jwt-secret-for-auth-api-tests",
         PORT: "3000",
         MIMO_HOME: "/tmp/test-mimo-auth",
-        MIMO_SHARED_FOSSIL_SERVER_PORT: "8000",
+        MIMO_INTERNAL_VCS_PORT: "8000",
         MIMO_HOST: "localhost",
       },
       homeDir: "/home/test",
@@ -42,7 +42,7 @@ describe("Auth Internal API", () => {
       "/tmp/test-mimo-auth/projects": null,
       "/tmp/test-mimo-auth/agents": null,
       "/tmp/test-mimo-auth/mcp-servers": null,
-      "/tmp/test-mimo-auth/session-fossils": null,
+      "/tmp/test-mimo-auth/session-repos": null,
     });
 
     // Create MimoContext with mock OS
@@ -52,8 +52,8 @@ describe("Auth Internal API", () => {
         PORT: 3000,
         PLATFORM_URL: "http://localhost:3000",
         MIMO_HOME: "/tmp/test-mimo-auth",
-        FOSSIL_REPOS_DIR: "/tmp/test-mimo-auth/session-fossils",
-        MIMO_SHARED_FOSSIL_SERVER_PORT: 8000,
+        MIMO_VCS_REPOS_DIR: "/tmp/test-mimo-auth/session-repos",
+        MIMO_INTERNAL_VCS_PORT: 8000,
         MIMO_HOST: "localhost",
       },
       os: mockOS,

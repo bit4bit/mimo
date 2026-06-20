@@ -38,7 +38,7 @@ export interface SessionResponse {
   // Workspace paths (required for VCS operations)
   upstreamPath: string;
   agentWorkspacePath: string;
-  fossilPath: string;
+  vcsPath: string;
   // Credentials
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
@@ -181,7 +181,7 @@ export function toSessionResponse(session: Session): SessionResponse {
     // Workspace paths
     upstreamPath: session.upstreamPath,
     agentWorkspacePath: session.agentWorkspacePath,
-    fossilPath: session.fossilPath,
+    vcsPath: session.vcsPath,
     // Credentials
     ...(session.agentWorkspaceUser && {
       agentWorkspaceUser: session.agentWorkspaceUser,

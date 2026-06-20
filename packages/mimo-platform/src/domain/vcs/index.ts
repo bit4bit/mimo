@@ -471,7 +471,7 @@ export class VCS {
   }
 
   async setFossilProjectName(
-    fossilPath: string,
+    vcsPath: string,
     name: string,
   ): Promise<VCSResult> {
     const escapedName = name.replace(/'/g, "''");
@@ -479,7 +479,7 @@ export class VCS {
       "fossil",
       "sql",
       "-R",
-      fossilPath,
+      vcsPath,
       `INSERT OR REPLACE INTO config(name, value, mtime) VALUES('project-name', '${escapedName}', unixepoch())`,
     ]);
     return {
@@ -623,7 +623,10 @@ export class VCS {
         this.cloneTimeoutMs,
       );
       if (!clone.success) {
-        return { success: false, error: `git clone --bare failed: ${clone.error}` };
+        return {
+          success: false,
+          error: `git clone --bare failed: ${clone.error}`,
+        };
       }
     } else {
       const init = await this.execCommand([
@@ -635,7 +638,10 @@ export class VCS {
         repoPath,
       ]);
       if (!init.success) {
-        return { success: false, error: `git init --bare failed: ${init.error}` };
+        return {
+          success: false,
+          error: `git init --bare failed: ${init.error}`,
+        };
       }
 
       // Build a single "Initial import" commit from the upstream working tree,
@@ -670,7 +676,10 @@ export class VCS {
         gitEnv,
       );
       if (!writeTree.success) {
-        return { success: false, error: `git write-tree failed: ${writeTree.error}` };
+        return {
+          success: false,
+          error: `git write-tree failed: ${writeTree.error}`,
+        };
       }
       const tree = writeTree.output.trim();
       const commitEnv: Record<string, string> = {
@@ -686,7 +695,10 @@ export class VCS {
         commitEnv,
       );
       if (!commitTree.success) {
-        return { success: false, error: `git commit-tree failed: ${commitTree.error}` };
+        return {
+          success: false,
+          error: `git commit-tree failed: ${commitTree.error}`,
+        };
       }
       const commit = commitTree.output.trim();
       const updateRef = await this.execCommand(
@@ -695,7 +707,10 @@ export class VCS {
         gitEnv,
       );
       if (!updateRef.success) {
-        return { success: false, error: `git update-ref failed: ${updateRef.error}` };
+        return {
+          success: false,
+          error: `git update-ref failed: ${updateRef.error}`,
+        };
       }
       if (this.os.fs.exists(indexFile)) {
         this.os.fs.unlink(indexFile);
@@ -827,21 +842,21 @@ export class VCS {
       }
     }
 
-    const fossilPath = `${workDir}/.fossil`;
-    const initResult = await this.createFossilRepo(fossilPath);
+    const vcsPath = `${workDir}/.fossil`;
+    const initResult = await this.createFossilRepo(vcsPath);
     if (!initResult.success) {
       return initResult;
     }
 
     const result = await this.execCommand(
-      ["fossil", "import", "--git", url, fossilPath],
+      ["fossil", "import", "--git", url, vcsPath],
       workDir,
       undefined,
       this.cloneTimeoutMs,
     );
 
     if (result.success) {
-      const openResult = await this.openFossil(fossilPath, workDir);
+      const openResult = await this.openFossil(vcsPath, workDir);
       return openResult;
     }
 
@@ -1094,11 +1109,11 @@ export class VCS {
   async importToFossil(
     upstreamPath: string,
     repoType: "git" | "fossil",
-    fossilPath: string,
+    vcsPath: string,
     branchName?: string,
   ): Promise<VCSResult> {
     if (repoType === "git") {
-      const initResult = await this.execCommand(["fossil", "init", fossilPath]);
+      const initResult = await this.execCommand(["fossil", "init", vcsPath]);
       if (!initResult.success) {
         return {
           success: false,
@@ -1107,7 +1122,7 @@ export class VCS {
       }
 
       const openResult = await this.execCommand(
-        ["fossil", "open", fossilPath, "--nested", "--force"],
+        ["fossil", "open", vcsPath, "--nested", "--force"],
         upstreamPath,
         undefined,
         this.cloneTimeoutMs,
@@ -1158,7 +1173,7 @@ export class VCS {
       };
     } else {
       const result = await this.execCommand(
-        ["fossil", "clone", `${upstreamPath}/.fossil`, fossilPath],
+        ["fossil", "clone", `${upstreamPath}/.fossil`, vcsPath],
         upstreamPath,
         undefined,
         this.cloneTimeoutMs,
@@ -1173,7 +1188,7 @@ export class VCS {
   }
 
   async openFossilCheckout(
-    fossilPath: string,
+    vcsPath: string,
     targetPath: string,
   ): Promise<VCSResult> {
     try {
@@ -1183,7 +1198,7 @@ export class VCS {
     }
 
     const result = await this.execCommand(
-      ["fossil", "open", fossilPath],
+      ["fossil", "open", vcsPath],
       targetPath,
     );
 
@@ -1195,13 +1210,13 @@ export class VCS {
   }
 
   async exportFromFossil(
-    fossilPath: string,
+    vcsPath: string,
     upstreamPath: string,
     repoType: "git" | "fossil",
   ): Promise<VCSResult> {
     if (repoType === "git") {
       const result = await this.execCommand(
-        ["fossil", "export", "--git", fossilPath],
+        ["fossil", "export", "--git", vcsPath],
         upstreamPath,
       );
 
@@ -1320,7 +1335,7 @@ export class VCS {
     sessionId: string,
     worktreePath: string,
   ): Promise<VCSResult> {
-    const fossilPath = `${projectPath}/repo.fossil`;
+    const vcsPath = `${projectPath}/repo.fossil`;
 
     try {
       this.os.fs.mkdir(worktreePath, { recursive: true });
@@ -1328,14 +1343,14 @@ export class VCS {
       // Directory might already exist
     }
 
-    if (!this.os.fs.exists(fossilPath)) {
+    if (!this.os.fs.exists(vcsPath)) {
       return {
         success: false,
         error: "Project fossil repository not found",
       };
     }
 
-    return await this.openFossil(fossilPath, worktreePath);
+    return await this.openFossil(vcsPath, worktreePath);
   }
 
   async fossilUp(agentWorkspacePath: string): Promise<VCSResult> {

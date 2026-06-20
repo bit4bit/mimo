@@ -86,7 +86,7 @@ mimo-agent supports **multiple concurrent sessions**, each with its own:
 │  │  │  Session {                                        │   │   │
 │  │  │    sessionId: string                             │   │   │
 │  │  │    checkoutPath: string   <- relative to workdir│   │   │
-│  │  │    fossilUrl: string                             │   │   │
+│  │  │    cloneUrl: string                             │   │   │
 │  │  │    acpProcess: ChildProcess | null               │   │   │
 │  │  │    fileWatcher: FSWatcher | null                 │   │   │
 │  │  │  }                                                │   │   │

@@ -100,4 +100,39 @@ describe("MIMO_HOST environment variable", () => {
     const url = server.getUrl("abc123-def456");
     expect(url).toBe("http://localhost:8000/abc123-def456.git/");
   });
+
+  test("MIMO_INTERNAL_VCS_HOST overrides the internal clone URL host", async () => {
+    const { createMimoContext, createGitHttpServer } =
+      await import("../src/infrastructure/context/mimo-context.ts");
+    const { createOS } =
+      await import("../src/infrastructure/os/node-adapter.js");
+    const os = createOS({ PATH: process.env.PATH, HOME: process.env.HOME });
+    const ctx = createMimoContext({
+      env: {
+        MIMO_HOME: testHome,
+        MIMO_HOST: "localhost",
+        MIMO_INTERNAL_VCS_HOST: "platform",
+        MIMO_INTERNAL_VCS_PORT: 8000,
+      },
+      os,
+    });
+    expect(ctx.env.MIMO_INTERNAL_VCS_HOST).toBe("platform");
+
+    const server = createGitHttpServer(ctx.env, os, () => true);
+    expect(server.getUrl("abc123-def456")).toBe(
+      "http://platform:8000/abc123-def456.git/",
+    );
+  });
+
+  test("MIMO_PUBLIC_VCS_URL is plumbed through the context env", async () => {
+    const { createMimoContext } =
+      await import("../src/infrastructure/context/mimo-context.ts");
+    const ctx = createMimoContext({
+      env: {
+        MIMO_HOME: testHome,
+        MIMO_PUBLIC_VCS_URL: "https://yourdomain.com/git",
+      },
+    });
+    expect(ctx.env.MIMO_PUBLIC_VCS_URL).toBe("https://yourdomain.com/git");
+  });
 });

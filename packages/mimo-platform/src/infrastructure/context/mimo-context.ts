@@ -54,10 +54,20 @@ export interface MimoEnv {
   PLATFORM_URL: string;
   JWT_SECRET: string;
   MIMO_HOME: string;
-  FOSSIL_REPOS_DIR: string;
-  MIMO_SHARED_FOSSIL_SERVER_PORT: number | undefined;
+  MIMO_VCS_REPOS_DIR: string;
+  MIMO_INTERNAL_VCS_PORT: number | undefined;
   MIMO_HOST: string;
-  MIMO_SHARED_FOSSIL_SERVER_HOST?: string;
+  /**
+   * Internal hostname the agent uses to reach the platform's VCS (git) HTTP
+   * server, embedded in the clone URL sent to agents. Falls back to MIMO_HOST.
+   */
+  MIMO_INTERNAL_VCS_HOST?: string;
+  /**
+   * Public-facing base URL for the clone command shown to browser users
+   * (e.g. `https://yourdomain.com/git`). When unset, the UI derives the URL
+   * from the internal server host. Distinct from the internal agent address.
+   */
+  MIMO_PUBLIC_VCS_URL?: string;
 }
 
 export interface MimoPaths {
@@ -97,7 +107,7 @@ export interface MimoContext {
     impactCalculator: ImpactCalculator;
     vcs: VCS;
     sessionState: typeof sessionStateService;
-    sharedFossil: GitHttpServer | DummyGitHttpServer | null;
+    sharedVcs: GitHttpServer | DummyGitHttpServer | null;
     fileWatcher: FileWatcherService;
     expert: ExpertService;
     search: SearchService;
@@ -145,17 +155,15 @@ export function createGitHttpServer(
   os: OS,
   verifyCredentials: CredentialVerifier,
 ): GitHttpServer {
-  const port = env.MIMO_SHARED_FOSSIL_SERVER_PORT;
+  const port = env.MIMO_INTERNAL_VCS_PORT;
   if (port === undefined) {
-    throw new Error(
-      "MIMO_SHARED_FOSSIL_SERVER_PORT is required in environment",
-    );
+    throw new Error("MIMO_INTERNAL_VCS_PORT is required in environment");
   }
 
   const config: GitHttpServerConfig = {
     port,
-    reposDir: env.FOSSIL_REPOS_DIR,
-    host: env.MIMO_SHARED_FOSSIL_SERVER_HOST ?? env.MIMO_HOST,
+    reposDir: env.MIMO_VCS_REPOS_DIR,
+    host: env.MIMO_INTERNAL_VCS_HOST ?? env.MIMO_HOST,
     verifyCredentials,
   };
 
@@ -183,14 +191,13 @@ export function createMimoContext(
     PLATFORM_URL: overrides.env?.PLATFORM_URL ?? `http://${host}:${port}`,
     JWT_SECRET: overrides.env?.JWT_SECRET ?? "",
     MIMO_HOME: mimoHome,
-    FOSSIL_REPOS_DIR:
-      overrides.env?.FOSSIL_REPOS_DIR ??
-      os.path.join(mimoHome, "session-fossils"),
-    MIMO_SHARED_FOSSIL_SERVER_PORT:
-      overrides.env?.MIMO_SHARED_FOSSIL_SERVER_PORT,
+    MIMO_VCS_REPOS_DIR:
+      overrides.env?.MIMO_VCS_REPOS_DIR ??
+      os.path.join(mimoHome, "session-repos"),
+    MIMO_INTERNAL_VCS_PORT: overrides.env?.MIMO_INTERNAL_VCS_PORT,
     MIMO_HOST: host,
-    MIMO_SHARED_FOSSIL_SERVER_HOST:
-      overrides.env?.MIMO_SHARED_FOSSIL_SERVER_HOST,
+    MIMO_INTERNAL_VCS_HOST: overrides.env?.MIMO_INTERNAL_VCS_HOST,
+    MIMO_PUBLIC_VCS_URL: overrides.env?.MIMO_PUBLIC_VCS_URL,
   };
 
   const paths = resolvePaths(env.MIMO_HOME, os);
@@ -231,7 +238,7 @@ export function createMimoContext(
           projects: paths.projects,
           data: paths.data,
         },
-        fossilReposDir: env.FOSSIL_REPOS_DIR,
+        vcsReposDir: env.MIMO_VCS_REPOS_DIR,
         os,
       }),
     credentials:
@@ -257,10 +264,10 @@ export function createMimoContext(
     overrides.services?.impactCalculator ??
     new ImpactCalculator(sccService, jscpdService, os);
 
-  // sharedFossil must be explicitly injected - no auto-instantiation
-  const sharedFossilServer =
-    overrides.services && "sharedFossil" in overrides.services
-      ? overrides.services.sharedFossil!
+  // sharedVcs must be explicitly injected - no auto-instantiation
+  const sharedVcsServer =
+    overrides.services && "sharedVcs" in overrides.services
+      ? overrides.services.sharedVcs!
       : null;
 
   const fileService = overrides.services?.fileService ?? createFileService(os);
@@ -318,7 +325,7 @@ export function createMimoContext(
     impactCalculator,
     vcs,
     sessionState: sessionStateService,
-    sharedFossil: sharedFossilServer,
+    sharedVcs: sharedVcsServer,
     fileWatcher:
       overrides.services?.fileWatcher ?? createFileWatcherService(os),
     expert: expertService,

@@ -20,7 +20,7 @@ describe("sync-session-mcp-tokens script", () => {
       await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key" },
-      services: { sharedFossil: new DummyGitHttpServer() },
+      services: { sharedVcs: new DummyGitHttpServer() },
     });
     sessionRepository = ctx.repos.sessions;
   });

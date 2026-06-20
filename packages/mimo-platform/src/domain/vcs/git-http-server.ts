@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { createServer, type Server, type IncomingMessage, type ServerResponse } from "http";
+import {
+  createServer,
+  type Server,
+  type IncomingMessage,
+  type ServerResponse,
+} from "http";
 import { createConnection } from "net";
 import type { OS } from "../../infrastructure/os/types.js";
 import { logger } from "../../logger.js";
@@ -28,8 +33,8 @@ export interface GitHttpServerConfig {
 
 /**
  * GitHttpServer serves the bare session repositories over Git smart-HTTP by
- * spawning the native `git http-backend` CGI per request. It replaces the
- * SharedFossilServer:
+ * spawning the native `git http-backend` CGI per request. It is the shared VCS
+ * server agents and users clone session repositories from:
  * - Bare repos stored as `<reposDir>/<sessionId>.git`
  * - Accessed via `http://<host>:<port>/<sessionId>.git/`
  * - Basic-auth gate in front of the CGI (same per-session credential model)
@@ -81,7 +86,9 @@ export class GitHttpServer {
   private ensureReposDir(): void {
     if (this._reposDir && !this.os.fs.exists(this._reposDir)) {
       this.os.fs.mkdir(this._reposDir, { recursive: true });
-      logger.debug(`[GitHttpServer] Created repos directory: ${this._reposDir}`);
+      logger.debug(
+        `[GitHttpServer] Created repos directory: ${this._reposDir}`,
+      );
     }
   }
 
@@ -295,7 +302,10 @@ export class GitHttpServer {
     res.end(Buffer.from(payload));
   }
 
-  private findHeaderSeparator(out: Uint8Array): { index: number; length: number } {
+  private findHeaderSeparator(out: Uint8Array): {
+    index: number;
+    length: number;
+  } {
     // Look for \r\n\r\n first, then \n\n.
     for (let i = 0; i + 3 < out.length; i++) {
       if (

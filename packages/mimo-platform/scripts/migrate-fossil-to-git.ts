@@ -33,7 +33,7 @@ async function main(): Promise<void> {
   const dryRun = process.argv.includes("--dry-run");
   const mimoHome = process.env.MIMO_HOME || join(homedir(), ".mimo");
   const reposDir =
-    process.env.FOSSIL_REPOS_DIR || join(mimoHome, "session-fossils");
+    process.env.MIMO_VCS_REPOS_DIR || join(mimoHome, "session-repos");
   const projectsDir = join(mimoHome, "projects");
 
   console.log("=".repeat(70));
@@ -49,7 +49,7 @@ async function main(): Promise<void> {
     env: {
       MIMO_HOME: mimoHome,
       JWT_SECRET: process.env.JWT_SECRET || "migration-only-secret",
-      FOSSIL_REPOS_DIR: reposDir,
+      MIMO_VCS_REPOS_DIR: reposDir,
     },
     os,
   });
@@ -119,7 +119,10 @@ async function main(): Promise<void> {
       failed++;
       continue;
     }
-    await vcs.syncIgnoresToGit(session.upstreamPath, session.agentWorkspacePath);
+    await vcs.syncIgnoresToGit(
+      session.upstreamPath,
+      session.agentWorkspacePath,
+    );
 
     // Drop the old served fossil file.
     if (os.fs.exists(oldFossil)) {

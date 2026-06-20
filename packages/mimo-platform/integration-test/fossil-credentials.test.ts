@@ -4,7 +4,7 @@ import { join } from "path";
 import { rmSync, existsSync, mkdirSync, writeFileSync } from "fs";
 import { execSync } from "child_process";
 import {
-  SharedFossilServer,
+  SharedVcsServer,
   normalizeSessionIdForFossil,
 } from "../src/domain/vcs/shared-fossil-server.js";
 import { createOS } from "../src/infrastructure/os/node-adapter.js";
@@ -14,7 +14,7 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
   let testHome: string;
   let VCS: any;
   let vcs: any;
-  let sharedFossilServer: SharedFossilServer;
+  let sharedVcsServer: SharedVcsServer;
   let testPort: number;
   let os: ReturnType<typeof createOS>;
 
@@ -33,7 +33,7 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
       env: {
         MIMO_HOME: testHome,
         JWT_SECRET: "test-secret-key-for-testing",
-        MIMO_SHARED_FOSSIL_SERVER_PORT: testPort,
+        MIMO_INTERNAL_VCS_PORT: testPort,
       },
     });
 
@@ -48,17 +48,14 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
     os = createOS({ ...process.env });
     vcs = new VCS({ os });
 
-    // Create fresh SharedFossilServer instance with test-specific port and reposDir via constructor
-    const reposDir = join(testHome, "session-fossils");
-    sharedFossilServer = new SharedFossilServer(
-      { port: testPort, reposDir },
-      os,
-    );
+    // Create fresh SharedVcsServer instance with test-specific port and reposDir via constructor
+    const reposDir = join(testHome, "session-repos");
+    sharedVcsServer = new SharedVcsServer({ port: testPort, reposDir }, os);
   });
 
   afterEach(async () => {
     try {
-      await sharedFossilServer.stop();
+      await sharedVcsServer.stop();
     } catch {}
 
     try {
@@ -107,21 +104,21 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
     it("should allow cloning with authenticated URL", async () => {
       const sessionId =
         "test-session-" + Math.random().toString(36).slice(2, 8);
-      const repoPath = sharedFossilServer.getFossilPath(sessionId);
+      const repoPath = sharedVcsServer.getFossilPath(sessionId);
 
       // Ensure repos directory exists and create repo
-      mkdirSync(sharedFossilServer.getReposDir(), { recursive: true });
+      mkdirSync(sharedVcsServer.getReposDir(), { recursive: true });
       await vcs.createFossilRepo(repoPath);
 
       // Create agent user
       await vcs.createFossilUser(repoPath, "agent-test", "agentpass123");
 
       // Start shared fossil server
-      await sharedFossilServer.start();
-      const port = sharedFossilServer.getPort();
+      await sharedVcsServer.start();
+      const port = sharedVcsServer.getPort();
       const normalizedSessionId = normalizeSessionIdForFossil(sessionId);
 
-      await waitFor(() => sharedFossilServer.isRunning(), { timeout: 3000 });
+      await waitFor(() => sharedVcsServer.isRunning(), { timeout: 3000 });
 
       // Clone with credentials
       const checkoutDir = join(testHome, "checkout");
@@ -159,21 +156,21 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
     it("should reject clone with wrong password", async () => {
       const sessionId =
         "test-session-" + Math.random().toString(36).slice(2, 8);
-      const repoPath = sharedFossilServer.getFossilPath(sessionId);
+      const repoPath = sharedVcsServer.getFossilPath(sessionId);
 
       // Ensure repos directory exists and create repo
-      mkdirSync(sharedFossilServer.getReposDir(), { recursive: true });
+      mkdirSync(sharedVcsServer.getReposDir(), { recursive: true });
       await vcs.createFossilRepo(repoPath);
 
       // Create agent user
       await vcs.createFossilUser(repoPath, "agent-test2", "correctpass123");
 
       // Start shared fossil server
-      await sharedFossilServer.start();
-      const port = sharedFossilServer.getPort();
+      await sharedVcsServer.start();
+      const port = sharedVcsServer.getPort();
       const normalizedSessionId = normalizeSessionIdForFossil(sessionId);
 
-      await waitFor(() => sharedFossilServer.isRunning(), { timeout: 3000 });
+      await waitFor(() => sharedVcsServer.isRunning(), { timeout: 3000 });
 
       // Try to clone with wrong password
       const checkoutDir = join(testHome, "checkout2");
@@ -197,21 +194,21 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
     it("should reject sync without proper credentials", async () => {
       const sessionId =
         "test-session-" + Math.random().toString(36).slice(2, 8);
-      const repoPath = sharedFossilServer.getFossilPath(sessionId);
+      const repoPath = sharedVcsServer.getFossilPath(sessionId);
 
       // Ensure repos directory exists and create repo
-      mkdirSync(sharedFossilServer.getReposDir(), { recursive: true });
+      mkdirSync(sharedVcsServer.getReposDir(), { recursive: true });
       await vcs.createFossilRepo(repoPath);
 
       // Create agent user with password
       await vcs.createFossilUser(repoPath, "agent-test3", "secretpass123");
 
       // Start shared fossil server
-      await sharedFossilServer.start();
-      const port = sharedFossilServer.getPort();
+      await sharedVcsServer.start();
+      const port = sharedVcsServer.getPort();
       const normalizedSessionId = normalizeSessionIdForFossil(sessionId);
 
-      await waitFor(() => sharedFossilServer.isRunning(), { timeout: 3000 });
+      await waitFor(() => sharedVcsServer.isRunning(), { timeout: 3000 });
 
       // Clone with correct credentials
       const checkoutDir = join(testHome, "checkout3");
@@ -248,21 +245,21 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
     it("returns a structured result when creating user via remote-url", async () => {
       const sessionId =
         "test-session-" + Math.random().toString(36).slice(2, 8);
-      const repoPath = sharedFossilServer.getFossilPath(sessionId);
+      const repoPath = sharedVcsServer.getFossilPath(sessionId);
 
       // Ensure repos directory exists and create repo
-      mkdirSync(sharedFossilServer.getReposDir(), { recursive: true });
+      mkdirSync(sharedVcsServer.getReposDir(), { recursive: true });
       await vcs.createFossilRepo(repoPath);
 
       // Create setup user first
       await vcs.createFossilUser(repoPath, "setup-user", "setuppass123", "s");
 
       // Start shared fossil server
-      await sharedFossilServer.start();
-      const port = sharedFossilServer.getPort();
+      await sharedVcsServer.start();
+      const port = sharedVcsServer.getPort();
       const normalizedSessionId = normalizeSessionIdForFossil(sessionId);
 
-      await waitFor(() => sharedFossilServer.isRunning(), { timeout: 3000 });
+      await waitFor(() => sharedVcsServer.isRunning(), { timeout: 3000 });
 
       // Use the remote command to create user
       const result = await vcs.createFossilUserInRepo(
@@ -283,10 +280,10 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
     it("should fail when using wrong setup credentials", async () => {
       const sessionId =
         "test-session-" + Math.random().toString(36).slice(2, 8);
-      const repoPath = sharedFossilServer.getFossilPath(sessionId);
+      const repoPath = sharedVcsServer.getFossilPath(sessionId);
 
       // Ensure repos directory exists and create repo
-      mkdirSync(sharedFossilServer.getReposDir(), { recursive: true });
+      mkdirSync(sharedVcsServer.getReposDir(), { recursive: true });
       await vcs.createFossilRepo(repoPath);
 
       // Create setup user
@@ -298,10 +295,10 @@ describe("Fossil Credential Provisioning Integration Tests", () => {
       );
 
       // Start shared fossil server
-      await sharedFossilServer.start();
-      const port = sharedFossilServer.getPort();
+      await sharedVcsServer.start();
+      const port = sharedVcsServer.getPort();
 
-      await waitFor(() => sharedFossilServer.isRunning(), { timeout: 3000 });
+      await waitFor(() => sharedVcsServer.isRunning(), { timeout: 3000 });
 
       // Try to create user with wrong setup credentials
       const result = await vcs.createFossilUserInRepo(

@@ -16,11 +16,11 @@ This project was created using `bun init` in bun v1.2.23. [Bun](https://bun.com)
 
 ## Environment Variables
 
-| Variable       | Default                 | Description                                                                                                                                                    |
-| -------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`         | `3000`                  | Port the platform listens on                                                                                                                                   |
-| `MIMO_HOST`    | `localhost`             | Hostname used in all generated URLs (platform, fossil server, etc.). Set this when running behind a reverse proxy or on a different domain.                    |
-| `PLATFORM_URL` | `http://MIMO_HOST:PORT` | Public URL of the platform, used to tell agents where to connect for Fossil sync. **Must be set when mimo-agent runs on a different host than mimo-platform.** |
+| Variable       | Default                 | Description                                                                                                                                                  |
+| -------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PORT`         | `3000`                  | Port the platform listens on                                                                                                                                 |
+| `MIMO_HOST`    | `localhost`             | Hostname used in all generated URLs (platform, VCS server, etc.). Set this when running behind a reverse proxy or on a different domain.                     |
+| `PLATFORM_URL` | `http://MIMO_HOST:PORT` | Public URL of the platform, used to tell agents where to connect for repo sync. **Must be set when mimo-agent runs on a different host than mimo-platform.** |
 
 ### Remote agent setup
 
@@ -32,7 +32,7 @@ MIMO_HOST=192.168.1.10 bun run index.ts
 PLATFORM_URL=http://192.168.1.10:3000 bun run index.ts
 ```
 
-The agent uses this URL to construct the Fossil server address for each session.
+The agent uses this URL to construct the VCS server address for each session.
 
 ## License
 

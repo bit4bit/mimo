@@ -58,7 +58,7 @@ describe("GET /sessions/:id/files/content", () => {
         JWT_SECRET: "test-secret-key",
         PLATFORM_URL: "http://localhost:3000",
       },
-      services: { sharedFossil: new DummyGitHttpServer() },
+      services: { sharedVcs: new DummyGitHttpServer() },
     });
     mimoContext = ctx;
 
@@ -168,7 +168,7 @@ describe("GET /sessions/:id/search", () => {
         JWT_SECRET: "test-secret-key",
         PLATFORM_URL: "http://localhost:3000",
       },
-      services: { sharedFossil: new DummyGitHttpServer() },
+      services: { sharedVcs: new DummyGitHttpServer() },
     });
     mimoContext = ctx;
 
@@ -278,7 +278,7 @@ describe("GET /sessions/:id/search", () => {
         PLATFORM_URL: "http://localhost:3000",
       },
       services: {
-        sharedFossil: new DummyGitHttpServer(),
+        sharedVcs: new DummyGitHttpServer(),
         search: {
           searchContent: async (workspacePath: string, query: string) => {
             searchCalls.push({ workspacePath, query });
@@ -363,7 +363,7 @@ describe("POST /sessions/:id/files/write", () => {
         JWT_SECRET: "test-secret-key",
         PLATFORM_URL: "http://localhost:3000",
       },
-      services: { sharedFossil: new DummyGitHttpServer() },
+      services: { sharedVcs: new DummyGitHttpServer() },
     });
     mimoContext = ctx;
 

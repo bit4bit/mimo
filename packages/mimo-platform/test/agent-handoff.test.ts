@@ -319,9 +319,9 @@ describe("Agent Handoff Tests", () => {
       const platformHost = platformUrl
         .replace(/^https?:\/\//, "")
         .replace(/\/+$/, "");
-      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+      const cloneUrl = `http://${platformHost.split(":")[0]}:${port}/`;
 
-      expect(fossilUrl).toBe("http://localhost:8080/");
+      expect(cloneUrl).toBe("http://localhost:8080/");
     });
 
     it("should handle platform URL with trailing slash", () => {
@@ -330,9 +330,9 @@ describe("Agent Handoff Tests", () => {
       const platformHost = platformUrl
         .replace(/^https?:\/\//, "")
         .replace(/\/+$/, "");
-      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+      const cloneUrl = `http://${platformHost.split(":")[0]}:${port}/`;
 
-      expect(fossilUrl).toBe("http://localhost:8000/");
+      expect(cloneUrl).toBe("http://localhost:8000/");
     });
 
     it("should not include original port in fossil URL", () => {
@@ -342,11 +342,11 @@ describe("Agent Handoff Tests", () => {
       const platformHost = platformUrl
         .replace(/^https?:\/\//, "")
         .replace(/\/+$/, "");
-      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+      const cloneUrl = `http://${platformHost.split(":")[0]}:${port}/`;
 
       // Should NOT be http://localhost:3000:8000
-      expect(fossilUrl).not.toContain("3000:8000");
-      expect(fossilUrl).toBe("http://localhost:8000/");
+      expect(cloneUrl).not.toContain("3000:8000");
+      expect(cloneUrl).toBe("http://localhost:8000/");
     });
   });
 

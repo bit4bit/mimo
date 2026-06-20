@@ -47,7 +47,7 @@ import { getEmbeddedAssets, getMimeType } from "../../assets.js";
 export interface BootstrapDeps {
   mimoContext: MimoContext;
   os: OS;
-  sharedFossilServer: GitHttpServer;
+  sharedVcsServer: GitHttpServer;
   host: string;
   port: number;
 }
@@ -67,7 +67,7 @@ function isPublicPath(path: string): boolean {
 }
 
 export async function bootstrapMimoServer(deps: BootstrapDeps) {
-  const { mimoContext, os, sharedFossilServer, host, port } = deps;
+  const { mimoContext, os, sharedVcsServer, host, port } = deps;
   const PLATFORM_URL = mimoContext.env.PLATFORM_URL;
 
   const app = new Hono();
@@ -188,7 +188,7 @@ export async function bootstrapMimoServer(deps: BootstrapDeps) {
     },
     sessionStateService,
     chat: mimoContext.services.chat,
-    sharedFossilServer,
+    sharedVcsServer,
     mimoContext,
     platformUrl: PLATFORM_URL,
     autoCommitService: mimoContext.services.autoCommit,
@@ -334,8 +334,8 @@ export async function bootstrapMimoServer(deps: BootstrapDeps) {
   const mimoServer = new MimoServer({
     serve: (config) => Bun.serve(config as any) as any,
     schedule: (callback, delayMs) => setTimeout(callback, delayMs),
-    ensureSharedFossilRunning: () => sharedFossilServer.ensureRunning(),
-    getSharedFossilPort: () => sharedFossilServer.getPort(),
+    ensureSharedVcsRunning: () => sharedVcsServer.ensureRunning(),
+    getSharedVcsPort: () => sharedVcsServer.getPort(),
     logger: console,
   });
 

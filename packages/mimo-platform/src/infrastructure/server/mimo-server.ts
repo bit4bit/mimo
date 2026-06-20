@@ -35,8 +35,8 @@ export type MimoServerSetup = {
 export type MimoServerDeps = {
   serve: ServerFactory;
   schedule: ScheduleFn;
-  ensureSharedFossilRunning: () => Promise<boolean>;
-  getSharedFossilPort: () => number;
+  ensureSharedVcsRunning: () => Promise<boolean>;
+  getSharedVcsPort: () => number;
   logger: Logger;
 };
 
@@ -64,14 +64,14 @@ export class MimoServer {
     this.deps.logger.log(`Server running at http://${host}:${server.port}`);
 
     this.deps.schedule(async () => {
-      const success = await this.deps.ensureSharedFossilRunning();
+      const success = await this.deps.ensureSharedVcsRunning();
       if (success) {
         this.deps.logger.log(
-          `[SharedFossilServer] Fossil server running on port ${this.deps.getSharedFossilPort()}`,
+          `[SharedVcsServer] VCS server running on port ${this.deps.getSharedVcsPort()}`,
         );
       } else {
         this.deps.logger.error(
-          "[SharedFossilServer] Failed to start fossil server. Agent synchronization may be unavailable.",
+          "[SharedVcsServer] Failed to start VCS server. Agent synchronization may be unavailable.",
         );
       }
     }, 100);

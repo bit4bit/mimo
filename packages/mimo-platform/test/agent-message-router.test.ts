@@ -86,7 +86,7 @@ function makeMocks() {
     isAgentAlive: mock(() => false),
   };
 
-  const sharedFossilServer = {
+  const sharedVcsServer = {
     getUrl: mock(() => "http://localhost:8000"),
     ensureRunning: mock(async () => {}),
     getPort: mock(() => 8000),
@@ -142,7 +142,7 @@ function makeMocks() {
     syncCalls,
     sessionStateService,
     chat,
-    sharedFossilServer,
+    sharedVcsServer,
     mimoContext,
     os,
     autoCommitService,
@@ -163,7 +163,7 @@ function makeRouter(deps: ReturnType<typeof makeMocks>) {
     triggerAutoSync: deps.triggerAutoSync,
     sessionStateService: deps.sessionStateService,
     chat: deps.chat,
-    sharedFossilServer: deps.sharedFossilServer,
+    sharedVcsServer: deps.sharedVcsServer,
     mimoContext: deps.mimoContext,
     platformUrl: "http://localhost:3000",
     os: deps.os,
@@ -564,14 +564,18 @@ describe("AgentMessageRouter", () => {
       const mockWs = { readyState: 1, send: mock(() => {}) };
       deps.chatSessions.set("sess-1", new Set([mockWs]));
 
-      await router.handle("agent-1", { data: { agentId: "agent-1" } }, {
-        type: "permission_request",
-        sessionId: "sess-1",
-        requestId: "req-thread-1",
-        chatThreadId: "thread-abc",
-        toolCall: { toolTitle: "Edit" },
-        options: [{ id: "allow_once", label: "Allow Once" }],
-      });
+      await router.handle(
+        "agent-1",
+        { data: { agentId: "agent-1" } },
+        {
+          type: "permission_request",
+          sessionId: "sess-1",
+          requestId: "req-thread-1",
+          chatThreadId: "thread-abc",
+          toolCall: { toolTitle: "Edit" },
+          options: [{ id: "allow_once", label: "Allow Once" }],
+        },
+      );
 
       const sentMessages = (mockWs.send as any).mock.calls.map((c: any[]) =>
         JSON.parse(c[0]),
@@ -779,12 +783,19 @@ describe("AgentMessageRouter", () => {
   describe("file_changed broadcasts file_list_invalidated", () => {
     it("handleFileChanged broadcasts file_list_invalidated after processing file changes", () => {
       const sourceCode = readFileSync(
-        join(import.meta.dir, "..", "src", "domain", "agents", "message-router.ts"),
+        join(
+          import.meta.dir,
+          "..",
+          "src",
+          "domain",
+          "agents",
+          "message-router.ts",
+        ),
         "utf-8",
       );
 
       expect(sourceCode).toContain("file_list_invalidated");
-      expect(sourceCode).toContain("type: \"file_list_invalidated\"");
+      expect(sourceCode).toContain('type: "file_list_invalidated"');
     });
   });
 });

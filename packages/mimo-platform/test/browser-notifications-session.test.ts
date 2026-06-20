@@ -18,15 +18,15 @@ async function setupContext() {
   );
   const ctx = createMimoContext({
     env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
-    services: { sharedFossil: new DummyGitHttpServer() },
+    services: { sharedVcs: new DummyGitHttpServer() },
   });
 
   // Mock VCS to avoid actual git/fossil operations
   ctx.services.vcs.cloneRepository = async () => ({ success: true });
   ctx.services.vcs.importToFossil = async () => ({ success: true });
-    ctx.services.vcs.seedSessionRepo = async () => ({ success: true });
-    ctx.services.vcs.clonePlatformCheckout = async () => ({ success: true });
-    ctx.services.vcs.syncIgnoresToGit = async () => ({ success: true });
+  ctx.services.vcs.seedSessionRepo = async () => ({ success: true });
+  ctx.services.vcs.clonePlatformCheckout = async () => ({ success: true });
+  ctx.services.vcs.syncIgnoresToGit = async () => ({ success: true });
   ctx.services.vcs.createBranch = async () => ({ success: true });
   ctx.services.vcs.setFossilProjectName = async () => ({ success: true });
   ctx.services.vcs.openFossilCheckout = async () => ({ success: true });

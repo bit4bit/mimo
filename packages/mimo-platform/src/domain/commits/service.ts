@@ -345,7 +345,7 @@ export class CommitService {
           estimatedMinutes: metrics.complexity?.estimatedMinutes ?? 0,
         },
         complexityByLanguage,
-        fossilUrl: "",
+        cloneUrl: "",
       };
 
       this.deps.impactRepository.save(impactRecord);

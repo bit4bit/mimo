@@ -73,7 +73,7 @@ interface SessionDetailProps {
   agent?: Agent;
   modelState?: ModelState;
   modeState?: ModeState;
-  fossilUrl?: string;
+  cloneUrl?: string;
   cloneWorkspaceCommand?: string;
   acpStatus?: "active" | "parked" | "waking";
   frameState: FrameState;
@@ -155,7 +155,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   agent,
   modelState,
   modeState,
-  fossilUrl,
+  cloneUrl,
   cloneWorkspaceCommand,
   acpStatus = "active",
   frameState,
@@ -190,7 +190,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       projectName={project.name}
       sessionName={session.name}
       sessionBranch={session.branch}
-      fossilUrl={fossilUrl}
+      cloneUrl={cloneUrl}
       agentId={agent?.id}
       agentName={agent?.name}
       cloneWorkspaceHtml={

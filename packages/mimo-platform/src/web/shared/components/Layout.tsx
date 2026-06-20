@@ -20,7 +20,7 @@ interface LayoutProps {
   sessionBranch?: string;
   projectId?: string;
   projectName?: string;
-  fossilUrl?: string;
+  cloneUrl?: string;
   agentId?: string;
   agentName?: string;
   cloneWorkspaceHtml?: any;
@@ -41,7 +41,7 @@ export const Layout: FC<LayoutProps> = ({
   sessionBranch,
   projectId,
   projectName,
-  fossilUrl,
+  cloneUrl,
   agentId,
   agentName,
   cloneWorkspaceHtml,
@@ -1168,9 +1168,9 @@ export const Layout: FC<LayoutProps> = ({
                       >
                         {projectName}
                       </a>
-                      {fossilUrl && (
+                      {cloneUrl && (
                         <a
-                          href={`${fossilUrl}timeline`}
+                          href={`${cloneUrl}timeline`}
                           target="_blank"
                           title="View Fossil Repository"
                           class="ml-1"

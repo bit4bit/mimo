@@ -105,9 +105,9 @@ describe("SessionManager with MCP Servers", () => {
       );
 
       expect(session.sessionId).toBe("test-session");
-      expect(session.fossilUrl).toBe("http://example.com/repo");
-      expect(session.fossilUser).toBe("fossil-user");
-      expect(session.fossilPassword).toBe("fossil-pass");
+      expect(session.cloneUrl).toBe("http://example.com/repo");
+      expect(session.vcsUser).toBe("fossil-user");
+      expect(session.vcsPassword).toBe("fossil-pass");
       expect(session.acpProcess).toBeNull();
       expect(session.fileWatcher).not.toBeNull();
     });

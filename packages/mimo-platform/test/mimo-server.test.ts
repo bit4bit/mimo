@@ -18,11 +18,11 @@ describe("MimoServer", () => {
         scheduledDelay = delayMs;
         return 1;
       }) as any,
-      ensureSharedFossilRunning: async () => {
+      ensureSharedVcsRunning: async () => {
         ensureRunningCalls += 1;
         return true;
       },
-      getSharedFossilPort: () => 19000,
+      getSharedVcsPort: () => 19000,
       logger: {
         log: () => {},
         error: () => {},
@@ -58,8 +58,8 @@ describe("MimoServer", () => {
     const mimoServer = new MimoServer({
       serve: (() => ({ port: 3000 })) as any,
       schedule: (() => 1) as any,
-      ensureSharedFossilRunning: async () => true,
-      getSharedFossilPort: () => 19000,
+      ensureSharedVcsRunning: async () => true,
+      getSharedVcsPort: () => 19000,
       logger: {
         log: () => {},
         error: () => {},

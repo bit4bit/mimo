@@ -73,22 +73,32 @@ export function createSessionsRoutes(
   const agentRepository = mimoContext.repos.agents;
   const frameStateService = mimoContext.services.frameState;
   const sessionStateService = mimoContext.services.sessionState;
-  const sharedFossilServer = mimoContext.services.sharedFossil;
+  const sharedVcsServer = mimoContext.services.sharedVcs;
   const vcs = mimoContext.services.vcs;
   const projectVcsCache = mimoContext.services.projectVcsCache;
   const platformUrl =
     mimoContext.env?.PLATFORM_URL ??
     `http://${mimoContext.env?.MIMO_HOST ?? DEFAULT_MIMO_HOST}:3000`;
 
-  function getBrowserFossilUrl(sessionId: string): string {
-    const fossilUrl = sharedFossilServer.getUrl(sessionId);
+  // The clone URL shown to browser users (external) is distinct from the
+  // internal URL the agent uses (sharedVcsServer.getUrl). When
+  // MIMO_PUBLIC_VCS_URL is configured (e.g. behind a reverse proxy on a custom
+  // domain), build the clone URL from that public base. Otherwise fall back to
+  // the internal URL with its hostname swapped to the platform's.
+  const publicVcsUrl = mimoContext.env?.MIMO_PUBLIC_VCS_URL;
+  function getBrowserCloneUrl(sessionId: string): string {
+    if (publicVcsUrl) {
+      const base = publicVcsUrl.replace(/\/+$/, "");
+      return `${base}/${sessionId}.git/`;
+    }
+    const cloneUrl = sharedVcsServer.getUrl(sessionId);
     try {
-      const fossil = new URL(fossilUrl);
+      const url = new URL(cloneUrl);
       const platform = new URL(platformUrl);
-      fossil.hostname = platform.hostname;
-      return fossil.toString();
+      url.hostname = platform.hostname;
+      return url.toString();
     } catch {
-      return fossilUrl;
+      return cloneUrl;
     }
   }
   const fileService = mimoContext.services.fileService;
@@ -688,10 +698,10 @@ export function createSessionsRoutes(
 
       // Always generate the session repo URL - the git server should be running.
       // If it's not running yet, the URL is still valid but the server won't respond.
-      const fossilUrl = getBrowserFossilUrl(sessionId);
+      const cloneUrl = getBrowserCloneUrl(sessionId);
       const cloneWorkspaceCommand =
         session.agentWorkspaceUser && session.agentWorkspacePassword
-          ? `git clone ${shellDoubleQuote(buildAuthenticatedUrl(fossilUrl, session.agentWorkspaceUser, session.agentWorkspacePassword))} ${shellDoubleQuote(sanitizeSessionNameForWorkdir(session.name))}`
+          ? `git clone ${shellDoubleQuote(buildAuthenticatedUrl(cloneUrl, session.agentWorkspaceUser, session.agentWorkspacePassword))} ${shellDoubleQuote(sanitizeSessionNameForWorkdir(session.name))}`
           : null;
 
       // Resolve attached MCP servers for display via Internal API Client
@@ -743,7 +753,7 @@ export function createSessionsRoutes(
           agent={agent}
           modelState={modelState}
           modeState={modeState}
-          fossilUrl={fossilUrl}
+          cloneUrl={cloneUrl}
           cloneWorkspaceCommand={cloneWorkspaceCommand ?? undefined}
           acpStatus={session.acpStatus}
           mcpServers={mcpServers}
@@ -1014,14 +1024,45 @@ export function createSessionsRoutes(
             class="mt-20"
           >
             <div class="mb-16">
-              <fieldset
-                style="border:1px solid #444;border-radius:4px;padding:12px 16px;margin:0"
-              >
+              <fieldset style="border:1px solid #444;border-radius:4px;padding:12px 16px;margin:0">
                 <legend class="label-strong">Reason for closing</legend>
-                <div style="margin:6px 0"><label><input type="radio" name="reason" value="implemented" /> implemented</label></div>
-                <div style="margin:6px 0"><label><input type="radio" name="reason" value="invalid expectations" /> invalid expectations</label></div>
-                <div style="margin:6px 0"><label><input type="radio" name="reason" value="wrong implementation" /> wrong implementation</label></div>
-                <div style="margin:6px 0"><label><input type="radio" name="reason" value="no reason" checked={true} /> no reason</label></div>
+                <div style="margin:6px 0">
+                  <label>
+                    <input type="radio" name="reason" value="implemented" />{" "}
+                    implemented
+                  </label>
+                </div>
+                <div style="margin:6px 0">
+                  <label>
+                    <input
+                      type="radio"
+                      name="reason"
+                      value="invalid expectations"
+                    />{" "}
+                    invalid expectations
+                  </label>
+                </div>
+                <div style="margin:6px 0">
+                  <label>
+                    <input
+                      type="radio"
+                      name="reason"
+                      value="wrong implementation"
+                    />{" "}
+                    wrong implementation
+                  </label>
+                </div>
+                <div style="margin:6px 0">
+                  <label>
+                    <input
+                      type="radio"
+                      name="reason"
+                      value="no reason"
+                      checked={true}
+                    />{" "}
+                    no reason
+                  </label>
+                </div>
               </fieldset>
             </div>
             <div class="mb-16">
@@ -1386,7 +1427,9 @@ export function createSessionsRoutes(
           await vcs.clonePlatformCheckout(repoPath, session.agentWorkspacePath);
         }
         // Pull latest changes from the agent
-        logger.debug(`[impact] Refreshing agent-workspace from session repo...`);
+        logger.debug(
+          `[impact] Refreshing agent-workspace from session repo...`,
+        );
         await vcs.gitPull(session.agentWorkspacePath);
       }
 
@@ -1488,8 +1531,8 @@ export function createSessionsRoutes(
     }
   });
 
-  // GET /sessions/:id/fossil-status - Check if fossil server is running and get its URL
-  router.get("/:id/fossil-status", async (c: Context) => {
+  // GET /sessions/:id/vcs-status - Check if the VCS server is running and get its URL
+  router.get("/:id/vcs-status", async (c: Context) => {
     const username = await getAuthUsername(c);
     if (!username) {
       return c.json({ error: "Unauthorized" }, 401);
@@ -1516,14 +1559,14 @@ export function createSessionsRoutes(
       return c.json({ error: "Session not found" }, 404);
     }
 
-    // Check shared fossil server status
-    const isServerRunning = await sharedFossilServer.isRunning();
+    // Check shared VCS server status
+    const isServerRunning = await sharedVcsServer.isRunning();
     // Always generate the URL - the shared server should eventually be running
-    const fossilUrl = getBrowserFossilUrl(sessionId);
+    const cloneUrl = getBrowserCloneUrl(sessionId);
 
     return c.json({
       running: isServerRunning,
-      fossilUrl: fossilUrl,
+      cloneUrl: cloneUrl,
     });
   });
 
@@ -2126,7 +2169,7 @@ export function createSessionsRoutes(
           ? fullSessionResult.data.session
           : null;
 
-        const fossilUrl = sharedFossilServer.getUrl(sessionId);
+        const cloneUrl = sharedVcsServer.getUrl(sessionId);
         let mcpServers: any[] = [];
         if (
           sessionWithCreds?.mcpServerIds &&
@@ -2167,7 +2210,7 @@ export function createSessionsRoutes(
                 name: session.name,
                 upstreamPath: session.upstreamPath,
                 agentWorkspacePath: session.agentWorkspacePath,
-                fossilUrl,
+                cloneUrl,
                 agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
                 agentWorkspacePassword:
                   sessionWithCreds?.agentWorkspacePassword,

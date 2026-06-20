@@ -65,7 +65,7 @@ describe("Session Management Integration Tests", () => {
       await import("../src/infrastructure/context/mimo-context.ts");
     const ctx = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
-      services: { sharedFossil: new DummyGitHttpServer() },
+      services: { sharedVcs: new DummyGitHttpServer() },
     });
     mimoContext = ctx;
 
@@ -969,6 +969,52 @@ describe("Session Management Integration Tests", () => {
       expect(html).toContain("dev:p%40ss%20word@localhost:8000");
       expect(html).toContain("Fix-login-flow");
     });
+
+    it("uses MIMO_PUBLIC_VCS_URL for the clone command when configured", async () => {
+      // External deployment behind a custom domain / reverse proxy: the clone
+      // command shown to the user must use the public base URL, not the internal
+      // VCS server host/port.
+      mimoContext.env.MIMO_PUBLIC_VCS_URL = "https://yourdomain.com/git";
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "My Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+      await sessionRepository.update(session.id, {
+        agentWorkspaceUser: "dev",
+        agentWorkspacePassword: "secret",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}`,
+        {
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      // Public base + path, correct scheme, no raw :8000 internal port.
+      expect(html).toContain(
+        `https://dev:secret@yourdomain.com/git/${session.id}.git/`,
+      );
+      expect(html).not.toContain("localhost:8000");
+    });
   });
 
   describe("Session Branch Override", () => {
@@ -1599,7 +1645,10 @@ describe("Session Management Integration Tests", () => {
             "Content-Type": "application/x-www-form-urlencoded",
             Cookie: `token=${token}`,
           },
-          body: new URLSearchParams({ reason: "implemented", note: "" }).toString(),
+          body: new URLSearchParams({
+            reason: "implemented",
+            note: "",
+          }).toString(),
         },
       );
 
@@ -1645,7 +1694,10 @@ describe("Session Management Integration Tests", () => {
             "Content-Type": "application/x-www-form-urlencoded",
             Cookie: `token=${token}`,
           },
-          body: new URLSearchParams({ reason: "no reason", note: "" }).toString(),
+          body: new URLSearchParams({
+            reason: "no reason",
+            note: "",
+          }).toString(),
         },
       );
 

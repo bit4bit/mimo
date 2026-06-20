@@ -31,7 +31,7 @@ describe("Projects Internal API", () => {
         JWT_SECRET: "test-jwt-secret-for-projects-api-tests",
         PORT: "3000",
         MIMO_HOME: "/tmp/test-mimo-projects",
-        MIMO_SHARED_FOSSIL_SERVER_PORT: "8000",
+        MIMO_INTERNAL_VCS_PORT: "8000",
         MIMO_HOST: "localhost",
       },
       homeDir: "/home/test",
@@ -44,7 +44,7 @@ describe("Projects Internal API", () => {
       "/tmp/test-mimo-projects/projects": null,
       "/tmp/test-mimo-projects/agents": null,
       "/tmp/test-mimo-projects/mcp-servers": null,
-      "/tmp/test-mimo-projects/session-fossils": null,
+      "/tmp/test-mimo-projects/session-repos": null,
     });
 
     // Create MimoContext with mock OS
@@ -54,8 +54,8 @@ describe("Projects Internal API", () => {
         PORT: 3000,
         PLATFORM_URL: "http://localhost:3000",
         MIMO_HOME: "/tmp/test-mimo-projects",
-        FOSSIL_REPOS_DIR: "/tmp/test-mimo-projects/session-fossils",
-        MIMO_SHARED_FOSSIL_SERVER_PORT: 8000,
+        MIMO_VCS_REPOS_DIR: "/tmp/test-mimo-projects/session-repos",
+        MIMO_INTERNAL_VCS_PORT: 8000,
         MIMO_HOST: "localhost",
       },
       os: mockOS,

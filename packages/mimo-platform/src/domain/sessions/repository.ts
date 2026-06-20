@@ -46,7 +46,7 @@ export interface Session {
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
   port: number | null;
-  fossilPath?: string;
+  vcsPath?: string;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   agentSubpath?: string;
@@ -87,7 +87,7 @@ export interface SessionData {
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
   port: number | null;
-  fossilPath?: string;
+  vcsPath?: string;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   agentSubpath?: string;
@@ -158,7 +158,7 @@ interface SessionRepositoryDeps {
     projects: string;
     data: string;
   };
-  fossilReposDir?: string;
+  vcsReposDir?: string;
 }
 
 export class SessionRepository {
@@ -214,15 +214,15 @@ export class SessionRepository {
   }
 
   /**
-   * Get the directory where all fossil repositories are stored centrally.
-   * This is ~/.mimo/session-fossils/ by default.
+   * Get the directory where all session repositories are stored centrally.
+   * This is ~/.mimo/session-repos/ by default.
    * Uses lazy initialization to handle cases where paths aren't set yet.
    */
-  getFossilReposDir(): string {
-    if (this.deps.fossilReposDir) {
-      return this.deps.fossilReposDir;
+  getVcsReposDir(): string {
+    if (this.deps.vcsReposDir) {
+      return this.deps.vcsReposDir;
     }
-    return this.os.path.join(this.getDataPath(), "session-fossils");
+    return this.os.path.join(this.getDataPath(), "session-repos");
   }
 
   /**
@@ -233,7 +233,7 @@ export class SessionRepository {
    * @returns The full path to the bare repo (e.g., "~/.mimo/session-repos/abc123-def456-ghi789.git")
    */
   getSessionRepoPath(sessionId: string): string {
-    return this.os.path.join(this.getFossilReposDir(), `${sessionId}.git`);
+    return this.os.path.join(this.getVcsReposDir(), `${sessionId}.git`);
   }
 
   private generateId(): string {

@@ -40,21 +40,21 @@ export class SessionManager {
 
   async createSession(
     sessionId: string,
-    fossilUrl: string,
-    fossilUser?: string,
-    fossilPassword?: string,
+    cloneUrl: string,
+    vcsUser?: string,
+    vcsPassword?: string,
     branch?: string,
   ): Promise<SessionInfo> {
     const checkoutPath = this.os.path.join(this.workDir, sessionId);
 
     logger.debug(`[mimo-agent] Creating session ${sessionId}`);
-    logger.debug(`[mimo-agent]   Fossil URL: ${fossilUrl}`);
+    logger.debug(`[mimo-agent]   Clone URL: ${cloneUrl}`);
     logger.debug(`[mimo-agent]   Checkout: ${checkoutPath}`);
     if (branch) {
       logger.debug(`[mimo-agent]   Branch: ${branch}`);
     }
 
-    // Clone/checkout logic handled by platform via fossil server
+    // Clone/checkout logic handled by platform via the VCS server
     // Just ensure the checkout directory exists
     if (!(await this.os.fs.exists(checkoutPath))) {
       await this.os.fs.mkdir(checkoutPath, { recursive: true });
@@ -63,9 +63,9 @@ export class SessionManager {
     const sessionInfo: SessionInfo = {
       sessionId,
       checkoutPath,
-      fossilUrl,
-      fossilUser,
-      fossilPassword,
+      cloneUrl,
+      vcsUser,
+      vcsPassword,
       acpProcess: null,
       fileWatcher: null,
       ...(branch ? { branch } : {}),

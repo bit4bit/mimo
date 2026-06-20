@@ -78,7 +78,7 @@ describe("Frame buffers integration", () => {
         JWT_SECRET: "test-secret-key-for-frame-buffers",
         PLATFORM_URL: "http://localhost:3000",
       },
-      services: { sharedFossil: new DummyGitHttpServer() },
+      services: { sharedVcs: new DummyGitHttpServer() },
     });
 
     mimoContext = ctx;

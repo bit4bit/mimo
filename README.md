@@ -91,11 +91,11 @@ Then edit `.env`:
 - `OPENCODE_AGENT_JWT`
 - `CLAUDE_AGENT_JWT` (only if using Claude)
 
-For Docker Compose networking (agent -> platform/fossil):
+For Docker Compose networking (agent -> platform VCS server):
 
 - `MIMO_HOST=localhost` (general host value for local platform URLs)
 - `MIMO_LISTEN_HOST=0.0.0.0` (bind interface inside container)
-- `MIMO_SHARED_FOSSIL_SERVER_HOST=platform` (hostname embedded in fossil URLs for agent containers)
+- `MIMO_INTERNAL_VCS_HOST=platform` (internal hostname embedded in the clone URL agent containers use)
 
 Use the provided `Makefile` to start Docker Compose with your current UID/GID automatically:
 
@@ -139,7 +139,8 @@ Environment variables:
 | `MIMO_HOME` | `~/.mimo` | Data directory |
 | `MIMO_HOST` | `localhost` | Hostname used in generated internal URLs |
 | `MIMO_LISTEN_HOST` | `MIMO_HOST` | Bind interface/host for the platform server |
-| `MIMO_SHARED_FOSSIL_SERVER_HOST` | `MIMO_HOST` | Hostname used when generating shared fossil server URLs |
+| `MIMO_INTERNAL_VCS_HOST` | `MIMO_HOST` | **Internal** hostname embedded in the clone URL the agent uses to reach the platform VCS server |
+| `MIMO_PUBLIC_VCS_URL` | *(derived)* | **External** base URL for the clone command shown to browser users, e.g. `https://yourdomain.com/git` |
 
 See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for full configuration options.
 

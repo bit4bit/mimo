@@ -492,7 +492,7 @@ echo '[]'`;
             complexityDelta: 18,
           },
         ],
-        fossilUrl: "http://localhost:8080",
+        cloneUrl: "http://localhost:8080",
       };
 
       repository.save(impactRecord);
@@ -521,7 +521,7 @@ echo '[]'`;
         linesOfCode: { added: 10, removed: 0, net: 10 },
         complexity: { cyclomatic: 1, cognitive: 0, estimatedMinutes: 10 },
         complexityByLanguage: [],
-        fossilUrl: "",
+        cloneUrl: "",
       });
 
       repository.save({
@@ -535,7 +535,7 @@ echo '[]'`;
         linesOfCode: { added: 20, removed: 0, net: 20 },
         complexity: { cyclomatic: 2, cognitive: 0, estimatedMinutes: 20 },
         complexityByLanguage: [],
-        fossilUrl: "",
+        cloneUrl: "",
       });
 
       const session1Records = repository.findBySession(projectId, "session1");
@@ -564,7 +564,7 @@ echo '[]'`;
         linesOfCode: { added: 10, removed: 0, net: 10 },
         complexity: { cyclomatic: 1, cognitive: 0, estimatedMinutes: 10 },
         complexityByLanguage: [],
-        fossilUrl: "",
+        cloneUrl: "",
       });
 
       repository.save({
@@ -578,7 +578,7 @@ echo '[]'`;
         linesOfCode: { added: 20, removed: 0, net: 20 },
         complexity: { cyclomatic: 2, cognitive: 0, estimatedMinutes: 20 },
         complexityByLanguage: [],
-        fossilUrl: "",
+        cloneUrl: "",
       });
 
       const records = repository.findByProject(projectId);

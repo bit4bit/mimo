@@ -34,7 +34,7 @@ describe("Session Creation with MCP Servers", () => {
 
     sessionRepository = new SessionRepository({
       paths: { projects: join(testBasePath, "projects"), data: testBasePath },
-      fossilReposDir: join(testBasePath, "session-fossils"),
+      vcsReposDir: join(testBasePath, "session-repos"),
       os,
     });
   });
@@ -53,8 +53,8 @@ describe("Session Creation with MCP Servers", () => {
 
   describe("Session with MCP servers", () => {
     it("should return the configured fossil repos dir", () => {
-      expect(sessionRepository.getFossilReposDir()).toBe(
-        join(testBasePath, "session-fossils"),
+      expect(sessionRepository.getVcsReposDir()).toBe(
+        join(testBasePath, "session-repos"),
       );
     });
 

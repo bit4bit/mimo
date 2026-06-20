@@ -31,7 +31,7 @@ describe("Dashboard Internal API", () => {
         JWT_SECRET: "test-jwt-secret-for-dashboard-api-tests",
         PORT: "3000",
         MIMO_HOME: "/tmp/test-mimo-dashboard",
-        MIMO_SHARED_FOSSIL_SERVER_PORT: "8000",
+        MIMO_INTERNAL_VCS_PORT: "8000",
         MIMO_HOST: "localhost",
       },
       homeDir: "/home/test",
@@ -44,7 +44,7 @@ describe("Dashboard Internal API", () => {
       "/tmp/test-mimo-dashboard/projects": null,
       "/tmp/test-mimo-dashboard/agents": null,
       "/tmp/test-mimo-dashboard/mcp-servers": null,
-      "/tmp/test-mimo-dashboard/session-fossils": null,
+      "/tmp/test-mimo-dashboard/session-repos": null,
     });
 
     // Create MimoContext with mock OS
@@ -54,8 +54,8 @@ describe("Dashboard Internal API", () => {
         PORT: 3000,
         PLATFORM_URL: "http://localhost:3000",
         MIMO_HOME: "/tmp/test-mimo-dashboard",
-        FOSSIL_REPOS_DIR: "/tmp/test-mimo-dashboard/session-fossils",
-        MIMO_SHARED_FOSSIL_SERVER_PORT: 8000,
+        MIMO_VCS_REPOS_DIR: "/tmp/test-mimo-dashboard/session-repos",
+        MIMO_INTERNAL_VCS_PORT: 8000,
         MIMO_HOST: "localhost",
       },
       os: mockOS,

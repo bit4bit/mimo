@@ -55,7 +55,7 @@ export interface Config {
   theme?: "dark" | "light";
   fontSize?: number;
   fontFamily?: string;
-  sharedFossilServerPort?: number;
+  sharedVcsServerPort?: number;
   streamingTimeoutMs?: number;
   sessionKeybindings?: SessionKeybindingsConfig;
   globalKeybindings?: GlobalKeybindingsConfig;
@@ -171,7 +171,7 @@ export const defaultConfig: Config = {
   theme: "dark",
   fontSize: 14,
   fontFamily: "monospace",
-  sharedFossilServerPort: 8000,
+  sharedVcsServerPort: 8000,
   streamingTimeoutMs: 600000, // 10 minutes
   sessionKeybindings: { ...defaultSessionKeybindings },
   globalKeybindings: { ...defaultGlobalKeybindings },
@@ -324,8 +324,8 @@ export class ConfigService {
         theme: loaded.theme ?? defaultConfig.theme,
         fontSize: loaded.fontSize ?? defaultConfig.fontSize,
         fontFamily: loaded.fontFamily ?? defaultConfig.fontFamily,
-        sharedFossilServerPort:
-          loaded.sharedFossilServerPort ?? defaultConfig.sharedFossilServerPort,
+        sharedVcsServerPort:
+          loaded.sharedVcsServerPort ?? defaultConfig.sharedVcsServerPort,
         streamingTimeoutMs:
           loaded.streamingTimeoutMs ?? defaultConfig.streamingTimeoutMs,
         sessionKeybindings: sanitizeSessionKeybindings(

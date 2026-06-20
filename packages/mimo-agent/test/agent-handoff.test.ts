@@ -24,9 +24,9 @@ describe("Agent Handoff Tests", () => {
       const platformHost = platformUrl
         .replace(/^https?:\/\//, "")
         .replace(/\/+$/, "");
-      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+      const cloneUrl = `http://${platformHost.split(":")[0]}:${port}/`;
 
-      expect(fossilUrl).toBe("http://localhost:8080/");
+      expect(cloneUrl).toBe("http://localhost:8080/");
     });
 
     it("should handle platform URL with port", () => {
@@ -35,11 +35,11 @@ describe("Agent Handoff Tests", () => {
       const platformHost = platformUrl
         .replace(/^https?:\/\//, "")
         .replace(/\/+$/, "");
-      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+      const cloneUrl = `http://${platformHost.split(":")[0]}:${port}/`;
 
       // Should extract just "localhost" and add new port
-      expect(fossilUrl).toBe("http://localhost:8000/");
-      expect(fossilUrl).not.toContain("3000:8000");
+      expect(cloneUrl).toBe("http://localhost:8000/");
+      expect(cloneUrl).not.toContain("3000:8000");
     });
 
     it("should handle https platform URL", () => {
@@ -48,9 +48,9 @@ describe("Agent Handoff Tests", () => {
       const platformHost = platformUrl
         .replace(/^https?:\/\//, "")
         .replace(/\/+$/, "");
-      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+      const cloneUrl = `http://${platformHost.split(":")[0]}:${port}/`;
 
-      expect(fossilUrl).toBe("http://example.com:8080/");
+      expect(cloneUrl).toBe("http://example.com:8080/");
     });
 
     it("should handle platform URL with trailing slash", () => {
@@ -59,9 +59,9 @@ describe("Agent Handoff Tests", () => {
       const platformHost = platformUrl
         .replace(/^https?:\/\//, "")
         .replace(/\/+$/, "");
-      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+      const cloneUrl = `http://${platformHost.split(":")[0]}:${port}/`;
 
-      expect(fossilUrl).toBe("http://localhost:8000/");
+      expect(cloneUrl).toBe("http://localhost:8000/");
     });
   });
 
@@ -149,19 +149,19 @@ describe("Agent Handoff Tests", () => {
     it("should track session info with checkout path", () => {
       const sessionId = "session-123";
       const checkoutPath = "/tmp/demo/session-123";
-      const fossilUrl = "http://localhost:8080/";
+      const cloneUrl = "http://localhost:8080/";
 
       const sessionInfo = {
         sessionId,
         checkoutPath,
-        fossilUrl,
+        cloneUrl,
         acpProcess: null,
         fileWatcher: null,
       };
 
       expect(sessionInfo.sessionId).toBe("session-123");
       expect(sessionInfo.checkoutPath).toBe("/tmp/demo/session-123");
-      expect(sessionInfo.fossilUrl).toBe("http://localhost:8080/");
+      expect(sessionInfo.cloneUrl).toBe("http://localhost:8080/");
     });
 
     it("should derive fossil URL from platform URL and port", () => {
@@ -173,10 +173,10 @@ describe("Agent Handoff Tests", () => {
       const platformHost = platformUrl
         .replace(/^https?:\/\//, "")
         .replace(/\/+$/, "");
-      const fossilUrl = `http://${platformHost.split(":")[0]}:${port}/`;
+      const cloneUrl = `http://${platformHost.split(":")[0]}:${port}/`;
 
-      expect(fossilUrl).not.toContain("3000:8000");
-      expect(fossilUrl).toBe("http://localhost:8000/");
+      expect(cloneUrl).not.toContain("3000:8000");
+      expect(cloneUrl).toBe("http://localhost:8000/");
     });
   });
 

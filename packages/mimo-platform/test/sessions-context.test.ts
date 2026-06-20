@@ -27,7 +27,7 @@ describe("Sessions routes with mimoContext", () => {
         MIMO_HOME: testHome,
         JWT_SECRET: "sessions-context-secret-a",
       },
-      services: { sharedFossil: new DummyGitHttpServer() },
+      services: { sharedVcs: new DummyGitHttpServer() },
     });
 
     const token = await mimoContext.services.auth.generateToken("tester");

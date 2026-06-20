@@ -352,7 +352,7 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       sessions: [
         {
           sessionId: "s-branch",
-          fossilUrl: "http://localhost:8000/s-branch.git/",
+          cloneUrl: "http://localhost:8000/s-branch.git/",
           agentWorkspaceUser: "dev",
           agentWorkspacePassword: "pw",
           agentSubpath: null,
@@ -405,7 +405,7 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       sessions: [
         {
           sessionId: "s-poisoned",
-          fossilUrl: "http://localhost:8000/s-poisoned.git/",
+          cloneUrl: "http://localhost:8000/s-poisoned.git/",
           agentWorkspaceUser: "dev",
           agentWorkspacePassword: "pw",
           agentSubpath: null,
@@ -442,7 +442,7 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       sessions: [
         {
           sessionId: "s-no-branch",
-          fossilUrl: "http://localhost:8000/s-no-branch.git/",
+          cloneUrl: "http://localhost:8000/s-no-branch.git/",
           agentWorkspaceUser: "dev",
           agentWorkspacePassword: "pw",
           agentSubpath: null,
@@ -472,12 +472,12 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
         : undefined) as any;
     deps.sessionManager.createSession = (async (
       sessionId: string,
-      fossilUrl: string,
+      cloneUrl: string,
     ) => {
       registeredSession = {
         sessionId,
         checkoutPath: "/tmp/work/" + sessionId,
-        fossilUrl,
+        cloneUrl,
         acpProcess: null,
       };
       return registeredSession;
@@ -522,7 +522,7 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
       sessions: [
         {
           sessionId: "s-race",
-          fossilUrl: "http://localhost:8000/",
+          cloneUrl: "http://localhost:8000/",
           agentWorkspaceUser: "dev",
           agentWorkspacePassword: "pw",
           agentSubpath: null,

@@ -18,13 +18,14 @@ describe("create_chat_thread (integration, real SessionRepository)", () => {
     mkdirSync(join(basePath, "projects"), { recursive: true });
     sessions = new SessionRepository({
       paths: { projects: join(basePath, "projects"), data: basePath },
-      fossilReposDir: join(basePath, "session-fossils"),
+      vcsReposDir: join(basePath, "session-repos"),
       os,
     });
   });
 
   afterEach(() => {
-    if (existsSync(basePath)) rmSync(basePath, { recursive: true, force: true });
+    if (existsSync(basePath))
+      rmSync(basePath, { recursive: true, force: true });
   });
 
   it("persists a new thread inheriting the caller and dispatches initial_prompt", async () => {
@@ -82,7 +83,9 @@ describe("create_chat_thread (integration, real SessionRepository)", () => {
 
     // Persisted in the real repository
     const reloaded = await sessions.findById(session.id);
-    const created = reloaded!.chatThreads.find((t) => t.id === json.result.threadId);
+    const created = reloaded!.chatThreads.find(
+      (t) => t.id === json.result.threadId,
+    );
     expect(created).toBeDefined();
     expect(created!.name).toBe("Run the migration in");
     expect(created!.model).toBe("opus");

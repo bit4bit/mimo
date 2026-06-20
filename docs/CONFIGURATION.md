@@ -39,7 +39,20 @@ fontFamily: "monospace"
 
 ## Environment Variables
 
-These environment variables control platform behavior:
+These environment variables control platform behavior.
+
+### Internal vs external addressing
+
+MIMO has two distinct network audiences, and they use different addresses:
+
+- **Internal** — how a `mimo-agent` reaches the platform (WebSocket) and clones a
+  session's repository over HTTP. These addresses must be reachable from wherever
+  the agent runs (e.g. the Docker service name `platform`, or an internal IP).
+- **External** — how a human user reaches the platform in a browser and copies the
+  `git clone` command. Behind a custom domain this is typically a TLS reverse proxy.
+
+Keeping these separate is what lets the clone command shown in the UI differ from
+the address the agent uses internally.
 
 ### JWT_SECRET
 
@@ -51,13 +64,56 @@ These environment variables control platform behavior:
 
 - **Required**: No
 - **Default**: `3000`
-- **Description**: HTTP server port
+- **Description**: HTTP server port the platform listens on.
 
 ### PLATFORM_URL
 
 - **Required**: No
-- **Default**: `ws://localhost:3000`
-- **Description**: Base URL for WebSocket connections
+- **Default**: `http://${MIMO_HOST}:${PORT}`
+- **Description**: Public URL agents/users use to reach the platform (HTTP/WebSocket).
+  Must be reachable by the agent. Used as the `platformUrl` sent in `session_ready`.
+
+### MIMO_HOST
+
+- **Required**: No
+- **Default**: `localhost`
+- **Description**: General hostname used to build default internal URLs.
+
+### MIMO_LISTEN_HOST
+
+- **Required**: No
+- **Default**: `MIMO_HOST`
+- **Description**: Network interface the platform binds to (e.g. `0.0.0.0` in a
+  container). Independent of the advertised host.
+
+### MIMO_INTERNAL_VCS_PORT
+
+- **Required**: No
+- **Default**: `8000`
+- **Description**: Port of the VCS (git) HTTP server that serves session repositories.
+
+### MIMO_INTERNAL_VCS_HOST
+
+- **Required**: No
+- **Default**: `MIMO_HOST`
+- **Scope**: Internal
+- **Description**: Hostname embedded in the clone URL sent to the **agent**
+  (`http://${MIMO_INTERNAL_VCS_HOST}:${MIMO_INTERNAL_VCS_PORT}/<sid>.git/`).
+  Set this to an address the agent can resolve (e.g. the Docker service name
+  `platform`).
+
+### MIMO_PUBLIC_VCS_URL
+
+- **Required**: No
+- **Default**: _(derived from the internal server host)_
+- **Scope**: External
+- **Description**: Public-facing base URL used to build the `git clone` command
+  shown to **browser users**. Set this when the platform is deployed behind a custom
+  domain / reverse proxy so the displayed URL uses the right scheme, host, and path
+  instead of the raw internal VCS port. When unset, the UI falls back to the
+  internal server URL with its hostname swapped to the platform's.
+- **Example**: `MIMO_PUBLIC_VCS_URL=https://yourdomain.com/git`
+  → clone URL becomes `https://yourdomain.com/git/<sid>.git/`
 
 ### MIMO_AGENT_PATH
 

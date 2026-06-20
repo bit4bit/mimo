@@ -32,7 +32,7 @@ describe("Credentials Internal API", () => {
         JWT_SECRET: "test-jwt-secret-for-credentials-api-tests",
         PORT: "3000",
         MIMO_HOME: "/tmp/test-mimo-credentials",
-        MIMO_SHARED_FOSSIL_SERVER_PORT: "8000",
+        MIMO_INTERNAL_VCS_PORT: "8000",
         MIMO_HOST: "localhost",
       },
       homeDir: "/home/test",
@@ -45,7 +45,7 @@ describe("Credentials Internal API", () => {
       "/tmp/test-mimo-credentials/projects": null,
       "/tmp/test-mimo-credentials/agents": null,
       "/tmp/test-mimo-credentials/mcp-servers": null,
-      "/tmp/test-mimo-credentials/session-fossils": null,
+      "/tmp/test-mimo-credentials/session-repos": null,
     });
 
     // Create MimoContext with mock OS
@@ -55,8 +55,8 @@ describe("Credentials Internal API", () => {
         PORT: 3000,
         PLATFORM_URL: "http://localhost:3000",
         MIMO_HOME: "/tmp/test-mimo-credentials",
-        FOSSIL_REPOS_DIR: "/tmp/test-mimo-credentials/session-fossils",
-        MIMO_SHARED_FOSSIL_SERVER_PORT: 8000,
+        MIMO_VCS_REPOS_DIR: "/tmp/test-mimo-credentials/session-repos",
+        MIMO_INTERNAL_VCS_PORT: 8000,
         MIMO_HOST: "localhost",
       },
       os: mockOS,

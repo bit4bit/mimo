@@ -79,10 +79,10 @@ describe("Commit Service Tests", () => {
 
       // Initialize agent-workspace with fossil
       const agentWorkspacePath = session.agentWorkspacePath;
-      const fossilPath = join(testHome, "repo.fossil");
-      await vcs.createFossilRepo(fossilPath);
+      const vcsPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(vcsPath);
       mkdirSync(agentWorkspacePath, { recursive: true });
-      await vcs.openFossil(fossilPath, agentWorkspacePath);
+      await vcs.openFossil(vcsPath, agentWorkspacePath);
 
       // Add a file to agent workspace
       writeFileSync(join(agentWorkspacePath, "test.txt"), "test content");
@@ -146,10 +146,10 @@ describe("Commit Service Tests", () => {
 
       // Initialize agent-workspace with fossil
       const agentWorkspacePath = session.agentWorkspacePath;
-      const fossilPath = join(testHome, "repo.fossil");
-      await vcs.createFossilRepo(fossilPath);
+      const vcsPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(vcsPath);
       mkdirSync(agentWorkspacePath, { recursive: true });
-      await vcs.openFossil(fossilPath, agentWorkspacePath);
+      await vcs.openFossil(vcsPath, agentWorkspacePath);
 
       // Add a file to agent workspace
       writeFileSync(join(agentWorkspacePath, "test.txt"), "test content");
@@ -231,10 +231,10 @@ describe("Commit Service Tests", () => {
 
       // Initialize agent-workspace with fossil
       const agentWorkspacePath = session.agentWorkspacePath;
-      const fossilPath = join(testHome, "repo.fossil");
-      await vcs.createFossilRepo(fossilPath);
+      const vcsPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(vcsPath);
       mkdirSync(agentWorkspacePath, { recursive: true });
-      await vcs.openFossil(fossilPath, agentWorkspacePath);
+      await vcs.openFossil(vcsPath, agentWorkspacePath);
 
       // Don't add any files - this should result in "no changes"
 
@@ -271,10 +271,10 @@ describe("Commit Service Tests", () => {
       execSync('git config user.name "Test User"', { cwd: upstreamPath });
 
       const agentWorkspacePath = session.agentWorkspacePath;
-      const fossilPath = join(testHome, "repo.fossil");
-      await vcs.createFossilRepo(fossilPath);
+      const vcsPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(vcsPath);
       mkdirSync(agentWorkspacePath, { recursive: true });
-      await vcs.openFossil(fossilPath, agentWorkspacePath);
+      await vcs.openFossil(vcsPath, agentWorkspacePath);
 
       writeFileSync(join(agentWorkspacePath, "test.txt"), "test content");
       await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
@@ -325,10 +325,10 @@ describe("Commit Service Tests", () => {
       execSync('git config user.name "Test User"', { cwd: upstreamPath });
 
       const agentWorkspacePath = session.agentWorkspacePath;
-      const fossilPath = join(testHome, "repo.fossil");
-      await vcs.createFossilRepo(fossilPath);
+      const vcsPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(vcsPath);
       mkdirSync(agentWorkspacePath, { recursive: true });
-      await vcs.openFossil(fossilPath, agentWorkspacePath);
+      await vcs.openFossil(vcsPath, agentWorkspacePath);
 
       // Create a nested structure in agent workspace
       mkdirSync(join(agentWorkspacePath, "src"), { recursive: true });
@@ -397,10 +397,10 @@ describe("Commit Service Tests", () => {
       execSync('git commit -m "Initial"', { cwd: upstreamPath });
 
       const agentWorkspacePath = session.agentWorkspacePath;
-      const fossilPath = join(testHome, "repo.fossil");
-      await vcs.createFossilRepo(fossilPath);
+      const vcsPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(vcsPath);
       mkdirSync(agentWorkspacePath, { recursive: true });
-      await vcs.openFossil(fossilPath, agentWorkspacePath);
+      await vcs.openFossil(vcsPath, agentWorkspacePath);
 
       // Create modified file in workspace
       writeFileSync(join(agentWorkspacePath, "test.txt"), "modified content");
@@ -479,10 +479,10 @@ describe("Commit Service Tests", () => {
       execSync('git config user.name "Test User"', { cwd: upstreamPath });
 
       const agentWorkspacePath = session.agentWorkspacePath;
-      const fossilPath = join(testHome, "repo.fossil");
-      await vcs.createFossilRepo(fossilPath);
+      const vcsPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(vcsPath);
       mkdirSync(agentWorkspacePath, { recursive: true });
-      await vcs.openFossil(fossilPath, agentWorkspacePath);
+      await vcs.openFossil(vcsPath, agentWorkspacePath);
 
       writeFileSync(join(agentWorkspacePath, "test.txt"), "test content");
       await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
@@ -528,10 +528,10 @@ describe("Commit Service Tests", () => {
       execSync('git config user.name "Test User"', { cwd: upstreamPath });
 
       const agentWorkspacePath = session.agentWorkspacePath;
-      const fossilPath = join(testHome, "repo.fossil");
-      await vcs.createFossilRepo(fossilPath);
+      const vcsPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(vcsPath);
       mkdirSync(agentWorkspacePath, { recursive: true });
-      await vcs.openFossil(fossilPath, agentWorkspacePath);
+      await vcs.openFossil(vcsPath, agentWorkspacePath);
 
       // Create two files
       writeFileSync(join(agentWorkspacePath, "file1.txt"), "content 1");
@@ -581,10 +581,10 @@ describe("Commit Service Tests", () => {
       execSync('git config user.name "Test User"', { cwd: upstreamPath });
 
       const agentWorkspacePath = session.agentWorkspacePath;
-      const fossilPath = join(testHome, "repo.fossil");
-      await vcs.createFossilRepo(fossilPath);
+      const vcsPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(vcsPath);
       mkdirSync(agentWorkspacePath, { recursive: true });
-      await vcs.openFossil(fossilPath, agentWorkspacePath);
+      await vcs.openFossil(vcsPath, agentWorkspacePath);
 
       // Create file in workspace
       writeFileSync(join(agentWorkspacePath, "test.txt"), "new content");
@@ -666,10 +666,10 @@ describe("Commit Service Tests", () => {
       execSync('git config user.name "Test User"', { cwd: upstreamPath });
 
       const agentWorkspacePath = session.agentWorkspacePath;
-      const fossilPath = join(testHome, "repo.fossil");
-      await vcs.createFossilRepo(fossilPath);
+      const vcsPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(vcsPath);
       mkdirSync(agentWorkspacePath, { recursive: true });
-      await vcs.openFossil(fossilPath, agentWorkspacePath);
+      await vcs.openFossil(vcsPath, agentWorkspacePath);
 
       writeFileSync(join(agentWorkspacePath, "test.txt"), "new content");
       await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
@@ -737,10 +737,10 @@ describe("Commit Service Tests", () => {
       execSync('git config user.name "Test User"', { cwd: upstreamPath });
 
       const agentWorkspacePath = session.agentWorkspacePath;
-      const fossilPath = join(testHome, "repo.fossil");
-      await vcs.createFossilRepo(fossilPath);
+      const vcsPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(vcsPath);
       mkdirSync(agentWorkspacePath, { recursive: true });
-      await vcs.openFossil(fossilPath, agentWorkspacePath);
+      await vcs.openFossil(vcsPath, agentWorkspacePath);
 
       writeFileSync(join(agentWorkspacePath, "test.txt"), "new content");
       await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);

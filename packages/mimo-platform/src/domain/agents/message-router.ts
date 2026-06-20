@@ -51,7 +51,7 @@ export interface AgentMessageRouterDeps {
     setModeState(sessionId: string, state: SessionModeState): void;
   };
   chat: ChatService;
-  sharedFossilServer: InstanceType<typeof GitHttpServer>;
+  sharedVcsServer: InstanceType<typeof GitHttpServer>;
   mimoContext: MimoContext;
   platformUrl: string;
   autoCommitService: AutoCommitService;
@@ -306,29 +306,29 @@ export class AgentMessageRouter {
         process.stdout?.write?.("");
 
         if (session.status === "active") {
-          const fossilPath =
+          const vcsPath =
             this.deps.sessionRepository.getSessionRepoPath(sessionId);
-          const fossilUrl = this.deps.sharedFossilServer.getUrl(sessionId);
+          const cloneUrl = this.deps.sharedVcsServer.getUrl(sessionId);
 
-          if (!this.deps.os.fs.exists(fossilPath)) {
+          if (!this.deps.os.fs.exists(vcsPath)) {
             logger.warn(
-              "[agent] Skipping session_ready for missing fossil repo:",
+              "[agent] Skipping session_ready for missing repo:",
               sessionId,
               "path:",
-              fossilPath,
+              vcsPath,
               "url:",
-              fossilUrl,
+              cloneUrl,
             );
             continue;
           }
 
           logger.debug(
-            "[agent] Using shared fossil server for session:",
+            "[agent] Using shared VCS server for session:",
             sessionId,
-            "fossil:",
-            fossilPath,
+            "repo:",
+            vcsPath,
             "url:",
-            fossilUrl,
+            cloneUrl,
           );
           process.stdout?.write?.("");
 
@@ -381,7 +381,7 @@ export class AgentMessageRouter {
             name: session.name,
             upstreamPath: session.upstreamPath,
             agentWorkspacePath: session.agentWorkspacePath,
-            fossilUrl,
+            cloneUrl,
             agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
             agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
             modelState: sessionWithCreds?.modelState ?? null,
@@ -615,12 +615,10 @@ export class AgentMessageRouter {
       return;
     }
 
-    const fossilUpResult = await this.deps.vcs.gitPull(
-      session.agentWorkspacePath,
-    );
-    if (!fossilUpResult.success) {
+    const pullResult = await this.deps.vcs.gitPull(session.agentWorkspacePath);
+    if (!pullResult.success) {
       logger.error(
-        `[file_changed] fossil up failed for session ${sessionId}: ${fossilUpResult.error || "unknown error"}`,
+        `[file_changed] fossil up failed for session ${sessionId}: ${pullResult.error || "unknown error"}`,
       );
     }
 

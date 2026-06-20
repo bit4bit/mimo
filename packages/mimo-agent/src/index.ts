@@ -60,7 +60,7 @@ export class MimoAgent {
   // Tracks per-session setupCheckout + createSession in flight from
   // handleSessionReady. user_message / request_state arriving for a session
   // mid-bootstrap can `await` this instead of failing fast with
-  // "No ACP connection for session" while fossil clone/open is still running.
+  // "No ACP connection for session" while the repo clone/checkout is still running.
   private pendingSessionReady: Map<string, Promise<void>> = new Map();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
@@ -73,7 +73,12 @@ export class MimoAgent {
   // Store thread-specific model/mode from platform (keyed by acpKey)
   private threadConfigs: Map<
     string,
-    { model?: string; mode?: string; acpSessionId?: string; brainWash?: boolean }
+    {
+      model?: string;
+      mode?: string;
+      acpSessionId?: string;
+      brainWash?: boolean;
+    }
   > = new Map();
   // Latest command inventory per session (thread fallback)
   private sessionAvailableCommands: Map<
@@ -272,7 +277,7 @@ export class MimoAgent {
     for (const session of sessions) {
       const {
         sessionId,
-        fossilUrl,
+        cloneUrl,
         agentWorkspaceUser,
         agentWorkspacePassword,
         modelState,
@@ -307,11 +312,11 @@ export class MimoAgent {
       try {
         const checkoutPath = this.os.path.join(this.config.workDir, sessionId);
 
-        if (!fossilUrl) {
-          throw new Error("No fossilUrl provided in session data");
+        if (!cloneUrl) {
+          throw new Error("No cloneUrl provided in session data");
         }
 
-        logger.debug(`[mimo-agent] Using fossil URL: ${fossilUrl}`);
+        logger.debug(`[mimo-agent] Using clone URL: ${cloneUrl}`);
 
         // Setup checkout directory with credentials.
         // The branch session is only for upstream; mimo-agent checkout should
@@ -319,7 +324,7 @@ export class MimoAgent {
         await this.setupCheckout(
           sessionId,
           checkoutPath,
-          fossilUrl,
+          cloneUrl,
           agentWorkspaceUser,
           agentWorkspacePassword,
         );
@@ -327,7 +332,7 @@ export class MimoAgent {
         // Create session with credentials
         const sessionInfo = await this.sessionManager.createSession(
           sessionId,
-          fossilUrl,
+          cloneUrl,
           agentWorkspaceUser,
           agentWorkspacePassword,
           branch ?? undefined,
@@ -425,12 +430,7 @@ export class MimoAgent {
    * `.mimoignore` patterns. The repo's own `.gitignore` is honored natively.
    */
   private async writeGitExclude(checkoutPath: string): Promise<void> {
-    const internal = [
-      ".mimo",
-      ".mimo-patches",
-      ".sccignore",
-      ".jscpdignore",
-    ];
+    const internal = [".mimo", ".mimo-patches", ".sccignore", ".jscpdignore"];
     let mimoignore: string[] = [];
     const mimoignorePath = this.os.path.join(checkoutPath, ".mimoignore");
     if (await this.os.fs.exists(mimoignorePath)) {
@@ -454,13 +454,13 @@ export class MimoAgent {
   private async setupCheckout(
     sessionId: string,
     checkoutPath: string,
-    fossilUrl: string,
+    baseCloneUrl: string,
     agentWorkspaceUser?: string,
     agentWorkspacePassword?: string,
     branch?: string,
   ): Promise<void> {
     const cloneUrl = this.buildAuthenticatedUrl(
-      fossilUrl,
+      baseCloneUrl,
       agentWorkspaceUser,
       agentWorkspacePassword,
     );
@@ -469,7 +469,7 @@ export class MimoAgent {
         const u = new URL(cloneUrl);
         return `${u.protocol}//${u.username ? "****:****@" : ""}${u.host}${u.pathname}`;
       } catch {
-        return fossilUrl;
+        return cloneUrl;
       }
     })();
     const gitDir = this.os.path.join(checkoutPath, ".git");
@@ -519,10 +519,10 @@ export class MimoAgent {
       ["git", "config", "user.email", "agent@mimo.local"],
       { cwd: checkoutPath, timeoutMs: 30000 },
     );
-    await this.os.command.run(
-      ["git", "config", "user.name", "mimo-agent"],
-      { cwd: checkoutPath, timeoutMs: 30000 },
-    );
+    await this.os.command.run(["git", "config", "user.name", "mimo-agent"], {
+      cwd: checkoutPath,
+      timeoutMs: 30000,
+    });
 
     await this.writeGitExclude(checkoutPath);
   }
@@ -711,11 +711,13 @@ export class MimoAgent {
               (o: any) => o.kind === "allow_once",
             );
             const anyApprove = params.options?.find(
-              (o: any) =>
-                o.kind === "allow_once" ||
-                o.kind === "allow_always",
+              (o: any) => o.kind === "allow_once" || o.kind === "allow_always",
             );
-            const optionId = allowAlways?.optionId ?? allowOnce?.optionId ?? anyApprove?.optionId ?? "allow";
+            const optionId =
+              allowAlways?.optionId ??
+              allowOnce?.optionId ??
+              anyApprove?.optionId ??
+              "allow";
 
             this.send({
               type: "permission_auto_allowed",
@@ -1270,7 +1272,8 @@ export class MimoAgent {
           requestId,
           success: false,
           message: "Failed to commit git changes",
-          error: commitResult.error || commitResult.output || "git commit failed",
+          error:
+            commitResult.error || commitResult.output || "git commit failed",
           timestamp: new Date().toISOString(),
         });
         return;
@@ -1591,7 +1594,11 @@ export class MimoAgent {
     }
 
     const idleTimeoutMs = this.sessionIdleTimeouts.get(sessionId) ?? 600000;
-    this.lifecycleManager.initializeThread(sessionId, chatThreadId, idleTimeoutMs);
+    this.lifecycleManager.initializeThread(
+      sessionId,
+      chatThreadId,
+      idleTimeoutMs,
+    );
     this.lifecycleManager.setThreadState(
       sessionId,
       chatThreadId,
@@ -1856,15 +1863,20 @@ export class MimoAgent {
 
     // Store thread config from platform (model/mode/acpSessionId to apply on first spawn)
     const key = acpKey(sessionId, chatThreadId);
-      if (message.model || message.mode || message.acpSessionId || message.brainWash !== undefined) {
-        const existing = this.threadConfigs.get(key);
-        this.threadConfigs.set(key, {
-          ...(existing || {}),
-          ...(message.model && { model: message.model }),
-          ...(message.mode && { mode: message.mode }),
-          ...(message.acpSessionId && { acpSessionId: message.acpSessionId }),
-          brainWash: message.brainWash ?? existing?.brainWash ?? false,
-        });
+    if (
+      message.model ||
+      message.mode ||
+      message.acpSessionId ||
+      message.brainWash !== undefined
+    ) {
+      const existing = this.threadConfigs.get(key);
+      this.threadConfigs.set(key, {
+        ...(existing || {}),
+        ...(message.model && { model: message.model }),
+        ...(message.mode && { mode: message.mode }),
+        ...(message.acpSessionId && { acpSessionId: message.acpSessionId }),
+        brainWash: message.brainWash ?? existing?.brainWash ?? false,
+      });
       logger.debug(
         `[mimo-agent] Stored thread config for ${sessionId}/${chatThreadId}: model=${message.model}, mode=${message.mode}, acpSessionId=${message.acpSessionId}`,
       );

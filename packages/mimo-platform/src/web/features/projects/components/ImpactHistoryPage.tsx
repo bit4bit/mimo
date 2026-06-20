@@ -36,7 +36,7 @@ interface ImpactRecord {
     linesRemoved: number;
     complexityDelta: number;
   }>;
-  fossilUrl: string;
+  cloneUrl: string;
 }
 
 interface SessionInfo {

@@ -34,8 +34,8 @@ export class ConfigValidator {
       theme: this.validateTheme(configObj.theme),
       fontSize: this.validateFontSize(configObj.fontSize),
       fontFamily: this.validateFontFamily(configObj.fontFamily),
-      sharedFossilServerPort: this.validateSharedFossilServerPort(
-        configObj.sharedFossilServerPort,
+      sharedVcsServerPort: this.validateSharedVcsServerPort(
+        configObj.sharedVcsServerPort,
       ),
       sessionKeybindings: this.validateSessionKeybindings(
         configObj.sessionKeybindings,
@@ -89,8 +89,8 @@ export class ConfigValidator {
     return fontFamily;
   }
 
-  private validateSharedFossilServerPort(port: unknown): number {
-    if (port === undefined) return defaultConfig.sharedFossilServerPort!;
+  private validateSharedVcsServerPort(port: unknown): number {
+    if (port === undefined) return defaultConfig.sharedVcsServerPort!;
 
     const portNum = Number(port);
     if (
@@ -100,10 +100,10 @@ export class ConfigValidator {
       !Number.isInteger(portNum)
     ) {
       this.errors.push({
-        field: "sharedFossilServerPort",
+        field: "sharedVcsServerPort",
         message: `Port must be an integer between 1024 and 65535, got: ${port}`,
       });
-      return defaultConfig.sharedFossilServerPort!;
+      return defaultConfig.sharedVcsServerPort!;
     }
     return portNum;
   }

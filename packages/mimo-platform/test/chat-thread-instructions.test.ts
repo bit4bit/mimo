@@ -59,7 +59,7 @@ describe("Chat Thread Instructions", () => {
         JWT_SECRET: "test-secret",
         PLATFORM_URL: "http://localhost:3000",
       },
-      services: { sharedFossil: new DummyGitHttpServer() },
+      services: { sharedVcs: new DummyGitHttpServer() },
     });
 
     mimoContext = ctx;

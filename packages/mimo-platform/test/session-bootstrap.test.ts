@@ -8,7 +8,7 @@ import { createOS } from "../src/infrastructure/os/node-adapter.js";
 describe("Session Bootstrap Integration Tests", () => {
   let testHome: string;
   let projectsDir: string;
-  let fossilReposDir: string;
+  let vcsReposDir: string;
   let VCS: any;
   let sessionRepository: any;
 
@@ -18,7 +18,7 @@ describe("Session Bootstrap Integration Tests", () => {
       `mimo-bootstrap-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     );
     projectsDir = join(testHome, "projects");
-    fossilReposDir = join(testHome, "fossil-repos");
+    vcsReposDir = join(testHome, "fossil-repos");
     // Clean up from previous run
     try {
       rmSync(testHome, { recursive: true, force: true });
@@ -26,7 +26,7 @@ describe("Session Bootstrap Integration Tests", () => {
 
     mkdirSync(testHome, { recursive: true });
     mkdirSync(projectsDir, { recursive: true });
-    mkdirSync(fossilReposDir, { recursive: true });
+    mkdirSync(vcsReposDir, { recursive: true });
 
     // Re-import to get fresh modules
     const vcsModule = await import("../src/domain/vcs/index.ts");
@@ -39,7 +39,7 @@ describe("Session Bootstrap Integration Tests", () => {
         projects: projectsDir,
         data: testHome,
       },
-      fossilReposDir: fossilReposDir,
+      vcsReposDir: vcsReposDir,
       os,
     });
   });
@@ -69,7 +69,7 @@ describe("Session Bootstrap Integration Tests", () => {
     it("should import Git repository to Fossil", async () => {
       const vcs = new VCS({ os: createOS({ ...process.env }) });
       const upstreamPath = join(testHome, "import-test");
-      const fossilPath = join(testHome, "import-test.fossil");
+      const vcsPath = join(testHome, "import-test.fossil");
 
       // Create a simple git repo
       mkdirSync(upstreamPath, { recursive: true });
@@ -79,16 +79,16 @@ describe("Session Bootstrap Integration Tests", () => {
       execSync('git commit -m "Initial commit"', { cwd: upstreamPath });
 
       // Import to fossil
-      const result = await vcs.importToFossil(upstreamPath, "git", fossilPath);
+      const result = await vcs.importToFossil(upstreamPath, "git", vcsPath);
 
       expect(result.success).toBe(true);
-      expect(existsSync(fossilPath)).toBe(true);
+      expect(existsSync(vcsPath)).toBe(true);
     }, 15000);
 
     it("should open Fossil checkout", async () => {
       const vcs = new VCS({ os: createOS({ ...process.env }) });
       const upstreamPath = join(testHome, "checkout-test");
-      const fossilPath = join(testHome, "checkout-test.fossil");
+      const vcsPath = join(testHome, "checkout-test.fossil");
       const agentWorkspacePath = join(testHome, "checkout");
 
       // Create a simple git repo
@@ -99,13 +99,10 @@ describe("Session Bootstrap Integration Tests", () => {
       execSync('git commit -m "Initial commit"', { cwd: upstreamPath });
 
       // Import to fossil
-      await vcs.importToFossil(upstreamPath, "git", fossilPath);
+      await vcs.importToFossil(upstreamPath, "git", vcsPath);
 
       // Open checkout
-      const result = await vcs.openFossilCheckout(
-        fossilPath,
-        agentWorkspacePath,
-      );
+      const result = await vcs.openFossilCheckout(vcsPath, agentWorkspacePath);
 
       expect(result.success).toBe(true);
       expect(existsSync(join(agentWorkspacePath, "README.md"))).toBe(true);
@@ -114,7 +111,7 @@ describe("Session Bootstrap Integration Tests", () => {
     it("should put fossil import on trunk and open agent-workspace on trunk", async () => {
       const vcs = new VCS({ os: createOS({ ...process.env }) });
       const upstreamPath = join(testHome, "branch-mirror-upstream");
-      const fossilPath = join(testHome, "branch-mirror.fossil");
+      const vcsPath = join(testHome, "branch-mirror.fossil");
       const agentWorkspacePath = join(testHome, "branch-mirror-agent");
 
       // Build an upstream git repo on a non-default branch, the way
@@ -133,12 +130,12 @@ describe("Session Bootstrap Integration Tests", () => {
       const importResult = await vcs.importToFossil(
         upstreamPath,
         "git",
-        fossilPath,
+        vcsPath,
       );
       expect(importResult.success).toBe(true);
 
       mkdirSync(agentWorkspacePath, { recursive: true });
-      const openResult = await vcs.openFossil(fossilPath, agentWorkspacePath);
+      const openResult = await vcs.openFossil(vcsPath, agentWorkspacePath);
       expect(openResult.success).toBe(true);
 
       const currentBranch = execSync("fossil branch current", {
@@ -270,16 +267,16 @@ describe("Session Bootstrap Integration Tests", () => {
       expect(cloneResult.success).toBe(true);
 
       // Import to fossil
-      const fossilPath = join(session.upstreamPath, "..", "repo.fossil");
+      const vcsPath = join(session.upstreamPath, "..", "repo.fossil");
       const importResult = await vcs.importToFossil(
         session.upstreamPath,
         "git",
-        fossilPath,
+        vcsPath,
       );
       expect(importResult.success).toBe(true);
 
       // Verify fossil repo exists
-      expect(existsSync(fossilPath)).toBe(true);
+      expect(existsSync(vcsPath)).toBe(true);
 
       // Verify session has port: null (not assigned yet)
       const loaded = await sessionRepository.findById(session.id);
