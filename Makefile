@@ -5,8 +5,9 @@ GID := $(shell id -g)
 
 # Base compose files; optionally add agent-claude via ENABLE_CLAUDE=1
 COMPOSE_FILES := -f docker-compose.yml
-ifeq ($(ENABLE_CLAUDE),1)
-COMPOSE_FILES += -f docker-compose.claude.yml
+ifeq ($(ENABLE_AGENTS),1)
+AGENT_FILES   := $(wildcard docker-agents/*.yml)
+COMPOSE_FILES += $(addprefix -f ,$(AGENT_FILES))
 endif
 
 ensure-dirs:

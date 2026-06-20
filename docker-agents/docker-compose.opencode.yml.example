@@ -1,0 +1,25 @@
+services:
+  agent-opencode:
+    image: mimo:local
+    working_dir: /app/packages/mimo-agent
+    mem_limit: 4g
+    memswap_limit: 4g
+    command: ["/app/.container/init-agent.sh"]
+    environment:
+      PORT: "3001"
+      AGENT_PROVIDER: opencode
+      AGENT_JWT: ${OPENCODE_AGENT_JWT}
+      HOME: "/home/app"
+      PATH: "/usr/local/cargo/bin:/usr/local/go/bin:/home/app/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      USER: "app"
+      LOGNAME: "app"
+      GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    depends_on:
+      platform:
+        condition: service_healthy
+    volumes:
+      - mimo-home-agent:/home/app
+      - ~/.mimo-agent-container:/home/app/.mimo-agent
+      - ~/.ssh-mimo:/home/app/.ssh:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
