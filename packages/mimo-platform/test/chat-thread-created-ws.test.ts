@@ -21,14 +21,18 @@ describe("chat.js chat_thread_created handler", () => {
 
   it("is idempotent (skips a thread id already present)", () => {
     expect(
-      source.includes("ChatThreadsState.threads.some((t) => t.id === thread.id)"),
+      source.includes(
+        "ChatThreadsState.threads.some((t) => t.id === thread.id)",
+      ),
     ).toBe(true);
   });
 
   it("surfaces a chat_thread_create_failed event via a notification", () => {
     expect(source.includes('case "chat_thread_create_failed":')).toBe(true);
-    expect(source.includes("function handleChatThreadCreateFailed(")).toBe(true);
-    expect(source.includes('showNotification(`New thread not created:')).toBe(
+    expect(source.includes("function handleChatThreadCreateFailed(")).toBe(
+      true,
+    );
+    expect(source.includes("showNotification(`New thread not created:")).toBe(
       true,
     );
   });

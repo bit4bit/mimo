@@ -94,6 +94,23 @@ server {
 The git HTTP server enforces per-session basic auth, so the credentials embedded in
 the clone URL are still required when going through the proxy.
 
+### Running an agent outside the deployment
+
+An agent that runs outside the deployment (not in the container — e.g. on your laptop)
+cannot reach the internal `MIMO_INTERNAL_VCS_HOST`. Start it with `--external` so it
+clones session repos from the public clone URL (`MIMO_PUBLIC_VCS_URL`) instead:
+
+```bash
+mimo-agent \
+  --platform wss://yourdomain.com/agent \
+  --token <agent-token> \
+  --provider claude \
+  --external
+```
+
+The platform must have `MIMO_PUBLIC_VCS_URL` configured (see above) for `--external` to
+have a reachable URL to use. In-deployment agents (Docker Compose) omit `--external`.
+
 ## Migration: fossil → vcs naming
 
 The session VCS server is Git, but several environment variables, persisted data

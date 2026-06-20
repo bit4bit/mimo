@@ -19,7 +19,9 @@ describe("EditBuffer file finder cache invalidation", () => {
   });
 
   it("invalidateFileList is exposed on window.EditBuffer", () => {
-    expect(editBufferSource).toContain("invalidateFileList: invalidateFileList");
+    expect(editBufferSource).toContain(
+      "invalidateFileList: invalidateFileList",
+    );
   });
 
   it("openFileFinder re-fetches when fileFinderLoaded is false after invalidation", () => {

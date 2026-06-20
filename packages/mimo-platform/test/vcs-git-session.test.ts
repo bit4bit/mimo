@@ -8,7 +8,8 @@ import { VCS } from "../src/domain/vcs/index.js";
 describe("VCS git session repo", () => {
   const cleanups: string[] = [];
   afterEach(() => {
-    for (const d of cleanups.splice(0)) rmSync(d, { recursive: true, force: true });
+    for (const d of cleanups.splice(0))
+      rmSync(d, { recursive: true, force: true });
   });
 
   function makeWorld() {
@@ -62,7 +63,12 @@ describe("VCS git session repo", () => {
     os.fs.writeFile(join(upstream, "a.txt"), "data\n");
 
     const repoPath = join(home, "sessf.git");
-    const result = await vcs.seedSessionRepo(upstream, "fossil", repoPath, "main");
+    const result = await vcs.seedSessionRepo(
+      upstream,
+      "fossil",
+      repoPath,
+      "main",
+    );
     expect(result.success).toBe(true);
 
     const log = await run(os, ["git", "log", "--oneline"], repoPath);
@@ -89,13 +95,19 @@ describe("VCS git session repo", () => {
     await run(os, ["git", "config", "user.name", "a"], agentClone);
     os.fs.appendFile(join(agentClone, "f.txt"), "world\n");
     await run(os, ["git", "commit", "-qam", "agent change"], agentClone);
-    const push = await run(os, ["git", "push", "-q", "origin", "HEAD"], agentClone);
+    const push = await run(
+      os,
+      ["git", "push", "-q", "origin", "HEAD"],
+      agentClone,
+    );
     expect(push.success).toBe(true);
 
     // Platform refresh.
     const pull = await vcs.gitPull(platformCheckout);
     expect(pull.success).toBe(true);
-    expect(os.fs.readFile(join(platformCheckout, "f.txt"), "utf8")).toContain("world");
+    expect(os.fs.readFile(join(platformCheckout, "f.txt"), "utf8")).toContain(
+      "world",
+    );
   });
 
   it("seeds a self-contained repo from an alternates-backed upstream", async () => {
@@ -111,15 +123,22 @@ describe("VCS git session repo", () => {
     await run(["git", "clone", "-q", "--bare", origin, cache], home);
     // upstream checkout created WITH --reference → borrows via alternates
     const upstream = join(home, "upstream");
-    await run(["git", "clone", "-q", "--reference", cache, origin, upstream], home);
-    expect(os.fs.exists(join(upstream, ".git", "objects", "info", "alternates"))).toBe(true);
+    await run(
+      ["git", "clone", "-q", "--reference", cache, origin, upstream],
+      home,
+    );
+    expect(
+      os.fs.exists(join(upstream, ".git", "objects", "info", "alternates")),
+    ).toBe(true);
 
     const repoPath = join(home, "sess.git");
     const result = await vcs.seedSessionRepo(upstream, "git", repoPath);
     expect(result.success).toBe(true);
 
     // The seed must be self-contained: no alternates file.
-    expect(os.fs.exists(join(repoPath, "objects", "info", "alternates"))).toBe(false);
+    expect(os.fs.exists(join(repoPath, "objects", "info", "alternates"))).toBe(
+      false,
+    );
 
     // Deleting the cache must NOT break cloning from the seed.
     rmSync(cache, { recursive: true, force: true });
@@ -142,7 +161,10 @@ describe("VCS git session repo", () => {
 
     const res = await vcs.syncIgnoresToGit(upstream, checkout);
     expect(res.success).toBe(true);
-    const exclude = os.fs.readFile(join(checkout, ".git", "info", "exclude"), "utf8");
+    const exclude = os.fs.readFile(
+      join(checkout, ".git", "info", "exclude"),
+      "utf8",
+    );
     expect(exclude).toContain("secret.txt");
     expect(exclude).toContain(".hg");
   });

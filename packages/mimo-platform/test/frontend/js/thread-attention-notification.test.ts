@@ -162,13 +162,8 @@ describe("thread attention notification helpers", () => {
   });
 
   it("permission_request with non-active chatThreadId does not render approval card in active thread", async () => {
-    const chatSource = await import(
-      "fs"
-    ).then((fs) =>
-      fs.readFileSync(
-        "public/js/chat.js",
-        "utf-8",
-      )
+    const chatSource = await import("fs").then((fs) =>
+      fs.readFileSync("public/js/chat.js", "utf-8"),
     );
 
     const permissionRequestBlock = chatSource.match(
@@ -184,13 +179,8 @@ describe("thread attention notification helpers", () => {
   });
 
   it("permission_resolved with non-active chatThreadId is filtered out", async () => {
-    const chatSource = await import(
-      "fs"
-    ).then((fs) =>
-      fs.readFileSync(
-        "public/js/chat.js",
-        "utf-8",
-      )
+    const chatSource = await import("fs").then((fs) =>
+      fs.readFileSync("public/js/chat.js", "utf-8"),
     );
 
     const permissionResolvedBlock = chatSource.match(

@@ -38,6 +38,12 @@ export interface AgentConfig {
   platform: string;
   workDir: string;
   provider: "opencode" | "claude";
+  /**
+   * When true, this agent runs outside the platform's deployment (e.g. outside
+   * the container) and clones session repos via the public VCS URL
+   * (`publicCloneUrl`) instead of the internal `cloneUrl`.
+   */
+  external: boolean;
 }
 
 // Composite key helpers (task 4.1)
@@ -278,6 +284,7 @@ export class MimoAgent {
       const {
         sessionId,
         cloneUrl,
+        publicCloneUrl,
         agentWorkspaceUser,
         agentWorkspacePassword,
         modelState,
@@ -316,7 +323,16 @@ export class MimoAgent {
           throw new Error("No cloneUrl provided in session data");
         }
 
-        logger.debug(`[mimo-agent] Using clone URL: ${cloneUrl}`);
+        // An external agent (run outside the deployment) cannot reach the
+        // internal cloneUrl.  Prefer publicCloneUrl when MIMO_PUBLIC_VCS_URL was
+        // configured on the platform (detected by a different hostname).
+        // Otherwise derive from the --platform WebSocket host — the address the
+        // agent is already successfully connecting to.
+        const effectiveCloneUrl = this.config.external
+          ? this.resolveExternalCloneUrl(cloneUrl, publicCloneUrl)
+          : cloneUrl;
+
+        logger.debug(`[mimo-agent] Using clone URL: ${effectiveCloneUrl}`);
 
         // Setup checkout directory with credentials.
         // The branch session is only for upstream; mimo-agent checkout should
@@ -324,7 +340,7 @@ export class MimoAgent {
         await this.setupCheckout(
           sessionId,
           checkoutPath,
-          cloneUrl,
+          effectiveCloneUrl,
           agentWorkspaceUser,
           agentWorkspacePassword,
         );
@@ -332,7 +348,7 @@ export class MimoAgent {
         // Create session with credentials
         const sessionInfo = await this.sessionManager.createSession(
           sessionId,
-          cloneUrl,
+          effectiveCloneUrl,
           agentWorkspaceUser,
           agentWorkspacePassword,
           branch ?? undefined,
@@ -407,6 +423,44 @@ export class MimoAgent {
       sessionIds,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  /**
+   * Resolve the clone URL for an external agent (--external).
+   *
+   * When MIMO_PUBLIC_VCS_URL is configured on the platform, publicCloneUrl has
+   * a different hostname than the internal cloneUrl — use it as-is (reverse-
+   * proxy / custom domain case).
+   *
+   * Otherwise fall back to replacing the internal VCS hostname with the
+   * hostname from the agent's own --platform WebSocket URL, which is already
+   * proven reachable. This handles the common case where Docker ports are
+   * forwarded to the host and no explicit public VCS URL is configured.
+   */
+  private resolveExternalCloneUrl(
+    cloneUrl: string,
+    publicCloneUrl?: string,
+  ): string {
+    if (publicCloneUrl) {
+      try {
+        const internalHost = new URL(cloneUrl).hostname;
+        const publicHost = new URL(publicCloneUrl).hostname;
+        if (publicHost !== internalHost) {
+          return publicCloneUrl;
+        }
+      } catch {
+        // fall through to hostname-swap
+      }
+    }
+    // Derive from the --platform WebSocket URL (the host the agent connects to).
+    try {
+      const vcsUrl = new URL(cloneUrl);
+      const platformUrl = new URL(this.config.platform);
+      vcsUrl.hostname = platformUrl.hostname;
+      return vcsUrl.toString();
+    } catch {
+      return cloneUrl;
+    }
   }
 
   private buildAuthenticatedUrl(
@@ -2557,7 +2611,13 @@ function parseAgentConfig(args: string[], os: OS): AgentConfig {
       config.workDir = args[++i];
     } else if (arg === "--provider" && i + 1 < args.length) {
       config.provider = args[++i] as AgentConfig["provider"];
+    } else if (arg === "--external") {
+      config.external = true;
     }
+  }
+
+  if (config.external === undefined) {
+    config.external = false;
   }
 
   if (!config.token) {

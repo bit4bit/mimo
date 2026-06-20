@@ -262,7 +262,11 @@ describe("MCP create_chat_thread", () => {
     // Wrong short model "glm" → error that lists the real value so the LLM can search
     const bad = await call(
       router,
-      { initialPrompt: "count 2 to 6", model: "glm", assignedAgentId: "opencode" },
+      {
+        initialPrompt: "count 2 to 6",
+        model: "glm",
+        assignedAgentId: "opencode",
+      },
       { "X-Mimo-Thread-Id": CALLER_THREAD_ID },
     );
     const badJson = await bad.json();
@@ -377,9 +381,7 @@ describe("MCP create_chat_thread", () => {
 
   it("passes the model through when the agent advertises no capabilities", async () => {
     const session = makeSession();
-    const { ctx, added } = makeContext(session, [
-      { id: "agent-Z", name: "Z" },
-    ]);
+    const { ctx, added } = makeContext(session, [{ id: "agent-Z", name: "Z" }]);
     const router = createMcpRoutes(ctx as any);
 
     await call(
@@ -396,7 +398,10 @@ describe("MCP create_chat_thread", () => {
 
     await call(
       router,
-      { initialPrompt: "do a big refactor of everything", title: "Auth cleanup" },
+      {
+        initialPrompt: "do a big refactor of everything",
+        title: "Auth cleanup",
+      },
       { "X-Mimo-Thread-Id": CALLER_THREAD_ID },
     );
     expect(added[0].name).toBe("Auth cleanup");
@@ -420,7 +425,11 @@ describe("MCP create_chat_thread", () => {
 
   it("auto-dedupes the generated name within the session", async () => {
     const session = makeSession();
-    session.chatThreads.push({ ...makeCallerThread(), id: "t2", name: "Fix bug" });
+    session.chatThreads.push({
+      ...makeCallerThread(),
+      id: "t2",
+      name: "Fix bug",
+    });
     const { ctx, added } = makeContext(session);
     const router = createMcpRoutes(ctx as any);
 
