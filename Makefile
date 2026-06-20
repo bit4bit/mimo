@@ -3,8 +3,8 @@
 UID := $(shell id -u)
 GID := $(shell id -g)
 
-# Base compose files; optionally add agent-claude via ENABLE_CLAUDE=1
-COMPOSE_FILES := -f docker-compose.yml
+COMPOSE_FILES := -f docker-compose.platform.yml
+
 ifeq ($(ENABLE_AGENTS),1)
 AGENT_FILES   := $(wildcard docker-agents/*.yml)
 COMPOSE_FILES += $(addprefix -f ,$(AGENT_FILES))

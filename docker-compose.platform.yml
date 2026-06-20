@@ -11,19 +11,19 @@ services:
     memswap_limit: 4g
     environment:
       JWT_SECRET: ${JWT_SECRET}
-      PORT: "3001"
-      MIMO_HOST: "localhost"
+      PORT: ${PORT:-"3001"}
+      MIMO_HOST: ${MIMO_HOST:-"localhost"}
       MIMO_LISTEN_HOST: "0.0.0.0"
       # Internal: hostname the agent uses to clone session repos (Docker service name).
-      MIMO_INTERNAL_VCS_HOST: "platform"
-      PLATFORM_URL: "http://localhost:3001"
+      MIMO_INTERNAL_VCS_HOST: ${MIMO_INTERNAL_VCS_HOST:-"platform"}
+      PLATFORM_URL: ${PLATFORM_URL:-"http://localhost:3001"}
       MIMO_HOME: "${MIMO_HOME:-/home/app/.mimo}"
       MIMO_INTERNAL_VCS_PORT: "8001"
       # External: public base URL for the `git clone` command shown to browser
       # users. Leave unset locally (clones use the exposed 8001 port below). Set
       # this behind a custom domain / reverse proxy, e.g. https://yourdomain.com/git
       # See docs/DEPLOYMENT.md.
-      # MIMO_PUBLIC_VCS_URL: "https://yourdomain.com/git"
+      MIMO_PUBLIC_VCS_URL: ${MIMO_PUBLIC_VCS_URL:-"https://localhost:3001"}
       HOME: "/home/app"
       USER: "app"
       LOGNAME: "app"
@@ -36,7 +36,6 @@ services:
     volumes:
       - mimo-home-platform:/home/app
       - ~/.mimo-container:/home/app/.mimo
-      - ~/.ssh-mimo:/home/app/.ssh:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 10s
@@ -47,4 +46,5 @@ services:
 
 volumes:
   mimo-home-platform:
+  # if you want multi agents to work in the same session, use the same volue
   mimo-home-agent:

@@ -35,28 +35,6 @@ Download pre-built binaries from the [releases page](https://github.com/bit4bit/
 
 ### Quick Start
 
-```bash
-# Download for your platform (Linux x64 or macOS ARM64)
-curl -L -o mimo-platform https://github.com/bit4bit/mimo/releases/latest/download/mimo-platform-linux-x64
-chmod +x mimo-platform
-
-# Run
-./mimo-platform
-```
-
-Platform runs at `http://localhost:3000`
-
-### Run an Agent
-
-```bash
-# Download agent binary
-curl -L -o mimo-agent https://github.com/bit4bit/mimo/releases/latest/download/mimo-agent-linux-x64
-chmod +x mimo-agent
-
-# Run with your agent token
-./mimo-agent --token <AGENT_JWT> --platform ws://localhost:3000/ws/agent --provider opencode
-```
-
 ## Run with Docker Compose
 
 Docker Compose is the official deployment method.
@@ -66,18 +44,11 @@ This repo includes `Dockerfile.mimo` and `docker-compose.yml` that run by defaul
 - `mimo-platform` with Bun runtime
 - `agent-opencode` with Bun runtime (OpenCode provider)
 
-To also launch the Claude agent, set `ENABLE_CLAUDE=1` when calling the `Makefile`, which additionally loads `docker-compose.claude.yml`.
+To additional containerzed agents use `ENABLE_AGENTS=1` when calling the `Makefile`, which additionally loads docker-compose files at folder `docker-agents`.
 
 The agents use this shared workdir path in the container:
 
 - `/home/app/.mimo-agent`
-
-Mapped host folders:
-
-- `~/.mimo-agent-container` → `/home/app/.mimo-agent` (shared workdir)
-- `~/.config/opencode` → `/home/app/.config/opencode` (OpenCode config)
-- `~/.claude` → `/home/app/.claude` (Claude Code data)
-- `~/.claude.json` → `/home/app/.claude.json` (Claude Code config)
 
 Before first run, create a local env file and set required values:
 
