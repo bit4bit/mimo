@@ -4,6 +4,7 @@ import {
   FileChange,
   FileStatus,
 } from "../src/domain/sync/service";
+import { detectChangedFiles } from "../src/domain/files/changed-files";
 import {
   mkdtempSync,
   writeFileSync,
@@ -130,30 +131,28 @@ describe("File Synchronization", () => {
     });
   });
 
-  describe("7.2 File Copy to Original Repo", () => {
-    it("should sync modified file to original repo", async () => {
-      // Create file in session worktree
+  describe("7.2 Upstream Baseline Is Not Mutated", () => {
+    // upstream/ is the committed baseline and carries the external `origin`
+    // remote. FileSyncService must never write to it; changes are published
+    // explicitly via CommitService.commitAndPushSelective.
+    it("does not copy modified files into the upstream baseline", async () => {
       mkdirSync(join(sessionWorktree, "src"), { recursive: true });
-      const newContent = "console.log('synced');";
-      writeFileSync(join(sessionWorktree, "src", "app.js"), newContent);
+      writeFileSync(
+        join(sessionWorktree, "src", "app.js"),
+        "console.log('synced');",
+      );
 
       const changes = [{ path: "src/app.js", isNew: false, deleted: false }];
       await fileSyncService.handleFileChanges(sessionId, changes);
 
-      // Verify file was copied to original repo
-      const originalContent = readFileSync(
+      const upstreamContent = readFileSync(
         join(originalRepo, "src", "app.js"),
         "utf-8",
       );
-      expect(originalContent).toBe(newContent);
+      expect(upstreamContent).toBe("console.log('hello');");
     });
 
-    it("should create parent directories when syncing new files", async () => {
-      const changes = [
-        { path: "src/components/Button.tsx", isNew: true, deleted: false },
-      ];
-
-      // Create file in session worktree
+    it("does not create new files in the upstream baseline", async () => {
       mkdirSync(join(sessionWorktree, "src", "components"), {
         recursive: true,
       });
@@ -162,95 +161,41 @@ describe("File Synchronization", () => {
         "export const Button = () => {};",
       );
 
+      const changes = [
+        { path: "src/components/Button.tsx", isNew: true, deleted: false },
+      ];
       await fileSyncService.handleFileChanges(sessionId, changes);
 
-      // Verify directories and file were created
       expect(
         existsSync(join(originalRepo, "src", "components", "Button.tsx")),
-      ).toBe(true);
+      ).toBe(false);
     });
-  });
 
-  describe("7.3 Conflict Detection", () => {
-    it("should detect conflict when both original and session modified", async () => {
-      // Modify in session
+    it("leaves the change detectable between upstream and agent-workspace", async () => {
+      // Regression: previously the live mirror copied edits into upstream,
+      // making the two trees identical so detectChangedFiles (and the commit
+      // preview/push) saw "no changes". The baseline must stay untouched so the
+      // diff survives until an explicit commit.
       mkdirSync(join(sessionWorktree, "src"), { recursive: true });
       writeFileSync(
         join(sessionWorktree, "src", "app.js"),
-        "// session version",
+        "console.log('synced');",
       );
-
-      // Modify in original repo
-      writeFileSync(join(originalRepo, "src", "app.js"), "// original version");
-
-      const changes = [{ path: "src/app.js", isNew: false, deleted: false }];
-      const result = await fileSyncService.handleFileChanges(
-        sessionId,
-        changes,
-      );
-
-      expect(result[0].status).toBe("conflict");
-    });
-
-    it("should show conflict in change set", async () => {
-      // Create a conflict
-      mkdirSync(join(sessionWorktree, "src"), { recursive: true });
-      writeFileSync(join(sessionWorktree, "src", "app.js"), "// session");
-      writeFileSync(join(originalRepo, "src", "app.js"), "// original");
 
       const changes = [{ path: "src/app.js", isNew: false, deleted: false }];
       await fileSyncService.handleFileChanges(sessionId, changes);
 
-      const changeSet = await fileSyncService.getChangeSet(sessionId);
-      expect(changeSet.hasConflicts).toBe(true);
-    });
-  });
-
-  describe("7.4 Conflict Resolution", () => {
-    beforeEach(async () => {
-      // Setup a conflict
-      mkdirSync(join(sessionWorktree, "src"), { recursive: true });
-      writeFileSync(join(sessionWorktree, "src", "app.js"), "// session");
-      writeFileSync(join(originalRepo, "src", "app.js"), "// original");
-
-      const changes = [{ path: "src/app.js", isNew: false, deleted: false }];
-      await fileSyncService.handleFileChanges(sessionId, changes);
-    });
-
-    it("should resolve conflict by keeping session version", async () => {
-      await fileSyncService.resolveConflict(sessionId, "src/app.js", "session");
-
-      const status = await fileSyncService.getFileStatus(
-        sessionId,
-        "src/app.js",
+      const os = createOS({ ...process.env });
+      const detected = await detectChangedFiles(
+        os,
+        originalRepo,
+        sessionWorktree,
       );
-      expect(status).toBe("clean");
-
-      const content = readFileSync(
-        join(originalRepo, "src", "app.js"),
-        "utf-8",
-      );
-      expect(content).toBe("// session");
-    });
-
-    it("should resolve conflict by keeping original version", async () => {
-      await fileSyncService.resolveConflict(
-        sessionId,
-        "src/app.js",
-        "original",
-      );
-
-      const status = await fileSyncService.getFileStatus(
-        sessionId,
-        "src/app.js",
-      );
-      expect(status).toBe("clean");
-
-      const content = readFileSync(
-        join(sessionWorktree, "src", "app.js"),
-        "utf-8",
-      );
-      expect(content).toBe("// original");
+      expect(
+        detected.files.some(
+          (f) => f.path === "src/app.js" && f.status === "modified",
+        ),
+      ).toBe(true);
     });
   });
 
@@ -281,16 +226,16 @@ describe("File Synchronization", () => {
   });
 
   describe("7.6 File Deletion Handling", () => {
-    it("should sync file deletion to original repo", async () => {
-      // Ensure file exists in both
+    it("does not delete files from the upstream baseline", async () => {
+      // The deletion is recorded for the change set, but upstream/ (the
+      // committed baseline) must keep the file until an explicit commit.
       mkdirSync(join(sessionWorktree, "src"), { recursive: true });
-      writeFileSync(join(sessionWorktree, "src", "old.js"), "// old");
       writeFileSync(join(originalRepo, "src", "old.js"), "// old");
 
       const changes = [{ path: "src/old.js", isNew: false, deleted: true }];
       await fileSyncService.handleFileChanges(sessionId, changes);
 
-      expect(existsSync(join(originalRepo, "src", "old.js"))).toBe(false);
+      expect(existsSync(join(originalRepo, "src", "old.js"))).toBe(true);
     });
 
     it("should mark deleted files with [D] indicator", async () => {
@@ -305,38 +250,6 @@ describe("File Synchronization", () => {
       );
 
       expect(result[0].status).toBe("deleted");
-    });
-  });
-
-  describe("7.7 Manual Sync from Original Repo", () => {
-    it("should pull new files from original repo", async () => {
-      // Add new file to original repo
-      mkdirSync(join(originalRepo, "src"), { recursive: true });
-      writeFileSync(
-        join(originalRepo, "src", "new-feature.js"),
-        "// new feature",
-      );
-
-      const changes = await fileSyncService.manualPullFromOriginal(sessionId);
-
-      expect(changes.length).toBeGreaterThan(0);
-      expect(changes.some((c) => c.path === "src/new-feature.js")).toBe(true);
-      expect(existsSync(join(sessionWorktree, "src", "new-feature.js"))).toBe(
-        true,
-      );
-    });
-
-    it("should detect conflicts during pull", async () => {
-      // File modified in both
-      mkdirSync(join(sessionWorktree, "src"), { recursive: true });
-      writeFileSync(join(sessionWorktree, "src", "app.js"), "// session");
-      writeFileSync(join(originalRepo, "src", "app.js"), "// original changed");
-
-      const changes = await fileSyncService.manualPullFromOriginal(sessionId);
-
-      expect(
-        changes.some((c) => c.path === "src/app.js" && c.status === "conflict"),
-      ).toBe(true);
     });
   });
 });

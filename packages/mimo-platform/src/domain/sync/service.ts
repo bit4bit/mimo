@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import crypto from "crypto";
-import { logger } from "../../logger.js";
 import type { SccService } from "../impact/scc-service.js";
 import { isExcluded } from "../files/path-policy.js";
 import type { OS } from "../../infrastructure/os/types.js";
@@ -33,7 +32,6 @@ export interface FileSyncState {
   upstreamPath: string;
   agentWorkspacePath: string;
   changes: Map<string, FileChange>;
-  baselineChecksums: Map<string, string>; // Track original checksums at last sync
   lastSyncAt?: Date;
 }
 
@@ -77,7 +75,6 @@ export class FileSyncService {
       upstreamPath,
       agentWorkspacePath,
       changes: new Map(),
-      baselineChecksums: new Map(),
     };
 
     this.syncStates.set(sessionId, syncState);
@@ -93,9 +90,13 @@ export class FileSyncService {
     sessionId: string,
     changes: Array<{ path: string; isNew?: boolean; deleted?: boolean }>,
   ): Promise<FileChange[]> {
-    const syncState = this.syncStates.get(sessionId);
+    let syncState = this.syncStates.get(sessionId);
     if (!syncState) {
       await this.initializeSession(sessionId, "", "");
+      syncState = this.syncStates.get(sessionId);
+    }
+    if (!syncState) {
+      return [];
     }
 
     const fileChanges: FileChange[] = [];
@@ -108,306 +109,47 @@ export class FileSyncService {
       } else if (change.isNew) {
         status = "new";
       } else {
-        // Check if file exists in original repo
-        const originalPath = this.os.path.join(
-          syncState!.upstreamPath,
+        // New file if it exists in the agent workspace but not in the
+        // upstream baseline.
+        const baselinePath = this.os.path.join(
+          syncState.upstreamPath,
           change.path,
         );
-        const sessionPath = this.os.path.join(
-          syncState!.agentWorkspacePath,
+        const workspacePath = this.os.path.join(
+          syncState.agentWorkspacePath,
           change.path,
         );
 
         if (
-          !this.os.fs.exists(originalPath) &&
-          this.os.fs.exists(sessionPath)
+          !this.os.fs.exists(baselinePath) &&
+          this.os.fs.exists(workspacePath)
         ) {
           status = "new";
         }
       }
 
-      // Check for conflicts
-      const conflictStatus = await this.checkConflict(
-        sessionId,
-        change.path,
-        status,
-      );
-
       const fileChange: FileChange = {
         path: change.path,
-        status: conflictStatus || status,
+        status,
         timestamp: new Date(),
         ...(status !== "deleted" &&
           (await this.getFileInfo(sessionId, change.path))),
       };
 
-      syncState!.changes.set(change.path, fileChange);
+      syncState.changes.set(change.path, fileChange);
       fileChanges.push(fileChange);
     }
 
-    // Sync changes to original repo
-    await this.syncChangesToUpstream(sessionId, fileChanges);
-
-    // Invalidate SCC cache when there are real changes
-    if (fileChanges.length > 0 && syncState) {
+    // upstream/ is the committed baseline (it carries the external `origin`
+    // remote) and must NOT be mutated here. Agent changes are published
+    // explicitly via CommitService.commitAndPushSelective. We only refresh
+    // derived state so the UI reflects the new agent-workspace content.
+    if (fileChanges.length > 0) {
       this.deps.sccService.invalidateCache(syncState.agentWorkspacePath);
       this.impactStaleHandler?.(sessionId);
     }
 
     return fileChanges;
-  }
-
-  private async checkConflict(
-    sessionId: string,
-    filePath: string,
-    agentStatus: FileStatus,
-  ): Promise<FileStatus | null> {
-    const syncState = this.syncStates.get(sessionId);
-    if (!syncState) return null;
-
-    // Skip conflict check for new files
-    if (agentStatus === "new") return null;
-
-    const originalPath = this.os.path.join(syncState.upstreamPath, filePath);
-
-    // If file doesn't exist in original, no conflict
-    if (!this.os.fs.exists(originalPath)) {
-      return null;
-    }
-
-    // Get checksums
-    const sessionPath = this.os.path.join(
-      syncState.agentWorkspacePath,
-      filePath,
-    );
-
-    if (!this.os.fs.exists(sessionPath)) {
-      // File was deleted in session but exists in original
-      // Check if original was modified since last sync
-      const originalChecksum = await this.calculateChecksum(originalPath);
-      const baselineChecksum = syncState.baselineChecksums.get(filePath);
-
-      if (baselineChecksum && originalChecksum !== baselineChecksum) {
-        return "conflict";
-      }
-      return null;
-    }
-
-    // Compare checksums
-    const originalChecksum = await this.calculateChecksum(originalPath);
-    const sessionChecksum = await this.calculateChecksum(sessionPath);
-    const baselineChecksum = syncState.baselineChecksums.get(filePath);
-
-    // If original changed since last sync and agent also changed it, it's a conflict
-    if (
-      baselineChecksum &&
-      originalChecksum !== baselineChecksum &&
-      sessionChecksum !== baselineChecksum
-    ) {
-      return "conflict";
-    }
-
-    return null;
-  }
-
-  private async syncChangesToUpstream(
-    sessionId: string,
-    changes: FileChange[],
-  ): Promise<void> {
-    const syncState = this.syncStates.get(sessionId);
-    if (!syncState) return;
-
-    for (const change of changes) {
-      if (change.status === "conflict") {
-        // Don't sync conflicts - require manual resolution
-        continue;
-      }
-
-      const sessionPath = this.os.path.join(
-        syncState.agentWorkspacePath,
-        change.path,
-      );
-      const originalPath = this.os.path.join(
-        syncState.upstreamPath,
-        change.path,
-      );
-
-      try {
-        if (change.status === "deleted") {
-          if (this.os.fs.exists(originalPath)) {
-            this.os.fs.unlink(originalPath);
-          }
-          // Remove from baseline
-          syncState.baselineChecksums.delete(change.path);
-        } else if (change.status === "new" || change.status === "modified") {
-          // Ensure directory exists
-          const originalDir = this.os.path.dirname(originalPath);
-          if (!this.os.fs.exists(originalDir)) {
-            this.os.fs.mkdir(originalDir, { recursive: true });
-          }
-
-          // Copy file with permissions
-          if (this.os.fs.exists(sessionPath)) {
-            this.os.fs.copyFile(sessionPath, originalPath);
-
-            // Preserve timestamps if available
-            if (change.lastModified) {
-              this.os.fs.utimes(
-                originalPath,
-                change.lastModified,
-                change.lastModified,
-              );
-            }
-
-            // Update baseline checksum
-            const newChecksum = await this.calculateChecksum(sessionPath);
-            syncState.baselineChecksums.set(change.path, newChecksum);
-          }
-        }
-      } catch (error) {
-        logger.error(`Failed to sync ${change.path}:`, error);
-      }
-    }
-
-    // Update last sync time
-    syncState.lastSyncAt = new Date();
-  }
-
-  async manualPullFromOriginal(sessionId: string): Promise<FileChange[]> {
-    const syncState = this.syncStates.get(sessionId);
-    if (!syncState) {
-      throw new Error(`Session ${sessionId} not initialized`);
-    }
-
-    const changes: FileChange[] = [];
-
-    // Scan original repo for changes
-    await this.scanDirectory(
-      syncState.upstreamPath,
-      syncState.upstreamPath,
-      async (originalPath, relativePath) => {
-        const sessionPath = this.os.path.join(
-          syncState.agentWorkspacePath,
-          relativePath,
-        );
-
-        // Check if file exists in session
-        if (!this.os.fs.exists(sessionPath)) {
-          // File exists in original but not in session - copy it
-          const sessionDir = this.os.path.dirname(sessionPath);
-          if (!this.os.fs.exists(sessionDir)) {
-            this.os.fs.mkdir(sessionDir, { recursive: true });
-          }
-
-          this.os.fs.copyFile(originalPath, sessionPath);
-
-          const fileChange: FileChange = {
-            path: relativePath,
-            status: "modified",
-            timestamp: new Date(),
-            ...(await this.getFileInfo(sessionId, relativePath)),
-          };
-
-          syncState.changes.set(relativePath, fileChange);
-          changes.push(fileChange);
-        } else {
-          // File exists in both - check if different
-          const originalChecksum = await this.calculateChecksum(originalPath);
-          const sessionChecksum = await this.calculateChecksum(sessionPath);
-          const baselineChecksum =
-            syncState.baselineChecksums.get(relativePath);
-
-          if (originalChecksum !== sessionChecksum) {
-            // Check if session file is modified by agent (differs from baseline)
-            const sessionModified =
-              baselineChecksum && sessionChecksum !== baselineChecksum;
-            // Check if original file is modified
-            const originalModified =
-              baselineChecksum && originalChecksum !== baselineChecksum;
-
-            if (sessionModified && originalModified) {
-              // Conflict! Both changed
-              const conflictChange: FileChange = {
-                path: relativePath,
-                status: "conflict",
-                timestamp: new Date(),
-              };
-
-              syncState.changes.set(relativePath, conflictChange);
-              changes.push(conflictChange);
-            } else {
-              // Only original changed or only session changed (not both)
-              // Copy from original to session
-              this.os.fs.copyFile(originalPath, sessionPath);
-
-              // Update baseline
-              syncState.baselineChecksums.set(relativePath, originalChecksum);
-
-              const fileChange: FileChange = {
-                path: relativePath,
-                status: "modified",
-                timestamp: new Date(),
-                ...(await this.getFileInfo(sessionId, relativePath)),
-              };
-
-              syncState.changes.set(relativePath, fileChange);
-              changes.push(fileChange);
-            }
-          }
-        }
-      },
-    );
-
-    syncState.lastSyncAt = new Date();
-    return changes;
-  }
-
-  async resolveConflict(
-    sessionId: string,
-    filePath: string,
-    resolution: "session" | "original" | "merge",
-  ): Promise<void> {
-    const syncState = this.syncStates.get(sessionId);
-    if (!syncState) {
-      throw new Error(`Session ${sessionId} not initialized`);
-    }
-
-    const sessionPath = this.os.path.join(
-      syncState.agentWorkspacePath,
-      filePath,
-    );
-    const originalPath = this.os.path.join(syncState.upstreamPath, filePath);
-
-    if (resolution === "session") {
-      // Keep session version
-      if (this.os.fs.exists(sessionPath)) {
-        const originalDir = this.os.path.dirname(originalPath);
-        if (!this.os.fs.exists(originalDir)) {
-          this.os.fs.mkdir(originalDir, { recursive: true });
-        }
-        this.os.fs.copyFile(sessionPath, originalPath);
-      }
-    } else if (resolution === "original") {
-      // Keep original version
-      if (this.os.fs.exists(originalPath)) {
-        const sessionDir = this.os.path.dirname(sessionPath);
-        if (!this.os.fs.exists(sessionDir)) {
-          this.os.fs.mkdir(sessionDir, { recursive: true });
-        }
-        this.os.fs.copyFile(originalPath, sessionPath);
-      }
-    }
-    // "merge" would require a merge tool - not implemented yet
-
-    // Update status to clean (no longer conflicting)
-    const fileChange: FileChange = {
-      path: filePath,
-      status: "clean",
-      timestamp: new Date(),
-      ...(await this.getFileInfo(sessionId, filePath)),
-    };
-
-    syncState.changes.set(filePath, fileChange);
   }
 
   async getChangeSet(sessionId: string): Promise<ChangeSet> {
@@ -446,17 +188,10 @@ export class FileSyncService {
     const syncState = this.syncStates.get(sessionId);
     if (!syncState) return;
 
-    // First scan the original repo to establish baseline
-    await this.scanDirectory(
-      syncState.upstreamPath,
-      syncState.upstreamPath,
-      async (fullPath, relativePath) => {
-        const checksum = await this.calculateChecksum(fullPath);
-        syncState.baselineChecksums.set(relativePath, checksum);
-      },
-    );
-
-    // Then scan session worktree
+    // Scan the agent workspace and seed every file as clean. upstream/ is the
+    // committed baseline and is never mutated here, so there is no baseline to
+    // track for live diffing — change detection happens on demand via
+    // detectChangedFiles(upstreamPath, agentWorkspacePath).
     await this.scanDirectory(
       syncState.agentWorkspacePath,
       syncState.agentWorkspacePath,

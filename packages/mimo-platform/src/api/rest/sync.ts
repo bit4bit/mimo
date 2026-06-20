@@ -45,46 +45,6 @@ export function createSyncRoutes(mimoContext: MimoContext): Hono {
     return c.json({ path: filePath, status });
   });
 
-  // POST /sync/:sessionId/pull - Pull changes from original repo
-  router.post("/:sessionId/pull", async (c: Context) => {
-    const sessionId = c.req.param("sessionId");
-
-    try {
-      const changes = await service.manualPullFromOriginal(sessionId);
-      return c.json({ success: true, changes });
-    } catch (error) {
-      return c.json(
-        {
-          success: false,
-          error: (error as Error).message,
-        },
-        500,
-      );
-    }
-  });
-
-  // POST /sync/:sessionId/resolve - Resolve a conflict
-  router.post("/:sessionId/resolve", async (c: Context) => {
-    const sessionId = c.req.param("sessionId");
-    const body = (await c.req.json()) as {
-      filePath: string;
-      resolution: "session" | "original" | "merge";
-    };
-
-    try {
-      await service.resolveConflict(sessionId, body.filePath, body.resolution);
-      return c.json({ success: true });
-    } catch (error) {
-      return c.json(
-        {
-          success: false,
-          error: (error as Error).message,
-        },
-        500,
-      );
-    }
-  });
-
   // POST /sync/:sessionId/init - Initialize session sync
   router.post("/:sessionId/init", async (c: Context) => {
     const sessionId = c.req.param("sessionId");
