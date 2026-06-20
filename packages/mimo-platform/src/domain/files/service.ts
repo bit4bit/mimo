@@ -182,12 +182,22 @@ async function walkDir(
   for (const entry of entries) {
     const entryName = entry.name;
     if (entry.isDirectory()) {
-      const relDir = normalizedBase ? `${normalizedBase}/${entryName}` : entryName;
+      const relDir = normalizedBase
+        ? `${normalizedBase}/${entryName}`
+        : entryName;
       if (isExcluded(relDir)) continue;
       if (isDirIgnoredByPatterns(relDir, ignorePatterns)) continue;
-      await walkDir(os.path.join(dirPath, entryName), os, relDir, results, ignorePatterns);
+      await walkDir(
+        os.path.join(dirPath, entryName),
+        os,
+        relDir,
+        results,
+        ignorePatterns,
+      );
     } else if (entry.isFile()) {
-      const relPath = normalizedBase ? `${normalizedBase}/${entryName}` : entryName;
+      const relPath = normalizedBase
+        ? `${normalizedBase}/${entryName}`
+        : entryName;
       if (isExcluded(relPath)) continue;
       results.push(relPath);
     }

@@ -109,7 +109,13 @@ describe("Commit Service — impact record creation", () => {
           linesOfCode: { added: 10, removed: 5, net: 5 },
           complexity: { cyclomatic: 3, cognitive: 1, estimatedMinutes: 10 },
           byLanguage: [
-            { language: "ts", files: 3, linesAdded: 10, linesRemoved: 5, complexityDelta: 3 },
+            {
+              language: "ts",
+              files: 3,
+              linesAdded: 10,
+              linesRemoved: 5,
+              complexityDelta: 3,
+            },
           ],
         },
       }),
@@ -140,10 +146,15 @@ describe("Commit Service — impact record creation", () => {
         },
       },
       fs: {
-        exists: (p: string) => files.has(p) || p === "/tmp/upstream" || p === "/tmp/workspace",
+        exists: (p: string) =>
+          files.has(p) || p === "/tmp/upstream" || p === "/tmp/workspace",
         mkdir: (_dir: string, _opts?: any) => {},
         readdir: (dir: string, _opts?: any) => {
-          const entries: { name: string; isDirectory: () => boolean; isFile: () => boolean }[] = [];
+          const entries: {
+            name: string;
+            isDirectory: () => boolean;
+            isFile: () => boolean;
+          }[] = [];
           for (const [path] of files) {
             if (path.startsWith(dir + "/")) {
               const relative = path.slice(dir.length + 1);
@@ -177,7 +188,7 @@ describe("Commit Service — impact record creation", () => {
       },
       child_process: {
         execSync: () => "",
-        spawn: () => ({} as any),
+        spawn: () => ({}) as any,
       },
       command: {
         run: async () => ({
@@ -245,9 +256,19 @@ describe("Commit Service — impact record creation", () => {
     expect(record.commitHash).toBe("abc123def456");
     expect(record.files).toEqual({ new: 1, changed: 2, deleted: 0 });
     expect(record.linesOfCode).toEqual({ added: 10, removed: 5, net: 5 });
-    expect(record.complexity).toEqual({ cyclomatic: 3, cognitive: 1, estimatedMinutes: 10 });
+    expect(record.complexity).toEqual({
+      cyclomatic: 3,
+      cognitive: 1,
+      estimatedMinutes: 10,
+    });
     expect(record.complexityByLanguage).toEqual([
-      { language: "ts", files: 3, linesAdded: 10, linesRemoved: 5, complexityDelta: 3 },
+      {
+        language: "ts",
+        files: 3,
+        linesAdded: 10,
+        linesRemoved: 5,
+        complexityDelta: 3,
+      },
     ]);
     expect(record.commitDate).toBeInstanceOf(Date);
     expect(record.id).toBeDefined();

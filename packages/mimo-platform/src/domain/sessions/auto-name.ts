@@ -30,8 +30,7 @@ function deriveBase(initialPrompt: string): string {
 
   const truncated = byWords.slice(0, MAX_BASE_LENGTH);
   const lastSpace = truncated.lastIndexOf(" ");
-  const atBoundary =
-    lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated;
+  const atBoundary = lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated;
   return atBoundary.trim() || DEFAULT_NAME;
 }
 

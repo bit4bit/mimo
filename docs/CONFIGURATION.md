@@ -111,9 +111,19 @@ the address the agent uses internally.
   shown to **browser users**. Set this when the platform is deployed behind a custom
   domain / reverse proxy so the displayed URL uses the right scheme, host, and path
   instead of the raw internal VCS port. When unset, the UI falls back to the
-  internal server URL with its hostname swapped to the platform's.
+  internal server URL with its hostname swapped to the platform's. This same public
+  URL is also sent to agents as `publicCloneUrl` and used by agents started with
+  `--external` (see below), so an agent running outside the deployment can clone.
 - **Example**: `MIMO_PUBLIC_VCS_URL=https://yourdomain.com/git`
   → clone URL becomes `https://yourdomain.com/git/<sid>.git/`
+
+### mimo-agent `--external`
+
+The `mimo-agent` CLI flag `--external` tells the agent it runs **outside** the
+platform's deployment (e.g. not in the container). It then clones session repos from
+the public clone URL (`MIMO_PUBLIC_VCS_URL`) instead of the internal `cloneUrl`
+(`MIMO_INTERNAL_VCS_HOST`), which is unreachable from outside. Omit the flag for
+in-deployment agents.
 
 ### MIMO_AGENT_PATH
 

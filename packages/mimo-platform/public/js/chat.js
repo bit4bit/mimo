@@ -750,13 +750,8 @@ function showThreadAttentionNotification(chatThreadId, toolCallTitle) {
   if (Notification.permission !== "granted") return;
 
   let threadName = chatThreadId;
-  if (
-    typeof ChatThreadsState !== "undefined" &&
-    ChatThreadsState?.threads
-  ) {
-    const thread = ChatThreadsState.threads.find(
-      (t) => t.id === chatThreadId,
-    );
+  if (typeof ChatThreadsState !== "undefined" && ChatThreadsState?.threads) {
+    const thread = ChatThreadsState.threads.find((t) => t.id === chatThreadId);
     if (thread?.name) threadName = thread.name;
   }
 
@@ -1497,13 +1492,14 @@ function shouldAcceptStreamingEvent(data) {
   const eventPromptId = data.promptId;
 
   if (!ChatState.currentPromptId) {
-    if (
-      ChatState.streaming.messageElement &&
-      !ChatState.replayRequested
-    ) {
+    if (ChatState.streaming.messageElement && !ChatState.replayRequested) {
       console.warn(
         `[stream-protocol] ${eventType} rejected: currentPromptId is null, requesting replay`,
-        { eventPromptId, sessionId: data.sessionId, chatThreadId: data.chatThreadId },
+        {
+          eventPromptId,
+          sessionId: data.sessionId,
+          chatThreadId: data.chatThreadId,
+        },
       );
       ChatState.replayRequested = true;
       if (window.MIMO_CHAT_SOCKET?.readyState === WebSocket.OPEN) {
@@ -1522,7 +1518,11 @@ function shouldAcceptStreamingEvent(data) {
     } else {
       console.warn(
         `[stream-protocol] ${eventType} rejected: currentPromptId is null`,
-        { eventPromptId, sessionId: data.sessionId, chatThreadId: data.chatThreadId },
+        {
+          eventPromptId,
+          sessionId: data.sessionId,
+          chatThreadId: data.chatThreadId,
+        },
       );
     }
     return false;

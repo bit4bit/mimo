@@ -376,6 +376,48 @@ describe("AgentMessageRouter", () => {
     });
   });
 
+  describe("agent_ready sends internal and public clone URLs", () => {
+    it("includes both cloneUrl and a public clone URL built from MIMO_PUBLIC_VCS_URL", async () => {
+      expect(AgentMessageRouter).not.toBeNull();
+      const deps = makeMocks();
+      deps.mimoContext.env = {
+        PLATFORM_URL: "https://mimo.example.com",
+        MIMO_PUBLIC_VCS_URL: "https://mimo.example.com/git",
+      };
+      deps.sharedVcsServer.getUrl = mock(
+        (sid: string) => `http://platform:8000/${sid}.git/`,
+      );
+      deps.sessionRepository.findByAssignedAgentId = mock(async () => [
+        { id: "sess-1", name: "s", status: "active" },
+      ]);
+      deps.sessionRepository.findById = mock(async () => ({
+        id: "sess-1",
+        agentWorkspaceUser: "u",
+        agentWorkspacePassword: "p",
+      }));
+
+      const sent: any[] = [];
+      const ws = {
+        data: { agentId: "agent-1" },
+        send: mock((raw: string) => sent.push(JSON.parse(raw))),
+      };
+
+      const router = makeRouter(deps);
+      await router.handle("agent-1", ws, {
+        type: "agent_ready",
+        workdir: "/work",
+      });
+
+      const ready = sent.find((m) => m.type === "session_ready");
+      expect(ready).toBeDefined();
+      const session = ready.sessions[0];
+      expect(session.cloneUrl).toBe("http://platform:8000/sess-1.git/");
+      expect(session.publicCloneUrl).toBe(
+        "https://mimo.example.com/git/sess-1.git/",
+      );
+    });
+  });
+
   describe("session_initialized persists model/mode and broadcasts", () => {
     it("should persist modelState and modeState, then broadcast to UI clients", async () => {
       expect(AgentMessageRouter).not.toBeNull();

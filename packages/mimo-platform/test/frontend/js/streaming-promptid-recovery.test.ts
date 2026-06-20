@@ -10,22 +10,20 @@ describe("Streaming promptId recovery", () => {
 
   describe("handleStreamingState restores currentPromptId", () => {
     it("extracts promptId from streaming_state data", () => {
-      expect(source).toContain("const { thoughtContent, messageContent, promptId } = data;");
+      expect(source).toContain(
+        "const { thoughtContent, messageContent, promptId } = data;",
+      );
     });
 
     it("sets currentPromptId when promptId is a valid string", () => {
-      const fnMatch = source.match(
-        /function handleStreamingState[\s\S]*?^}/m,
-      );
+      const fnMatch = source.match(/function handleStreamingState[\s\S]*?^}/m);
       expect(fnMatch).toBeTruthy();
       const fnBody = fnMatch![0];
       expect(fnBody).toContain("ChatState.currentPromptId = promptId");
     });
 
     it("clears replayRequested when restoring promptId", () => {
-      const fnMatch = source.match(
-        /function handleStreamingState[\s\S]*?^}/m,
-      );
+      const fnMatch = source.match(/function handleStreamingState[\s\S]*?^}/m);
       expect(fnMatch).toBeTruthy();
       const fnBody = fnMatch![0];
       expect(fnBody).toContain("ChatState.replayRequested = false");
@@ -53,7 +51,7 @@ describe("Streaming promptId recovery", () => {
       );
       expect(fnMatch).toBeTruthy();
       const fnBody = fnMatch![0];
-      expect(fnBody).toContain("type: \"request_replay\"");
+      expect(fnBody).toContain('type: "request_replay"');
       expect(fnBody).toContain("ChatState.replayRequested = true");
     });
 
@@ -74,9 +72,7 @@ describe("Streaming promptId recovery", () => {
       );
       expect(fnMatch).toBeTruthy();
       const fnBody = fnMatch![0];
-      expect(fnBody).toContain(
-        "ChatState.currentPromptId = eventPromptId",
-      );
+      expect(fnBody).toContain("ChatState.currentPromptId = eventPromptId");
     });
 
     it("returns true after updating mismatched promptId", () => {

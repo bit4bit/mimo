@@ -26,6 +26,7 @@ import { isExcluded } from "../../../../domain/files/path-policy.js";
 import { mcpTokenStore } from "../../../../mcp/token-store.js";
 import { createPlatformMcpServerConfig } from "../../../../mcp/platform-config.js";
 import { DEFAULT_MIMO_HOST } from "../../../../infrastructure/context/mimo-context.js";
+import { buildPublicCloneUrl } from "../../../../domain/vcs/clone-url.js";
 import { handleRefreshImpact } from "../../../../domain/impact/refresh-handler.js";
 import { createInternalApiClient } from "../../../../api/rest/index.js";
 import type {
@@ -87,19 +88,12 @@ export function createSessionsRoutes(
   // the internal URL with its hostname swapped to the platform's.
   const publicVcsUrl = mimoContext.env?.MIMO_PUBLIC_VCS_URL;
   function getBrowserCloneUrl(sessionId: string): string {
-    if (publicVcsUrl) {
-      const base = publicVcsUrl.replace(/\/+$/, "");
-      return `${base}/${sessionId}.git/`;
-    }
-    const cloneUrl = sharedVcsServer.getUrl(sessionId);
-    try {
-      const url = new URL(cloneUrl);
-      const platform = new URL(platformUrl);
-      url.hostname = platform.hostname;
-      return url.toString();
-    } catch {
-      return cloneUrl;
-    }
+    return buildPublicCloneUrl({
+      internalUrl: sharedVcsServer.getUrl(sessionId),
+      platformUrl,
+      publicVcsUrl,
+      sessionId,
+    });
   }
   const fileService = mimoContext.services.fileService;
   const searchService = mimoContext.services.search;

@@ -37,9 +37,9 @@ describe("autoName", () => {
 
   it("dedupes against existing names with a numeric suffix", () => {
     expect(autoName("Fix the bug", ["Fix the bug"])).toBe("Fix the bug (2)");
-    expect(
-      autoName("Fix the bug", ["Fix the bug", "Fix the bug (2)"]),
-    ).toBe("Fix the bug (3)");
+    expect(autoName("Fix the bug", ["Fix the bug", "Fix the bug (2)"])).toBe(
+      "Fix the bug (3)",
+    );
   });
 
   it("falls back to a generic default for empty/whitespace prompts", () => {

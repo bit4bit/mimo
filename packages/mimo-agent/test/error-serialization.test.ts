@@ -100,6 +100,7 @@ describe("error_response serialization", () => {
         platform: "ws://test",
         workDir: "/tmp/work",
         provider: "opencode" as const,
+        external: false,
       },
       sessionManager: {
         getSession: () => ({

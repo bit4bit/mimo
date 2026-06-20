@@ -65,7 +65,9 @@ describe("GitHttpServer Integration", () => {
     const sid = "sess-aaa-111";
     await seedBareRepo(os, reposDir, sid);
 
-    const res = await fetch(`${server.getUrl(sid)}info/refs?service=git-upload-pack`);
+    const res = await fetch(
+      `${server.getUrl(sid)}info/refs?service=git-upload-pack`,
+    );
     expect(res.status).toBe(401);
   });
 
@@ -87,7 +89,13 @@ describe("GitHttpServer Integration", () => {
 
     const dest = join(home, "clone");
     const result = await os.command.run(
-      ["git", "clone", "-q", `http://${USER}:${PASS}@localhost:${port}/${sid}.git`, dest],
+      [
+        "git",
+        "clone",
+        "-q",
+        `http://${USER}:${PASS}@localhost:${port}/${sid}.git`,
+        dest,
+      ],
       { timeoutMs: 30000 },
     );
     expect(result.success).toBe(true);
@@ -108,7 +116,10 @@ describe("GitHttpServer Integration", () => {
     await run(["git", "config", "user.name", "a"], work);
     for (let c = 0; c < 6; c++) {
       for (let f = 0; f < 20; f++) {
-        os.fs.writeFile(join(work, `file-${c}-${f}.txt`), "x".repeat(500) + `\n${c}-${f}\n`);
+        os.fs.writeFile(
+          join(work, `file-${c}-${f}.txt`),
+          "x".repeat(500) + `\n${c}-${f}\n`,
+        );
       }
       await run(["git", "add", "-A"], work);
       await run(["git", "commit", "-qm", `commit ${c}`], work);
@@ -148,7 +159,9 @@ describe("GitHttpServer Integration", () => {
 
     const dest = join(home, "clone");
     const url = `http://${USER}:${PASS}@localhost:${port}/${sid}.git`;
-    await os.command.run(["git", "clone", "-q", url, dest], { timeoutMs: 30000 });
+    await os.command.run(["git", "clone", "-q", url, dest], {
+      timeoutMs: 30000,
+    });
     const run = (cmd: string[]) =>
       os.command.run(cmd, { cwd: dest, timeoutMs: 30000 });
     await run(["git", "config", "user.email", "a@b.c"]);
@@ -158,10 +171,10 @@ describe("GitHttpServer Integration", () => {
     const push = await run(["git", "push", "-q", "origin", "HEAD"]);
     expect(push.success).toBe(true);
 
-    const log = await os.command.run(
-      ["git", "log", "--oneline"],
-      { cwd: bare, timeoutMs: 30000 },
-    );
+    const log = await os.command.run(["git", "log", "--oneline"], {
+      cwd: bare,
+      timeoutMs: 30000,
+    });
     expect(log.output).toContain("change");
   });
 });

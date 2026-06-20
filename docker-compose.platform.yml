@@ -23,7 +23,7 @@ services:
       # users. Leave unset locally (clones use the exposed 8001 port below). Set
       # this behind a custom domain / reverse proxy, e.g. https://yourdomain.com/git
       # See docs/DEPLOYMENT.md.
-      MIMO_PUBLIC_VCS_URL: ${MIMO_PUBLIC_VCS_URL:-"https://localhost:3001"}
+      MIMO_PUBLIC_VCS_URL: ${MIMO_PUBLIC_VCS_URL:-"http://localhost:3001"}
       HOME: "/home/app"
       USER: "app"
       LOGNAME: "app"

@@ -236,6 +236,7 @@ describe("Thread pre-warm: MimoAgent handleRequestState", () => {
           platform: "ws://test",
           workDir: "/tmp/work",
           provider: "opencode" as const,
+          external: false,
         },
         sessionManager: mockSessionManager as any,
         lifecycleManager: lifecycleManager as any,

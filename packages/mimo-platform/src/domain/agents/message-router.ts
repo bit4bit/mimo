@@ -6,6 +6,7 @@ import { AgentService } from "./service.js";
 import type { ChatService } from "../sessions/chat.js";
 import type { SessionModelState, SessionModeState } from "../sessions/state.js";
 import { GitHttpServer } from "../vcs/git-http-server.js";
+import { buildPublicCloneUrl } from "../vcs/clone-url.js";
 import type { MimoContext } from "../../infrastructure/context/mimo-context.js";
 import { normalizeAvailableCommands } from "../sessions/available-commands.js";
 import { createPlatformMcpServerConfig } from "../../mcp/platform-config.js";
@@ -309,6 +310,16 @@ export class AgentMessageRouter {
           const vcsPath =
             this.deps.sessionRepository.getSessionRepoPath(sessionId);
           const cloneUrl = this.deps.sharedVcsServer.getUrl(sessionId);
+          // External clone URL for agents running outside the deployment (e.g.
+          // outside the container). Built from MIMO_PUBLIC_VCS_URL, mirroring the
+          // clone command shown to browser users. The agent picks this over the
+          // internal cloneUrl when started with --external.
+          const publicCloneUrl = buildPublicCloneUrl({
+            internalUrl: cloneUrl,
+            platformUrl: this.deps.platformUrl,
+            publicVcsUrl: this.deps.mimoContext.env?.MIMO_PUBLIC_VCS_URL,
+            sessionId,
+          });
 
           if (!this.deps.os.fs.exists(vcsPath)) {
             logger.warn(
@@ -382,6 +393,7 @@ export class AgentMessageRouter {
             upstreamPath: session.upstreamPath,
             agentWorkspacePath: session.agentWorkspacePath,
             cloneUrl,
+            publicCloneUrl,
             agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
             agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
             modelState: sessionWithCreds?.modelState ?? null,
