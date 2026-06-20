@@ -1,0 +1,50 @@
+services:
+  platform:
+    build:
+      context: .
+      dockerfile: Dockerfile.mimo
+    image: mimo:local
+    user: "${UID}:${GID}"
+    working_dir: /app/packages/mimo-platform
+    command: ["/app/.container/init-platform.sh"]
+    mem_limit: 4g
+    memswap_limit: 4g
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: ${PORT:-"3001"}
+      MIMO_HOST: ${MIMO_HOST:-"localhost"}
+      MIMO_LISTEN_HOST: "0.0.0.0"
+      # Internal: hostname the agent uses to clone session repos (Docker service name).
+      MIMO_INTERNAL_VCS_HOST: ${MIMO_INTERNAL_VCS_HOST:-"platform"}
+      PLATFORM_URL: ${PLATFORM_URL:-"http://localhost:3001"}
+      MIMO_HOME: "${MIMO_HOME:-/home/app/.mimo}"
+      MIMO_INTERNAL_VCS_PORT: "8001"
+      # External: public base URL for the `git clone` command shown to browser
+      # users. Leave unset locally (clones use the exposed 8001 port below). Set
+      # this behind a custom domain / reverse proxy, e.g. https://yourdomain.com/git
+      # See docs/DEPLOYMENT.md.
+      MIMO_PUBLIC_VCS_URL: ${MIMO_PUBLIC_VCS_URL:-"https://localhost:3001"}
+      HOME: "/home/app"
+      USER: "app"
+      LOGNAME: "app"
+      DEBUG: "1"
+      PATH: "/usr/local/cargo/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    ports:
+      - "3001:3001"
+      - "8001:8001"
+    volumes:
+      - mimo-home-platform:/home/app
+      - ~/.mimo-container:/home/app/.mimo
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  mimo-home-platform:
+  # if you want multi agents to work in the same session, use the same volue
+  mimo-home-agent:
