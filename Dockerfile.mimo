@@ -37,6 +37,9 @@ RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
 RUN go install github.com/gszhangwei/open-spdd/cmd/openspdd@latest \
   && cp "$(go env GOPATH)/bin/openspdd" /usr/local/bin/openspdd
 
+# Install openspec
+RUN npm install -g @fission-ai/openspec@latest
+
 ENV ASDF_DIR=/opt/asdf
 RUN git clone https://github.com/asdf-vm/asdf.git "$ASDF_DIR" --branch v0.16.4
 ENV PATH="$ASDF_DIR/bin:$ASDF_DIR/shims:$PATH"
