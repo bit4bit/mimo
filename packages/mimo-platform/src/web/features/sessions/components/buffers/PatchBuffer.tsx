@@ -22,6 +22,7 @@ export const PatchBuffer: FC<PatchBufferProps> = ({ sessionId }) => {
       <div id="patch-context-bar" class="patch-context-bar hidden">
         <span id="patch-file-path" class="text-primary"></span>
         <div class="flex-grow"></div>
+        <span id="patch-change-counter" class="diff-change-counter"></span>
         <button
           type="button"
           id="patch-close-btn"
@@ -51,6 +52,9 @@ export const PatchBuffer: FC<PatchBufferProps> = ({ sessionId }) => {
           <div class="pane-header">PATCHED</div>
           <div id="patch-patched-pane" class="mono-pane"></div>
         </div>
+
+        {/* Change overview track (covers both panes) */}
+        <div id="patch-overview-track" class="diff-overview-track"></div>
       </div>
 
       {/* Empty State */}

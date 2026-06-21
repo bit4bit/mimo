@@ -48,6 +48,8 @@ export interface SessionKeybindingsConfig {
   decreaseFocus?: string;
   approvePatch?: string;
   declinePatch?: string;
+  nextChange?: string;
+  previousChange?: string;
   newSession?: string;
 }
 
@@ -89,6 +91,8 @@ export const defaultSessionKeybindings: SessionKeybindingsConfig = {
   decreaseFocus: "Alt+Shift+ArrowLeft",
   approvePatch: "Control+Enter",
   declinePatch: "Alt+Shift+G",
+  nextChange: "Alt+Shift+ArrowDown",
+  previousChange: "Alt+Shift+ArrowUp",
   newSession: "Alt+Shift+P",
 };
 
@@ -211,6 +215,8 @@ function sanitizeSessionKeybindings(
     "decreaseFocus",
     "approvePatch",
     "declinePatch",
+    "nextChange",
+    "previousChange",
     "newSession",
   ];
 

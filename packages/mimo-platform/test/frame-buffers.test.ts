@@ -185,6 +185,28 @@ describe("Frame buffers integration", () => {
     expect(html).toContain("justify-content: flex-start");
   });
 
+  it("renders the diff change-navigation overview track and module", async () => {
+    const { app, project, token, sessionId } = await createSessionAppAndAuth();
+
+    const res = await app.request(
+      `/projects/${project.id}/sessions/${sessionId}`,
+      {
+        method: "GET",
+        headers: {
+          Cookie: `token=${token}`,
+        },
+      },
+    );
+
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain('src="/js/diff-overview.js"');
+    expect(html).toContain('id="patch-overview-track"');
+    expect(html).toContain('id="patch-change-counter"');
+    expect(html).toContain(".diff-overview-track");
+    expect(html).toContain(".diff-overview-tick--mixed");
+  });
+
   it("renders session keybindings footer bar and script", async () => {
     const { app, project, token, sessionId } = await createSessionAppAndAuth();
 

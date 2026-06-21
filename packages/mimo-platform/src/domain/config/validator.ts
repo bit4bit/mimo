@@ -152,6 +152,8 @@ export class ConfigValidator {
       "decreaseFocus",
       "approvePatch",
       "declinePatch",
+      "nextChange",
+      "previousChange",
     ];
 
     for (const key of supportedKeys) {

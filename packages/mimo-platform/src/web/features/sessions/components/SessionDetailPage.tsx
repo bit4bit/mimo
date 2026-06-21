@@ -491,6 +491,22 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             </span>
             <span class="session-shortcut-desc">Decline patch</span>
           </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.nextChange || "Alt+Shift+ArrowDown",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Next change</span>
+          </span>
+          <span class="session-shortcut-item">
+            <span class="session-shortcut-key">
+              {toEmacsNotation(
+                sessionKeybindings?.previousChange || "Alt+Shift+ArrowUp",
+              )}
+            </span>
+            <span class="session-shortcut-desc">Prev change</span>
+          </span>
           <span class="session-shortcut-item expert-mode-shortcut">
             <span class="session-shortcut-key">
               {toEmacsNotation(
@@ -1574,6 +1590,16 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           border-radius: 4px;
           font-family: monospace;
           font-size: 12px;
+        }
+        .file-diff-body-wrap {
+          display: flex;
+          align-items: stretch;
+        }
+        .file-diff-body {
+          flex: 1;
+          overflow: auto;
+          max-height: 360px;
+          min-width: 0;
         }
         .file-diff-header {
           display: flex;

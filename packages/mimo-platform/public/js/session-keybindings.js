@@ -55,6 +55,8 @@
     decreaseFocus: "Alt+Shift+ArrowLeft",
     approvePatch: "Control+Enter",
     declinePatch: "Alt+Shift+G",
+    nextChange: "Alt+Shift+ArrowDown",
+    previousChange: "Alt+Shift+ArrowUp",
     newSession: "Alt+Shift+P",
   };
 
@@ -100,6 +102,28 @@
 
   function isActiveLeftBuffer(id) {
     return getActiveBufferContext().leftBufferId === id;
+  }
+
+  // Route next/previous-change to the active diff surface. The commit dialog
+  // (a modal overlay) takes precedence when open; otherwise the PatchBuffer
+  // handles it when it is the active left buffer.
+  function routeChangeNav(direction) {
+    if (
+      window.MIMO_COMMIT &&
+      typeof window.MIMO_COMMIT.isOpen === "function" &&
+      window.MIMO_COMMIT.isOpen() &&
+      typeof window.MIMO_COMMIT.navigateChange === "function"
+    ) {
+      return window.MIMO_COMMIT.navigateChange(direction);
+    }
+    if (
+      isActiveLeftBuffer("patches") &&
+      window.MIMO_PATCH_BUFFER &&
+      typeof window.MIMO_PATCH_BUFFER.navigateChange === "function"
+    ) {
+      return window.MIMO_PATCH_BUFFER.navigateChange(direction);
+    }
+    return false;
   }
 
   function activateLeftBuffer(bufferId) {
@@ -698,6 +722,10 @@
         window.MIMO_PATCH_BUFFER.decline();
         handled = true;
       }
+    } else if (bindingMatches(event, keybindings.nextChange)) {
+      handled = routeChangeNav(1);
+    } else if (bindingMatches(event, keybindings.previousChange)) {
+      handled = routeChangeNav(-1);
     } else if (bindingMatches(event, keybindings.newSession)) {
       var projectId = window.MIMO_PROJECT_ID;
       if (projectId) {

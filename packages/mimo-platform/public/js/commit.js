@@ -33,6 +33,30 @@
   let expandedDirs = new Set();
   let statusFilters = { added: true, modified: true, deleted: true };
 
+  // Overview controllers for each rendered file diff; the active one is the
+  // navigation target for the change-navigation keybindings.
+  let fileOverviewControllers = [];
+  let activeCommitController = null;
+
+  function destroyFileOverviews() {
+    fileOverviewControllers.forEach((controller) => {
+      try {
+        controller.destroy();
+      } catch {
+        // ignore teardown errors
+      }
+    });
+    fileOverviewControllers = [];
+    activeCommitController = null;
+  }
+
+  function navigateCommitChange(direction) {
+    if (!activeCommitController) return false;
+    if (direction < 0) activeCommitController.prev();
+    else activeCommitController.next();
+    return true;
+  }
+
   function formatSyncStatus(status) {
     if (!status) {
       return "Sync: unknown";
@@ -190,6 +214,10 @@
 
   // Render the file tree
   function renderTree() {
+    // Tear down overview controllers from the previous render to avoid leaks;
+    // the file diffs are rebuilt below and re-attach fresh controllers.
+    destroyFileOverviews();
+
     if (!previewData || previewData.files.length === 0) {
       commitTree.innerHTML =
         '<div class="commit-empty-state">No changes to commit</div>';
@@ -398,6 +426,9 @@
     title.className = "file-diff-title";
     title.textContent = "Unified Diff";
 
+    const counter = document.createElement("span");
+    counter.className = "diff-change-counter";
+
     const closeBtn = document.createElement("button");
     closeBtn.className = "file-diff-close";
     closeBtn.innerHTML = "×";
@@ -407,6 +438,7 @@
     });
 
     header.appendChild(title);
+    header.appendChild(counter);
     header.appendChild(closeBtn);
     diffEl.appendChild(header);
 
@@ -417,6 +449,14 @@
       diffEl.appendChild(noDiff);
       return diffEl;
     }
+
+    // Scrollable body + its own overview track (one track per file).
+    const bodyWrap = document.createElement("div");
+    bodyWrap.className = "file-diff-body-wrap";
+    const body = document.createElement("div");
+    body.className = "file-diff-body";
+    const track = document.createElement("div");
+    track.className = "diff-overview-track";
 
     file.hunks.forEach((hunk) => {
       const hunkEl = document.createElement("div");
@@ -444,10 +484,50 @@
         hunkEl.appendChild(lineEl);
       });
 
-      diffEl.appendChild(hunkEl);
+      body.appendChild(hunkEl);
     });
 
+    bodyWrap.appendChild(body);
+    bodyWrap.appendChild(track);
+    diffEl.appendChild(bodyWrap);
+
+    attachFileOverview(body, track, counter);
+
     return diffEl;
+  }
+
+  // Attach a change-overview track to a single file's diff body and register
+  // its controller. Interacting with a file makes it the active navigation
+  // target for the keybindings.
+  function attachFileOverview(body, track, counter) {
+    if (!window.MIMO_DIFF_OVERVIEW) return;
+
+    const rows = Array.from(
+      body.querySelectorAll(".diff-hunk-header, .diff-line"),
+    );
+    const hunks = window.MIMO_DIFF_OVERVIEW.collectHunks(rows, (el) => {
+      if (el.classList.contains("diff-line--added")) return "added";
+      if (el.classList.contains("diff-line--removed")) return "removed";
+      return "unchanged";
+    });
+
+    const controller = window.MIMO_DIFF_OVERVIEW.attach({
+      scrollEl: body,
+      trackEl: track,
+      counterEl: counter,
+      totalRows: rows.length,
+      hunks: hunks,
+    });
+
+    fileOverviewControllers.push(controller);
+    // Default the active controller to the most recently rendered file; clicking
+    // or scrolling a file retargets navigation to it.
+    activeCommitController = controller;
+    const makeActive = () => {
+      activeCommitController = controller;
+    };
+    body.addEventListener("mousedown", makeActive);
+    track.addEventListener("mousedown", makeActive);
   }
 
   function showError(message) {
@@ -675,6 +755,12 @@
       await refreshSyncStatus();
     }
   });
+
+  // Expose change-navigation hook for the keybinding registry.
+  window.MIMO_COMMIT = {
+    navigateChange: navigateCommitChange,
+    isOpen: isCommitDialogOpen,
+  };
 
   refreshSyncStatus();
   setInterval(refreshSyncStatus, 15000);

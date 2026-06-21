@@ -77,6 +77,7 @@ export const Layout: FC<LayoutProps> = ({
             <script src="/vendor/highlight/elixir.min.js" defer></script>
           )}
           {sessionId && <script src="/js/diff.js" defer></script>}
+          {sessionId && <script src="/js/diff-overview.js" defer></script>}
           {sessionId && <script src="/js/expert-utils.js" defer></script>}
           {sessionId && <script src="/js/patch-buffer.js" defer></script>}
           {sessionId && <script src="/js/chat-token-utils.js" defer></script>}
@@ -1129,6 +1130,58 @@ export const Layout: FC<LayoutProps> = ({
               font-family: monospace;
               font-size: 12px;
               line-height: 20px;
+            }
+
+            .diff-overview-track {
+              position: relative;
+              width: 10px;
+              flex-shrink: 0;
+              align-self: stretch;
+              background: #232323;
+              border-left: 1px solid #444;
+            }
+
+            .diff-overview-tick {
+              position: absolute;
+              right: 0;
+              width: 100%;
+              border-radius: 2px;
+              cursor: pointer;
+              opacity: 0.85;
+            }
+
+            .diff-overview-tick:hover {
+              opacity: 1;
+            }
+
+            .diff-overview-tick--added {
+              background: #4caf50;
+            }
+
+            .diff-overview-tick--removed {
+              background: #f44336;
+            }
+
+            .diff-overview-tick--mixed {
+              background: linear-gradient(#4caf50, #f44336);
+            }
+
+            .diff-overview-thumb {
+              position: absolute;
+              right: 0;
+              width: 100%;
+              background: rgba(212, 212, 212, 0.12);
+              border: 1px solid rgba(212, 212, 212, 0.3);
+              border-radius: 2px;
+              pointer-events: none;
+            }
+
+            .diff-change-counter {
+              font-family: monospace;
+              font-size: 11px;
+              color: #888;
+              padding: 0 8px;
+              user-select: none;
             }
           `}</style>
         </head>

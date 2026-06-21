@@ -100,6 +100,66 @@
       .replace(/&amp;/g, "&");
   }
 
+  // Active overview controller for the visible diff (drives next/prev keys).
+  let overviewController = null;
+
+  function renderRow(line, side) {
+    const isRemoved = side === "original" && line.type === "removed";
+    const isAdded = side === "patched" && line.type === "added";
+    const bg = isRemoved ? "#3a1a1a" : isAdded ? "#1a3a1a" : "transparent";
+    const accent = isRemoved ? "#f44336" : isAdded ? "#4caf50" : "transparent";
+    const marker = isRemoved ? "─" : isAdded ? "+" : "";
+
+    return (
+      '<div style="display:flex;background:' +
+      bg +
+      ";border-left:2px solid " +
+      accent +
+      ';padding:0 8px;" data-line-type="' +
+      line.type +
+      '">' +
+      '<span style="color:#555;text-align:right;user-select:none;min-width:40px;flex-shrink:0;padding-right:8px;">' +
+      (line.lineNumber || "") +
+      '</span><span style="color:#888;user-select:none;width:16px;">' +
+      marker +
+      '</span><span style="white-space:pre;flex:1;">' +
+      escapeHtml(line.content) +
+      "</span></div>"
+    );
+  }
+
+  function buildCanonicalHunks(canonical) {
+    if (!window.MIMO_DIFF_OVERVIEW) return [];
+    const rows = canonical.original.map(function (o, i) {
+      return { original: o, patched: canonical.patched[i] };
+    });
+    return window.MIMO_DIFF_OVERVIEW.collectHunks(rows, function (row) {
+      if (row.patched && row.patched.type === "added") return "added";
+      if (row.original && row.original.type === "removed") return "removed";
+      return "unchanged";
+    });
+  }
+
+  function attachOverview(canonical) {
+    if (overviewController) {
+      overviewController.destroy();
+      overviewController = null;
+    }
+
+    const trackEl = document.getElementById("patch-overview-track");
+    const patchedPane = document.getElementById("patch-patched-pane");
+    if (!trackEl || !patchedPane || !window.MIMO_DIFF_OVERVIEW) return;
+
+    const hunks = buildCanonicalHunks(canonical);
+    overviewController = window.MIMO_DIFF_OVERVIEW.attach({
+      scrollEl: patchedPane,
+      trackEl: trackEl,
+      counterEl: document.getElementById("patch-change-counter"),
+      totalRows: canonical.original.length,
+      hunks: hunks,
+    });
+  }
+
   function renderDiff(originalContent, patchedContent) {
     const originalPane = document.getElementById("patch-original-pane");
     const patchedPane = document.getElementById("patch-patched-pane");
@@ -116,62 +176,23 @@
       return;
     }
 
-    // Render original pane (highlight removed lines)
-    let originalHtml = "";
-    diff.original.lines.forEach(function (line) {
-      const isRemoved = line.type === "removed";
-      const bg = isRemoved ? "#3a1a1a" : "transparent";
-      const borderLeft = isRemoved
-        ? "2px solid #f44336"
-        : "2px solid transparent";
-      const marker = isRemoved ? "─" : "";
+    // Align both panes to one canonical row count so unchanged lines sit at the
+    // same vertical position. This makes pixel scrollTop sync exact (no drift)
+    // and backs the shared overview track.
+    const canonical = window.MIMO_DIFF.alignToCanonicalRows
+      ? window.MIMO_DIFF.alignToCanonicalRows(diff)
+      : { original: diff.original.lines, patched: diff.modified.lines };
 
-      originalHtml +=
-        '<div style="display:flex;background:' +
-        bg +
-        ";border-left:" +
-        borderLeft +
-        ';padding:0 8px;" data-line-type="' +
-        line.type +
-        '"" >' +
-        '<span style="color:#555;text-align:right;user-select:none;min-width:40px;flex-shrink:0;padding-right:8px;">' +
-        (line.lineNumber || "") +
-        '</span><span style="color:#888;user-select:none;width:16px;">' +
-        marker +
-        '</span><span style="white-space:pre;flex:1;">' +
-        escapeHtml(line.content) +
-        "</span></div>";
-    });
-
-    // Render patched pane (highlight added lines)
-    let patchedHtml = "";
-    diff.modified.lines.forEach(function (line) {
-      const isAdded = line.type === "added";
-      const bg = isAdded ? "#1a3a1a" : "transparent";
-      const borderLeft = isAdded
-        ? "2px solid #4caf50"
-        : "2px solid transparent";
-      const marker = isAdded ? "+" : "";
-
-      patchedHtml +=
-        '<div style="display:flex;background:' +
-        bg +
-        ";border-left:" +
-        borderLeft +
-        ';padding:0 8px;" data-line-type="' +
-        line.type +
-        '"">' +
-        '<span style="color:#555;text-align:right;user-select:none;min-width:40px;flex-shrink:0;padding-right:8px;">' +
-        (line.lineNumber || "") +
-        '</span><span style="color:#888;user-select:none;width:16px;">' +
-        marker +
-        '</span><span style="white-space:pre;flex:1;">' +
-        escapeHtml(line.content) +
-        "</span></div>";
-    });
-
-    originalPane.innerHTML = originalHtml;
-    patchedPane.innerHTML = patchedHtml;
+    originalPane.innerHTML = canonical.original
+      .map(function (line) {
+        return renderRow(line, "original");
+      })
+      .join("");
+    patchedPane.innerHTML = canonical.patched
+      .map(function (line) {
+        return renderRow(line, "patched");
+      })
+      .join("");
 
     // Sync scrolling
     let syncing = false;
@@ -187,6 +208,15 @@
       originalPane.scrollTop = patchedPane.scrollTop;
       syncing = false;
     });
+
+    attachOverview(canonical);
+  }
+
+  function navigateChange(direction) {
+    if (!overviewController) return false;
+    if (direction < 0) overviewController.prev();
+    else overviewController.next();
+    return true;
   }
 
   // ── UI Rendering ───────────────────────────────────────────────────────────
@@ -264,6 +294,10 @@
       if (ctxBar) ctxBar.style.display = "none";
       if (diffContainer) diffContainer.style.display = "none";
       if (emptyState) emptyState.style.display = "flex";
+      if (overviewController) {
+        overviewController.destroy();
+        overviewController = null;
+      }
       return;
     }
 
@@ -587,6 +621,7 @@
     close: closeActiveTab,
     focusDiffPane,
     showStaleWarning,
+    navigateChange,
     init,
   };
 

@@ -106,8 +106,54 @@
     };
   }
 
+  // Merge the two independent diff panes into a single aligned row sequence so
+  // both sides share one canonical row count. Removed lines emit an
+  // original-side row with a patched-side placeholder; added lines do the
+  // reverse; unchanged lines (the LCS anchors) are paired at the same index.
+  // This makes pixel-based scrollTop sync exact (no drift) and gives the
+  // overview track a single row indexing for both panes.
+  function placeholderRow() {
+    return { type: "placeholder", content: "", lineNumber: null };
+  }
+
+  function alignToCanonicalRows(diff) {
+    const originalLines =
+      diff && diff.original && diff.original.lines ? diff.original.lines : [];
+    const modifiedLines =
+      diff && diff.modified && diff.modified.lines ? diff.modified.lines : [];
+
+    const original = [];
+    const patched = [];
+
+    let i = 0;
+    let j = 0;
+    while (i < originalLines.length || j < modifiedLines.length) {
+      const o = i < originalLines.length ? originalLines[i] : null;
+      const m = j < modifiedLines.length ? modifiedLines[j] : null;
+
+      if (o && o.type === "removed") {
+        original.push(o);
+        patched.push(placeholderRow());
+        i++;
+      } else if (m && m.type === "added") {
+        original.push(placeholderRow());
+        patched.push(m);
+        j++;
+      } else {
+        // Unchanged anchor (or end of one side) — pair the rows.
+        original.push(o || placeholderRow());
+        patched.push(m || placeholderRow());
+        if (o) i++;
+        if (m) j++;
+      }
+    }
+
+    return { original, patched };
+  }
+
   const MIMO_DIFF = {
     computeDiff,
+    alignToCanonicalRows,
   };
 
   if (typeof window !== "undefined") {
