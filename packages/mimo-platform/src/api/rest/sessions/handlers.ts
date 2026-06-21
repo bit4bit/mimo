@@ -15,6 +15,112 @@ import type {
   CloseSessionRequest,
 } from "./types.js";
 import { toSessionResponse, toChatThreadResponse } from "./types.js";
+import { authorizeUse } from "../../../domain/agents/sharing.js";
+import type { MimoContext } from "../../../infrastructure/context/mimo-context.js";
+import type { Session } from "../../../domain/sessions/repository.js";
+
+// ─── Shared handler helpers ──────────────────────────────────────────────────
+
+/** Extracts a human-readable message from a thrown value. */
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+/** A guard either yields a value to proceed with, or a response to return. */
+type Guard<T> = { ok: true; value: T } | { ok: false; response: Response };
+
+interface OwnedSession {
+  user: { username: string };
+  mimoContext: MimoContext;
+  session: Session;
+}
+
+/**
+ * Resolves the session referenced by the `:id` route param, owned by the
+ * authenticated user. Returns the appropriate error response otherwise:
+ * 401 (unauthenticated), 400 (missing id), or 404 (not found / not owner).
+ */
+async function resolveOwnedSession(
+  c: InternalApiContext,
+): Promise<Guard<OwnedSession>> {
+  const user = c.get("user");
+  if (!user) {
+    return {
+      ok: false,
+      response: c.json(errorResponse("Unauthorized", 401), 401),
+    };
+  }
+
+  const id = c.req.param("id");
+  if (!id) {
+    return {
+      ok: false,
+      response: c.json(errorResponse("Session ID is required", 400), 400),
+    };
+  }
+
+  const mimoContext = c.get("mimoContext");
+  const session = await mimoContext.repos.sessions.findById(id);
+  if (!session || session.owner !== user.username) {
+    return {
+      ok: false,
+      response: c.json(errorResponse("Session not found", 404), 404),
+    };
+  }
+
+  return { ok: true, value: { user, mimoContext, session } };
+}
+
+/** True if the user owns the agent or it is shared with them. */
+async function userMayUseAgent(
+  mimoContext: MimoContext,
+  agentId: string,
+  username: string,
+): Promise<boolean> {
+  const agent = await mimoContext.repos.agents.findById(agentId);
+  return !!agent && authorizeUse(agent, username);
+}
+
+/**
+ * Validates the shared session config fields (priority, sessionTtlDays,
+ * idleTimeoutMs). Returns an error message, or null when valid.
+ */
+function validateSessionConfig(body: {
+  priority?: unknown;
+  sessionTtlDays?: unknown;
+  idleTimeoutMs?: unknown;
+}): string | null {
+  if (body.priority !== undefined) {
+    const valid = ["high", "medium", "low"];
+    if (!valid.includes(body.priority as string)) {
+      return "Priority must be one of: high, medium, low";
+    }
+  }
+  if (body.sessionTtlDays !== undefined) {
+    const v = body.sessionTtlDays;
+    if (!Number.isInteger(v) || (v as number) < 1) {
+      return "sessionTtlDays must be an integer >= 1";
+    }
+  }
+  if (body.idleTimeoutMs !== undefined) {
+    const v = body.idleTimeoutMs as number;
+    if (v !== 0 && v < 10000) {
+      return "idleTimeoutMs must be at least 10000ms or 0 to disable";
+    }
+  }
+  return null;
+}
+
+/** Validates clonePort when present. Returns an error message, or null. */
+function validateClonePort(body: { clonePort?: unknown }): string | null {
+  if (body.clonePort !== undefined && body.clonePort !== null) {
+    const v = body.clonePort as number;
+    if (!Number.isInteger(v) || v < 1 || v > 65535) {
+      return "SSH port must be an integer between 1 and 65535";
+    }
+  }
+  return null;
+}
 
 /**
  * Touch session activity to update lastActivityAt.
@@ -23,22 +129,10 @@ import { toSessionResponse, toChatThreadResponse } from "./types.js";
 export async function touchSessionHandler(
   c: InternalApiContext,
 ): Promise<Response> {
-  const user = c.get("user") as { username: string } | undefined;
-  if (!user) {
-    return c.json(errorResponse("Unauthorized", 401), 401);
-  }
-
-  const id = c.req.param("id");
-  if (!id) {
-    return c.json(errorResponse("Session ID is required", 400), 400);
-  }
-
-  const mimoContext = c.get("mimoContext");
-  const session = await mimoContext.repos.sessions.findById(id);
-
-  if (!session || session.owner !== user.username) {
-    return c.json(errorResponse("Session not found", 404), 404);
-  }
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { user, mimoContext, session } = guard.value;
+  const id = session.id;
 
   await mimoContext.repos.sessions.touchSessionActivity(id);
 
@@ -52,57 +146,16 @@ export async function touchSessionHandler(
 export async function updateSessionConfigHandler(
   c: InternalApiContext,
 ): Promise<Response> {
-  const user = c.get("user") as { username: string } | undefined;
-  if (!user) {
-    return c.json(errorResponse("Unauthorized", 401), 401);
-  }
-
-  const id = c.req.param("id");
-  if (!id) {
-    return c.json(errorResponse("Session ID is required", 400), 400);
-  }
-
-  const mimoContext = c.get("mimoContext");
-  const session = await mimoContext.repos.sessions.findById(id);
-
-  if (!session || session.owner !== user.username) {
-    return c.json(errorResponse("Session not found", 404), 404);
-  }
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { user, mimoContext, session } = guard.value;
+  const id = session.id;
 
   const body = (await c.req.json()) as UpdateSessionRequest;
 
-  // Validate priority if provided
-  if (body.priority !== undefined) {
-    const valid: Array<"high" | "medium" | "low"> = ["high", "medium", "low"];
-    if (!valid.includes(body.priority)) {
-      return c.json(
-        errorResponse("Priority must be one of: high, medium, low", 400),
-        400,
-      );
-    }
-  }
-
-  // Validate sessionTtlDays if provided
-  if (body.sessionTtlDays !== undefined) {
-    if (!Number.isInteger(body.sessionTtlDays) || body.sessionTtlDays < 1) {
-      return c.json(
-        errorResponse("sessionTtlDays must be an integer >= 1", 400),
-        400,
-      );
-    }
-  }
-
-  // Validate idleTimeoutMs if provided
-  if (body.idleTimeoutMs !== undefined) {
-    if (body.idleTimeoutMs !== 0 && body.idleTimeoutMs < 10000) {
-      return c.json(
-        errorResponse(
-          "idleTimeoutMs must be at least 10000ms or 0 to disable",
-          400,
-        ),
-        400,
-      );
-    }
+  const configError = validateSessionConfig(body);
+  if (configError) {
+    return c.json(errorResponse(configError, 400), 400);
   }
 
   // Validate browserNotificationsEnabled if provided
@@ -138,11 +191,13 @@ export async function updateSessionConfigHandler(
       }),
     );
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Failed to update session config";
-    return c.json(errorResponse(message, 500), 500);
+    return c.json(
+      errorResponse(
+        errorMessage(error, "Failed to update session config"),
+        500,
+      ),
+      500,
+    );
   }
 }
 
@@ -176,26 +231,12 @@ export async function listSessionsHandler(
 export async function getSessionHandler(
   c: InternalApiContext,
 ): Promise<Response> {
-  const user = c.get("user") as { username: string } | undefined;
-  if (!user) {
-    return c.json(errorResponse("Unauthorized", 401), 401);
-  }
-
-  const id = c.req.param("id");
-  if (!id) {
-    return c.json(errorResponse("Session ID is required", 400), 400);
-  }
-
-  const mimoContext = c.get("mimoContext");
-  const session = await mimoContext.repos.sessions.findById(id);
-
-  if (!session || session.owner !== user.username) {
-    return c.json(errorResponse("Session not found", 404), 404);
-  }
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
 
   return c.json(
     successResponse({
-      session: toSessionResponse(session),
+      session: toSessionResponse(guard.value.session),
     }),
   );
 }
@@ -220,58 +261,29 @@ export async function createSessionHandler(
     return c.json(errorResponse("Name and project ID are required", 400), 400);
   }
 
-  // Validate priority if provided
-  if (body.priority !== undefined) {
-    const valid: Array<"high" | "medium" | "low"> = ["high", "medium", "low"];
-    if (!valid.includes(body.priority)) {
-      return c.json(
-        errorResponse("Priority must be one of: high, medium, low", 400),
-        400,
-      );
-    }
+  const configError = validateSessionConfig(body);
+  if (configError) {
+    return c.json(errorResponse(configError, 400), 400);
   }
 
-  // Validate sessionTtlDays if provided
-  if (body.sessionTtlDays !== undefined) {
-    if (!Number.isInteger(body.sessionTtlDays) || body.sessionTtlDays < 1) {
-      return c.json(
-        errorResponse("sessionTtlDays must be an integer >= 1", 400),
-        400,
-      );
-    }
-  }
-
-  // Validate idleTimeoutMs if provided
-  if (body.idleTimeoutMs !== undefined) {
-    if (body.idleTimeoutMs !== 0 && body.idleTimeoutMs < 10000) {
-      return c.json(
-        errorResponse(
-          "idleTimeoutMs must be at least 10000ms or 0 to disable",
-          400,
-        ),
-        400,
-      );
-    }
-  }
-
-  // Validate clonePort if provided
-  if (body.clonePort !== undefined && body.clonePort !== null) {
-    if (
-      !Number.isInteger(body.clonePort) ||
-      body.clonePort < 1 ||
-      body.clonePort > 65535
-    ) {
-      return c.json(
-        errorResponse("SSH port must be an integer between 1 and 65535", 400),
-        400,
-      );
-    }
+  const portError = validateClonePort(body);
+  if (portError) {
+    return c.json(errorResponse(portError, 400), 400);
   }
 
   // Verify project exists and belongs to user
   const project = await mimoContext.repos.projects.findById(body.projectId);
   if (!project || project.owner !== user.username) {
     return c.json(errorResponse("Project not found", 404), 404);
+  }
+
+  // If assigning an agent up front, the user must own it or it must be shared
+  // with them.
+  if (
+    body.assignedAgentId &&
+    !(await userMayUseAgent(mimoContext, body.assignedAgentId, user.username))
+  ) {
+    return c.json(errorResponse("Agent not found", 404), 404);
   }
 
   try {
@@ -298,9 +310,10 @@ export async function createSessionHandler(
       201,
     );
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to create session";
-    return c.json(errorResponse(message, 500), 500);
+    return c.json(
+      errorResponse(errorMessage(error, "Failed to create session"), 500),
+      500,
+    );
   }
 }
 
@@ -311,71 +324,21 @@ export async function createSessionHandler(
 export async function updateSessionHandler(
   c: InternalApiContext,
 ): Promise<Response> {
-  const user = c.get("user") as { username: string } | undefined;
-  if (!user) {
-    return c.json(errorResponse("Unauthorized", 401), 401);
-  }
-
-  const id = c.req.param("id");
-  if (!id) {
-    return c.json(errorResponse("Session ID is required", 400), 400);
-  }
-
-  const mimoContext = c.get("mimoContext");
-  const session = await mimoContext.repos.sessions.findById(id);
-
-  if (!session || session.owner !== user.username) {
-    return c.json(errorResponse("Session not found", 404), 404);
-  }
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { user, mimoContext, session } = guard.value;
+  const id = session.id;
 
   const body = (await c.req.json()) as UpdateSessionRequest;
 
-  // Validate clonePort if provided
-  if (body.clonePort !== undefined && body.clonePort !== null) {
-    if (
-      !Number.isInteger(body.clonePort) ||
-      body.clonePort < 1 ||
-      body.clonePort > 65535
-    ) {
-      return c.json(
-        errorResponse("SSH port must be an integer between 1 and 65535", 400),
-        400,
-      );
-    }
+  const portError = validateClonePort(body);
+  if (portError) {
+    return c.json(errorResponse(portError, 400), 400);
   }
 
-  // Validate priority if provided
-  if (body.priority !== undefined) {
-    const valid: Array<"high" | "medium" | "low"> = ["high", "medium", "low"];
-    if (!valid.includes(body.priority)) {
-      return c.json(
-        errorResponse("Priority must be one of: high, medium, low", 400),
-        400,
-      );
-    }
-  }
-
-  // Validate sessionTtlDays if provided
-  if (body.sessionTtlDays !== undefined) {
-    if (!Number.isInteger(body.sessionTtlDays) || body.sessionTtlDays < 1) {
-      return c.json(
-        errorResponse("sessionTtlDays must be an integer >= 1", 400),
-        400,
-      );
-    }
-  }
-
-  // Validate idleTimeoutMs if provided
-  if (body.idleTimeoutMs !== undefined) {
-    if (body.idleTimeoutMs !== 0 && body.idleTimeoutMs < 10000) {
-      return c.json(
-        errorResponse(
-          "idleTimeoutMs must be at least 10000ms or 0 to disable",
-          400,
-        ),
-        400,
-      );
-    }
+  const configError = validateSessionConfig(body);
+  if (configError) {
+    return c.json(errorResponse(configError, 400), 400);
   }
 
   try {
@@ -411,9 +374,10 @@ export async function updateSessionHandler(
       }),
     );
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to update session";
-    return c.json(errorResponse(message, 500), 500);
+    return c.json(
+      errorResponse(errorMessage(error, "Failed to update session"), 500),
+      500,
+    );
   }
 }
 
@@ -424,22 +388,10 @@ export async function updateSessionHandler(
 export async function deleteSessionHandler(
   c: InternalApiContext,
 ): Promise<Response> {
-  const user = c.get("user") as { username: string } | undefined;
-  if (!user) {
-    return c.json(errorResponse("Unauthorized", 401), 401);
-  }
-
-  const id = c.req.param("id");
-  if (!id) {
-    return c.json(errorResponse("Session ID is required", 400), 400);
-  }
-
-  const mimoContext = c.get("mimoContext");
-  const session = await mimoContext.repos.sessions.findById(id);
-
-  if (!session || session.owner !== user.username) {
-    return c.json(errorResponse("Session not found", 404), 404);
-  }
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { user, mimoContext, session } = guard.value;
+  const id = session.id;
 
   await mimoContext.repos.sessions.delete(session.projectId, id);
 
@@ -453,22 +405,10 @@ export async function deleteSessionHandler(
 export async function getChatHistoryHandler(
   c: InternalApiContext,
 ): Promise<Response> {
-  const user = c.get("user") as { username: string } | undefined;
-  if (!user) {
-    return c.json(errorResponse("Unauthorized", 401), 401);
-  }
-
-  const id = c.req.param("id");
-  if (!id) {
-    return c.json(errorResponse("Session ID is required", 400), 400);
-  }
-
-  const mimoContext = c.get("mimoContext");
-  const session = await mimoContext.repos.sessions.findById(id);
-
-  if (!session || session.owner !== user.username) {
-    return c.json(errorResponse("Session not found", 404), 404);
-  }
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { user, mimoContext, session } = guard.value;
+  const id = session.id;
 
   const threadId = c.req.query("threadId") || session.activeChatThreadId;
   const messages = await mimoContext.services.chat.loadHistory(
@@ -490,22 +430,10 @@ export async function getChatHistoryHandler(
 export async function assignAgentHandler(
   c: InternalApiContext,
 ): Promise<Response> {
-  const user = c.get("user") as { username: string } | undefined;
-  if (!user) {
-    return c.json(errorResponse("Unauthorized", 401), 401);
-  }
-
-  const id = c.req.param("id");
-  if (!id) {
-    return c.json(errorResponse("Session ID is required", 400), 400);
-  }
-
-  const mimoContext = c.get("mimoContext");
-  const session = await mimoContext.repos.sessions.findById(id);
-
-  if (!session || session.owner !== user.username) {
-    return c.json(errorResponse("Session not found", 404), 404);
-  }
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { user, mimoContext, session } = guard.value;
+  const id = session.id;
 
   const body = (await c.req.json()) as AssignAgentRequest;
 
@@ -513,9 +441,8 @@ export async function assignAgentHandler(
     return c.json(errorResponse("Agent ID is required", 400), 400);
   }
 
-  // Verify agent exists
-  const agent = await mimoContext.repos.agents.findById(body.agentId);
-  if (!agent) {
+  // Verify the user may use the agent (owned or shared with them).
+  if (!(await userMayUseAgent(mimoContext, body.agentId, user.username))) {
     return c.json(errorResponse("Agent not found", 404), 404);
   }
 
@@ -534,9 +461,10 @@ export async function assignAgentHandler(
       }),
     );
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to assign agent";
-    return c.json(errorResponse(message, 500), 500);
+    return c.json(
+      errorResponse(errorMessage(error, "Failed to assign agent"), 500),
+      500,
+    );
   }
 }
 
@@ -547,22 +475,10 @@ export async function assignAgentHandler(
 export async function closeSessionHandler(
   c: InternalApiContext,
 ): Promise<Response> {
-  const user = c.get("user") as { username: string } | undefined;
-  if (!user) {
-    return c.json(errorResponse("Unauthorized", 401), 401);
-  }
-
-  const id = c.req.param("id");
-  if (!id) {
-    return c.json(errorResponse("Session ID is required", 400), 400);
-  }
-
-  const mimoContext = c.get("mimoContext");
-  const session = await mimoContext.repos.sessions.findById(id);
-
-  if (!session || session.owner !== user.username) {
-    return c.json(errorResponse("Session not found", 404), 404);
-  }
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { user, mimoContext, session } = guard.value;
+  const id = session.id;
 
   const body = (await c.req.json().catch(() => ({}))) as CloseSessionRequest;
 
@@ -582,9 +498,10 @@ export async function closeSessionHandler(
       }),
     );
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to close session";
-    return c.json(errorResponse(message, 500), 500);
+    return c.json(
+      errorResponse(errorMessage(error, "Failed to close session"), 500),
+      500,
+    );
   }
 }
 
@@ -595,22 +512,10 @@ export async function closeSessionHandler(
 export async function getSessionDetailsHandler(
   c: InternalApiContext,
 ): Promise<Response> {
-  const user = c.get("user") as { username: string } | undefined;
-  if (!user) {
-    return c.json(errorResponse("Unauthorized", 401), 401);
-  }
-
-  const id = c.req.param("id");
-  if (!id) {
-    return c.json(errorResponse("Session ID is required", 400), 400);
-  }
-
-  const mimoContext = c.get("mimoContext");
-  const session = await mimoContext.repos.sessions.findById(id);
-
-  if (!session || session.owner !== user.username) {
-    return c.json(errorResponse("Session not found", 404), 404);
-  }
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { user, mimoContext, session } = guard.value;
+  const id = session.id;
 
   // Get project info
   const project = await mimoContext.repos.projects.findById(session.projectId);
@@ -661,22 +566,10 @@ export async function getSessionDetailsHandler(
 export async function addChatThreadHandler(
   c: InternalApiContext,
 ): Promise<Response> {
-  const user = c.get("user") as { username: string } | undefined;
-  if (!user) {
-    return c.json(errorResponse("Unauthorized", 401), 401);
-  }
-
-  const sessionId = c.req.param("id");
-  if (!sessionId) {
-    return c.json(errorResponse("Session ID is required", 400), 400);
-  }
-
-  const mimoContext = c.get("mimoContext");
-  const session = await mimoContext.repos.sessions.findById(sessionId);
-
-  if (!session || session.owner !== user.username) {
-    return c.json(errorResponse("Session not found", 404), 404);
-  }
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { user, mimoContext, session } = guard.value;
+  const sessionId = session.id;
 
   const body = await c.req.json();
 
@@ -695,6 +588,13 @@ export async function addChatThreadHandler(
 
   if (!body.assignedAgentId || typeof body.assignedAgentId !== "string") {
     return c.json(errorResponse("assignedAgentId is required", 400), 400);
+  }
+
+  // The user may only assign agents they own or that are shared with them.
+  if (
+    !(await userMayUseAgent(mimoContext, body.assignedAgentId, user.username))
+  ) {
+    return c.json(errorResponse("Agent not found", 404), 404);
   }
 
   // Resolve instructions: thread > session > project
@@ -724,9 +624,10 @@ export async function addChatThreadHandler(
       ...(instructions !== undefined && { instructions }),
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to add chat thread";
-    return c.json(errorResponse(message, 400), 400);
+    return c.json(
+      errorResponse(errorMessage(error, "Failed to add chat thread"), 400),
+      400,
+    );
   }
 
   // Save instructions as system message in chat history
@@ -771,26 +672,18 @@ export async function addChatThreadHandler(
 export async function updateChatThreadHandler(
   c: InternalApiContext,
 ): Promise<Response> {
-  const user = c.get("user") as { username: string } | undefined;
-  if (!user) {
-    return c.json(errorResponse("Unauthorized", 401), 401);
-  }
-
-  const sessionId = c.req.param("id");
   const threadId = c.req.param("threadId");
-  if (!sessionId || !threadId) {
+  if (!threadId) {
     return c.json(
       errorResponse("Session ID and thread ID are required", 400),
       400,
     );
   }
 
-  const mimoContext = c.get("mimoContext");
-  const session = await mimoContext.repos.sessions.findById(sessionId);
-
-  if (!session || session.owner !== user.username) {
-    return c.json(errorResponse("Session not found", 404), 404);
-  }
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { user, mimoContext, session } = guard.value;
+  const sessionId = session.id;
 
   const body = await c.req.json();
   const updates: Partial<
@@ -817,9 +710,10 @@ export async function updateChatThreadHandler(
       updates,
     );
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to update chat thread";
-    return c.json(errorResponse(message, 400), 400);
+    return c.json(
+      errorResponse(errorMessage(error, "Failed to update chat thread"), 400),
+      400,
+    );
   }
 
   if (!updated) {
@@ -842,26 +736,18 @@ export async function updateChatThreadHandler(
 export async function deleteChatThreadHandler(
   c: InternalApiContext,
 ): Promise<Response> {
-  const user = c.get("user") as { username: string } | undefined;
-  if (!user) {
-    return c.json(errorResponse("Unauthorized", 401), 401);
-  }
-
-  const sessionId = c.req.param("id");
   const threadId = c.req.param("threadId");
-  if (!sessionId || !threadId) {
+  if (!threadId) {
     return c.json(
       errorResponse("Session ID and thread ID are required", 400),
       400,
     );
   }
 
-  const mimoContext = c.get("mimoContext");
-  const session = await mimoContext.repos.sessions.findById(sessionId);
-
-  if (!session || session.owner !== user.username) {
-    return c.json(errorResponse("Session not found", 404), 404);
-  }
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { user, mimoContext, session } = guard.value;
+  const sessionId = session.id;
 
   const threadExists = session.chatThreads.some((t) => t.id === threadId);
   if (!threadExists) {
@@ -880,22 +766,10 @@ export async function deleteChatThreadHandler(
 export async function setActiveChatThreadHandler(
   c: InternalApiContext,
 ): Promise<Response> {
-  const user = c.get("user") as { username: string } | undefined;
-  if (!user) {
-    return c.json(errorResponse("Unauthorized", 401), 401);
-  }
-
-  const sessionId = c.req.param("id");
-  if (!sessionId) {
-    return c.json(errorResponse("Session ID is required", 400), 400);
-  }
-
-  const mimoContext = c.get("mimoContext");
-  const session = await mimoContext.repos.sessions.findById(sessionId);
-
-  if (!session || session.owner !== user.username) {
-    return c.json(errorResponse("Session not found", 404), 404);
-  }
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { user, mimoContext, session } = guard.value;
+  const sessionId = session.id;
 
   const body = await c.req.json();
   if (!body.threadId || typeof body.threadId !== "string") {
@@ -909,8 +783,9 @@ export async function setActiveChatThreadHandler(
     );
     return c.json(successResponse({ success: true }));
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to set active thread";
-    return c.json(errorResponse(message, 400), 400);
+    return c.json(
+      errorResponse(errorMessage(error, "Failed to set active thread"), 400),
+      400,
+    );
   }
 }

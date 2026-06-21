@@ -17,6 +17,7 @@ import type { SccService } from "../../domain/impact/scc-service.js";
 import type { JwtService } from "../../domain/auth/jwt.js";
 import type { FileService } from "../../domain/files/types.js";
 import { resolveAtMentions } from "../../domain/chat/resolve-at-mentions.js";
+import { authorizeUse } from "../../domain/agents/sharing.js";
 
 export interface WebSocketHandlerDeps {
   sessionRepository: SessionRepository;
@@ -197,6 +198,36 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
 
         const sendAgentId = resolveAgentId(userSession, userThreadId);
         if (sendAgentId) {
+          // Hard-but-lazy revoke: re-check that the session owner may still use
+          // the assigned agent. If access was revoked, decline this prompt and
+          // post a system message to the thread instead of routing it.
+          const sendAgent = await agentService.getAgentStatus(sendAgentId);
+          if (
+            sendAgent &&
+            userSession?.owner &&
+            !authorizeUse(sendAgent, userSession.owner)
+          ) {
+            const noticeTimestamp = new Date().toISOString();
+            const notice = "You no longer have access to this agent.";
+            await chatService.saveMessage(
+              sessionId,
+              {
+                role: "system",
+                content: notice,
+                timestamp: noticeTimestamp,
+              },
+              userThreadId,
+            );
+            broadcastToSession(chatSessions, sessionId, {
+              type: "message",
+              role: "system",
+              chatThreadId: userThreadId,
+              content: notice,
+              timestamp: noticeTimestamp,
+            });
+            break;
+          }
+
           const agentWs = agentService.getAgentConnection(sendAgentId);
           if (agentWs && agentWs.readyState === 1) {
             // Resolve @file mentions to inject file contents

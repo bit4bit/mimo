@@ -16,6 +16,8 @@ import {
   deleteAgentHandler,
   getCapabilitiesHandler,
   refreshCapabilitiesHandler,
+  shareAgentHandler,
+  revokeShareHandler,
 } from "./agents/handlers.js";
 
 /**
@@ -50,6 +52,12 @@ export function createAgentsInternalRouter(_mimoContext: MimoContext): Hono {
 
   // Refresh agent capabilities
   router.post("/:id/capabilities/refresh", refreshCapabilitiesHandler);
+
+  // Share an agent with another user (owner only)
+  router.post("/:id/shares", shareAgentHandler);
+
+  // Revoke a user's access to an agent (owner only)
+  router.delete("/:id/shares/:username", revokeShareHandler);
 
   return router;
 }

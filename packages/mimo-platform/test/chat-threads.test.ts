@@ -2,9 +2,36 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { Hono } from "hono";
 import { tmpdir } from "os";
 import { join } from "path";
-import { rmSync } from "fs";
+import { rmSync, mkdirSync, writeFileSync } from "fs";
+import { dump } from "js-yaml";
 
 import { DummyGitHttpServer } from "../src/domain/vcs/git-http-server.js";
+
+/**
+ * Seeds an agent with a fixed id owned by `owner` so chat-thread assignment
+ * (which now authorizes the assigned agent) accepts it.
+ */
+function seedAgent(home: string, id: string, owner: string) {
+  const dir = join(home, "agents", id);
+  mkdirSync(dir, { recursive: true });
+  const now = new Date().toISOString();
+  writeFileSync(
+    join(dir, "agent.yaml"),
+    dump({
+      id,
+      name: id,
+      owner,
+      token: "seed-token",
+      sessionIds: [],
+      status: "offline",
+      provider: "opencode",
+      startedAt: now,
+      updatedAt: now,
+      sharedWith: [],
+    }),
+    { encoding: "utf-8" },
+  );
+}
 
 let testHome: string;
 let mimoContext: any;
@@ -106,6 +133,10 @@ describe("Chat Threads API", () => {
       projectId: project.id,
       owner: "owner",
     });
+
+    // The chat-thread tests assign "agent-xyz"; seed it owned by "owner" so the
+    // assignment authorization check accepts it.
+    seedAgent(testHome, "agent-xyz", "owner");
 
     return { app, project, session, token };
   }

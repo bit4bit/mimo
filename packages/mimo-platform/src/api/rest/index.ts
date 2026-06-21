@@ -13,6 +13,7 @@ import { successResponse } from "./shared/response.js";
 import { createProjectsInternalRouter } from "./projects.js";
 import { createSessionsInternalRouter } from "./sessions.js";
 import { createAgentsInternalRouter } from "./agents.js";
+import { createUsersInternalRouter } from "./users.js";
 import { createDashboardInternalRouter } from "./dashboard.js";
 import { createCredentialsInternalRouter } from "./credentials.js";
 import { createConfigInternalRouter } from "./config.js";
@@ -73,6 +74,9 @@ export function createInternalApiRouter(mimoContext: MimoContext): Hono {
 
   // Mount agents internal API
   router.route("/agents", createAgentsInternalRouter(mimoContext));
+
+  // Mount users internal API (username search for sharing autocomplete)
+  router.route("/users", createUsersInternalRouter(mimoContext));
 
   // Mount dashboard internal API
   router.route("/dashboard", createDashboardInternalRouter(mimoContext));

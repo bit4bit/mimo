@@ -11,6 +11,10 @@ import type { InternalApiContext } from "../shared/types.js";
 import type { CreateAgentRequest, UpdateAgentRequest } from "./types.js";
 import { toAgentResponse } from "./types.js";
 import type { AgentCapabilities } from "../../../domain/agents/repository.js";
+import {
+  authorizeUse,
+  validateShareInput,
+} from "../../../domain/agents/sharing.js";
 
 /**
  * List all agents for the authenticated user.
@@ -25,11 +29,23 @@ export async function listAgentsHandler(
   }
 
   const mimoContext = c.get("mimoContext");
-  const agents = await mimoContext.repos.agents.findByOwner(user.username);
+  const [owned, shared] = await Promise.all([
+    mimoContext.repos.agents.findByOwner(user.username),
+    mimoContext.repos.agents.findSharedWith(user.username),
+  ]);
+
+  // Union owned + shared, de-duplicated by id (an owner is never in their own
+  // sharedWith, but guard against overlap defensively).
+  const byId = new Map<string, (typeof owned)[number]>();
+  for (const agent of [...owned, ...shared]) {
+    byId.set(agent.id, agent);
+  }
 
   return c.json(
     successResponse({
-      agents: agents.map(toAgentResponse),
+      agents: [...byId.values()].map((agent) =>
+        toAgentResponse(agent, agent.owner === user.username),
+      ),
     }),
   );
 }
@@ -58,14 +74,17 @@ export async function getAgentHandler(
     return c.json(errorResponse("Agent not found", 404), 404);
   }
 
-  if (agent.owner !== user.username) {
+  const isOwner = agent.owner === user.username;
+  const isShared = agent.sharedWith.some((g) => g.username === user.username);
+  if (!isOwner && !isShared) {
     return c.json(errorResponse("Agent not found", 404), 404);
   }
 
+  // The token is owner-only and is never exposed to shared users.
   return c.json(
     successResponse({
-      agent: toAgentResponse(agent),
-      token: agent.token,
+      agent: toAgentResponse(agent, isOwner),
+      ...(isOwner && { token: agent.token }),
     }),
   );
 }
@@ -246,7 +265,9 @@ export async function getCapabilitiesHandler(
     return c.json(errorResponse("Agent not found", 404), 404);
   }
 
-  if (agent.owner !== user.username) {
+  // Users the agent is shared with may read its capabilities so they can pick a
+  // model/mode when using the agent in their chat threads.
+  if (!authorizeUse(agent, user.username)) {
     return c.json(errorResponse("Agent not found", 404), 404);
   }
 
@@ -318,6 +339,103 @@ export async function refreshCapabilitiesHandler(
     successResponse({
       success: true,
       requested,
+    }),
+  );
+}
+
+/**
+ * Share an agent with another user (owner only).
+ * POST /api/internal/agents/:id/shares
+ */
+export async function shareAgentHandler(
+  c: InternalApiContext,
+): Promise<Response> {
+  const user = c.get("user") as { username: string } | undefined;
+  if (!user) {
+    return c.json(errorResponse("Unauthorized", 401), 401);
+  }
+
+  const id = c.req.param("id");
+  if (!id) {
+    return c.json(errorResponse("Agent ID is required", 400), 400);
+  }
+
+  const mimoContext = c.get("mimoContext");
+  const agent = await mimoContext.repos.agents.findById(id);
+
+  // Only the owner may manage sharing; hide the agent's existence otherwise.
+  if (!agent || agent.owner !== user.username) {
+    return c.json(errorResponse("Agent not found", 404), 404);
+  }
+
+  const body = (await c.req.json().catch(() => ({}))) as { username?: string };
+  const targetUsername =
+    typeof body.username === "string" ? body.username.trim() : "";
+
+  const targetExists = targetUsername
+    ? await mimoContext.repos.users.exists(targetUsername)
+    : false;
+
+  const validation = validateShareInput({
+    agent,
+    targetUsername,
+    targetExists,
+  });
+  if (!validation.ok) {
+    return c.json(errorResponse(validation.error, 400), 400);
+  }
+
+  const updated = await mimoContext.repos.agents.addShare(id, targetUsername);
+  if (!updated) {
+    return c.json(errorResponse("Failed to share agent", 500), 500);
+  }
+
+  return c.json(
+    successResponse({
+      agent: toAgentResponse(updated, true),
+    }),
+  );
+}
+
+/**
+ * Revoke a user's access to an agent (owner only).
+ * DELETE /api/internal/agents/:id/shares/:username
+ */
+export async function revokeShareHandler(
+  c: InternalApiContext,
+): Promise<Response> {
+  const user = c.get("user") as { username: string } | undefined;
+  if (!user) {
+    return c.json(errorResponse("Unauthorized", 401), 401);
+  }
+
+  const id = c.req.param("id");
+  const targetUsername = c.req.param("username");
+  if (!id || !targetUsername) {
+    return c.json(
+      errorResponse("Agent ID and username are required", 400),
+      400,
+    );
+  }
+
+  const mimoContext = c.get("mimoContext");
+  const agent = await mimoContext.repos.agents.findById(id);
+
+  if (!agent || agent.owner !== user.username) {
+    return c.json(errorResponse("Agent not found", 404), 404);
+  }
+
+  const updated = await mimoContext.repos.agents.removeShare(
+    id,
+    targetUsername,
+  );
+  if (!updated) {
+    return c.json(errorResponse("Failed to revoke access", 500), 500);
+  }
+
+  return c.json(
+    successResponse({
+      agent: toAgentResponse(updated, true),
     }),
   );
 }

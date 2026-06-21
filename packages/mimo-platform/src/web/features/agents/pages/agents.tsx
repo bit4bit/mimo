@@ -114,6 +114,7 @@ export function createAgentsRoutes(
     }
 
     const agents = result.data.agents;
+    const currentUser = c.get("user") as { username?: string } | undefined;
     const statusFilter = c.req.query("status");
     const filteredAgents = statusFilter
       ? agents.filter((agent: any) => agent.status === statusFilter)
@@ -127,6 +128,7 @@ export function createAgentsRoutes(
         );
         return {
           ...agent,
+          ownedByMe: agent.owner === currentUser?.username,
           sessionCount: sessions.length,
           startedAt: new Date(agent.startedAt),
           lastActivityAt: agent.lastActivityAt
@@ -140,7 +142,14 @@ export function createAgentsRoutes(
       {
         key: "name",
         label: "Name",
-        render: (agent) => <a href={`/agents/${agent.id}`}>{agent.name}</a>,
+        render: (agent) => (
+          <span>
+            <a href={`/agents/${agent.id}`}>{agent.name}</a>
+            {!agent.ownedByMe && (
+              <span class="shared-tag">shared by {agent.owner}</span>
+            )}
+          </span>
+        ),
       },
       {
         key: "id",
@@ -187,15 +196,17 @@ export function createAgentsRoutes(
             <a href={`/agents/${agent.id}`} class="btn-secondary">
               View
             </a>
-            <form
-              method="POST"
-              action={`/agents/${agent.id}/delete`}
-              class="inline-form"
-            >
-              <button type="submit" class="btn-danger">
-                Delete
-              </button>
-            </form>
+            {agent.ownedByMe && (
+              <form
+                method="POST"
+                action={`/agents/${agent.id}/delete`}
+                class="inline-form"
+              >
+                <button type="submit" class="btn-danger">
+                  Delete
+                </button>
+              </form>
+            )}
           </div>
         ),
       },
@@ -299,6 +310,15 @@ export function createAgentsRoutes(
           font-size: 11px;
           color: #888;
           font-family: monospace;
+        }
+        .shared-tag {
+          margin-left: 8px;
+          font-size: 10px;
+          color: #74c0fc;
+          border: 1px solid #2b4d6b;
+          border-radius: 3px;
+          padding: 1px 5px;
+          text-transform: uppercase;
         }
       `}</style>
       </Layout>,
@@ -505,6 +525,8 @@ export function createAgentsRoutes(
     }
 
     const agent = result.data.agent;
+    const currentUser = c.get("user") as { username?: string } | undefined;
+    const isOwner = agent.owner === currentUser?.username;
     const sessions = await sessionRepository.findByAssignedAgentId(agentId);
 
     const sessionColumns: DataTableColumn<any>[] = [
@@ -599,19 +621,21 @@ export function createAgentsRoutes(
               </span>
             </div>
 
-            <div class="token-section">
-              <label>Token:</label>
-              <div class="token-box">
-                <code id="agent-token">{result.data.token}</code>
-                <button
-                  type="button"
-                  onclick="copyToken()"
-                  class="btn-secondary"
-                >
-                  Copy Token
-                </button>
+            {isOwner && (
+              <div class="token-section">
+                <label>Token:</label>
+                <div class="token-box">
+                  <code id="agent-token">{result.data.token}</code>
+                  <button
+                    type="button"
+                    onclick="copyToken()"
+                    class="btn-secondary"
+                  >
+                    Copy Token
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             <div class="capabilities-section">
               <label>Cached Capabilities:</label>
@@ -651,6 +675,59 @@ export function createAgentsRoutes(
             </div>
           </div>
 
+          {isOwner && (
+            <div class="share-section">
+              <h2>Shared with</h2>
+              <p class="text-muted">
+                Users you share this agent with can use it in their chat
+                threads. They never see the token and cannot manage the agent.
+              </p>
+
+              <form
+                method="POST"
+                action={`/agents/${agent.id}/shares`}
+                class="share-form"
+              >
+                <input
+                  type="text"
+                  name="username"
+                  id="share-username"
+                  list="share-candidates"
+                  placeholder="Enter a username…"
+                  autocomplete="off"
+                  required
+                />
+                <datalist id="share-candidates"></datalist>
+                <button type="submit" class="btn-primary">
+                  Share
+                </button>
+              </form>
+
+              {agent.sharedWith.length === 0 ? (
+                <p class="text-muted share-empty">
+                  This agent is not shared with anyone yet.
+                </p>
+              ) : (
+                <ul class="share-list">
+                  {agent.sharedWith.map((grant: any) => (
+                    <li class="share-row">
+                      <span class="share-username">{grant.username}</span>
+                      <form
+                        method="POST"
+                        action={`/agents/${agent.id}/shares/${grant.username}/delete`}
+                        class="inline-form"
+                      >
+                        <button type="submit" class="btn-danger">
+                          Revoke
+                        </button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
           <div class="sessions-section">
             <h2>Sessions using this agent ({sessions.length})</h2>
             <DataTable
@@ -668,24 +745,28 @@ export function createAgentsRoutes(
             <a href="/agents" class="btn-secondary">
               Back to Agents
             </a>{" "}
-            <form
-              method="POST"
-              action={`/agents/${agent.id}/capabilities/refresh`}
-              class="inline-form with-left-gap"
-            >
-              <button type="submit" class="btn-secondary">
-                Refresh Capabilities
-              </button>
-            </form>
-            <form
-              method="POST"
-              action={`/agents/${agent.id}/delete`}
-              class="inline-form with-left-gap"
-            >
-              <button type="submit" class="btn-danger">
-                Delete Agent
-              </button>
-            </form>
+            {isOwner && (
+              <>
+                <form
+                  method="POST"
+                  action={`/agents/${agent.id}/capabilities/refresh`}
+                  class="inline-form with-left-gap"
+                >
+                  <button type="submit" class="btn-secondary">
+                    Refresh Capabilities
+                  </button>
+                </form>
+                <form
+                  method="POST"
+                  action={`/agents/${agent.id}/delete`}
+                  class="inline-form with-left-gap"
+                >
+                  <button type="submit" class="btn-danger">
+                    Delete Agent
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         </div>
 
@@ -697,6 +778,31 @@ export function createAgentsRoutes(
           navigator.clipboard.writeText(token);
           alert('Token copied to clipboard!');
         }
+
+        (function () {
+          var input = document.getElementById('share-username');
+          var datalist = document.getElementById('share-candidates');
+          if (!input || !datalist) return;
+          var agentId = ${JSON.stringify(agent.id)};
+          var timer = null;
+          input.addEventListener('input', function () {
+            clearTimeout(timer);
+            timer = setTimeout(function () {
+              var q = encodeURIComponent(input.value);
+              fetch('/agents/' + agentId + '/share-candidates?q=' + q)
+                .then(function (r) { return r.ok ? r.json() : { users: [] }; })
+                .then(function (data) {
+                  datalist.innerHTML = '';
+                  (data.users || []).forEach(function (u) {
+                    var opt = document.createElement('option');
+                    opt.value = u.username;
+                    datalist.appendChild(opt);
+                  });
+                })
+                .catch(function () {});
+            }, 150);
+          });
+        })();
       `,
           }}
         />
@@ -759,6 +865,13 @@ export function createAgentsRoutes(
 .capabilities-empty-copy { margin: 10px 0; }
 .actions-top-gap { margin-top: 30px; }
 .with-left-gap { margin-left: 10px; }
+.share-section { margin-top: 30px; }
+.share-form { display: flex; gap: 10px; align-items: center; margin: 15px 0; }
+.share-form input { padding: 8px 12px; background: #1a1a1a; color: #d4d4d4; border: 1px solid #444; border-radius: 3px; font-family: monospace; }
+.share-list { list-style: none; padding: 0; margin: 10px 0; }
+.share-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid #333; max-width: 400px; }
+.share-username { font-weight: bold; }
+.share-empty { margin: 10px 0; }
       `}</style>
       </Layout>,
     );
@@ -779,6 +892,64 @@ export function createAgentsRoutes(
     }
 
     return c.redirect("/agents");
+  });
+
+  // Username suggestions for the share autocomplete (JSON) - proxies to internal API
+  router.get("/:id/share-candidates", async (c: Context) => {
+    const agentId = c.req.param("id");
+    const q = c.req.query("q") ?? "";
+
+    const apiClient = createApiClient(c);
+    const result = await apiClient.get<{ users: Array<{ username: string }> }>(
+      `/users/search?q=${encodeURIComponent(q)}&agentId=${encodeURIComponent(agentId)}`,
+    );
+
+    if (result.success === false) {
+      return c.json({ users: [] });
+    }
+
+    return c.json(result.data);
+  });
+
+  // Share an agent with a user - proxies to internal API
+  router.post("/:id/shares", async (c: Context) => {
+    const agentId = c.req.param("id");
+    const body = await c.req.parseBody();
+    const username = ((body.username as string) ?? "").trim();
+
+    const apiClient = createApiClient(c);
+    const result = await apiClient.post<unknown>(`/agents/${agentId}/shares`, {
+      username,
+    });
+
+    if (result.success === false) {
+      return c.text(
+        `Error: ${result.error}`,
+        result.status === 404 ? 404 : result.status,
+      );
+    }
+
+    return c.redirect(`/agents/${agentId}`);
+  });
+
+  // Revoke a user's access to an agent - proxies to internal API
+  router.post("/:id/shares/:username/delete", async (c: Context) => {
+    const agentId = c.req.param("id");
+    const username = c.req.param("username");
+
+    const apiClient = createApiClient(c);
+    const result = await apiClient.delete<unknown>(
+      `/agents/${agentId}/shares/${encodeURIComponent(username)}`,
+    );
+
+    if (result.success === false) {
+      return c.text(
+        `Error: ${result.error}`,
+        result.status === 404 ? 404 : result.status,
+      );
+    }
+
+    return c.redirect(`/agents/${agentId}`);
   });
 
   // Get capabilities - proxies to internal API (JSON endpoint)

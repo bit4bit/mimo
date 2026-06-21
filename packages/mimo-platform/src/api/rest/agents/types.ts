@@ -11,6 +11,7 @@ import type {
   AgentCapabilities,
   AgentStatus,
   AgentProvider,
+  SharedGrant,
 } from "../../../domain/agents/repository.js";
 
 /**
@@ -27,6 +28,8 @@ export interface AgentResponse {
   updatedAt: string;
   lastActivityAt?: string;
   capabilities?: AgentCapabilities;
+  /** Users this agent is shared with. Only populated for the owner's view. */
+  sharedWith: SharedGrant[];
 }
 
 /**
@@ -99,8 +102,14 @@ export interface RefreshCapabilitiesResponse {
 /**
  * Converts an Agent entity to API response format.
  * Excludes the token field for security.
+ *
+ * The sharedWith grant list is exposed only to the owner; for shared
+ * (non-owner) viewers it is returned empty so the grantee list is not leaked.
  */
-export function toAgentResponse(agent: Agent): AgentResponse {
+export function toAgentResponse(
+  agent: Agent,
+  viewerIsOwner = true,
+): AgentResponse {
   return {
     id: agent.id,
     name: agent.name,
@@ -109,6 +118,7 @@ export function toAgentResponse(agent: Agent): AgentResponse {
     provider: agent.provider,
     startedAt: agent.startedAt.toISOString(),
     updatedAt: agent.updatedAt.toISOString(),
+    sharedWith: viewerIsOwner ? agent.sharedWith : [],
     ...(agent.lastActivityAt && {
       lastActivityAt: agent.lastActivityAt.toISOString(),
     }),
