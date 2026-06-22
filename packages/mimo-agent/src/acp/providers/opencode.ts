@@ -163,6 +163,7 @@ export class OpencodeProvider implements IAcpProvider {
       available_commands_update: "available_commands_update",
       availableCommandsUpdate: "available_commands_update",
       available_commands: "available_commands_update",
+      plan: "plan",
     };
 
     return mapping[updateType] ?? null;

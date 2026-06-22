@@ -7,6 +7,12 @@ export interface StreamingSnapshot {
   promptId: string | null;
 }
 
+export interface PlanEntry {
+  content: string;
+  priority: string;
+  status: string;
+}
+
 export interface ExpertPendingEntry {
   chatThreadId: string;
   originalPath: string;
@@ -52,6 +58,10 @@ export class ChatStreamingPipeline {
   private messageStartTimes = new Map<string, number>();
   private currentPromptByThread = new Map<string, string>();
   private availableCommandsBuffers = new Map<string, CommandList>();
+  // Per-thread agent plan. Replace-entirely on update, kept until the next
+  // update or an explicit clear (keep-last-snapshot). In-memory only — never
+  // persisted to chat history.
+  private planByThread = new Map<string, PlanEntry[]>();
   private expertPending = new Map<string, ExpertPendingEntry>();
   private cancelledKeys = new Set<string>();
   private promptInFlight = new Set<string>();
@@ -529,6 +539,25 @@ export class ChatStreamingPipeline {
       commands,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  handlePlan(sessionId: string, threadId: string, entries: PlanEntry[]): void {
+    // Replace the thread's plan entirely (ACP plans are full snapshots).
+    this.planByThread.set(streamKey(sessionId, threadId), entries);
+    this.broadcast(sessionId, {
+      type: "plan",
+      chatThreadId: threadId,
+      entries,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  getThreadPlan(sessionId: string, threadId?: string): PlanEntry[] {
+    return this.planByThread.get(streamKey(sessionId, threadId)) ?? [];
+  }
+
+  clearThreadPlan(sessionId: string, threadId?: string): void {
+    this.planByThread.delete(streamKey(sessionId, threadId));
   }
 
   getStreamingSnapshot(

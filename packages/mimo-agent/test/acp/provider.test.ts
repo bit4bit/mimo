@@ -28,6 +28,11 @@ describe("OpencodeProvider", () => {
       expect(result).toBe("available_commands_update");
     });
 
+    it("should map plan to plan", () => {
+      const result = provider.mapUpdateType("plan");
+      expect(result).toBe("plan");
+    });
+
     it("should return null for unknown update types", () => {
       const result = provider.mapUpdateType("unknown_update_type");
       expect(result).toBeNull();
@@ -170,6 +175,10 @@ describe("ClaudeAgentProvider", () => {
       expect(provider.mapUpdateType("agent_message_chunk")).toBe(
         "message_chunk",
       );
+    });
+
+    it("should map plan to plan", () => {
+      expect(provider.mapUpdateType("plan")).toBe("plan");
     });
 
     it("should return null for unknown update types", () => {

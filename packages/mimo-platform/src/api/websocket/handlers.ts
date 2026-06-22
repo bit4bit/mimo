@@ -414,6 +414,20 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
             }),
           );
         }
+
+        // Plan snapshot for the (newly) active thread — sent even when no turn
+        // is streaming, so switching threads shows that thread's current plan.
+        const replayPlan = pipeline.getThreadPlan(sessionId, stateThreadId);
+        if (replayPlan.length > 0) {
+          ws.send(
+            JSON.stringify({
+              type: "plan",
+              chatThreadId: stateThreadId,
+              entries: replayPlan,
+              timestamp: new Date().toISOString(),
+            }),
+          );
+        }
         break;
 
       case "request_acp_status":
@@ -1036,6 +1050,22 @@ export function createWebSocketSetup(deps: WebSocketSetupDeps) {
               type: "available_commands_update",
               chatThreadId: activeThreadId,
               commands: openCommands,
+              timestamp: new Date().toISOString(),
+            }),
+          );
+        }
+
+        // Plan snapshot for the active thread on connect (idle-safe).
+        const openPlan = pipeline.getThreadPlan(
+          sessionId,
+          activeThreadId ?? undefined,
+        );
+        if (openPlan.length > 0) {
+          ws.send(
+            JSON.stringify({
+              type: "plan",
+              chatThreadId: activeThreadId,
+              entries: openPlan,
               timestamp: new Date().toISOString(),
             }),
           );

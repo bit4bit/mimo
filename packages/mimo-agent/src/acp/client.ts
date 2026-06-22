@@ -3,6 +3,13 @@ import { ModelState, ModeState, McpServerConfig } from "../types";
 import { IAcpProvider, NewSessionResponse } from "./types";
 import { logger } from "../logger.js";
 import * as acp from "@agentclientprotocol/sdk";
+
+export interface PlanEntry {
+  content: string;
+  priority: string;
+  status: string;
+}
+
 export interface AcpClientCallbacks {
   onThoughtStart: (sessionId: string) => void;
   onThoughtChunk: (sessionId: string, content: string) => void;
@@ -15,6 +22,7 @@ export interface AcpClientCallbacks {
     sessionId: string,
     commands: Array<{ name: string; description?: string; template?: string }>,
   ) => void;
+  onPlan: (sessionId: string, entries: PlanEntry[]) => void;
   onToolCall: (
     sessionId: string,
     tool: {
@@ -318,6 +326,13 @@ export class AcpClient {
         this.callbacks.onAvailableCommandsUpdate(
           this.sessionId,
           this.session.availableCommands,
+        );
+        break;
+
+      case "plan":
+        this.callbacks.onPlan(
+          this.sessionId,
+          Array.isArray(update.entries) ? update.entries : [],
         );
         break;
 

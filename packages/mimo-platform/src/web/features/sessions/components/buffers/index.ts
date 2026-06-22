@@ -4,6 +4,7 @@ import { ChatThreadsBuffer } from "./ChatThreadsBuffer.js";
 import { NotesBuffer } from "./NotesBuffer.js";
 import { ImpactBuffer } from "../ImpactBuffer.js";
 import { McpServersBuffer } from "./McpServersBuffer.js";
+import { PlanBuffer } from "./PlanBuffer.js";
 import { EditBuffer } from "./EditBuffer.js";
 import { PatchBuffer } from "./PatchBuffer.js";
 import { SummaryBuffer } from "../SummaryBuffer.js";
@@ -48,6 +49,13 @@ export function ensureDefaultBuffersRegistered(): void {
     name: "MCP",
     frame: "right",
     component: McpServersBuffer,
+  });
+
+  registerBuffer({
+    id: "plan",
+    name: "Plan",
+    frame: "right",
+    component: PlanBuffer,
   });
 
   registerBuffer({

@@ -1270,6 +1270,16 @@ function handleWebSocketMessage(data) {
       }
       handleAvailableCommandsUpdate(data.commands);
       break;
+    case "plan":
+      if (
+        activeThreadId &&
+        data.chatThreadId &&
+        data.chatThreadId !== activeThreadId
+      ) {
+        return;
+      }
+      handlePlan(data.entries);
+      break;
     case "message":
       if (
         activeThreadId &&
@@ -1753,6 +1763,67 @@ function handleAvailableCommandsUpdate(commands) {
       ? extractSlashQuery(input)
       : "";
     updateCommandPicker(query);
+  }
+}
+
+// Controller: render the per-thread agent plan into the Plan buffer.
+// Entries replace the view entirely (ACP plans are full snapshots). Text is
+// set via textContent to keep agent-provided content from injecting markup.
+function planStatusIcon(status) {
+  if (status === "completed") return "✓";
+  if (status === "in_progress") return "▶";
+  return "○";
+}
+
+function handlePlan(entries) {
+  const content = document.getElementById("plan-content");
+  if (!content) return;
+
+  const list = Array.isArray(entries) ? entries : [];
+  if (list.length === 0) {
+    clearPlanView();
+    return;
+  }
+
+  content.innerHTML = "";
+  list.forEach((entry) => {
+    const status = String(entry.status || "pending");
+    const priority = String(entry.priority || "");
+
+    const row = document.createElement("div");
+    row.className = "plan-entry";
+
+    const icon = document.createElement("span");
+    icon.className = "plan-status plan-status-" + status;
+    icon.textContent = planStatusIcon(status);
+    row.appendChild(icon);
+
+    const body = document.createElement("div");
+    body.className = "plan-entry-body";
+
+    const text = document.createElement("div");
+    text.className =
+      "plan-entry-content" + (status === "completed" ? " is-completed" : "");
+    text.textContent = String(entry.content || "");
+    body.appendChild(text);
+
+    if (priority) {
+      const badge = document.createElement("span");
+      badge.className = "plan-priority plan-priority-" + priority;
+      badge.textContent = priority;
+      body.appendChild(badge);
+    }
+
+    row.appendChild(body);
+    content.appendChild(row);
+  });
+}
+
+function clearPlanView() {
+  const content = document.getElementById("plan-content");
+  if (content) {
+    content.innerHTML =
+      '<p class="plan-empty">No plan for this thread yet.</p>';
   }
 }
 
@@ -2273,6 +2344,9 @@ function prepareThreadSwitch() {
   ChatState.pendingMessages.clear();
   ChatState.streaming.reconstructed = false;
   ChatState.streaming.lastActivity = null;
+  // Reset the plan view; the server resends a snapshot for the new thread (if
+  // any) via request_state. A thread with no plan stays empty.
+  clearPlanView();
 }
 
 // Controller: Clear session

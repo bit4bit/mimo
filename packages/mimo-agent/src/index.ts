@@ -708,6 +708,18 @@ export class MimoAgent {
           timestamp: new Date().toISOString(),
         });
       },
+      onPlan: (sid, entries) => {
+        const promptId = this.promptIdsByThread.get(acpKey(sid, chatThreadId));
+        this.lifecycleManager.recordActivity(sid, chatThreadId);
+        this.send({
+          type: "plan",
+          sessionId: sid,
+          chatThreadId,
+          entries,
+          ...(promptId ? { promptId } : {}),
+          timestamp: new Date().toISOString(),
+        });
+      },
       onToolCall: (sid, tool) => {
         const promptId = this.promptIdsByThread.get(acpKey(sid, chatThreadId));
         this.lifecycleManager.recordActivity(sid, chatThreadId);
@@ -2342,6 +2354,7 @@ export class MimoAgent {
       onUsageUpdate: () => {},
       onGenericUpdate: () => {},
       onAvailableCommandsUpdate: () => {},
+      onPlan: () => {},
       onToolCall: () => {},
       onToolCallUpdate: () => {},
       onPermissionRequest: async () => ({

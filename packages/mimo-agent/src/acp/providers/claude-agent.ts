@@ -130,6 +130,7 @@ export class ClaudeAgentProvider implements IAcpProvider {
       tool_call: "tool_call",
       tool_call_update: "tool_call_update",
       available_commands_update: "available_commands_update",
+      plan: "plan",
     };
 
     return mapping[updateType] ?? null;

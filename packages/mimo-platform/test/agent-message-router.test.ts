@@ -26,6 +26,9 @@ function makeMocks() {
     handleUsageUpdate: mock(async () => {}),
     handlePromptCompleted: mock(async () => {}),
     handleAvailableCommandsUpdate: mock(() => {}),
+    handlePlan: mock(() => {}),
+    getThreadPlan: mock(() => []),
+    clearThreadPlan: mock(() => {}),
     getStreamingSnapshot: mock(() => ({
       thoughtContent: "",
       messageContent: "",
@@ -838,6 +841,93 @@ describe("AgentMessageRouter", () => {
 
       expect(sourceCode).toContain("file_list_invalidated");
       expect(sourceCode).toContain('type: "file_list_invalidated"');
+    });
+  });
+
+  describe("plan delegates to pipeline", () => {
+    const PLAN = [
+      { content: "Read files", priority: "high", status: "completed" },
+      { content: "Write fix", priority: "medium", status: "in_progress" },
+    ];
+
+    it("calls pipeline.handlePlan with sessionId, chatThreadId and entries", async () => {
+      const deps = makeMocks();
+      const router = makeRouter(deps);
+      const ws = { data: { agentId: "agent-1" } };
+      await router.handle("agent-1", ws, {
+        type: "plan",
+        sessionId: "sess-1",
+        chatThreadId: "thread-1",
+        entries: PLAN,
+        promptId: "p1",
+      });
+      expect(deps.pipeline.handlePlan).toHaveBeenCalledWith(
+        "sess-1",
+        "thread-1",
+        PLAN,
+      );
+    });
+
+    it("falls back to the active chat thread when chatThreadId is absent", async () => {
+      const deps = makeMocks();
+      deps.sessionRepository.findById = mock(async () => ({
+        id: "sess-1",
+        activeChatThreadId: "active-thread",
+      }));
+      const router = makeRouter(deps);
+      const ws = { data: { agentId: "agent-1" } };
+      await router.handle("agent-1", ws, {
+        type: "plan",
+        sessionId: "sess-1",
+        entries: PLAN,
+      });
+      expect(deps.pipeline.handlePlan).toHaveBeenCalledWith(
+        "sess-1",
+        "active-thread",
+        PLAN,
+      );
+    });
+
+    it("clears the thread plan when the thread context is cleared", async () => {
+      const deps = makeMocks();
+      deps.sessionRepository.findById = mock(async () => ({
+        id: "sess-1",
+        activeChatThreadId: "thread-1",
+      }));
+      const router = makeRouter(deps);
+      const ws = { data: { agentId: "agent-1" } };
+      await router.handle("agent-1", ws, {
+        type: "acp_thread_cleared",
+        sessionId: "sess-1",
+        chatThreadId: "thread-1",
+        acpSessionId: "acp-new",
+      });
+      expect(deps.pipeline.clearThreadPlan).toHaveBeenCalledWith(
+        "sess-1",
+        "thread-1",
+      );
+    });
+
+    it("clears the stale thread plan when a thread is re-created with reset (fresh-context fallback)", async () => {
+      const deps = makeMocks();
+      deps.sessionRepository.findById = mock(async () => ({
+        id: "sess-1",
+        activeChatThreadId: "thread-1",
+      }));
+      const router = makeRouter(deps);
+      const ws = { data: { agentId: "agent-1" } };
+      await router.handle("agent-1", ws, {
+        type: "acp_thread_created",
+        sessionId: "sess-1",
+        chatThreadId: "thread-1",
+        acpSessionId: "acp-new",
+        wasReset: true,
+        resetReason: "loadSession failed",
+      });
+      expect(deps.pipeline.clearThreadPlan).toHaveBeenCalledWith(
+        "sess-1",
+        "thread-1",
+      );
     });
   });
 });

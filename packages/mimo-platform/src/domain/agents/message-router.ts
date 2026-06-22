@@ -155,6 +155,9 @@ export class AgentMessageRouter {
       case "available_commands_update":
         await this.handleAvailableCommandsUpdate(data);
         break;
+      case "plan":
+        await this.handlePlan(data);
+        break;
       case "file_changed":
         await this.handleFileChanged(data);
         break;
@@ -597,6 +600,27 @@ export class AgentMessageRouter {
     }
   }
 
+  private async handlePlan(data: any): Promise<void> {
+    const sessionId = data.sessionId;
+    if (!sessionId) {
+      logger.debug("No sessionId in plan");
+      return;
+    }
+    const threadId = await this.resolveEffectiveThreadId(
+      sessionId,
+      data.chatThreadId,
+    );
+    if (!threadId) {
+      logger.warn(
+        `[stream-protocol] dropped plan with no resolvable chat thread session=${sessionId}`,
+      );
+      return;
+    }
+    const entries = Array.isArray(data.entries) ? data.entries : [];
+    this.deps.chat.updateAgentActivity(sessionId);
+    this.deps.pipeline.handlePlan(sessionId, threadId, entries);
+  }
+
   private handleAvailableCommandsUpdate(data: any): void {
     const sessionId = data.sessionId;
     const threadId = data.chatThreadId;
@@ -685,6 +709,10 @@ export class AgentMessageRouter {
       );
 
       if (wasReset) {
+        // A reset thread starts from fresh agent context, so any retained plan
+        // snapshot is stale — wipe it (mirrors clear-session behavior).
+        this.deps.pipeline.clearThreadPlan(sessionId, threadId);
+
         const timestamp = new Date().toISOString();
         const reasonText = resetReason ? ` (${resetReason})` : "";
         const systemMessage = `Session reset at ${timestamp}${reasonText}`;
@@ -721,6 +749,10 @@ export class AgentMessageRouter {
       logger.debug(
         `[agent] Updated thread ${threadId} acpSessionId to ${acpSessionId} after clear`,
       );
+
+      // Clearing the thread context wipes its agent plan (keep-last-snapshot
+      // otherwise persists it until the next plan update).
+      this.deps.pipeline.clearThreadPlan(sessionId, threadId);
 
       const timestamp = new Date().toISOString();
       const session = await this.deps.sessionRepository.findById(sessionId);
