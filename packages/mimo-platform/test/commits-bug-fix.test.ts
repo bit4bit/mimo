@@ -123,7 +123,18 @@ describe("Commit Service — impact record creation", () => {
 
     // Fake VCS that simulates a successful commit with hash
     const vcs = {
-      generatePatch: async () => ({ success: true, patch: "mock patch" }),
+      generatePatch: async () => ({
+        success: true,
+        patch: [
+          "diff --git a/test.ts b/test.ts",
+          "new file mode 100644",
+          "index 000..abc",
+          "--- /dev/null",
+          "+++ b/test.ts",
+          "@@ -0,0 +1 @@",
+          "+export const a = 1;",
+        ].join("\n"),
+      }),
       storePatch: async () => {},
       commitUpstream: async () => ({
         success: true,
@@ -140,6 +151,7 @@ describe("Commit Service — impact record creation", () => {
       path: {
         join: (...parts: string[]) => parts.join("/"),
         dirname: (p: string) => p.split("/").slice(0, -1).join("/"),
+        basename: (p: string) => p.split("/").pop() || "",
         relative: (from: string, to: string) => {
           if (to.startsWith(from)) return to.slice(from.length + 1);
           return to;
@@ -173,18 +185,41 @@ describe("Commit Service — impact record creation", () => {
         lstat: (p: string) => ({
           isDirectory: () => !files.has(p),
           isFile: () => files.has(p),
+          isSymbolicLink: () => false,
+          size: (files.get(p) || "").length,
+          mtimeMs: 0,
+        }),
+        lstatAsync: async (p: string) => ({
+          isDirectory: () => !files.has(p),
+          isFile: () => files.has(p),
+          isSymbolicLink: () => false,
+          size: (files.get(p) || "").length,
+          mtimeMs: 0,
         }),
         stat: (p: string) => ({
           isFile: () => files.has(p),
+          isDirectory: () => !files.has(p),
           size: (files.get(p) || "").length,
+          mtimeMs: 0,
         }),
+        statAsync: async (p: string) => ({
+          isFile: () => files.has(p),
+          isDirectory: () => !files.has(p),
+          size: (files.get(p) || "").length,
+          mtimeMs: 0,
+        }),
+        existsAsync: async (p: string) =>
+          files.has(p) || p === "/tmp/upstream" || p === "/tmp/workspace",
         readFile: (p: string, _encoding?: string) => files.get(p) || "",
+        readFileAsync: async (p: string, _encoding?: string) => files.get(p) || "",
         writeFile: (_p: string, _content: string) => {},
+        writeFileAsync: async (_p: string, _content: string) => {},
         copyFile: (src: string, dest: string) => {
           const content = files.get(src);
           if (content) files.set(dest, content);
         },
         unlink: (_p: string) => {},
+        unlinkAsync: async (_p: string) => {},
       },
       child_process: {
         execSync: () => "",

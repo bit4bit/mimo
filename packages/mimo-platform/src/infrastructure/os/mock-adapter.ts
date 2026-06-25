@@ -322,6 +322,7 @@ export class MockFileSystem implements FileSystem {
       isFile: () => node!.type === "file",
       isSymbolicLink: () => false,
       size: node!.content?.length ?? 0,
+      mtimeMs: node!.mtime?.getTime() ?? Date.now(),
     };
   }
 

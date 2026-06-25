@@ -23,6 +23,8 @@ export const EXCLUDED_PATHS: readonly string[] = [
   ".fossil-settings",
   // Fossil metadata files (committed to index but must be removed)
   "_FOSSIL_",
+  // Dependency directories (never part of a commit preview/diff)
+  "node_modules",
   // Mimo internals
   ".mimo",
   ".mimo-patches",

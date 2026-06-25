@@ -118,23 +118,27 @@ export interface FileSystem {
     isDirectory(): boolean;
     isFile(): boolean;
     size: number;
+    mtimeMs: number;
   };
   statAsync(path: string): Promise<{
     isDirectory(): boolean;
     isFile(): boolean;
     size: number;
+    mtimeMs: number;
   }>;
   lstat(path: string): {
     isDirectory(): boolean;
     isFile(): boolean;
     isSymbolicLink(): boolean;
     size: number;
+    mtimeMs: number;
   };
   lstatAsync(path: string): Promise<{
     isDirectory(): boolean;
     isFile(): boolean;
     isSymbolicLink(): boolean;
     size: number;
+    mtimeMs: number;
   }>;
   cp(
     src: string,

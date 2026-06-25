@@ -200,11 +200,21 @@ export class ImpactCalculator {
     }
 
     if (!changedFilesResult) {
+      const { createManifestStore } = await import("../files/tree-manifest.js");
+      const manifestStore = createManifestStore(
+        this.os!,
+        this.os!.path.join(
+          this.os!.path.dirname(agentWorkspacePath),
+          ".manifests",
+        ),
+      );
+
       changedFilesResult = await detectChangedFiles(
         this.os!,
         upstreamPath,
         agentWorkspacePath,
         { fileFilter: shouldIncludeImpactPath },
+        manifestStore,
       );
 
       // Update the shared cache with the freshly scanned result so the commit

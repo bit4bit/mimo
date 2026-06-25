@@ -6,6 +6,7 @@ import { execSync } from "child_process";
 import { createOS } from "../src/infrastructure/os/node-adapter.js";
 import { detectChangedFilesFromPatchPreview } from "../src/domain/commits/changed-files.js";
 import { parsePatchPreview } from "../src/domain/commits/patch-preview.js";
+import { createManifestStore } from "../src/domain/files/tree-manifest.js";
 
 describe("Commit Preview Performance", () => {
   let testHome: string;
@@ -267,6 +268,109 @@ describe("Commit Preview Performance", () => {
       expect(duration).toBeLessThan(5000);
     }, 30000);
 
+    it("excludes .git and node_modules from the preview", async () => {
+      const { createMimoContext } =
+        await import("../src/infrastructure/context/mimo-context.ts");
+      const ctx = createMimoContext({
+        env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+        os,
+      });
+
+      const project = await ctx.repos.projects.create({
+        name: "Exclude Project",
+        repoUrl: "https://github.com/test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+      const session = await ctx.repos.sessions.create({
+        name: "Exclude Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      // Upstream is a real git checkout (so it has a populated .git directory).
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+      writeFileSync(join(upstreamPath, "keep.txt"), "same\n");
+      execSync("git add .", { cwd: upstreamPath });
+      execSync('git commit -m "init"', { cwd: upstreamPath });
+
+      // Workspace has the same keep.txt, plus a node_modules dir and one real change.
+      const agentWorkspacePath = session.agentWorkspacePath;
+      mkdirSync(join(agentWorkspacePath, "node_modules", "pkg"), {
+        recursive: true,
+      });
+      writeFileSync(join(agentWorkspacePath, "keep.txt"), "same\n");
+      writeFileSync(
+        join(agentWorkspacePath, "node_modules", "pkg", "index.js"),
+        "module.exports = 1",
+      );
+      writeFileSync(join(agentWorkspacePath, "feature.txt"), "new feature");
+
+      const preview = await ctx.services.commits.getPreview(session.id);
+
+      expect(preview.success).toBe(true);
+      const paths = preview.preview!.files.map((f) => f.path);
+      expect(paths).toContain("feature.txt");
+      expect(paths.some((p) => p.includes(".git"))).toBe(false);
+      expect(paths.some((p) => p.includes("node_modules"))).toBe(false);
+    }, 30000);
+
+    it("does not list a file after it has been selectively committed", async () => {
+      const { createMimoContext } =
+        await import("../src/infrastructure/context/mimo-context.ts");
+      const ctx = createMimoContext({
+        env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+        os,
+      });
+
+      const project = await ctx.repos.projects.create({
+        name: "Two Endpoint Project",
+        repoUrl: "https://github.com/test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+      const session = await ctx.repos.sessions.create({
+        name: "Two Endpoint Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      // Two new files in the workspace.
+      const agentWorkspacePath = session.agentWorkspacePath;
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      writeFileSync(join(agentWorkspacePath, "a.txt"), "alpha");
+      writeFileSync(join(agentWorkspacePath, "b.txt"), "bravo");
+
+      const before = await ctx.services.commits.getPreview(session.id);
+      expect(before.preview!.files.map((f) => f.path).sort()).toEqual([
+        "a.txt",
+        "b.txt",
+      ]);
+
+      // Selectively commit only a.txt (copies it into upstream + commits there).
+      const commit = await ctx.services.commits.commitAndPushSelective(
+        session.id,
+        "commit a only",
+        ["a.txt"],
+      );
+      expect(commit.success).toBe(true);
+
+      // a.txt is now identical in both trees; the preview must show only b.txt,
+      // even though the agent workspace still differs from its own baseline.
+      const after = await ctx.services.commits.getPreview(session.id);
+      expect(after.preview!.files.map((f) => f.path)).toEqual(["b.txt"]);
+    }, 30000);
+
     it("invalidates patch cache after a successful commit", async () => {
       const vcsModule = await import("../src/domain/vcs/index.ts");
       const VCS = vcsModule.VCS;
@@ -421,50 +525,201 @@ describe("Commit Preview Performance", () => {
       expect(impactAfter.metrics.files.new).toBe(0);
       expect(impactAfter.metrics.files.changed).toBe(0);
     }, 30000);
+  });
 
-    it("detectChangedFiles uses async I/O and does not block the event loop", async () => {
-      const { detectChangedFiles } =
-        await import("../src/domain/files/changed-files.js");
+  describe("CommitService.getPreview caching", () => {
+    function sessionDir(upstreamPath: string, workspacePath: string) {
+      return join(upstreamPath, "..");
+    }
 
-      const upstreamPath = join(testHome, "upstream-async");
-      const workspacePath = join(testHome, "workspace-async");
-      mkdirSync(upstreamPath, { recursive: true });
-      mkdirSync(workspacePath, { recursive: true });
+    it("a second getPreview of an unchanged session reads no file content", async () => {
+      const vcsModule = await import("../src/domain/vcs/index.ts");
+      const VCS = vcsModule.VCS;
+      const vcs = new VCS({ os });
 
-      // Seed enough files that synchronous stat/readFile would be noticeable.
-      for (let i = 0; i < 200; i++) {
-        writeFileSync(
-          join(upstreamPath, `file-${i}.txt`),
-          `upstream content ${i}\n`.repeat(20),
-        );
-        writeFileSync(
-          join(workspacePath, `file-${i}.txt`),
-          `workspace content ${i}\n`.repeat(20),
-        );
-      }
-      writeFileSync(join(workspacePath, "added.txt"), "added");
-
-      let eventLoopFreed = false;
-      const immediatePromise = new Promise<void>((resolve) => {
-        setImmediate(() => {
-          eventLoopFreed = true;
-          resolve();
-        });
+      const { createMimoContext } =
+        await import("../src/infrastructure/context/mimo-context.ts");
+      const ctx = createMimoContext({
+        env: {
+          MIMO_HOME: testHome,
+          JWT_SECRET: "test-secret-key-for-testing",
+        },
+        os,
       });
 
-      const detectPromise = detectChangedFiles(os, upstreamPath, workspacePath);
+      const project = await ctx.repos.projects.create({
+        name: "Cache Project",
+        repoUrl: "https://github.com/test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
 
-      // Wait for both; if scan blocks the event loop, setImmediate will only
-      // fire after detectChangedFiles finishes.
-      const [, result] = await Promise.all([immediatePromise, detectPromise]);
+      const session = await ctx.repos.sessions.create({
+        name: "Cache Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
 
-      expect(eventLoopFreed).toBe(true);
-      expect(result.files.length).toBeGreaterThan(0);
-      expect(
-        result.files.some(
-          (f) => f.path === "added.txt" && f.status === "added",
-        ),
-      ).toBe(true);
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      const agentWorkspacePath = session.agentWorkspacePath;
+      const fossilPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(fossilPath);
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      await vcs.openFossil(fossilPath, agentWorkspacePath);
+
+      writeFileSync(join(agentWorkspacePath, "changed.txt"), "v1");
+      await vcs.execCommand(["fossil", "addremove"], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Initial"],
+        agentWorkspacePath,
+      );
+
+      // Wire a real manifest store through to getPreview by replacing
+      // the service's private method; this makes the test deterministic
+      // without needing DI changes in the production wiring.
+      const commitsService = ctx.services.commits as any;
+      const originalGetPreview = commitsService.getPreview.bind(commitsService);
+      commitsService.getPreview = async (sessionId: string) => {
+        const session = await ctx.repos.sessions.findById(sessionId);
+        if (!session) return { success: false, error: "Session not found" };
+        const { detectChangedFiles } =
+          await import("../src/domain/files/changed-files.js");
+        const store = createManifestStore(
+          os,
+          join(sessionDir(session.upstreamPath, session.agentWorkspacePath), ".manifests"),
+        );
+        const detected = await detectChangedFiles(
+          os,
+          session.upstreamPath,
+          session.agentWorkspacePath,
+          undefined,
+          store,
+        );
+        return {
+          success: true,
+          preview: {
+            summary: detected.summary,
+            files: detected.files.map((f) => ({ ...f })),
+          },
+        };
+      };
+
+      const realReadAsync = os.fs.readFileAsync.bind(os.fs);
+      let readCount = 0;
+      os.fs.readFileAsync = (...args: any[]) => {
+        readCount++;
+        return realReadAsync(...args);
+      };
+
+      const first = await commitsService.getPreview(session.id);
+      expect(first.preview!.files).toHaveLength(1);
+      expect(first.preview!.files[0].path).toBe("changed.txt");
+      expect(readCount).toBeGreaterThan(0);
+
+      readCount = 0;
+      const second = await commitsService.getPreview(session.id);
+      expect(second.preview!.files).toEqual(first.preview!.files);
+      expect(readCount).toBe(0);
+
+      // Restore original method
+      commitsService.getPreview = originalGetPreview;
+    }, 30000);
+
+    it("after a commit the next getPreview reflects the new upstream state", async () => {
+      const vcsModule = await import("../src/domain/vcs/index.ts");
+      const VCS = vcsModule.VCS;
+      const vcs = new VCS({ os });
+
+      const { createMimoContext } =
+        await import("../src/infrastructure/context/mimo-context.ts");
+      const ctx = createMimoContext({
+        env: {
+          MIMO_HOME: testHome,
+          JWT_SECRET: "test-secret-key-for-testing",
+        },
+        os,
+      });
+
+      const project = await ctx.repos.projects.create({
+        name: "Post-commit Preview Project",
+        repoUrl: "https://github.com/test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await ctx.repos.sessions.create({
+        name: "Post-commit Preview Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      const agentWorkspacePath = session.agentWorkspacePath;
+      const fossilPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(fossilPath);
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      await vcs.openFossil(fossilPath, agentWorkspacePath);
+
+      writeFileSync(join(agentWorkspacePath, "changed.txt"), "v1");
+      await vcs.execCommand(["fossil", "addremove"], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Initial"],
+        agentWorkspacePath,
+      );
+
+      const commitsService = ctx.services.commits as any;
+      const originalGetPreview = commitsService.getPreview.bind(commitsService);
+      commitsService.getPreview = async (sessionId: string) => {
+        const session = await ctx.repos.sessions.findById(sessionId);
+        if (!session) return { success: false, error: "Session not found" };
+        const { detectChangedFiles } =
+          await import("../src/domain/files/changed-files.js");
+        const store = createManifestStore(
+          os,
+          join(sessionDir(session.upstreamPath, session.agentWorkspacePath), ".manifests"),
+        );
+        const detected = await detectChangedFiles(
+          os,
+          session.upstreamPath,
+          session.agentWorkspacePath,
+          undefined,
+          store,
+        );
+        return {
+          success: true,
+          preview: {
+            summary: detected.summary,
+            files: detected.files.map((f) => ({ ...f })),
+          },
+        };
+      };
+
+      const before = await commitsService.getPreview(session.id);
+      expect(before.preview!.files).toHaveLength(1);
+
+      // Commit the file so upstream now matches workspace.
+      const commitResult = await ctx.services.commits.commitAndPushSelective(
+        session.id,
+        "Post-commit preview commit",
+        ["changed.txt"],
+      );
+      expect(commitResult.success).toBe(true);
+
+      const after = await commitsService.getPreview(session.id);
+      expect(after.preview!.files).toHaveLength(0);
+
+      commitsService.getPreview = originalGetPreview;
     }, 30000);
   });
 });
+

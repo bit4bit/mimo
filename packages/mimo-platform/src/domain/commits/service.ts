@@ -4,7 +4,7 @@ import type { VCS } from "../vcs/index.js";
 import type { OS } from "../../infrastructure/os/types.js";
 import {
   applySelectedFiles,
-  detectChangedFilesFromPatchPreview,
+  detectChangedFiles,
   detectChangedFilesFromPatchPreviewAsync,
   type FileChange,
 } from "./changed-files.js";
@@ -12,6 +12,7 @@ import { parsePatchPreview, type DiffHunk } from "./patch-preview.js";
 import type { Credential } from "../credentials/repository.js";
 import { ChangedFilesCache } from "./changed-files-cache.js";
 import type { ChangedFilesResult } from "../files/changed-files.js";
+import { createManifestStore } from "../files/tree-manifest.js";
 
 export interface CommitResult {
   success: boolean;
@@ -46,7 +47,6 @@ export interface CommitPreviewResult {
       added: number;
       modified: number;
       deleted: number;
-      binary: number;
     };
     files: PreviewFile[];
   };
@@ -118,9 +118,23 @@ export class CommitService {
     return { patch };
   }
 
-  private invalidatePatchCache(sessionId: string): void {
+  private async invalidatePatchCache(
+    sessionId: string,
+    upstreamPath?: string,
+  ): Promise<void> {
     this.patchCache.delete(sessionId);
     this.changedFilesCache.invalidate(sessionId);
+
+    if (upstreamPath) {
+      const manifestStore = createManifestStore(
+        this.deps.os,
+        this.deps.os.path.join(
+          this.deps.os.path.dirname(upstreamPath),
+          ".manifests",
+        ),
+      );
+      await manifestStore.invalidate(upstreamPath);
+    }
   }
   /**
    * Get commit preview for a session.
@@ -146,41 +160,24 @@ export class CommitService {
       };
     }
 
-    // Generate patch first. For large repositories this is much faster than
-    // scanning both directories and computing MD5 checksums for every file.
-    // The patch also gives us the changed-file list and inline hunks in one go.
-    const patchResult = await this.getCachedPatch(
-      session.id,
-      session.agentWorkspacePath,
-      session.upstreamPath,
+    // Compare the two working trees directly. This is a size-first, VCS-agnostic
+    // walk that prunes excluded paths (`.git`, `node_modules`, fossil internals)
+    // and reads file content only to disambiguate same-size files. It avoids the
+    // whole-tree `git diff --no-index --binary` that, on large repositories,
+    // walks and base85-encodes the entire `.git` store even for one changed file.
+    const manifestStore = createManifestStore(
+      this.deps.os,
+      this.deps.os.path.join(
+        this.deps.os.path.dirname(session.agentWorkspacePath),
+        ".manifests",
+      ),
     );
-
-    if ("error" in patchResult) {
-      return {
-        success: false,
-        error: patchResult.error,
-      };
-    }
-
-    const patch = patchResult.patch;
-    if (patch.trim().length === 0) {
-      return {
-        success: true,
-        preview: {
-          summary: { added: 0, modified: 0, deleted: 0, binary: 0 },
-          files: [],
-        },
-      };
-    }
-
-    const patchPreview = parsePatchPreview(patch);
-
-    // Derive the file list from the patch instead of re-scanning both trees.
-    const detected = await detectChangedFilesFromPatchPreviewAsync(
+    const detected = await detectChangedFiles(
       this.deps.os,
       session.upstreamPath,
       session.agentWorkspacePath,
-      patchPreview,
+      undefined,
+      manifestStore,
     );
 
     // Share the derived changed-file list with impact analysis.
@@ -191,26 +188,15 @@ export class CommitService {
       detected,
     );
 
-    const files: PreviewFile[] = detected.files.map((file) => {
-      const previewFile: PreviewFile = { ...file };
-      const patchFile = patchPreview.files.find((f) => f.path === file.path);
-      if (patchFile) {
-        // Do not include hunks in the initial preview response. For large
-        // diffs sending every hunk makes the response huge and slow, often
-        // causing browser/network timeouts. Hunks are fetched on demand via
-        // getFileHunks().
-        previewFile.isBinary = patchFile.isBinary;
-      }
-      return previewFile;
-    });
+    // Do not include hunks in the initial preview response. For large diffs
+    // sending every hunk makes the response huge and slow, often causing
+    // browser/network timeouts. Hunks are fetched on demand via getFileHunks().
+    const files: PreviewFile[] = detected.files.map((file) => ({ ...file }));
 
     return {
       success: true,
       preview: {
-        summary: {
-          ...detected.summary,
-          binary: patchPreview.summary.binary,
-        },
+        summary: detected.summary,
         files,
       },
     };
@@ -231,31 +217,41 @@ export class CommitService {
       return { success: false, error: "Session not found" };
     }
 
-    const patchResult = await this.getCachedPatch(
-      session.id,
-      session.agentWorkspacePath,
-      session.upstreamPath,
-    );
+    const { os, vcs } = this.deps;
+    const upstreamFile = os.path.join(session.upstreamPath, filePath);
+    const workspaceFile = os.path.join(session.agentWorkspacePath, filePath);
+    const [upstreamExists, workspaceExists] = await Promise.all([
+      os.fs.existsAsync(upstreamFile),
+      os.fs.existsAsync(workspaceFile),
+    ]);
 
-    if ("error" in patchResult) {
-      return { success: false, error: patchResult.error };
+    if (!upstreamExists && !workspaceExists) {
+      return { success: false, error: "File not found in preview" };
     }
 
-    const patch = patchResult.patch;
+    // Diff just this file's two versions ("/dev/null" renders add/delete) rather
+    // than diffing the whole tree. O(one file), independent of repository size.
+    const diffResult = await vcs.diffFile(
+      upstreamExists ? upstreamFile : "/dev/null",
+      workspaceExists ? workspaceFile : "/dev/null",
+    );
+
+    if (!diffResult.success) {
+      return { success: false, error: diffResult.error };
+    }
+
+    const patch = diffResult.patch || "";
     if (patch.trim().length === 0) {
       return { success: true, hunks: [] };
     }
 
     const patchPreview = parsePatchPreview(patch);
-    const patchFile = patchPreview.files.find((f) => f.path === filePath);
-    if (!patchFile) {
-      return { success: false, error: "File not found in preview" };
-    }
+    const patchFile = patchPreview.files[0];
 
     return {
       success: true,
-      hunks: patchFile.hunks,
-      isBinary: patchFile.isBinary,
+      hunks: patchFile?.hunks,
+      isBinary: patchFile?.isBinary,
     };
   }
 
@@ -544,8 +540,8 @@ export class CommitService {
     }
 
     // Commit succeeded: future previews must reflect the new upstream state,
-    // so drop any cached patch for this session.
-    this.invalidatePatchCache(session.id);
+    // so drop any cached patch for this session and delete the upstream manifest.
+    await this.invalidatePatchCache(session.id, session.upstreamPath);
 
     return {
       success: true,

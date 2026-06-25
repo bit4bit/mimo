@@ -1740,6 +1740,34 @@ export class VCS {
     };
   }
 
+  /**
+   * Diff two individual files and return the unified-diff patch. Used by the
+   * commit preview to fetch one file's hunks on demand without diffing the whole
+   * tree. Pass "/dev/null" for the missing side to render added/deleted files.
+   * This is git used purely as a two-file diff tool, so it is independent of the
+   * session's repository type.
+   */
+  async diffFile(
+    oldFile: string,
+    newFile: string,
+  ): Promise<VCSResult & { patch?: string }> {
+    const proc = this.os.command.spawn(
+      ["git", "diff", "--no-index", "--no-color", "--", oldFile, newFile],
+      {},
+    );
+
+    const exitCode = await proc.exited;
+    const stdout = await new Response(proc.stdout).text();
+    const stderr = await new Response(proc.stderr).text();
+
+    // git diff exits 1 when files differ (the normal case here); >1 is an error.
+    if (exitCode > 1) {
+      return { success: false, error: `git diff failed: ${stderr}` };
+    }
+
+    return { success: true, patch: stdout };
+  }
+
   async storePatch(patchDir: string, patchContent: string): Promise<string> {
     if (!this.os.fs.exists(patchDir)) {
       this.os.fs.mkdir(patchDir, { recursive: true });

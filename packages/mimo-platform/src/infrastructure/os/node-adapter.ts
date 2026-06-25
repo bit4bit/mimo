@@ -343,6 +343,7 @@ class NodeFileSystem implements FileSystem {
       isDirectory: () => s.isDirectory(),
       isFile: () => s.isFile(),
       size: s.size,
+      mtimeMs: s.mtimeMs,
     };
   }
 
@@ -352,6 +353,7 @@ class NodeFileSystem implements FileSystem {
       isDirectory: () => s.isDirectory(),
       isFile: () => s.isFile(),
       size: s.size,
+      mtimeMs: s.mtimeMs,
     };
   }
 
@@ -362,6 +364,7 @@ class NodeFileSystem implements FileSystem {
       isFile: () => s.isFile(),
       isSymbolicLink: () => s.isSymbolicLink(),
       size: s.size,
+      mtimeMs: s.mtimeMs,
     };
   }
 
@@ -372,6 +375,7 @@ class NodeFileSystem implements FileSystem {
       isFile: () => s.isFile(),
       isSymbolicLink: () => s.isSymbolicLink(),
       size: s.size,
+      mtimeMs: s.mtimeMs,
     };
   }
 
