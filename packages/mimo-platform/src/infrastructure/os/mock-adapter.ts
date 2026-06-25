@@ -58,7 +58,7 @@ export class MockCommandRunner implements CommandRunner {
     command: string[],
     options: RunOptions = {},
   ): Promise<CommandResult> {
-    const handler = this.handlers.get(command[0]) ?? this.defaultHandler;
+    const handler = this.handlers.get(command[0]!) ?? this.defaultHandler;
     if (!handler) {
       throw new Error(
         `No mock handler registered for command: ${command.join(" ")}`,
@@ -69,7 +69,7 @@ export class MockCommandRunner implements CommandRunner {
   }
 
   runSync(command: string[], options: RunOptions = {}): CommandResult {
-    const handler = this.handlers.get(command[0]) ?? this.defaultHandler;
+    const handler = this.handlers.get(command[0]!) ?? this.defaultHandler;
     if (!handler) {
       throw new Error(
         `No mock handler registered for command: ${command.join(" ")}`,
@@ -85,7 +85,7 @@ export class MockCommandRunner implements CommandRunner {
   }
 
   spawn(command: string[], _options: RunOptions = {}): SpawnedProcess {
-    const process = this.spawnHandlers.get(command[0]);
+    const process = this.spawnHandlers.get(command[0]!);
     if (!process) {
       throw new Error(`No mock spawn registered for command: ${command[0]}`);
     }
@@ -149,11 +149,22 @@ export class MockFileSystem implements FileSystem {
     return this.getNode(path) !== undefined;
   }
 
+  async existsAsync(path: string): Promise<boolean> {
+    return this.exists(path);
+  }
+
   readFile(path: string, _encoding?: BufferEncoding): string {
     const node = this.getNode(path);
     if (!node) throw new Error(`ENOENT: ${path}`);
     if (node.type !== "file") throw new Error(`EISDIR: ${path}`);
     return node.content ?? "";
+  }
+
+  async readFileAsync(
+    path: string,
+    encoding?: BufferEncoding,
+  ): Promise<string> {
+    return this.readFile(path, encoding);
   }
 
   writeFile(path: string, content: string, options?: WriteFileOptions): void {
@@ -165,6 +176,14 @@ export class MockFileSystem implements FileSystem {
       content,
       mode: options?.mode,
     });
+  }
+
+  async writeFileAsync(
+    path: string,
+    content: string,
+    options?: WriteFileOptions,
+  ): Promise<void> {
+    this.writeFile(path, content, options);
   }
 
   appendFile(path: string, content: string, _options?: WriteFileOptions): void {
@@ -203,6 +222,10 @@ export class MockFileSystem implements FileSystem {
     }
   }
 
+  async mkdirAsync(path: string, options?: MkdirOptions): Promise<void> {
+    this.mkdir(path, options);
+  }
+
   unlink(path: string): void {
     const parentInfo = this.getParent(path);
     if (!parentInfo) throw new Error(`ENOENT: ${path}`);
@@ -211,6 +234,10 @@ export class MockFileSystem implements FileSystem {
     if (!node) throw new Error(`ENOENT: ${path}`);
     if (node.type !== "file") throw new Error(`EISDIR: ${path}`);
     parent.delete(name);
+  }
+
+  async unlinkAsync(path: string): Promise<void> {
+    this.unlink(path);
   }
 
   copyFile(src: string, dest: string): void {
@@ -244,6 +271,13 @@ export class MockFileSystem implements FileSystem {
   }
 
   rm(path: string, options?: { recursive?: boolean; force?: boolean }): void {
+    this.rmAsync(path, options);
+  }
+
+  async rmAsync(
+    path: string,
+    options?: { recursive?: boolean; force?: boolean },
+  ): Promise<void> {
     const node = this.getNode(path);
     if (!node) {
       if (options?.force) return;
@@ -272,17 +306,34 @@ export class MockFileSystem implements FileSystem {
     return entries.map(([name]) => name);
   }
 
+  async readdirAsync(
+    path: string,
+    options?: ReadDirOptions,
+  ): Promise<DirEnt[]> {
+    const entries = this.readdir(path, options);
+    return (options?.withFileTypes ? entries : []) as DirEnt[];
+  }
+
   stat(path: string) {
     const node = this.getNode(path);
     if (!node) throw new Error(`ENOENT: ${path}`);
     return {
       isDirectory: () => node!.type === "dir",
       isFile: () => node!.type === "file",
+      isSymbolicLink: () => false,
       size: node!.content?.length ?? 0,
     };
   }
 
+  async statAsync(path: string) {
+    return this.stat(path);
+  }
+
   lstat(path: string) {
+    return this.stat(path);
+  }
+
+  async lstatAsync(path: string) {
     return this.stat(path);
   }
 
@@ -423,6 +474,12 @@ export class MockPathResolver implements PathResolver {
 
   resolve(...paths: string[]): string {
     return this.join(...paths);
+  }
+
+  extname(path: string): string {
+    const base = this.basename(path);
+    const dotIndex = base.lastIndexOf(".");
+    return dotIndex <= 0 ? "" : base.slice(dotIndex);
   }
 }
 

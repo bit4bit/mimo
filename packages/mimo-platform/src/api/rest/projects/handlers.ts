@@ -179,14 +179,40 @@ export async function createProjectHandler(
     const runPrewarm = async (): Promise<{
       success: boolean;
       error?: string;
-    }> =>
-      mimoContext.services.projectVcsCache.refresh({
+    }> => {
+      logger.info("[projects] starting cache pre-warm", {
+        projectId: project.id,
+        repoUrl: project.repoUrl,
+        repoType: project.repoType,
+        branch: project.sourceBranch ?? "default",
+        sync: warmCacheSync,
+      });
+      const start = Date.now();
+      const refreshResult = await mimoContext.services.projectVcsCache.refresh({
         projectId: project.id,
         repoUrl: project.repoUrl,
         repoType: project.repoType,
         credential: credential ?? undefined,
         clonePort: project.clonePort ?? undefined,
+        branch: project.sourceBranch ?? undefined,
       });
+      const durationMs = Date.now() - start;
+      if (refreshResult.success) {
+        logger.info("[projects] cache pre-warm finished", {
+          projectId: project.id,
+          branch: project.sourceBranch ?? "default",
+          durationMs,
+        });
+      } else {
+        logger.warn("[projects] cache pre-warm failed", {
+          projectId: project.id,
+          branch: project.sourceBranch ?? "default",
+          durationMs,
+          error: refreshResult.error,
+        });
+      }
+      return refreshResult;
+    };
 
     if (warmCacheSync) {
       const refreshResult = await runPrewarm();
@@ -204,15 +230,9 @@ export async function createProjectHandler(
       // Optional background pre-warm.
       queueMicrotask(async () => {
         try {
-          const refreshResult = await runPrewarm();
-          if (!refreshResult.success) {
-            logger.warn("[projects] cache pre-warm failed", {
-              projectId: project.id,
-              error: refreshResult.error,
-            });
-          }
+          await runPrewarm();
         } catch (error) {
-          logger.warn("[projects] cache pre-warm failed", {
+          logger.warn("[projects] cache pre-warm threw", {
             projectId: project.id,
             error: error instanceof Error ? error.message : String(error),
           });

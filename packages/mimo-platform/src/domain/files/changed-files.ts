@@ -31,17 +31,17 @@ async function collectFiles(
   let scanned = 0;
   let included = 0;
 
-  await scanDirectory(os, dirPath, basePath, (fullPath, relPath) => {
+  await scanDirectory(os, dirPath, basePath, async (fullPath, relPath) => {
     scanned++;
 
     if (fileFilter && !fileFilter(relPath)) {
       return;
     }
 
-    const stats = os.fs.stat(fullPath);
+    const stats = await os.fs.statAsync(fullPath);
     // Skip directories and non-regular files (symlinks, etc.)
     if (!stats.isFile()) return;
-    const content = os.fs.readFile(fullPath);
+    const content = await os.fs.readFileAsync(fullPath);
     const checksum = crypto.createHash("md5").update(content).digest("hex");
     fileMap.set(relPath, { checksum, size: stats.size });
     included++;

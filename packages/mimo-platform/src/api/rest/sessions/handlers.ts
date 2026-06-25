@@ -61,10 +61,16 @@ async function resolveOwnedSession(
 
   const mimoContext = c.get("mimoContext");
   const session = await mimoContext.repos.sessions.findById(id);
-  if (!session || session.owner !== user.username) {
+  if (!session) {
     return {
       ok: false,
-      response: c.json(errorResponse("Session not found", 404), 404),
+      response: c.json(errorResponse("Session not found in repository", 404), 404),
+    };
+  }
+  if (session.owner !== user.username) {
+    return {
+      ok: false,
+      response: c.json(errorResponse("Session not owned by user", 404), 404),
     };
   }
 

@@ -52,13 +52,9 @@ export async function scanDirectory(
   basePath: string,
   callback: (fullPath: string, relPath: string) => void | Promise<void>,
 ): Promise<void> {
-  if (!os.fs.exists(dirPath)) return;
+  if (!(await os.fs.existsAsync(dirPath))) return;
 
-  const entries = os.fs.readdir(dirPath, { withFileTypes: true }) as {
-    name: string;
-    isDirectory(): boolean;
-    isFile(): boolean;
-  }[];
+  const entries = await os.fs.readdirAsync(dirPath, { withFileTypes: true });
 
   for (const entry of entries) {
     const fullPath = os.path.join(dirPath, entry.name);
@@ -66,7 +62,7 @@ export async function scanDirectory(
 
     if (isExcluded(entry.name)) continue;
 
-    const entryStats = os.fs.lstat(fullPath);
+    const entryStats = await os.fs.lstatAsync(fullPath);
     if (entryStats.isDirectory()) {
       await scanDirectory(os, fullPath, basePath, callback);
     } else if (entryStats.isFile()) {
@@ -141,9 +137,9 @@ export class VCS {
     return keyFile;
   }
 
-  private deleteTempSshKeyFile(keyPath: string): void {
+  private async deleteTempSshKeyFile(keyPath: string): Promise<void> {
     try {
-      this.os.fs.unlink(keyPath);
+      await this.os.fs.unlinkAsync(keyPath);
     } catch {
       // Ignore errors during cleanup
     }
@@ -157,6 +153,7 @@ export class VCS {
     parts.push(
       "-o StrictHostKeyChecking=no",
       "-o UserKnownHostsFile=/dev/null",
+      "-o BatchMode=yes",
     );
     if (clonePort != null) {
       parts.push(`-p ${clonePort}`);
@@ -617,7 +614,16 @@ export class VCS {
       // fail to clone with "fatal: expected 'packfile'". `--dissociate` copies
       // the borrowed objects into the seed, making it self-contained.
       const clone = await this.execCommand(
-        ["git", "clone", "--bare", "--dissociate", upstreamPath, repoPath],
+        [
+          "git",
+          "clone",
+          "--bare",
+          "--depth=1",
+          "--single-branch",
+          "--dissociate",
+          upstreamPath,
+          repoPath,
+        ],
         undefined,
         undefined,
         this.cloneTimeoutMs,
@@ -741,7 +747,14 @@ export class VCS {
     branch?: string,
   ): Promise<VCSResult> {
     const clone = await this.execCommand(
-      ["git", "clone", repoPath, agentWorkspacePath],
+      [
+        "git",
+        "clone",
+        "--depth=1",
+        "--single-branch",
+        repoPath,
+        agentWorkspacePath,
+      ],
       undefined,
       undefined,
       this.cloneTimeoutMs,
@@ -984,8 +997,26 @@ export class VCS {
 
       try {
         const cloneArgs = sourceBranch
-          ? ["git", "clone", "--branch", sourceBranch, url, targetDir]
-          : ["git", "clone", url, targetDir];
+          ? [
+              "git",
+              "clone",
+              "--depth=1",
+              "--single-branch",
+              "--quiet",
+              "--branch",
+              sourceBranch,
+              url,
+              targetDir,
+            ]
+          : [
+              "git",
+              "clone",
+              "--depth=1",
+              "--single-branch",
+              "--quiet",
+              url,
+              targetDir,
+            ];
         logger.debug("[vcs] Starting git clone", {
           repoUrl: this.sanitizeGitUrl(repoUrl),
           targetDir,
@@ -1046,7 +1077,7 @@ export class VCS {
         };
       } finally {
         if (sshKeyPath) {
-          this.deleteTempSshKeyFile(sshKeyPath);
+          await this.deleteTempSshKeyFile(sshKeyPath);
         }
       }
     } else {
@@ -1305,7 +1336,7 @@ export class VCS {
         };
       } finally {
         if (sshKeyPath) {
-          this.deleteTempSshKeyFile(sshKeyPath);
+          await this.deleteTempSshKeyFile(sshKeyPath);
         }
       }
     } else {
@@ -1587,7 +1618,7 @@ export class VCS {
         };
       } finally {
         if (sshKeyPath) {
-          this.deleteTempSshKeyFile(sshKeyPath);
+          await this.deleteTempSshKeyFile(sshKeyPath);
         }
       }
     } else {

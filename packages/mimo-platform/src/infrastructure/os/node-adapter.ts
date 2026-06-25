@@ -31,6 +31,17 @@ import {
   watch as fsWatch,
   type Dirent,
 } from "fs";
+import {
+  access,
+  readFile as readFileAsync,
+  writeFile as writeFileAsync,
+  mkdir as mkdirAsync,
+  unlink as unlinkAsync,
+  rm as rmAsync,
+  readdir as readdirAsync,
+  stat as statAsync,
+  lstat as lstatAsync,
+} from "fs/promises";
 import { homedir, tmpdir, platform, arch } from "os";
 import { join, dirname, basename, extname, relative, resolve } from "path";
 import type {
@@ -56,21 +67,23 @@ class NodeCommandRunner implements CommandRunner {
     options: RunOptions = {},
   ): Promise<CommandResult> {
     return new Promise((resolve, reject) => {
-      const child = nodeSpawn(command[0], command.slice(1), {
+      const child = nodeSpawn(command[0]!, command.slice(1), {
         cwd: options.cwd,
         env: options.env,
-        stdio: ["pipe", "pipe", "pipe"],
+        stdio: options.stdio === "ignore" ? "ignore" : "pipe",
       });
 
       let stdout = "";
       let stderr = "";
 
-      child.stdout?.on("data", (data: Buffer) => {
-        stdout += data.toString();
-      });
-      child.stderr?.on("data", (data: Buffer) => {
-        stderr += data.toString();
-      });
+      if (options.stdio !== "ignore") {
+        child.stdout?.on("data", (data: Buffer) => {
+          stdout += data.toString();
+        });
+        child.stderr?.on("data", (data: Buffer) => {
+          stderr += data.toString();
+        });
+      }
 
       const timer = options.timeoutMs
         ? setTimeout(() => {
@@ -84,13 +97,13 @@ class NodeCommandRunner implements CommandRunner {
         child.stdin.end();
       }
 
-      child.on("close", (code) => {
+      child.on("exit", (code, signal) => {
         if (timer) clearTimeout(timer);
         resolve({
           success: code === 0,
           output: stdout.trim(),
           error: stderr.trim(),
-          exitCode: code ?? -1,
+          exitCode: code ?? (signal ? -1 : 0),
         });
       });
 
@@ -102,7 +115,7 @@ class NodeCommandRunner implements CommandRunner {
   }
 
   runSync(command: string[], options: RunOptions = {}): CommandResult {
-    const result = nodeSpawnSync(command[0], command.slice(1), {
+    const result = nodeSpawnSync(command[0]!, command.slice(1), {
       cwd: options.cwd,
       env: options.env,
       encoding: "utf8",
@@ -132,10 +145,10 @@ class NodeCommandRunner implements CommandRunner {
   }
 
   spawn(command: string[], options: RunOptions = {}): SpawnedProcess {
-    const child = nodeSpawn(command[0], command.slice(1), {
+    const child = nodeSpawn(command[0]!, command.slice(1), {
       cwd: options.cwd,
       env: options.env,
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: options.stdio === "ignore" ? "ignore" : "pipe",
     });
 
     if (options.stdin && child.stdin) {
@@ -212,12 +225,36 @@ class NodeFileSystem implements FileSystem {
     return existsSync(path);
   }
 
+  async existsAsync(path: string): Promise<boolean> {
+    try {
+      await access(path);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   readFile(path: string, encoding: BufferEncoding = "utf8"): string {
     return readFileSync(path, encoding);
   }
 
+  async readFileAsync(
+    path: string,
+    encoding: BufferEncoding = "utf8",
+  ): Promise<string> {
+    return await readFileAsync(path, encoding);
+  }
+
   writeFile(path: string, content: string, options = {}): void {
     writeFileSync(path, content, options);
+  }
+
+  async writeFileAsync(
+    path: string,
+    content: string,
+    options = {},
+  ): Promise<void> {
+    await writeFileAsync(path, content, options);
   }
 
   appendFile(path: string, content: string, options = {}): void {
@@ -228,8 +265,16 @@ class NodeFileSystem implements FileSystem {
     mkdirSync(path, options);
   }
 
+  async mkdirAsync(path: string, options = {}): Promise<void> {
+    await mkdirAsync(path, options);
+  }
+
   unlink(path: string): void {
     unlinkSync(path);
+  }
+
+  async unlinkAsync(path: string): Promise<void> {
+    await unlinkAsync(path);
   }
 
   copyFile(src: string, dest: string): void {
@@ -252,16 +297,44 @@ class NodeFileSystem implements FileSystem {
     }
   }
 
+  async rmAsync(
+    path: string,
+    options?: { recursive?: boolean; force?: boolean },
+  ): Promise<void> {
+    if (options?.recursive || options?.force) {
+      await rmAsync(path, options);
+    } else {
+      await unlinkAsync(path);
+    }
+  }
+
   readdir(path: string, options?: ReadDirOptions): string[] | DirEnt[] {
-    const entries = readdirSync(path, options);
     if (options?.withFileTypes) {
-      return (entries as Dirent[]).map((e) => ({
+      const entries = readdirSync(path, { withFileTypes: true }) as Dirent[];
+      return entries.map((e) => ({
         name: e.name,
         isDirectory: () => e.isDirectory(),
         isFile: () => e.isFile(),
       }));
     }
-    return entries as string[];
+    return readdirSync(path) as string[];
+  }
+
+  async readdirAsync(
+    path: string,
+    options?: ReadDirOptions,
+  ): Promise<string[] | DirEnt[]> {
+    if (options?.withFileTypes) {
+      const entries = (await readdirAsync(path, {
+        withFileTypes: true,
+      })) as Dirent[];
+      return entries.map((e) => ({
+        name: e.name,
+        isDirectory: () => e.isDirectory(),
+        isFile: () => e.isFile(),
+      }));
+    }
+    return (await readdirAsync(path)) as string[];
   }
 
   stat(path: string) {
@@ -273,8 +346,27 @@ class NodeFileSystem implements FileSystem {
     };
   }
 
+  async statAsync(path: string) {
+    const s = await statAsync(path);
+    return {
+      isDirectory: () => s.isDirectory(),
+      isFile: () => s.isFile(),
+      size: s.size,
+    };
+  }
+
   lstat(path: string) {
     const s = lstatSync(path);
+    return {
+      isDirectory: () => s.isDirectory(),
+      isFile: () => s.isFile(),
+      isSymbolicLink: () => s.isSymbolicLink(),
+      size: s.size,
+    };
+  }
+
+  async lstatAsync(path: string) {
+    const s = await lstatAsync(path);
     return {
       isDirectory: () => s.isDirectory(),
       isFile: () => s.isFile(),

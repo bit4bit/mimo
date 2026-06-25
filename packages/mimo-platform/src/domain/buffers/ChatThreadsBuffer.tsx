@@ -55,17 +55,7 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
         <button
           type="button"
           id="create-thread-btn"
-          style={`
-            padding: 8px 12px;
-            border: none;
-            border-right: 1px solid #444;
-            background: transparent;
-            color: #888;
-            cursor: pointer;
-            font-family: monospace;
-            font-size: 12px;
-            white-space: nowrap;
-          `
+          style="padding: 8px 12px; border: none; border-right: 1px solid #444; background: transparent; color: #888; cursor: pointer; font-family: monospace; font-size: 12px; white-space: nowrap;"
           title="Create new chat thread"
         >
           +
@@ -94,20 +84,7 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
               type="button"
               class={`chat-thread-tab ${thread.id === activeThreadId ? "active" : ""}`}
               data-thread-id={thread.id}
-              style={`
-                padding: 8px 16px;
-                border: none;
-                border-right: 1px solid #444;
-                background: ${thread.id === activeThreadId ? "#1a1a1a" : "transparent"};
-                color: ${thread.id === activeThreadId ? "#d4d4d4" : "#888"};
-                cursor: pointer;
-                font-family: monospace;
-                font-size: 12px;
-                white-space: nowrap;
-                display: flex;
-                align-items: center;
-                gap: 6px;
-              `}
+              style={`padding: 8px 16px; border: none; border-right: 1px solid #444; background: ${thread.id === activeThreadId ? "#1a1a1a" : "transparent"}; color: ${thread.id === activeThreadId ? "#d4d4d4" : "#888"}; cursor: pointer; font-family: monospace; font-size: 12px; white-space: nowrap; display: flex; align-items: center; gap: 6px;`}
             >
               <span
                 class="thread-status-indicator"

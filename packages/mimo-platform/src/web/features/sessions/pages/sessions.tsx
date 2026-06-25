@@ -1167,27 +1167,25 @@ export function createSessionsRoutes(
 
     if (!sessionResult.success) {
       return c.text(
-        "Session not found",
+        `Session lookup failed: ${sessionResult.error}`,
         sessionResult.status === 404 ? 404 : 500,
       );
     }
 
     const session = sessionResult.data.session;
 
-    if (!session || session.owner !== username) {
-      return c.text("Session not found", 404);
+    if (!session) {
+      return c.text("Session data missing after lookup", 404);
+    }
+    if (session.owner !== username) {
+      return c.text("Session does not belong to you", 404);
     }
 
-    // Delete session via Internal API Client
-    const deleteResult = await apiClient.delete<SessionResponse>(
-      `/sessions/${sessionId}`,
-    );
-
-    if (!deleteResult.success) {
-      return c.text(
-        `Failed to delete session: ${deleteResult.error}`,
-        deleteResult.status,
-      );
+    try {
+      await sessionDeletion.deleteSessionByRecord(session);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.text(`Failed to delete session: ${message}`, 500);
     }
 
     return c.redirect(`/projects?selected=${session.projectId}`);

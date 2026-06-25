@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { tmpdir } from "os";
 import { join } from "path";
 import { rmSync, existsSync, mkdirSync, writeFileSync, chmodSync } from "fs";
+import { execSync } from "child_process";
 import { createOS } from "../src/infrastructure/os/node-adapter.js";
 
 describe("Impact Buffer Tests", () => {
@@ -362,10 +363,12 @@ echo '[]'`;
       );
       expect(result2.metrics.files.new).toBe(3);
       expect(result2.trends.files.new).toBe("↑"); // Trend should be up
-      expect(result2.trends.absoluteLoc.total).toBe("↑");
+      // With scoped SCC absolute totals are not tracked, so the total LOC
+      // trend is stable rather than up.
+      expect(result2.trends.absoluteLoc.total).toBe("→");
     }, 20000);
 
-    it("should track unchanged files", async () => {
+    it("should not track unchanged files with scoped scc", async () => {
       const { createMimoContext } =
         await import("../src/infrastructure/context/mimo-context.ts");
       const ctx = createMimoContext({
@@ -389,15 +392,14 @@ echo '[]'`;
         workspaceDir,
       );
 
-      expect(result.metrics.files.unchanged).toBe(1);
+      // With scoped SCC we only analyze changed files, so identical files are
+      // not considered "unchanged" — they are simply not analyzed.
+      expect(result.metrics.files.unchanged).toBe(0);
       expect(result.metrics.files.new).toBe(0);
       expect(result.metrics.files.changed).toBe(0);
-      expect(result.metrics.absoluteLoc.total.upstream).toBeGreaterThanOrEqual(
-        0,
-      );
-      expect(result.metrics.absoluteLoc.total.workspace).toBeGreaterThanOrEqual(
-        0,
-      );
+      expect(result.metrics.files.deleted).toBe(0);
+      expect(result.metrics.absoluteLoc.total.upstream).toBe(0);
+      expect(result.metrics.absoluteLoc.total.workspace).toBe(0);
       expect(result.metrics.absoluteLoc.added.upstream).toBe(0);
       expect(result.metrics.absoluteLoc.removed.upstream).toBe(0);
     });
@@ -451,6 +453,225 @@ echo '[]'`;
           status: "removed",
         },
       ]);
+    }, 10000);
+
+    it("should only run scc on changed files, not full directories", async () => {
+      const { createMimoContext } =
+        await import("../src/infrastructure/context/mimo-context.ts");
+      const localCtx = createMimoContext({
+        env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+      });
+
+      const calculator = localCtx.services.impactCalculator;
+
+      const upstreamDir = join(testHome, "upstream-scoped");
+      const workspaceDir = join(testHome, "workspace-scoped");
+      mkdirSync(upstreamDir, { recursive: true });
+      mkdirSync(workspaceDir, { recursive: true });
+
+      // A changed file and an unchanged file in each directory.
+      writeFileSync(join(upstreamDir, "changed.ts"), "const a = 1;\n");
+      writeFileSync(
+        join(workspaceDir, "changed.ts"),
+        "const a = 1;\nconst b = 2;\n",
+      );
+      writeFileSync(join(upstreamDir, "unchanged.ts"), "const x = 1;\n");
+      writeFileSync(join(workspaceDir, "unchanged.ts"), "const x = 1;\n");
+
+      const originalRunScc = localCtx.services.scc.runScc.bind(
+        localCtx.services.scc,
+      );
+      const originalRunSccOnFiles = localCtx.services.scc.runSccOnFiles.bind(
+        localCtx.services.scc,
+      );
+
+      const fullDirCalls: string[] = [];
+      let runningCount = 0;
+      let maxRunningCount = 0;
+      const fileRunArgs: { baseDir: string; paths: string[] }[] = [];
+
+      localCtx.services.scc.runScc = async (directory: string) => {
+        fullDirCalls.push(directory);
+        return originalRunScc(directory);
+      };
+
+      localCtx.services.scc.runSccOnFiles = async (
+        baseDir: string,
+        filePaths: string[],
+      ) => {
+        runningCount++;
+        maxRunningCount = Math.max(maxRunningCount, runningCount);
+        fileRunArgs.push({ baseDir, paths: [...filePaths] });
+        try {
+          return await originalRunSccOnFiles(baseDir, filePaths);
+        } finally {
+          runningCount--;
+        }
+      };
+
+      try {
+        const result = await calculator.calculateImpact(
+          "scoped-session",
+          upstreamDir,
+          workspaceDir,
+          true,
+        );
+
+        expect(result.metrics).toBeDefined();
+        expect(result.metrics.files.changed).toBe(1);
+        expect(result.metrics.files.unchanged).toBe(0);
+
+        // Full-directory SCC should never be invoked.
+        expect(fullDirCalls).not.toContain(upstreamDir);
+        expect(fullDirCalls).not.toContain(workspaceDir);
+
+        // Only the changed file should have been passed to SCC on either side.
+        const upstreamFileRun = fileRunArgs.find(
+          (a) => a.baseDir === upstreamDir,
+        );
+        const workspaceFileRun = fileRunArgs.find(
+          (a) => a.baseDir === workspaceDir,
+        );
+        expect(
+          upstreamFileRun?.paths.map((p) => p.replace(upstreamDir + "/", "")),
+        ).toEqual(["changed.ts"]);
+        expect(
+          workspaceFileRun?.paths.map((p) => p.replace(workspaceDir + "/", "")),
+        ).toEqual(["changed.ts"]);
+
+        // Both file-level runs should execute concurrently.
+        expect(maxRunningCount).toBe(2);
+      } finally {
+        localCtx.services.scc.runScc = originalRunScc;
+        localCtx.services.scc.runSccOnFiles = originalRunSccOnFiles;
+      }
+    }, 10000);
+
+    it("bypasses changed-files cache when forceRefresh is true", async () => {
+      const vcsModule = await import("../src/domain/vcs/index.ts");
+      const VCS = vcsModule.VCS;
+      const os = createOS({ ...process.env });
+      const vcs = new VCS({ os });
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
+
+      const project = await projectRepo.create({
+        name: "Force Refresh Project",
+        repoUrl: "https://github.com/test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepo.create({
+        name: "Force Refresh Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      const agentWorkspacePath = session.agentWorkspacePath;
+      const vcsPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(vcsPath);
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      await vcs.openFossil(vcsPath, agentWorkspacePath);
+
+      writeFileSync(join(agentWorkspacePath, "a.txt"), "a");
+      await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Initial"],
+        agentWorkspacePath,
+      );
+
+      // Populate the cache via preview.
+      const preview = await ctx.services.commits.getPreview(session.id);
+      expect(preview.preview!.files).toHaveLength(1);
+
+      // Add a second file directly to the workspace without going through the
+      // commit flow, so the cache does not know about it.
+      writeFileSync(join(agentWorkspacePath, "b.txt"), "b");
+
+      // Without forceRefresh the impact calculator would reuse the cached
+      // changed files and miss b.txt.
+      const cachedImpact = await ctx.services.impactCalculator.calculateImpact(
+        session.id,
+        upstreamPath,
+        agentWorkspacePath,
+        false,
+      );
+      expect(cachedImpact.metrics.files.new).toBe(1);
+
+      // With forceRefresh it re-scans the directories and sees both files.
+      const freshImpact = await ctx.services.impactCalculator.calculateImpact(
+        session.id,
+        upstreamPath,
+        agentWorkspacePath,
+        true,
+      );
+      expect(freshImpact.metrics.files.new).toBe(2);
+    }, 10000);
+
+    it("should run upstream and workspace scc scans concurrently", async () => {
+      const { createMimoContext } =
+        await import("../src/infrastructure/context/mimo-context.ts");
+      const localCtx = createMimoContext({
+        env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-key-for-testing" },
+      });
+
+      const calculator = localCtx.services.impactCalculator;
+
+      const upstreamDir = join(testHome, "upstream-parallel");
+      const workspaceDir = join(testHome, "workspace-parallel");
+      mkdirSync(upstreamDir, { recursive: true });
+      mkdirSync(workspaceDir, { recursive: true });
+
+      writeFileSync(join(upstreamDir, "up.ts"), "const up = 1;\n");
+      writeFileSync(join(workspaceDir, "ws.ts"), "const ws = 2;\n");
+
+      // With scoped SCC the calculator calls runSccOnFiles for each side.
+      const originalRunSccOnFiles = localCtx.services.scc.runSccOnFiles.bind(
+        localCtx.services.scc,
+      );
+      let runningCount = 0;
+      let maxRunningCount = 0;
+      const runSccCalls: { baseDir: string; count: number }[] = [];
+
+      localCtx.services.scc.runSccOnFiles = async (
+        baseDir: string,
+        filePaths: string[],
+      ) => {
+        runSccCalls.push({ baseDir, count: filePaths.length });
+        runningCount++;
+        maxRunningCount = Math.max(maxRunningCount, runningCount);
+        try {
+          return await originalRunSccOnFiles(baseDir, filePaths);
+        } finally {
+          runningCount--;
+        }
+      };
+
+      try {
+        const result = await calculator.calculateImpact(
+          "parallel-session",
+          upstreamDir,
+          workspaceDir,
+          true,
+        );
+
+        expect(result.metrics).toBeDefined();
+        // Both directories must have been scanned.
+        expect(runSccCalls.map((c) => c.baseDir)).toContain(upstreamDir);
+        expect(runSccCalls.map((c) => c.baseDir)).toContain(workspaceDir);
+        // If scans ran sequentially, maxRunningCount would be 1.
+        // With Promise.all it should be 2.
+        expect(maxRunningCount).toBe(2);
+      } finally {
+        localCtx.services.scc.runSccOnFiles = originalRunSccOnFiles;
+      }
     }, 10000);
   });
 
@@ -630,6 +851,7 @@ echo '[]'`;
         sessionId,
         upstreamDir,
         workspaceDir,
+        true,
       );
       expect(result2.metrics.files.new).toBe(3);
       expect(result2.trends.files.new).toBe("↑"); // Trend up
@@ -655,7 +877,7 @@ echo '[]'`;
       // First scan
       await calculator.calculateImpact(sessionId, upstreamDir, workspaceDir);
 
-      // Second scan - same state
+      // Second scan - same state, forceRefresh to get fresh data for trend.
       const result2 = await calculator.calculateImpact(
         sessionId,
         upstreamDir,
@@ -666,7 +888,7 @@ echo '[]'`;
       expect(result2.trends.absoluteLoc.total).toBe("→");
     }, 10000);
 
-    it("should show downward absolute LOC trend when workspace shrinks", async () => {
+    it("should show downward file count trend when files are deleted", async () => {
       const { createMimoContext } =
         await import("../src/infrastructure/context/mimo-context.ts");
       const ctx = createMimoContext({
@@ -683,6 +905,12 @@ echo '[]'`;
 
       const keepFile = join(workspaceDir, "keep.ts");
       const removeFile = join(workspaceDir, "remove.ts");
+      const removeUpstreamFile = join(upstreamDir, "remove.ts");
+
+      // Files exist in both upstream and workspace initially, so they are
+      // tracked as unchanged (ignored by scoped SCC) rather than new.
+      writeFileSync(join(upstreamDir, "keep.ts"), "export const keep = 1;\n");
+      writeFileSync(removeUpstreamFile, "export const remove = 2;\n");
       writeFileSync(keepFile, "export const keep = 1;\n");
       writeFileSync(removeFile, "export const remove = 2;\n");
 
@@ -702,7 +930,8 @@ echo '[]'`;
         true,
       );
 
-      expect(result2.trends.absoluteLoc.total).toBe("↓");
+      expect(result2.metrics.files.deleted).toBe(1);
+      expect(result2.trends.files.deleted).toBe("↑");
     }, 10000);
   });
 });

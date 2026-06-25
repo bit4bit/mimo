@@ -18,6 +18,9 @@ export interface RunOptions {
   env?: Record<string, string>;
   timeoutMs?: number;
   stdin?: string | Uint8Array;
+  /** Discard stdout/stderr instead of buffering them. Useful for long-running
+   *  commands (e.g. git clone) where progress output can create pipe backpressure. */
+  stdio?: "pipe" | "ignore";
 }
 
 export interface CommandResult {
@@ -76,11 +79,20 @@ export interface DirEnt {
 
 export interface FileSystem {
   exists(path: string): boolean;
+  existsAsync(path: string): Promise<boolean>;
   readFile(path: string, encoding?: BufferEncoding): string;
+  readFileAsync(path: string, encoding?: BufferEncoding): Promise<string>;
   writeFile(path: string, content: string, options?: WriteFileOptions): void;
+  writeFileAsync(
+    path: string,
+    content: string,
+    options?: WriteFileOptions,
+  ): Promise<void>;
   appendFile(path: string, content: string, options?: WriteFileOptions): void;
   mkdir(path: string, options?: MkdirOptions): void;
+  mkdirAsync(path: string, options?: MkdirOptions): Promise<void>;
   unlink(path: string): void;
+  unlinkAsync(path: string): Promise<void>;
   copyFile(src: string, dest: string): void;
   chmod(path: string, mode: number): void;
   rename(oldPath: string, newPath: string): void;
@@ -90,18 +102,40 @@ export interface FileSystem {
     listener?: (eventType: string, filename: string | null) => void,
   ): { close(): void };
   rm(path: string, options?: { recursive?: boolean; force?: boolean }): void;
+  rmAsync(
+    path: string,
+    options?: {
+      recursive?: boolean;
+      force?: boolean;
+    },
+  ): Promise<void>;
   readdir(path: string, options?: ReadDirOptions): string[] | DirEnt[];
+  readdirAsync(
+    path: string,
+    options?: ReadDirOptions,
+  ): Promise<string[] | DirEnt[]>;
   stat(path: string): {
     isDirectory(): boolean;
     isFile(): boolean;
     size: number;
   };
+  statAsync(path: string): Promise<{
+    isDirectory(): boolean;
+    isFile(): boolean;
+    size: number;
+  }>;
   lstat(path: string): {
     isDirectory(): boolean;
     isFile(): boolean;
     isSymbolicLink(): boolean;
     size: number;
   };
+  lstatAsync(path: string): Promise<{
+    isDirectory(): boolean;
+    isFile(): boolean;
+    isSymbolicLink(): boolean;
+    size: number;
+  }>;
   cp(
     src: string,
     dest: string,

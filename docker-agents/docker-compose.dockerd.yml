@@ -1,0 +1,7 @@
+services:
+  docker-daemon:
+    image: docker:dind
+    privileged: true
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    

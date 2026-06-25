@@ -37,6 +37,30 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
     });
   });
 
+  // GET /commits/:sessionId/files/:filePath/hunks - Get diff hunks for one file
+  router.get("/:sessionId/files/:filePath/hunks", async (c: Context) => {
+    const sessionId = c.req.param("sessionId");
+    const filePath = c.req.param("filePath");
+
+    const result = await service.getFileHunks(sessionId, filePath);
+
+    if (!result.success) {
+      return c.json(
+        {
+          success: false,
+          error: result.error,
+        },
+        result.error === "File not found in preview" ? 404 : 400,
+      );
+    }
+
+    return c.json({
+      success: true,
+      hunks: result.hunks,
+      isBinary: result.isBinary,
+    });
+  });
+
   // POST /commits/:sessionId/commit-and-push - Commit and push
   router.post("/:sessionId/commit-and-push", async (c: Context) => {
     const sessionId = c.req.param("sessionId");

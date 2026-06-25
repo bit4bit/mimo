@@ -133,6 +133,7 @@ describe("Commit Service Tests", () => {
       execSync("git init", { cwd: upstreamPath });
       execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
       execSync('git config user.name "Test User"', { cwd: upstreamPath });
+      execSync("git checkout -b master", { cwd: upstreamPath });
       execSync(`git remote add origin ${remotePath}`, { cwd: upstreamPath });
 
       // Create initial commit and push to master
@@ -367,7 +368,7 @@ describe("Commit Service Tests", () => {
       ).toBe(true);
     }, 30000);
 
-    it("should include hunks for modified files in preview", async () => {
+    it("preview should not include full hunks to keep responses small", async () => {
       const vcs = new VCS({ os });
       const sessionRepo = ctx.repos.sessions;
       const projectRepo = ctx.repos.projects;
@@ -392,7 +393,7 @@ describe("Commit Service Tests", () => {
       execSync('git config user.name "Test User"', { cwd: upstreamPath });
 
       // Create initial file in upstream and commit it
-      writeFileSync(join(upstreamPath, "test.txt"), "original content");
+      writeFileSync(join(upstreamPath, "test.txt"), "original content\n");
       execSync("git add .", { cwd: upstreamPath });
       execSync('git commit -m "Initial"', { cwd: upstreamPath });
 
@@ -402,28 +403,82 @@ describe("Commit Service Tests", () => {
       mkdirSync(agentWorkspacePath, { recursive: true });
       await vcs.openFossil(vcsPath, agentWorkspacePath);
 
-      // Create modified file in workspace
-      writeFileSync(join(agentWorkspacePath, "test.txt"), "modified content");
+      // Create a large modified file in workspace so the patch would be huge.
+      const modifiedContent = Array.from(
+        { length: 5000 },
+        (_, i) => `modified line ${i}`,
+      ).join("\n");
+      writeFileSync(join(agentWorkspacePath, "test.txt"), modifiedContent);
       await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
       await vcs.execCommand(
         ["fossil", "commit", "-m", "Modify"],
         agentWorkspacePath,
       );
 
-      // Get preview
       const preview = await ctx.services.commits.getPreview(session.id);
 
       expect(preview.success).toBe(true);
       expect(preview.preview).toBeDefined();
 
-      // Find the modified file
       const modifiedFile = preview.preview!.files.find(
         (f) => f.path === "test.txt" && f.status === "modified",
       );
       expect(modifiedFile).toBeDefined();
-      expect(modifiedFile!.hunks).toBeDefined();
-      expect(modifiedFile!.hunks!.length).toBeGreaterThan(0);
-      expect(modifiedFile!.hunks![0].lines.length).toBeGreaterThan(0);
+      // The preview response should not carry full hunks; hunks are fetched on
+      // demand via a separate endpoint.
+      expect(modifiedFile!.hunks).toBeUndefined();
+    }, 30000);
+
+    it("should fetch file hunks on demand", async () => {
+      const vcs = new VCS({ os });
+      const sessionRepo = ctx.repos.sessions;
+      const projectRepo = ctx.repos.projects;
+
+      const project = await projectRepo.create({
+        name: "Test Project",
+        repoUrl: "https://github.com/test/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepo.create({
+        name: "Test Session",
+        projectId: project.id,
+        owner: "testuser",
+      });
+
+      const upstreamPath = session.upstreamPath;
+      mkdirSync(upstreamPath, { recursive: true });
+      execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
+      execSync('git config user.name "Test User"', { cwd: upstreamPath });
+
+      writeFileSync(join(upstreamPath, "test.txt"), "original content\n");
+      execSync("git add .", { cwd: upstreamPath });
+      execSync('git commit -m "Initial"', { cwd: upstreamPath });
+
+      const agentWorkspacePath = session.agentWorkspacePath;
+      const vcsPath = join(testHome, "repo.fossil");
+      await vcs.createFossilRepo(vcsPath);
+      mkdirSync(agentWorkspacePath, { recursive: true });
+      await vcs.openFossil(vcsPath, agentWorkspacePath);
+
+      writeFileSync(join(agentWorkspacePath, "test.txt"), "modified content\n");
+      await vcs.execCommand(["fossil", "add", "."], agentWorkspacePath);
+      await vcs.execCommand(
+        ["fossil", "commit", "-m", "Modify"],
+        agentWorkspacePath,
+      );
+
+      const result = await ctx.services.commits.getFileHunks(
+        session.id,
+        "test.txt",
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.hunks).toBeDefined();
+      expect(result.hunks!.length).toBeGreaterThan(0);
+      expect(result.hunks![0].lines.length).toBeGreaterThan(0);
     }, 30000);
 
     it("should block commit with empty message", async () => {
@@ -886,6 +941,7 @@ describe("Commit Service Tests", () => {
       execSync("git init", { cwd: upstreamPath });
       execSync('git config user.email "test@test.com"', { cwd: upstreamPath });
       execSync('git config user.name "Test User"', { cwd: upstreamPath });
+      execSync("git checkout -b master", { cwd: upstreamPath });
       execSync(`git remote add origin ${remotePath}`, { cwd: upstreamPath });
 
       // Create initial commit and push

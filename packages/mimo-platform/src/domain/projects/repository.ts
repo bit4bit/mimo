@@ -235,7 +235,7 @@ export class ProjectRepository {
       // Delete project.yaml first
       const projectFile = this.getProjectFilePath(id);
       if (this.os.fs.exists(projectFile)) {
-        this.os.fs.unlink(projectFile);
+        await this.os.fs.unlinkAsync(projectFile);
       }
 
       // Delete any other files in the directory
@@ -243,12 +243,12 @@ export class ProjectRepository {
       for (const entry of entries) {
         const entryPath = this.os.path.join(projectPath, entry);
         if (this.os.fs.exists(entryPath)) {
-          this.os.fs.unlink(entryPath);
+          await this.os.fs.unlinkAsync(entryPath);
         }
       }
 
       // Delete the directory
-      this.os.fs.rm(projectPath);
+      await this.os.fs.rmAsync(projectPath, { recursive: true, force: true });
     }
   }
 

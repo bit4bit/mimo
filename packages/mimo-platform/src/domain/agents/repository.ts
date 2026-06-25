@@ -325,11 +325,11 @@ export class AgentRepository {
   async delete(agentId: string): Promise<void> {
     const agentPath = this.getAgentPath(agentId);
     if (this.os.fs.exists(agentPath)) {
-      this.deleteDirectoryRecursive(agentPath);
+      await this.deleteDirectoryRecursive(agentPath);
     }
   }
 
-  private deleteDirectoryRecursive(dirPath: string): void {
+  private async deleteDirectoryRecursive(dirPath: string): Promise<void> {
     if (!this.os.fs.exists(dirPath)) return;
 
     const entries = this.os.fs.readdir(dirPath, {
@@ -339,13 +339,13 @@ export class AgentRepository {
     for (const entry of entries) {
       const entryPath = this.os.path.join(dirPath, entry.name);
       if (entry.isDirectory()) {
-        this.deleteDirectoryRecursive(entryPath);
+        await this.deleteDirectoryRecursive(entryPath);
       } else {
-        this.os.fs.unlink(entryPath);
+        await this.os.fs.unlinkAsync(entryPath);
       }
     }
 
-    this.os.fs.rm(dirPath);
+    await this.os.fs.rmAsync(dirPath, { recursive: true, force: true });
   }
 
   async exists(agentId: string): Promise<boolean> {

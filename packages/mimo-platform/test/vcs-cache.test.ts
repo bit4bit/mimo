@@ -42,8 +42,19 @@ function createMockOS(
 
   const fs = {
     exists: (p: string) => dirs.has(p) || files.has(p),
+    existsAsync: async (p: string) => dirs.has(p) || files.has(p),
     readFile: (p: string) => files.get(p) ?? "",
+    readFileAsync: async (p: string) => files.get(p) ?? "",
     writeFile: (p: string, content: string, options?: WriteFileOptions) => {
+      writeFileCalls.push({ path: p, content, options });
+      ensureDir(path.dirname(p));
+      files.set(p, content);
+    },
+    writeFileAsync: async (
+      p: string,
+      content: string,
+      options?: WriteFileOptions,
+    ) => {
       writeFileCalls.push({ path: p, content, options });
       ensureDir(path.dirname(p));
       files.set(p, content);
@@ -55,7 +66,13 @@ function createMockOS(
     mkdir: (p: string) => {
       ensureDir(p);
     },
+    mkdirAsync: async (p: string) => {
+      ensureDir(p);
+    },
     unlink: (p: string) => {
+      files.delete(p);
+    },
+    unlinkAsync: async (p: string) => {
       files.delete(p);
     },
     copyFile: () => {},
@@ -75,9 +92,25 @@ function createMockOS(
       files.delete(p);
       dirs.delete(p);
     },
+    rmAsync: async (p: string) => {
+      files.delete(p);
+      dirs.delete(p);
+    },
     readdir: () => [],
+    readdirAsync: async () => [],
     stat: () => ({ isDirectory: () => true, isFile: () => false, size: 0 }),
+    statAsync: async () => ({
+      isDirectory: () => true,
+      isFile: () => false,
+      size: 0,
+    }),
     lstat: () => ({
+      isDirectory: () => true,
+      isFile: () => false,
+      isSymbolicLink: () => false,
+      size: 0,
+    }),
+    lstatAsync: async () => ({
       isDirectory: () => true,
       isFile: () => false,
       isSymbolicLink: () => false,
@@ -133,10 +166,12 @@ function createMockOS(
 }
 
 describe("ProjectVcsCache unit", () => {
-  it("uses git cache refresh and reference clone", async () => {
+  it("refreshes git cache then clones directly from the remote", async () => {
     const projectId = "p1";
     const projectsPath = "/mimo/projects";
     const cachePath = path.join(projectsPath, projectId, "cache.git");
+    const repoUrl = "git@github.com:org/repo.git";
+    let cloneRepoCalls = 0;
 
     const { os, calls, dirs } = createMockOS(async (command) => {
       if (
@@ -147,13 +182,6 @@ describe("ProjectVcsCache unit", () => {
         dirs.add(cachePath);
         return { success: true, output: "", error: "", exitCode: 0 };
       }
-      if (
-        command[0] === "git" &&
-        command[1] === "clone" &&
-        command[2] === "--reference"
-      ) {
-        return { success: true, output: "", error: "", exitCode: 0 };
-      }
       return { success: true, output: "", error: "", exitCode: 0 };
     });
 
@@ -161,31 +189,48 @@ describe("ProjectVcsCache unit", () => {
       os,
       projectsPath,
       vcs: {
-        cloneRepository: async () => ({ success: true, output: "", error: "" }),
+        cloneRepository: async () => {
+          cloneRepoCalls++;
+          return { success: true, output: "", error: "" };
+        },
       } as any,
     });
 
     const result = await cache.clone({
       projectId,
-      repoUrl: "file:///repo.git",
+      repoUrl,
       repoType: "git",
       targetPath: "/tmp/session-upstream",
       branch: "main",
     });
 
     expect(result.success).toBe(true);
+    expect(cloneRepoCalls).toBe(1);
     expect(
       calls.some((c) => c.command.join(" ").includes("git clone --bare")),
     ).toBe(true);
+    const bareClone = calls.find(
+      (c) =>
+        c.command[0] === "git" &&
+        c.command[1] === "clone" &&
+        c.command[2] === "--bare",
+    );
+    expect(bareClone?.command).toContain("--depth=1");
+    expect(bareClone?.command).toContain("--single-branch");
+    expect(bareClone?.command).toContain("--quiet");
+    expect(bareClone?.command).toContain("--branch");
+    expect(bareClone?.command).toContain("main");
+    expect(bareClone?.options?.stdio).toBe("ignore");
+
+    // No local cache clone should happen; we go straight to the remote.
     expect(
       calls.some(
         (c) =>
           c.command[0] === "git" &&
           c.command[1] === "clone" &&
-          c.command[2] === "--reference" &&
-          c.command.includes(cachePath),
+          c.command.includes(`file://${cachePath}`),
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("clears and rebuilds git cache when fsck fails", async () => {
@@ -208,7 +253,7 @@ describe("ProjectVcsCache unit", () => {
       if (
         command[0] === "git" &&
         command[1] === "clone" &&
-        command[2] === "--reference"
+        command[2] === "--depth=1"
       ) {
         return { success: true, output: "", error: "", exitCode: 0 };
       }
@@ -239,6 +284,83 @@ describe("ProjectVcsCache unit", () => {
       calls.filter((c) => c.command.join(" ").includes("git clone --bare"))
         .length,
     ).toBe(1);
+  });
+
+  it("widens shallow cache refspec and retries when fetch for a new branch fails", async () => {
+    const projectId = "p-branch-warm";
+    const projectsPath = "/mimo/projects";
+    const cachePath = path.join(projectsPath, projectId, "cache.git");
+
+    let fetchAttempts = 0;
+    let setBranchesCalled = false;
+    const { os, calls, dirs } = createMockOS(async (command) => {
+      if (
+        command[0] === "git" &&
+        command[1] === "clone" &&
+        command[2] === "--bare"
+      ) {
+        dirs.add(cachePath);
+        return { success: true, output: "", error: "", exitCode: 0 };
+      }
+      if (command[0] === "git" && command[1] === "fetch") {
+        fetchAttempts++;
+        if (fetchAttempts === 1) {
+          return {
+            success: false,
+            output: "",
+            error: "couldn't find remote ref develop",
+            exitCode: 128,
+          };
+        }
+        return { success: true, output: "", error: "", exitCode: 0 };
+      }
+      if (
+        command[0] === "git" &&
+        command[1] === "remote" &&
+        command[2] === "set-branches"
+      ) {
+        setBranchesCalled = true;
+        return { success: true, output: "", error: "", exitCode: 0 };
+      }
+      if (
+        command[0] === "git" &&
+        command[1] === "clone" &&
+        command[2] === "--depth=1"
+      ) {
+        return { success: true, output: "", error: "", exitCode: 0 };
+      }
+      return { success: true, output: "", error: "", exitCode: 0 };
+    });
+    dirs.add(cachePath);
+
+    const cache = createProjectVcsCache({
+      os,
+      projectsPath,
+      vcs: {
+        cloneRepository: async () => ({ success: true, output: "", error: "" }),
+      } as any,
+    });
+
+    const result = await cache.clone({
+      projectId,
+      repoUrl: "file:///repo.git",
+      repoType: "git",
+      targetPath: "/tmp/session-upstream",
+      branch: "develop",
+    });
+
+    expect(result.success).toBe(true);
+    expect(fetchAttempts).toBeGreaterThanOrEqual(2);
+    expect(setBranchesCalled).toBe(true);
+    expect(
+      calls.some(
+        (c) =>
+          c.command[0] === "git" &&
+          c.command[1] === "remote" &&
+          c.command[2] === "set-branches" &&
+          c.command.includes("develop"),
+      ),
+    ).toBe(true);
   });
 
   it("uses fossil cache clone and sync", async () => {
@@ -284,13 +406,21 @@ describe("ProjectVcsCache unit", () => {
     ).toBe(true);
   });
 
-  it("injects GIT_SSH_COMMAND for --reference clone with SSH credential and cleans up key file", async () => {
+  it("passes SSH credential to direct remote clone and cleans up key file", async () => {
     const projectId = "p-ssh1";
     const projectsPath = "/mimo/projects";
     const cachePath = path.join(projectsPath, projectId, "cache.git");
     const sshRepoUrl = "git@github.com:org/repo.git";
     const privateKey =
       "-----BEGIN RSA PRIVATE KEY-----\nMIItest\n-----END RSA PRIVATE KEY-----\n";
+    const credential = {
+      id: "cred1",
+      name: "test-key",
+      type: "ssh" as const,
+      privateKey,
+      owner: "user1",
+      createdAt: new Date(),
+    };
 
     const { os, calls, files, dirs, writeFileCalls } = createMockOS(
       async (command) => {
@@ -306,11 +436,15 @@ describe("ProjectVcsCache unit", () => {
       },
     );
 
+    const cloneRepoCalls: any[] = [];
     const cache = createProjectVcsCache({
       os,
       projectsPath,
       vcs: {
-        cloneRepository: async () => ({ success: true, output: "", error: "" }),
+        cloneRepository: async (...args: any[]) => {
+          cloneRepoCalls.push(args);
+          return { success: true, output: "", error: "" };
+        },
       } as any,
     });
 
@@ -319,28 +453,27 @@ describe("ProjectVcsCache unit", () => {
       repoUrl: sshRepoUrl,
       repoType: "git",
       targetPath: "/tmp/session-upstream",
-      credential: {
-        id: "cred1",
-        name: "test-key",
-        type: "ssh",
-        privateKey,
-        owner: "user1",
-        createdAt: new Date(),
-      },
+      credential,
     });
 
     expect(result.success).toBe(true);
+    expect(cloneRepoCalls.length).toBe(1);
+    expect(cloneRepoCalls[0][0]).toBe(sshRepoUrl);
+    expect(cloneRepoCalls[0][1]).toBe("git");
+    expect(cloneRepoCalls[0][2]).toBe("/tmp/session-upstream");
+    expect(cloneRepoCalls[0][3]).toBe(credential);
+    expect(cloneRepoCalls[0][5]).toBeUndefined();
 
-    const refCloneCall = calls.find(
+    const bareClone = calls.find(
       (c) =>
         c.command[0] === "git" &&
         c.command[1] === "clone" &&
-        c.command[2] === "--reference",
+        c.command[2] === "--bare",
     );
-    expect(refCloneCall).toBeDefined();
-    const sshCmd = refCloneCall!.options?.env?.GIT_SSH_COMMAND;
+    const sshCmd = bareClone?.options?.env?.GIT_SSH_COMMAND;
     expect(sshCmd).toBeDefined();
     expect(sshCmd).toContain("-i ");
+    expect(sshCmd).toContain("BatchMode=yes");
 
     const keyPathMatch = sshCmd!.match(/-i "([^"]+)"/);
     expect(keyPathMatch).toBeDefined();
@@ -353,10 +486,21 @@ describe("ProjectVcsCache unit", () => {
     expect(files.has(cacheCloneKeyPath)).toBe(false);
   });
 
-  it("does not set GIT_SSH_COMMAND on --reference clone with HTTPS credential", async () => {
+  it("passes HTTPS credential through to direct remote clone", async () => {
     const projectId = "p-https1";
     const projectsPath = "/mimo/projects";
     const cachePath = path.join(projectsPath, projectId, "cache.git");
+    const repoUrl = "https://github.com/org/repo.git";
+    const credential = {
+      id: "cred2",
+      name: "https-cred",
+      type: "https" as const,
+      username: "user",
+      password: "pass",
+      owner: "user1",
+      createdAt: new Date(),
+    };
+    const cloneRepoCalls: any[] = [];
 
     const { os, calls, dirs } = createMockOS(async (command) => {
       if (
@@ -374,40 +518,41 @@ describe("ProjectVcsCache unit", () => {
       os,
       projectsPath,
       vcs: {
-        cloneRepository: async () => ({ success: true, output: "", error: "" }),
+        cloneRepository: async (...args: any[]) => {
+          cloneRepoCalls.push(args);
+          return { success: true, output: "", error: "" };
+        },
       } as any,
     });
 
     await cache.clone({
       projectId,
-      repoUrl: "https://github.com/org/repo.git",
+      repoUrl,
       repoType: "git",
       targetPath: "/tmp/session-upstream",
-      credential: {
-        id: "cred2",
-        name: "https-cred",
-        type: "https",
-        username: "user",
-        password: "pass",
-        owner: "user1",
-        createdAt: new Date(),
-      },
+      credential,
     });
 
-    const refCloneCall = calls.find(
-      (c) =>
-        c.command[0] === "git" &&
-        c.command[1] === "clone" &&
-        c.command[2] === "--reference",
-    );
-    expect(refCloneCall).toBeDefined();
-    expect(refCloneCall!.options?.env?.GIT_SSH_COMMAND).toBeUndefined();
+    expect(cloneRepoCalls.length).toBe(1);
+    expect(cloneRepoCalls[0][0]).toBe(repoUrl);
+    expect(cloneRepoCalls[0][3]).toBe(credential);
+
+    expect(
+      calls.some(
+        (c) =>
+          c.command[0] === "git" &&
+          c.command[1] === "clone" &&
+          c.command.includes(`file://${cachePath}`),
+      ),
+    ).toBe(false);
   });
 
-  it("does not set GIT_SSH_COMMAND on --reference clone without credential", async () => {
+  it("clones directly from remote without credential when none is provided", async () => {
     const projectId = "p-nocred1";
     const projectsPath = "/mimo/projects";
     const cachePath = path.join(projectsPath, projectId, "cache.git");
+    const repoUrl = "https://github.com/org/repo.git";
+    const cloneRepoCalls: any[] = [];
 
     const { os, calls, dirs } = createMockOS(async (command) => {
       if (
@@ -425,25 +570,23 @@ describe("ProjectVcsCache unit", () => {
       os,
       projectsPath,
       vcs: {
-        cloneRepository: async () => ({ success: true, output: "", error: "" }),
+        cloneRepository: async (...args: any[]) => {
+          cloneRepoCalls.push(args);
+          return { success: true, output: "", error: "" };
+        },
       } as any,
     });
 
     await cache.clone({
       projectId,
-      repoUrl: "https://github.com/org/repo.git",
+      repoUrl,
       repoType: "git",
       targetPath: "/tmp/session-upstream",
     });
 
-    const refCloneCall = calls.find(
-      (c) =>
-        c.command[0] === "git" &&
-        c.command[1] === "clone" &&
-        c.command[2] === "--reference",
-    );
-    expect(refCloneCall).toBeDefined();
-    expect(refCloneCall!.options?.env?.GIT_SSH_COMMAND).toBeUndefined();
+    expect(cloneRepoCalls.length).toBe(1);
+    expect(cloneRepoCalls[0][0]).toBe(repoUrl);
+    expect(cloneRepoCalls[0][3]).toBeUndefined();
   });
 
   it("clears and rebuilds fossil cache when verify fails", async () => {
@@ -491,7 +634,7 @@ describe("ProjectVcsCache unit", () => {
     ).toBe(1);
   });
 
-  it("merges parent env vars into GIT_SSH_COMMAND env for SSH cache operations", async () => {
+  it("merges parent env vars into GIT_SSH_COMMAND env for SSH cache refresh", async () => {
     const projectId = "p-envmerge";
     const projectsPath = "/mimo/projects";
     const cachePath = path.join(projectsPath, projectId, "cache.git");
@@ -534,14 +677,14 @@ describe("ProjectVcsCache unit", () => {
       },
     });
 
-    const refCloneCall = calls.find(
+    const bareClone = calls.find(
       (c) =>
         c.command[0] === "git" &&
         c.command[1] === "clone" &&
-        c.command[2] === "--reference",
+        c.command[2] === "--bare",
     );
-    expect(refCloneCall).toBeDefined();
-    const env = refCloneCall!.options?.env;
+    expect(bareClone).toBeDefined();
+    const env = bareClone!.options?.env;
     expect(env?.PATH).toBe("/usr/bin:/bin");
     expect(env?.HOME).toBe("/root");
     expect(env?.GIT_SSH_COMMAND).toBeDefined();
@@ -565,11 +708,15 @@ describe("ProjectVcsCache unit", () => {
       return { success: true, output: "", error: "", exitCode: 0 };
     });
 
+    const cloneRepoCalls: any[] = [];
     const cache = createProjectVcsCache({
       os,
       projectsPath,
       vcs: {
-        cloneRepository: async () => ({ success: true, output: "", error: "" }),
+        cloneRepository: async (...args: any[]) => {
+          cloneRepoCalls.push(args);
+          return { success: true, output: "", error: "" };
+        },
       } as any,
     });
 
@@ -590,17 +737,8 @@ describe("ProjectVcsCache unit", () => {
       },
     });
 
-    const refCloneCall = calls.find(
-      (c) =>
-        c.command[0] === "git" &&
-        c.command[1] === "clone" &&
-        c.command[2] === "--reference",
-    );
-    expect(refCloneCall).toBeDefined();
-    const sshCmd = refCloneCall!.options?.env?.GIT_SSH_COMMAND;
-    expect(sshCmd).toBeDefined();
-    expect(sshCmd).toContain("-i ");
-    expect(sshCmd).toContain("-p 2222");
+    expect(cloneRepoCalls.length).toBe(1);
+    expect(cloneRepoCalls[0][5]).toBe(2222);
 
     const bareCloneCall = calls.find(
       (c) =>
@@ -609,6 +747,7 @@ describe("ProjectVcsCache unit", () => {
         c.command[2] === "--bare",
     );
     expect(bareCloneCall!.options?.env?.GIT_SSH_COMMAND).toContain("-p 2222");
+    expect(bareCloneCall!.options?.env?.GIT_SSH_COMMAND).toContain("-i ");
   });
 
   it("injects -p <port> without -i in GIT_SSH_COMMAND when only clonePort is set (no SSH key)", async () => {
@@ -629,11 +768,15 @@ describe("ProjectVcsCache unit", () => {
       return { success: true, output: "", error: "", exitCode: 0 };
     });
 
+    const cloneRepoCalls: any[] = [];
     const cache = createProjectVcsCache({
       os,
       projectsPath,
       vcs: {
-        cloneRepository: async () => ({ success: true, output: "", error: "" }),
+        cloneRepository: async (...args: any[]) => {
+          cloneRepoCalls.push(args);
+          return { success: true, output: "", error: "" };
+        },
       } as any,
     });
 
@@ -645,14 +788,16 @@ describe("ProjectVcsCache unit", () => {
       clonePort: 2222,
     });
 
-    const refCloneCall = calls.find(
+    expect(cloneRepoCalls.length).toBe(1);
+    expect(cloneRepoCalls[0][5]).toBe(2222);
+
+    const bareCloneCall = calls.find(
       (c) =>
         c.command[0] === "git" &&
         c.command[1] === "clone" &&
-        c.command[2] === "--reference",
+        c.command[2] === "--bare",
     );
-    expect(refCloneCall).toBeDefined();
-    const sshCmd = refCloneCall!.options?.env?.GIT_SSH_COMMAND;
+    const sshCmd = bareCloneCall!.options?.env?.GIT_SSH_COMMAND;
     expect(sshCmd).toBeDefined();
     expect(sshCmd).toContain("-p 2222");
     expect(sshCmd).not.toContain("-i ");
@@ -676,11 +821,15 @@ describe("ProjectVcsCache unit", () => {
       return { success: true, output: "", error: "", exitCode: 0 };
     });
 
+    const cloneRepoCalls: any[] = [];
     const cache = createProjectVcsCache({
       os,
       projectsPath,
       vcs: {
-        cloneRepository: async () => ({ success: true, output: "", error: "" }),
+        cloneRepository: async (...args: any[]) => {
+          cloneRepoCalls.push(args);
+          return { success: true, output: "", error: "" };
+        },
       } as any,
     });
 
@@ -700,16 +849,18 @@ describe("ProjectVcsCache unit", () => {
       },
     });
 
-    const refCloneCall = calls.find(
+    expect(cloneRepoCalls.length).toBe(1);
+    expect(cloneRepoCalls[0][5]).toBeUndefined();
+
+    const bareCloneCall = calls.find(
       (c) =>
         c.command[0] === "git" &&
         c.command[1] === "clone" &&
-        c.command[2] === "--reference",
+        c.command[2] === "--bare",
     );
-    expect(refCloneCall).toBeDefined();
-    const sshCmd = refCloneCall!.options?.env?.GIT_SSH_COMMAND;
+    const sshCmd = bareCloneCall!.options?.env?.GIT_SSH_COMMAND;
     expect(sshCmd).toBeDefined();
     expect(sshCmd).toContain("-i ");
-    expect(sshCmd).not.toContain("-p ");
+    expect(sshCmd).not.toContain("-p 2222");
   });
 });

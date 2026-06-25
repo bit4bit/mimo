@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 
-exec bun run src/index.tsx
+exec tini -- bun run src/index.tsx

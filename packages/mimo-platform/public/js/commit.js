@@ -33,6 +33,10 @@
   let expandedDirs = new Set();
   let statusFilters = { added: true, modified: true, deleted: true };
 
+  // Cache for file hunks fetched on demand so re-expanding a file is instant.
+  const fileHunkCache = new Map();
+  const pendingHunkRequests = new Map();
+
   // Overview controllers for each rendered file diff; the active one is the
   // navigation target for the change-navigation keybindings.
   let fileOverviewControllers = [];
@@ -374,6 +378,11 @@
       ) {
         const diffEl = renderFileDiff(node.file);
         nodeEl.appendChild(diffEl);
+
+        // If hunks are not loaded yet, fetch them now.
+        if (!node.file.hunks) {
+          loadFileHunks(node.file, diffEl);
+        }
       }
 
       // Make file labels clickable to expand diff
@@ -414,6 +423,69 @@
     // This is handled by re-rendering the tree in updateUI()
   }
 
+  async function loadFileHunks(file, diffEl) {
+    if (pendingHunkRequests.has(file.path)) {
+      return;
+    }
+
+    const cached = fileHunkCache.get(file.path);
+    if (cached) {
+      file.hunks = cached.hunks;
+      file.isBinary = cached.isBinary;
+      updateUI();
+      return;
+    }
+
+    pendingHunkRequests.set(file.path, true);
+    setDiffLoading(diffEl, true);
+
+    try {
+      const response = await fetch(
+        `/commits/${sessionId}/files/${encodeURIComponent(file.path)}/hunks`,
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch diff");
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        file.hunks = result.hunks || [];
+        file.isBinary = result.isBinary || false;
+        fileHunkCache.set(file.path, {
+          hunks: file.hunks,
+          isBinary: file.isBinary,
+        });
+        updateUI();
+      } else {
+        setDiffError(diffEl, result.error || "Failed to load diff");
+      }
+    } catch (error) {
+      setDiffError(diffEl, error.message || "Failed to load diff");
+    } finally {
+      pendingHunkRequests.delete(file.path);
+    }
+  }
+
+  function setDiffLoading(diffEl, loading) {
+    const body = diffEl.querySelector(".file-diff-body-wrap");
+    if (!body) return;
+    body.innerHTML = loading
+      ? '<div class="diff-loading">Loading diff…</div>'
+      : "";
+  }
+
+  function setDiffError(diffEl, message) {
+    const body = diffEl.querySelector(".file-diff-body-wrap");
+    if (!body) return;
+    body.innerHTML = `<div class="diff-error">${escapeHtml(message)}</div>`;
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   // Render diff for a modified file
   function renderFileDiff(file) {
     const diffEl = document.createElement("div");
@@ -442,17 +514,19 @@
     header.appendChild(closeBtn);
     diffEl.appendChild(header);
 
-    if (!file.hunks || file.hunks.length === 0) {
-      const noDiff = document.createElement("div");
-      noDiff.className = "diff-binary";
-      noDiff.textContent = "No diff content available";
-      diffEl.appendChild(noDiff);
-      return diffEl;
-    }
-
     // Scrollable body + its own overview track (one track per file).
     const bodyWrap = document.createElement("div");
     bodyWrap.className = "file-diff-body-wrap";
+
+    if (!file.hunks || file.hunks.length === 0) {
+      const placeholder = document.createElement("div");
+      placeholder.className = "diff-loading";
+      placeholder.textContent = "Loading diff…";
+      bodyWrap.appendChild(placeholder);
+      diffEl.appendChild(bodyWrap);
+      return diffEl;
+    }
+
     const body = document.createElement("div");
     body.className = "file-diff-body";
     const track = document.createElement("div");

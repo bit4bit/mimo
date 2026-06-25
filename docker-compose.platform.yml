@@ -23,6 +23,7 @@ services:
       # users. Leave unset locally (clones use the exposed 8001 port below). Set
       # this behind a custom domain / reverse proxy, e.g. https://yourdomain.com/git
       # See docs/DEPLOYMENT.md.
+      LOG_LEVEL: debug
       MIMO_PUBLIC_VCS_URL: ${MIMO_PUBLIC_VCS_URL:-http://localhost:3001}
       HOME: "/home/app"
       USER: "app"
@@ -36,6 +37,7 @@ services:
     volumes:
       - mimo-home-platform:/home/app
       - ~/.mimo-container:/home/app/.mimo
+      - ~/.ssh-mimo:/home/app/.ssh
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 10s

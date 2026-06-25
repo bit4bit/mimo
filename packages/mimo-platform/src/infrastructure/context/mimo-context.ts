@@ -20,6 +20,7 @@ import { ConfigService } from "../../domain/config/service.js";
 import { ImpactCalculator } from "../../domain/impact/calculator.js";
 import { VCS } from "../../domain/vcs/index.js";
 import { sessionStateService } from "../../domain/sessions/state.js";
+import { ChangedFilesCache } from "../../domain/commits/changed-files-cache.js";
 import {
   GitHttpServer,
   DummyGitHttpServer,
@@ -259,10 +260,15 @@ export function createMimoContext(
     );
   const jscpdService = overrides.services?.jscpd ?? new JscpdService(os);
 
+  // Shared cache for patch-derived changed files, used by both commit preview
+  // and impact analysis to avoid duplicate directory scans.
+  const changedFilesCache =
+    overrides.services?.changedFilesCache ?? new ChangedFilesCache();
+
   // Create shared impactCalculator instance with injected services
   const impactCalculator =
     overrides.services?.impactCalculator ??
-    new ImpactCalculator(sccService, jscpdService, os);
+    new ImpactCalculator(sccService, jscpdService, os, changedFilesCache);
 
   // sharedVcs must be explicitly injected - no auto-instantiation
   const sharedVcsServer =
@@ -294,6 +300,7 @@ export function createMimoContext(
         impactCalculator,
         vcs,
         os,
+        changedFilesCache,
       }),
     fileSync:
       overrides.services?.fileSync ??
@@ -315,6 +322,7 @@ export function createMimoContext(
             impactCalculator,
             vcs,
             os,
+            changedFilesCache,
           }),
         sessionRepository: repos.sessions,
         impactCalculator,

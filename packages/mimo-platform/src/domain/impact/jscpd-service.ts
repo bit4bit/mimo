@@ -95,14 +95,14 @@ export class JscpdService {
       this.os.path.tempDir(),
       `jscpd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     );
-    this.os.fs.mkdir(outputDir, { recursive: true });
+    await this.os.fs.mkdirAsync(outputDir, { recursive: true });
 
     try {
       const report = await this.runJscpd(filePaths, outputDir);
       return this.parseJscpdOutput(report);
     } finally {
       try {
-        this.os.fs.rm(outputDir, { recursive: true, force: true });
+        await this.os.fs.rmAsync(outputDir, { recursive: true, force: true });
       } catch {}
     }
   }

@@ -785,16 +785,16 @@ export class SessionRepository {
     // Delete the centralized bare git session repository
     const repoPath = this.getSessionRepoPath(sessionId);
     if (this.os.fs.exists(repoPath)) {
-      this.os.fs.rm(repoPath, { recursive: true, force: true });
+      await this.os.fs.rmAsync(repoPath, { recursive: true, force: true });
     }
 
     // Delete entire session directory (includes upstream/, agent-workspace/, session.yaml)
     if (this.os.fs.exists(sessionPath)) {
-      this.deleteDirectoryRecursive(sessionPath);
+      await this.deleteDirectoryRecursive(sessionPath);
     }
   }
 
-  private deleteDirectoryRecursive(dirPath: string): void {
+  private async deleteDirectoryRecursive(dirPath: string): Promise<void> {
     if (!this.os.fs.exists(dirPath)) return;
 
     const entries = this.os.fs.readdir(dirPath, {
@@ -804,13 +804,13 @@ export class SessionRepository {
     for (const entry of entries) {
       const entryPath = this.os.path.join(dirPath, entry.name);
       if (entry.isDirectory()) {
-        this.deleteDirectoryRecursive(entryPath);
+        await this.deleteDirectoryRecursive(entryPath);
       } else {
-        this.os.fs.unlink(entryPath);
+        await this.os.fs.unlinkAsync(entryPath);
       }
     }
 
-    this.os.fs.rm(dirPath);
+    await this.os.fs.rmAsync(dirPath, { recursive: true, force: true });
   }
 
   async exists(projectId: string, sessionId: string): Promise<boolean> {

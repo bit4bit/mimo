@@ -179,11 +179,11 @@ export class McpServerRepository {
     // Delete all files in the directory
     const entries = this.os.fs.readdir(mcpServerPath) as string[];
     for (const entry of entries) {
-      this.os.fs.unlink(this.os.path.join(mcpServerPath, entry));
+      await this.os.fs.unlinkAsync(this.os.path.join(mcpServerPath, entry));
     }
 
     // Delete the directory
-    this.os.fs.rm(mcpServerPath);
+    await this.os.fs.rmAsync(mcpServerPath, { recursive: true, force: true });
     return true;
   }
 

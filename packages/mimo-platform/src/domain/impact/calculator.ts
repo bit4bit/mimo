@@ -3,7 +3,10 @@ import type { SccService, SccMetrics, SccFileMetrics } from "./scc-service.js";
 import type { JscpdService, Clone } from "./jscpd-service.js";
 import type { OS } from "../../infrastructure/os/types.js";
 import { logger } from "../../logger.js";
-import { detectChangedFiles } from "../files/changed-files.js";
+import {
+  detectChangedFiles,
+  type ChangedFilesResult,
+} from "../files/changed-files.js";
 import { shouldIncludeImpactPath } from "../files/impact-file-policy.js";
 import {
   buildDependencyGraph,
@@ -17,6 +20,7 @@ import {
   type DependencyEdgeInput,
   type DependencyParserLanguage,
 } from "./dependency-parser.js";
+import { ChangedFilesCache } from "../commits/changed-files-cache.js";
 
 export type FileStatus = "new" | "changed" | "deleted" | "unchanged";
 
@@ -132,14 +136,18 @@ export class ImpactCalculator {
   private customJscpdService: JscpdService | undefined;
   private os: OS | undefined;
 
+  private customChangedFilesCache: ChangedFilesCache | undefined;
+
   constructor(
     customSccService?: SccService,
     customJscpdService?: JscpdService,
     os?: OS,
+    customChangedFilesCache?: ChangedFilesCache,
   ) {
     this.customSccService = customSccService;
     this.customJscpdService = customJscpdService;
     this.os = os;
+    this.customChangedFilesCache = customChangedFilesCache;
   }
 
   private async getSccService(): Promise<SccService> {
@@ -165,6 +173,7 @@ export class ImpactCalculator {
     upstreamPath: string,
     agentWorkspacePath: string,
     forceRefresh = false,
+    providedChangedFiles?: ChangedFilesResult,
   ): Promise<{ metrics: ImpactMetrics; trends: ImpactTrend }> {
     const sccService = await this.getSccService();
 
@@ -173,40 +182,97 @@ export class ImpactCalculator {
       await sccService.install();
     }
 
-    // Get scc metrics for both directories
-    let upstreamMetrics: ReturnType<typeof sccService.runScc> extends Promise<
-      infer T
-    >
-      ? T
-      : never | null = null;
-    let workspaceMetrics: ReturnType<typeof sccService.runScc> extends Promise<
-      infer T
-    >
-      ? T
-      : never | null = null;
+    // Detect changed files first. When the caller already knows the changed
+    // file list (e.g. from a git patch in the commit flow), use it to avoid a
+    // second full-directory scan. Otherwise consult the shared changed-files
+    // cache populated by the commit preview; only fall back to the expensive
+    // directory scan if nothing is cached. forceRefresh bypasses the cache and
+    // re-runs the scan so callers can explicitly request fresh data.
+    let changedFilesResult: ChangedFilesResult | undefined =
+      providedChangedFiles;
 
-    try {
-      upstreamMetrics = await sccService.runScc(upstreamPath, forceRefresh);
-    } catch (error) {
-      logger.error(`[impact] Failed to get upstream metrics:`, error);
-    }
-
-    try {
-      workspaceMetrics = await sccService.runScc(
+    if (!changedFilesResult && !forceRefresh) {
+      changedFilesResult = this.customChangedFilesCache?.get(
+        sessionId,
+        upstreamPath,
         agentWorkspacePath,
-        forceRefresh,
       );
-    } catch (error) {
-      logger.error(`[impact] Failed to get workspace metrics:`, error);
     }
 
-    // Detect changed files using shared logic
-    const changedFilesResult = await detectChangedFiles(
-      this.os!,
-      upstreamPath,
-      agentWorkspacePath,
-      { fileFilter: shouldIncludeImpactPath },
-    );
+    if (!changedFilesResult) {
+      changedFilesResult = await detectChangedFiles(
+        this.os!,
+        upstreamPath,
+        agentWorkspacePath,
+        { fileFilter: shouldIncludeImpactPath },
+      );
+
+      // Update the shared cache with the freshly scanned result so the commit
+      // preview and subsequent impact refreshes stay in sync.
+      this.customChangedFilesCache?.set(
+        sessionId,
+        upstreamPath,
+        agentWorkspacePath,
+        changedFilesResult,
+      );
+    }
+
+    // Build absolute paths for the files that need SCC metrics. We need both
+    // sides of every changed file so we can compute deltas. Unknown/deleted
+    // files are omitted from their respective side because SCC would fail on
+    // a missing path.
+    const upstreamPaths: string[] = [];
+    const workspacePaths: string[] = [];
+
+    for (const file of changedFilesResult.files) {
+      if (shouldIncludeImpactPath(file.path)) {
+        if (file.status === "deleted") {
+          const upstreamFile = this.os!.path.join(upstreamPath, file.path);
+          if (this.os!.fs.exists(upstreamFile)) {
+            upstreamPaths.push(upstreamFile);
+          }
+        } else if (file.status === "added") {
+          const workspaceFile = this.os!.path.join(
+            agentWorkspacePath,
+            file.path,
+          );
+          if (this.os!.fs.exists(workspaceFile)) {
+            workspacePaths.push(workspaceFile);
+          }
+        } else {
+          // modified
+          const upstreamFile = this.os!.path.join(upstreamPath, file.path);
+          const workspaceFile = this.os!.path.join(
+            agentWorkspacePath,
+            file.path,
+          );
+          if (this.os!.fs.exists(upstreamFile)) {
+            upstreamPaths.push(upstreamFile);
+          }
+          if (this.os!.fs.exists(workspaceFile)) {
+            workspacePaths.push(workspaceFile);
+          }
+        }
+      }
+    }
+
+    // Run SCC only on the changed files. This avoids scanning the entire repo
+    // for large projects. runSccOnFiles is safe to call with an empty list.
+    let upstreamMetrics: SccMetrics | null = null;
+    let workspaceMetrics: SccMetrics | null = null;
+
+    try {
+      [upstreamMetrics, workspaceMetrics] = await Promise.all([
+        sccService.runSccOnFiles(upstreamPath, upstreamPaths, forceRefresh),
+        sccService.runSccOnFiles(
+          agentWorkspacePath,
+          workspacePaths,
+          forceRefresh,
+        ),
+      ]);
+    } catch (error) {
+      logger.error(`[impact] Failed to get scc metrics:`, error);
+    }
 
     // Calculate file counts
     const files = {
@@ -241,20 +307,6 @@ export class ImpactCalculator {
           status: "deleted",
           size: fileChange.size,
         });
-      }
-    }
-
-    // Calculate unchanged count from scc metrics if available
-    if (upstreamMetrics && workspaceMetrics) {
-      const changedPaths = new Set(byFile.map((f) => f.path));
-      const allPaths = new Set([
-        ...upstreamMetrics.byFile.map((f) => f.path),
-        ...workspaceMetrics.byFile.map((f) => f.path),
-      ]);
-      for (const path of allPaths) {
-        if (!changedPaths.has(path)) {
-          files.unchanged++;
-        }
       }
     }
 
@@ -411,11 +463,6 @@ export class ImpactCalculator {
       agentWorkspacePath,
     );
 
-    const upstreamComplexity = upstreamMetrics?.complexity?.cyclomatic ?? 0;
-    const workspaceComplexity = workspaceMetrics?.complexity?.cyclomatic ?? 0;
-    const upstreamTotalLines = upstreamMetrics?.totalLines?.upstream ?? 0;
-    const workspaceTotalLines = workspaceMetrics?.totalLines?.workspace ?? 0;
-
     const metrics: ImpactMetrics = {
       files,
       linesOfCode: {
@@ -428,14 +475,17 @@ export class ImpactCalculator {
         cognitive: cognitiveDelta,
         estimatedMinutes: Math.max(0, Math.ceil(estimatedMinutes)),
       },
+      // With full scoping SCC no longer scans the entire repository, so we
+      // cannot compute absolute totals. These fields are retained for API
+      // compatibility but are set to zero.
       absoluteComplexity: {
-        upstream: upstreamComplexity,
-        workspace: workspaceComplexity,
+        upstream: 0,
+        workspace: 0,
       },
       absoluteLoc: {
         total: {
-          upstream: upstreamTotalLines,
-          workspace: workspaceTotalLines,
+          upstream: 0,
+          workspace: 0,
         },
         added: {
           upstream: 0,
@@ -483,7 +533,7 @@ export class ImpactCalculator {
       },
       complexity: { cyclomatic: cyclomaticDelta, cognitive: cognitiveDelta },
       absoluteLoc: {
-        total: workspaceTotalLines,
+        total: 0,
         added: linesAdded,
         removed: linesRemoved,
       },
@@ -768,14 +818,9 @@ export function validateImpactMetrics(
 ): ImpactValidation {
   const errors: string[] = [];
 
-  const expectedCyclomaticDelta =
-    metrics.absoluteComplexity.workspace - metrics.absoluteComplexity.upstream;
-  if (metrics.complexity.cyclomatic !== expectedCyclomaticDelta) {
-    errors.push(
-      `complexity_delta_mismatch expected=${expectedCyclomaticDelta} actual=${metrics.complexity.cyclomatic}`,
-    );
-  }
-
+  // With full scoping, SCC only scans changed files so absolute totals are no
+  // longer available. The cyclomatic delta is still meaningful, but it cannot
+  // be cross-checked against absolute complexity. Skip that validation.
   const expectedNet = metrics.linesOfCode.added - metrics.linesOfCode.removed;
   if (metrics.linesOfCode.net !== expectedNet) {
     errors.push(

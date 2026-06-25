@@ -618,7 +618,7 @@ describe("VCS Integration Tests", () => {
           await vcs.createBranch("existing-branch", "git", upstreamPath);
 
           // Make a commit on master
-          execSync("git checkout master", { cwd: upstreamPath });
+          execSync("git checkout -B master", { cwd: upstreamPath });
           writeFileSync(join(upstreamPath, "another.txt"), "another");
           execSync("git add .", { cwd: upstreamPath });
           execSync('git commit -m "Another commit"', { cwd: upstreamPath });
@@ -688,8 +688,8 @@ describe("VCS Integration Tests", () => {
           execSync("git add .", { cwd: sourcePath });
           execSync('git commit -m "Feature commit"', { cwd: sourcePath });
 
-          // Switch back to master
-          execSync("git checkout master", { cwd: sourcePath });
+          // Switch back to master at the initial commit (not the feature tip)
+          execSync("git checkout -B master HEAD~1", { cwd: sourcePath });
 
           // Clone without sourceBranch - should clone default branch (main)
           const targetPath = join(testHome, "cloned-repo-default");
@@ -728,7 +728,7 @@ describe("VCS Integration Tests", () => {
           execSync('git commit -m "Feature commit"', { cwd: sourcePath });
 
           // Switch back to master
-          execSync("git checkout master", { cwd: sourcePath });
+          execSync("git checkout -B master", { cwd: sourcePath });
 
           // Clone with sourceBranch - should clone the feature/v2 branch
           const targetPath = join(testHome, "cloned-repo-branch");

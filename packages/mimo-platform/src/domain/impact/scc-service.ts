@@ -253,7 +253,57 @@ export class SccService {
     // SCC auto-detects .sccignore files, so we write to that
     await this.buildIgnoreFile(directory);
 
-    const args = ["--by-file", "-f", "json", directory];
+    const output = await this.executeScc([
+      "--by-file",
+      "-f",
+      "json",
+      directory,
+    ]);
+    const metrics = this.parseSccOutput(directory, output);
+
+    // Update smart cache with new results
+    await this.updateCache(directory, metrics);
+    this.staleDirectories.delete(directory);
+
+    return metrics;
+  }
+
+  /**
+   * Run SCC on a specific set of files under a base directory.
+   * This avoids scanning the entire repository when only a few files changed.
+   */
+  async runSccOnFiles(
+    baseDir: string,
+    filePaths: string[],
+    force = false,
+  ): Promise<SccMetrics> {
+    if (filePaths.length === 0) {
+      return {
+        linesOfCode: { added: 0, removed: 0, net: 0 },
+        totalLines: { upstream: 0, workspace: 0 },
+        complexity: { cyclomatic: 0, cognitive: 0, estimatedMinutes: 0 },
+        byLanguage: [],
+        byFile: [],
+      };
+    }
+
+    if (!this.isInstalled()) {
+      throw new Error("scc is not installed. Run install() first.");
+    }
+
+    await this.buildIgnoreFile(baseDir);
+
+    const output = await this.executeScc([
+      "--by-file",
+      "-f",
+      "json",
+      ...filePaths,
+    ]);
+
+    return this.parseSccOutput(baseDir, output);
+  }
+
+  private async executeScc(args: string[]): Promise<SccJsonOutput> {
     const child = this.os.command.spawn([this.sccPath, ...args], {
       timeoutMs: 30000,
     });
@@ -291,14 +341,7 @@ export class SccService {
     }
 
     try {
-      const output: SccJsonOutput = JSON.parse(stdout);
-      const metrics = this.parseSccOutput(directory, output);
-
-      // Update smart cache with new results
-      await this.updateCache(directory, metrics);
-      this.staleDirectories.delete(directory);
-
-      return metrics;
+      return JSON.parse(stdout);
     } catch (error) {
       throw new Error(`Failed to parse scc output: ${error}`);
     }
@@ -462,7 +505,8 @@ export class SccService {
         compositeLines.push(content);
         compositeLines.push("");
       } else {
-        logger.warn(
+        // Missing optional ignore files are normal; only log when debugging.
+        logger.debug(
           `[scc] Warning: ${source.label} not found at ${source.path}`,
         );
       }

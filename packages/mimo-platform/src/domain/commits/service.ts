@@ -3,12 +3,15 @@ import { logger } from "../../logger.js";
 import type { VCS } from "../vcs/index.js";
 import type { OS } from "../../infrastructure/os/types.js";
 import {
-  detectChangedFiles,
   applySelectedFiles,
+  detectChangedFilesFromPatchPreview,
+  detectChangedFilesFromPatchPreviewAsync,
   type FileChange,
 } from "./changed-files.js";
 import { parsePatchPreview, type DiffHunk } from "./patch-preview.js";
 import type { Credential } from "../credentials/repository.js";
+import { ChangedFilesCache } from "./changed-files-cache.js";
+import type { ChangedFilesResult } from "../files/changed-files.js";
 
 export interface CommitResult {
   success: boolean;
@@ -50,6 +53,13 @@ export interface CommitPreviewResult {
   error?: string;
 }
 
+export interface FileHunksResult {
+  success: boolean;
+  hunks?: DiffHunk[];
+  isBinary?: boolean;
+  error?: string;
+}
+
 export interface SelectiveCommitResult extends CommitAndPushResult {
   invalidPaths?: string[];
 }
@@ -64,10 +74,54 @@ export interface CommitServiceDeps {
   impactCalculator: any;
   vcs: VCS;
   os: OS;
+  changedFilesCache?: ChangedFilesCache;
 }
 
 export class CommitService {
-  constructor(private deps: CommitServiceDeps) {}
+  private patchCache = new Map<string, { patch: string; cachedAt: number }>();
+  private readonly PATCH_CACHE_TTL_MS = 30_000;
+  private changedFilesCache: ChangedFilesCache;
+
+  constructor(private deps: CommitServiceDeps) {
+    this.changedFilesCache = deps.changedFilesCache ?? new ChangedFilesCache();
+  }
+
+  /**
+   * Generate (or reuse a recently cached) patch for a session.
+   * Caching avoids running `git diff` twice in the common preview-then-commit
+   * flow while the TTL keeps the window short enough that stale data is rare.
+   */
+  private async getCachedPatch(
+    sessionId: string,
+    agentWorkspacePath: string,
+    upstreamPath: string,
+  ): Promise<{ patch: string } | { error: string }> {
+    const cached = this.patchCache.get(sessionId);
+    if (cached && Date.now() - cached.cachedAt < this.PATCH_CACHE_TTL_MS) {
+      logger.debug(`[commit] using cached patch for session ${sessionId}`);
+      return { patch: cached.patch };
+    }
+
+    const genResult = await this.deps.vcs.generatePatch(
+      agentWorkspacePath,
+      upstreamPath,
+    );
+
+    if (!genResult.success) {
+      return {
+        error: genResult.error || "Failed to generate patch",
+      };
+    }
+
+    const patch = genResult.patch || "";
+    this.patchCache.set(sessionId, { patch, cachedAt: Date.now() });
+    return { patch };
+  }
+
+  private invalidatePatchCache(sessionId: string): void {
+    this.patchCache.delete(sessionId);
+    this.changedFilesCache.invalidate(sessionId);
+  }
   /**
    * Get commit preview for a session.
    * Detects changed files by comparing workspace with upstream.
@@ -92,14 +146,24 @@ export class CommitService {
       };
     }
 
-    // Detect changed files (accurate file list)
-    const detected = await detectChangedFiles(
-      this.deps.os,
-      session.upstreamPath,
+    // Generate patch first. For large repositories this is much faster than
+    // scanning both directories and computing MD5 checksums for every file.
+    // The patch also gives us the changed-file list and inline hunks in one go.
+    const patchResult = await this.getCachedPatch(
+      session.id,
       session.agentWorkspacePath,
+      session.upstreamPath,
     );
 
-    if (detected.files.length === 0) {
+    if ("error" in patchResult) {
+      return {
+        success: false,
+        error: patchResult.error,
+      };
+    }
+
+    const patch = patchResult.patch;
+    if (patch.trim().length === 0) {
       return {
         success: true,
         preview: {
@@ -109,29 +173,34 @@ export class CommitService {
       };
     }
 
-    // Generate patch for inline diff display
-    const genResult = await this.deps.vcs.generatePatch(
-      session.agentWorkspacePath,
+    const patchPreview = parsePatchPreview(patch);
+
+    // Derive the file list from the patch instead of re-scanning both trees.
+    const detected = await detectChangedFilesFromPatchPreviewAsync(
+      this.deps.os,
       session.upstreamPath,
+      session.agentWorkspacePath,
+      patchPreview,
     );
 
-    let patchPreview = null;
-    if (genResult.success && genResult.patch) {
-      patchPreview = parsePatchPreview(genResult.patch);
-    }
+    // Share the derived changed-file list with impact analysis.
+    this.changedFilesCache.set(
+      session.id,
+      session.upstreamPath,
+      session.agentWorkspacePath,
+      detected,
+    );
 
-    // Merge detected files with patch hunks for modified files
     const files: PreviewFile[] = detected.files.map((file) => {
       const previewFile: PreviewFile = { ...file };
-
-      if (patchPreview) {
-        const patchFile = patchPreview.files.find((f) => f.path === file.path);
-        if (patchFile) {
-          previewFile.hunks = patchFile.hunks;
-          previewFile.isBinary = patchFile.isBinary;
-        }
+      const patchFile = patchPreview.files.find((f) => f.path === file.path);
+      if (patchFile) {
+        // Do not include hunks in the initial preview response. For large
+        // diffs sending every hunk makes the response huge and slow, often
+        // causing browser/network timeouts. Hunks are fetched on demand via
+        // getFileHunks().
+        previewFile.isBinary = patchFile.isBinary;
       }
-
       return previewFile;
     });
 
@@ -140,10 +209,53 @@ export class CommitService {
       preview: {
         summary: {
           ...detected.summary,
-          binary: patchPreview?.summary.binary || 0,
+          binary: patchPreview.summary.binary,
         },
         files,
       },
+    };
+  }
+
+  /**
+   * Get the diff hunks for a single file in a session.
+   * This is the on-demand complement to getPreview(): the preview returns the
+   * file list and summary, and this endpoint returns the actual diff for a
+   * selected file when the user expands it.
+   */
+  async getFileHunks(
+    sessionId: string,
+    filePath: string,
+  ): Promise<FileHunksResult> {
+    const session = await this.deps.sessionRepository.findById(sessionId);
+    if (!session) {
+      return { success: false, error: "Session not found" };
+    }
+
+    const patchResult = await this.getCachedPatch(
+      session.id,
+      session.agentWorkspacePath,
+      session.upstreamPath,
+    );
+
+    if ("error" in patchResult) {
+      return { success: false, error: patchResult.error };
+    }
+
+    const patch = patchResult.patch;
+    if (patch.trim().length === 0) {
+      return { success: true, hunks: [] };
+    }
+
+    const patchPreview = parsePatchPreview(patch);
+    const patchFile = patchPreview.files.find((f) => f.path === filePath);
+    if (!patchFile) {
+      return { success: false, error: "File not found in preview" };
+    }
+
+    return {
+      success: true,
+      hunks: patchFile.hunks,
+      isBinary: patchFile.isBinary,
     };
   }
 
@@ -190,11 +302,50 @@ export class CommitService {
       };
     }
 
-    // Detect changed files
-    const changes = await detectChangedFiles(
+    // Generate patch first — same source we now use for the preview.
+    // This replaces the expensive full-directory MD5 scan.
+    const { dirname, join } = await import("path");
+    const patchResult = await this.getCachedPatch(
+      session.id,
+      session.agentWorkspacePath,
+      session.upstreamPath,
+    );
+
+    if ("error" in patchResult) {
+      return {
+        success: false,
+        message: "Failed to compare workspaces",
+        error: patchResult.error,
+        step: "sync",
+      };
+    }
+
+    const patch = patchResult.patch;
+    if (patch.trim().length === 0) {
+      return {
+        success: true,
+        message: "No changes to commit",
+        step: null,
+      };
+    }
+
+    const patchPreview = parsePatchPreview(patch);
+
+    // Derive changed files from the patch instead of scanning both trees.
+    const changes = await detectChangedFilesFromPatchPreviewAsync(
       this.deps.os,
       session.upstreamPath,
       session.agentWorkspacePath,
+      patchPreview,
+    );
+
+    // Cache the derived changed-file list so impact analysis can reuse it
+    // without re-scanning both directories.
+    this.changedFilesCache.set(
+      session.id,
+      session.upstreamPath,
+      session.agentWorkspacePath,
+      changes,
     );
 
     if (changes.files.length === 0) {
@@ -247,13 +398,6 @@ export class CommitService {
       };
     }
 
-    // Generate patch BEFORE applying (captures actual changes)
-    const { dirname, join } = await import("path");
-    const genResult = await this.deps.vcs.generatePatch(
-      session.agentWorkspacePath,
-      session.upstreamPath,
-    );
-
     // Apply selected files
     const applyResult = applySelectedFiles(
       this.deps.os,
@@ -272,11 +416,9 @@ export class CommitService {
     }
 
     // Store patch for history (generated before apply, so it has the actual diff)
-    if (genResult.success && genResult.patch) {
-      const sessionDir = dirname(session.agentWorkspacePath);
-      const patchDir = join(sessionDir, "patches");
-      await this.deps.vcs.storePatch(patchDir, genResult.patch);
-    }
+    const sessionDir = dirname(session.agentWorkspacePath);
+    const patchDir = join(sessionDir, "patches");
+    await this.deps.vcs.storePatch(patchDir, patch);
 
     // Commit in upstream
     const commitResult = await this.deps.vcs.commitUpstream(
@@ -311,6 +453,8 @@ export class CommitService {
         session.id,
         session.upstreamPath,
         session.agentWorkspacePath,
+        false,
+        changes,
       );
 
       const complexityByLanguage =
@@ -398,6 +542,10 @@ export class CommitService {
         step: "push",
       };
     }
+
+    // Commit succeeded: future previews must reflect the new upstream state,
+    // so drop any cached patch for this session.
+    this.invalidatePatchCache(session.id);
 
     return {
       success: true,

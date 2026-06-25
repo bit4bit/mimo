@@ -6,7 +6,7 @@ ARG GO_VERSION=1.23.6
 
 # Install system dependencies first (provides curl, python3, pip, etc.)
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl fossil git openssh-client python3 python3-pip build-essential libgcc-s1 libstdc++6 ripgrep nodejs npm gnupg unzip docker-cli docker-compose \
+  && apt-get install -y --no-install-recommends ca-certificates curl fossil git openssh-client tini python3 python3-pip build-essential libgcc-s1 libstdc++6 ripgrep nodejs npm gnupg unzip docker-cli docker-compose libncurses-dev \
   && install -m 0755 -d /etc/apt/keyrings \
   && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
   && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -40,9 +40,19 @@ RUN go install github.com/gszhangwei/open-spdd/cmd/openspdd@latest \
 # Install openspec
 RUN npm install -g @fission-ai/openspec@latest
 
+# Install asdf v0.16.x (Go-based version)
+RUN curl -fsSL https://github.com/asdf-vm/asdf/releases/download/v0.16.7/asdf-v0.16.7-linux-amd64.tar.gz -o /tmp/asdf.tar.gz \
+  && tar -xzf /tmp/asdf.tar.gz -C /usr/local/bin \
+  && rm /tmp/asdf.tar.gz \
+  && chmod +x /usr/local/bin/asdf
 ENV ASDF_DIR=/opt/asdf
-RUN git clone https://github.com/asdf-vm/asdf.git "$ASDF_DIR" --branch v0.16.4
-ENV PATH="$ASDF_DIR/bin:$ASDF_DIR/shims:$PATH"
+ENV ASDF_DATA_DIR=/opt/asdf-data
+RUN mkdir -p "$ASDF_DATA_DIR"
+ENV PATH="/usr/local/bin:$ASDF_DATA_DIR/shims:$PATH"
+
+# Add asdf plugins for Elixir and Erlang
+RUN asdf plugin add elixir \
+  && asdf plugin add erlang
 
 COPY package.json bun.lock* ./
 COPY packages/mimo-platform/package.json ./packages/mimo-platform/package.json
