@@ -35,12 +35,19 @@ import {
   access,
   readFile as readFileAsync,
   writeFile as writeFileAsync,
+  appendFile as appendFileAsync,
   mkdir as mkdirAsync,
   unlink as unlinkAsync,
   rm as rmAsync,
   readdir as readdirAsync,
   stat as statAsync,
   lstat as lstatAsync,
+  chmod as chmodAsync,
+  rename as renameAsync,
+  realpath as realpathAsync,
+  mkdtemp as mkdtempAsync,
+  cp as cpAsync,
+  utimes as utimesAsync,
 } from "fs/promises";
 import { homedir, tmpdir, platform, arch } from "os";
 import { join, dirname, basename, extname, relative, resolve } from "path";
@@ -261,6 +268,14 @@ class NodeFileSystem implements FileSystem {
     appendFileSync(path, content, options);
   }
 
+  async appendFileAsync(
+    path: string,
+    content: string,
+    options = {},
+  ): Promise<void> {
+    await appendFileAsync(path, content, options);
+  }
+
   mkdir(path: string, options = {}): void {
     mkdirSync(path, options);
   }
@@ -281,12 +296,25 @@ class NodeFileSystem implements FileSystem {
     copyFileSync(src, dest);
   }
 
+  async copyFileAsync(src: string, dest: string): Promise<void> {
+    const { copyFile } = await import("fs/promises");
+    await copyFile(src, dest);
+  }
+
   chmod(path: string, mode: number): void {
     chmodSync(path, mode);
   }
 
+  async chmodAsync(path: string, mode: number): Promise<void> {
+    await chmodAsync(path, mode);
+  }
+
   rename(oldPath: string, newPath: string): void {
     renameSync(oldPath, newPath);
+  }
+
+  async renameAsync(oldPath: string, newPath: string): Promise<void> {
+    await renameAsync(oldPath, newPath);
   }
 
   rm(path: string, options?: { recursive?: boolean; force?: boolean }): void {
@@ -388,6 +416,14 @@ class NodeFileSystem implements FileSystem {
     cpSync(src, dest, options);
   }
 
+  async cpAsync(
+    src: string,
+    dest: string,
+    options?: { recursive?: boolean; preserveTimestamps?: boolean },
+  ): Promise<void> {
+    await cpAsync(src, dest, options);
+  }
+
   watch(
     path: string,
     options?: { recursive?: boolean },
@@ -400,12 +436,28 @@ class NodeFileSystem implements FileSystem {
     utimesSync(path, atime, mtime);
   }
 
+  async utimesAsync(
+    path: string,
+    atime: Date | number,
+    mtime: Date | number,
+  ): Promise<void> {
+    await utimesAsync(path, atime, mtime);
+  }
+
   realpath(path: string): string {
     return realpathSync(path);
   }
 
+  async realpathAsync(path: string): Promise<string> {
+    return await realpathAsync(path);
+  }
+
   mkdtemp(prefix: string): string {
     return mkdtempSync(prefix);
+  }
+
+  async mkdtempAsync(prefix: string): Promise<string> {
+    return await mkdtempAsync(prefix);
   }
 }
 

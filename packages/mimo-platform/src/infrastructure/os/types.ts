@@ -94,8 +94,11 @@ export interface FileSystem {
   unlink(path: string): void;
   unlinkAsync(path: string): Promise<void>;
   copyFile(src: string, dest: string): void;
+  copyFileAsync(src: string, dest: string): Promise<void>;
   chmod(path: string, mode: number): void;
+  chmodAsync(path: string, mode: number): Promise<void>;
   rename(oldPath: string, newPath: string): void;
+  renameAsync(oldPath: string, newPath: string): Promise<void>;
   watch(
     path: string,
     options?: { recursive?: boolean },
@@ -145,9 +148,27 @@ export interface FileSystem {
     dest: string,
     options?: { recursive?: boolean; preserveTimestamps?: boolean },
   ): void;
+  cpAsync(
+    src: string,
+    dest: string,
+    options?: { recursive?: boolean; preserveTimestamps?: boolean },
+  ): Promise<void>;
   utimes(path: string, atime: Date | number, mtime: Date | number): void;
+  utimesAsync(
+    path: string,
+    atime: Date | number,
+    mtime: Date | number,
+  ): Promise<void>;
   realpath(path: string): string;
+  realpathAsync(path: string): Promise<string>;
   mkdtemp(prefix: string): string;
+  mkdtempAsync(prefix: string): Promise<string>;
+  appendFile(path: string, content: string, options?: WriteFileOptions): void;
+  appendFileAsync(
+    path: string,
+    content: string,
+    options?: WriteFileOptions,
+  ): Promise<void>;
 }
 
 // ── Environment ───────────────────────────────────────────────────────────

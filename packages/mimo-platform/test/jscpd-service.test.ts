@@ -44,7 +44,7 @@ describe("JscpdService", () => {
     const os = createOS({ ...process.env });
     const jscpdBin = join(process.cwd(), "node_modules/.bin/jscpd");
     const service = new JscpdService(os, jscpdBin);
-    expect(service.isInstalled()).toBe(true);
+    expect(await service.isInstalled()).toBe(true);
   });
 
   it("parses cross-file duplicates from jscpd output", async () => {

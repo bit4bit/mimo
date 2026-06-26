@@ -11,6 +11,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { SccService } from "../src/domain/impact/scc-service.js";
 import { createOS } from "../src/infrastructure/os/node-adapter.js";
+import { logger } from "../src/logger.js";
 
 describe("SCC Composite Ignore File", () => {
   let testDir: string;
@@ -123,25 +124,25 @@ echo '[]'`,
       expect(content).toContain("# --- From: .mimoignore ---");
     });
 
-    it("should warn when some source files are missing", async () => {
+    it("should log debug messages when some source files are missing", async () => {
       // GIVEN only .gitignore exists
       writeFileSync(join(testDir, ".gitignore"), "*.log");
       // .fossil-settings and .mimoignore don't exist
 
       // WHEN buildIgnoreFile is called
-      const consoleSpy = [];
-      const originalWarn = console.warn;
-      console.warn = (...args) => consoleSpy.push(args);
+      const debugSpy = [];
+      const originalDebug = logger.debug;
+      logger.debug = (...args: any[]) => debugSpy.push(args);
 
       await sccService.buildIgnoreFile(testDir);
 
-      console.warn = originalWarn;
+      logger.debug = originalDebug;
 
-      // THEN warnings are logged for missing files
-      expect(consoleSpy.length).toBeGreaterThan(0);
-      const warnings = consoleSpy.flat().join(" ");
-      expect(warnings).toContain("fossil-settings");
-      expect(warnings).toContain("mimoignore");
+      // THEN debug messages are logged for missing files
+      expect(debugSpy.length).toBeGreaterThan(0);
+      const debugMessages = debugSpy.flat().join(" ");
+      expect(debugMessages).toContain("fossil-settings");
+      expect(debugMessages).toContain("mimoignore");
     });
 
     it("should work with only .gitignore", async () => {

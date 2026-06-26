@@ -108,8 +108,8 @@ export class AgentRepository {
     const id = this.generateId();
     const agentPath = this.getAgentPath(id);
 
-    if (!this.os.fs.exists(agentPath)) {
-      this.os.fs.mkdir(agentPath, { recursive: true });
+    if (!(await this.os.fs.existsAsync(agentPath))) {
+      await this.os.fs.mkdirAsync(agentPath, { recursive: true });
     }
 
     const now = new Date().toISOString();
@@ -126,20 +126,24 @@ export class AgentRepository {
       sharedWith: [],
     };
 
-    this.os.fs.writeFile(this.getAgentFilePath(id), dump(agentData), {
-      encoding: "utf-8",
-    });
+    await this.os.fs.writeFileAsync(
+      this.getAgentFilePath(id),
+      dump(agentData),
+      {
+        encoding: "utf-8",
+      },
+    );
 
     return this.hydrate(agentData);
   }
 
   async findById(agentId: string): Promise<Agent | null> {
     const filePath = this.getAgentFilePath(agentId);
-    if (!this.os.fs.exists(filePath)) {
+    if (!(await this.os.fs.existsAsync(filePath))) {
       return null;
     }
 
-    const content = this.os.fs.readFile(filePath, "utf-8");
+    const content = await this.os.fs.readFileAsync(filePath, "utf-8");
     const data = load(content) as AgentData;
 
     return this.hydrate(data);
@@ -149,43 +153,47 @@ export class AgentRepository {
    * Scans every persisted agent, returning the hydrated agents whose data
    * matches the predicate, newest first.
    */
-  private scanAgents(match: (data: AgentData) => boolean): Agent[] {
+  private async scanAgents(
+    match: (data: AgentData) => boolean,
+  ): Promise<Agent[]> {
     const agentsPath = this.getAgentsPath();
-    if (!this.os.fs.exists(agentsPath)) {
+    if (!(await this.os.fs.existsAsync(agentsPath))) {
       return [];
     }
 
-    const entries = this.os.fs.readdir(agentsPath, {
+    const entries = (await this.os.fs.readdirAsync(agentsPath, {
       withFileTypes: true,
-    }) as import("../os/types.js").DirEnt[];
+    })) as import("../../infrastructure/os/types.js").DirEnt[];
     const agents: Agent[] = [];
 
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        const agentFile = this.os.path.join(
-          agentsPath,
-          entry.name,
-          "agent.yaml",
-        );
-        if (this.os.fs.exists(agentFile)) {
-          const content = this.os.fs.readFile(agentFile, "utf-8");
-          const data = load(content) as AgentData;
-          if (match(data)) {
-            agents.push(this.hydrate(data));
+    await Promise.all(
+      entries.map(async (entry) => {
+        if (entry.isDirectory()) {
+          const agentFile = this.os.path.join(
+            agentsPath,
+            entry.name,
+            "agent.yaml",
+          );
+          if (await this.os.fs.existsAsync(agentFile)) {
+            const content = await this.os.fs.readFileAsync(agentFile, "utf-8");
+            const data = load(content) as AgentData;
+            if (match(data)) {
+              agents.push(this.hydrate(data));
+            }
           }
         }
-      }
-    }
+      }),
+    );
 
     return agents.sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
   }
 
   async findByStatus(status: AgentStatus): Promise<Agent[]> {
-    return this.scanAgents((data) => data.status === status);
+    return await this.scanAgents((data) => data.status === status);
   }
 
   async findByOwner(owner: string): Promise<Agent[]> {
-    return this.scanAgents((data) => data.owner === owner);
+    return await this.scanAgents((data) => data.owner === owner);
   }
 
   /**
@@ -193,7 +201,7 @@ export class AgentRepository {
    * agent's sharedWith list). Does not include agents the user owns.
    */
   async findSharedWith(username: string): Promise<Agent[]> {
-    return this.scanAgents((data) =>
+    return await this.scanAgents((data) =>
       (data.sharedWith ?? []).some((grant) => grant.username === username),
     );
   }
@@ -205,14 +213,24 @@ export class AgentRepository {
     const agent = await this.findById(agentId);
     if (!agent) return null;
 
-    const updatedData: AgentData = {
+    // Convert runtime Date fields back to ISO strings so we spread only
+    // serializable AgentData fields before persisting.
+    const agentData: AgentData = {
       ...agent,
+      startedAt: agent.startedAt.toISOString(),
+      updatedAt: agent.updatedAt.toISOString(),
+      lastActivityAt: agent.lastActivityAt?.toISOString(),
+    };
+    const updatedData: AgentData = {
+      ...agentData,
       ...updates,
       updatedAt: new Date().toISOString(),
     };
 
     const filePath = this.getAgentFilePath(agentId);
-    this.os.fs.writeFile(filePath, dump(updatedData), { encoding: "utf-8" });
+    await this.os.fs.writeFileAsync(filePath, dump(updatedData), {
+      encoding: "utf-8",
+    });
 
     return this.hydrate(updatedData);
   }
@@ -324,17 +342,17 @@ export class AgentRepository {
 
   async delete(agentId: string): Promise<void> {
     const agentPath = this.getAgentPath(agentId);
-    if (this.os.fs.exists(agentPath)) {
+    if (await this.os.fs.existsAsync(agentPath)) {
       await this.deleteDirectoryRecursive(agentPath);
     }
   }
 
   private async deleteDirectoryRecursive(dirPath: string): Promise<void> {
-    if (!this.os.fs.exists(dirPath)) return;
+    if (!(await this.os.fs.existsAsync(dirPath))) return;
 
-    const entries = this.os.fs.readdir(dirPath, {
+    const entries = (await this.os.fs.readdirAsync(dirPath, {
       withFileTypes: true,
-    }) as import("../os/types.js").DirEnt[];
+    })) as import("../../infrastructure/os/types.js").DirEnt[];
 
     for (const entry of entries) {
       const entryPath = this.os.path.join(dirPath, entry.name);
@@ -348,7 +366,26 @@ export class AgentRepository {
     await this.os.fs.rmAsync(dirPath, { recursive: true, force: true });
   }
 
+  async deleteAll(): Promise<void> {
+    const agentsPath = this.getAgentsPath();
+    if (!(await this.os.fs.existsAsync(agentsPath))) return;
+
+    const entries = (await this.os.fs.readdirAsync(agentsPath, {
+      withFileTypes: true,
+    })) as import("../../infrastructure/os/types.js").DirEnt[];
+
+    await Promise.all(
+      entries.map(async (entry) => {
+        if (entry.isDirectory()) {
+          await this.deleteDirectoryRecursive(
+            this.os.path.join(agentsPath, entry.name),
+          );
+        }
+      }),
+    );
+  }
+
   async exists(agentId: string): Promise<boolean> {
-    return this.os.fs.exists(this.getAgentFilePath(agentId));
+    return this.os.fs.existsAsync(this.getAgentFilePath(agentId));
   }
 }

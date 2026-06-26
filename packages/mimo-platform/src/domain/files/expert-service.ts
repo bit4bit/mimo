@@ -47,11 +47,11 @@ export class ExpertService {
     const fullPath = this.os.path
       .join(workspacePath, filePath)
       .replace(/\\/g, "/");
-    if (!this.os.fs.exists(fullPath)) {
+    if (!(await this.os.fs.existsAsync(fullPath))) {
       throw new Error(`File not found: ${filePath}`);
     }
 
-    const content = this.os.fs.readFile(fullPath, "utf-8");
+    const content = await this.os.fs.readFileAsync(fullPath, "utf-8");
     return { content };
   }
 
@@ -68,11 +68,11 @@ export class ExpertService {
       .join(workspacePath, filePath)
       .replace(/\\/g, "/");
     const dir = this.os.path.dirname(fullPath);
-    if (!this.os.fs.exists(dir)) {
+    if (!(await this.os.fs.existsAsync(dir))) {
       throw new Error(`Directory not found: ${dir}`);
     }
 
-    this.os.fs.writeFile(fullPath, content, "utf-8");
+    await this.os.fs.writeFileAsync(fullPath, content, "utf-8");
     return { success: true };
   }
 
@@ -95,15 +95,15 @@ export class ExpertService {
       .join(workspacePath, patchPath)
       .replace(/\\/g, "/");
 
-    if (!this.os.fs.exists(fullPatchPath)) {
+    if (!(await this.os.fs.existsAsync(fullPatchPath))) {
       throw new Error(`Patch file not found: ${patchPath}`);
     }
 
     // Read patch content (will be sent to agent separately)
-    const content = this.os.fs.readFile(fullPatchPath, "utf-8");
+    const content = await this.os.fs.readFileAsync(fullPatchPath, "utf-8");
 
     // Delete patch file
-    this.os.fs.unlink(fullPatchPath);
+    await this.os.fs.unlinkAsync(fullPatchPath);
 
     return { success: true, content };
   }
@@ -130,9 +130,9 @@ export class ExpertService {
 
     // Create parent directories
     const dir = this.os.path.dirname(fullPatchPath);
-    this.os.fs.mkdir(dir, { recursive: true });
+    await this.os.fs.mkdirAsync(dir, { recursive: true });
 
-    this.os.fs.writeFile(fullPatchPath, content, "utf-8");
+    await this.os.fs.writeFileAsync(fullPatchPath, content, "utf-8");
     return { patchPath };
   }
 
@@ -151,8 +151,8 @@ export class ExpertService {
       .join(workspacePath, patchPath)
       .replace(/\\/g, "/");
 
-    if (this.os.fs.exists(fullPatchPath)) {
-      this.os.fs.unlink(fullPatchPath);
+    if (await this.os.fs.existsAsync(fullPatchPath)) {
+      await this.os.fs.unlinkAsync(fullPatchPath);
     }
 
     return { success: true };
@@ -166,16 +166,16 @@ export class ExpertService {
       .join(workspacePath, ".mimo-patches")
       .replace(/\\/g, "/");
 
-    if (!this.os.fs.exists(patchesDir)) {
+    if (!(await this.os.fs.existsAsync(patchesDir))) {
       return [];
     }
 
     const patches: PatchInfo[] = [];
 
-    const scanDir = (dir: string, prefix: string) => {
-      const entries = this.os.fs.readdir(dir, {
+    const scanDir = async (dir: string, prefix: string) => {
+      const entries = (await this.os.fs.readdirAsync(dir, {
         withFileTypes: true,
-      }) as Array<{
+      })) as Array<{
         name: string;
         isDirectory(): boolean;
         isFile(): boolean;
@@ -185,7 +185,7 @@ export class ExpertService {
         const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
 
         if (entry.isDirectory()) {
-          scanDir(fullPath, relPath);
+          await scanDir(fullPath, relPath);
         } else {
           patches.push({
             originalPath: relPath,
@@ -195,7 +195,7 @@ export class ExpertService {
       }
     };
 
-    scanDir(patchesDir, "");
+    await scanDir(patchesDir, "");
     return patches;
   }
 }

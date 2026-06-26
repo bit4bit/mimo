@@ -108,8 +108,8 @@ export class CredentialRepository {
     const id = this.generateId();
     const credentialsDir = this.getCredentialsDirPath(input.owner);
 
-    if (!this.os.fs.exists(credentialsDir)) {
-      this.os.fs.mkdir(credentialsDir, { recursive: true });
+    if (!(await this.os.fs.existsAsync(credentialsDir))) {
+      await this.os.fs.mkdirAsync(credentialsDir, { recursive: true });
     }
 
     let credentialData: CredentialData;
@@ -141,10 +141,12 @@ export class CredentialRepository {
     }
 
     const filePath = this.getCredentialFilePath(input.owner, id);
-    this.os.fs.writeFile(filePath, dump(credentialData), { encoding: "utf-8" });
+    await this.os.fs.writeFileAsync(filePath, dump(credentialData), {
+      encoding: "utf-8",
+    });
 
     // Set file permissions to 600 (owner read/write only)
-    this.os.fs.chmod(filePath, 0o600);
+    await this.os.fs.chmodAsync(filePath, 0o600);
 
     return {
       ...credentialData,
@@ -154,11 +156,11 @@ export class CredentialRepository {
 
   async findById(id: string, owner: string): Promise<Credential | null> {
     const filePath = this.getCredentialFilePath(owner, id);
-    if (!this.os.fs.exists(filePath)) {
+    if (!(await this.os.fs.existsAsync(filePath))) {
       return null;
     }
 
-    const content = this.os.fs.readFile(filePath, "utf-8");
+    const content = await this.os.fs.readFileAsync(filePath, "utf-8");
     const data = load(content) as CredentialData;
 
     return {
@@ -169,26 +171,28 @@ export class CredentialRepository {
 
   async findByOwner(owner: string): Promise<Credential[]> {
     const credentialsDir = this.getCredentialsDirPath(owner);
-    if (!this.os.fs.exists(credentialsDir)) {
+    if (!(await this.os.fs.existsAsync(credentialsDir))) {
       return [];
     }
 
-    const entries = this.os.fs.readdir(credentialsDir, {
+    const entries = (await this.os.fs.readdirAsync(credentialsDir, {
       withFileTypes: true,
-    }) as import("../os/types.js").DirEnt[];
+    })) as import("../../infrastructure/os/types.js").DirEnt[];
     const credentials: Credential[] = [];
 
-    for (const entry of entries) {
-      if (entry.isFile() && entry.name.endsWith(".yaml")) {
-        const filePath = this.os.path.join(credentialsDir, entry.name);
-        const content = this.os.fs.readFile(filePath, "utf-8");
-        const data = load(content) as CredentialData;
-        credentials.push({
-          ...data,
-          createdAt: new Date(data.createdAt),
-        } as Credential);
-      }
-    }
+    await Promise.all(
+      entries.map(async (entry) => {
+        if (entry.isFile() && entry.name.endsWith(".yaml")) {
+          const filePath = this.os.path.join(credentialsDir, entry.name);
+          const content = await this.os.fs.readFileAsync(filePath, "utf-8");
+          const data = load(content) as CredentialData;
+          credentials.push({
+            ...data,
+            createdAt: new Date(data.createdAt),
+          } as Credential);
+        }
+      }),
+    );
 
     return credentials;
   }
@@ -204,7 +208,7 @@ export class CredentialRepository {
     }
 
     const filePath = this.getCredentialFilePath(owner, id);
-    const content = this.os.fs.readFile(filePath, "utf-8");
+    const content = await this.os.fs.readFileAsync(filePath, "utf-8");
     const data = load(content) as CredentialData;
 
     // Update name
@@ -229,8 +233,10 @@ export class CredentialRepository {
       }
     }
 
-    this.os.fs.writeFile(filePath, dump(data), { encoding: "utf-8" });
-    this.os.fs.chmod(filePath, 0o600);
+    await this.os.fs.writeFileAsync(filePath, dump(data), {
+      encoding: "utf-8",
+    });
+    await this.os.fs.chmodAsync(filePath, 0o600);
 
     return {
       ...data,
@@ -240,13 +246,13 @@ export class CredentialRepository {
 
   async delete(id: string, owner: string): Promise<void> {
     const filePath = this.getCredentialFilePath(owner, id);
-    if (this.os.fs.exists(filePath)) {
-      this.os.fs.unlink(filePath);
+    if (await this.os.fs.existsAsync(filePath)) {
+      await this.os.fs.unlinkAsync(filePath);
     }
   }
 
   async exists(id: string, owner: string): Promise<boolean> {
-    return this.os.fs.exists(this.getCredentialFilePath(owner, id));
+    return this.os.fs.existsAsync(this.getCredentialFilePath(owner, id));
   }
 }
 

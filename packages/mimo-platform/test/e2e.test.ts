@@ -148,7 +148,7 @@ describe("Integration Tests", () => {
           os,
           join(mimoDir, "config.yaml"),
         );
-        const loadedConfig = isolatedConfigService.load();
+        const loadedConfig = await isolatedConfigService.load();
 
         expect(loadedConfig.theme).toBe("dark");
         // Config service loads the value from the file (16)
@@ -188,7 +188,7 @@ describe("Integration Tests", () => {
           os,
           join(mimoDir, "config.yaml"),
         );
-        const loadedConfig = isolatedConfigService.load();
+        const loadedConfig = await isolatedConfigService.load();
 
         expect(loadedConfig.sessionKeybindings?.commit).toBe("Mod+Shift+K");
         expect(loadedConfig.sessionKeybindings?.closeModal).toBe("Escape");

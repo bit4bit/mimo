@@ -22,30 +22,33 @@ export class ChatService {
     this.os = os;
   }
 
-  private getChatPath(sessionId: string, chatThreadId?: string): string {
+  private async getChatPath(
+    sessionId: string,
+    chatThreadId?: string,
+  ): Promise<string> {
     // Store chat in the session directory, per thread
-    const sessionDir = this.findSessionDir(sessionId);
+    const sessionDir = await this.findSessionDir(sessionId);
     if (!sessionDir) {
       throw new Error(`Session ${sessionId} not found`);
     }
 
     const threadsDir = this.os.path.join(sessionDir, "chat-threads");
-    if (!this.os.fs.exists(threadsDir)) {
-      this.os.fs.mkdir(threadsDir, { recursive: true });
+    if (!(await this.os.fs.existsAsync(threadsDir))) {
+      await this.os.fs.mkdirAsync(threadsDir, { recursive: true });
     }
 
     const effectiveThreadId = chatThreadId || "__session__";
     return this.os.path.join(threadsDir, `${effectiveThreadId}.jsonl`);
   }
 
-  private findSessionDir(sessionId: string): string | null {
-    if (!this.os.fs.exists(this.paths.projects)) {
+  private async findSessionDir(sessionId: string): Promise<string | null> {
+    if (!(await this.os.fs.existsAsync(this.paths.projects))) {
       return null;
     }
 
-    const projectEntries = this.os.fs.readdir(this.paths.projects, {
+    const projectEntries = (await this.os.fs.readdirAsync(this.paths.projects, {
       withFileTypes: true,
-    }) as Array<{ name: string; isDirectory(): boolean }>;
+    })) as Array<{ name: string; isDirectory(): boolean }>;
 
     for (const projectEntry of projectEntries) {
       if (projectEntry.isDirectory()) {
@@ -54,9 +57,9 @@ export class ChatService {
           projectEntry.name,
           "sessions",
         );
-        if (this.os.fs.exists(sessionsDir)) {
+        if (await this.os.fs.existsAsync(sessionsDir)) {
           const sessionDir = this.os.path.join(sessionsDir, sessionId);
-          if (this.os.fs.exists(sessionDir)) {
+          if (await this.os.fs.existsAsync(sessionDir)) {
             return sessionDir;
           }
         }
@@ -71,9 +74,9 @@ export class ChatService {
     message: ChatMessage,
     chatThreadId?: string,
   ): Promise<void> {
-    const chatPath = this.getChatPath(sessionId, chatThreadId);
+    const chatPath = await this.getChatPath(sessionId, chatThreadId);
     const line = JSON.stringify(message) + "\n";
-    this.os.fs.appendFile(chatPath, line, "utf-8");
+    await this.os.fs.appendFileAsync(chatPath, line, "utf-8");
   }
 
   async loadHistory(
@@ -81,12 +84,12 @@ export class ChatService {
     chatThreadId?: string,
   ): Promise<ChatMessage[]> {
     try {
-      const threadPath = this.getChatPath(sessionId, chatThreadId);
-      if (!this.os.fs.exists(threadPath)) {
+      const threadPath = await this.getChatPath(sessionId, chatThreadId);
+      if (!(await this.os.fs.existsAsync(threadPath))) {
         return [];
       }
 
-      const content = this.os.fs.readFile(threadPath, "utf-8");
+      const content = await this.os.fs.readFileAsync(threadPath, "utf-8");
       const lines = content
         .trim()
         .split("\n")
@@ -103,15 +106,15 @@ export class ChatService {
     messages: ChatMessage[],
     chatThreadId?: string,
   ): Promise<void> {
-    const chatPath = this.getChatPath(sessionId, chatThreadId);
+    const chatPath = await this.getChatPath(sessionId, chatThreadId);
     const lines = messages.map((msg) => JSON.stringify(msg)).join("\n") + "\n";
-    this.os.fs.appendFile(chatPath, lines, "utf-8");
+    await this.os.fs.appendFileAsync(chatPath, lines, "utf-8");
   }
 
   async clearHistory(sessionId: string, chatThreadId?: string): Promise<void> {
-    const chatPath = this.getChatPath(sessionId, chatThreadId);
-    if (this.os.fs.exists(chatPath)) {
-      this.os.fs.unlink(chatPath);
+    const chatPath = await this.getChatPath(sessionId, chatThreadId);
+    if (await this.os.fs.existsAsync(chatPath)) {
+      await this.os.fs.unlinkAsync(chatPath);
     }
   }
 

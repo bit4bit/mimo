@@ -80,7 +80,7 @@ export async function refreshSummaryHandler(
 
   // Build prompt
   const configService = mimoContext.services.config;
-  const config = configService.load();
+  const config = await configService.load();
   const summaryPrompt = config.summary?.prompt ?? defaultSummaryPrompt;
 
   const historyText = history

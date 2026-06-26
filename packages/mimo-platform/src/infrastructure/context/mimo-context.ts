@@ -21,6 +21,7 @@ import { ImpactCalculator } from "../../domain/impact/calculator.js";
 import { VCS } from "../../domain/vcs/index.js";
 import { sessionStateService } from "../../domain/sessions/state.js";
 import { ChangedFilesCache } from "../../domain/commits/changed-files-cache.js";
+import { logger } from "../../logger.js";
 import {
   GitHttpServer,
   DummyGitHttpServer,
@@ -258,6 +259,11 @@ export function createMimoContext(
       os.path.join(paths.root, "bin", "scc"),
       os.path.join(paths.root, "cache"),
     );
+  // Load the SCC cache asynchronously so the constructor no longer blocks the
+  // main thread with synchronous disk I/O.
+  sccService.initialize().catch((error) => {
+    logger.error("[mimo-context] Failed to initialize SCC service:", error);
+  });
   const jscpdService = overrides.services?.jscpd ?? new JscpdService(os);
 
   // Shared cache for patch-derived changed files, used by both commit preview

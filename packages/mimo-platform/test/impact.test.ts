@@ -716,9 +716,9 @@ echo '[]'`;
         cloneUrl: "http://localhost:8080",
       };
 
-      repository.save(impactRecord);
+      await repository.save(impactRecord);
 
-      const retrieved = repository.findByProject(projectId);
+      const retrieved = await repository.findByProject(projectId);
       expect(retrieved).toHaveLength(1);
       expect(retrieved[0].sessionName).toBe("Test Session");
       expect(retrieved[0].files.new).toBe(5);
@@ -731,7 +731,7 @@ echo '[]'`;
       const projectId = "test-project";
 
       // Save two records for different sessions
-      repository.save({
+      await repository.save({
         id: "session1-abc",
         sessionId: "session1",
         sessionName: "Session 1",
@@ -745,7 +745,7 @@ echo '[]'`;
         cloneUrl: "",
       });
 
-      repository.save({
+      await repository.save({
         id: "session2-def",
         sessionId: "session2",
         sessionName: "Session 2",
@@ -759,7 +759,10 @@ echo '[]'`;
         cloneUrl: "",
       });
 
-      const session1Records = repository.findBySession(projectId, "session1");
+      const session1Records = await repository.findBySession(
+        projectId,
+        "session1",
+      );
       expect(session1Records).toHaveLength(1);
       expect(session1Records[0].sessionName).toBe("Session 1");
     });
@@ -774,7 +777,7 @@ echo '[]'`;
       const oldDate = new Date("2024-01-01");
       const newDate = new Date("2024-01-15");
 
-      repository.save({
+      await repository.save({
         id: "session-old",
         sessionId: "session1",
         sessionName: "Old Commit",
@@ -788,7 +791,7 @@ echo '[]'`;
         cloneUrl: "",
       });
 
-      repository.save({
+      await repository.save({
         id: "session-new",
         sessionId: "session2",
         sessionName: "New Commit",
@@ -802,7 +805,7 @@ echo '[]'`;
         cloneUrl: "",
       });
 
-      const records = repository.findByProject(projectId);
+      const records = await repository.findByProject(projectId);
       expect(records).toHaveLength(2);
       expect(records[0].sessionName).toBe("New Commit"); // Most recent first
       expect(records[1].sessionName).toBe("Old Commit");
@@ -812,7 +815,7 @@ echo '[]'`;
       const { ImpactRepository } =
         await import("../src/domain/impact/repository.ts");
       const repository = ctx.repos.impacts;
-      const records = repository.findByProject("non-existent-project");
+      const records = await repository.findByProject("non-existent-project");
       expect(records).toEqual([]);
     });
   });

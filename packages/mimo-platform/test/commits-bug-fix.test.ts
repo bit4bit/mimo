@@ -93,10 +93,10 @@ describe("Commit Service — impact record creation", () => {
 
     // Build a real impactRepository spy that captures .save() calls
     const impactRepository = {
-      findByProject: () => savedRecords,
-      findBySession: () => savedRecords,
-      findByCommitHash: () => null,
-      save: (record: any) => {
+      findByProject: async () => savedRecords,
+      findBySession: async () => savedRecords,
+      findByCommitHash: async () => null,
+      save: async (record: any) => {
         savedRecords.push(record);
       },
     };
@@ -211,15 +211,22 @@ describe("Commit Service — impact record creation", () => {
         existsAsync: async (p: string) =>
           files.has(p) || p === "/tmp/upstream" || p === "/tmp/workspace",
         readFile: (p: string, _encoding?: string) => files.get(p) || "",
-        readFileAsync: async (p: string, _encoding?: string) => files.get(p) || "",
+        readFileAsync: async (p: string, _encoding?: string) =>
+          files.get(p) || "",
         writeFile: (_p: string, _content: string) => {},
         writeFileAsync: async (_p: string, _content: string) => {},
         copyFile: (src: string, dest: string) => {
           const content = files.get(src);
           if (content) files.set(dest, content);
         },
+        copyFileAsync: async (src: string, dest: string) => {
+          const content = files.get(src);
+          if (content) files.set(dest, content);
+        },
         unlink: (_p: string) => {},
         unlinkAsync: async (_p: string) => {},
+        rm: (_p: string, _opts?: any) => {},
+        rmAsync: async (_p: string, _opts?: any) => {},
       },
       child_process: {
         execSync: () => "",

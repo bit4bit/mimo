@@ -305,7 +305,7 @@ export class ConfigService {
     return this._configPath;
   }
 
-  load(): Config {
+  async load(): Promise<Config> {
     if (this.config) {
       return this.config;
     }
@@ -316,14 +316,14 @@ export class ConfigService {
       return defaultConfig;
     }
 
-    if (!this.os.fs.exists(configPath)) {
+    if (!(await this.os.fs.existsAsync(configPath))) {
       // Create default config
-      this.save(defaultConfig);
+      await this.save(defaultConfig);
       return defaultConfig;
     }
 
     try {
-      const content = this.os.fs.readFile(configPath, "utf-8");
+      const content = await this.os.fs.readFileAsync(configPath, "utf-8");
       const loaded = load(content) as Partial<Config>;
 
       this.config = {
@@ -354,29 +354,29 @@ export class ConfigService {
     }
   }
 
-  save(config: Config): void {
+  async save(config: Config): Promise<void> {
     const configPath = this.getConfigPath();
     if (!configPath) {
       logger.error("Cannot save config: config path not available");
       return;
     }
     try {
-      this.os.fs.writeFile(configPath, dump(config), "utf-8");
+      await this.os.fs.writeFileAsync(configPath, dump(config), "utf-8");
       this.config = config;
     } catch (error) {
       logger.error("Failed to save config:", error);
     }
   }
 
-  get(key: keyof Config): Config[keyof Config] {
-    const config = this.load();
+  async get(key: keyof Config): Promise<Config[keyof Config]> {
+    const config = await this.load();
     return config[key];
   }
 
-  set(key: keyof Config, value: unknown): void {
-    const config = this.load();
+  async set(key: keyof Config, value: unknown): Promise<void> {
+    const config = await this.load();
     (config as Record<string, unknown>)[key] = value;
-    this.save(config as Config);
+    await this.save(config as Config);
   }
 }
 
@@ -396,7 +396,12 @@ export const configService = new ConfigService({
     watch: () => ({ close: () => {} }),
     rm: () => {},
     readdir: () => [],
-    stat: () => ({ isDirectory: () => false, isFile: () => false, size: 0, mtimeMs: 0 }),
+    stat: () => ({
+      isDirectory: () => false,
+      isFile: () => false,
+      size: 0,
+      mtimeMs: 0,
+    }),
     lstat: () => ({
       isDirectory: () => false,
       isFile: () => false,

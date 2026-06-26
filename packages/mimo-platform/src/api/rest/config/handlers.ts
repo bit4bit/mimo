@@ -25,7 +25,7 @@ export async function getConfigHandler(
   }
 
   const mimoContext = c.get("mimoContext");
-  const config = mimoContext.services.config.load();
+  const config = await mimoContext.services.config.load();
 
   return c.json(
     successResponse({
@@ -50,7 +50,7 @@ export async function updateConfigHandler(
   const body = (await c.req.json()) as UpdateConfigRequest;
 
   // Get existing config to preserve values not sent in request
-  const existingConfig = mimoContext.services.config.load();
+  const existingConfig = await mimoContext.services.config.load();
 
   // Merge existing config with updates
   const newConfig = {
@@ -66,7 +66,7 @@ export async function updateConfigHandler(
   }
 
   // Save the config
-  mimoContext.services.config.save(validation.sanitized);
+  await mimoContext.services.config.save(validation.sanitized);
 
   return c.json(
     successResponse({
@@ -88,7 +88,7 @@ export async function resetConfigHandler(
   }
 
   const mimoContext = c.get("mimoContext");
-  mimoContext.services.config.save(defaultConfig);
+  await mimoContext.services.config.save(defaultConfig);
 
   return c.json(
     successResponse({

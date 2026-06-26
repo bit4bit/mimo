@@ -554,7 +554,7 @@ export function createProjectsRoutes(
     }
 
     const frameStateService = mimoContext.services.frameState;
-    const content = frameStateService.loadProjectNotes(id);
+    const content = await frameStateService.loadProjectNotes(id);
 
     return c.json({ content });
   });
@@ -576,7 +576,7 @@ export function createProjectsRoutes(
     const content = typeof body.content === "string" ? body.content : "";
 
     const frameStateService = mimoContext.services.frameState;
-    frameStateService.saveProjectNotes(id, content);
+    await frameStateService.saveProjectNotes(id, content);
 
     return c.json({ success: true });
   });

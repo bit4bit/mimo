@@ -739,9 +739,9 @@ export function createSessionsRoutes(
           project={project}
           chatHistory={chatHistory}
           frameState={normalizeFrameState(session.frameState)}
-          notesContent={frameStateService.loadNotes(session.id)}
+          notesContent={await frameStateService.loadNotes(session.id)}
           projectId={session.projectId}
-          projectNotesContent={frameStateService.loadProjectNotes(
+          projectNotesContent={await frameStateService.loadProjectNotes(
             session.projectId,
           )}
           agent={agent}
@@ -901,7 +901,7 @@ export function createSessionsRoutes(
       return c.json({ error: "Session not found" }, 404);
     }
 
-    return c.json({ content: frameStateService.loadNotes(sessionId) });
+    return c.json({ content: await frameStateService.loadNotes(sessionId) });
   });
 
   // POST /sessions/:id/notes - Save notes content
@@ -934,7 +934,7 @@ export function createSessionsRoutes(
 
     const body = await c.req.json();
     const content = typeof body.content === "string" ? body.content : "";
-    frameStateService.saveNotes(sessionId, content);
+    await frameStateService.saveNotes(sessionId, content);
 
     return c.json({ success: true });
   });

@@ -20,7 +20,7 @@ describe("sanitizeSummaryConfig", () => {
         createOS({ ...process.env }),
         join(mimoDir, "config.yaml"),
       );
-      const loadedConfig = isolatedConfigService.load();
+      const loadedConfig = await isolatedConfigService.load();
 
       expect(loadedConfig.summary?.prompt).toBe(defaultSummaryPrompt);
     } finally {
@@ -42,7 +42,7 @@ describe("sanitizeSummaryConfig", () => {
         createOS({ ...process.env }),
         join(mimoDir, "config.yaml"),
       );
-      const loadedConfig = isolatedConfigService.load();
+      const loadedConfig = await isolatedConfigService.load();
 
       expect(loadedConfig.summary?.prompt).toBe("Custom summary prompt");
     } finally {
@@ -64,7 +64,7 @@ describe("sanitizeSummaryConfig", () => {
         createOS({ ...process.env }),
         join(mimoDir, "config.yaml"),
       );
-      const loadedConfig = isolatedConfigService.load();
+      const loadedConfig = await isolatedConfigService.load();
 
       expect(loadedConfig.summary?.prompt).toBe(defaultSummaryPrompt);
     } finally {

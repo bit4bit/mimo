@@ -63,6 +63,10 @@ function createMockOS(
       ensureDir(path.dirname(p));
       files.set(p, (files.get(p) ?? "") + content);
     },
+    appendFileAsync: async (p: string, content: string) => {
+      ensureDir(path.dirname(p));
+      files.set(p, (files.get(p) ?? "") + content);
+    },
     mkdir: (p: string) => {
       ensureDir(p);
     },
@@ -76,8 +80,20 @@ function createMockOS(
       files.delete(p);
     },
     copyFile: () => {},
+    copyFileAsync: async () => {},
     chmod: () => {},
+    chmodAsync: async () => {},
     rename: (oldPath: string, newPath: string) => {
+      if (files.has(oldPath)) {
+        files.set(newPath, files.get(oldPath)!);
+        files.delete(oldPath);
+      }
+      if (dirs.has(oldPath)) {
+        dirs.delete(oldPath);
+        dirs.add(newPath);
+      }
+    },
+    renameAsync: async (oldPath: string, newPath: string) => {
       if (files.has(oldPath)) {
         files.set(newPath, files.get(oldPath)!);
         files.delete(oldPath);
@@ -98,7 +114,12 @@ function createMockOS(
     },
     readdir: () => [],
     readdirAsync: async () => [],
-    stat: () => ({ isDirectory: () => true, isFile: () => false, size: 0, mtimeMs: 0 }),
+    stat: () => ({
+      isDirectory: () => true,
+      isFile: () => false,
+      size: 0,
+      mtimeMs: 0,
+    }),
     statAsync: async () => ({
       isDirectory: () => true,
       isFile: () => false,
@@ -120,9 +141,13 @@ function createMockOS(
       mtimeMs: 0,
     }),
     cp: () => {},
+    cpAsync: async () => {},
     utimes: () => {},
+    utimesAsync: async () => {},
     realpath: (p: string) => p,
+    realpathAsync: async (p: string) => p,
     mkdtemp: (prefix: string) => `${prefix}-tmp`,
+    mkdtempAsync: async (prefix: string) => `${prefix}-tmp`,
   };
 
   const os: OS = {

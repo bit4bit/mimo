@@ -121,8 +121,8 @@ export class FileSyncService {
         );
 
         if (
-          !this.os.fs.exists(baselinePath) &&
-          this.os.fs.exists(workspacePath)
+          !(await this.os.fs.existsAsync(baselinePath)) &&
+          (await this.os.fs.existsAsync(workspacePath))
         ) {
           status = "new";
         }
@@ -213,11 +213,11 @@ export class FileSyncService {
     basePath: string,
     callback: (fullPath: string, relativePath: string) => Promise<void>,
   ): Promise<void> {
-    if (!this.os.fs.exists(dirPath)) return;
+    if (!(await this.os.fs.existsAsync(dirPath))) return;
 
-    const entries = this.os.fs.readdir(dirPath, {
+    const entries = (await this.os.fs.readdirAsync(dirPath, {
       withFileTypes: true,
-    }) as Array<{ name: string; isDirectory(): boolean; isFile(): boolean }>;
+    })) as Array<{ name: string; isDirectory(): boolean; isFile(): boolean }>;
 
     for (const entry of entries) {
       const fullPath = this.os.path.join(dirPath, entry.name);
@@ -225,7 +225,7 @@ export class FileSyncService {
 
       if (isExcluded(entry.name)) continue;
 
-      const entryStats = this.os.fs.lstat(fullPath);
+      const entryStats = await this.os.fs.lstatAsync(fullPath);
       if (entryStats.isDirectory()) {
         await this.scanDirectory(fullPath, basePath, callback);
       } else if (entryStats.isFile()) {
@@ -246,11 +246,11 @@ export class FileSyncService {
       filePath,
     );
 
-    if (!this.os.fs.exists(sessionPath)) {
+    if (!(await this.os.fs.existsAsync(sessionPath))) {
       return {};
     }
 
-    const stats = this.os.fs.lstat(sessionPath);
+    const stats = await this.os.fs.lstatAsync(sessionPath);
     if (!stats.isFile()) {
       return {};
     }
@@ -265,11 +265,11 @@ export class FileSyncService {
   }
 
   private async calculateChecksum(filePath: string): Promise<string> {
-    const stats = this.os.fs.stat(filePath);
+    const stats = await this.os.fs.statAsync(filePath);
     if (stats.isDirectory()) {
       throw new Error(`Cannot calculate checksum for directory: ${filePath}`);
     }
-    const content = this.os.fs.readFile(filePath);
+    const content = await this.os.fs.readFileAsync(filePath);
     return crypto.createHash("md5").update(content).digest("hex");
   }
 
@@ -306,3 +306,8 @@ export const fileSyncService = new FileSyncService({
   sccService: mockSccService as any,
   os: {} as any,
 });
+
+// Legacy singleton exports are no longer used directly by production code.
+// Keep the class export for dependency injection and tests.
+export const sessionRepository = {} as any;
+export const sccService = {} as any;

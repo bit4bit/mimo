@@ -117,10 +117,16 @@ export class SccService {
       // Fallback - caller should always provide cacheDir via configure()
       this.cacheFilePath = os.path.join(".mimo", "cache", "scc-cache.json");
     }
+  }
 
-    // Load existing cache on initialization (optional)
+  /**
+   * Asynchronously load the on-disk cache. This used to happen in the
+   * constructor, which blocked the main thread. Callers should await this once
+   * before using the service.
+   */
+  async initialize(): Promise<void> {
     try {
-      this.loadCache();
+      await this.loadCacheAsync();
     } catch {
       // Ignore errors during initialization
     }
@@ -142,6 +148,10 @@ export class SccService {
 
   getSccPath(): string {
     return this.sccPath;
+  }
+
+  async isInstalledAsync(): Promise<boolean> {
+    return await this.os.fs.existsAsync(this.sccPath);
   }
 
   isInstalled(): boolean {
@@ -190,7 +200,7 @@ export class SccService {
       // Get bin directory from configured sccPath
       const binDir = this.os.path.dirname(this.sccPath);
 
-      if (this.isInstalled()) {
+      if (await this.isInstalledAsync()) {
         return { success: true };
       }
 
@@ -198,8 +208,8 @@ export class SccService {
       const url = this.getDownloadUrl(platform);
 
       // Create bin directory if needed
-      if (!this.os.fs.exists(binDir)) {
-        this.os.fs.mkdir(binDir, { recursive: true });
+      if (!(await this.os.fs.existsAsync(binDir))) {
+        await this.os.fs.mkdirAsync(binDir, { recursive: true });
       }
 
       // Download and extract scc
@@ -223,10 +233,10 @@ export class SccService {
       }
 
       // Make executable
-      this.os.fs.chmod(this.sccPath, 0o755);
+      await this.os.fs.chmodAsync(this.sccPath, 0o755);
 
       // Clean up archive
-      this.os.fs.unlink(downloadPath);
+      await this.os.fs.unlinkAsync(downloadPath);
 
       return { success: true };
     } catch (error) {
@@ -245,7 +255,7 @@ export class SccService {
       return cached.data;
     }
 
-    if (!this.isInstalled()) {
+    if (!(await this.isInstalledAsync())) {
       throw new Error("scc is not installed. Run install() first.");
     }
 
@@ -262,7 +272,7 @@ export class SccService {
     const metrics = this.parseSccOutput(directory, output);
 
     // Update smart cache with new results
-    await this.updateCache(directory, metrics);
+    await this.updateCacheAsync(directory, metrics);
     this.staleDirectories.delete(directory);
 
     return metrics;
@@ -287,7 +297,7 @@ export class SccService {
       };
     }
 
-    if (!this.isInstalled()) {
+    if (!(await this.isInstalledAsync())) {
       throw new Error("scc is not installed. Run install() first.");
     }
 
@@ -446,11 +456,31 @@ export class SccService {
     };
   }
 
+  async clearCacheAsync(directory?: string): Promise<void> {
+    if (directory) {
+      this.smartCache.delete(directory);
+      // Don't block on save
+      this.saveCacheAsync().catch((error) => {
+        logger.error("[scc] Failed to save cache after clear:", error);
+      });
+    } else {
+      this.smartCache.clear();
+      // Remove cache file entirely when clearing all
+      try {
+        if (await this.os.fs.existsAsync(this.cacheFilePath)) {
+          await this.os.fs.unlinkAsync(this.cacheFilePath);
+        }
+      } catch {
+        // Ignore errors during file removal
+      }
+    }
+  }
+
   clearCache(directory?: string): void {
     if (directory) {
       this.smartCache.delete(directory);
       // Fire and forget - don't block on save
-      this.saveCache().catch((error) => {
+      this.saveCacheAsync().catch((error) => {
         logger.error("[scc] Failed to save cache after clear:", error);
       });
     } else {
@@ -499,9 +529,9 @@ export class SccService {
     ];
 
     for (const source of ignoreSources) {
-      if (this.os.fs.exists(source.path)) {
+      if (await this.os.fs.existsAsync(source.path)) {
         compositeLines.push(`# --- From: ${source.label} ---`);
-        const content = this.os.fs.readFile(source.path, "utf-8");
+        const content = await this.os.fs.readFileAsync(source.path, "utf-8");
         compositeLines.push(content);
         compositeLines.push("");
       } else {
@@ -515,13 +545,36 @@ export class SccService {
     // Write as .sccignore in the target directory
     // SCC automatically detects and uses .sccignore files
     const sccIgnorePath = this.os.path.join(directory, ".sccignore");
-    this.os.fs.writeFile(sccIgnorePath, compositeLines.join("\n"), "utf-8");
+    await this.os.fs.writeFileAsync(
+      sccIgnorePath,
+      compositeLines.join("\n"),
+      "utf-8",
+    );
 
     return sccIgnorePath;
   }
 
   /**
-   * Load cache from disk
+   * Load cache from disk asynchronously.
+   */
+  async loadCacheAsync(): Promise<void> {
+    try {
+      if (await this.os.fs.existsAsync(this.cacheFilePath)) {
+        const content = await this.os.fs.readFileAsync(
+          this.cacheFilePath,
+          "utf-8",
+        );
+        const data: SccCacheData = JSON.parse(content);
+        this.smartCache = new Map(Object.entries(data.entries || {}));
+      }
+    } catch (error) {
+      logger.warn("[scc] Failed to load cache:", error);
+      this.smartCache = new Map();
+    }
+  }
+
+  /**
+   * Load cache from disk (sync fallback for legacy callers/tests).
    */
   loadCache(): void {
     try {
@@ -537,14 +590,14 @@ export class SccService {
   }
 
   /**
-   * Save cache to disk atomically
+   * Save cache to disk atomically (async).
    */
-  async saveCache(): Promise<void> {
+  async saveCacheAsync(): Promise<void> {
     try {
       const cacheDir = this.os.path.dirname(this.cacheFilePath);
-      if (!this.os.fs.exists(cacheDir)) {
+      if (!(await this.os.fs.existsAsync(cacheDir))) {
         try {
-          this.os.fs.mkdir(cacheDir, { recursive: true });
+          await this.os.fs.mkdirAsync(cacheDir, { recursive: true });
         } catch (mkdirError) {
           logger.error(
             `[scc] Failed to create cache directory: ${cacheDir}`,
@@ -568,16 +621,16 @@ export class SccService {
       const tempPath = `${this.cacheFilePath}.tmp`;
 
       // Remove any existing temp file first
-      if (this.os.fs.exists(tempPath)) {
+      if (await this.os.fs.existsAsync(tempPath)) {
         try {
-          this.os.fs.unlink(tempPath);
+          await this.os.fs.unlinkAsync(tempPath);
         } catch {
           // Ignore cleanup errors
         }
       }
 
       try {
-        this.os.fs.writeFile(tempPath, jsonData, "utf-8");
+        await this.os.fs.writeFileAsync(tempPath, jsonData, "utf-8");
       } catch (writeError) {
         logger.error(
           `[scc] Failed to write cache temp file: ${tempPath}`,
@@ -588,7 +641,7 @@ export class SccService {
 
       // Perform atomic rename
       try {
-        this.os.fs.rename(tempPath, this.cacheFilePath);
+        await this.os.fs.renameAsync(tempPath, this.cacheFilePath);
       } catch (renameError) {
         logger.error(
           `[scc] Failed to rename cache file: ${tempPath} → ${this.cacheFilePath}`,
@@ -596,8 +649,8 @@ export class SccService {
         );
         // Clean up temp file if rename failed
         try {
-          if (this.os.fs.exists(tempPath)) {
-            this.os.fs.unlink(tempPath);
+          if (await this.os.fs.existsAsync(tempPath)) {
+            await this.os.fs.unlinkAsync(tempPath);
           }
         } catch {
           // Ignore cleanup errors
@@ -606,6 +659,13 @@ export class SccService {
     } catch (error) {
       logger.error("[scc] Failed to save cache:", error);
     }
+  }
+
+  /**
+   * Save cache to disk atomically (legacy sync API).
+   */
+  async saveCache(): Promise<void> {
+    return this.saveCacheAsync();
   }
 
   /**
@@ -629,7 +689,7 @@ export class SccService {
       }
     }
     // Fire and forget - don't block on save, but catch errors
-    this.saveCache().catch((error) => {
+    this.saveCacheAsync().catch((error) => {
       logger.error("[scc:cache:invalidate] failed to save cache:", error);
     });
   }
@@ -665,16 +725,28 @@ export class SccService {
   }
 
   /**
-   * Update cache with new metrics
+   * Update cache with new metrics (async).
    * @param directory Directory path
    * @param metrics SCC metrics to cache
    */
-  async updateCache(directory: string, metrics: SccMetrics): Promise<void> {
+  async updateCacheAsync(
+    directory: string,
+    metrics: SccMetrics,
+  ): Promise<void> {
     this.smartCache.set(directory, {
       valid: true,
       data: metrics,
       cachedAt: Date.now(),
     });
-    await this.saveCache();
+    await this.saveCacheAsync();
+  }
+
+  /**
+   * Update cache with new metrics (legacy alias).
+   * @param directory Directory path
+   * @param metrics SCC metrics to cache
+   */
+  async updateCache(directory: string, metrics: SccMetrics): Promise<void> {
+    return this.updateCacheAsync(directory, metrics);
   }
 }

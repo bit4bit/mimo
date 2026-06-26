@@ -18,8 +18,6 @@ export function applySelectedFiles(
   selectedPaths: string[],
 ): { success: boolean; error?: string } {
   try {
-    const selectedSet = new Set(selectedPaths);
-
     for (const path of selectedPaths) {
       const upstreamFile = os.path.join(upstreamPath, path);
       const workspaceFile = os.path.join(workspacePath, path);
@@ -36,6 +34,43 @@ export function applySelectedFiles(
           os.fs.mkdir(dir, { recursive: true });
         }
         os.fs.copyFile(workspaceFile, upstreamFile);
+      }
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Async variant of applySelectedFiles. Copies/deletes the selected files from
+ * the workspace to upstream without blocking the event loop on each file.
+ */
+export async function applySelectedFilesAsync(
+  os: OS,
+  upstreamPath: string,
+  workspacePath: string,
+  selectedPaths: string[],
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    for (const path of selectedPaths) {
+      const upstreamFile = os.path.join(upstreamPath, path);
+      const workspaceFile = os.path.join(workspacePath, path);
+
+      const workspaceExists = await os.fs.existsAsync(workspaceFile);
+      if (!workspaceExists) {
+        const upstreamExists = await os.fs.existsAsync(upstreamFile);
+        if (upstreamExists) {
+          await os.fs.unlinkAsync(upstreamFile);
+        }
+      } else {
+        const dir = os.path.dirname(upstreamFile);
+        const dirExists = await os.fs.existsAsync(dir);
+        if (!dirExists) {
+          await os.fs.mkdirAsync(dir, { recursive: true });
+        }
+        await os.fs.copyFileAsync(workspaceFile, upstreamFile);
       }
     }
 

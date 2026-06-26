@@ -96,22 +96,13 @@ export async function detectChangedFiles(
     manifestStore?.load(workspacePath) ?? Promise.resolve({}),
   ]);
 
-  const [{ hashes: upstreamHashes, manifest: upstreamManifest },
-    { hashes: workspaceHashes, manifest: workspaceManifest }] =
-    await Promise.all([
-      collectHashes(
-        os,
-        upstreamPath,
-        upstreamOldManifest,
-        options?.fileFilter,
-      ),
-      collectHashes(
-        os,
-        workspacePath,
-        workspaceOldManifest,
-        options?.fileFilter,
-      ),
-    ]);
+  const [
+    { hashes: upstreamHashes, manifest: upstreamManifest },
+    { hashes: workspaceHashes, manifest: workspaceManifest },
+  ] = await Promise.all([
+    collectHashes(os, upstreamPath, upstreamOldManifest, options?.fileFilter),
+    collectHashes(os, workspacePath, workspaceOldManifest, options?.fileFilter),
+  ]);
 
   if (manifestStore) {
     await Promise.all([

@@ -23,6 +23,9 @@ export interface ManifestStore {
  * `<manifestsDir>/<treeBasename>.json`. The manifest maps relative file paths
  * to `{ size, mtime, hash }` so subsequent scans can skip re-reading files
  * whose stat entry has not changed.
+ *
+ * All I/O is asynchronous to avoid blocking the main thread while loading or
+ * saving manifests for large repositories.
  */
 export function createManifestStore(
   os: OS,
@@ -35,11 +38,11 @@ export function createManifestStore(
 
   async function load(treePath: string): Promise<TreeManifest> {
     const path = manifestPath(treePath);
-    if (!os.fs.exists(path)) {
+    if (!(await os.fs.existsAsync(path))) {
       return {};
     }
     try {
-      const raw = os.fs.readFile(path, "utf8");
+      const raw = await os.fs.readFileAsync(path, "utf8");
       const parsed = JSON.parse(raw) as TreeManifest;
       return parsed && typeof parsed === "object" ? parsed : {};
     } catch {
@@ -47,24 +50,23 @@ export function createManifestStore(
     }
   }
 
-  async function save(
-    treePath: string,
-    manifest: TreeManifest,
-  ): Promise<void> {
+  async function save(treePath: string, manifest: TreeManifest): Promise<void> {
     const path = manifestPath(treePath);
     const dir = os.path.dirname(path);
-    if (!os.fs.exists(dir)) {
-      os.fs.mkdir(dir, { recursive: true });
+    if (!(await os.fs.existsAsync(dir))) {
+      await os.fs.mkdirAsync(dir, { recursive: true });
     }
     const tmpPath = `${path}.tmp`;
-    os.fs.writeFile(tmpPath, JSON.stringify(manifest), { encoding: "utf8" });
-    os.fs.rename(tmpPath, path);
+    await os.fs.writeFileAsync(tmpPath, JSON.stringify(manifest), {
+      encoding: "utf8",
+    });
+    await os.fs.renameAsync(tmpPath, path);
   }
 
   async function invalidate(treePath: string): Promise<void> {
     const path = manifestPath(treePath);
-    if (os.fs.exists(path)) {
-      os.fs.unlink(path);
+    if (await os.fs.existsAsync(path)) {
+      await os.fs.unlinkAsync(path);
     }
   }
 

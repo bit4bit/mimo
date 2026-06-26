@@ -64,7 +64,10 @@ async function resolveOwnedSession(
   if (!session) {
     return {
       ok: false,
-      response: c.json(errorResponse("Session not found in repository", 404), 404),
+      response: c.json(
+        errorResponse("Session not found in repository", 404),
+        404,
+      ),
     };
   }
   if (session.owner !== user.username) {

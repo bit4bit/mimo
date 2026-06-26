@@ -12,6 +12,7 @@ function createRecordingOS(realOs: OS, deletedPaths: string[]): OS {
     fs: {
       ...realOs.fs,
       exists: realOs.fs.exists,
+      existsAsync: async (path: string) => realOs.fs.exists(path),
       rm: (path: string, options?: { recursive?: boolean; force?: boolean }) =>
         deletedPaths.push(path),
       rmAsync: async (
@@ -22,6 +23,8 @@ function createRecordingOS(realOs: OS, deletedPaths: string[]): OS {
         realOs.fs.rm(path, options);
       },
       readdir: realOs.fs.readdir,
+      readdirAsync: async (path: string, options?: any) =>
+        realOs.fs.readdir(path, options),
       unlink: (path: string) => deletedPaths.push(path),
       unlinkAsync: async (path: string) => {
         deletedPaths.push(path);
@@ -32,10 +35,18 @@ function createRecordingOS(realOs: OS, deletedPaths: string[]): OS {
         }
       },
       mkdir: realOs.fs.mkdir,
+      mkdirAsync: async (path: string, options?: any) =>
+        realOs.fs.mkdir(path, options),
       writeFile: realOs.fs.writeFile,
+      writeFileAsync: async (path: string, content: string, options?: any) =>
+        realOs.fs.writeFile(path, content, options),
       readFile: realOs.fs.readFile,
+      readFileAsync: async (path: string, encoding?: any) =>
+        realOs.fs.readFile(path, encoding),
       stat: realOs.fs.stat,
+      statAsync: async (path: string) => realOs.fs.stat(path),
       lstat: realOs.fs.lstat,
+      lstatAsync: async (path: string) => realOs.fs.lstat(path),
       path: realOs.path,
     },
   } as OS;
@@ -165,6 +176,64 @@ describe("repository deletes do not block the event loop", () => {
     expect(microtaskRan).toBe(true);
     expect(existsSync(serverPath)).toBe(false);
     expect(deletedPaths.some((p) => p === serverPath)).toBe(true);
+
+    rmSync(home, { recursive: true, force: true });
+  });
+
+  it("two concurrent repository create operations interleave and both complete", async () => {
+    const home = makeHome();
+    const realOs = createOS({ ...process.env });
+
+    // Wrap fs calls so every async operation yields to the event loop. We use
+    // realAsync helpers to schedule the real work in a macro-task, mimicking
+    // real disk latency and proving concurrent work does not block each other.
+    const os: OS = {
+      ...realOs,
+      fs: {
+        ...realOs.fs,
+        existsAsync: async (path: string) => {
+          await new Promise((resolve) => queueMicrotask(resolve));
+          return realOs.fs.exists(path);
+        },
+        mkdirAsync: async (path: string, options?: any) => {
+          await new Promise((resolve) => queueMicrotask(resolve));
+          return realOs.fs.mkdir(path, options);
+        },
+        writeFileAsync: async (
+          path: string,
+          content: string,
+          options?: any,
+        ) => {
+          await new Promise((resolve) => queueMicrotask(resolve));
+          return realOs.fs.writeFile(path, content, options);
+        },
+      },
+    } as OS;
+
+    const { AgentRepository } =
+      await import("../src/domain/agents/repository.ts");
+    const repo = new AgentRepository({ agentsPath: join(home, "agents"), os });
+
+    let interleaved = false;
+    const interleaveProbe = async () => {
+      // This microtask should run while the two create() calls are suspended
+      // on their async fs operations if the repository truly yields.
+      await new Promise((resolve) => queueMicrotask(resolve));
+      interleaved = true;
+    };
+
+    const [agentA, agentB] = await Promise.all([
+      repo.create({ name: "A", owner: "testuser", provider: "opencode" }),
+      repo.create({ name: "B", owner: "testuser", provider: "opencode" }),
+      interleaveProbe(),
+    ]);
+
+    expect(agentA).toBeDefined();
+    expect(agentA.id).toBeDefined();
+    expect(agentB).toBeDefined();
+    expect(agentB.id).toBeDefined();
+    expect(agentA.id).not.toBe(agentB.id);
+    expect(interleaved).toBe(true);
 
     rmSync(home, { recursive: true, force: true });
   });

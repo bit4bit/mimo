@@ -62,15 +62,15 @@ export class ImpactRepository {
     );
   }
 
-  ensureImpactDir(projectId: string): void {
+  async ensureImpactDir(projectId: string): Promise<void> {
     const impactDir = this.getImpactDir(projectId);
-    if (!this.os.fs.exists(impactDir)) {
-      this.os.fs.mkdir(impactDir, { recursive: true });
+    if (!(await this.os.fs.existsAsync(impactDir))) {
+      await this.os.fs.mkdirAsync(impactDir, { recursive: true });
     }
   }
 
-  save(record: ImpactRecord): void {
-    this.ensureImpactDir(record.projectId);
+  async save(record: ImpactRecord): Promise<void> {
+    await this.ensureImpactDir(record.projectId);
 
     const filePath = this.getImpactPath(
       record.projectId,
@@ -82,37 +82,41 @@ export class ImpactRepository {
       commitDate: record.commitDate.toISOString(),
     });
 
-    this.os.fs.writeFile(filePath, yamlContent, { encoding: "utf-8" });
+    await this.os.fs.writeFileAsync(filePath, yamlContent, {
+      encoding: "utf-8",
+    });
   }
 
-  findByProject(projectId: string): ImpactRecord[] {
+  async findByProject(projectId: string): Promise<ImpactRecord[]> {
     const impactDir = this.getImpactDir(projectId);
 
-    if (!this.os.fs.exists(impactDir)) {
+    if (!(await this.os.fs.existsAsync(impactDir))) {
       return [];
     }
 
-    const files = (this.os.fs.readdir(impactDir) as string[]).filter((f) =>
-      f.endsWith(".yaml"),
-    );
+    const files = (
+      (await this.os.fs.readdirAsync(impactDir)) as string[]
+    ).filter((f) => f.endsWith(".yaml"));
     const records: ImpactRecord[] = [];
 
-    for (const file of files) {
-      const filePath = this.os.path.join(impactDir, file);
-      try {
-        const content = this.os.fs.readFile(filePath, "utf-8");
-        const data = YAML.parse(content);
-        records.push({
-          ...data,
-          commitDate: new Date(data.commitDate),
-        });
-      } catch (error) {
-        logger.error(
-          `[impact] Failed to load impact record from ${filePath}:`,
-          error,
-        );
-      }
-    }
+    await Promise.all(
+      files.map(async (file) => {
+        const filePath = this.os.path.join(impactDir, file);
+        try {
+          const content = await this.os.fs.readFileAsync(filePath, "utf-8");
+          const data = YAML.parse(content);
+          records.push({
+            ...data,
+            commitDate: new Date(data.commitDate),
+          });
+        } catch (error) {
+          logger.error(
+            `[impact] Failed to load impact record from ${filePath}:`,
+            error,
+          );
+        }
+      }),
+    );
 
     // Sort by commit date descending (newest first)
     return records.sort(
@@ -120,21 +124,44 @@ export class ImpactRepository {
     );
   }
 
-  findBySession(projectId: string, sessionId: string): ImpactRecord[] {
-    return this.findByProject(projectId).filter(
-      (r) => r.sessionId === sessionId,
-    );
+  async findBySession(
+    projectId: string,
+    sessionId: string,
+  ): Promise<ImpactRecord[]> {
+    const records = await this.findByProject(projectId);
+    return records.filter((r) => r.sessionId === sessionId);
   }
 
-  findByCommitHash(projectId: string, commitHash: string): ImpactRecord | null {
-    const records = this.findByProject(projectId);
+  async findByCommitHash(
+    projectId: string,
+    commitHash: string,
+  ): Promise<ImpactRecord | null> {
+    const records = await this.findByProject(projectId);
     return records.find((r) => r.commitHash === commitHash) || null;
   }
 
-  delete(projectId: string, sessionId: string, commitHash: string): void {
+  async delete(
+    projectId: string,
+    sessionId: string,
+    commitHash: string,
+  ): Promise<void> {
     const filePath = this.getImpactPath(projectId, sessionId, commitHash);
-    if (this.os.fs.exists(filePath)) {
-      this.os.fs.unlink(filePath);
+    if (await this.os.fs.existsAsync(filePath)) {
+      await this.os.fs.unlinkAsync(filePath);
     }
+  }
+
+  async deleteByProject(projectId: string): Promise<void> {
+    const impactDir = this.getImpactDir(projectId);
+    if (!(await this.os.fs.existsAsync(impactDir))) return;
+
+    const files = (
+      (await this.os.fs.readdirAsync(impactDir)) as string[]
+    ).filter((f) => f.endsWith(".yaml"));
+    await Promise.all(
+      files.map((file) =>
+        this.os.fs.unlinkAsync(this.os.path.join(impactDir, file)),
+      ),
+    );
   }
 }

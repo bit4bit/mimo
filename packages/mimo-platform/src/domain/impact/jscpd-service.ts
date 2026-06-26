@@ -56,13 +56,13 @@ export class JscpdService {
     return this.jscpdPath;
   }
 
-  isInstalled(): boolean {
-    return this.os.fs.exists(this.jscpdPath);
+  async isInstalled(): Promise<boolean> {
+    return this.os.fs.existsAsync(this.jscpdPath);
   }
 
   async install(): Promise<{ success: boolean; error?: string }> {
     // jscpd is a package dependency — always available after bun install
-    if (this.isInstalled()) {
+    if (await this.isInstalled()) {
       return { success: true };
     }
     return {
@@ -75,7 +75,7 @@ export class JscpdService {
     filePaths: string[],
     directory: string,
   ): Promise<JscpdMetrics> {
-    if (!this.isInstalled()) {
+    if (!(await this.isInstalled())) {
       throw new Error(`jscpd not installed at ${this.jscpdPath}`);
     }
 
@@ -147,7 +147,7 @@ export class JscpdService {
     }
 
     const reportPath = this.os.path.join(outputDir, "jscpd-report.json");
-    if (!this.os.fs.exists(reportPath)) {
+    if (!(await this.os.fs.existsAsync(reportPath))) {
       return {
         duplicates: [],
         statistics: {
@@ -157,7 +157,7 @@ export class JscpdService {
     }
 
     try {
-      const reportContent = this.os.fs.readFile(reportPath, "utf-8");
+      const reportContent = await this.os.fs.readFileAsync(reportPath, "utf-8");
       const report: JscpdReport = JSON.parse(reportContent);
       return report;
     } catch (err) {
@@ -215,15 +215,15 @@ export class JscpdService {
     ];
 
     for (const source of sources) {
-      if (this.os.fs.exists(source.path)) {
+      if (await this.os.fs.existsAsync(source.path)) {
         lines.push(`# --- From: ${source.label} ---`);
-        lines.push(this.os.fs.readFile(source.path, "utf-8"));
+        lines.push(await this.os.fs.readFileAsync(source.path, "utf-8"));
         lines.push("");
       }
     }
 
     const ignorePath = this.os.path.join(directory, ".jscpdignore");
-    this.os.fs.writeFile(ignorePath, lines.join("\n"), "utf-8");
+    await this.os.fs.writeFileAsync(ignorePath, lines.join("\n"), "utf-8");
     return ignorePath;
   }
 }

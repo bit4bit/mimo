@@ -105,8 +105,8 @@ export class ProjectRepository {
     const id = this.generateId();
     const projectPath = this.getProjectPath(id);
 
-    if (!this.os.fs.exists(projectPath)) {
-      this.os.fs.mkdir(projectPath, { recursive: true });
+    if (!(await this.os.fs.existsAsync(projectPath))) {
+      await this.os.fs.mkdirAsync(projectPath, { recursive: true });
     }
 
     const projectData: ProjectData = {
@@ -125,9 +125,13 @@ export class ProjectRepository {
       ...(input.clonePort != null && { clonePort: input.clonePort }),
     };
 
-    this.os.fs.writeFile(this.getProjectFilePath(id), dump(projectData), {
-      encoding: "utf-8",
-    });
+    await this.os.fs.writeFileAsync(
+      this.getProjectFilePath(id),
+      dump(projectData),
+      {
+        encoding: "utf-8",
+      },
+    );
 
     return {
       ...projectData,
@@ -137,11 +141,11 @@ export class ProjectRepository {
 
   async findById(id: string): Promise<Project | null> {
     const filePath = this.getProjectFilePath(id);
-    if (!this.os.fs.exists(filePath)) {
+    if (!(await this.os.fs.existsAsync(filePath))) {
       return null;
     }
 
-    const content = this.os.fs.readFile(filePath, "utf-8");
+    const content = await this.os.fs.readFileAsync(filePath, "utf-8");
     const data = load(content) as ProjectData;
 
     return {
@@ -152,66 +156,76 @@ export class ProjectRepository {
 
   async listByOwner(owner: string): Promise<Project[]> {
     const projectsPath = this.getProjectsPath();
-    if (!this.os.fs.exists(projectsPath)) {
+    if (!(await this.os.fs.existsAsync(projectsPath))) {
       return [];
     }
 
-    const entries = this.os.fs.readdir(projectsPath, {
+    const entries = (await this.os.fs.readdirAsync(projectsPath, {
       withFileTypes: true,
-    }) as import("../os/types.js").DirEnt[];
+    })) as import("../../infrastructure/os/types.js").DirEnt[];
     const projects: Project[] = [];
 
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        const projectFile = this.os.path.join(
-          projectsPath,
-          entry.name,
-          "project.yaml",
-        );
-        if (this.os.fs.exists(projectFile)) {
-          const content = this.os.fs.readFile(projectFile, "utf-8");
-          const data = load(content) as ProjectData;
-          if (data.owner === owner) {
-            projects.push({
-              ...data,
-              createdAt: new Date(data.createdAt),
-            });
+    await Promise.all(
+      entries.map(async (entry) => {
+        if (entry.isDirectory()) {
+          const projectFile = this.os.path.join(
+            projectsPath,
+            entry.name,
+            "project.yaml",
+          );
+          if (await this.os.fs.existsAsync(projectFile)) {
+            const content = await this.os.fs.readFileAsync(
+              projectFile,
+              "utf-8",
+            );
+            const data = load(content) as ProjectData;
+            if (data.owner === owner) {
+              projects.push({
+                ...data,
+                createdAt: new Date(data.createdAt),
+              });
+            }
           }
         }
-      }
-    }
+      }),
+    );
 
     return projects;
   }
 
   async listAll(): Promise<Project[]> {
     const projectsPath = this.getProjectsPath();
-    if (!this.os.fs.exists(projectsPath)) {
+    if (!(await this.os.fs.existsAsync(projectsPath))) {
       return [];
     }
 
-    const entries = this.os.fs.readdir(projectsPath, {
+    const entries = (await this.os.fs.readdirAsync(projectsPath, {
       withFileTypes: true,
-    }) as import("../os/types.js").DirEnt[];
+    })) as import("../../infrastructure/os/types.js").DirEnt[];
     const projects: Project[] = [];
 
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        const projectFile = this.os.path.join(
-          projectsPath,
-          entry.name,
-          "project.yaml",
-        );
-        if (this.os.fs.exists(projectFile)) {
-          const content = this.os.fs.readFile(projectFile, "utf-8");
-          const data = load(content) as ProjectData;
-          projects.push({
-            ...data,
-            createdAt: new Date(data.createdAt),
-          });
+    await Promise.all(
+      entries.map(async (entry) => {
+        if (entry.isDirectory()) {
+          const projectFile = this.os.path.join(
+            projectsPath,
+            entry.name,
+            "project.yaml",
+          );
+          if (await this.os.fs.existsAsync(projectFile)) {
+            const content = await this.os.fs.readFileAsync(
+              projectFile,
+              "utf-8",
+            );
+            const data = load(content) as ProjectData;
+            projects.push({
+              ...data,
+              createdAt: new Date(data.createdAt),
+            });
+          }
         }
-      }
-    }
+      }),
+    );
 
     return projects;
   }
@@ -225,24 +239,28 @@ export class ProjectRepository {
       repoType: project.repoType,
       owner: project.owner,
       createdAt: project.createdAt.toISOString(),
+      sourceBranch: project.sourceBranch,
+      newBranch: project.newBranch,
+      agentSubpath: project.agentSubpath,
+      instructions: project.instructions,
     }));
   }
 
   async delete(id: string): Promise<void> {
     const projectPath = this.getProjectPath(id);
 
-    if (this.os.fs.exists(projectPath)) {
+    if (await this.os.fs.existsAsync(projectPath)) {
       // Delete project.yaml first
       const projectFile = this.getProjectFilePath(id);
-      if (this.os.fs.exists(projectFile)) {
+      if (await this.os.fs.existsAsync(projectFile)) {
         await this.os.fs.unlinkAsync(projectFile);
       }
 
       // Delete any other files in the directory
-      const entries = this.os.fs.readdir(projectPath) as string[];
+      const entries = (await this.os.fs.readdirAsync(projectPath)) as string[];
       for (const entry of entries) {
         const entryPath = this.os.path.join(projectPath, entry);
-        if (this.os.fs.exists(entryPath)) {
+        if (await this.os.fs.existsAsync(entryPath)) {
           await this.os.fs.unlinkAsync(entryPath);
         }
       }
@@ -252,8 +270,13 @@ export class ProjectRepository {
     }
   }
 
+  async deleteByOwner(owner: string): Promise<void> {
+    const projects = await this.listByOwner(owner);
+    await Promise.all(projects.map((project) => this.delete(project.id)));
+  }
+
   async exists(id: string): Promise<boolean> {
-    return this.os.fs.exists(this.getProjectFilePath(id));
+    return this.os.fs.existsAsync(this.getProjectFilePath(id));
   }
 
   async update(
@@ -316,9 +339,13 @@ export class ProjectRepository {
       updatedData.clonePort = project.clonePort;
     }
 
-    this.os.fs.writeFile(this.getProjectFilePath(id), dump(updatedData), {
-      encoding: "utf-8",
-    });
+    await this.os.fs.writeFileAsync(
+      this.getProjectFilePath(id),
+      dump(updatedData),
+      {
+        encoding: "utf-8",
+      },
+    );
 
     return {
       ...updatedData,

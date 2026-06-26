@@ -32,7 +32,12 @@ describe("detectChangedFiles (size-first two-tree compare)", () => {
     readCount = 0;
     const realReadAsync = os.fs.readFileAsync.bind(os.fs);
     os.fs.readFileAsync = (...args: any[]) => {
-      readCount++;
+      const path = args[0] as string;
+      // Exclude manifest-store reads from the count; we only care about
+      // project-file content reads.
+      if (!path.includes(".manifests")) {
+        readCount++;
+      }
       return realReadAsync(...args);
     };
   });
@@ -292,7 +297,13 @@ describe("detectChangedFiles (size-first two-tree compare)", () => {
     writeFileSync(upstreamManifestPath, "this is not json");
 
     readCount = 0;
-    const result = await detectChangedFiles(os, upstream, workspace, undefined, store);
+    const result = await detectChangedFiles(
+      os,
+      upstream,
+      workspace,
+      undefined,
+      store,
+    );
     expect(result.summary).toEqual({ added: 0, modified: 1, deleted: 0 });
     expect(result.files).toEqual([
       { path: "b.txt", status: "modified", size: 12 },

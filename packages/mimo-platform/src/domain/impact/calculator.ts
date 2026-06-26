@@ -467,7 +467,7 @@ export class ImpactCalculator {
       linesAdded + linesRemoved,
     );
 
-    const dependencies = this.calculateDependencyChanges(
+    const dependencies = await this.calculateDependencyChanges(
       changedFilesResult.files,
       upstreamPath,
       agentWorkspacePath,
@@ -553,14 +553,32 @@ export class ImpactCalculator {
     return { metrics, trends };
   }
 
-  private calculateDependencyChanges(
+  private async calculateDependencyChanges(
     changedFiles: { path: string; status: "added" | "modified" | "deleted" }[],
     upstreamPath: string,
     workspacePath: string,
-  ): DependencyChanges | undefined {
+  ): Promise<DependencyChanges | undefined> {
     try {
       const upstreamEdges: DependencyEdgeInput[] = [];
       const workspaceEdges: DependencyEdgeInput[] = [];
+
+      // Read all candidate files asynchronously and in parallel to avoid blocking
+      // the event loop on each source file.
+      const readTasks: Promise<
+        | {
+            side: "workspace";
+            path: string;
+            language: DependencyParserLanguage;
+            content: string;
+          }
+        | {
+            side: "upstream";
+            path: string;
+            language: DependencyParserLanguage;
+            content: string;
+          }
+        | null
+      >[] = [];
 
       for (const changedFile of changedFiles) {
         const language = this.getDependencyLanguage(changedFile.path);
@@ -576,15 +594,22 @@ export class ImpactCalculator {
             workspacePath,
             changedFile.path,
           );
-          if (this.os!.fs.exists(workspaceFilePath)) {
-            workspaceEdges.push(
-              ...this.parseDependencyEdgesForFile(
-                changedFile.path,
-                this.os!.fs.readFile(workspaceFilePath, "utf8"),
-                language,
-              ),
-            );
-          }
+          readTasks.push(
+            (async () => {
+              if (await this.os!.fs.existsAsync(workspaceFilePath)) {
+                return {
+                  side: "workspace" as const,
+                  path: changedFile.path,
+                  language,
+                  content: await this.os!.fs.readFileAsync(
+                    workspaceFilePath,
+                    "utf8",
+                  ),
+                };
+              }
+              return null;
+            })(),
+          );
         }
 
         if (
@@ -595,15 +620,37 @@ export class ImpactCalculator {
             upstreamPath,
             changedFile.path,
           );
-          if (this.os!.fs.exists(upstreamFilePath)) {
-            upstreamEdges.push(
-              ...this.parseDependencyEdgesForFile(
-                changedFile.path,
-                this.os!.fs.readFile(upstreamFilePath, "utf8"),
-                language,
-              ),
-            );
-          }
+          readTasks.push(
+            (async () => {
+              if (await this.os!.fs.existsAsync(upstreamFilePath)) {
+                return {
+                  side: "upstream" as const,
+                  path: changedFile.path,
+                  language,
+                  content: await this.os!.fs.readFileAsync(
+                    upstreamFilePath,
+                    "utf8",
+                  ),
+                };
+              }
+              return null;
+            })(),
+          );
+        }
+      }
+
+      const results = await Promise.all(readTasks);
+      for (const result of results) {
+        if (!result) continue;
+        const edges = this.parseDependencyEdgesForFile(
+          result.path,
+          result.content,
+          result.language,
+        );
+        if (result.side === "workspace") {
+          workspaceEdges.push(...edges);
+        } else {
+          upstreamEdges.push(...edges);
         }
       }
 
@@ -685,7 +732,7 @@ export class ImpactCalculator {
 
     try {
       const jscpdService = await this.getJscpdService();
-      if (!jscpdService.isInstalled()) {
+      if (!(await jscpdService.isInstalled())) {
         return {
           duplicatedLines: 0,
           duplicatedTokens: 0,

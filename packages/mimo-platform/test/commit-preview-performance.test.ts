@@ -591,7 +591,10 @@ describe("Commit Preview Performance", () => {
           await import("../src/domain/files/changed-files.js");
         const store = createManifestStore(
           os,
-          join(sessionDir(session.upstreamPath, session.agentWorkspacePath), ".manifests"),
+          join(
+            sessionDir(session.upstreamPath, session.agentWorkspacePath),
+            ".manifests",
+          ),
         );
         const detected = await detectChangedFiles(
           os,
@@ -612,7 +615,13 @@ describe("Commit Preview Performance", () => {
       const realReadAsync = os.fs.readFileAsync.bind(os.fs);
       let readCount = 0;
       os.fs.readFileAsync = (...args: any[]) => {
-        readCount++;
+        // Manifest store loads/saves use readFileAsync too; don't count those
+        // as project-file content reads. Also exclude session metadata reads
+        // now that SessionRepository uses async I/O.
+        const path = args[0] as string;
+        if (!path.includes(".manifests") && !path.endsWith("session.yaml")) {
+          readCount++;
+        }
         return realReadAsync(...args);
       };
 
@@ -686,7 +695,10 @@ describe("Commit Preview Performance", () => {
           await import("../src/domain/files/changed-files.js");
         const store = createManifestStore(
           os,
-          join(sessionDir(session.upstreamPath, session.agentWorkspacePath), ".manifests"),
+          join(
+            sessionDir(session.upstreamPath, session.agentWorkspacePath),
+            ".manifests",
+          ),
         );
         const detected = await detectChangedFiles(
           os,
@@ -722,4 +734,3 @@ describe("Commit Preview Performance", () => {
     }, 30000);
   });
 });
-

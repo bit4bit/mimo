@@ -86,14 +86,14 @@ export class FrameStateService {
     this.os = os;
   }
 
-  private findSessionDir(sessionId: string): string | null {
-    if (!this.os.fs.exists(this.paths.projects)) {
+  private async findSessionDir(sessionId: string): Promise<string | null> {
+    if (!(await this.os.fs.existsAsync(this.paths.projects))) {
       return null;
     }
 
-    const projectEntries = this.os.fs.readdir(this.paths.projects, {
+    const projectEntries = (await this.os.fs.readdirAsync(this.paths.projects, {
       withFileTypes: true,
-    }) as Array<{ name: string; isDirectory(): boolean }>;
+    })) as Array<{ name: string; isDirectory(): boolean }>;
     for (const projectEntry of projectEntries) {
       if (!projectEntry.isDirectory()) {
         continue;
@@ -104,12 +104,12 @@ export class FrameStateService {
         projectEntry.name,
         "sessions",
       );
-      if (!this.os.fs.exists(sessionsDir)) {
+      if (!(await this.os.fs.existsAsync(sessionsDir))) {
         continue;
       }
 
       const sessionDir = this.os.path.join(sessionsDir, sessionId);
-      if (this.os.fs.exists(sessionDir)) {
+      if (await this.os.fs.existsAsync(sessionDir)) {
         return sessionDir;
       }
     }
@@ -117,56 +117,56 @@ export class FrameStateService {
     return null;
   }
 
-  loadNotes(sessionId: string): string {
-    const sessionDir = this.findSessionDir(sessionId);
+  async loadNotes(sessionId: string): Promise<string> {
+    const sessionDir = await this.findSessionDir(sessionId);
     if (!sessionDir) {
       return "";
     }
 
     const notesPath = this.os.path.join(sessionDir, "notes.txt");
-    if (!this.os.fs.exists(notesPath)) {
+    if (!(await this.os.fs.existsAsync(notesPath))) {
       return "";
     }
 
-    return this.os.fs.readFile(notesPath, "utf-8");
+    return this.os.fs.readFileAsync(notesPath, "utf-8");
   }
 
-  saveNotes(sessionId: string, content: string): void {
-    const sessionDir = this.findSessionDir(sessionId);
+  async saveNotes(sessionId: string, content: string): Promise<void> {
+    const sessionDir = await this.findSessionDir(sessionId);
     if (!sessionDir) {
       throw new Error(`Session ${sessionId} not found`);
     }
 
-    if (!this.os.fs.exists(sessionDir)) {
-      this.os.fs.mkdir(sessionDir, { recursive: true });
+    if (!(await this.os.fs.existsAsync(sessionDir))) {
+      await this.os.fs.mkdirAsync(sessionDir, { recursive: true });
     }
 
     const notesPath = this.os.path.join(sessionDir, "notes.txt");
-    this.os.fs.writeFile(notesPath, content, "utf-8");
+    await this.os.fs.writeFileAsync(notesPath, content, "utf-8");
   }
 
-  loadProjectNotes(projectId: string): string {
+  async loadProjectNotes(projectId: string): Promise<string> {
     const projectPath = this.os.path.join(this.paths.projects, projectId);
-    if (!this.os.fs.exists(projectPath)) {
+    if (!(await this.os.fs.existsAsync(projectPath))) {
       return "";
     }
 
     const notesPath = this.os.path.join(projectPath, "notes.txt");
-    if (!this.os.fs.exists(notesPath)) {
+    if (!(await this.os.fs.existsAsync(notesPath))) {
       return "";
     }
 
-    return this.os.fs.readFile(notesPath, "utf-8");
+    return this.os.fs.readFileAsync(notesPath, "utf-8");
   }
 
-  saveProjectNotes(projectId: string, content: string): void {
+  async saveProjectNotes(projectId: string, content: string): Promise<void> {
     const projectPath = this.os.path.join(this.paths.projects, projectId);
-    if (!this.os.fs.exists(projectPath)) {
-      this.os.fs.mkdir(projectPath, { recursive: true });
+    if (!(await this.os.fs.existsAsync(projectPath))) {
+      await this.os.fs.mkdirAsync(projectPath, { recursive: true });
     }
 
     const notesPath = this.os.path.join(projectPath, "notes.txt");
-    this.os.fs.writeFile(notesPath, content, "utf-8");
+    await this.os.fs.writeFileAsync(notesPath, content, "utf-8");
   }
 }
 
@@ -180,13 +180,16 @@ export function createFrameStateService(
 
 // Legacy function exports - will be removed once all consumers use FrameStateService
 // These use empty paths and will fail at runtime if called without proper initialization
-export function loadNotes(sessionId: string): string {
+export async function loadNotes(sessionId: string): Promise<never> {
   throw new Error(
     "loadNotes() requires FrameStateService - use createFrameStateService(paths) instead",
   );
 }
 
-export function saveNotes(sessionId: string, content: string): void {
+export async function saveNotes(
+  sessionId: string,
+  content: string,
+): Promise<never> {
   throw new Error(
     "saveNotes() requires FrameStateService - use createFrameStateService(paths) instead",
   );

@@ -38,7 +38,7 @@ export class UserRepository {
   }
 
   async exists(username: string): Promise<boolean> {
-    return this.os.fs.exists(this.getCredentialsPath(username));
+    return this.os.fs.existsAsync(this.getCredentialsPath(username));
   }
 
   async create(username: string, passwordHash: string): Promise<User> {
@@ -47,8 +47,8 @@ export class UserRepository {
     }
 
     const userPath = this.getUserPath(username);
-    if (!this.os.fs.exists(userPath)) {
-      this.os.fs.mkdir(userPath, { recursive: true });
+    if (!(await this.os.fs.existsAsync(userPath))) {
+      await this.os.fs.mkdirAsync(userPath, { recursive: true });
     }
 
     const credentials: UserCredentials = {
@@ -57,9 +57,13 @@ export class UserRepository {
       createdAt: new Date().toISOString(),
     };
 
-    this.os.fs.writeFile(this.getCredentialsPath(username), dump(credentials), {
-      encoding: "utf-8",
-    });
+    await this.os.fs.writeFileAsync(
+      this.getCredentialsPath(username),
+      dump(credentials),
+      {
+        encoding: "utf-8",
+      },
+    );
 
     return {
       username,
@@ -69,42 +73,47 @@ export class UserRepository {
 
   async getCredentials(username: string): Promise<UserCredentials | null> {
     const path = this.getCredentialsPath(username);
-    if (!this.os.fs.exists(path)) {
+    if (!(await this.os.fs.existsAsync(path))) {
       return null;
     }
 
-    const content = this.os.fs.readFile(path, "utf-8");
+    const content = await this.os.fs.readFileAsync(path, "utf-8");
     return load(content) as UserCredentials;
   }
 
   async listUsers(): Promise<User[]> {
     const usersPath = this.getUsersPath();
-    if (!this.os.fs.exists(usersPath)) {
+    if (!(await this.os.fs.existsAsync(usersPath))) {
       return [];
     }
 
-    const entries = this.os.fs.readdir(usersPath, {
+    const entries = (await this.os.fs.readdirAsync(usersPath, {
       withFileTypes: true,
-    }) as import("../os/types.js").DirEnt[];
+    })) as import("../../infrastructure/os/types.js").DirEnt[];
     const users: User[] = [];
 
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        const credentialsPath = this.os.path.join(
-          usersPath,
-          entry.name,
-          "credentials.yaml",
-        );
-        if (this.os.fs.exists(credentialsPath)) {
-          const content = this.os.fs.readFile(credentialsPath, "utf-8");
-          const creds = load(content) as UserCredentials;
-          users.push({
-            username: creds.username,
-            createdAt: new Date(creds.createdAt),
-          });
+    await Promise.all(
+      entries.map(async (entry) => {
+        if (entry.isDirectory()) {
+          const credentialsPath = this.os.path.join(
+            usersPath,
+            entry.name,
+            "credentials.yaml",
+          );
+          if (await this.os.fs.existsAsync(credentialsPath)) {
+            const content = await this.os.fs.readFileAsync(
+              credentialsPath,
+              "utf-8",
+            );
+            const creds = load(content) as UserCredentials;
+            users.push({
+              username: creds.username,
+              createdAt: new Date(creds.createdAt),
+            });
+          }
         }
-      }
-    }
+      }),
+    );
 
     return users;
   }

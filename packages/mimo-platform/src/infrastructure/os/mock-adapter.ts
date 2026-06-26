@@ -203,6 +203,14 @@ export class MockFileSystem implements FileSystem {
     }
   }
 
+  async appendFileAsync(
+    path: string,
+    content: string,
+    options?: WriteFileOptions,
+  ): Promise<void> {
+    this.appendFile(path, content, options);
+  }
+
   mkdir(path: string, options?: MkdirOptions): void {
     const parts = this.parsePath(path);
     let current = this.root;
@@ -245,6 +253,10 @@ export class MockFileSystem implements FileSystem {
     this.writeFile(dest, content);
   }
 
+  async copyFileAsync(src: string, dest: string): Promise<void> {
+    this.copyFile(src, dest);
+  }
+
   watch(
     _path: string,
     _options?: { recursive?: boolean },
@@ -263,11 +275,19 @@ export class MockFileSystem implements FileSystem {
     node.mode = mode;
   }
 
+  async chmodAsync(path: string, mode: number): Promise<void> {
+    this.chmod(path, mode);
+  }
+
   rename(oldPath: string, newPath: string): void {
     const node = this.getNode(oldPath);
     if (!node) throw new Error(`ENOENT: ${oldPath}`);
     this.writeFile(newPath, node.content ?? "");
     this.unlink(oldPath);
+  }
+
+  async renameAsync(oldPath: string, newPath: string): Promise<void> {
+    this.rename(oldPath, newPath);
   }
 
   rm(path: string, options?: { recursive?: boolean; force?: boolean }): void {
@@ -355,6 +375,14 @@ export class MockFileSystem implements FileSystem {
     }
   }
 
+  async cpAsync(
+    src: string,
+    dest: string,
+    options?: { recursive?: boolean },
+  ): Promise<void> {
+    this.cp(src, dest, options);
+  }
+
   utimes(path: string, atime: Date | number, mtime: Date | number): void {
     const node = this.getNode(path);
     if (!node) throw new Error(`ENOENT: ${path}`);
@@ -367,10 +395,26 @@ export class MockFileSystem implements FileSystem {
     return path;
   }
 
+  async realpathAsync(path: string): Promise<string> {
+    return this.realpath(path);
+  }
+
   mkdtemp(prefix: string): string {
     const dirName = `${prefix}${Date.now()}`;
     this.mkdir(dirName, { recursive: true });
     return dirName;
+  }
+
+  async mkdtempAsync(prefix: string): Promise<string> {
+    return this.mkdtemp(prefix);
+  }
+
+  async utimesAsync(
+    path: string,
+    atime: Date | number,
+    mtime: Date | number,
+  ): Promise<void> {
+    this.utimes(path, atime, mtime);
   }
 
   /**
