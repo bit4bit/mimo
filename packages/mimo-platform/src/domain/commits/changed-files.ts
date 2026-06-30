@@ -125,50 +125,6 @@ export function detectChangedFilesFromPatchPreview(
 }
 
 /**
- * Async variant of detectChangedFilesFromPatchPreview.
- * Derive the changed-file list from an already-generated patch preview without
- * blocking the event loop on stat calls.
- */
-export async function detectChangedFilesFromPatchPreviewAsync(
-  os: OS,
-  upstreamPath: string,
-  workspacePath: string,
-  patchPreview: PatchPreview,
-): Promise<ChangedFilesResult> {
-  const files: FileChange[] = [];
-
-  for (const patchFile of patchPreview.files) {
-    let size = 0;
-    if (patchFile.status === "deleted") {
-      const upstreamFile = os.path.join(upstreamPath, patchFile.path);
-      if (await os.fs.existsAsync(upstreamFile)) {
-        size = (await os.fs.statAsync(upstreamFile)).size;
-      }
-    } else {
-      const workspaceFile = os.path.join(workspacePath, patchFile.path);
-      if (await os.fs.existsAsync(workspaceFile)) {
-        size = (await os.fs.statAsync(workspaceFile)).size;
-      }
-    }
-
-    files.push({
-      path: patchFile.path,
-      status: patchFile.status,
-      size,
-    });
-  }
-
-  return {
-    files,
-    summary: {
-      added: files.filter((f) => f.status === "added").length,
-      modified: files.filter((f) => f.status === "modified").length,
-      deleted: files.filter((f) => f.status === "deleted").length,
-    },
-  };
-}
-
-/**
  * Parse a raw unified diff patch and extract changed files with sizes.
  * Convenience wrapper around parsePatchPreview and detectChangedFilesFromPatchPreview.
  */

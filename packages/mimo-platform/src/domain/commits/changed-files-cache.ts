@@ -11,10 +11,10 @@ interface CacheEntry {
 /**
  * In-memory cache for patch-derived changed-file lists.
  *
- * Both the commit preview and the impact analysis need the same changed-file
- * list. The list is derived from the git diff patch, so caching it avoids
- * running expensive directory scans (or even re-parsing the patch) when the
- * impact buffer refreshes shortly after the preview was loaded.
+ * The commit preview, the commit/apply path, and the impact analysis all need
+ * the same changed-file list. The list is derived from a stat-first two-tree
+ * comparison, so caching it avoids running expensive directory scans when the
+ * commit or impact buffer follows shortly after the preview was loaded.
  */
 export class ChangedFilesCache {
   private entries = new Map<string, CacheEntry>();

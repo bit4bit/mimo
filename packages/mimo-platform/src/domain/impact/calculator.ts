@@ -234,37 +234,30 @@ export class ImpactCalculator {
     const upstreamPaths: string[] = [];
     const workspacePaths: string[] = [];
 
-    for (const file of changedFilesResult.files) {
-      if (shouldIncludeImpactPath(file.path)) {
+    await Promise.all(
+      changedFilesResult.files.map(async (file) => {
+        if (!shouldIncludeImpactPath(file.path)) return;
+        const upstreamFile = this.os!.path.join(upstreamPath, file.path);
+        const workspaceFile = this.os!.path.join(agentWorkspacePath, file.path);
         if (file.status === "deleted") {
-          const upstreamFile = this.os!.path.join(upstreamPath, file.path);
-          if (this.os!.fs.exists(upstreamFile)) {
+          if (await this.os!.fs.existsAsync(upstreamFile)) {
             upstreamPaths.push(upstreamFile);
           }
         } else if (file.status === "added") {
-          const workspaceFile = this.os!.path.join(
-            agentWorkspacePath,
-            file.path,
-          );
-          if (this.os!.fs.exists(workspaceFile)) {
+          if (await this.os!.fs.existsAsync(workspaceFile)) {
             workspacePaths.push(workspaceFile);
           }
         } else {
           // modified
-          const upstreamFile = this.os!.path.join(upstreamPath, file.path);
-          const workspaceFile = this.os!.path.join(
-            agentWorkspacePath,
-            file.path,
-          );
-          if (this.os!.fs.exists(upstreamFile)) {
+          if (await this.os!.fs.existsAsync(upstreamFile)) {
             upstreamPaths.push(upstreamFile);
           }
-          if (this.os!.fs.exists(workspaceFile)) {
+          if (await this.os!.fs.existsAsync(workspaceFile)) {
             workspacePaths.push(workspaceFile);
           }
         }
-      }
-    }
+      }),
+    );
 
     // Run SCC only on the changed files. This avoids scanning the entire repo
     // for large projects. runSccOnFiles is safe to call with an empty list.
@@ -456,10 +449,15 @@ export class ImpactCalculator {
     });
 
     // Calculate duplication for changed files
-    const changedFilePaths = byFile
+    const candidateChangedPaths = byFile
       .filter((f) => f.status === "new" || f.status === "changed")
-      .map((f) => this.os!.path.join(agentWorkspacePath, f.path))
-      .filter((p) => this.os!.fs.exists(p));
+      .map((f) => this.os!.path.join(agentWorkspacePath, f.path));
+    const changedPathExists = await Promise.all(
+      candidateChangedPaths.map((p) => this.os!.fs.existsAsync(p)),
+    );
+    const changedFilePaths = candidateChangedPaths.filter(
+      (_, i) => changedPathExists[i],
+    );
 
     const duplication = await this.calculateDuplication(
       changedFilePaths,

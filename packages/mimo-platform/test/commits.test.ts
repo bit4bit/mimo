@@ -611,7 +611,7 @@ describe("Commit Service Tests", () => {
       expect(existsSync(join(upstreamPath, "file1.txt"))).toBe(true);
     }, 30000);
 
-    it("should store patch with actual diff before applying files", async () => {
+    it("applies selected files without generating or storing a whole-repo patch", async () => {
       const vcs = new VCS({ os });
       const sessionRepo = ctx.repos.sessions;
       const projectRepo = ctx.repos.projects;
@@ -649,41 +649,46 @@ describe("Commit Service Tests", () => {
         agentWorkspacePath,
       );
 
-      // Commit via service
-      const result = await ctx.services.commits.commitAndPushSelective(
-        session.id,
-        "Test commit",
-        ["test.txt"],
-        undefined,
-      );
+      // The commit path must derive its changed-file list from the cheap
+      // stat-diff, never from a whole-repository `git diff --binary` patch.
+      const serviceVcs = (ctx.services.commits as any).deps.vcs;
+      let generatePatchCalls = 0;
+      const realGeneratePatch = serviceVcs.generatePatch.bind(serviceVcs);
+      serviceVcs.generatePatch = async (...args: any[]) => {
+        generatePatchCalls++;
+        return realGeneratePatch(...args);
+      };
 
-      expect(result.success).toBe(true);
+      try {
+        const result = await ctx.services.commits.commitAndPushSelective(
+          session.id,
+          "Test commit",
+          ["test.txt"],
+          undefined,
+        );
 
-      // Verify patch was stored
-      // Session path is: {projects}/{projectId}/sessions/{sessionId}
-      const sessionDir = join(
-        testHome,
-        "projects",
-        project.id,
-        "sessions",
-        session.id,
-      );
-      const patchesDir = join(sessionDir, "patches");
-      expect(existsSync(patchesDir)).toBe(true);
-
-      // Read stored patch
-      const patchFiles = readdirSync(patchesDir);
-      expect(patchFiles.length).toBeGreaterThan(0);
-
-      const patchContent = readFileSync(
-        join(patchesDir, patchFiles[0]),
-        "utf-8",
-      );
-
-      // Patch should contain the actual diff, not be empty
-      expect(patchContent).toContain("diff");
-      expect(patchContent).toContain("new content");
-      expect(patchContent).not.toBe("");
+        expect(result.success).toBe(true);
+        // The selected file was applied to upstream.
+        expect(existsSync(join(upstreamPath, "test.txt"))).toBe(true);
+        // No whole-repo patch was generated...
+        expect(generatePatchCalls).toBe(0);
+        // ...and none was stored. (The session's `patches` dir is created at
+        // bootstrap, but the commit path no longer writes a patch into it.)
+        const sessionDir = join(
+          testHome,
+          "projects",
+          project.id,
+          "sessions",
+          session.id,
+        );
+        const patchesDir = join(sessionDir, "patches");
+        const storedPatches = existsSync(patchesDir)
+          ? readdirSync(patchesDir).filter((f) => f.endsWith(".patch"))
+          : [];
+        expect(storedPatches).toEqual([]);
+      } finally {
+        serviceVcs.generatePatch = realGeneratePatch;
+      }
     }, 30000);
 
     it("uses project SSH credential for commit and push", async () => {

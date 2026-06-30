@@ -9,6 +9,12 @@ import type { OS } from "../../infrastructure/os/types.js";
 import type { Credential } from "../credentials/repository";
 import { logger } from "../../logger.js";
 import { EXCLUDED_PATHS, isExcluded } from "../files/path-policy.js";
+import { parsePatchPreview, type DiffHunk } from "../commits/patch-preview.js";
+import type {
+  ChangedFilesResult,
+  FileChange,
+  FileChangeStatus,
+} from "../files/changed-files.js";
 
 export interface VCSResult {
   success: boolean;
@@ -733,7 +739,15 @@ export class VCS {
         error: `git config http.receivepack failed: ${receivePack.error}`,
       };
     }
-    return { success: true };
+
+    // Surface the seed commit SHA as `commitHash` so the session lifecycle can
+    // record it as the initial `baseline` for git-range detection. The bare
+    // repo's HEAD is the seeded base commit for both git and fossil upstreams.
+    const head = await this.execCommand(["git", "rev-parse", "HEAD"], repoPath);
+    return {
+      success: true,
+      commitHash: head.success ? head.output.trim() : undefined,
+    };
   }
 
   /**
@@ -1766,6 +1780,274 @@ export class VCS {
     }
 
     return { success: true, patch: stdout };
+  }
+
+  // ── Git commit-range detection ──────────────────────────────────────────
+  //
+  // `agent-workspace` is always a git checkout (every repo type is funnelled
+  // through a git bare seed), so the upstream→workspace delta the commit
+  // preview and impact buffer want is exactly the commit range
+  // `<baseline>..HEAD`. These helpers answer it from git's object store in
+  // O(changed), replacing the two-tree filesystem scan for those read paths.
+  // They are git-only by construction and therefore independent of the
+  // session's upstream repository type.
+
+  /**
+   * Resolve a ref/expression to a commit SHA in the given git checkout.
+   * Returns null when the ref cannot be resolved.
+   */
+  async revParse(workDir: string, ref: string): Promise<string | null> {
+    const result = await this.execCommand(
+      ["git", "rev-parse", "--verify", "--quiet", `${ref}^{commit}`],
+      workDir,
+    );
+    const sha = result.output.trim();
+    return result.success && sha.length > 0 ? sha : null;
+  }
+
+  /**
+   * Changed-file list for `<baseRef>..HEAD`, in the same shape the two-tree
+   * scan produced (`status` + `path` + `size`). Cost scales with the number of
+   * changed files: git answers the name-status from its object store, and sizes
+   * are resolved per changed file (stat for present files, `git cat-file -s` for
+   * deletions) rather than by walking the whole tree.
+   */
+  async diffNameStatus(
+    workDir: string,
+    baseRef: string,
+  ): Promise<ChangedFilesResult> {
+    const result = await this.execCommand(
+      ["git", "diff", "--name-status", "--no-renames", "-z", baseRef, "HEAD"],
+      workDir,
+    );
+    if (!result.success) {
+      throw new Error(`git diff --name-status failed: ${result.error}`);
+    }
+
+    const tokens = result.output.split("\0").filter((t) => t.length > 0);
+    const files: FileChange[] = [];
+    let added = 0;
+    let modified = 0;
+    let deleted = 0;
+
+    for (let i = 0; i + 1 < tokens.length; i += 2) {
+      const code = tokens[i].charAt(0);
+      const path = tokens[i + 1];
+      let status: FileChangeStatus;
+      if (code === "A") {
+        status = "added";
+        added++;
+      } else if (code === "D") {
+        status = "deleted";
+        deleted++;
+      } else {
+        // M (modified) and T (type change) both surface as a content change.
+        status = "modified";
+        modified++;
+      }
+      const size = await this.sizeForChange(workDir, baseRef, path, status);
+      files.push({ path, status, size });
+    }
+
+    return { files, summary: { added, modified, deleted } };
+  }
+
+  /**
+   * Best-effort byte size for a changed file. Present files (added/modified)
+   * are stat-ed in the working tree; deletions are sized from the blob at
+   * `<baseRef>`. Never fails the detection — falls back to 0.
+   */
+  private async sizeForChange(
+    workDir: string,
+    baseRef: string,
+    path: string,
+    status: FileChangeStatus,
+  ): Promise<number> {
+    try {
+      if (status === "deleted") {
+        const res = await this.execCommand(
+          ["git", "cat-file", "-s", `${baseRef}:${path}`],
+          workDir,
+        );
+        const n = parseInt(res.output.trim(), 10);
+        return Number.isFinite(n) ? n : 0;
+      }
+      const full = this.os.path.join(workDir, path);
+      if (await this.os.fs.existsAsync(full)) {
+        const stat = await this.os.fs.statAsync(full);
+        return stat.size;
+      }
+    } catch {
+      // ignore — size is advisory
+    }
+    return 0;
+  }
+
+  /**
+   * Per-file diff hunks for `<baseRef>..HEAD` limited to a single path. Reads
+   * only that file from git's object store; added files diff against the empty
+   * tree, deletions against `<baseRef>`. O(one file), independent of repo size.
+   */
+  async diffFileRange(
+    workDir: string,
+    baseRef: string,
+    path: string,
+  ): Promise<{ hunks: DiffHunk[]; isBinary: boolean }> {
+    const proc = this.os.command.spawn(
+      ["git", "diff", "--no-color", baseRef, "HEAD", "--", path],
+      { cwd: workDir },
+    );
+    const exitCode = await proc.exited;
+    const stdout = await new Response(proc.stdout).text();
+    const stderr = await new Response(proc.stderr).text();
+    if (exitCode > 1) {
+      throw new Error(`git diff (file range) failed: ${stderr}`);
+    }
+
+    if (stdout.trim().length === 0) {
+      return { hunks: [], isBinary: false };
+    }
+    const preview = parsePatchPreview(stdout);
+    const file = preview.files[0];
+    return { hunks: file?.hunks ?? [], isBinary: file?.isBinary ?? false };
+  }
+
+  /**
+   * The "before" bytes of a path at a ref (`git show <ref>:<path>`). Used to
+   * source the upstream-side content of a changed file without reading the
+   * `upstream/` working tree. Returns `{ exists: false }` when the path is not
+   * present at that ref (e.g. an added file at the baseline).
+   */
+  async showFileAtRef(
+    workDir: string,
+    ref: string,
+    path: string,
+  ): Promise<{ exists: boolean; content: string }> {
+    const proc = this.os.command.spawn(["git", "show", `${ref}:${path}`], {
+      cwd: workDir,
+    });
+    const exitCode = await proc.exited;
+    const stdout = await new Response(proc.stdout).text();
+    if (exitCode !== 0) {
+      return { exists: false, content: "" };
+    }
+    return { exists: true, content: stdout };
+  }
+
+  /**
+   * Advance the baseline past a set of selectively-committed paths (Decision
+   * 2a: checkpoint commit). Builds, in a throwaway index, a tree equal to
+   * `<baseRef>` with the committed paths brought to their `HEAD` content
+   * (added/modified) or removed (deleted), commits it with `<baseRef>` as
+   * parent, and returns the new baseline SHA. `HEAD` and the working tree are
+   * untouched, so `newBaseline..HEAD` no longer reports the committed paths
+   * while the remaining changes stay pending. Returns null on failure.
+   */
+  async advanceBaseline(
+    workDir: string,
+    baseRef: string,
+    committedPaths: string[],
+  ): Promise<string | null> {
+    if (committedPaths.length === 0) return baseRef;
+
+    const indexFile = this.os.path.join(
+      workDir,
+      ".git",
+      `mimo-baseline-${Date.now()}.index`,
+    );
+    const env: Record<string, string> = { GIT_INDEX_FILE: indexFile };
+    try {
+      const readTree = await this.execCommand(
+        ["git", "read-tree", baseRef],
+        workDir,
+        env,
+      );
+      if (!readTree.success) {
+        logger.error(`[vcs] baseline read-tree failed: ${readTree.error}`);
+        return null;
+      }
+
+      for (const path of committedPaths) {
+        const lsTree = await this.execCommand(
+          ["git", "ls-tree", "HEAD", "--", path],
+          workDir,
+        );
+        const entry = lsTree.output.trim();
+        if (entry.length > 0) {
+          // Present at HEAD → bring the committed content into the baseline.
+          const meta = entry.split("\t")[0].split(/\s+/);
+          const mode = meta[0];
+          const sha = meta[2];
+          const update = await this.execCommand(
+            [
+              "git",
+              "update-index",
+              "--add",
+              "--cacheinfo",
+              `${mode},${sha},${path}`,
+            ],
+            workDir,
+            env,
+          );
+          if (!update.success) {
+            logger.error(`[vcs] baseline update-index failed: ${update.error}`);
+            return null;
+          }
+        } else {
+          // Absent at HEAD → the committed change was a deletion.
+          const remove = await this.execCommand(
+            ["git", "update-index", "--force-remove", path],
+            workDir,
+            env,
+          );
+          if (!remove.success) {
+            logger.error(`[vcs] baseline force-remove failed: ${remove.error}`);
+            return null;
+          }
+        }
+      }
+
+      const writeTree = await this.execCommand(
+        ["git", "write-tree"],
+        workDir,
+        env,
+      );
+      if (!writeTree.success) {
+        logger.error(`[vcs] baseline write-tree failed: ${writeTree.error}`);
+        return null;
+      }
+      const tree = writeTree.output.trim();
+
+      const commitEnv: Record<string, string> = {
+        ...env,
+        GIT_AUTHOR_NAME: "mimo",
+        GIT_AUTHOR_EMAIL: "mimo@local",
+        GIT_COMMITTER_NAME: "mimo",
+        GIT_COMMITTER_EMAIL: "mimo@local",
+      };
+      const commitTree = await this.execCommand(
+        [
+          "git",
+          "commit-tree",
+          tree,
+          "-p",
+          baseRef,
+          "-m",
+          "mimo baseline checkpoint",
+        ],
+        workDir,
+        commitEnv,
+      );
+      if (!commitTree.success) {
+        logger.error(`[vcs] baseline commit-tree failed: ${commitTree.error}`);
+        return null;
+      }
+      return commitTree.output.trim();
+    } finally {
+      if (await this.os.fs.existsAsync(indexFile)) {
+        await this.os.fs.unlinkAsync(indexFile);
+      }
+    }
   }
 
   async storePatch(patchDir: string, patchContent: string): Promise<string> {

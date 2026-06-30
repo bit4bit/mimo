@@ -202,6 +202,29 @@ export async function syncSessionViaAssignedAgent(
         }
 
         context.sccService.invalidateCache(session.agentWorkspacePath);
+
+        // Initialize the git-range `baseline` once, the first time the platform
+        // establishes its checkout. The baseline is the seeded base commit —
+        // the upstream state before any agent work — which the upstream checkout
+        // still points at here (it is mutated only by selective commits, which
+        // cannot have run yet). Recording its SHA lets the commit preview and
+        // impact buffer use the native `<baseline>..HEAD` range. Skipped when
+        // the upstream is not a resolvable git checkout (falls back to the
+        // two-tree scan) and never overwrites an already-advanced baseline.
+        // NOTE: this is the interim seed hook; the native git seed site from
+        // `replace-fossil-with-git` should record `baseline` directly from
+        // `seedSessionRepo`'s returned commit hash once it lands.
+        if (!session.baseline) {
+          const seed = await context.vcs.revParse(session.upstreamPath, "HEAD");
+          if (
+            seed &&
+            (await context.vcs.revParse(session.agentWorkspacePath, seed))
+          ) {
+            await context.sessionRepository.update(sessionId, {
+              baseline: seed,
+            });
+          }
+        }
       }
 
       await context.sessionRepository.update(sessionId, {

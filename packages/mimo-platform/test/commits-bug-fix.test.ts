@@ -182,6 +182,29 @@ describe("Commit Service — impact record creation", () => {
           }
           return entries;
         },
+        readdirAsync: async (dir: string, _opts?: any) => {
+          const entries: {
+            name: string;
+            isDirectory: () => boolean;
+            isFile: () => boolean;
+          }[] = [];
+          for (const [path] of files) {
+            if (path.startsWith(dir + "/")) {
+              const relative = path.slice(dir.length + 1);
+              const firstPart = relative.split("/")[0];
+              if (firstPart && !entries.find((e) => e.name === firstPart)) {
+                entries.push({
+                  name: firstPart,
+                  isDirectory: () => relative.includes("/"),
+                  isFile: () => !relative.includes("/"),
+                });
+              }
+            }
+          }
+          return entries;
+        },
+        mkdirAsync: async (_dir: string, _opts?: any) => {},
+        renameAsync: async (_src: string, _dest: string) => {},
         lstat: (p: string) => ({
           isDirectory: () => !files.has(p),
           isFile: () => files.has(p),

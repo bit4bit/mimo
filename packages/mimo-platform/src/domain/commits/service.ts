@@ -5,14 +5,16 @@ import type { OS } from "../../infrastructure/os/types.js";
 import {
   applySelectedFiles,
   detectChangedFiles,
-  detectChangedFilesFromPatchPreviewAsync,
   type FileChange,
+  type ChangedFilesResult,
 } from "./changed-files.js";
 import { parsePatchPreview, type DiffHunk } from "./patch-preview.js";
 import type { Credential } from "../credentials/repository.js";
 import { ChangedFilesCache } from "./changed-files-cache.js";
-import type { ChangedFilesResult } from "../files/changed-files.js";
-import { createManifestStore } from "../files/tree-manifest.js";
+import {
+  createManifestStore,
+  type ManifestStore,
+} from "../files/tree-manifest.js";
 
 export interface CommitResult {
   success: boolean;
@@ -78,8 +80,6 @@ export interface CommitServiceDeps {
 }
 
 export class CommitService {
-  private patchCache = new Map<string, { patch: string; cachedAt: number }>();
-  private readonly PATCH_CACHE_TTL_MS = 30_000;
   private changedFilesCache: ChangedFilesCache;
 
   constructor(private deps: CommitServiceDeps) {
@@ -87,53 +87,54 @@ export class CommitService {
   }
 
   /**
-   * Generate (or reuse a recently cached) patch for a session.
-   * Caching avoids running `git diff` twice in the common preview-then-commit
-   * flow while the TTL keeps the window short enough that stale data is rare.
+   * Build the persisted per-session manifest store. Both the preview and the
+   * commit path derive their changed-file list from `detectChangedFiles`, so
+   * they must share the same manifest directory to keep their stat-caches in
+   * sync. `upstream` and `agent-workspace` are siblings, so either path yields
+   * the same session directory.
    */
-  private async getCachedPatch(
-    sessionId: string,
-    agentWorkspacePath: string,
-    upstreamPath: string,
-  ): Promise<{ patch: string } | { error: string }> {
-    const cached = this.patchCache.get(sessionId);
-    if (cached && Date.now() - cached.cachedAt < this.PATCH_CACHE_TTL_MS) {
-      logger.debug(`[commit] using cached patch for session ${sessionId}`);
-      return { patch: cached.patch };
-    }
-
-    const genResult = await this.deps.vcs.generatePatch(
-      agentWorkspacePath,
-      upstreamPath,
+  private manifestStoreFor(treePath: string): ManifestStore {
+    return createManifestStore(
+      this.deps.os,
+      this.deps.os.path.join(this.deps.os.path.dirname(treePath), ".manifests"),
     );
-
-    if (!genResult.success) {
-      return {
-        error: genResult.error || "Failed to generate patch",
-      };
-    }
-
-    const patch = genResult.patch || "";
-    this.patchCache.set(sessionId, { patch, cachedAt: Date.now() });
-    return { patch };
   }
 
-  private async invalidatePatchCache(
+  /**
+   * Resolve the session's git `baseline` to a concrete commit SHA in the agent
+   * workspace, or null when the session has no baseline (pre-git-range sessions)
+   * or the workspace is not a resolvable git checkout. When non-null, the
+   * preview/hunks/impact read paths use the native git commit-range
+   * (`<baseline>..HEAD`) instead of the two-tree filesystem scan.
+   */
+  private async resolveBaseline(session: {
+    baseline?: string;
+    agentWorkspacePath: string;
+  }): Promise<string | null> {
+    if (!session.baseline) return null;
+    try {
+      return await this.deps.vcs.revParse(
+        session.agentWorkspacePath,
+        session.baseline,
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * After a successful commit the upstream checkout has changed, so any cached
+   * changed-file list and the upstream stat-manifest must be dropped to force a
+   * fresh comparison on the next preview/commit.
+   */
+  private async invalidateCaches(
     sessionId: string,
     upstreamPath?: string,
   ): Promise<void> {
-    this.patchCache.delete(sessionId);
     this.changedFilesCache.invalidate(sessionId);
 
     if (upstreamPath) {
-      const manifestStore = createManifestStore(
-        this.deps.os,
-        this.deps.os.path.join(
-          this.deps.os.path.dirname(upstreamPath),
-          ".manifests",
-        ),
-      );
-      await manifestStore.invalidate(upstreamPath);
+      await this.manifestStoreFor(upstreamPath).invalidate(upstreamPath);
     }
   }
   /**
@@ -160,25 +161,28 @@ export class CommitService {
       };
     }
 
-    // Compare the two working trees directly. This is a size-first, VCS-agnostic
-    // walk that prunes excluded paths (`.git`, `node_modules`, fossil internals)
-    // and reads file content only to disambiguate same-size files. It avoids the
-    // whole-tree `git diff --no-index --binary` that, on large repositories,
-    // walks and base85-encodes the entire `.git` store even for one changed file.
-    const manifestStore = createManifestStore(
-      this.deps.os,
-      this.deps.os.path.join(
-        this.deps.os.path.dirname(session.agentWorkspacePath),
-        ".manifests",
-      ),
-    );
-    const detected = await detectChangedFiles(
-      this.deps.os,
-      session.upstreamPath,
-      session.agentWorkspacePath,
-      undefined,
-      manifestStore,
-    );
+    // Preferred path: the agent workspace is git, so the upstream→workspace
+    // delta is exactly the commit range `<baseline>..HEAD`, answered from git's
+    // object store in O(changed). Falls back to the two-tree filesystem scan for
+    // sessions without a baseline (pre-git-range) — a size-first, VCS-agnostic
+    // walk that avoids the whole-tree `git diff --no-index --binary`.
+    const baseline = await this.resolveBaseline(session);
+    let detected: ChangedFilesResult;
+    if (baseline) {
+      detected = await this.deps.vcs.diffNameStatus(
+        session.agentWorkspacePath,
+        baseline,
+      );
+    } else {
+      const manifestStore = this.manifestStoreFor(session.agentWorkspacePath);
+      detected = await detectChangedFiles(
+        this.deps.os,
+        session.upstreamPath,
+        session.agentWorkspacePath,
+        undefined,
+        manifestStore,
+      );
+    }
 
     // Share the derived changed-file list with impact analysis.
     this.changedFilesCache.set(
@@ -218,6 +222,20 @@ export class CommitService {
     }
 
     const { os, vcs } = this.deps;
+
+    // Preferred path: compute the per-file diff from the git commit range for
+    // that path, reading only the requested file from git's object store. No
+    // dependency on the `upstream/` working tree.
+    const baseline = await this.resolveBaseline(session);
+    if (baseline) {
+      const { hunks, isBinary } = await vcs.diffFileRange(
+        session.agentWorkspacePath,
+        baseline,
+        filePath,
+      );
+      return { success: true, hunks, isBinary };
+    }
+
     const upstreamFile = os.path.join(session.upstreamPath, filePath);
     const workspaceFile = os.path.join(session.agentWorkspacePath, filePath);
     const [upstreamExists, workspaceExists] = await Promise.all([
@@ -298,42 +316,32 @@ export class CommitService {
       };
     }
 
-    // Generate patch first — same source we now use for the preview.
-    // This replaces the expensive full-directory MD5 scan.
-    const { dirname, join } = await import("path");
-    const patchResult = await this.getCachedPatch(
+    // Derive the changed-file list the same way the preview does — never
+    // building a whole-repository `git diff --binary` just to learn which files
+    // changed. Reuse the warm cache populated by the preview that normally
+    // precedes the commit; on a miss recompute from the git commit range
+    // (`<baseline>..HEAD`) when the session has a baseline, otherwise fall back
+    // to the two-tree stat-diff against the persisted manifest store.
+    const baseline = await this.resolveBaseline(session);
+    let changes = this.changedFilesCache.get(
       session.id,
-      session.agentWorkspacePath,
-      session.upstreamPath,
-    );
-
-    if ("error" in patchResult) {
-      return {
-        success: false,
-        message: "Failed to compare workspaces",
-        error: patchResult.error,
-        step: "sync",
-      };
-    }
-
-    const patch = patchResult.patch;
-    if (patch.trim().length === 0) {
-      return {
-        success: true,
-        message: "No changes to commit",
-        step: null,
-      };
-    }
-
-    const patchPreview = parsePatchPreview(patch);
-
-    // Derive changed files from the patch instead of scanning both trees.
-    const changes = await detectChangedFilesFromPatchPreviewAsync(
-      this.deps.os,
       session.upstreamPath,
       session.agentWorkspacePath,
-      patchPreview,
     );
+    if (!changes) {
+      changes = baseline
+        ? await this.deps.vcs.diffNameStatus(
+            session.agentWorkspacePath,
+            baseline,
+          )
+        : await detectChangedFiles(
+            this.deps.os,
+            session.upstreamPath,
+            session.agentWorkspacePath,
+            undefined,
+            this.manifestStoreFor(session.agentWorkspacePath),
+          );
+    }
 
     // Cache the derived changed-file list so impact analysis can reuse it
     // without re-scanning both directories.
@@ -410,11 +418,6 @@ export class CommitService {
         step: "copy",
       };
     }
-
-    // Store patch for history (generated before apply, so it has the actual diff)
-    const sessionDir = dirname(session.agentWorkspacePath);
-    const patchDir = join(sessionDir, "patches");
-    await this.deps.vcs.storePatch(patchDir, patch);
 
     // Commit in upstream
     const commitResult = await this.deps.vcs.commitUpstream(
@@ -539,9 +542,32 @@ export class CommitService {
       };
     }
 
-    // Commit succeeded: future previews must reflect the new upstream state,
-    // so drop any cached patch for this session and delete the upstream manifest.
-    await this.invalidatePatchCache(session.id, session.upstreamPath);
+    // Commit succeeded: the just-committed paths are now part of upstream state.
+    // Advance the baseline (Decision 2a checkpoint commit) so the next
+    // `<baseline>..HEAD` preview no longer reports them, while the remaining
+    // changes stay pending — preserving two-endpoint semantics without touching
+    // the agent workspace's HEAD. Persist the new baseline so it survives
+    // restarts.
+    if (baseline) {
+      const newBaseline = await this.deps.vcs.advanceBaseline(
+        session.agentWorkspacePath,
+        baseline,
+        pathsToApply,
+      );
+      if (newBaseline && newBaseline !== baseline) {
+        await this.deps.sessionRepository.update(session.id, {
+          baseline: newBaseline,
+        });
+      } else if (!newBaseline) {
+        logger.error(
+          `[commit] Failed to advance baseline for session ${session.id}; committed files may reappear in the next preview`,
+        );
+      }
+    }
+
+    // Future previews must reflect the new upstream state, so drop the cached
+    // changed-file list and delete the upstream manifest.
+    await this.invalidateCaches(session.id, session.upstreamPath);
 
     return {
       success: true,

@@ -52,6 +52,14 @@ export interface Session {
   agentSubpath?: string;
   branch?: string;
   clonePort?: number;
+  /**
+   * Commit SHA in `agentWorkspacePath`'s git that represents the current
+   * upstream state — the "before" endpoint of the commit preview's
+   * `<baseline>..HEAD` range. Initialized to the seeded base commit and
+   * advanced after each selective commit. Absent on sessions that predate
+   * git-range detection (those fall back to the two-tree scan).
+   */
+  baseline?: string;
   priority: SessionPriority;
   // MCP Server attachments
   mcpServerIds: string[];
@@ -93,6 +101,7 @@ export interface SessionData {
   agentSubpath?: string;
   branch?: string;
   clonePort?: number;
+  baseline?: string;
   priority?: SessionPriority;
   // MCP Server attachments
   mcpServerIds?: string[];
