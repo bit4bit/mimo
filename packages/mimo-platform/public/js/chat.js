@@ -14,6 +14,12 @@
 
 "use strict";
 
+// Heartbeat: client-driven ping/pong so a dead/half-open socket is detected
+// and force-reconnected (the reconnect re-pushes history and reconciles any
+// response that completed while the socket was silently dead).
+const HEARTBEAT_INTERVAL_MS = 15000;
+const MISSED_PONG_LIMIT = 2;
+
 // ═════════════════════════════════════════════════════════════════════════════
 // SECTION 1: GLOBAL STATE
 // Single mutable state object. All state lives here. Functions receive it,
@@ -27,6 +33,8 @@ const ChatState = {
   // Connection
   socket: null,
   connectionStatus: "disconnected", // 'connected' | 'disconnected' | 'error'
+  heartbeatInterval: null,
+  lastPongAt: null,
 
   // Agent Status
   agentStatus: "offline", // 'online' | 'offline'
@@ -1056,6 +1064,44 @@ function initChat(sessionId) {
   updateImpactUiState();
 }
 
+// Controller: Stop the heartbeat timer (idempotent).
+function stopHeartbeat() {
+  if (ChatState.heartbeatInterval !== null) {
+    clearInterval(ChatState.heartbeatInterval);
+    ChatState.heartbeatInterval = null;
+  }
+}
+
+// Controller: Start the heartbeat. Sends a ping each interval and, if the
+// server has not answered with a pong within MISSED_PONG_LIMIT intervals,
+// treats the socket as dead and force-closes it so the reconnect path runs.
+function startHeartbeat() {
+  stopHeartbeat();
+  ChatState.heartbeatInterval = setInterval(() => {
+    const socket = ChatState.socket;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const deadline = HEARTBEAT_INTERVAL_MS * MISSED_PONG_LIMIT;
+    if (
+      ChatState.lastPongAt !== null &&
+      Date.now() - ChatState.lastPongAt > deadline
+    ) {
+      console.warn(
+        "[heartbeat] no pong within limit, forcing reconnect of dead socket",
+      );
+      stopHeartbeat();
+      // Force-close so onclose fires and the existing reconnect path runs.
+      // A zombie (OPEN-but-dead) socket never fires onclose on its own.
+      socket.close();
+      return;
+    }
+
+    socket.send(JSON.stringify({ type: "ping" }));
+  }, HEARTBEAT_INTERVAL_MS);
+}
+
 // Controller: Connect WebSocket
 function connectWebSocket(sessionId) {
   const url = buildWebSocketUrl(sessionId);
@@ -1070,6 +1116,11 @@ function connectWebSocket(sessionId) {
     ChatState.connectionStatus = "connected";
     updateConnectionStatusUI();
 
+    // Fresh connection: mark alive now so the heartbeat does not immediately
+    // judge it dead, then (re)start the heartbeat.
+    ChatState.lastPongAt = Date.now();
+    startHeartbeat();
+
     const activeThreadId =
       typeof ChatThreadsState !== "undefined" && ChatThreadsState
         ? ChatThreadsState.activeThreadId
@@ -1078,6 +1129,17 @@ function connectWebSocket(sessionId) {
     ChatState.socket.send(
       JSON.stringify({
         type: "request_state",
+        sessionId: ChatState.sessionId,
+        ...(activeThreadId && { chatThreadId: activeThreadId }),
+      }),
+    );
+
+    // Reconcile history for the client's active thread on every (re)connect.
+    // Guarantees a response that completed while the socket was disconnected
+    // is reloaded, independent of the server's proactive open-handler push.
+    ChatState.socket.send(
+      JSON.stringify({
+        type: "request_replay",
         sessionId: ChatState.sessionId,
         ...(activeThreadId && { chatThreadId: activeThreadId }),
       }),
@@ -1101,6 +1163,7 @@ function connectWebSocket(sessionId) {
   ChatState.socket.onclose = () => {
     ChatState.connectionStatus = "disconnected";
     ChatState.agentStatus = "offline";
+    stopHeartbeat();
     updateConnectionStatusUI();
     updateAgentStatusUI();
 
@@ -1126,6 +1189,10 @@ function handleWebSocketMessage(data) {
       : null;
 
   switch (data.type) {
+    case "pong":
+      // Heartbeat reply — the socket is alive.
+      ChatState.lastPongAt = Date.now();
+      break;
     case "prompt_received":
       if (!hasPromptId(data, "prompt_received")) return;
       if (
@@ -1501,16 +1568,13 @@ function shouldAcceptStreamingEvent(data) {
   const eventType = data.type;
   const eventPromptId = data.promptId;
 
-  if (!ChatState.currentPromptId) {
-    if (ChatState.streaming.messageElement && !ChatState.replayRequested) {
-      console.warn(
-        `[stream-protocol] ${eventType} rejected: currentPromptId is null, requesting replay`,
-        {
-          eventPromptId,
-          sessionId: data.sessionId,
-          chatThreadId: data.chatThreadId,
-        },
-      );
+  // Request a fresh history replay to recover from an event that would
+  // otherwise be silently dropped. Single-shot per incident via
+  // replayRequested (cleared in loadChatHistory). Recovery does NOT depend on
+  // a streaming element being present — an unrecoverable rejection must always
+  // reconcile from server history, never silently drop.
+  const requestReplay = () => {
+    if (!ChatState.replayRequested) {
       ChatState.replayRequested = true;
       if (window.MIMO_CHAT_SOCKET?.readyState === WebSocket.OPEN) {
         const activeThreadId =
@@ -1525,16 +1589,19 @@ function shouldAcceptStreamingEvent(data) {
           }),
         );
       }
-    } else {
-      console.warn(
-        `[stream-protocol] ${eventType} rejected: currentPromptId is null`,
-        {
-          eventPromptId,
-          sessionId: data.sessionId,
-          chatThreadId: data.chatThreadId,
-        },
-      );
     }
+  };
+
+  if (!ChatState.currentPromptId) {
+    console.warn(
+      `[stream-protocol] ${eventType} rejected: currentPromptId is null, requesting replay`,
+      {
+        eventPromptId,
+        sessionId: data.sessionId,
+        chatThreadId: data.chatThreadId,
+      },
+    );
+    requestReplay();
     return false;
   }
 
@@ -1555,9 +1622,12 @@ function shouldAcceptStreamingEvent(data) {
   }
 
   console.warn(
-    `[stream-protocol] ${eventType} rejected: no event promptId, current is ${ChatState.currentPromptId}`,
+    `[stream-protocol] ${eventType} rejected: no event promptId, current is ${ChatState.currentPromptId} — requesting replay`,
     { sessionId: data.sessionId, chatThreadId: data.chatThreadId },
   );
+  // Mismatch with no usable promptId to adopt: reconcile from history rather
+  // than dropping the event.
+  requestReplay();
   return false;
 }
 

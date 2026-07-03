@@ -141,6 +141,16 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
     const sessionId = ws.data.sessionId;
 
     switch (data.type) {
+      case "ping":
+        // Application-level heartbeat. The client uses the pong to detect a
+        // dead/half-open socket and force a reconnect (which re-pushes history).
+        ws.send(
+          JSON.stringify({
+            type: "pong",
+            timestamp: new Date().toISOString(),
+          }),
+        );
+        break;
       case "send_message":
         if (typeof data.promptId !== "string" || data.promptId.length === 0) {
           logger.warn(
