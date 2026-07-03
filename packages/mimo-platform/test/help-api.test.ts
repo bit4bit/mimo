@@ -25,4 +25,24 @@ describe("GET /api/help", () => {
     expect(summaryEntry.title).toBe("Refresh Summary");
     expect(summaryEntry.content).toContain("summary");
   });
+
+  it("contains FileTree buffer help entries", async () => {
+    const app = new Hono();
+    registerHelpRoutes(app);
+
+    const res = await app.request("/api/help");
+    const body = await res.json();
+
+    expect(body["file-tree-tab-button"].title).toBe("Files Tab");
+    expect(body["file-tree-tab-button"].content).toContain("FileTree");
+
+    expect(body["file-tree-buffer-refresh-btn-button"].title).toBe(
+      "Refresh File Tree",
+    );
+
+    expect(body["file-tree-root"]).toBeDefined();
+    expect(body["file-tree-dir"]).toBeDefined();
+    expect(body["file-tree-leaf"]).toBeDefined();
+    expect(body["file-tree-leaf"].content).toContain("Edit");
+  });
 });

@@ -115,6 +115,8 @@ export interface MimoContext {
     search: SearchService;
     fileService: FileService;
     projectVcsCache: ProjectVcsCache;
+    changedFilesCache: ChangedFilesCache;
+    os: OS;
   };
 }
 
@@ -352,6 +354,8 @@ export function createMimoContext(
         projectsPath: paths.projects,
         vcs,
       }),
+    changedFilesCache: changedFilesCache,
+    os,
   };
 
   return {

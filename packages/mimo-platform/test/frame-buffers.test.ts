@@ -163,6 +163,71 @@ describe("Frame buffers integration", () => {
     expect(notesIndex).toBeGreaterThan(rightFrameStart);
   });
 
+  it("renders the FileTree tab in the right frame, positioned immediately after Notes", async () => {
+    const { app, project, token, sessionId } = await createSessionAppAndAuth();
+
+    const res = await app.request(
+      `/projects/${project.id}/sessions/${sessionId}`,
+      {
+        method: "GET",
+        headers: {
+          Cookie: `token=${token}`,
+        },
+      },
+    );
+
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain('data-buffer-id="file-tree"');
+    expect(html).toContain('data-buffer-panel="file-tree"');
+
+    // Tab ordering: Notes immediately precedes Files in the right frame.
+    const notesIndex = html.indexOf('data-buffer-id="notes"');
+    const fileTreeIndex = html.indexOf('data-buffer-id="file-tree"');
+    const impactIndex = html.indexOf('data-buffer-id="impact"');
+    expect(notesIndex).toBeGreaterThan(-1);
+    expect(fileTreeIndex).toBeGreaterThan(notesIndex);
+    expect(impactIndex).toBeGreaterThan(fileTreeIndex);
+  });
+
+  it("preserves existing frame state (Notes active) while the FileTree tab is present but inactive", async () => {
+    const { app, token, sessionId } = await createSessionAppAndAuth();
+
+    // Switch the right frame to Notes.
+    const switchRes = await app.request(`/sessions/${sessionId}/frame-state`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: `token=${token}`,
+      },
+      body: JSON.stringify({ frame: "right", activeBufferId: "notes" }),
+    });
+    expect(switchRes.status).toBe(200);
+
+    const res = await app.request(`/sessions/${sessionId}/frame-state`, {
+      method: "GET",
+      headers: { Cookie: `token=${token}` },
+    });
+    const json = await res.json();
+    expect(json.rightFrame.activeBufferId).toBe("notes");
+  });
+
+  it("renders the FileTree client script tag", async () => {
+    const { app, project, token, sessionId } = await createSessionAppAndAuth();
+
+    const res = await app.request(
+      `/projects/${project.id}/sessions/${sessionId}`,
+      {
+        method: "GET",
+        headers: { Cookie: `token=${token}` },
+      },
+    );
+
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain('src="/js/file-tree.js"');
+  });
+
   it("renders chat input styles that keep Send compact and status aligned", async () => {
     const { app, project, token, sessionId } = await createSessionAppAndAuth();
 

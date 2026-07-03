@@ -2,6 +2,7 @@
 import { registerBuffer } from "./registry.js";
 import { ChatThreadsBuffer } from "./ChatThreadsBuffer.js";
 import { NotesBuffer } from "./NotesBuffer.js";
+import { FileTreeBuffer } from "./FileTreeBuffer.js";
 import { ImpactBuffer } from "../ImpactBuffer.js";
 import { McpServersBuffer } from "./McpServersBuffer.js";
 import { PlanBuffer } from "./PlanBuffer.js";
@@ -28,6 +29,13 @@ export function ensureDefaultBuffersRegistered(): void {
     name: "Notes",
     frame: "right",
     component: NotesBuffer,
+  });
+
+  registerBuffer({
+    id: "file-tree",
+    name: "Files",
+    frame: "right",
+    component: FileTreeBuffer,
   });
 
   registerBuffer({
@@ -79,5 +87,6 @@ export * from "./types.js";
 export * from "./registry.js";
 export * from "./ChatThreadsBuffer.js";
 export * from "./NotesBuffer.js";
+export * from "./FileTreeBuffer.js";
 export * from "./EditBuffer.js";
 export * from "./PatchBuffer.js";

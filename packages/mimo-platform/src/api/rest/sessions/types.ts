@@ -53,6 +53,8 @@ export interface SessionResponse {
   instructions?: string;
   browserNotificationsEnabled?: boolean;
   clonePort?: number;
+  // MCP servers assigned to this session
+  mcpServerIds: string[];
 }
 
 /**
@@ -200,6 +202,7 @@ export function toSessionResponse(session: Session): SessionResponse {
     ...(session.instructions && { instructions: session.instructions }),
     browserNotificationsEnabled: session.browserNotificationsEnabled,
     ...(session.clonePort != null && { clonePort: session.clonePort }),
+    mcpServerIds: session.mcpServerIds,
   };
 }
 

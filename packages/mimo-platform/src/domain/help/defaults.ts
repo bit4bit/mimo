@@ -85,4 +85,29 @@ export const defaultHelpContent: HelpContent = {
     title: "Login Button",
     content: "Click to authenticate with your username and password.",
   },
+  "file-tree-tab-button": {
+    title: "Files Tab",
+    content:
+      "Click to view the FileTree buffer. The FileTree shows the session workspace as a collapsible directory tree and highlights files that have changed (added or modified) in this session.",
+  },
+  "file-tree-buffer-refresh-btn-button": {
+    title: "Refresh File Tree",
+    content:
+      "Click to re-fetch the file list and changed-files list from the server and rebuild the tree. The tree also refreshes automatically when you switch back to the Files tab.",
+  },
+  "file-tree-root": {
+    title: "File Tree",
+    content:
+      "The workspace directory tree. Directories collapse by default except the ancestors of changed files, which auto-expand so changed-file highlights stay visible. Click a directory to toggle it; click a file to open it in the Edit or Patch buffer.",
+  },
+  "file-tree-dir": {
+    title: "Directory",
+    content:
+      "Click to expand or collapse this directory. Directories with changed descendants expand automatically on refresh.",
+  },
+  "file-tree-leaf": {
+    title: "File",
+    content:
+      "Click to open this file. Added and unchanged files open in the Edit buffer; modified files open in the Patch buffer with the diff visible. Deleted files are not shown.",
+  },
 };

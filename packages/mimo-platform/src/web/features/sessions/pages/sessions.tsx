@@ -16,6 +16,14 @@ import { logger } from "../../../../logger.js";
 import type { MimoContext } from "../../../../infrastructure/context/mimo-context.js";
 import { findFiles } from "../../../../domain/files/service.js";
 import {
+  detectChangedFiles as detectChangedFilesImpl,
+  type ChangedFilesResult,
+} from "../../../../domain/files/changed-files.js";
+import { createManifestStore as createManifestStoreImpl } from "../../../../domain/files/tree-manifest.js";
+import { shouldIncludeImpactPath } from "../../../../domain/files/impact-file-policy.js";
+import { ChangedFilesCache } from "../../../../domain/commits/changed-files-cache.js";
+import type { OS } from "../../../../infrastructure/os/types.js";
+import {
   detectLanguage,
   escapeHtml,
 } from "../../../../domain/files/syntax-highlighter.js";
@@ -46,17 +54,39 @@ import type { GetAgentResponse } from "../../../../api/rest/agents/types.js";
 import type { GetConfigResponse } from "../../../../api/rest/config/types.js";
 import type { SaveMessageResponse } from "../../../../api/rest/chat/types.js";
 
-type SessionsRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
+type SessionsRoutesContext = Pick<
+  MimoContext,
+  "services" | "repos" | "env"
+> & {};
 
 interface ImpactBackgroundDeps {
   calculatingSessions: Set<string>;
   broadcast: (sessionId: string, message: Record<string, unknown>) => void;
 }
 
+export interface ChangedFilesDeps {
+  /** Cache shared with Impact/Commit; keyed by (sessionId, upstream, workspace). */
+  changedFilesCache: ChangedFilesCache;
+  /** OS facade used for path joins and manifest-store directory. */
+  os: OS;
+  /**
+   * Detects the changed-file delta between upstream and workspace trees.
+   * Injected so tests can stub it without touching the filesystem.
+   */
+  detectChangedFiles: typeof detectChangedFilesImpl;
+  /** Builds the per-tree manifest store used by `detectChangedFiles`. */
+  createManifestStore: typeof createManifestStoreImpl;
+}
+
 interface SessionsRoutesDeps {
   impactBackground?: ImpactBackgroundDeps;
   /** Optional custom fetch function for testing (routes to internal API) */
   fetchFn?: typeof fetch;
+  /**
+   * Optional override for the changed-files endpoint dependencies. When
+   * omitted, the route reads them from `mimoContext.services`.
+   */
+  changedFiles?: ChangedFilesDeps;
 }
 
 export function createSessionsRoutes(
@@ -112,6 +142,36 @@ export function createSessionsRoutes(
     return createInternalApiClient(c, mimoContext as MimoContext, {
       fetchFn: deps.fetchFn,
     });
+  }
+
+  // Helper to resolve changed-files dependencies for the `/changed-files`
+  // route. Tests can inject stubs via `deps.changedFiles`; production reads
+  // the shared instances from `mimoContext.services`.
+  function deps_changedFiles(_c: Context): ChangedFilesDeps {
+    if (deps.changedFiles) return deps.changedFiles;
+    return {
+      changedFilesCache: mimoContext.services.changedFilesCache,
+      os: mimoContext.services.os,
+      detectChangedFiles: detectChangedFilesImpl,
+      createManifestStore: createManifestStoreImpl,
+    };
+  }
+
+  // Resolve the agent's effective working directory for a session. When the
+  // session/project sets `agentSubpath`, the agent runs inside that subdirectory
+  // of the checkout (`os.path.join(agentWorkspacePath, agentSubpath)`), mirroring
+  // `mimo-agent:index.ts`. File listings and changed-file detection MUST be
+  // rooted here so the FileTree reflects what the agent actually sees.
+  function resolveAgentCwd(
+    session: {
+      agentWorkspacePath: string;
+      agentSubpath?: string | null;
+    },
+    os: { path: { join: (...segs: string[]) => string } },
+  ): string {
+    const sub = (session.agentSubpath ?? "").trim();
+    if (!sub) return session.agentWorkspacePath;
+    return os.path.join(session.agentWorkspacePath, sub);
   }
 
   // Helper to get authenticated username from cookie
@@ -1216,11 +1276,95 @@ export function createSessionsRoutes(
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
     try {
-      const allFiles = await fileService.listFiles(session.agentWorkspacePath);
+      // Scope the listing to the agent's working subdirectory when set, so the
+      // FileTree shows what the agent actually sees (mirrors mimo-agent cwd).
+      const filesDeps = deps_changedFiles(c);
+      const sub = (session.agentSubpath ?? "").trim();
+      const listRoot = sub
+        ? filesDeps.os.path.join(session.agentWorkspacePath, sub)
+        : session.agentWorkspacePath;
+      const allFiles = await fileService.listFiles(listRoot);
       return c.json(findFiles(pattern, allFiles));
     } catch (err) {
       logger.error("[files] listFiles error:", err);
       return c.json({ error: "Failed to list files" }, 500);
+    }
+  });
+
+  // GET /sessions/:id/changed-files - Changed-file delta (added/modified/deleted)
+  // for the session workspace. Wraps `detectChangedFiles` + `ChangedFilesCache`
+  // mirroring the Impact calculator wiring so the tree can highlight changes
+  // without a second detection pass.
+  router.get("/:id/changed-files", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+    const sessionId = c.req.param("id");
+    if (!sessionId) {
+      return c.json({ error: "Session not found" }, 404);
+    }
+
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+    if (!session || session.owner !== username) {
+      return c.json({ error: "Session not found" }, 404);
+    }
+
+    const deps = deps_changedFiles(c);
+    // Scope both trees to the agent's working subdirectory when the session
+    // sets `agentSubpath`, mirroring `mimo-agent:index.ts`. Relative paths then
+    // align between upstream and workspace so changes are detected within the
+    // subdirectory the agent actually operates in.
+    const sub = (session.agentSubpath ?? "").trim();
+    const upstreamPath = sub
+      ? deps.os.path.join(session.upstreamPath, sub)
+      : session.upstreamPath;
+    const workspacePath = sub
+      ? deps.os.path.join(session.agentWorkspacePath, sub)
+      : session.agentWorkspacePath;
+
+    const cached = deps.changedFilesCache.get(
+      sessionId,
+      upstreamPath,
+      workspacePath,
+    );
+    if (cached) {
+      return c.json(cached);
+    }
+
+    try {
+      const manifestsDir = deps.os.path.join(
+        deps.os.path.dirname(workspacePath),
+        ".manifests",
+      );
+      const manifestStore = deps.createManifestStore(deps.os, manifestsDir);
+      const result: ChangedFilesResult = await deps.detectChangedFiles(
+        deps.os,
+        upstreamPath,
+        workspacePath,
+        { fileFilter: shouldIncludeImpactPath },
+        manifestStore,
+      );
+      deps.changedFilesCache.set(
+        sessionId,
+        upstreamPath,
+        workspacePath,
+        result,
+      );
+      return c.json(result);
+    } catch (err) {
+      logger.error("[changed-files] detectChangedFiles error:", err);
+      return c.json({ error: "Failed to detect changed files" }, 500);
     }
   });
 
