@@ -16,14 +16,18 @@ describe("Streaming promptId recovery", () => {
     });
 
     it("sets currentPromptId when promptId is a valid string", () => {
-      const fnMatch = source.match(/function handleStreamingState[\s\S]*?^}/m);
+      const fnMatch = source.match(
+        /function applyStreamingSnapshot[\s\S]*?^}/m,
+      );
       expect(fnMatch).toBeTruthy();
       const fnBody = fnMatch![0];
       expect(fnBody).toContain("ChatState.currentPromptId = promptId");
     });
 
     it("clears replayRequested when restoring promptId", () => {
-      const fnMatch = source.match(/function handleStreamingState[\s\S]*?^}/m);
+      const fnMatch = source.match(
+        /function applyStreamingSnapshot[\s\S]*?^}/m,
+      );
       expect(fnMatch).toBeTruthy();
       const fnBody = fnMatch![0];
       expect(fnBody).toContain("ChatState.replayRequested = false");
@@ -44,18 +48,18 @@ describe("Streaming promptId recovery", () => {
     });
   });
 
-  describe("shouldAcceptStreamingEvent requests replay when currentPromptId is null", () => {
-    it("sends request_replay when streaming is active and promptId is null", () => {
+  describe("shouldAcceptStreamingEvent requests state when currentPromptId is null", () => {
+    it("sends request_state when streaming is active and promptId is null", () => {
       const fnMatch = source.match(
         /function shouldAcceptStreamingEvent[\s\S]*?^}/m,
       );
       expect(fnMatch).toBeTruthy();
       const fnBody = fnMatch![0];
-      expect(fnBody).toContain('type: "request_replay"');
+      expect(fnBody).toContain('type: "request_state"');
       expect(fnBody).toContain("ChatState.replayRequested = true");
     });
 
-    it("guards against duplicate replay requests", () => {
+    it("guards against duplicate state requests", () => {
       const fnMatch = source.match(
         /function shouldAcceptStreamingEvent[\s\S]*?^}/m,
       );

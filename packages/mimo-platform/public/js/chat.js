@@ -51,6 +51,11 @@ const ChatState = {
   pendingPromptCompletion: null,
   replayRequested: false,
 
+  // Thread-switch streaming reconstruction
+  historyLoaded: false,
+  pendingStreamingSnapshot: null,
+  streamingSnapshotTimer: null,
+
   // Input
   editableBubble: null,
   pendingMessages: new Set(),
@@ -1504,7 +1509,7 @@ function shouldAcceptStreamingEvent(data) {
   if (!ChatState.currentPromptId) {
     if (ChatState.streaming.messageElement && !ChatState.replayRequested) {
       console.warn(
-        `[stream-protocol] ${eventType} rejected: currentPromptId is null, requesting replay`,
+        `[stream-protocol] ${eventType} rejected: currentPromptId is null, requesting state`,
         {
           eventPromptId,
           sessionId: data.sessionId,
@@ -1519,7 +1524,7 @@ function shouldAcceptStreamingEvent(data) {
             : undefined;
         window.MIMO_CHAT_SOCKET.send(
           JSON.stringify({
-            type: "request_replay",
+            type: "request_state",
             sessionId: ChatState.sessionId,
             ...(activeThreadId && { chatThreadId: activeThreadId }),
           }),
@@ -2347,6 +2352,15 @@ function prepareThreadSwitch() {
   // Reset the plan view; the server resends a snapshot for the new thread (if
   // any) via request_state. A thread with no plan stays empty.
   clearPlanView();
+
+  // Reset per-switch streaming reconstruction state so a delayed reply from a
+  // prior switch cannot bleed into the new thread.
+  ChatState.historyLoaded = false;
+  ChatState.pendingStreamingSnapshot = null;
+  if (ChatState.streamingSnapshotTimer) {
+    clearTimeout(ChatState.streamingSnapshotTimer);
+    ChatState.streamingSnapshotTimer = null;
+  }
 }
 
 // Controller: Clear session
@@ -2410,6 +2424,53 @@ function handleStreamingTimeout() {
 
 // Controller: Handle streaming state (reconnection)
 function handleStreamingState(data) {
+  const { thoughtContent, messageContent, promptId } = data;
+
+  // Defensive guard: drop replies from a non-active thread. The dispatcher
+  // already filters these, but this protects against direct/late calls and
+  // ensures a stale reply from a prior switch is never buffered or applied.
+  if (typeof ChatThreadsState !== "undefined" && ChatThreadsState) {
+    const activeThreadId = ChatThreadsState.activeThreadId;
+    if (
+      activeThreadId &&
+      data.chatThreadId &&
+      data.chatThreadId !== activeThreadId
+    ) {
+      return;
+    }
+  }
+
+  // Per-switch scoping: if history hasn't loaded yet for this thread switch,
+  // buffer the snapshot and apply it once loadChatHistory finishes. This
+  // prevents loadChatHistory's `container.innerHTML = ""` from wiping the
+  // streaming bubble we would build here.
+  if (!ChatState.historyLoaded) {
+    ChatState.pendingStreamingSnapshot = data;
+    // Safety timeout: if history never arrives, apply the snapshot anyway so
+    // the user isn't left staring at a blank thread while the agent streams.
+    if (ChatState.streamingSnapshotTimer) {
+      clearTimeout(ChatState.streamingSnapshotTimer);
+    }
+    ChatState.streamingSnapshotTimer = setTimeout(() => {
+      ChatState.streamingSnapshotTimer = null;
+      if (!ChatState.historyLoaded && ChatState.pendingStreamingSnapshot) {
+        const snapshot = ChatState.pendingStreamingSnapshot;
+        ChatState.pendingStreamingSnapshot = null;
+        // Mark historyLoaded so handleStreamingState applies normally below
+        // rather than re-buffering.
+        ChatState.historyLoaded = true;
+        applyStreamingSnapshot(snapshot);
+      }
+    }, 2000);
+    return;
+  }
+
+  applyStreamingSnapshot(data);
+}
+
+// Apply a streaming_state snapshot to the DOM. Used both by the immediate
+// path (history already loaded) and the buffered-then-applied path.
+function applyStreamingSnapshot(data) {
   const { thoughtContent, messageContent, promptId } = data;
 
   if (typeof promptId === "string" && promptId.length > 0) {
@@ -3632,6 +3693,23 @@ function loadChatHistory(messages) {
   if (inMessage && currentMessage) {
     lastRole = "assistant";
     insertMessage({ role: "assistant", content: currentMessage });
+  }
+
+  // History has finished rendering for this switch. If a streaming_state
+  // snapshot arrived while history was still loading (ordering race), apply
+  // it now so the in-progress partial response is visible immediately. This
+  // runs BEFORE the editable-bubble heuristic so that `streaming.reconstructed`
+  // is set and the heuristic correctly skips inserting a bubble for a thread
+  // that is actively streaming.
+  ChatState.historyLoaded = true;
+  if (ChatState.pendingStreamingSnapshot) {
+    const snapshot = ChatState.pendingStreamingSnapshot;
+    ChatState.pendingStreamingSnapshot = null;
+    if (ChatState.streamingSnapshotTimer) {
+      clearTimeout(ChatState.streamingSnapshotTimer);
+      ChatState.streamingSnapshotTimer = null;
+    }
+    applyStreamingSnapshot(snapshot);
   }
 
   if (lastRole !== "user" && !ChatState.streaming.reconstructed) {
