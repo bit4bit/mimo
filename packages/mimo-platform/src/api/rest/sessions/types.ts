@@ -47,6 +47,7 @@ export interface SessionResponse {
   // Chat threads
   chatThreads: ChatThreadResponse[];
   activeChatThreadId?: string | null;
+  activeExpertThreadId?: string | null;
   // Frame state
   frameState?: import("../../../domain/sessions/frame-state.js").FrameState;
   // Instructions
@@ -99,6 +100,9 @@ export interface CreateSessionRequest {
   priority?: SessionPriority;
   instructions?: string;
   clonePort?: number;
+  expertAgentId?: string;
+  expertModelId?: string;
+  expertModeId?: string;
 }
 
 /**
@@ -196,6 +200,7 @@ export function toSessionResponse(session: Session): SessionResponse {
     // Chat threads
     chatThreads: session.chatThreads.map(toChatThreadResponse),
     activeChatThreadId: session.activeChatThreadId ?? null,
+    activeExpertThreadId: session.activeExpertThreadId ?? null,
     // Frame state
     ...(session.frameState && { frameState: session.frameState }),
     // Instructions

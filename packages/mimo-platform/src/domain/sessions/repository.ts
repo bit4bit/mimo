@@ -77,6 +77,7 @@ export interface Session {
   // Chat threads
   chatThreads: ChatThread[];
   activeChatThreadId: string | null;
+  activeExpertThreadId: string | null;
   mcpToken: string;
   instructions?: string;
   closeReason?: string;
@@ -119,6 +120,7 @@ export interface SessionData {
   // Chat threads
   chatThreads?: ChatThread[];
   activeChatThreadId?: string | null;
+  activeExpertThreadId?: string | null;
   mcpToken?: string;
   closeReason?: string;
   instructions?: string;
@@ -139,6 +141,9 @@ export interface CreateSessionInput {
   priority?: SessionPriority;
   instructions?: string;
   clonePort?: number;
+  expertAgentId?: string;
+  expertModelId?: string;
+  expertModeId?: string;
 }
 
 export interface UpdateSessionConfigInput {
@@ -252,6 +257,7 @@ export class SessionRepository {
   private normalizeChatThreads(data: SessionData): {
     chatThreads: ChatThread[];
     activeChatThreadId: string | null;
+    activeExpertThreadId: string | null;
   } {
     const chatThreads = (data.chatThreads ?? []).map((t: any) => ({
       ...t,
@@ -260,12 +266,20 @@ export class SessionRepository {
     const hasActiveThread =
       typeof data.activeChatThreadId === "string" &&
       chatThreads.some((thread) => thread.id === data.activeChatThreadId);
+    const hasActiveExpert =
+      typeof data.activeExpertThreadId === "string" &&
+      chatThreads.some((thread) => thread.id === data.activeExpertThreadId);
 
     return {
       chatThreads,
       activeChatThreadId: hasActiveThread
         ? (data.activeChatThreadId as string)
         : (chatThreads[0]?.id ?? null),
+      activeExpertThreadId: hasActiveExpert
+        ? (data.activeExpertThreadId as string)
+        : data.activeExpertThreadId === null
+          ? null
+          : null,
     };
   }
 
@@ -321,6 +335,7 @@ export class SessionRepository {
       // Chat threads
       chatThreads: [],
       activeChatThreadId: null,
+      activeExpertThreadId: null,
       mcpToken,
       createdAt: now,
       updatedAt: now,
@@ -344,6 +359,7 @@ export class SessionRepository {
       browserNotificationsEnabled: false,
       chatThreads: sessionData.chatThreads!,
       activeChatThreadId: sessionData.activeChatThreadId ?? null,
+      activeExpertThreadId: sessionData.activeExpertThreadId ?? null,
       createdAt: new Date(sessionData.createdAt),
       updatedAt: new Date(sessionData.updatedAt),
     };
@@ -379,7 +395,7 @@ export class SessionRepository {
             // Handle migration from checkoutPath to agentWorkspacePath
             // Handle ACP Session Parking defaults (backward compatibility)
             // Handle MCP Server defaults (backward compatibility)
-            const { chatThreads, activeChatThreadId } =
+            const { chatThreads, activeChatThreadId, activeExpertThreadId } =
               this.normalizeChatThreads(data);
             const sessionData = {
               ...data,
@@ -395,6 +411,7 @@ export class SessionRepository {
               frameState: normalizeFrameState(data.frameState),
               chatThreads,
               activeChatThreadId,
+              activeExpertThreadId,
               mcpToken: data.mcpToken ?? "",
               browserNotificationsEnabled:
                 data.browserNotificationsEnabled ?? false,
@@ -425,7 +442,8 @@ export class SessionRepository {
     const data = load(content) as SessionData;
     // Handle migration from checkoutPath to agentWorkspacePath
     // Handle ACP Session Parking defaults (backward compatibility)
-    const { chatThreads, activeChatThreadId } = this.normalizeChatThreads(data);
+    const { chatThreads, activeChatThreadId, activeExpertThreadId } =
+      this.normalizeChatThreads(data);
     const sessionData = {
       ...data,
       agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
@@ -438,6 +456,7 @@ export class SessionRepository {
       frameState: normalizeFrameState(data.frameState),
       chatThreads,
       activeChatThreadId,
+      activeExpertThreadId,
       mcpToken: data.mcpToken ?? "",
       browserNotificationsEnabled: data.browserNotificationsEnabled ?? false,
     };
@@ -476,7 +495,7 @@ export class SessionRepository {
           const data = load(content) as SessionData;
           // Handle migration from checkoutPath to agentWorkspacePath
           // Handle ACP Session Parking defaults (backward compatibility)
-          const { chatThreads, activeChatThreadId } =
+          const { chatThreads, activeChatThreadId, activeExpertThreadId } =
             this.normalizeChatThreads(data);
           const sessionData = {
             ...data,
@@ -491,6 +510,7 @@ export class SessionRepository {
             frameState: normalizeFrameState(data.frameState),
             chatThreads,
             activeChatThreadId,
+            activeExpertThreadId,
             mcpToken: data.mcpToken ?? "",
             browserNotificationsEnabled:
               data.browserNotificationsEnabled ?? false,
@@ -564,8 +584,11 @@ export class SessionRepository {
                 const data = load(content) as SessionData;
                 // Handle migration from checkoutPath to agentWorkspacePath
                 // Handle ACP Session Parking defaults (backward compatibility)
-                const { chatThreads, activeChatThreadId } =
-                  this.normalizeChatThreads(data);
+                const {
+                  chatThreads,
+                  activeChatThreadId,
+                  activeExpertThreadId,
+                } = this.normalizeChatThreads(data);
                 const sessionData = {
                   ...data,
                   agentWorkspacePath:
@@ -579,6 +602,7 @@ export class SessionRepository {
                   frameState: normalizeFrameState(data.frameState),
                   chatThreads,
                   activeChatThreadId,
+                  activeExpertThreadId,
                   mcpToken: data.mcpToken ?? "",
                   browserNotificationsEnabled:
                     data.browserNotificationsEnabled ?? false,
@@ -637,7 +661,7 @@ export class SessionRepository {
         );
         if (!hasThread) continue;
 
-        const { chatThreads, activeChatThreadId } =
+        const { chatThreads, activeChatThreadId, activeExpertThreadId } =
           this.normalizeChatThreads(data);
         sessions.push({
           ...data,
@@ -653,6 +677,7 @@ export class SessionRepository {
           frameState: normalizeFrameState(data.frameState),
           chatThreads,
           activeChatThreadId,
+          activeExpertThreadId,
           mcpToken: data.mcpToken ?? "",
           browserNotificationsEnabled:
             data.browserNotificationsEnabled ?? false,
@@ -770,6 +795,10 @@ export class SessionRepository {
     if (session.activeChatThreadId === threadId) {
       updates.activeChatThreadId = updatedThreads[0]?.id ?? null;
     }
+    // If we deleted the active expert thread, clear the pointer
+    if (session.activeExpertThreadId === threadId) {
+      updates.activeExpertThreadId = null;
+    }
 
     await this.update(sessionId, updates);
   }
@@ -786,6 +815,22 @@ export class SessionRepository {
       throw new Error(`Thread ${threadId} not found in session ${sessionId}`);
 
     await this.update(sessionId, { activeChatThreadId: threadId });
+  }
+
+  async setActiveExpertThread(
+    sessionId: string,
+    threadId: string | null,
+  ): Promise<void> {
+    const session = await this.findById(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    if (threadId !== null) {
+      const exists = session.chatThreads.some((t) => t.id === threadId);
+      if (!exists)
+        throw new Error(`Thread ${threadId} not found in session ${sessionId}`);
+    }
+
+    await this.update(sessionId, { activeExpertThreadId: threadId });
   }
 
   async delete(projectId: string, sessionId: string): Promise<void> {

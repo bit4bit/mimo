@@ -221,9 +221,9 @@
       if (state.chatThreadId) return state.chatThreadId;
       if (
         window.MIMO_CHAT_THREADS &&
-        typeof window.MIMO_CHAT_THREADS.getActiveThreadId === "function"
+        typeof window.MIMO_CHAT_THREADS.getActiveExpertThreadId === "function"
       ) {
-        return window.MIMO_CHAT_THREADS.getActiveThreadId();
+        return window.MIMO_CHAT_THREADS.getActiveExpertThreadId();
       }
       return null;
     }
@@ -298,8 +298,8 @@
       const currentId =
         state.chatThreadId ||
         (window.MIMO_CHAT_THREADS &&
-        typeof window.MIMO_CHAT_THREADS.getActiveThreadId === "function"
-          ? window.MIMO_CHAT_THREADS.getActiveThreadId()
+        typeof window.MIMO_CHAT_THREADS.getActiveExpertThreadId === "function"
+          ? window.MIMO_CHAT_THREADS.getActiveExpertThreadId()
           : null);
       const threads =
         window.MIMO_CHAT_THREADS && window.MIMO_CHAT_THREADS.threads
@@ -2338,9 +2338,9 @@
             expertState.chatThreadId = this.value;
             if (
               window.MIMO_CHAT_THREADS &&
-              window.MIMO_CHAT_THREADS.setActiveThread
+              window.MIMO_CHAT_THREADS.setActiveExpertThread
             ) {
-              window.MIMO_CHAT_THREADS.setActiveThread(this.value);
+              window.MIMO_CHAT_THREADS.setActiveExpertThread(this.value);
             }
             setTimeout(function () {
               ExpertMode.updateUI();

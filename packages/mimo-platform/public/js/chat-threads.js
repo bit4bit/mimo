@@ -12,6 +12,7 @@ const ChatThreadsState = {
   sessionId: null,
   threads: [],
   activeThreadId: null,
+  activeExpertThreadId: null,
   isLoading: false,
   threadInputs: {}, // Per-thread unsent input content
   threadScroll: {}, // Per-thread scroll position
@@ -33,6 +34,7 @@ async function fetchThreads() {
     const data = await response.json();
     ChatThreadsState.threads = data.threads || [];
     ChatThreadsState.activeThreadId = data.activeChatThreadId;
+    ChatThreadsState.activeExpertThreadId = data.activeExpertThreadId ?? null;
 
     return data;
   } catch (error) {
@@ -159,6 +161,27 @@ async function activateThread(threadId) {
     return data.activeChatThreadId;
   } catch (error) {
     console.error("[chat-threads] Failed to activate thread:", error);
+    return null;
+  }
+}
+
+async function activateExpertThread(threadId) {
+  if (!ChatThreadsState.sessionId) return null;
+
+  try {
+    const response = await fetch(
+      `/sessions/${ChatThreadsState.sessionId}/chat-threads/${threadId}/activate-expert`,
+      { method: "POST" },
+    );
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const data = await response.json();
+    ChatThreadsState.activeExpertThreadId = data.activeExpertThreadId;
+
+    return data.activeExpertThreadId;
+  } catch (error) {
+    console.error("[chat-threads] Failed to activate expert thread:", error);
     return null;
   }
 }
@@ -1144,16 +1167,18 @@ async function initChatThreads(sessionId) {
 window.MIMO_CHAT_THREADS = {
   init: initChatThreads,
   getActiveThreadId: () => ChatThreadsState.activeThreadId,
+  getActiveExpertThreadId: () => ChatThreadsState.activeExpertThreadId ?? null,
   getActiveThread: getActiveThread,
   setActiveThread: (threadId) => switchToThread(threadId),
-  get threads() {
-    return ChatThreadsState.threads;
-  },
+  setActiveExpertThread: (threadId) => activateExpertThread(threadId),
   refresh: async () => {
     await fetchThreads();
     updateThreadTabsUI();
     updateThreadContextUI();
     updateSummaryBufferSelects();
+  },
+  get threads() {
+    return ChatThreadsState.threads;
   },
 };
 

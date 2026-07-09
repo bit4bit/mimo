@@ -274,8 +274,21 @@ export function createSessionsRoutes(
       mcpServers = mcpResult.data.servers;
     }
 
+    // Get agents (owned + shared) for the expert-mode optional select
+    const agentsResult = await apiClient.get<{
+      agents: Array<{ id: string; name: string; status: string }>;
+    }>("/agents");
+    let agents: Array<{ id: string; name: string; status: string }> = [];
+    if (agentsResult.success) {
+      agents = agentsResult.data.agents;
+    }
+
     return c.html(
-      <SessionCreatePage project={project} mcpServers={mcpServers} />,
+      <SessionCreatePage
+        project={project}
+        mcpServers={mcpServers}
+        agents={agents}
+      />,
     );
   });
 
@@ -331,6 +344,10 @@ export function createSessionsRoutes(
         mcpServerIds = [body.mcpServerIds as string];
       }
     }
+
+    // Parse optional expert-mode fields
+    const expertAgentId = (body.expertAgentId as string) || undefined;
+    const expertModelId = (body.expertModelId as string) || undefined;
 
     if (!name || !projectId) {
       return c.text("Name and project ID required", 400);
@@ -422,6 +439,21 @@ export function createSessionsRoutes(
     }
 
     // Create session via Internal API Client
+    let expertModeId: string | undefined;
+    if (expertAgentId) {
+      // Derive mode from agent's defaultModeId via capabilities
+      try {
+        const capsResult = await apiClient.get<{
+          capabilities?: { defaultModeId?: string };
+        }>(`/agents/${expertAgentId}/capabilities`);
+        if (capsResult.success && capsResult.data.capabilities?.defaultModeId) {
+          expertModeId = capsResult.data.capabilities.defaultModeId;
+        }
+      } catch {
+        // ignore — internal API will skip expert-thread creation without mode
+      }
+    }
+
     const createResult = await apiClient.post<CreateSessionResponse>(
       "/sessions",
       {
@@ -435,6 +467,9 @@ export function createSessionsRoutes(
         priority,
         instructions,
         ...(clonePort != null && { clonePort }),
+        ...(expertAgentId && { expertAgentId }),
+        ...(expertModelId && { expertModelId }),
+        ...(expertModeId && { expertModeId }),
       },
     );
 
@@ -2187,6 +2222,7 @@ export function createSessionsRoutes(
     return c.json({
       threads: session.chatThreads,
       activeChatThreadId: session.activeChatThreadId,
+      activeExpertThreadId: session.activeExpertThreadId ?? null,
     });
   });
 
@@ -2552,6 +2588,54 @@ export function createSessionsRoutes(
 
     return c.json({ activeChatThreadId: threadId });
   });
+
+  // POST /:id/chat-threads/:threadId/activate-expert — set active expert thread
+  router.post(
+    "/:id/chat-threads/:threadId/activate-expert",
+    async (c: Context) => {
+      const username = await getAuthUsername(c);
+      if (!username) return c.json({ error: "Unauthorized" }, 401);
+
+      const sessionId = c.req.param("id");
+      const threadId = c.req.param("threadId");
+
+      const apiClient = createApiClient(c);
+      const sessionResult = await apiClient.get<GetSessionResponse>(
+        `/sessions/${sessionId}`,
+      );
+
+      if (!sessionResult.success) {
+        return c.json(
+          { error: "Session not found" },
+          sessionResult.status === 404 ? 404 : 500,
+        );
+      }
+
+      const session = sessionResult.data.session;
+      if (!session || session.owner !== username)
+        return c.json({ error: "Session not found" }, 404);
+
+      try {
+        const activateResult = await apiClient.post<void>(
+          `/sessions/${sessionId}/active-expert-thread`,
+          { threadId },
+        );
+
+        if (!activateResult.success) {
+          return c.json(
+            {
+              error: `Failed to set active expert thread: ${activateResult.error}`,
+            },
+            activateResult.status,
+          );
+        }
+      } catch {
+        return c.json({ error: "Thread not found" }, 404);
+      }
+
+      return c.json({ activeExpertThreadId: threadId });
+    },
+  );
 
   // GET /:id/chat-threads/:threadId/messages — get thread messages
   router.get("/:id/chat-threads/:threadId/messages", async (c: Context) => {

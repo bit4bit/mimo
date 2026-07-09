@@ -16,15 +16,23 @@ interface McpServer {
   description?: string;
 }
 
+interface AgentOption {
+  id: string;
+  name: string;
+  status: string;
+}
+
 interface SessionCreateProps {
   project: Project;
   mcpServers: McpServer[];
+  agents: AgentOption[];
   error?: string;
 }
 
 export const SessionCreatePage: FC<SessionCreateProps> = ({
   project,
   mcpServers,
+  agents,
   error,
 }) => {
   return (
@@ -247,6 +255,40 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
             </p>
           </div>
 
+          <div class="form-group">
+            <label>Expert Mode (optional)</label>
+            <p class="session-create-help">
+              Pre-select an agent and model for the expert-mode thread. If the
+              agent is online at creation time, a thread named "Expert" is
+              auto-created for expert mode. Leave blank to set up expert mode
+              later.
+            </p>
+            <label class="text-small text-muted">Agent</label>
+            <select
+              name="expertAgentId"
+              data-help-id="session-create-page-expert-agent-id-select"
+            >
+              <option value="">— none —</option>
+              {agents.map((agent) => (
+                <option value={agent.id} disabled={agent.status !== "online"}>
+                  {agent.name} ({agent.status})
+                </option>
+              ))}
+            </select>
+            <label class="text-small text-muted mt-8">Model</label>
+            <select
+              name="expertModelId"
+              data-help-id="session-create-page-expert-model-id-select"
+            >
+              <option value="">— auto (agent default) —</option>
+            </select>
+            <p class="session-create-help">
+              The model list populates from the selected agent's capabilities
+              when the agent is online. The mode is auto-derived from the
+              agent's default.
+            </p>
+          </div>
+
           <div class="actions">
             <button
               type="submit"
@@ -311,7 +353,45 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
           .mcp-server-list-box { border: 1px solid #ddd; border-radius: 4px; padding: 10px; max-height: 150px; overflow-y: auto; }
           .mcp-server-option { display: block; margin: 5px 0; cursor: pointer; }
           .no-margin { margin: 0; }
+          .mt-8 { margin-top: 8px; }
         `}</style>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+(function () {
+  var agentSelect = document.querySelector('select[name="expertAgentId"]');
+  var modelSelect = document.querySelector('select[name="expertModelId"]');
+  if (!agentSelect || !modelSelect) return;
+
+  function clearModels() {
+    while (modelSelect.options.length > 1) modelSelect.remove(1);
+    modelSelect.selectedIndex = 0;
+  }
+
+  agentSelect.addEventListener('change', function () {
+    clearModels();
+    var agentId = agentSelect.value;
+    if (!agentId) return;
+    fetch('/api/internal/agents/' + encodeURIComponent(agentId) + '/capabilities')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (body) {
+        if (!body || !body.success || !body.data || !body.data.capabilities) return;
+        var caps = body.data.capabilities;
+        var models = caps.availableModels || [];
+        models.forEach(function (m) {
+          var opt = document.createElement('option');
+          opt.value = m.value;
+          opt.textContent = m.name || m.value;
+          modelSelect.appendChild(opt);
+        });
+        if (caps.defaultModelId) modelSelect.value = caps.defaultModelId;
+      })
+      .catch(function () { /* ignore — leave model list empty */ });
+  });
+})();
+`,
+          }}
+        />
       </div>
     </Layout>
   );

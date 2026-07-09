@@ -312,9 +312,51 @@ export async function createSessionHandler(
       ...(body.clonePort != null && { clonePort: body.clonePort }),
     });
 
+    // Auto-create the "Expert" thread and point activeExpertThreadId at it,
+    // if the user provided expert-mode defaults AND the agent is online.
+    // Any failure here is swallowed silently — the session still succeeds.
+    if (
+      body.expertAgentId &&
+      body.expertModelId &&
+      mimoContext.services.agents.isAgentOnline(body.expertAgentId)
+    ) {
+      try {
+        // Derive expertModeId from the agent's defaultModeId if not provided
+        let expertModeId = body.expertModeId;
+        if (!expertModeId) {
+          const agent = await mimoContext.repos.agents.findById(
+            body.expertAgentId,
+          );
+          expertModeId = agent?.capabilities?.defaultModeId ?? undefined;
+        }
+
+        if (expertModeId) {
+          const expertThread = await mimoContext.repos.sessions.addChatThread(
+            session.id,
+            {
+              name: "Expert",
+              model: body.expertModelId,
+              mode: expertModeId,
+              acpSessionId: null,
+              assignedAgentId: body.expertAgentId,
+              state: "active",
+              brainWash: false,
+            },
+          );
+          await mimoContext.repos.sessions.setActiveExpertThread(
+            session.id,
+            expertThread.id,
+          );
+        }
+      } catch {
+        // Silently ignore: name collision, agent usability, etc.
+      }
+    }
+
+    const finalSession = await mimoContext.repos.sessions.findById(session.id);
     return c.json(
       successResponse({
-        session: toSessionResponse(session),
+        session: toSessionResponse(finalSession ?? session),
       }),
       201,
     );
@@ -794,6 +836,40 @@ export async function setActiveChatThreadHandler(
   } catch (error) {
     return c.json(
       errorResponse(errorMessage(error, "Failed to set active thread"), 400),
+      400,
+    );
+  }
+}
+
+/**
+ * Set the active expert thread for a session.
+ * POST /api/internal/sessions/:id/active-expert-thread
+ */
+export async function setActiveExpertThreadHandler(
+  c: InternalApiContext,
+): Promise<Response> {
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { user, mimoContext, session } = guard.value;
+  const sessionId = session.id;
+
+  const body = await c.req.json();
+  if (!body.threadId || typeof body.threadId !== "string") {
+    return c.json(errorResponse("threadId is required", 400), 400);
+  }
+
+  try {
+    await mimoContext.repos.sessions.setActiveExpertThread(
+      sessionId,
+      body.threadId,
+    );
+    return c.json(successResponse({ success: true }));
+  } catch (error) {
+    return c.json(
+      errorResponse(
+        errorMessage(error, "Failed to set active expert thread"),
+        400,
+      ),
       400,
     );
   }

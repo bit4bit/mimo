@@ -47,6 +47,7 @@
     previousLeftBuffer: "Alt+Shift+PageUp",
     toggleRightFrame: "Alt+Shift+Control+F",
     toggleExpertMode: "Alt+Shift+E",
+    toggleExpertModeAlt: "Ctrl+Shift+E",
     expertInput: "Enter",
     moveFocusUp: "Alt+ArrowUp",
     moveFocusDown: "Alt+ArrowDown",
@@ -589,7 +590,10 @@
       handled = focusNotesInput("#project-notes-input");
     } else if (bindingMatches(event, keybindings.sessionNotes)) {
       handled = focusNotesInput("#notes-input");
-    } else if (bindingMatches(event, keybindings.toggleExpertMode)) {
+    } else if (
+      bindingMatches(event, keybindings.toggleExpertMode) ||
+      bindingMatches(event, keybindings.toggleExpertModeAlt)
+    ) {
       if (
         isActiveLeftBuffer("edit") &&
         window.EditBuffer &&

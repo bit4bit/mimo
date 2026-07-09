@@ -24,6 +24,7 @@ import {
   updateChatThreadHandler,
   deleteChatThreadHandler,
   setActiveChatThreadHandler,
+  setActiveExpertThreadHandler,
 } from "./sessions/handlers.js";
 
 /**
@@ -83,6 +84,9 @@ export function createSessionsInternalRouter(_mimoContext: MimoContext): Hono {
 
   // Set active chat thread
   router.post("/:id/active-thread", setActiveChatThreadHandler);
+
+  // Set active expert thread
+  router.post("/:id/active-expert-thread", setActiveExpertThreadHandler);
 
   return router;
 }
