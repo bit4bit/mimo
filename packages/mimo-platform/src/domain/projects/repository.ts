@@ -190,6 +190,9 @@ export class ProjectRepository {
       }),
     );
 
+    projects.sort(
+      (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
+    );
     return projects;
   }
 
@@ -227,6 +230,9 @@ export class ProjectRepository {
       }),
     );
 
+    projects.sort(
+      (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
+    );
     return projects;
   }
 

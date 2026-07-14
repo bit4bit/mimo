@@ -854,4 +854,92 @@ describe("Project Management Integration Tests", () => {
       ).toBe("ai-branch");
     });
   });
+
+  describe("Project List Ordering", () => {
+    it("should list projects sorted alphabetically by name for an owner", async () => {
+      await projectRepository.create({
+        name: "Zebra Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+      await projectRepository.create({
+        name: "Alpha Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+      await projectRepository.create({
+        name: "Mango Project",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const projects = await projectRepository.listByOwner("testuser");
+      expect(projects.map((p: any) => p.name)).toEqual([
+        "Alpha Project",
+        "Mango Project",
+        "Zebra Project",
+      ]);
+    });
+
+    it("should list all projects sorted alphabetically by name", async () => {
+      await projectRepository.create({
+        name: "Zulu",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+      await projectRepository.create({
+        name: "Apple",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+      await projectRepository.create({
+        name: "Banana",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "otheruser",
+      });
+
+      const projects = await projectRepository.listAll();
+      expect(projects.map((p: any) => p.name)).toEqual([
+        "Apple",
+        "Banana",
+        "Zulu",
+      ]);
+    });
+
+    it("should keep stable order across repeated fetches", async () => {
+      await projectRepository.create({
+        name: "Delta",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+      await projectRepository.create({
+        name: "Alpha",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+      await projectRepository.create({
+        name: "Charlie",
+        repoUrl: "https://github.com/user/repo.git",
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const first = await projectRepository.listByOwner("testuser");
+      const second = await projectRepository.listByOwner("testuser");
+      const third = await projectRepository.listByOwner("testuser");
+
+      const expected = ["Alpha", "Charlie", "Delta"];
+      expect(first.map((p: any) => p.name)).toEqual(expected);
+      expect(second.map((p: any) => p.name)).toEqual(expected);
+      expect(third.map((p: any) => p.name)).toEqual(expected);
+    });
+  });
 });
