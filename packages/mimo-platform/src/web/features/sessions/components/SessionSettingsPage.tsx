@@ -15,6 +15,8 @@ interface SessionSettingsPageProps {
   project: {
     id: string;
     name: string;
+    color?: string;
+    iconGlyph?: string;
   };
   creationSettings?: {
     sessionName: string;
@@ -51,6 +53,10 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
       sessionId={session.id}
       streamingTimeoutMs={streamingTimeoutMs}
       sessionName={session.name}
+      projectId={project.id}
+      projectName={project.name}
+      projectColor={project.color}
+      projectIconGlyph={project.iconGlyph}
     >
       <div class="container session-settings-container">
         <h1>Session Settings</h1>

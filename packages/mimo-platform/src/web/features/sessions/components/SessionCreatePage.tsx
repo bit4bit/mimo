@@ -8,6 +8,8 @@ interface Project {
   newBranch?: string;
   agentSubpath?: string;
   instructions?: string;
+  color?: string;
+  iconGlyph?: string;
 }
 
 interface McpServer {
@@ -36,7 +38,13 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
   error,
 }) => {
   return (
-    <Layout title={`New Session - ${project.name}`}>
+    <Layout
+      title={`New Session - ${project.name}`}
+      projectId={project.id}
+      projectName={project.name}
+      projectColor={project.color}
+      projectIconGlyph={project.iconGlyph}
+    >
       <div class="container session-create-container">
         <h1>Create New Session</h1>
         <p class="text-muted session-create-project">Project: {project.name}</p>

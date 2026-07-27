@@ -5,6 +5,8 @@ import { Layout } from "../../../shared/components/Layout.js";
 interface Project {
   id: string;
   name: string;
+  color?: string;
+  iconGlyph?: string;
 }
 
 interface ImpactRecord {
@@ -57,7 +59,13 @@ export const ImpactHistoryPage: FC<ImpactHistoryProps> = ({
   sessions,
 }) => {
   return (
-    <Layout title={`Impact History - ${project.name}`}>
+    <Layout
+      title={`Impact History - ${project.name}`}
+      projectId={project.id}
+      projectName={project.name}
+      projectColor={project.color}
+      projectIconGlyph={project.iconGlyph}
+    >
       <div class="container impact-history-container">
         <div class="impact-history-header">
           <div>

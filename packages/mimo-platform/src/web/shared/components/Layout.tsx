@@ -6,6 +6,7 @@ import type {
   GlobalKeybindingsConfig,
 } from "../../../domain/config/service.js";
 import { SessionFinderDialog } from "../../features/sessions/components/SessionFinderDialog.js";
+import { buildFaviconDataUri, buildDefaultFaviconDataUri } from "../favicons.js";
 
 interface LayoutProps {
   title: string;
@@ -20,6 +21,8 @@ interface LayoutProps {
   sessionBranch?: string;
   projectId?: string;
   projectName?: string;
+  projectColor?: string;
+  projectIconGlyph?: string;
   cloneUrl?: string;
   agentId?: string;
   agentName?: string;
@@ -41,6 +44,8 @@ export const Layout: FC<LayoutProps> = ({
   sessionBranch,
   projectId,
   projectName,
+  projectColor,
+  projectIconGlyph,
   cloneUrl,
   agentId,
   agentName,
@@ -59,6 +64,19 @@ export const Layout: FC<LayoutProps> = ({
             content="width=device-width, initial-scale=1.0"
           />
           <title>{title} | MIMO</title>
+          <link
+            rel="icon"
+            href={
+              projectId && projectName
+                ? buildFaviconDataUri({
+                    id: projectId,
+                    name: projectName,
+                    color: projectColor,
+                    iconGlyph: projectIconGlyph,
+                  })
+                : buildDefaultFaviconDataUri()
+            }
+          />
           <script
             dangerouslySetInnerHTML={{
               __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_PROJECT_ID = "${projectId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};\nwindow.MIMO_SESSION_KEYBINDINGS = ${JSON.stringify(sessionKeybindings || {})};\nwindow.MIMO_GLOBAL_KEYBINDINGS = ${JSON.stringify(globalKeybindings || {})};\nwindow.MIMO_CHAT_FILE_EXTENSIONS = ${JSON.stringify(chatFileExtensions ?? [])};`,

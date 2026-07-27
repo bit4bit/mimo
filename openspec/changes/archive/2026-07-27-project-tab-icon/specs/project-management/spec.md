@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: User can create a project
 
@@ -44,39 +44,3 @@ The system SHALL allow authenticated users to create projects that can be linked
 - **WHEN** authenticated user creates a project supplying `iconGlyph: "Z"`
 - **THEN** the stored project data includes `iconGlyph: "Z"`
 - **AND** the project's favicon renders the glyph `Z` instead of the first grapheme of its `name`
-
-### Requirement: User can list projects
-
-The system SHALL display all projects owned by the authenticated user.
-
-#### Scenario: List user projects
-
-- **WHEN** authenticated user navigates to projects page
-- **THEN** system displays list of all projects from ~/.mimo/projects/
-- **AND** each project shows name and repository count
-
-#### Scenario: Empty project list
-
-- **WHEN** authenticated user with no projects navigates to projects page
-- **THEN** system displays message "No projects yet. Create one?"
-
-### Requirement: User can switch between projects
-
-The system SHALL allow users to select a project and view its sessions.
-
-#### Scenario: Switch to project
-
-- **WHEN** user selects project from list
-- **THEN** system loads project context
-- **AND** system displays project's sessions
-
-### Requirement: User can delete a project
-
-The system SHALL allow users to remove projects and all associated sessions.
-
-#### Scenario: Delete project with confirmation
-
-- **WHEN** authenticated user confirms deletion of project "my-app"
-- **THEN** system removes ~/.mimo/projects/my-app/ directory recursively
-- **AND** system terminates any running agents for project's sessions
-- **AND** system redirects to projects list

@@ -19,6 +19,8 @@ import { ContentFinderDialog } from "../../../shared/components/ContentFinderDia
 interface Project {
   id: string;
   name: string;
+  color?: string;
+  iconGlyph?: string;
 }
 
 interface Session {
@@ -188,6 +190,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       chatFileExtensions={chatFileExtensions}
       projectId={project.id}
       projectName={project.name}
+      projectColor={project.color}
+      projectIconGlyph={project.iconGlyph}
       sessionName={session.name}
       sessionBranch={session.branch}
       cloneUrl={cloneUrl}

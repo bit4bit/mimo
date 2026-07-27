@@ -13,6 +13,8 @@ interface Project {
   description?: string;
   credentialId?: string;
   instructions?: string;
+  color?: string;
+  iconGlyph?: string;
 }
 
 interface ProjectEditProps {
@@ -27,7 +29,13 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({
   error,
 }) => {
   return (
-    <Layout title={`Edit ${project.name}`}>
+    <Layout
+      title={`Edit ${project.name}`}
+      projectId={project.id}
+      projectName={project.name}
+      projectColor={project.color}
+      projectIconGlyph={project.iconGlyph}
+    >
       <div class="container">
         <h1>Edit Project</h1>
         <form method="POST" action={`/projects/${project.id}/edit`}>

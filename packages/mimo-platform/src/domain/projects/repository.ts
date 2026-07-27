@@ -17,6 +17,8 @@ export interface Project {
   agentSubpath?: string;
   instructions?: string;
   clonePort?: number;
+  color?: string;
+  iconGlyph?: string;
 }
 
 export interface PublicProject {
@@ -30,6 +32,8 @@ export interface PublicProject {
   newBranch?: string;
   agentSubpath?: string;
   instructions?: string;
+  color?: string;
+  iconGlyph?: string;
 }
 
 export interface ProjectData {
@@ -46,6 +50,8 @@ export interface ProjectData {
   agentSubpath?: string;
   instructions?: string;
   clonePort?: number;
+  color?: string;
+  iconGlyph?: string;
 }
 
 export interface CreateProjectInput {
@@ -60,6 +66,8 @@ export interface CreateProjectInput {
   agentSubpath?: string;
   instructions?: string;
   clonePort?: number;
+  color?: string;
+  iconGlyph?: string;
 }
 
 interface ProjectRepositoryDeps {
@@ -123,6 +131,8 @@ export class ProjectRepository {
       ...(input.agentSubpath && { agentSubpath: input.agentSubpath }),
       ...(input.instructions && { instructions: input.instructions }),
       ...(input.clonePort != null && { clonePort: input.clonePort }),
+      ...(input.color && { color: input.color }),
+      ...(input.iconGlyph && { iconGlyph: input.iconGlyph }),
     };
 
     await this.os.fs.writeFileAsync(
@@ -249,6 +259,8 @@ export class ProjectRepository {
       newBranch: project.newBranch,
       agentSubpath: project.agentSubpath,
       instructions: project.instructions,
+      color: project.color,
+      iconGlyph: project.iconGlyph,
     }));
   }
 
@@ -295,6 +307,8 @@ export class ProjectRepository {
       credentialId?: string;
       instructions?: string;
       clonePort?: number | null;
+      color?: string;
+      iconGlyph?: string;
     },
   ): Promise<Project> {
     const project = await this.findById(id);
@@ -317,6 +331,23 @@ export class ProjectRepository {
       sourceBranch: project.sourceBranch,
       newBranch: project.newBranch,
     };
+
+    // Preserve color/iconGlyph from existing project unless overridden
+    if (updates.color !== undefined) {
+      if (updates.color) {
+        updatedData.color = updates.color;
+      }
+    } else if (project.color) {
+      updatedData.color = project.color;
+    }
+
+    if (updates.iconGlyph !== undefined) {
+      if (updates.iconGlyph) {
+        updatedData.iconGlyph = updates.iconGlyph;
+      }
+    } else if (project.iconGlyph) {
+      updatedData.iconGlyph = project.iconGlyph;
+    }
 
     // Handle credentialId specially - if undefined, keep existing; if null, remove; if string, set
     if ("credentialId" in updates) {
