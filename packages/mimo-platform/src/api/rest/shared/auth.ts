@@ -35,27 +35,35 @@ export function createInternalAuthMiddleware(
   mimoContext: Pick<MimoContext, "services">,
 ): MiddlewareHandler {
   return async (c, next) => {
+    // Prefer a well-formed Bearer token from the Authorization header (used
+    // by API clients). Fall back to the HttpOnly `token` cookie so that
+    // same-origin browser fetches — which can't read the HttpOnly cookie
+    // from JS but send it automatically — can authenticate too.
+    //
+    // Only reject the request when the Authorization header looks like an
+    // *attempt* at a Bearer token (i.e. it starts with "Bearer ") but is
+    // malformed. A header in any other scheme (or empty) must not block
+    // the cookie fallback: in practice, reverse proxies (Cloudflare, etc.)
+    // and browser extensions can attach their own Authorization headers
+    // that the application does not control.
     const authHeader = c.req.header("Authorization");
 
     let token: string | undefined;
-    if (authHeader) {
-      const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
-      if (!tokenMatch) {
-        return c.json(
-          {
-            success: false,
-            error:
-              "Invalid Authorization header format. Expected: Bearer <token>",
-            code: 401,
-          },
-          401,
-        );
-      }
-      token = tokenMatch[1];
+    const bearerMatch = authHeader?.match(/^Bearer\s+(.+)$/i);
+    if (bearerMatch) {
+      token = bearerMatch[1];
+    } else if (authHeader && /^Bearer\s*$/i.test(authHeader)) {
+      // "Bearer" with no token value is a clear client mistake; surface it.
+      return c.json(
+        {
+          success: false,
+          error:
+            "Invalid Authorization header format. Expected: Bearer <token>",
+          code: 401,
+        },
+        401,
+      );
     } else {
-      // Fallback: same-origin browser fetches send the HttpOnly `token`
-      // cookie automatically. Honor it so client JS can call internal
-      // endpoints without access to the cookie value.
       token = getCookie(c, "token");
     }
 

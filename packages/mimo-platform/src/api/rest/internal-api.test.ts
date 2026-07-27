@@ -96,10 +96,12 @@ describe("Internal API Router", () => {
       expect(json.code).toBe(401);
     });
 
-    it("should reject requests with invalid token format", async () => {
+    it("should reject requests with a malformed Bearer header (Bearer with no token)", async () => {
+      // A header that starts with "Bearer" but has no token is a clear
+      // client mistake and is surfaced as the explicit format error.
       const req = new Request("http://localhost:3000/api/internal/health", {
         headers: {
-          Authorization: "InvalidFormat token123",
+          Authorization: "Bearer ",
         },
       });
 
@@ -110,6 +112,25 @@ describe("Internal API Router", () => {
       expect(json.success).toBe(false);
       expect(json.error).toContain("Invalid Authorization header format");
       expect(json.code).toBe(401);
+    });
+
+    it("falls back to cookie auth when Authorization uses a non-Bearer scheme", async () => {
+      // Reverse proxies (e.g. Cloudflare) and browser extensions can attach
+      // their own Authorization headers. Same-origin browser fetches still
+      // rely on the HttpOnly `token` cookie, so a non-Bearer header must
+      // not block cookie-based auth.
+      const req = new Request("http://localhost:3000/api/internal/health", {
+        headers: {
+          Authorization: "InvalidFormat token123",
+          Cookie: `token=${validToken}`,
+        },
+      });
+
+      const res = await app.fetch(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
     });
 
     it("should reject requests with expired/invalid token", async () => {
