@@ -13,7 +13,7 @@ import chatJs from "../public/js/chat.js" with { type: "file" };
 import chatThreadsJs from "../public/js/chat-threads.js" with { type: "file" };
 import chatDecoratedUtilsJs from "../public/js/chat-decorated-utils.js" with { type: "file" };
 import chatTokenUtilsJs from "../public/js/chat-token-utils.js" with { type: "file" };
-import commitJs from "../public/js/commit.js" with { type: "file" };
+import commitBufferJs from "../public/js/commit-buffer.js" with { type: "file" };
 import diffJs from "../public/js/diff.js" with { type: "file" };
 import diffOverviewJs from "../public/js/diff-overview.js" with { type: "file" };
 import editBufferJs from "../public/js/edit-buffer.js" with { type: "file" };
@@ -39,7 +39,7 @@ const EMBEDDED_ASSET_PATHS: Record<string, string> = {
   "/js/chat-threads.js": chatThreadsJs,
   "/js/chat-decorated-utils.js": chatDecoratedUtilsJs,
   "/js/chat-token-utils.js": chatTokenUtilsJs,
-  "/js/commit.js": commitJs,
+  "/js/commit-buffer.js": commitBufferJs,
   "/js/diff.js": diffJs,
   "/js/diff-overview.js": diffOverviewJs,
   "/js/edit-buffer.js": editBufferJs,

@@ -105,17 +105,17 @@
     return getActiveBufferContext().leftBufferId === id;
   }
 
-  // Route next/previous-change to the active diff surface. The commit dialog
-  // (a modal overlay) takes precedence when open; otherwise the PatchBuffer
-  // handles it when it is the active left buffer.
+  // Route next/previous-change to the active diff surface. The commit buffer
+  // takes precedence when it is the active left buffer; otherwise the
+  // PatchBuffer handles it when it is the active left buffer.
   function routeChangeNav(direction) {
     if (
-      window.MIMO_COMMIT &&
-      typeof window.MIMO_COMMIT.isOpen === "function" &&
-      window.MIMO_COMMIT.isOpen() &&
-      typeof window.MIMO_COMMIT.navigateChange === "function"
+      window.MIMO_COMMIT_BUFFER &&
+      typeof window.MIMO_COMMIT_BUFFER.isActive === "function" &&
+      window.MIMO_COMMIT_BUFFER.isActive() &&
+      typeof window.MIMO_COMMIT_BUFFER.navigateChange === "function"
     ) {
-      return window.MIMO_COMMIT.navigateChange(direction);
+      return window.MIMO_COMMIT_BUFFER.navigateChange(direction);
     }
     if (
       isActiveLeftBuffer("patches") &&
@@ -366,45 +366,36 @@
     return true;
   }
 
-  function openCommitDialog() {
-    const commitButton = document.querySelector("#commit-btn");
-    if (!commitButton) {
-      return false;
+  function openCommitBuffer() {
+    if (window.switchFrameBuffer) {
+      window.switchFrameBuffer("left", "commit");
+      return true;
     }
-    commitButton.click();
-    return true;
+    return false;
+  }
+
+  function isCommitBufferActive() {
+    return !!(
+      window.MIMO_COMMIT_BUFFER &&
+      typeof window.MIMO_COMMIT_BUFFER.isActive === "function" &&
+      window.MIMO_COMMIT_BUFFER.isActive()
+    );
+  }
+
+  function leaveCommitBuffer() {
+    // Escape switches back to the previously-active left-frame buffer
+    // (Patches sits directly before Commit) rather than closing a modal.
+    if (window.switchFrameBuffer) {
+      window.switchFrameBuffer("left", "patches");
+      return true;
+    }
+    return false;
   }
 
   function isEscapeKey(event) {
     return (
       bindingMatches(event, keybindings.closeModal) || event.keyCode === 27
     );
-  }
-
-  function isCommitDialogOpen() {
-    const commitDialog = document.querySelector("#commit-dialog");
-    if (!commitDialog) {
-      return false;
-    }
-    if (commitDialog.style.display === "none") {
-      return false;
-    }
-    const computed = window.getComputedStyle(commitDialog);
-    return computed.display !== "none" && computed.visibility !== "hidden";
-  }
-
-  function closeCommitDialog() {
-    const cancelButton = document.querySelector("#commit-cancel");
-    if (cancelButton) {
-      cancelButton.click();
-      return true;
-    }
-    const commitDialog = document.querySelector("#commit-dialog");
-    if (!commitDialog) {
-      return false;
-    }
-    commitDialog.style.display = "none";
-    return true;
   }
 
   function highlightShortcutsBar() {
@@ -466,9 +457,9 @@
   }
 
   function onKeyDown(event) {
-    if (isEscapeKey(event) && isCommitDialogOpen()) {
+    if (isEscapeKey(event) && isCommitBufferActive()) {
       event.preventDefault();
-      closeCommitDialog();
+      leaveCommitBuffer();
       return;
     }
 
@@ -585,7 +576,7 @@
     } else if (bindingMatches(event, keybindings.newThread)) {
       if (isActiveLeftBuffer("chat")) handled = openCreateThreadDialog();
     } else if (bindingMatches(event, keybindings.commit)) {
-      handled = isCommitDialogOpen() ? closeCommitDialog() : openCommitDialog();
+      handled = isCommitBufferActive() ? leaveCommitBuffer() : openCommitBuffer();
     } else if (bindingMatches(event, keybindings.projectNotes)) {
       handled = focusNotesInput("#project-notes-input");
     } else if (bindingMatches(event, keybindings.sessionNotes)) {

@@ -11,7 +11,7 @@ interface HarnessOptions {
   activeLeftBuffer?: string | null;
   sessionKeybindings?: Record<string, string>;
   patchNavigate?: (direction: number) => boolean;
-  commitOpen?: boolean;
+  commitActive?: boolean;
   commitNavigate?: (direction: number) => boolean;
 }
 
@@ -52,8 +52,8 @@ function boot(options: HarnessOptions) {
     MIMO_PATCH_BUFFER: {
       navigateChange: options.patchNavigate || (() => false),
     },
-    MIMO_COMMIT: {
-      isOpen: () => options.commitOpen === true,
+    MIMO_COMMIT_BUFFER: {
+      isActive: () => options.commitActive === true,
       navigateChange: options.commitNavigate || (() => false),
     },
   };
@@ -161,11 +161,11 @@ describe("change-navigation keybindings", () => {
     expect(calls).toEqual([]);
   });
 
-  it("routes to the commit dialog controller when the commit dialog is open", () => {
+  it("routes to the commit buffer controller when the commit buffer is active", () => {
     const calls: number[] = [];
     const dispatch = boot({
       activeLeftBuffer: "chat",
-      commitOpen: true,
+      commitActive: true,
       commitNavigate: (d) => {
         calls.push(d);
         return true;

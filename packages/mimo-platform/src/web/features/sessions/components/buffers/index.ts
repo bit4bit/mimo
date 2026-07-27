@@ -8,6 +8,7 @@ import { McpServersBuffer } from "./McpServersBuffer.js";
 import { PlanBuffer } from "./PlanBuffer.js";
 import { EditBuffer } from "./EditBuffer.js";
 import { PatchBuffer } from "./PatchBuffer.js";
+import { CommitBuffer } from "./CommitBuffer.js";
 import { SummaryBuffer } from "../SummaryBuffer.js";
 
 let initialized = false;
@@ -80,6 +81,13 @@ export function ensureDefaultBuffersRegistered(): void {
     component: PatchBuffer,
   });
 
+  registerBuffer({
+    id: "commit",
+    name: "Commit",
+    frame: "left",
+    component: CommitBuffer,
+  });
+
   initialized = true;
 }
 
@@ -90,3 +98,4 @@ export * from "./NotesBuffer.js";
 export * from "./FileTreeBuffer.js";
 export * from "./EditBuffer.js";
 export * from "./PatchBuffer.js";
+export * from "./CommitBuffer.js";

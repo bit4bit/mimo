@@ -341,31 +341,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         {!embed && (
           <div class="session-footer-bar">
             <div class="session-footer-actions">
-            <button
-              type="button"
-              id="commit-btn"
-              class="btn-primary"
-              data-help-id="session-detail-page-commit-btn-button"
-            >
-              Commit
-            </button>
-            <button
-              type="button"
-              id="sync-now-btn"
-              class="btn-secondary"
-              data-help-id="session-detail-page-sync-now-btn-button"
-            >
-              Sync Now
-            </button>
-            <button
-              type="button"
-              id="force-push-btn"
-              class="btn-danger"
-              title="Force push committed changes to upstream (overwrites remote history)"
-              data-help-id="session-detail-page-force-push-btn-button"
-            >
-              Force Push
-            </button>
             <a
               href={`/projects/${project.id}/sessions/${session.id}/settings`}
               class="btn-secondary"
@@ -373,12 +348,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             >
               Settings
             </a>
-          </div>
-          <div class="session-footer-status">
-            <span id="sync-status" class="text-muted text-small">
-              Sync: {session.syncState || "idle"}
-            </span>
-            <span id="commit-status" class="text-muted text-small"></span>
           </div>
           <div class="session-footer-secondary-actions">
             {session.status !== "closed" && (
@@ -666,88 +635,6 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
 
       {/* Content Finder Dialog */}
       <ContentFinderDialog sessionId={session.id} />
-
-      {/* Commit dialog */}
-      <div id="commit-dialog" class="modal hidden">
-        <div class="modal-content commit-modal">
-          <h3 class="modal-title mb-15">Commit Changes</h3>
-          <div class="commit-preview-container">
-            <div class="commit-status-filters">
-              <label class="status-filter">
-                <input
-                  type="checkbox"
-                  id="filter-added"
-                  checked
-                  data-help-id="session-detail-page-filter-added-input"
-                />
-                <span class="status-badge status-added">Added</span>
-                <span class="status-count">
-                  (<span id="count-added">0</span>)
-                </span>
-              </label>
-              <label class="status-filter">
-                <input
-                  type="checkbox"
-                  id="filter-modified"
-                  checked
-                  data-help-id="session-detail-page-filter-modified-input"
-                />
-                <span class="status-badge status-modified">Modified</span>
-                <span class="status-count">
-                  (<span id="count-modified">0</span>)
-                </span>
-              </label>
-              <label class="status-filter">
-                <input
-                  type="checkbox"
-                  id="filter-deleted"
-                  data-help-id="session-detail-page-filter-deleted-input"
-                />
-                <span class="status-badge status-deleted">Deleted</span>
-                <span class="status-count">
-                  (<span id="count-deleted">0</span>)
-                </span>
-              </label>
-              <span class="status-counter-pill">
-                <span id="selected-count">0</span> /{" "}
-                <span id="total-count">0</span> selected
-              </span>
-            </div>
-            <div id="commit-tree" class="commit-tree" tabindex="-1">
-              <div class="commit-empty-state">Loading changes...</div>
-            </div>
-          </div>
-          <div class="commit-message-section">
-            <textarea
-              id="commit-message"
-              rows={3}
-              placeholder="Enter commit message..."
-              minlength="1"
-              data-help-id="session-detail-page-commit-message-textarea"
-            ></textarea>
-            <div id="commit-error" class="commit-error"></div>
-          </div>
-          <div class="commit-actions">
-            <button
-              type="button"
-              id="commit-cancel"
-              class="btn-secondary"
-              data-help-id="session-detail-page-commit-cancel-button"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              id="commit-confirm"
-              class="btn-primary"
-              disabled
-              data-help-id="session-detail-page-commit-confirm-button"
-            >
-              Commit &amp; Push
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* Clone workspace command dialog */}
       {cloneWorkspaceCommand && (
@@ -1450,7 +1337,33 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           opacity: 1;
         }
         
-        /* Commit Modal Styles */
+        /* Commit Buffer Styles (replaces former commit modal) */
+        .commit-buffer {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+        }
+        .commit-buffer-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 12px;
+          background: #252525;
+          border-bottom: 1px solid #444;
+          font-size: 13px;
+          color: #fff;
+          flex-shrink: 0;
+        }
+        .commit-buffer-title {
+          font-weight: bold;
+        }
+        .commit-buffer-status-row {
+          display: flex;
+          gap: 12px;
+          padding: 6px 12px;
+          border-top: 1px solid #444;
+          flex-shrink: 0;
+        }
         .commit-modal {
           width: 100%;
           height: 100%;
