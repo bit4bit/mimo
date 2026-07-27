@@ -12,6 +12,7 @@ import { createProjectsRoutes } from "../../web/features/projects/pages/projects
 import { createAgentsRoutes } from "../../web/features/agents/pages/agents.js";
 import { createSessionsRoutes } from "../../web/features/sessions/pages/sessions.js";
 import { createDashboardRoutes } from "../../web/features/dashboard/pages/dashboard.js";
+import { createPinnedRoutes } from "../../web/features/pinned-sessions/pages/pinned.js";
 import { createSyncRoutes } from "../../api/rest/sync.js";
 import { createCommitRoutes } from "../../api/rest/commits.js";
 import { createConfigRoutes } from "../../web/features/config/pages/config.js";
@@ -262,6 +263,9 @@ export async function bootstrapMimoServer(deps: BootstrapDeps) {
       },
     }),
   );
+
+  // Pinned sessions parallel view (protected)
+  app.route("/pinned", createPinnedRoutes(mimoContext));
 
   // Summary API routes
   app.route("/api/summary", createSummaryRoutes(mimoContext));

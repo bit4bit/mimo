@@ -6,6 +6,7 @@ import type {
   GlobalKeybindingsConfig,
 } from "../../../domain/config/service.js";
 import { SessionFinderDialog } from "../../features/sessions/components/SessionFinderDialog.js";
+import { PinnedSessionsDrawer } from "../../features/pinned-sessions/components/PinnedSessionsDrawer.js";
 import { buildFaviconDataUri, buildDefaultFaviconDataUri } from "../favicons.js";
 
 interface LayoutProps {
@@ -29,6 +30,17 @@ interface LayoutProps {
   cloneWorkspaceHtml?: any;
   backUrl?: string;
   showSessionFinder?: boolean;
+  /** When true, suppresses top-nav, footer actions, shortcuts bar, pin slot,
+   *  and the pinned-sessions side-menu button. Used by the embed-mode
+   *  session page rendered inside same-origin iframes on `/pinned`. */
+  embed?: boolean;
+  /** Optional slot rendered next to the session name/branch in the top-nav.
+   *  `SessionDetailPage` uses it to render the pin checkbox. Suppressed when
+   *  `embed` is true. */
+  pinSlot?: any;
+  /** When true (default), render the global pinned-sessions side-menu button.
+   *  Suppressed when `embed` is true. */
+  showPinnedMenuButton?: boolean;
 }
 
 export const Layout: FC<LayoutProps> = ({
@@ -52,6 +64,9 @@ export const Layout: FC<LayoutProps> = ({
   cloneWorkspaceHtml,
   backUrl,
   showSessionFinder = false,
+  embed = false,
+  pinSlot,
+  showPinnedMenuButton = true,
 }) => {
   return (
     <>
@@ -79,7 +94,7 @@ export const Layout: FC<LayoutProps> = ({
           />
           <script
             dangerouslySetInnerHTML={{
-              __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_PROJECT_ID = "${projectId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};\nwindow.MIMO_SESSION_KEYBINDINGS = ${JSON.stringify(sessionKeybindings || {})};\nwindow.MIMO_GLOBAL_KEYBINDINGS = ${JSON.stringify(globalKeybindings || {})};\nwindow.MIMO_CHAT_FILE_EXTENSIONS = ${JSON.stringify(chatFileExtensions ?? [])};`,
+              __html: `window.MIMO_SESSION_ID = "${sessionId || ""}";\nwindow.MIMO_PROJECT_ID = "${projectId || ""}";\nwindow.MIMO_STREAMING_TIMEOUT_MS = ${streamingTimeoutMs ?? 600000};\nwindow.MIMO_SESSION_KEYBINDINGS = ${JSON.stringify(sessionKeybindings || {})};\nwindow.MIMO_GLOBAL_KEYBINDINGS = ${JSON.stringify(globalKeybindings || {})};\nwindow.MIMO_CHAT_FILE_EXTENSIONS = ${JSON.stringify(chatFileExtensions ?? [])};\nwindow.MIMO_EMBED = ${embed ? "true" : "false"};`,
             }}
           />
           {sessionId && (
@@ -1202,101 +1217,368 @@ export const Layout: FC<LayoutProps> = ({
               padding: 0 8px;
               user-select: none;
             }
+
+            /* Pinned-sessions side-menu button + drawer */
+            .pinned-menu-btn {
+              background: transparent;
+              border: 1px solid #444;
+              color: #d4d4d4;
+              padding: 2px 10px;
+              cursor: pointer;
+              font-family: monospace;
+              font-size: 14px;
+              margin-right: 10px;
+              border-radius: 3px;
+            }
+            .pinned-menu-btn:hover { background: #333; }
+
+            .pinned-drawer-overlay {
+              position: fixed;
+              inset: 0;
+              z-index: 1500;
+              background: rgba(0, 0, 0, 0.5);
+            }
+            .pinned-drawer {
+              position: fixed;
+              top: 0;
+              left: 0;
+              bottom: 0;
+              width: 320px;
+              max-width: 85vw;
+              background: #252525;
+              border-right: 1px solid #444;
+              display: flex;
+              flex-direction: column;
+              z-index: 1501;
+              overflow-y: auto;
+            }
+            .pinned-drawer-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              padding: 12px 16px;
+              border-bottom: 1px solid #444;
+              font-size: 14px;
+              color: #fff;
+            }
+            .pinned-drawer-close {
+              background: transparent;
+              border: none;
+              color: #888;
+              cursor: pointer;
+              font-family: monospace;
+              font-size: 18px;
+            }
+            .pinned-drawer-close:hover { color: #d4d4d4; }
+            .pinned-drawer-list {
+              flex: 1;
+              overflow-y: auto;
+              padding: 8px 0;
+            }
+            .pinned-drawer-entry {
+              display: flex;
+              align-items: flex-start;
+              gap: 8px;
+              padding: 10px 16px;
+              cursor: default;
+              border-bottom: 1px solid #333;
+              color: #d4d4d4;
+              text-decoration: none;
+            }
+            .pinned-drawer-entry:hover { background: #2d2d2d; }
+            .pinned-drawer-entry-checkbox {
+              margin-top: 2px;
+              cursor: pointer;
+              flex-shrink: 0;
+            }
+            .pinned-drawer-entry-text {
+              flex: 1;
+              min-width: 0;
+              display: flex;
+              flex-direction: column;
+            }
+            .pinned-drawer-entry-title {
+              font-size: 13px;
+              color: #74c0fc;
+              flex: 1;
+              min-width: 0;
+              overflow-wrap: anywhere;
+            }
+            .pinned-drawer-entry-branch {
+              font-size: 11px;
+              color: #888;
+              margin-top: 2px;
+              display: block;
+              width: 100%;
+            }
+            .pinned-drawer-entry-stale {
+              font-size: 11px;
+              color: #ff9800;
+            }
+            .pinned-drawer-entry-unpin {
+              background: transparent;
+              border: 1px solid #555;
+              color: #888;
+              font-family: monospace;
+              font-size: 10px;
+              padding: 2px 6px;
+              cursor: pointer;
+              border-radius: 3px;
+              margin-top: 6px;
+              align-self: flex-start;
+            }
+            .pinned-drawer-entry-unpin:hover { color: #ff6b6b; border-color: #ff6b6b; }
+            .pinned-drawer-empty {
+              padding: 30px 16px;
+              text-align: center;
+              color: #888;
+              font-size: 13px;
+            }
+            .pinned-drawer-footer {
+              padding: 12px 16px;
+              border-top: 1px solid #444;
+            }
+            .pinned-drawer-parallel-btn {
+              display: block;
+              width: 100%;
+              background: #333;
+              border: 1px solid #555;
+              color: #d4d4d4;
+              padding: 10px;
+              cursor: pointer;
+              font-family: monospace;
+              font-size: 13px;
+              text-align: center;
+              text-decoration: none;
+              border-radius: 3px;
+            }
+            .pinned-drawer-parallel-btn:hover { background: #444; }
+
+            /* Pin checkbox slot in the top-nav */
+            .pin-checkbox {
+              margin-left: 8px;
+              cursor: pointer;
+              vertical-align: middle;
+            }
+            .pin-checkbox-label {
+              font-size: 11px;
+              color: #888;
+              margin-left: 2px;
+              vertical-align: middle;
+            }
+            .pin-error-inline {
+              color: #ff6b6b;
+              font-size: 11px;
+              margin-left: 6px;
+            }
+
+            /* Parallel /pinned page */
+            .pinned-parallel-container {
+              display: flex;
+              flex-direction: column;
+              height: 100vh;
+              overflow: hidden;
+            }
+            .pinned-parallel-toolbar {
+              display: flex;
+              align-items: center;
+              padding: 8px 16px;
+              background: #252525;
+              border-bottom: 1px solid #444;
+              gap: 12px;
+              flex-shrink: 0;
+            }
+            .pinned-parallel-toolbar a {
+              color: #74c0fc;
+              text-decoration: none;
+              font-size: 14px;
+            }
+            .pinned-parallel-toolbar .pinned-parallel-title {
+              font-size: 14px;
+              color: #fff;
+              font-weight: bold;
+            }
+            .pinned-parallel-columns {
+              display: flex;
+              flex: 1;
+              overflow: hidden;
+            }
+            .pinned-parallel-column {
+              flex: 1 1 0;
+              min-width: 0;
+              border-right: 1px solid #444;
+              display: flex;
+              flex-direction: column;
+              background: #1a1a1a;
+            }
+            .pinned-parallel-column:last-child { border-right: none; }
+            .pinned-parallel-column-header {
+              padding: 6px 10px;
+              background: #252525;
+              border-bottom: 1px solid #444;
+              font-size: 12px;
+              color: #888;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              flex-shrink: 0;
+            }
+            .pinned-parallel-column-title {
+              color: #74c0fc;
+              font-size: 12px;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .pinned-parallel-column-iframe {
+              flex: 1;
+              border: none;
+              width: 100%;
+              background: #1a1a1a;
+            }
+            .pinned-parallel-column.focused {
+              box-shadow: inset 0 0 0 2px #74c0fc;
+            }
+            .pinned-parallel-column-stale {
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              padding: 20px;
+              text-align: center;
+              color: #888;
+              gap: 12px;
+            }
+            .pinned-parallel-empty {
+              flex: 1;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: #888;
+              font-size: 16px;
+              text-align: center;
+              flex-direction: column;
+              gap: 16px;
+            }
+            .pinned-parallel-empty a {
+              color: #74c0fc;
+              text-decoration: none;
+              font-size: 14px;
+            }
           `}</style>
         </head>
         <body>
-          <nav class="top-nav">
-            <div class="nav-brand">
-              {backUrl && (
-                <a
-                  href={backUrl}
-                  class="mr-2"
-                  title="Back"
-                  data-help-id="layout-a"
-                >
-                  &lt;
+          {embed ? null : <PinnedSessionsDrawer />}
+          {!embed && showPinnedMenuButton && (
+            <button
+              type="button"
+              id="pinned-menu-btn"
+              class="pinned-menu-btn"
+              title="Pinned sessions"
+              aria-label="Open pinned sessions drawer"
+              data-help-id="layout-pinned-menu-btn"
+              onclick="document.dispatchEvent(new CustomEvent('mimo:pinned-drawer-open'))"
+            >
+              &#9776;
+            </button>
+          )}
+          {embed ? null : (
+            <nav class="top-nav">
+              <div class="nav-brand">
+                {backUrl && (
+                  <a
+                    href={backUrl}
+                    class="mr-2"
+                    title="Back"
+                    data-help-id="layout-a"
+                  >
+                    &lt;
+                  </a>
+                )}
+                <a href="/dashboard" data-help-id="layout-a">
+                  MIMO
                 </a>
-              )}
-              <a href="/dashboard" data-help-id="layout-a">
-                MIMO
-              </a>
-              {(sessionName || projectName) && (
-                <span class="nav-subtle">
-                  {sessionName && (
-                    <span>
-                      | {sessionName}
-                      {sessionBranch && (
-                        <span title="Branch"> | ⎇ {sessionBranch}</span>
-                      )}
-                    </span>
-                  )}
-                  {projectName && (
-                    <span>
-                      {sessionName ? " | " : "| "}
-                      <a
-                        href={`/projects/${projectId}`}
-                        class="nav-subtle-link"
-                        data-help-id="layout-a"
-                      >
-                        {projectName}
-                      </a>
-                      {cloneUrl && (
+                {(sessionName || projectName) && (
+                  <span class="nav-subtle">
+                    {sessionName && (
+                      <span>
+                        | {sessionName}
+                        {sessionBranch && (
+                          <span title="Branch"> | ⎇ {sessionBranch}</span>
+                        )}
+                      </span>
+                    )}
+                    {projectName && (
+                      <span>
+                        {sessionName ? " | " : "| "}
                         <a
-                          href={`${cloneUrl}timeline`}
-                          target="_blank"
-                          title="View Fossil Repository"
-                          class="ml-1"
+                          href={`/projects/${projectId}`}
+                          class="nav-subtle-link"
                           data-help-id="layout-a"
                         >
-                          🌿
+                          {projectName}
                         </a>
-                      )}
-                      {agentId && agentName && (
-                        <span class="ml-1">
-                          |{" "}
+                        {cloneUrl && (
                           <a
-                            href={`/agents/${agentId}`}
-                            class="nav-subtle-link"
+                            href={`${cloneUrl}timeline`}
+                            target="_blank"
+                            title="View Fossil Repository"
+                            class="ml-1"
                             data-help-id="layout-a"
                           >
-                            {agentName}
+                            🌿
                           </a>
-                        </span>
-                      )}
-                      {cloneWorkspaceHtml}
-                    </span>
-                  )}
-                </span>
-              )}
-            </div>
-            <div class="nav-links">
-              <a href="/dashboard" data-help-id="layout-a">
-                Dashboard
-              </a>
-              <a href="/projects" data-help-id="layout-a">
-                Projects
-              </a>
-              <a href="/mcp-servers" data-help-id="layout-a">
-                MCP Servers
-              </a>
-              <a href="/credentials" data-help-id="layout-a">
-                Credentials
-              </a>
-              <a href="/agents" data-help-id="layout-a">
-                Agents
-              </a>
-              <a href="/auth/logout" data-help-id="layout-a">
-                Logout
-              </a>
-            </div>
-          </nav>
+                        )}
+                        {agentId && agentName && (
+                          <span class="ml-1">
+                            |{" "}
+                            <a
+                              href={`/agents/${agentId}`}
+                              class="nav-subtle-link"
+                              data-help-id="layout-a"
+                            >
+                              {agentName}
+                            </a>
+                          </span>
+                        )}
+                        {cloneWorkspaceHtml}
+                      </span>
+                    )}
+                  </span>
+                )}
+                {pinSlot}
+              </div>
+              <div class="nav-links">
+                <a href="/dashboard" data-help-id="layout-a">
+                  Dashboard
+                </a>
+                <a href="/projects" data-help-id="layout-a">
+                  Projects
+                </a>
+                <a href="/mcp-servers" data-help-id="layout-a">
+                  MCP Servers
+                </a>
+                <a href="/credentials" data-help-id="layout-a">
+                  Credentials
+                </a>
+                <a href="/agents" data-help-id="layout-a">
+                  Agents
+                </a>
+                <a href="/auth/logout" data-help-id="layout-a">
+                  Logout
+                </a>
+              </div>
+            </nav>
+          )}
           <main class="flex flex-col flex-grow main-content">{children}</main>
-          {showStatusLine && (
+          {showStatusLine && !embed && (
             <div class="status-line">
               <span class="status-line-message"></span>
             </div>
           )}
-          {showSessionFinder && <SessionFinderDialog />}
+          {showSessionFinder && !embed && <SessionFinderDialog />}
+          {!embed && <script src="/js/pinned-sessions-drawer.js" defer></script>}
         </body>
       </html>
     </>

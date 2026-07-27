@@ -53,6 +53,7 @@ import type {
 import type { GetAgentResponse } from "../../../../api/rest/agents/types.js";
 import type { GetConfigResponse } from "../../../../api/rest/config/types.js";
 import type { SaveMessageResponse } from "../../../../api/rest/chat/types.js";
+import type { PinListResponse } from "../../../../api/rest/pinned-sessions/types.js";
 
 type SessionsRoutesContext = Pick<
   MimoContext,
@@ -828,12 +829,41 @@ export function createSessionsRoutes(
       const chatFileExtensions = loadedConfig.chatFileExtensions;
       const canDelete = canDeleteSessionNow(session);
 
+      // Embed mode: `?embed=1` suppresses layout chrome and defaults the
+      // right frame to collapsed when no explicit preference is persisted.
+      const embed = c.req.query("embed") === "1";
+      let normalizedFrame = normalizeFrameState(session.frameState);
+      const hasPersistedRightCollapse =
+        typeof session.frameState?.rightFrame?.isCollapsed === "boolean";
+      if (embed && !hasPersistedRightCollapse) {
+        normalizedFrame = {
+          leftFrame: normalizedFrame.leftFrame,
+          rightFrame: {
+            activeBufferId: normalizedFrame.rightFrame.activeBufferId,
+            isCollapsed: true,
+          },
+        };
+      }
+
+      // Resolve pin state for the current user (best-effort; ignore failures).
+      let isPinned = false;
+      if (!embed) {
+        const pinsResult = await apiClient.get<PinListResponse>(
+          `/users/${username}/pinned-sessions`,
+        );
+        if (pinsResult.success) {
+          isPinned = pinsResult.data.pins.some(
+            (p) => p.sessionId === session.id,
+          );
+        }
+      }
+
       return c.html(
         <SessionDetailPage
           session={session}
           project={project}
           chatHistory={chatHistory}
-          frameState={normalizeFrameState(session.frameState)}
+          frameState={normalizedFrame}
           notesContent={await frameStateService.loadNotes(session.id)}
           projectId={session.projectId}
           projectNotesContent={await frameStateService.loadProjectNotes(
@@ -855,6 +885,8 @@ export function createSessionsRoutes(
           agentWorkspacePath={session.agentWorkspacePath}
           canDelete={canDelete}
           backUrl={`/projects?selected=${session.projectId}`}
+          embed={embed}
+          isPinned={isPinned}
         />,
       );
     } catch (error) {

@@ -8,6 +8,10 @@ import { ProjectRepository } from "../../domain/projects/repository.js";
 import { McpServerRepository } from "../../domain/mcp-servers/repository.js";
 import { CredentialRepository } from "../../domain/credentials/repository.js";
 import { ImpactRepository } from "../../domain/impact/repository.js";
+import {
+  FilePinnedSessionsRepository,
+  type PinnedSessionsRepository,
+} from "../../domain/pinned-sessions/repository.js";
 import { ChatService } from "../../domain/sessions/chat.js";
 import { FrameStateService } from "../../domain/sessions/frame-state.js";
 import { SccService } from "../../domain/impact/scc-service.js";
@@ -93,6 +97,7 @@ export interface MimoContext {
     sessions: SessionRepository;
     credentials: CredentialRepository;
     impacts: ImpactRepository;
+    pinnedSessions: PinnedSessionsRepository;
   };
   services: {
     auth: JwtService;
@@ -251,6 +256,9 @@ export function createMimoContext(
     impacts:
       overrides.repos?.impacts ??
       new ImpactRepository({ projectsPath: paths.projects, os }),
+    pinnedSessions:
+      overrides.repos?.pinnedSessions ??
+      new FilePinnedSessionsRepository({ usersPath: paths.users, os }),
   };
 
   // Create shared scc and jscpd service instances to be passed to ImpactCalculator

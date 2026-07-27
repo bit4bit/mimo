@@ -2,7 +2,9 @@
 /**
  * Router for user-related internal API endpoints.
  *
- * Currently provides username search to back the agent-sharing autocomplete.
+ * Currently provides:
+ * - username search to back the agent-sharing autocomplete.
+ * - per-user pinned-sessions CRUD (`/users/:userId/pinned-sessions`).
  * Mounted under /api/internal/users.
  */
 
@@ -10,6 +12,12 @@ import { Hono } from "hono";
 import type { MimoContext } from "../../infrastructure/context/mimo-context.js";
 import { successResponse, errorResponse } from "./shared/response.js";
 import type { InternalApiContext } from "./shared/types.js";
+import {
+  listPinsHandler,
+  createPinHandler,
+  deletePinHandler,
+  reorderPinsHandler,
+} from "./pinned-sessions/handlers.js";
 
 /** Maximum number of suggestions returned by the search endpoint. */
 const SEARCH_LIMIT = 10;
@@ -57,6 +65,14 @@ export function createUsersInternalRouter(_mimoContext: MimoContext): Hono {
   const router = new Hono();
 
   router.get("/search", searchUsersHandler);
+
+  // Pinned-sessions CRUD — scoped to the authenticated user. The :userId
+  // path param is accepted for spec-compatibility but the handler always
+  // operates on the user derived from the JWT.
+  router.get("/:userId/pinned-sessions", listPinsHandler);
+  router.post("/:userId/pinned-sessions", createPinHandler);
+  router.put("/:userId/pinned-sessions", reorderPinsHandler);
+  router.delete("/:userId/pinned-sessions/:sessionId", deletePinHandler);
 
   return router;
 }

@@ -2,10 +2,14 @@
 /**
  * JWT validation middleware for the internal API.
  *
- * Extracts Bearer tokens from the Authorization header and validates
- * them using the JwtService from MimoContext.
+ * Extracts Bearer tokens from the Authorization header (preferred) or, when
+ * no header is present, from the HttpOnly `token` cookie set by the web auth
+ * flow. This lets same-origin browser fetches (which can't read the HttpOnly
+ * cookie from JS) authenticate via the automatically-sent cookie without
+ * exposing the token to client-side scripts.
  */
 
+import { getCookie } from "hono/cookie";
 import type { MiddlewareHandler } from "hono";
 import type { MimoContext } from "../../../infrastructure/context/mimo-context.js";
 
@@ -13,7 +17,7 @@ import type { MimoContext } from "../../../infrastructure/context/mimo-context.j
  * Creates JWT authentication middleware that validates Bearer tokens.
  *
  * The middleware:
- * 1. Extracts the Authorization header
+ * 1. Extracts the Authorization header (or falls back to the `token` cookie)
  * 2. Parses the Bearer token
  * 3. Validates the token using JwtService
  * 4. Sets the user context if valid, or returns 401 if invalid
@@ -33,7 +37,29 @@ export function createInternalAuthMiddleware(
   return async (c, next) => {
     const authHeader = c.req.header("Authorization");
 
-    if (!authHeader) {
+    let token: string | undefined;
+    if (authHeader) {
+      const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+      if (!tokenMatch) {
+        return c.json(
+          {
+            success: false,
+            error:
+              "Invalid Authorization header format. Expected: Bearer <token>",
+            code: 401,
+          },
+          401,
+        );
+      }
+      token = tokenMatch[1];
+    } else {
+      // Fallback: same-origin browser fetches send the HttpOnly `token`
+      // cookie automatically. Honor it so client JS can call internal
+      // endpoints without access to the cookie value.
+      token = getCookie(c, "token");
+    }
+
+    if (!token) {
       return c.json(
         {
           success: false,
@@ -44,20 +70,6 @@ export function createInternalAuthMiddleware(
       );
     }
 
-    const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
-    if (!tokenMatch) {
-      return c.json(
-        {
-          success: false,
-          error:
-            "Invalid Authorization header format. Expected: Bearer <token>",
-          code: 401,
-        },
-        401,
-      );
-    }
-
-    const token = tokenMatch[1];
     const payload = await mimoContext.services.auth.verifyToken(token);
 
     if (!payload) {

@@ -110,4 +110,34 @@ export const defaultHelpContent: HelpContent = {
     content:
       "Click to open this file. Added and unchanged files open in the Edit buffer; modified files open in the Patch buffer with the diff visible. Deleted files are not shown.",
   },
+  "layout-pinned-menu-btn": {
+    title: "Pinned Sessions",
+    content:
+      "Click to open the pinned-sessions drawer. The drawer lists every session you've pinned (up to 5), showing the session title and branch. Click an entry to jump to that session, or click \"View all in parallel\" to open the /pinned page with one iframe per pinned session.",
+  },
+  "pinned-sessions-drawer-close": {
+    title: "Close Drawer",
+    content:
+      "Click here (or press Escape, or click outside the drawer) to close the pinned-sessions drawer without navigating.",
+  },
+  "pinned-sessions-drawer-parallel": {
+    title: "View selected in parallel",
+    content:
+      "Opens /pinned with only the drawer entries whose selection checkboxes are checked (default all checked). Each selected session renders in its own side-by-side iframe so you can watch or interact with several sessions at once. Toggle checkboxes to choose which sessions to include; the action label shows the current count.",
+  },
+  "session-detail-page-pin-checkbox": {
+    title: "Pin Session",
+    content:
+      "Check this box to add the current session to your pinned list (capped at 5). Pinned sessions appear in the side-menu drawer and the /pinned parallel view. Re-checking an already-pinned session moves it to the top of the list. If the cap is reached, an inline error is shown.",
+  },
+  "pinned-parallel-column-iframe": {
+    title: "Active Column Indicator",
+    content:
+      "The highlighted column is the one whose iframe currently holds keyboard focus. Click into another column to move focus; keybindings apply only to the focused session.",
+  },
+  "pinned-parallel-column-unpin": {
+    title: "Unpin Column",
+    content:
+      "Remove this session from your pinned list. The column is removed from the parallel view immediately.",
+  },
 };

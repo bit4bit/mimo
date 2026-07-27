@@ -93,6 +93,13 @@ interface SessionDetailProps {
   chatFileExtensions?: string[];
   canDelete?: boolean;
   backUrl?: string;
+  /** When true, the page is rendered inside a same-origin iframe on `/pinned`.
+   *  Suppresses top-nav, footer actions bar, shortcuts bar, pin checkbox, and
+   *  the pinned-sessions side-menu button. Also defaults the right frame to
+   *  collapsed when no explicit frame-state preference is persisted. */
+  embed?: boolean;
+  /** Whether this session is currently in the user's pin store. */
+  isPinned?: boolean;
 }
 
 function toEmacsNotation(binding: string): string {
@@ -174,10 +181,47 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   chatFileExtensions,
   canDelete = true,
   backUrl,
+  embed = false,
+  isPinned = false,
 }) => {
   ensureDefaultBuffersRegistered();
   const leftBuffers = getBuffersForFrame("left");
   const rightBuffers = getBuffersForFrame("right");
+
+  // In embed mode, default the right frame to collapsed when no explicit
+  // preference has been persisted. The route handler passes an already-
+  // adjusted frameState when embed=1 and no preference exists, so this is
+  // a defensive default.
+  const effectiveFrameState: FrameState = embed
+    ? {
+        leftFrame: frameState.leftFrame,
+        rightFrame: {
+          ...frameState.rightFrame,
+          isCollapsed: frameState.rightFrame.isCollapsed,
+        },
+      }
+    : frameState;
+
+  const pinSlot = embed ? null : (
+    <span class="pin-slot">
+      <input
+        type="checkbox"
+        id="session-pin-checkbox"
+        class="pin-checkbox"
+        checked={isPinned}
+        data-help-id="session-detail-page-pin-checkbox"
+        data-session-id={session.id}
+        data-project-id={project.id}
+        onchange={
+          "document.dispatchEvent(new CustomEvent('mimo:pin-toggle',{detail:{sessionId:this.dataset.sessionId,projectId:this.dataset.projectId,checked:this.checked}}))"
+        }
+      />
+      <label for="session-pin-checkbox" class="pin-checkbox-label">
+        pin
+      </label>
+      <span id="pin-error-inline" class="pin-error-inline"></span>
+    </span>
+  );
 
   return (
     <Layout
@@ -210,6 +254,8 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       }
       backUrl={backUrl ?? `/projects/${project.id}/sessions`}
       showSessionFinder={true}
+      embed={embed}
+      pinSlot={pinSlot}
     >
       <script
         dangerouslySetInnerHTML={{
@@ -292,8 +338,9 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           </button>
         </div>
 
-        <div class="session-footer-bar">
-          <div class="session-footer-actions">
+        {!embed && (
+          <div class="session-footer-bar">
+            <div class="session-footer-actions">
             <button
               type="button"
               id="commit-btn"
@@ -361,12 +408,14 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             )}
           </div>
         </div>
+        )}
 
-        <div
-          id="session-shortcuts-bar"
-          class="session-shortcuts-bar"
-          aria-label="Session keyboard shortcuts"
-        >
+        {!embed && (
+          <div
+            id="session-shortcuts-bar"
+            class="session-shortcuts-bar"
+            aria-label="Session keyboard shortcuts"
+          >
           <span class="session-shortcut-item">
             <span class="session-shortcut-key">
               {toEmacsNotation(sessionKeybindings?.newThread || "Mod+Shift+N")}
@@ -609,6 +658,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             <span class="session-shortcut-desc">Close finder</span>
           </span>
         </div>
+        )}
       </div>
 
       {/* File Finder Dialog */}
@@ -1732,6 +1782,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           color: #888;
         }
       `}</style>
+      {!embed && <script src="/js/pin-checkbox.js" defer></script>}
     </Layout>
   );
 };
