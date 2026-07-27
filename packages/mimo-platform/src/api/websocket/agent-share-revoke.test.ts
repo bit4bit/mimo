@@ -51,6 +51,7 @@ function makeDeps(agent: any, session: any) {
     agentRouter: {},
     pipeline: {},
     fileWatchSessions: new Map(),
+    terminalSessions: new Map(),
     calculatingSessions: new Set(),
     sccService: {},
     impactCalculator: {},

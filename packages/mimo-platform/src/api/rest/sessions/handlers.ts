@@ -874,3 +874,160 @@ export async function setActiveExpertThreadHandler(
     );
   }
 }
+
+export function toTerminalResponse(terminal: import("../../../domain/sessions/repository.js").Terminal) {
+  return {
+    id: terminal.id,
+    name: terminal.name,
+    assignedAgentId: terminal.assignedAgentId,
+    command: terminal.command,
+    ...(terminal.subpath !== undefined && { subpath: terminal.subpath }),
+    scrollback: terminal.scrollback,
+    cols: terminal.cols,
+    rows: terminal.rows,
+    state: terminal.state,
+    createdAt: terminal.createdAt,
+  };
+}
+
+export async function addTerminalHandler(
+  c: InternalApiContext,
+): Promise<Response> {
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { user, mimoContext, session } = guard.value;
+  const sessionId = session.id;
+
+  const body = await c.req.json();
+
+  if (!body.name || typeof body.name !== "string") {
+    return c.json(errorResponse("name is required", 400), 400);
+  }
+
+  if (!body.assignedAgentId || typeof body.assignedAgentId !== "string") {
+    return c.json(errorResponse("assignedAgentId is required", 400), 400);
+  }
+
+  if (
+    !(await userMayUseAgent(mimoContext, body.assignedAgentId, user.username))
+  ) {
+    return c.json(errorResponse("Agent not found", 404), 404);
+  }
+
+  if (!mimoContext.services.agents.isAgentOnline(body.assignedAgentId)) {
+    return c.json(
+      errorResponse("Agent is not online", 400),
+      400,
+    );
+  }
+
+  if (
+    typeof body.scrollback !== "number" ||
+    body.scrollback < 1 ||
+    !Number.isInteger(body.scrollback)
+  ) {
+    return c.json(
+      errorResponse("scrollback must be a positive integer", 400),
+      400,
+    );
+  }
+
+  for (const field of ["cols", "rows"] as const) {
+    const value = body[field];
+    if (
+      value !== undefined &&
+      (typeof value !== "number" || value < 1 || !Number.isInteger(value))
+    ) {
+      return c.json(
+        errorResponse(`${field} must be a positive integer`, 400),
+        400,
+      );
+    }
+  }
+
+  let terminal: Awaited<
+    ReturnType<typeof mimoContext.repos.sessions.addTerminal>
+  >;
+  try {
+    terminal = await mimoContext.repos.sessions.addTerminal(sessionId, {
+      name: body.name,
+      assignedAgentId: body.assignedAgentId,
+      command: body.command ?? "/bin/sh",
+      scrollback: body.scrollback,
+      ...(body.cols !== undefined && { cols: body.cols }),
+      ...(body.rows !== undefined && { rows: body.rows }),
+      ...(body.subpath !== undefined && { subpath: body.subpath }),
+    });
+  } catch (error) {
+    return c.json(
+      errorResponse(errorMessage(error, "Failed to add terminal"), 400),
+      400,
+    );
+  }
+
+  await mimoContext.services.agents.sendToAgent(body.assignedAgentId, {
+    type: "terminal_spawn",
+    sessionId,
+    terminalId: terminal.id,
+    subpath: terminal.subpath ?? null,
+    scrollback: terminal.scrollback,
+    cols: terminal.cols,
+    rows: terminal.rows,
+    command: terminal.command,
+  });
+
+  await mimoContext.repos.sessions.touchSessionActivity(sessionId);
+
+  return c.json(
+    successResponse({ terminal: toTerminalResponse(terminal) }),
+    201,
+  );
+}
+
+export async function listTerminalsHandler(
+  c: InternalApiContext,
+): Promise<Response> {
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { mimoContext, session } = guard.value;
+
+  const updated = await mimoContext.repos.sessions.findById(session.id);
+  const terminals = (updated?.terminals ?? []).map(toTerminalResponse);
+
+  return c.json(successResponse({ terminals }));
+}
+
+export async function deleteTerminalHandler(
+  c: InternalApiContext,
+): Promise<Response> {
+  const terminalId = c.req.param("terminalId");
+  if (!terminalId) {
+    return c.json(
+      errorResponse("Terminal ID is required", 400),
+      400,
+    );
+  }
+
+  const guard = await resolveOwnedSession(c);
+  if (!guard.ok) return guard.response;
+  const { mimoContext, session } = guard.value;
+
+  const exists = session.terminals.some((t) => t.id === terminalId);
+  if (!exists) {
+    return c.json(errorResponse("Terminal not found", 404), 404);
+  }
+
+  const terminal = session.terminals.find((t) => t.id === terminalId)!;
+
+  await mimoContext.repos.sessions.removeTerminal(session.id, terminalId);
+
+  if (mimoContext.services.agents.isAgentOnline(terminal.assignedAgentId)) {
+    await mimoContext.services.agents.sendToAgent(terminal.assignedAgentId, {
+      type: "terminal_kill",
+      sessionId: session.id,
+      terminalId,
+    });
+  }
+
+  return c.json(successResponse({ success: true }));
+}

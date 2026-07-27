@@ -209,6 +209,15 @@ export class AgentMessageRouter {
       case "acp_cancelled":
         this.handleAcpCancelled(data);
         break;
+      case "terminal_output":
+        this.handleTerminalOutput(data);
+        break;
+      case "terminal_exited":
+        await this.handleTerminalExited(data);
+        break;
+      case "terminal_spawned":
+        logger.debug("[agent] Terminal spawned:", data.terminalId);
+        break;
       default:
         logger.debug("[agent] Unknown message type:", data.type);
     }
@@ -1215,5 +1224,51 @@ export class AgentMessageRouter {
         }
       }
     }
+  }
+
+  private handleTerminalOutput(data: any): void {
+    const sessionId = data.sessionId;
+    const terminalId = data.terminalId;
+    if (!sessionId || !terminalId) {
+      logger.debug("[terminal_output] Missing sessionId or terminalId");
+      return;
+    }
+    logger.debug(`[terminal_output] router received: terminalId=${terminalId} dataLen=${data.data?.length ?? 0}`);
+    this.deps.broadcast(sessionId, {
+      type: "terminal_output",
+      terminalId,
+      data: data.data,
+    });
+  }
+
+  private async handleTerminalExited(data: any): Promise<void> {
+    const sessionId = data.sessionId;
+    const terminalId = data.terminalId;
+    if (!sessionId || !terminalId) {
+      logger.debug("[terminal_exited] Missing sessionId or terminalId");
+      return;
+    }
+
+    const session = await this.deps.sessionRepository.findById(sessionId);
+    if (!session) {
+      logger.debug("[terminal_exited] Session not found:", sessionId);
+      return;
+    }
+
+    const terminal = session.terminals.find((t) => t.id === terminalId);
+    if (terminal) {
+      const updatedTerminals = session.terminals.map((t) =>
+        t.id === terminalId ? { ...t, state: "dead" as const } : t,
+      );
+      await this.deps.sessionRepository.update(sessionId, {
+        terminals: updatedTerminals,
+      });
+    }
+
+    this.deps.broadcast(sessionId, {
+      type: "terminal_exited",
+      terminalId,
+      exitCode: data.exitCode,
+    });
   }
 }

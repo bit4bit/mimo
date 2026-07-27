@@ -284,6 +284,11 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 modelState,
                 modeState,
               },
+              terminal: {
+                terminals: session.terminals ?? [],
+                activeTerminalId:
+                  (session.terminals ?? []).find((t: any) => t.state === "active")?.id ?? "",
+              },
               edit: {
                 agentWorkspacePath,
               },

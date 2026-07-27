@@ -2720,6 +2720,136 @@ export function createSessionsRoutes(
     }
   });
 
+  // ── Terminal routes ──────────────────────────────────────────────────────
+
+  // GET /:id/terminals — list terminals for a session
+  router.get("/:id/terminals", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+
+    const sessionId = c.req.param("id");
+
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
+
+    const result = await apiClient.get<{ terminals: any[] }>(
+      `/sessions/${sessionId}/terminals`,
+    );
+
+    if (!result.success) {
+      return c.json(
+        { error: `Failed to list terminals: ${result.error}` },
+        result.status,
+      );
+    }
+
+    return c.json({ terminals: result.data.terminals });
+  });
+
+  // POST /:id/terminals — create a terminal
+  router.post("/:id/terminals", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+
+    const sessionId = c.req.param("id");
+
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
+
+    const body = await c.req.json().catch(() => null);
+    if (!body || !body.name) return c.json({ error: "name is required" }, 400);
+    if (
+      typeof body.assignedAgentId !== "string" ||
+      !body.assignedAgentId.trim()
+    ) {
+      return c.json({ error: "assignedAgentId is required" }, 400);
+    }
+
+    const result = await apiClient.post<{ terminal: any }>(
+      `/sessions/${sessionId}/terminals`,
+      {
+        name: body.name,
+        assignedAgentId: body.assignedAgentId,
+        scrollback: body.scrollback ?? 1000,
+        command: body.command ?? "/bin/sh",
+        ...(body.subpath !== undefined && { subpath: body.subpath }),
+      },
+    );
+
+    if (!result.success) {
+      return c.json(
+        { error: `Failed to add terminal: ${result.error}` },
+        result.status,
+      );
+    }
+
+    return c.json(result.data.terminal, 201);
+  });
+
+  // DELETE /:id/terminals/:terminalId — delete a terminal
+  router.delete("/:id/terminals/:terminalId", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+
+    const sessionId = c.req.param("id");
+    const terminalId = c.req.param("terminalId");
+
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+
+    const session = sessionResult.data.session;
+    if (!session || session.owner !== username)
+      return c.json({ error: "Session not found" }, 404);
+
+    const result = await apiClient.delete(
+      `/sessions/${sessionId}/terminals/${terminalId}`,
+    );
+
+    if (!result.success) {
+      return c.json(
+        { error: `Failed to delete terminal: ${result.error}` },
+        result.status,
+      );
+    }
+
+    return c.json({ success: true });
+  });
+
   // Files API - read file content from agent workspace (companion to the list route above)
 
   router.get("/:id/files/content", async (c: Context) => {

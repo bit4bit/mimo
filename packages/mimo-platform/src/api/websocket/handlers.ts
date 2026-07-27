@@ -16,6 +16,7 @@ import type { ImpactCalculator } from "../../domain/impact/calculator.js";
 import type { SccService } from "../../domain/impact/scc-service.js";
 import type { JwtService } from "../../domain/auth/jwt.js";
 import type { FileService } from "../../domain/files/types.js";
+import type { TerminalOutputBuffer } from "./terminal-output-buffer.js";
 import { resolveAtMentions } from "../../domain/chat/resolve-at-mentions.js";
 import { authorizeUse } from "../../domain/agents/sharing.js";
 
@@ -26,6 +27,8 @@ export interface WebSocketHandlerDeps {
   pipeline: ChatStreamingPipeline;
   chatSessions: Map<string, Set<SessionWsClient>>;
   fileWatchSessions: Map<string, Set<any>>;
+  terminalSessions: Map<string, Set<any>>;
+  terminalOutputBuffer: TerminalOutputBuffer;
   calculatingSessions: Set<string>;
   sccService: SccService;
   impactCalculator: ImpactCalculator;
@@ -42,6 +45,8 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
     pipeline,
     chatSessions,
     fileWatchSessions,
+    terminalSessions,
+    terminalOutputBuffer,
     calculatingSessions,
     sccService,
     impactCalculator,
@@ -812,6 +817,8 @@ export function createWebSocketSetup(deps: WebSocketSetupDeps) {
     pipeline,
     chatSessions,
     fileWatchSessions,
+    terminalSessions,
+    terminalOutputBuffer,
     authService,
   } = deps;
 
@@ -961,15 +968,100 @@ export function createWebSocketSetup(deps: WebSocketSetupDeps) {
       return undefined;
     }
 
+    if (type === "terminal") {
+      const sessionId = url.pathname.split("/")[3];
+      const terminalId = url.pathname.split("/")[4];
+      if (!sessionId || !terminalId) {
+        return new Response("Missing sessionId or terminalId", { status: 400 });
+      }
+
+      const session = await sessionRepository.findById(sessionId);
+      if (!session) {
+        logger.debug("[WS] Terminal WebSocket: Session not found", sessionId);
+        return new Response("Session not found", { status: 404 });
+      }
+
+      const cookieHeader = req.headers.get("Cookie") || "";
+      const tokenMatch = cookieHeader.match(/token=([^;]+)/);
+      const token = tokenMatch ? tokenMatch[1] : null;
+
+      if (!token) {
+        logger.debug("[WS] Terminal WebSocket: Missing token");
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      const payload = await authService.verifyToken(token);
+      if (!payload) {
+        logger.debug("[WS] Terminal WebSocket: Invalid token");
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      if (session.owner !== payload.username) {
+        logger.debug("[WS] Terminal WebSocket: Unauthorized", {
+          username: payload.username,
+          owner: session.owner,
+        });
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      logger.debug(
+        "[WS] Terminal WebSocket: Authenticated upgrade for",
+        sessionId,
+        terminalId,
+      );
+
+      const upgraded = server.upgrade(req, {
+        data: {
+          connectionType: "terminal",
+          sessionId,
+          terminalId,
+          url: req.url,
+        },
+      });
+
+      if (!upgraded) {
+        return new Response("WebSocket upgrade failed", { status: 500 });
+      }
+      return undefined;
+    }
+
     return new Response("Unknown WebSocket endpoint", { status: 404 });
   }
 
   const websocket = {
     async message(ws: any, message: any) {
+      const connectionType = ws.data?.connectionType;
+
+      if (connectionType === "terminal") {
+        const sessionId = ws.data.sessionId;
+        const terminalId = ws.data.terminalId;
+        if (!sessionId || !terminalId) return;
+
+        const session = await sessionRepository.findById(sessionId);
+        if (!session) return;
+        const terminal = session.terminals.find((t) => t.id === terminalId);
+        if (!terminal) return;
+
+        const buffer =
+          typeof message === "string"
+            ? new TextEncoder().encode(message)
+            : new Uint8Array(message);
+        const base64 = Buffer.from(buffer).toString("base64");
+        logger.debug(
+          `[terminal-ws] stdin ${buffer.length} bytes for terminalId=${terminalId} -> agent ${terminal.assignedAgentId}`,
+        );
+
+        await agentService.sendToAgent(terminal.assignedAgentId, {
+          type: "terminal_input",
+          sessionId,
+          terminalId,
+          data: base64,
+        });
+        return;
+      }
+
       try {
         const data = JSON.parse(message as string);
-        const connectionType = ws.data?.connectionType;
-
         switch (connectionType) {
           case "agent":
             await wsHandlers.handleAgentMessage(ws, data);
@@ -988,126 +1080,171 @@ export function createWebSocketSetup(deps: WebSocketSetupDeps) {
       }
     },
     async open(ws: any) {
-      const url = new URL(ws.data.url);
-      const type = url.pathname.split("/")[2];
+      try {
+        const url = new URL(ws.data.url);
+        const type = url.pathname.split("/")[2];
 
-      if (type === "chat") {
-        const sessionId = url.pathname.split("/")[3];
-        if (!sessionId) {
-          ws.close(1008, "Missing sessionId");
-          return;
-        }
-        ws.data.connectionType = "chat";
-        ws.data.sessionId = sessionId;
-
-        if (!chatSessions.has(sessionId)) {
-          chatSessions.set(sessionId, new Set());
-        }
-        chatSessions.get(sessionId)!.add(ws);
-
-        const sessionRecord = await sessionRepository.findById(sessionId);
-        const activeThreadId = sessionRecord?.activeChatThreadId;
-
-        const history = await deps.chatService.loadHistory(
-          sessionId,
-          activeThreadId ?? undefined,
-        );
-        ws.send(
-          JSON.stringify({
-            type: "history",
-            messages: history,
-            chatThreadId: activeThreadId,
-          }),
-        );
-
-        const openSnap = pipeline.getStreamingSnapshot(
-          sessionId,
-          activeThreadId ?? undefined,
-        );
-        if (
-          (openSnap.thoughtContent || openSnap.messageContent) &&
-          deps.chatService.isAgentAlive(sessionId)
-        ) {
-          ws.send(
-            JSON.stringify({
-              type: "streaming_state",
-              chatThreadId: activeThreadId,
-              thoughtContent: openSnap.thoughtContent,
-              messageContent: openSnap.messageContent,
-              promptId: openSnap.promptId,
-              timestamp: new Date().toISOString(),
-            }),
+        if (type === "terminal") {
+          logger.debug(
+            `[WS] terminal open: url=${ws.data.url} sessionId=${ws.data.sessionId} terminalId=${ws.data.terminalId}`,
           );
         }
 
-        const openCommands = pipeline.getAvailableCommands(
-          sessionId,
-          activeThreadId ?? undefined,
-        );
-        if (openCommands && openCommands.length > 0) {
+        if (type === "chat") {
+          const sessionId = url.pathname.split("/")[3];
+          if (!sessionId) {
+            ws.close(1008, "Missing sessionId");
+            return;
+          }
+          ws.data.connectionType = "chat";
+          ws.data.sessionId = sessionId;
+
+          if (!chatSessions.has(sessionId)) {
+            chatSessions.set(sessionId, new Set());
+          }
+          chatSessions.get(sessionId)!.add(ws);
+
+          const sessionRecord = await sessionRepository.findById(sessionId);
+          const activeThreadId = sessionRecord?.activeChatThreadId;
+
+          const history = await deps.chatService.loadHistory(
+            sessionId,
+            activeThreadId ?? undefined,
+          );
           ws.send(
             JSON.stringify({
-              type: "available_commands_update",
+              type: "history",
+              messages: history,
               chatThreadId: activeThreadId,
-              commands: openCommands,
-              timestamp: new Date().toISOString(),
             }),
           );
-        }
 
-        // Plan snapshot for the active thread on connect (idle-safe).
-        const openPlan = pipeline.getThreadPlan(
-          sessionId,
-          activeThreadId ?? undefined,
-        );
-        if (openPlan.length > 0) {
-          ws.send(
-            JSON.stringify({
-              type: "plan",
-              chatThreadId: activeThreadId,
-              entries: openPlan,
-              timestamp: new Date().toISOString(),
-            }),
+          const openSnap = pipeline.getStreamingSnapshot(
+            sessionId,
+            activeThreadId ?? undefined,
+          );
+          if (
+            (openSnap.thoughtContent || openSnap.messageContent) &&
+            deps.chatService.isAgentAlive(sessionId)
+          ) {
+            ws.send(
+              JSON.stringify({
+                type: "streaming_state",
+                chatThreadId: activeThreadId,
+                thoughtContent: openSnap.thoughtContent,
+                messageContent: openSnap.messageContent,
+                promptId: openSnap.promptId,
+                timestamp: new Date().toISOString(),
+              }),
+            );
+          }
+
+          const openCommands = pipeline.getAvailableCommands(
+            sessionId,
+            activeThreadId ?? undefined,
+          );
+          if (openCommands && openCommands.length > 0) {
+            ws.send(
+              JSON.stringify({
+                type: "available_commands_update",
+                chatThreadId: activeThreadId,
+                commands: openCommands,
+                timestamp: new Date().toISOString(),
+              }),
+            );
+          }
+
+          // Plan snapshot for the active thread on connect (idle-safe).
+          const openPlan = pipeline.getThreadPlan(
+            sessionId,
+            activeThreadId ?? undefined,
+          );
+          if (openPlan.length > 0) {
+            ws.send(
+              JSON.stringify({
+                type: "plan",
+                chatThreadId: activeThreadId,
+                entries: openPlan,
+                timestamp: new Date().toISOString(),
+              }),
+            );
+          }
+
+          logger.debug(`Chat client connected to session ${sessionId}`);
+        } else if (type === "files") {
+          const sessionId = url.pathname.split("/")[3];
+          if (!sessionId) {
+            ws.close(1008, "Missing sessionId");
+            return;
+          }
+          ws.data.connectionType = "files";
+          ws.data.sessionId = sessionId;
+
+          if (!fileWatchSessions.has(sessionId)) {
+            fileWatchSessions.set(sessionId, new Set());
+          }
+          fileWatchSessions.get(sessionId)!.add(ws);
+
+          logger.debug(`File watcher client connected to session ${sessionId}`);
+        } else if (type === "terminal") {
+          const sessionId = url.pathname.split("/")[3];
+          const terminalId = url.pathname.split("/")[4];
+          if (!sessionId || !terminalId) {
+            ws.close(1008, "Missing sessionId or terminalId");
+            return;
+          }
+          ws.data.connectionType = "terminal";
+          ws.data.sessionId = sessionId;
+          ws.data.terminalId = terminalId;
+
+          try {
+            const key = `${sessionId}:${terminalId}`;
+            if (!terminalSessions.has(key)) {
+              terminalSessions.set(key, new Set());
+            }
+            terminalSessions.get(key)!.add(ws);
+
+            const replay = terminalOutputBuffer.get(sessionId, terminalId);
+            if (replay && replay.length > 0) {
+              ws.send(replay);
+              logger.debug(
+                `[WS] Terminal replay sent: key=${key} bytes=${replay.length}`,
+              );
+            }
+
+            logger.debug(
+              `[WS] Terminal client connected: key=${key} totalConnections=${terminalSessions.get(key)!.size}`,
+            );
+          } catch (err) {
+            logger.error("[WS] Terminal open handler error:", err);
+          }
+        } else {
+          const token = url.searchParams.get("token");
+
+          if (!token) {
+            ws.close(1008, "Missing token");
+            return;
+          }
+
+          const payload = await agentService.verifyAgentToken(token);
+          if (!payload) {
+            ws.close(1008, "Invalid token");
+            return;
+          }
+
+          ws.data.connectionType = "agent";
+          ws.data.agentId = payload.agentId;
+          ws.data.authenticated = true;
+
+          await agentService.handleAgentConnect(payload.agentId, ws);
+          logger.debug(
+            `Agent ${payload.agentId} connected, waiting for agent_ready`,
           );
         }
-
-        logger.debug(`Chat client connected to session ${sessionId}`);
-      } else if (type === "files") {
-        const sessionId = url.pathname.split("/")[3];
-        if (!sessionId) {
-          ws.close(1008, "Missing sessionId");
-          return;
-        }
-        ws.data.connectionType = "files";
-        ws.data.sessionId = sessionId;
-
-        if (!fileWatchSessions.has(sessionId)) {
-          fileWatchSessions.set(sessionId, new Set());
-        }
-        fileWatchSessions.get(sessionId)!.add(ws);
-
-        logger.debug(`File watcher client connected to session ${sessionId}`);
-      } else {
-        const token = url.searchParams.get("token");
-
-        if (!token) {
-          ws.close(1008, "Missing token");
-          return;
-        }
-
-        const payload = await agentService.verifyAgentToken(token);
-        if (!payload) {
-          ws.close(1008, "Invalid token");
-          return;
-        }
-
-        ws.data.connectionType = "agent";
-        ws.data.agentId = payload.agentId;
-        ws.data.authenticated = true;
-
-        await agentService.handleAgentConnect(payload.agentId, ws);
-        logger.debug(
-          `Agent ${payload.agentId} connected, waiting for agent_ready`,
+      } catch (err) {
+        logger.error(
+          `[WS] open handler error for connectionType=${ws.data?.connectionType}:`,
+          err,
         );
       }
     },
@@ -1162,6 +1299,22 @@ export function createWebSocketSetup(deps: WebSocketSetupDeps) {
         await wsHandlers.cleanupFileWatchSession(ws);
         logger.debug(
           `File watcher client disconnected from session ${ws.data.sessionId}`,
+        );
+      } else if (connectionType === "terminal") {
+        const sessionId = ws.data.sessionId;
+        const terminalId = ws.data.terminalId;
+        if (sessionId && terminalId) {
+          const key = `${sessionId}:${terminalId}`;
+          const connections = terminalSessions.get(key);
+          if (connections) {
+            connections.delete(ws);
+            if (connections.size === 0) {
+              terminalSessions.delete(key);
+            }
+          }
+        }
+        logger.debug(
+          `Terminal client disconnected from session ${ws.data.sessionId} terminal ${ws.data.terminalId}`,
         );
       }
     },

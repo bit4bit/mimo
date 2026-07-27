@@ -94,6 +94,11 @@ export class MimoAgent {
   private promptIdsByThread: Map<string, string> = new Map();
   // Session idle timeout from platform config (keyed by sessionId)
   private sessionIdleTimeouts: Map<string, number> = new Map();
+  // Active terminal shell processes keyed by terminalId
+  private terminalProcesses: Map<
+    string,
+    { process: import("child_process").ChildProcess; sessionId: string }
+  > = new Map();
 
   private static readonly CAPABILITY_PROBE_SESSION_ID = "capability-probe";
 
@@ -262,6 +267,18 @@ export class MimoAgent {
 
       case "refresh_capabilities":
         void this.advertiseCapabilities();
+        break;
+
+      case "terminal_spawn":
+        void this.handleTerminalSpawn(message);
+        break;
+
+      case "terminal_input":
+        void this.handleTerminalInput(message);
+        break;
+
+      case "terminal_kill":
+        void this.handleTerminalKill(message);
         break;
 
       default:
@@ -2295,6 +2312,158 @@ export class MimoAgent {
         timestamp: new Date().toISOString(),
       });
     }
+  }
+
+  private async handleTerminalSpawn(message: any): Promise<void> {
+    const { sessionId, terminalId, subpath, command, cols, rows } = message;
+    logger.debug(
+      `[terminal_spawn] received: sessionId=${sessionId} terminalId=${terminalId} subpath=${subpath} command=${command}`,
+    );
+    if (!sessionId || !terminalId) {
+      logger.error("[terminal_spawn] Missing sessionId or terminalId");
+      return;
+    }
+
+    const session = this.sessionManager.getSession(sessionId);
+    if (!session) {
+      logger.error(
+        `[terminal_spawn] No session found for sessionId=${sessionId}. The agent has not received session_ready for this session.`,
+      );
+      this.send({
+        type: "terminal_exited",
+        sessionId,
+        terminalId,
+        exitCode: -1,
+      });
+      return;
+    }
+
+    const baseCwd = session.checkoutPath;
+    const cwd = subpath ? this.os.path.join(baseCwd, subpath) : baseCwd;
+    logger.debug(
+      `[terminal_spawn] cwd=${cwd} checkoutPath=${baseCwd} sessionExists=true`,
+    );
+
+    const cmd = command || "/bin/sh";
+    const sizeCols = Number.isInteger(cols) && cols > 0 ? cols : 80;
+    const sizeRows = Number.isInteger(rows) && rows > 0 ? rows : 24;
+    logger.debug(
+      `[terminal_spawn] spawning: script -qec "stty cols ${sizeCols} rows ${sizeRows}; exec ${cmd}" /dev/null at ${cwd}`,
+    );
+    const { spawn } = await import("child_process");
+    let proc;
+    try {
+      proc = spawn(
+        "script",
+        [
+          "-qec",
+          `stty cols ${sizeCols} rows ${sizeRows}; exec ${cmd}`,
+          "/dev/null",
+        ],
+        {
+          cwd,
+          stdio: ["pipe", "pipe", "pipe"],
+          env: { ...process.env, TERM: "xterm-256color" },
+        },
+      );
+    } catch (err) {
+      logger.error(
+        `[terminal_spawn] Failed to spawn terminal shell at ${cwd}:`,
+        err,
+      );
+      this.send({
+        type: "terminal_exited",
+        sessionId,
+        terminalId,
+        exitCode: -1,
+      });
+      return;
+    }
+
+    proc.on("error", (err: Error) => {
+      logger.error(
+        `[terminal_spawn] Shell process error for ${terminalId}:`,
+        err,
+      );
+      this.send({
+        type: "terminal_exited",
+        sessionId,
+        terminalId,
+        exitCode: -1,
+      });
+      this.terminalProcesses.delete(terminalId);
+    });
+
+    this.terminalProcesses.set(terminalId, { process: proc, sessionId });
+    logger.debug(
+      `[terminal_spawn] Process spawned, pid=${proc.pid}, waiting for output...`,
+    );
+
+    proc.stdout?.on("data", (data: Buffer) => {
+      logger.debug(`[terminal_output] ${terminalId}: ${data.length} bytes`);
+      this.send({
+        type: "terminal_output",
+        sessionId,
+        terminalId,
+        data: data.toString("base64"),
+      });
+    });
+
+    proc.stderr?.on("data", (data: Buffer) => {
+      logger.debug(
+        `[terminal_stderr] ${terminalId}: ${data.toString().trim()}`,
+      );
+    });
+
+    proc.on("close", (code: number | null) => {
+      logger.debug(
+        `[terminal_spawn] Process exited: terminalId=${terminalId} code=${code}`,
+      );
+      this.send({
+        type: "terminal_exited",
+        sessionId,
+        terminalId,
+        exitCode: code ?? -1,
+      });
+      this.terminalProcesses.delete(terminalId);
+    });
+
+    this.send({
+      type: "terminal_spawned",
+      sessionId,
+      terminalId,
+    });
+
+    logger.debug(`[mimo-agent] Terminal ${terminalId} spawned at ${cwd}`);
+  }
+
+  private async handleTerminalInput(message: any): Promise<void> {
+    const { sessionId, terminalId, data } = message;
+    if (!sessionId || !terminalId) return;
+
+    const entry = this.terminalProcesses.get(terminalId);
+    if (!entry) {
+      logger.debug(
+        `[terminal_input] No process found for terminalId=${terminalId}`,
+      );
+      return;
+    }
+
+    const buffer = Buffer.from(data, "base64");
+    logger.debug(
+      `[terminal_input] terminalId=${terminalId} ${buffer.length} bytes`,
+    );
+    entry.process.stdin?.write(buffer);
+  }
+
+  private async handleTerminalKill(message: any): Promise<void> {
+    const { sessionId, terminalId } = message;
+    if (!sessionId || !terminalId) return;
+
+    const entry = this.terminalProcesses.get(terminalId);
+    if (!entry) return;
+
+    entry.process.kill();
   }
 
   private handleSessionConfigUpdated(message: any): void {

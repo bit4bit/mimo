@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { registerBuffer } from "./registry.js";
 import { ChatThreadsBuffer } from "./ChatThreadsBuffer.js";
+import { TerminalBuffer } from "./TerminalBuffer.js";
 import { NotesBuffer } from "./NotesBuffer.js";
 import { FileTreeBuffer } from "./FileTreeBuffer.js";
 import { ImpactBuffer } from "../ImpactBuffer.js";
@@ -23,6 +24,13 @@ export function ensureDefaultBuffersRegistered(): void {
     name: "Chat",
     frame: "left",
     component: ChatThreadsBuffer,
+  });
+
+  registerBuffer({
+    id: "terminal",
+    name: "Terminal",
+    frame: "left",
+    component: TerminalBuffer,
   });
 
   registerBuffer({
@@ -94,6 +102,7 @@ export function ensureDefaultBuffersRegistered(): void {
 export * from "./types.js";
 export * from "./registry.js";
 export * from "./ChatThreadsBuffer.js";
+export * from "./TerminalBuffer.js";
 export * from "./NotesBuffer.js";
 export * from "./FileTreeBuffer.js";
 export * from "./EditBuffer.js";

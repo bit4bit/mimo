@@ -26,6 +26,7 @@ import sessionCloneJs from "../public/js/session-clone.js" with { type: "file" }
 import sessionFinderJs from "../public/js/session-finder.js" with { type: "file" };
 import sessionKeybindingsJs from "../public/js/session-keybindings.js" with { type: "file" };
 import summaryBufferJs from "../public/js/summary-buffer.js" with { type: "file" };
+import terminalJs from "../public/js/terminal.js" with { type: "file" };
 import utilsJs from "../public/js/utils.js" with { type: "file" };
 
 // Vendor files
@@ -33,6 +34,9 @@ import highlightCss from "../public/vendor/highlight/atom-one-dark.min.css" with
 import highlightElixirJs from "../public/vendor/highlight/elixir.min.js" with { type: "file" };
 import highlightJs from "../public/vendor/highlight/highlight.min.js" with { type: "file" };
 import markedJs from "../public/vendor/marked.min.js" with { type: "file" };
+import xtermCss from "../public/vendor/xterm/xterm.css" with { type: "file" };
+import xtermJs from "../public/vendor/xterm/xterm.js" with { type: "file" };
+import xtermFitJs from "../public/vendor/xterm/addon-fit.js" with { type: "file" };
 
 const EMBEDDED_ASSET_PATHS: Record<string, string> = {
   "/js/chat.js": chatJs,
@@ -52,11 +56,15 @@ const EMBEDDED_ASSET_PATHS: Record<string, string> = {
   "/js/session-finder.js": sessionFinderJs,
   "/js/session-keybindings.js": sessionKeybindingsJs,
   "/js/summary-buffer.js": summaryBufferJs,
+  "/js/terminal.js": terminalJs,
   "/js/utils.js": utilsJs,
   "/vendor/highlight/atom-one-dark.min.css": highlightCss,
   "/vendor/highlight/elixir.min.js": highlightElixirJs,
   "/vendor/highlight/highlight.min.js": highlightJs,
   "/vendor/marked.min.js": markedJs,
+  "/vendor/xterm/xterm.css": xtermCss,
+  "/vendor/xterm/xterm.js": xtermJs,
+  "/vendor/xterm/addon-fit.js": xtermFitJs,
 };
 
 /**

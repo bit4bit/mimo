@@ -109,6 +109,15 @@ export const Layout: FC<LayoutProps> = ({
           {sessionId && (
             <script src="/vendor/highlight/elixir.min.js" defer></script>
           )}
+          {sessionId && (
+            <link rel="stylesheet" href="/vendor/xterm/xterm.css" />
+          )}
+          {sessionId && (
+            <script src="/vendor/xterm/xterm.js" defer></script>
+          )}
+          {sessionId && (
+            <script src="/vendor/xterm/addon-fit.js" defer></script>
+          )}
           {sessionId && <script src="/js/diff.js" defer></script>}
           {sessionId && <script src="/js/diff-overview.js" defer></script>}
           {sessionId && <script src="/js/expert-utils.js" defer></script>}
@@ -126,6 +135,7 @@ export const Layout: FC<LayoutProps> = ({
           {sessionId && <script src="/js/file-tree.js" defer></script>}
           {sessionId && <script src="/js/edit-buffer.js" defer></script>}
           {sessionId && <script src="/js/summary-buffer.js" defer></script>}
+          {sessionId && <script src="/js/terminal.js" defer></script>}
           {sessionId && (
             <script src="/js/session-keybindings.js" defer></script>
           )}

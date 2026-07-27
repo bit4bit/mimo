@@ -25,6 +25,9 @@ import {
   deleteChatThreadHandler,
   setActiveChatThreadHandler,
   setActiveExpertThreadHandler,
+  addTerminalHandler,
+  listTerminalsHandler,
+  deleteTerminalHandler,
 } from "./sessions/handlers.js";
 
 /**
@@ -87,6 +90,15 @@ export function createSessionsInternalRouter(_mimoContext: MimoContext): Hono {
 
   // Set active expert thread
   router.post("/:id/active-expert-thread", setActiveExpertThreadHandler);
+
+  // Add terminal
+  router.post("/:id/terminals", addTerminalHandler);
+
+  // List terminals
+  router.get("/:id/terminals", listTerminalsHandler);
+
+  // Delete terminal
+  router.delete("/:id/terminals/:terminalId", deleteTerminalHandler);
 
   return router;
 }

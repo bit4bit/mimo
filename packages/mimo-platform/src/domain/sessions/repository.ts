@@ -34,6 +34,19 @@ export interface ChatThread {
   createdAt: string;
 }
 
+export interface Terminal {
+  id: string;
+  name: string;
+  assignedAgentId: string;
+  command: string;
+  subpath?: string;
+  scrollback: number;
+  cols: number;
+  rows: number;
+  state: "active" | "dead";
+  createdAt: string;
+}
+
 export type SessionPriority = "high" | "medium" | "low";
 
 export interface Session {
@@ -84,6 +97,7 @@ export interface Session {
   createdAt: Date;
   updatedAt: Date;
   browserNotificationsEnabled: boolean;
+  terminals: Terminal[];
 }
 
 export interface SessionData {
@@ -127,6 +141,7 @@ export interface SessionData {
   createdAt: string;
   updatedAt: string;
   browserNotificationsEnabled?: boolean;
+  terminals?: Terminal[];
 }
 
 export interface CreateSessionInput {
@@ -254,6 +269,15 @@ export class SessionRepository {
     return crypto.randomUUID();
   }
 
+  private normalizeTerminals(data: SessionData): Terminal[] {
+    return (data.terminals ?? []).map((t: any) => ({
+      ...t,
+      cols: t.cols ?? 80,
+      rows: t.rows ?? 24,
+      state: t.state ?? "active",
+    }));
+  }
+
   private normalizeChatThreads(data: SessionData): {
     chatThreads: ChatThread[];
     activeChatThreadId: string | null;
@@ -336,6 +360,7 @@ export class SessionRepository {
       chatThreads: [],
       activeChatThreadId: null,
       activeExpertThreadId: null,
+      terminals: [],
       mcpToken,
       createdAt: now,
       updatedAt: now,
@@ -360,6 +385,7 @@ export class SessionRepository {
       chatThreads: sessionData.chatThreads!,
       activeChatThreadId: sessionData.activeChatThreadId ?? null,
       activeExpertThreadId: sessionData.activeExpertThreadId ?? null,
+      terminals: sessionData.terminals ?? [],
       createdAt: new Date(sessionData.createdAt),
       updatedAt: new Date(sessionData.updatedAt),
     };
@@ -397,6 +423,7 @@ export class SessionRepository {
             // Handle MCP Server defaults (backward compatibility)
             const { chatThreads, activeChatThreadId, activeExpertThreadId } =
               this.normalizeChatThreads(data);
+            const terminals = this.normalizeTerminals(data);
             const sessionData = {
               ...data,
               agentWorkspacePath:
@@ -415,6 +442,7 @@ export class SessionRepository {
               mcpToken: data.mcpToken ?? "",
               browserNotificationsEnabled:
                 data.browserNotificationsEnabled ?? false,
+              terminals,
             };
             return {
               ...sessionData,
@@ -444,6 +472,7 @@ export class SessionRepository {
     // Handle ACP Session Parking defaults (backward compatibility)
     const { chatThreads, activeChatThreadId, activeExpertThreadId } =
       this.normalizeChatThreads(data);
+    const terminals = this.normalizeTerminals(data);
     const sessionData = {
       ...data,
       agentWorkspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
@@ -459,6 +488,7 @@ export class SessionRepository {
       activeExpertThreadId,
       mcpToken: data.mcpToken ?? "",
       browserNotificationsEnabled: data.browserNotificationsEnabled ?? false,
+      terminals,
     };
 
     return {
@@ -497,6 +527,7 @@ export class SessionRepository {
           // Handle ACP Session Parking defaults (backward compatibility)
           const { chatThreads, activeChatThreadId, activeExpertThreadId } =
             this.normalizeChatThreads(data);
+          const terminals = this.normalizeTerminals(data);
           const sessionData = {
             ...data,
             agentWorkspacePath:
@@ -514,6 +545,7 @@ export class SessionRepository {
             mcpToken: data.mcpToken ?? "",
             browserNotificationsEnabled:
               data.browserNotificationsEnabled ?? false,
+            terminals,
           };
           sessions.push({
             ...sessionData,
@@ -589,6 +621,7 @@ export class SessionRepository {
                   activeChatThreadId,
                   activeExpertThreadId,
                 } = this.normalizeChatThreads(data);
+                const terminals = this.normalizeTerminals(data);
                 const sessionData = {
                   ...data,
                   agentWorkspacePath:
@@ -606,6 +639,7 @@ export class SessionRepository {
                   mcpToken: data.mcpToken ?? "",
                   browserNotificationsEnabled:
                     data.browserNotificationsEnabled ?? false,
+                  terminals,
                 };
                 if (data.assignedAgentId === agentId) {
                   sessions.push({
@@ -663,6 +697,7 @@ export class SessionRepository {
 
         const { chatThreads, activeChatThreadId, activeExpertThreadId } =
           this.normalizeChatThreads(data);
+        const terminals = this.normalizeTerminals(data);
         sessions.push({
           ...data,
           agentWorkspacePath:
@@ -681,6 +716,7 @@ export class SessionRepository {
           mcpToken: data.mcpToken ?? "",
           browserNotificationsEnabled:
             data.browserNotificationsEnabled ?? false,
+          terminals,
           createdAt: new Date(data.createdAt),
           updatedAt: new Date(data.updatedAt),
         });
@@ -801,6 +837,48 @@ export class SessionRepository {
     }
 
     await this.update(sessionId, updates);
+  }
+
+  async addTerminal(
+    sessionId: string,
+    terminal: Omit<Terminal, "id" | "createdAt" | "state" | "cols" | "rows"> & {
+      state?: "active" | "dead";
+      cols?: number;
+      rows?: number;
+    },
+  ): Promise<Terminal> {
+    const session = await this.findById(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    const newTerminal: Terminal = {
+      id: this.generateId(),
+      createdAt: new Date().toISOString(),
+      state: terminal.state ?? "active",
+      name: terminal.name,
+      assignedAgentId: terminal.assignedAgentId,
+      command: terminal.command ?? "/bin/sh",
+      scrollback: terminal.scrollback,
+      cols: terminal.cols ?? 80,
+      rows: terminal.rows ?? 24,
+      ...(terminal.subpath !== undefined && { subpath: terminal.subpath }),
+    };
+
+    const updatedTerminals = [...session.terminals, newTerminal];
+    await this.update(sessionId, { terminals: updatedTerminals });
+    return newTerminal;
+  }
+
+  async removeTerminal(
+    sessionId: string,
+    terminalId: string,
+  ): Promise<void> {
+    const session = await this.findById(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    const updatedTerminals = session.terminals.filter(
+      (t) => t.id !== terminalId,
+    );
+    await this.update(sessionId, { terminals: updatedTerminals });
   }
 
   async setActiveChatThread(

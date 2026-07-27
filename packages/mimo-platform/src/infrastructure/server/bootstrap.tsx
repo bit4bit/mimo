@@ -30,6 +30,7 @@ import {
   type SessionWsClient,
 } from "../../api/websocket/session-broadcast.js";
 import { createWebSocketSetup } from "../../api/websocket/handlers.js";
+import { TerminalOutputBuffer } from "../../api/websocket/terminal-output-buffer.js";
 import { createSessionDeletionUseCase } from "../../domain/sessions/session-deletion.js";
 import { sweepExpiredInactiveSessions } from "../../domain/sessions/session-retention-sweeper.js";
 import { ChatStreamingPipeline } from "../../domain/sessions/streaming-pipeline.js";
@@ -128,6 +129,8 @@ export async function bootstrapMimoServer(deps: BootstrapDeps) {
   // Shared WebSocket state
   const chatSessions = new Map<string, Set<SessionWsClient>>();
   const fileWatchSessions = new Map<string, Set<any>>();
+  const terminalSessions = new Map<string, Set<any>>();
+  const terminalOutputBuffer = new TerminalOutputBuffer();
   const calculatingSessions = new Set<string>();
 
   const pipeline = new ChatStreamingPipeline(
@@ -142,8 +145,44 @@ export async function bootstrapMimoServer(deps: BootstrapDeps) {
     agentRepository,
     agentService,
     chatSessions,
-    broadcast: (sessionId, message) =>
-      broadcastToSession(chatSessions, sessionId, message),
+    broadcast: (sessionId, message) => {
+      broadcastToSession(chatSessions, sessionId, message);
+      if (
+        message.type === "terminal_output" ||
+        message.type === "terminal_exited"
+      ) {
+        const terminalId = (message as any).terminalId;
+        if (terminalId) {
+          const key = `${sessionId}:${terminalId}`;
+          const connections = terminalSessions.get(key);
+          logger.debug(
+            `[terminal-broadcast] key=${key} connections=${connections?.size ?? 0} type=${message.type}`,
+          );
+          const msgBinary =
+            message.type === "terminal_output"
+              ? Buffer.from((message as any).data ?? "", "base64")
+              : null;
+          if (msgBinary) {
+            terminalOutputBuffer.append(sessionId, terminalId, msgBinary);
+          }
+          if (connections) {
+            const msgStr = JSON.stringify(message);
+            connections.forEach((client: any) => {
+              if (client.readyState === 1) {
+                if (msgBinary && message.type === "terminal_output") {
+                  client.send(msgBinary);
+                } else {
+                  client.send(msgStr);
+                }
+              }
+            });
+          }
+          if (message.type === "terminal_exited") {
+            terminalOutputBuffer.clear(sessionId, terminalId);
+          }
+        }
+      }
+    },
     triggerAutoSync: async (sessionId, reason) => {
       if (agentRouter["autoSyncInFlight"].has(sessionId)) {
         logger.debug(
@@ -205,6 +244,8 @@ export async function bootstrapMimoServer(deps: BootstrapDeps) {
     pipeline,
     chatSessions,
     fileWatchSessions,
+    terminalSessions,
+    terminalOutputBuffer,
     calculatingSessions,
     sccService: mimoContext.services.scc,
     impactCalculator: mimoContext.services.impactCalculator,
