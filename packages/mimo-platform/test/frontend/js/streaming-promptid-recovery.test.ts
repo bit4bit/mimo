@@ -104,4 +104,46 @@ describe("Streaming promptId recovery", () => {
       expect(fnMatch).toBeTruthy();
     });
   });
+
+  describe("shouldAcceptStreamingEvent recovers when currentPromptId is null but eventPromptId is valid", () => {
+    it("accepts the event and adopts eventPromptId as currentPromptId", () => {
+      const fnMatch = source.match(
+        /function shouldAcceptStreamingEvent[\s\S]*?^}/m,
+      );
+      expect(fnMatch).toBeTruthy();
+      const fnBody = fnMatch![0];
+
+      // The recovery branch must run BEFORE the early `return false` that
+      // drops events when currentPromptId is null. Match the null-current
+      // guard block up to the recovery that adopts eventPromptId.
+      const nullBlock = fnBody.match(
+        /if \(!ChatState\.currentPromptId\) \{[\s\S]*?\n  \}/,
+      );
+      expect(nullBlock).toBeTruthy();
+
+      // Within the null-current guard, when eventPromptId is a valid string
+      // the function should adopt it and return true (recovering the stream)
+      // rather than unconditionally returning false.
+      const nullGuard = nullBlock![0];
+      const recovery = nullGuard.match(
+        /typeof eventPromptId === "string" && eventPromptId\.length > 0[\s\S]*?ChatState\.currentPromptId = eventPromptId[\s\S]*?return true;/,
+      );
+      expect(recovery).toBeTruthy();
+    });
+
+    it("still requests state when eventPromptId is absent and streaming is active", () => {
+      const fnMatch = source.match(
+        /function shouldAcceptStreamingEvent[\s\S]*?^}/m,
+      );
+      expect(fnMatch).toBeTruthy();
+      const fnBody = fnMatch![0];
+      const nullBlock = fnBody.match(
+        /if \(!ChatState\.currentPromptId\) \{[\s\S]*?\n  \}/,
+      );
+      expect(nullBlock).toBeTruthy();
+      const nullGuard = nullBlock![0];
+      expect(nullGuard).toContain('type: "request_state"');
+      expect(nullGuard).toContain("ChatState.replayRequested = true");
+    });
+  });
 });

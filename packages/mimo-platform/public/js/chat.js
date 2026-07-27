@@ -1507,6 +1507,17 @@ function shouldAcceptStreamingEvent(data) {
   const eventPromptId = data.promptId;
 
   if (!ChatState.currentPromptId) {
+    if (typeof eventPromptId === "string" && eventPromptId.length > 0) {
+      console.warn(
+        `[stream-protocol] ${eventType} recovered: currentPromptId was null, adopting ${eventPromptId}`,
+        { sessionId: data.sessionId, chatThreadId: data.chatThreadId },
+      );
+      ChatState.currentPromptId = eventPromptId;
+      ChatState.replayRequested = false;
+      maybeExtendPendingPromptCompletion(eventPromptId);
+      return true;
+    }
+
     if (ChatState.streaming.messageElement && !ChatState.replayRequested) {
       console.warn(
         `[stream-protocol] ${eventType} rejected: currentPromptId is null, requesting state`,
