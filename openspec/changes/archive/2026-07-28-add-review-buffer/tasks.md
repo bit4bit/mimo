@@ -72,3 +72,13 @@
 - [ ] 9.6 Manual: confirm the Review shows all agent work since the session root commit, including files that were selectively committed (and thus no longer in the Commit preview)
 - [x] 9.7 Run `bun run test.full` in `packages/mimo-platform`; confirm the full suite passes
 - [x] 9.8 Run `bun run lint` and any typecheck command in `packages/mimo-platform`; resolve any issues
+
+## 10. GitHub-style compare and compact tree
+
+- [x] 10.1 Write failing component test for the Review buffer compare bar showing base branch → current branch with `initial`/`current` fallbacks
+- [x] 10.2 Write failing integration assertion that the Review tree pane uses compact fixed-width CSS and reduced nesting indentation
+- [x] 10.3 Implement the compare bar in `ReviewBuffer.tsx`, pass project/session branch props from `SessionDetailPage.tsx`, and add compare-bar styling/help text
+- [x] 10.4 Reduce the Review tree pane width and indentation in `SessionDetailPage.tsx` CSS so the diff pane gets more space
+- [x] 10.5 Run focused Review buffer tests, then `bun test`, `bun run typecheck`, and available lint checks for `packages/mimo-platform`
+- [x] 10.6 Reduce Review tree depth indentation to one space (`1ch`) per level and update the compact-tree assertion
+- [x] 10.7 Compact Review tree row chrome (row gap, toggle width, leaf spacer, and status badge width) so child rows do not push content right

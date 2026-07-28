@@ -2,9 +2,16 @@
 import type { FC } from "hono/jsx";
 import type { BufferProps } from "./types.js";
 
-interface ReviewBufferProps extends BufferProps {}
+interface ReviewBufferProps extends BufferProps {
+  baseBranch?: string;
+  headBranch?: string;
+}
 
-export const ReviewBuffer: FC<ReviewBufferProps> = ({ sessionId }) => {
+export const ReviewBuffer: FC<ReviewBufferProps> = ({
+  sessionId,
+  baseBranch,
+  headBranch,
+}) => {
   return (
     <div
       id="review-panel"
@@ -39,6 +46,14 @@ export const ReviewBuffer: FC<ReviewBufferProps> = ({ sessionId }) => {
           <span class="file-status file-status--deleted">-</span>
           <span id="review-summary-deleted">0</span>
         </span>
+      </div>
+
+      <div class="review-compare" data-help-id="review-buffer-compare">
+        <span class="review-compare-label">base</span>
+        <span class="review-compare-ref">{baseBranch ?? "initial"}</span>
+        <span class="review-compare-arrow">→</span>
+        <span class="review-compare-label">current</span>
+        <span class="review-compare-ref">{headBranch ?? "current"}</span>
       </div>
 
       <div class="review-split">

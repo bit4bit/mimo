@@ -113,7 +113,12 @@ export const defaultHelpContent: HelpContent = {
   "review-tab-button": {
     title: "Review Tab",
     content:
-      "Click to view the Review buffer. The Review buffer shows a GitHub-style review of all agent work in this session: a tree of changed files (added, modified, and deleted) on the left and a unified diff of the selected file on the right. The diff covers everything from the session's root commit to the current HEAD, so it includes files that were already committed.",
+      "Click to view the Review buffer. The Review buffer shows a GitHub-style review of all agent work in this session: a tree of changed files (added, modified, and deleted) on the left and a unified diff of the selected file on the right. The compare bar shows the initial project branch state on the left and the current session branch on the right.",
+  },
+  "review-buffer-compare": {
+    title: "Compare Range",
+    content:
+      "Shows the review comparison like a GitHub compare view: the left ref is the initial project-branch state the session started from, and the right ref is the current session branch. The diff below covers everything between those two states.",
   },
   "review-buffer-refresh-btn-button": {
     title: "Refresh Review",

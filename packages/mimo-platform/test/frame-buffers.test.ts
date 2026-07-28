@@ -251,6 +251,35 @@ describe("Frame buffers integration", () => {
     expect(reviewIndex).toBeGreaterThan(commitIndex);
   });
 
+  it("keeps the Review tree pane compact so the diff pane gets the width", async () => {
+    const { app, project, token, sessionId } = await createSessionAppAndAuth();
+
+    const res = await app.request(
+      `/projects/${project.id}/sessions/${sessionId}`,
+      {
+        method: "GET",
+        headers: { Cookie: `token=${token}` },
+      },
+    );
+
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain(".review-tree-pane {");
+    expect(html).toContain("flex: 0 0 260px");
+    expect(html).toContain(".review-tree-pane .tree-children {");
+    expect(html).toContain("margin-left: 1ch");
+    expect(html).toContain(".review-tree-pane .tree-node--file");
+    expect(html).toContain("padding-left: 1ch");
+    expect(html).toContain(".review-tree-pane .tree-node-row {");
+    expect(html).toContain("gap: 2px");
+    expect(html).toContain(".review-tree-pane .tree-toggle {");
+    expect(html).toContain("width: 8px");
+    expect(html).toContain(".review-tree-pane .tree-toggle--spacer {");
+    expect(html).toContain("width: 0");
+    expect(html).toContain(".review-tree-pane .file-status {");
+    expect(html).toContain("min-width: 8px");
+  });
+
   it("renders the Review buffer client script tag", async () => {
     const { app, project, token, sessionId } = await createSessionAppAndAuth();
 

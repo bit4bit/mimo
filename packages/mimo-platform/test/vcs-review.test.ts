@@ -81,6 +81,8 @@ describe("VCS resolveRootCommit", () => {
 
     // Add an agent commit on top.
     os.fs.writeFile(join(checkout, "new.txt"), "agent work\n");
+    await run(os, ["git", "config", "user.email", "a@b.c"], checkout);
+    await run(os, ["git", "config", "user.name", "a"], checkout);
     await run(os, ["git", "add", "-A"], checkout);
     await run(os, ["git", "commit", "-qm", "agent change"], checkout);
 

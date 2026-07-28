@@ -13,10 +13,12 @@ The session page SHALL display two frames side-by-side:
 
 Each buffer SHALL register with:
 
-- `id`: Unique identifier (e.g., 'chat', 'impact', 'notes')
+- `id`: Unique identifier (e.g., 'chat', 'impact', 'notes', 'review')
 - `name`: Display name shown in tabs
 - `frame`: 'left' or 'right' - which frame this buffer belongs to
 - `component`: React component that renders the buffer content
+
+The left-frame buffer registration order SHALL be: Chat, Terminal, Edit, Patches, Commit, Review.
 
 ### R3: Tab Bar
 
@@ -55,8 +57,8 @@ New sessions SHALL have default frame state:
 
 Buffer assignment SHALL default to:
 
-- Left frame: Chat
-- Right frame: Impact, Notes
+- Left frame: Chat, Terminal, Edit, Patches, Commit, Review
+- Right frame: Impact, Notes, FileTree
 
 ### R7: Buffer Components
 

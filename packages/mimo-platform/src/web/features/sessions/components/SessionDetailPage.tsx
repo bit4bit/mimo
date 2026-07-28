@@ -21,6 +21,7 @@ interface Project {
   name: string;
   color?: string;
   iconGlyph?: string;
+  sourceBranch?: string;
 }
 
 interface Session {
@@ -300,6 +301,10 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
               },
               edit: {
                 agentWorkspacePath,
+              },
+              review: {
+                baseBranch: project.sourceBranch,
+                headBranch: session.branch,
               },
             }}
           />
@@ -1751,19 +1756,60 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
           align-items: center;
           gap: 4px;
         }
+        .review-compare {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 12px;
+          background: #1b1b1b;
+          border-bottom: 1px solid #333;
+          color: #9ecbff;
+          font-family: monospace;
+          font-size: 11px;
+          flex-shrink: 0;
+        }
+        .review-compare-label {
+          color: #888;
+        }
+        .review-compare-ref {
+          color: #d4d4d4;
+        }
+        .review-compare-arrow {
+          color: #74c0fc;
+        }
         .review-split {
           display: flex;
           flex: 1;
           min-height: 0;
         }
         .review-tree-pane {
-          flex: 0 0 38%;
-          min-width: 160px;
-          max-width: 50%;
+          flex: 0 0 260px;
+          min-width: 180px;
+          max-width: 320px;
           overflow-y: auto;
           border-right: 1px solid #333;
           padding: 6px 4px;
           font-size: 13px;
+        }
+        .review-tree-pane .tree-children {
+          margin-left: 1ch;
+        }
+        .review-tree-pane .tree-node--file > .tree-node-row {
+          padding-left: 1ch;
+        }
+        .review-tree-pane .tree-node-row {
+          gap: 2px;
+          padding: 1px 0;
+        }
+        .review-tree-pane .tree-toggle {
+          width: 8px;
+          height: 14px;
+        }
+        .review-tree-pane .tree-toggle--spacer {
+          width: 0;
+        }
+        .review-tree-pane .file-status {
+          min-width: 8px;
         }
         .review-diff-pane {
           flex: 1;

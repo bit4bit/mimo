@@ -24,11 +24,24 @@ The Review buffer SHALL render an internal horizontal split: a tree of only chan
 - **THEN** the buffer SHALL render a file tree in the left pane and an empty-state message ("Select a file to view its diff") in the right pane
 - **AND** the summary header SHALL display the counts of added, modified, and deleted files
 
+#### Scenario: Compare bar shows the GitHub-style base and current refs
+
+- **WHEN** the Review buffer renders
+- **THEN** a compare bar SHALL show the initial project-branch state as the base ref and the current session branch as the current ref
+- **AND** when branch names are unavailable it SHALL fall back to `initial` and `current`
+
 #### Scenario: Empty diff state
 
 - **WHEN** the Review buffer is active and the review diff response contains an empty `files` array
 - **THEN** both panes SHALL display an empty-state message ("No changes in this session yet")
 - **AND** the summary header SHALL display zero counts for added, modified, and deleted
+
+#### Scenario: Compact tree pane leaves width for the diff
+
+- **WHEN** the Review buffer renders its horizontal split
+- **THEN** the left changed-file tree pane SHALL use a compact fixed width (260px, within a 180px–320px range) instead of a large percentage of the buffer
+- **AND** each tree depth SHALL add only one space (`1ch`) of indentation so deep paths do not consume excessive horizontal space
+- **AND** tree row chrome (toggle, spacer, gaps, and status badge) SHALL be compact so child rows do not push content unnecessarily to the right
 
 ### Requirement: Changed-file tree includes added, modified, and deleted files
 
