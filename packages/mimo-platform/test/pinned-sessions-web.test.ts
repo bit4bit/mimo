@@ -25,8 +25,8 @@ function createTestApp(ctx: any): Hono {
     fetchFn: (url: string | URL | Request, init?: RequestInit) => {
       const urlStr = url.toString();
       if (urlStr.includes("/api/internal/")) {
-        const path = new URL(urlStr).pathname;
-        return router.request(path, init);
+        const parsed = new URL(urlStr);
+        return router.request(parsed.pathname + parsed.search, init);
       }
       return fetch(url, init);
     },
@@ -37,8 +37,8 @@ function createTestApp(ctx: any): Hono {
     fetchFn: (url: string | URL | Request, init?: RequestInit) => {
       const urlStr = url.toString();
       if (urlStr.includes("/api/internal/")) {
-        const path = new URL(urlStr).pathname;
-        return router.request(path, init);
+        const parsed = new URL(urlStr);
+        return router.request(parsed.pathname + parsed.search, init);
       }
       return fetch(url, init);
     },
@@ -235,6 +235,180 @@ describe("Pinned Sessions Web Routes", () => {
     // Default href (before JS runs) still targets /pinned.
     expect(html).toMatch(/id="pinned-drawer-parallel-link"[^>]*href="\/pinned"/);
   });
+
+  it("renders the parallel group chip toolbar with the user's groups", async () => {
+    // Use a fresh user so prior tests' pins don't affect the chip set.
+    const token = await mimoContext.services.auth.generateToken("chiptoolbar");
+    const sCx = await mimoContext.repos.sessions.create({
+      name: "Client X Session",
+      projectId: testProjectId,
+      owner: "user1",
+    });
+    const sDocs = await mimoContext.repos.sessions.create({
+      name: "Docs Session",
+      projectId: testProjectId,
+      owner: "user1",
+    });
+    await mimoContext.repos.pinnedSessions.add("chiptoolbar", {
+      sessionId: sCx.id,
+      projectId: testProjectId,
+      group: "client-x",
+    });
+    await mimoContext.repos.pinnedSessions.add("chiptoolbar", {
+      sessionId: sDocs.id,
+      projectId: testProjectId,
+      group: "docs",
+    });
+
+    const res = await app.fetch(
+      new Request("http://localhost/pinned", {
+        headers: { Cookie: `token=${token}` },
+      }),
+    );
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain("pinned-parallel-group-chips");
+    expect(html).toContain('data-group-chip="all"');
+    expect(html).toContain('data-group-chip="client-x"');
+    expect(html).toContain('data-group-chip="docs"');
+    // All is active by default.
+    const allChip = html.match(/<a[^>]*data-group-chip="all"[^>]*>/);
+    expect(allChip).not.toBeNull();
+    expect(allChip![0]).toMatch(/class="[^"]*\bactive\b/);
+  });
+
+  it("filters parallel columns to the active ?group= and marks its chip active", async () => {
+    const token = await mimoContext.services.auth.generateToken("groupfilter");
+    const sCx = await mimoContext.repos.sessions.create({
+      name: "Client Filter Session",
+      projectId: testProjectId,
+      owner: "user1",
+    });
+    const sDocs = await mimoContext.repos.sessions.create({
+      name: "Docs Filter Session",
+      projectId: testProjectId,
+      owner: "user1",
+    });
+    await mimoContext.repos.pinnedSessions.add("groupfilter", {
+      sessionId: sCx.id,
+      projectId: testProjectId,
+      group: "client-x",
+    });
+    await mimoContext.repos.pinnedSessions.add("groupfilter", {
+      sessionId: sDocs.id,
+      projectId: testProjectId,
+      group: "docs",
+    });
+
+    const res = await app.fetch(
+      new Request("http://localhost/pinned?group=client-x", {
+        headers: { Cookie: `token=${token}` },
+      }),
+    );
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    // The client-x column is rendered.
+    expect(html).toContain(
+      `/projects/${testProjectId}/sessions/${sCx.id}?embed=1`,
+    );
+    // The docs column is NOT rendered.
+    expect(html).not.toContain(
+      `/projects/${testProjectId}/sessions/${sDocs.id}?embed=1`,
+    );
+    // The client-x chip is active.
+    const cxChip = html.match(
+      /<a[^>]*data-group-chip="client-x"[^>]*>/,
+    );
+    expect(cxChip).not.toBeNull();
+    expect(cxChip![0]).toMatch(/class="[^"]*\bactive\b/);
+    // The All chip is no longer active.
+    const allChip = html.match(
+      /<a[^>]*data-group-chip="all"[^>]*>/,
+    );
+    expect(allChip).not.toBeNull();
+    expect(allChip![0]).not.toMatch(/\bactive\b/);
+  });
+
+  it("clicking a group chip from /pinned?ids= shows the group's pins (not the empty state)", async () => {
+    // Regression: previously, chips composed with ?ids= and the empty
+    // state fired when the drawer selection didn't intersect the group.
+    const token = await mimoContext.services.auth.generateToken(
+      "chipfromdrawer",
+    );
+    const sCx = await mimoContext.repos.sessions.create({
+      name: "Chip From Drawer Session",
+      projectId: testProjectId,
+      owner: "user1",
+    });
+    const sDocs = await mimoContext.repos.sessions.create({
+      name: "Chip From Drawer Docs",
+      projectId: testProjectId,
+      owner: "user1",
+    });
+    await mimoContext.repos.pinnedSessions.add("chipfromdrawer", {
+      sessionId: sCx.id,
+      projectId: testProjectId,
+      group: "client-x",
+    });
+    await mimoContext.repos.pinnedSessions.add("chipfromdrawer", {
+      sessionId: sDocs.id,
+      projectId: testProjectId,
+      group: "docs",
+    });
+
+    // The drawer sends the user here with only the docs session selected.
+    const res = await app.fetch(
+      new Request(
+        `http://localhost/pinned?ids=${sDocs.id}&group=client-x`,
+        { headers: { Cookie: `token=${token}` } },
+      ),
+    );
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    // The group filter wins: all pins in the group render, regardless of
+    // the drawer's ?ids= selection. The empty state must not fire.
+    expect(html).toContain(
+      `/projects/${testProjectId}/sessions/${sCx.id}?embed=1`,
+    );
+    expect(html).not.toContain("Select at least one session");
+  });
+
+  it("group chips drop ?ids= from their hrefs so chip clicks reset the drawer selection", async () => {
+    const token = await mimoContext.services.auth.generateToken("chiphref");
+    const sCx = await mimoContext.repos.sessions.create({
+      name: "Chip Href Session",
+      projectId: testProjectId,
+      owner: "user1",
+    });
+    await mimoContext.repos.pinnedSessions.add("chiphref", {
+      sessionId: sCx.id,
+      projectId: testProjectId,
+      group: "client-x",
+    });
+
+    const res = await app.fetch(
+      new Request(
+        `http://localhost/pinned?ids=${sCx.id}`,
+        { headers: { Cookie: `token=${token}` } },
+      ),
+    );
+    const html = await res.text();
+    // Every chip href is just the group (or /pinned for All), with no ids=.
+    // Extract hrefs from chip <a> tags regardless of attribute order.
+    const chipHrefs = Array.from(
+      html.matchAll(
+        /<a\s+([^>]*\bdata-group-chip="[^"]+")[^>]*>/g,
+      ),
+    ).map((m) => {
+      const attrs = m[1];
+      const hrefMatch = attrs.match(/\bhref="([^"]+)"/);
+      return hrefMatch ? hrefMatch[1] : null;
+    }).filter((h): h is string => h !== null);
+    expect(chipHrefs.length).toBeGreaterThan(0);
+    for (const href of chipHrefs) {
+      expect(href).not.toContain("ids=");
+    }
+  });
 });
 
 describe("Session page embed mode", () => {
@@ -385,5 +559,32 @@ describe("Session page embed mode", () => {
     expect(checkboxMatch).not.toBeNull();
     const opening = checkboxMatch![0].replace(/onchange="[^"]*"/, "");
     expect(opening).not.toMatch(/\bchecked\b/);
+  });
+
+  it("renders the inline pin-group picker with data-pin-groups when the session is pinned", async () => {
+    await mimoContext.repos.pinnedSessions.add("user1", {
+      sessionId: testSessionId,
+      projectId: testProjectId,
+      group: "client-x",
+    });
+    const res = await app.fetch(
+      authed(
+        `http://localhost/projects/${testProjectId}/sessions/${testSessionId}`,
+      ),
+    );
+    const html = await res.text();
+    expect(html).toContain('id="pin-groups-root"');
+    expect(html).toContain("client-x");
+  });
+
+  it("suppresses the pin-group picker in embed mode", async () => {
+    const res = await app.fetch(
+      authed(
+        `http://localhost/projects/${testProjectId}/sessions/${testSessionId}?embed=1`,
+      ),
+    );
+    const html = await res.text();
+    expect(html).not.toContain('id="pin-groups-root"');
+    expect(html).not.toContain('id="session-pin-checkbox"');
   });
 });

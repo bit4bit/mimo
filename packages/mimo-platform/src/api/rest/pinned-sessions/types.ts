@@ -6,6 +6,12 @@
 export interface CreatePinRequest {
   sessionId: string;
   projectId: string;
+  /**
+   * Optional group label. When omitted or empty after trim, defaults to
+   * the literal string `"Ungrouped"`. The same session may be pinned
+   * under multiple different groups (each becomes its own row).
+   */
+  group?: string;
 }
 
 export interface ReorderPinsRequest {
@@ -17,6 +23,8 @@ export interface PinListEntryResponse {
   projectId: string;
   sessionTitle: string | null;
   branch: string | null;
+  /** The entry's group label, in the user's typed casing. */
+  group: string;
   /** True when the referenced session no longer exists on disk. */
   stale: boolean;
 }

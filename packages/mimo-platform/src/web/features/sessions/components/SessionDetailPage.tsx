@@ -101,6 +101,8 @@ interface SessionDetailProps {
   embed?: boolean;
   /** Whether this session is currently in the user's pin store. */
   isPinned?: boolean;
+  /** The list of group labels this session is currently pinned in. */
+  pinGroups?: string[];
 }
 
 function toEmacsNotation(binding: string): string {
@@ -184,6 +186,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   backUrl,
   embed = false,
   isPinned = false,
+  pinGroups = [],
 }) => {
   ensureDefaultBuffersRegistered();
   const leftBuffers = getBuffersForFrame("left");
@@ -229,6 +232,14 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       <label for="session-pin-checkbox" class="pin-checkbox-label">
         pin
       </label>
+      <div
+        id="pin-groups-root"
+        class="pin-groups-root"
+        data-help-id="session-detail-page-pin-group-picker"
+        data-session-id={session.id}
+        data-project-id={project.id}
+        data-pin-groups={JSON.stringify(pinGroups)}
+      ></div>
       <span id="pin-error-inline" class="pin-error-inline"></span>
     </span>
   );

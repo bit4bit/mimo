@@ -118,8 +118,15 @@
       branchSpan.innerHTML = "&#8637; " + escapeHtml(pin.branch);
     }
 
+    var groupSpan = document.createElement("span");
+    groupSpan.className = "pinned-drawer-entry-group";
+    if (pin.group) {
+      groupSpan.textContent = "group: " + pin.group;
+    }
+
     textCol.appendChild(titleSpan);
     textCol.appendChild(branchSpan);
+    textCol.appendChild(groupSpan);
 
     outer.appendChild(cb);
     outer.appendChild(textCol);

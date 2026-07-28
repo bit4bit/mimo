@@ -847,14 +847,17 @@ export function createSessionsRoutes(
 
       // Resolve pin state for the current user (best-effort; ignore failures).
       let isPinned = false;
+      let pinGroups: string[] = [];
       if (!embed) {
         const pinsResult = await apiClient.get<PinListResponse>(
           `/users/${username}/pinned-sessions`,
         );
         if (pinsResult.success) {
-          isPinned = pinsResult.data.pins.some(
+          const matches = pinsResult.data.pins.filter(
             (p) => p.sessionId === session.id,
           );
+          isPinned = matches.length > 0;
+          pinGroups = matches.map((p) => p.group);
         }
       }
 
@@ -887,6 +890,7 @@ export function createSessionsRoutes(
           backUrl={`/projects?selected=${session.projectId}`}
           embed={embed}
           isPinned={isPinned}
+          pinGroups={pinGroups}
         />,
       );
     } catch (error) {

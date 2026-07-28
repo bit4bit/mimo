@@ -8,6 +8,7 @@ export interface PinnedParallelEntry {
   projectId: string;
   sessionTitle: string | null;
   branch: string | null;
+  group: string;
   stale: boolean;
 }
 
@@ -25,6 +26,30 @@ interface PinnedParallelPageProps {
    * opened directly without selection.
    */
   selectionProvided?: boolean;
+  /**
+   * The list of distinct group labels the user has across all pins. The
+   * parallel page renders one chip per group, in addition to an `All` chip.
+   * Deduplicated case-insensitively (first-seen casing preserved).
+   */
+  groups?: string[];
+  /**
+   * The current group filter (`?group=`) or null when no filter is active.
+   * The chip matching this label is rendered with the active style; when
+   * null, the `All` chip is active.
+   */
+  activeGroup?: string | null;
+}
+
+/**
+ * Build the URL for a group chip. Group chips reset the drawer's `?ids=`
+ * selection — clicking a chip means "show me all pins in this group", a
+ * fresh view. Without this, a chip click from `/pinned?ids=foo,bar` lands
+ * on `/pinned?ids=foo,bar&group=baz` and the empty-state fires when the
+ * selected ids aren't in the group.
+ */
+function buildChipHref(group: string | null): string {
+  if (group === null) return "/pinned";
+  return `/pinned?group=${encodeURIComponent(group)}`;
 }
 
 /**
@@ -39,6 +64,8 @@ export const PinnedParallelPage: FC<PinnedParallelPageProps> = ({
   pins,
   hasPins = true,
   selectionProvided = false,
+  groups = [],
+  activeGroup = null,
 }) => {
   if (pins.length === 0) {
     const message =
@@ -57,11 +84,38 @@ export const PinnedParallelPage: FC<PinnedParallelPageProps> = ({
     );
   }
 
+  const isActive = (g: string | null) =>
+    g === null
+      ? activeGroup === null
+      : activeGroup !== null && activeGroup.toLowerCase() === g.toLowerCase();
+
   return (
     <Layout title="Pinned Sessions">
       <div class="pinned-parallel-container">
         <div class="pinned-parallel-toolbar">
           <span class="pinned-parallel-title">Pinned Sessions</span>
+          <nav
+            class="pinned-parallel-group-chips"
+            data-help-id="pinned-parallel-group-chips"
+            aria-label="Filter pinned sessions by group"
+          >
+            <a
+              href={buildChipHref(null)}
+              class={`pinned-parallel-group-chip${isActive(null) ? " active" : ""}`}
+              data-group-chip="all"
+            >
+              All
+            </a>
+            {groups.map((g) => (
+              <a
+                href={buildChipHref(g)}
+                class={`pinned-parallel-group-chip${isActive(g) ? " active" : ""}`}
+                data-group-chip={g}
+              >
+                {g}
+              </a>
+            ))}
+          </nav>
           <a href="/dashboard">Back to dashboard</a>
         </div>
         <div class="pinned-parallel-columns" id="pinned-parallel-columns">

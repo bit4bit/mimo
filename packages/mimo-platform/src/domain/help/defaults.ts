@@ -180,4 +180,14 @@ export const defaultHelpContent: HelpContent = {
     content:
       "Remove this session from your pinned list. The column is removed from the parallel view immediately.",
   },
+  "pinned-parallel-group-chips": {
+    title: "Filter by Group",
+    content:
+      "Click a group chip to filter the parallel view to only the pinned sessions in that group. The 'All' chip clears the filter. The chip set is derived from your current pin list; a group disappears when you remove its last pin. The selected group is encoded in the URL (?group=<name>) so back/forward and shared links work.",
+  },
+  "session-detail-page-pin-group-picker": {
+    title: "Pin Groups",
+    content:
+      "When the session is pinned, each chip is a group this session belongs to. Click × to remove the session from that group. Click '+ add group' to pin this session under another group, typing either a new name or selecting one of your existing groups. Removing the last chip unpins the session. The 5-entry pin cap counts all group rows for the session.",
+  },
 };

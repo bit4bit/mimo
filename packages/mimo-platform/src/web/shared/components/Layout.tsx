@@ -1477,6 +1477,154 @@ export const Layout: FC<LayoutProps> = ({
               text-decoration: none;
               font-size: 14px;
             }
+
+            /* Inline pin-group picker on the session page */
+            .pin-groups-root {
+              display: inline-flex;
+              flex-wrap: wrap;
+              gap: 4px;
+              align-items: center;
+              margin-left: 8px;
+              vertical-align: middle;
+            }
+            .pin-group-chip {
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              padding: 1px 4px 1px 8px;
+              background: #2d2d2d;
+              border: 1px solid #555;
+              border-radius: 999px;
+              color: #d4d4d4;
+              font-size: 11px;
+              font-family: monospace;
+            }
+            .pin-group-chip.active {
+              background: #1f3a5f;
+              border-color: #74c0fc;
+              color: #d4e4ff;
+            }
+            .pin-group-chip-label {
+              white-space: nowrap;
+              max-width: 160px;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .pin-group-chip-remove {
+              background: transparent;
+              border: none;
+              color: #888;
+              cursor: pointer;
+              font-family: monospace;
+              font-size: 12px;
+              line-height: 1;
+              padding: 0 2px;
+            }
+            .pin-group-chip-remove:hover { color: #ff6b6b; }
+            .pin-group-add {
+              display: inline-flex;
+              align-items: center;
+            }
+            .pin-group-add-btn {
+              background: transparent;
+              border: 1px dashed #555;
+              color: #888;
+              cursor: pointer;
+              font-family: monospace;
+              font-size: 11px;
+              padding: 1px 8px;
+              border-radius: 999px;
+            }
+            .pin-group-add-btn:hover { color: #d4d4d4; border-color: #888; }
+            .pin-group-empty-hint {
+              color: #888;
+              font-size: 11px;
+              font-style: italic;
+            }
+            .pin-group-typeahead {
+              display: inline-flex;
+              flex-direction: column;
+              gap: 4px;
+              background: #2d2d2d;
+              border: 1px solid #555;
+              border-radius: 4px;
+              padding: 6px;
+              position: relative;
+              z-index: 10;
+            }
+            .pin-group-typeahead-input {
+              background: #1a1a1a;
+              border: 1px solid #555;
+              color: #d4d4d4;
+              font-family: monospace;
+              font-size: 12px;
+              padding: 3px 6px;
+              border-radius: 3px;
+              min-width: 180px;
+            }
+            .pin-group-typeahead-list {
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+              max-height: 160px;
+              overflow-y: auto;
+            }
+            .pin-group-typeahead-option {
+              background: transparent;
+              border: none;
+              color: #d4d4d4;
+              font-family: monospace;
+              font-size: 12px;
+              padding: 3px 6px;
+              text-align: left;
+              cursor: pointer;
+              border-radius: 3px;
+            }
+            .pin-group-typeahead-option:hover { background: #3a3a3a; }
+            .pin-group-typeahead-create-hint {
+              color: #888;
+              font-size: 11px;
+              font-style: italic;
+              padding: 2px 6px;
+            }
+
+            /* Parallel-page group chip toolbar */
+            .pinned-parallel-group-chips {
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+              flex: 1;
+              flex-wrap: wrap;
+            }
+            .pinned-parallel-group-chip {
+              display: inline-block;
+              padding: 2px 10px;
+              border: 1px solid #555;
+              border-radius: 999px;
+              color: #d4d4d4;
+              font-family: monospace;
+              font-size: 11px;
+              text-decoration: none;
+              background: #2d2d2d;
+            }
+            .pinned-parallel-group-chip:hover {
+              background: #3a3a3a;
+              color: #d4d4d4;
+            }
+            .pinned-parallel-group-chip.active {
+              background: #1f3a5f;
+              border-color: #74c0fc;
+              color: #d4e4ff;
+            }
+
+            /* Drawer group label */
+            .pinned-drawer-entry-group {
+              font-size: 11px;
+              color: #74c0fc;
+              margin-top: 2px;
+              display: block;
+              width: 100%;
+            }
           `}</style>
         </head>
         <body>

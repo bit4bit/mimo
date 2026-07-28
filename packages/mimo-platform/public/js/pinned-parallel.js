@@ -38,17 +38,9 @@
         encodeURIComponent(sessionId),
       { method: "DELETE", credentials: "same-origin" },
     );
-    var col = document.querySelector(
-      '.pinned-parallel-column[data-session-id="' + cssEscape(sessionId) + '"]',
-    );
-    if (col) col.remove();
-    if (document.querySelectorAll(".pinned-parallel-column").length === 0) {
-      var container = document.querySelector(".pinned-parallel-container");
-      if (container) {
-        container.innerHTML =
-          '<div class="pinned-parallel-empty"><div>Pin a session first</div><a href="/projects">Browse projects</a></div>';
-      }
-    }
+    // Reload the page so the chip set and active-group filter re-derive
+    // from the user's current pin list (a removed pin can collapse a chip).
+    window.location.reload();
   });
 
   function cssEscape(s) {
