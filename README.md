@@ -39,18 +39,17 @@ Download pre-built binaries from the [releases page](https://github.com/bit4bit/
 
 Docker Compose is the official deployment method.
 
-This repo includes `Dockerfile.mimo` and `docker-compose.yml` that run by default:
+This repo includes `Dockerfile.mimo` and a Docker Compose stack that runs the platform by default:
 
 - `mimo-platform` with Bun runtime
-- `agent-opencode` with Bun runtime (OpenCode provider)
 
-To additional containerzed agents use `ENABLE_AGENTS=1` when calling the `Makefile`, which additionally loads docker-compose files at folder `docker-agents`.
+The default `make daemon` starts only the platform. To also launch every agent defined in the `docker-agents/` folder, set `ENABLED_AGENT=1`.
 
-The agents use this shared workdir path in the container:
+Agents share this working directory inside the container:
 
 - `/home/app/.mimo-agent`
 
-Before first run, create a local env file and set required values:
+Before the first run, copy the example environment file and set the required values:
 
 ```bash
 cp .env.example .env
@@ -71,23 +70,23 @@ For Docker Compose networking (agent -> platform VCS server):
 Use the provided `Makefile` to start Docker Compose with your current UID/GID automatically:
 
 ```bash
-# Run only platform + opencode agent
+# Run only the platform (default)
 make daemon
 
-# Run platform + opencode + claude agents
-ENABLE_CLAUDE=1 make daemon
+# Run the platform + every agent in docker-agents/
+ENABLED_AGENT=1 make daemon
 ```
 
-One-line setup/run instructions:
+Quick setup:
 
 - `cp .env.example .env`
-- `# update environment values in .env (JWT_SECRET, OPENCODE_AGENT_JWT, CLAUDE_AGENT_JWT)`
+- `# update environment values in .env (JWT_SECRET, plus the *_AGENT_JWT for any agent you enabled)`
 - `# ensure SSH keys for private repos are in ~/.ssh-mimo (mounted into agent containers as /home/app/.ssh)`
 - `make daemon`
 
-Or with Claude enabled:
+Or, to enable all configured agents at once:
 
-- `ENABLE_CLAUDE=1 make daemon`
+- `ENABLED_AGENT=1 make daemon`
 
 Docker Compose exposes the platform at `http://localhost:3001`.
 
