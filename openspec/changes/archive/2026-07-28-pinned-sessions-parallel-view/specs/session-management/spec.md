@@ -22,7 +22,15 @@ The session page SHALL support an embed mode, activated by the `embed=1` URL que
 - **THEN** system does not render the pin checkbox in the top-nav
 - **AND** system does not render the pinned-sessions side-menu (`[≡]`) button
 
+#### Scenario: Embed mode hides non-essential right-frame buffers
+
+- **WHEN** the session page is requested with `?embed=1`
+- **THEN** system renders only the Files, Impact, and Notes buffers in the right frame
+- **AND** system does NOT render the Summary, MCP, or Plan buffers in the right frame
+- **AND** all left-frame buffers (Chat, Terminal, Edit, Patches, Commit) remain available
+
 #### Scenario: Non-embed rendering is unchanged
 
 - **WHEN** the session page is requested without the `embed` flag
 - **THEN** system renders the page with the full top-nav, footer actions bar, shortcuts bar, pin checkbox, and side-menu button as applicable
+- **AND** all right-frame buffers (Files, Impact, Notes, Summary, MCP, Plan) are available

@@ -110,6 +110,41 @@ export const defaultHelpContent: HelpContent = {
     content:
       "Click to open this file. Added and unchanged files open in the Edit buffer; modified files open in the Patch buffer with the diff visible. Deleted files are not shown.",
   },
+  "review-tab-button": {
+    title: "Review Tab",
+    content:
+      "Click to view the Review buffer. The Review buffer shows a GitHub-style review of all agent work in this session: a tree of changed files (added, modified, and deleted) on the left and a unified diff of the selected file on the right. The diff covers everything from the session's root commit to the current HEAD, so it includes files that were already committed.",
+  },
+  "review-buffer-refresh-btn-button": {
+    title: "Refresh Review",
+    content:
+      "Click to re-fetch the changed-file list and rebuild the tree. The Review buffer does not refresh automatically — use this button when the agent has committed new work and you want to see the updated diff.",
+  },
+  "review-buffer-tree-pane": {
+    title: "Changed-File Tree",
+    content:
+      "A tree of only the files the agent changed (added, modified, or deleted), grouped by directory with + / ~ / - status badges. Deleted files appear here even though they are gone from the working tree. Directories start collapsed except the ancestors of changed files. Click a file to view its diff on the right.",
+  },
+  "review-buffer-diff-pane": {
+    title: "Unified Diff",
+    content:
+      "Shows the unified diff for the file selected in the tree, with +/- line highlighting and the change-navigation overview track. Binary files show a placeholder instead of a diff. When no file is selected, an empty-state message is shown.",
+  },
+  "review-tree-root": {
+    title: "Review Tree",
+    content:
+      "The changed-file tree for this session. Click a directory to expand or collapse it; click a file to load its diff in the right pane.",
+  },
+  "review-tree-dir": {
+    title: "Directory",
+    content:
+      "Click to expand or collapse this directory. Directories with changed descendants expand automatically on refresh.",
+  },
+  "review-tree-leaf": {
+    title: "Changed File",
+    content:
+      "Click to view this file's unified diff on the right. The status badge shows whether the file was added (+), modified (~), or deleted (-).",
+  },
   "layout-pinned-menu-btn": {
     title: "Pinned Sessions",
     content:

@@ -22,6 +22,7 @@ import fileTreeJs from "../public/js/file-tree.js" with { type: "file" };
 import helpTooltipJs from "../public/js/help-tooltip.js" with { type: "file" };
 import notesJs from "../public/js/notes.js" with { type: "file" };
 import patchBufferJs from "../public/js/patch-buffer.js" with { type: "file" };
+import reviewBufferJs from "../public/js/review-buffer.js" with { type: "file" };
 import sessionCloneJs from "../public/js/session-clone.js" with { type: "file" };
 import sessionFinderJs from "../public/js/session-finder.js" with { type: "file" };
 import sessionKeybindingsJs from "../public/js/session-keybindings.js" with { type: "file" };
@@ -52,6 +53,7 @@ const EMBEDDED_ASSET_PATHS: Record<string, string> = {
   "/js/help-tooltip.js": helpTooltipJs,
   "/js/notes.js": notesJs,
   "/js/patch-buffer.js": patchBufferJs,
+  "/js/review-buffer.js": reviewBufferJs,
   "/js/session-clone.js": sessionCloneJs,
   "/js/session-finder.js": sessionFinderJs,
   "/js/session-keybindings.js": sessionKeybindingsJs,

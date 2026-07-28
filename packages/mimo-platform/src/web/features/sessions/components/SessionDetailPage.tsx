@@ -186,7 +186,16 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
 }) => {
   ensureDefaultBuffersRegistered();
   const leftBuffers = getBuffersForFrame("left");
-  const rightBuffers = getBuffersForFrame("right");
+  // In embed mode, the right frame is filtered to the buffers that are
+  // useful at narrow iframe widths: Files, Impact, and Notes. Summary, MCP,
+  // and Plan are hidden in embed mode (they're either redundant at ~288px or
+  // rarely needed side-by-side). Non-embed pages keep the full set.
+  const embedRightBufferAllowList = ["file-tree", "impact", "notes"];
+  const rightBuffers = embed
+    ? getBuffersForFrame("right").filter((b) =>
+        embedRightBufferAllowList.includes(b.id),
+      )
+    : getBuffersForFrame("right");
 
   // In embed mode, default the right frame to collapsed when no explicit
   // preference has been persisted. The route handler passes an already-
@@ -1698,6 +1707,85 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
         #clone-workspace-copy-status {
           font-size: 12px;
           color: #888;
+        }
+
+        /* Review Buffer Styles */
+        .review-buffer {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+        }
+        .review-buffer-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 12px;
+          background: #252525;
+          border-bottom: 1px solid #444;
+          font-size: 13px;
+          color: #fff;
+          flex-shrink: 0;
+        }
+        .review-buffer-title {
+          font-weight: bold;
+        }
+        .review-buffer-actions {
+          display: flex;
+          gap: 6px;
+        }
+        .review-refresh-btn {
+          cursor: pointer;
+        }
+        .review-summary {
+          display: flex;
+          gap: 14px;
+          padding: 6px 12px;
+          background: #1f1f1f;
+          border-bottom: 1px solid #333;
+          font-size: 12px;
+          color: #ccc;
+          flex-shrink: 0;
+        }
+        .review-summary-item {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .review-split {
+          display: flex;
+          flex: 1;
+          min-height: 0;
+        }
+        .review-tree-pane {
+          flex: 0 0 38%;
+          min-width: 160px;
+          max-width: 50%;
+          overflow-y: auto;
+          border-right: 1px solid #333;
+          padding: 6px 4px;
+          font-size: 13px;
+        }
+        .review-diff-pane {
+          flex: 1;
+          overflow-y: auto;
+          padding: 6px 8px;
+          background: #1a1a1a;
+        }
+        .review-empty-state,
+        .review-diff-empty {
+          color: #888;
+          font-size: 13px;
+          padding: 12px;
+        }
+        .review-diff-empty {
+          text-align: center;
+          padding-top: 40px;
+        }
+        .review-buffer .diff-overview-track {
+          position: fixed;
+          right: 6px;
+          width: 6px;
+          cursor: pointer;
         }
       `}</style>
       {!embed && <script src="/js/pin-checkbox.js" defer></script>}

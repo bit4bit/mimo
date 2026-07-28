@@ -48,12 +48,17 @@ A new top-level route renders `PinnedParallelPage`, which loads the user's pins 
 - `Layout` renders without top-nav, footer-actions wrapper, and shortcuts bar (or `Layout` is bypassed entirely for an `EmbedLayout`).
 - Right frame defaults to collapsed (reuse the existing `right-frame-collapse-toggle` mechanism / `frameState`).
 - The pin checkbox and `[≡]` button are suppressed (no nesting).
+- **Right-frame buffers are filtered to Files, Impact, and Notes only.** Summary, MCP, and Plan are omitted because the parallel view is narrow (≈288px per column at the 5-column cap) and those buffers are either redundant at that width (Summary repeats chat content) or rarely needed side-by-side (MCP, Plan). The left-frame buffers (Chat, Terminal, Edit, Patches, Commit) stay available so the user can still drive the session. The filter is applied at render time in `SessionDetailPage` by filtering `getBuffersForFrame("right")` to the embed allow-list; the registry itself is unchanged so non-embed pages keep the full set.
 
 **Alternative considered:** a separate `EmbedSessionPage` component — rejected to avoid duplicating the buffer/frame wiring; one flag is cheaper.
 
 ### D5: Active-column indicator via iframe focus polling
 
 The parent `/pinned` page tracks which iframe last received focus by listening to `focus`/`blur` events on each iframe element (same-origin → can attach listeners) and applies a highlight class to the focused column's wrapper. No `postMessage` needed for v1.
+
+### D5b: Side-menu button visible on `/pinned`
+
+`PinnedParallelPage` previously passed `showPinnedMenuButton={false}` to `Layout`, hiding the `[≡]` button on the parallel view. The user wants the side menu reachable from `/pinned` so they can re-open the drawer to add or remove pins without leaving the parallel view. `PinnedParallelPage` now renders the `[≡]` button (the default `showPinnedMenuButton` behavior) on both the columns view and the empty-state view. The drawer shell and its client script are already rendered by `Layout` on every non-embed authenticated page, so no new wiring is needed — only the flag flip. The embed-mode suppression in D4 is unaffected because `/pinned` itself is not rendered in embed mode (only its iframes are).
 
 ### D6: Pin CRUD via internal API
 
@@ -70,7 +75,7 @@ The drawer and the pin checkbox both talk to these endpoints; the drawer re-rend
 - **5 iframes = 5 WebSockets + 5 file watchers per viewer.** Accepted at the cap. Server WS layer already handles multi-session clients; watcher idle lifecycle already drains on disconnect. Document the cap (~5) as a hard UI limit, not just a guideline.
 - **Column width.** 5 columns on 1440px ≈ 288px each. Chat input + message list are cramped but usable. Resizable columns deferred (Non-Goal).
 - **Keyboard confusion.** Same-origin iframes isolate keybindings to the focused iframe, so there are no actual conflicts — but users need a visual cue. The active-column indicator (D5) is the mitigation; without it the feature is unusable.
-- **Embed-mode drift.** A single `embed` flag on `SessionDetailPage` must be respected by every chrome element (top-nav, footer, shortcuts bar, pin slot, `[≡]`). Missing one leaks chrome into iframes. Mitigation: a single `EmbedLayout` wrapper that simply doesn't render those elements, rather than sprinkling conditionals.
+- **Embed-mode drift.** A single `embed` flag on `SessionDetailPage` must be respected by every chrome element (top-nav, footer, shortcuts bar, pin slot, `[≡]`) and now also by the right-frame buffer filter. Missing one leaks chrome or a non-essential buffer into iframes. Mitigation: a single `EmbedLayout` wrapper that simply doesn't render those elements and a single allow-list (`["file-tree", "impact", "notes"]`) that filters `getBuffersForFrame("right")` in one place, rather than sprinkling conditionals.
 - **Stale pin references.** A pinned session may be deleted by another client. The drawer and `/pinned` page must tolerate missing sessions (skip with a "session no longer exists" row, offer unpin). The pin store is best-effort; reads resolve sessions at render time.
 - **Auth in iframes.** Same-origin iframes share cookies, so JWT auth just works. No cross-origin concerns. Documented for future maintainers.
 

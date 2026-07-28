@@ -211,6 +211,15 @@ describe("Pinned Sessions Web Routes", () => {
     expect(html).toContain('id="pinned-drawer-parallel-link"');
   });
 
+  it("renders the side-menu button and drawer shell on the /pinned page", async () => {
+    const res = await app.fetch(authed("http://localhost/pinned"));
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain('id="pinned-menu-btn"');
+    expect(html).toContain('id="pinned-drawer-root"');
+    expect(html).toContain('src="/js/pinned-sessions-drawer.js"');
+  });
+
   it("wires the drawer client script that drives selection + ?ids=", async () => {
     // Hitting the session page renders a Layout-wrapped response (drawer shell +
     // the drawer script tag).
@@ -283,6 +292,51 @@ describe("Session page embed mode", () => {
     expect(html).not.toContain('class="session-footer-bar"');
     expect(html).not.toContain('id="session-shortcuts-bar"');
     expect(html).not.toContain('id="session-pin-checkbox"');
+  });
+
+  it("hides Summary, MCP, and Plan right-frame buffers in embed mode", async () => {
+    const res = await app.fetch(
+      authed(
+        `http://localhost/projects/${testProjectId}/sessions/${testSessionId}?embed=1`,
+      ),
+    );
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    // The right frame in embed mode only renders Files, Impact, and Notes.
+    // Right-frame tabs are emitted as data-buffer-id attributes on
+    // frame-tab buttons scoped to frame="right".
+    const rightFrameBlock = html.match(
+      /<div class="frame frame-right"[\s\S]*?<\/div>\s*<\/div>\s*<button[^>]*id="right-frame-restore-btn"/,
+    );
+    expect(rightFrameBlock).not.toBeNull();
+    const rightHtml = rightFrameBlock![0];
+    expect(rightHtml).toContain('data-buffer-id="file-tree"');
+    expect(rightHtml).toContain('data-buffer-id="impact"');
+    expect(rightHtml).toContain('data-buffer-id="notes"');
+    expect(rightHtml).not.toContain('data-buffer-id="summary"');
+    expect(rightHtml).not.toContain('data-buffer-id="mcp-servers"');
+    expect(rightHtml).not.toContain('data-buffer-id="plan"');
+  });
+
+  it("renders all right-frame buffers without the embed flag", async () => {
+    const res = await app.fetch(
+      authed(
+        `http://localhost/projects/${testProjectId}/sessions/${testSessionId}`,
+      ),
+    );
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    const rightFrameBlock = html.match(
+      /<div class="frame frame-right"[\s\S]*?<\/div>\s*<\/div>\s*<button[^>]*id="right-frame-restore-btn"/,
+    );
+    expect(rightFrameBlock).not.toBeNull();
+    const rightHtml = rightFrameBlock![0];
+    expect(rightHtml).toContain('data-buffer-id="file-tree"');
+    expect(rightHtml).toContain('data-buffer-id="impact"');
+    expect(rightHtml).toContain('data-buffer-id="notes"');
+    expect(rightHtml).toContain('data-buffer-id="summary"');
+    expect(rightHtml).toContain('data-buffer-id="mcp-servers"');
+    expect(rightHtml).toContain('data-buffer-id="plan"');
   });
 
   it("renders full chrome without the embed flag", async () => {

@@ -1,4 +1,10 @@
-## MODIFIED Requirements
+# session-management Specification
+
+## Purpose
+
+Define how sessions are created, deleted, and rendered. A session is a workspace where a user drives an agent against a project checkout; the session page renders a two-frame buffer layout under a shared top-nav.
+
+## Requirements
 
 ### Requirement: User can create a session
 
@@ -36,9 +42,37 @@ The system SHALL allow users to remove sessions.
 - **AND** system stops Fossil server if running
 - **AND** system removes entire session directory including checkout/ and repo.fossil
 
-## REMOVED Requirements
+### Requirement: Session page embed mode
 
-### Requirement: System starts Fossil server on session creation
+The session page SHALL support an embed mode, activated by the `embed=1` URL query flag, that suppresses layout chrome so the page can be rendered inside a same-origin iframe at narrow widths.
 
-**Reason**: Fossil server now starts when agent connects, not at session creation. This enables deferred bootstrap where agent creates the checkout.
-**Migration**: Fossil server lifecycle moved to agent-lifecycle spec. Session now stores port: null until agent connects.
+#### Scenario: Embed flag suppresses chrome
+
+- **WHEN** the session page is requested with `?embed=1`
+- **THEN** system renders the page without the global top-nav, without the session footer actions bar, and without the keyboard shortcuts bar
+- **AND** the two-frame buffer layout and all buffer functionality remain intact
+
+#### Scenario: Embed mode defaults the right frame to collapsed
+
+- **WHEN** the session page is requested with `?embed=1`
+- **AND** no explicit frame-state preference is otherwise persisted for this session
+- **THEN** system renders the right frame in the collapsed state on initial load
+
+#### Scenario: Embed mode suppresses pin affordances
+
+- **WHEN** the session page is requested with `?embed=1`
+- **THEN** system does not render the pin checkbox in the top-nav
+- **AND** system does not render the pinned-sessions side-menu (`[≡]`) button
+
+#### Scenario: Embed mode hides non-essential right-frame buffers
+
+- **WHEN** the session page is requested with `?embed=1`
+- **THEN** system renders only the Files, Impact, and Notes buffers in the right frame
+- **AND** system does NOT render the Summary, MCP, or Plan buffers in the right frame
+- **AND** all left-frame buffers (Chat, Terminal, Edit, Patches, Commit) remain available
+
+#### Scenario: Non-embed rendering is unchanged
+
+- **WHEN** the session page is requested without the `embed` flag
+- **THEN** system renders the page with the full top-nav, footer actions bar, shortcuts bar, pin checkbox, and side-menu button as applicable
+- **AND** all right-frame buffers (Files, Impact, Notes, Summary, MCP, Plan) are available

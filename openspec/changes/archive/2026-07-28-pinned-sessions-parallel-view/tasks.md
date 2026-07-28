@@ -24,6 +24,8 @@
 - [x] 3.4 Suppress the pin checkbox and `[≡]` button when `embed` is true
 - [x] 3.5 Verify all buffers (chat, edit, file-tree, notes, mcp, summary, threads, plan, patch) remain functional under embed mode
 - [x] 3.6 Tests: embed flag suppresses chrome; non-embed rendering unchanged; right frame collapses by default
+- [x] 3.7 In embed mode, filter the right frame to only Files, Impact, and Notes buffers (hide Summary, MCP, Plan); left-frame buffers unchanged
+- [x] 3.8 Tests: `?embed=1` right frame renders file-tree, impact, notes tabs and omits summary, mcp-servers, plan tabs; non-embed page still renders all right-frame tabs
 
 ## 4. Web: pin checkbox in the session page top-nav
 
@@ -52,6 +54,8 @@
 - [x] 6.4 Render placeholder columns with an unpin action for stale pin entries
 - [x] 6.5 Implement active-column focus tracking: listen to `focus`/`blur` on each iframe, toggle a highlight class on the column wrapper
 - [x] 6.6 Tests: N columns rendered with correct iframe srcs; empty state; stale placeholder; focus highlight toggles
+- [x] 6.6a Render the `[≡]` side-menu button on the `/pinned` parallel view (both columns view and empty state) so the drawer is reachable without leaving `/pinned`
+- [x] 6.6b Tests: `/pinned` response contains `id="pinned-menu-btn"` and the drawer shell (`id="pinned-drawer-root"`) and the drawer client script
 - [x] 6.7 Filter the `/pinned` page to render only the session ids passed via the `?ids=` query param (in that order); render an empty-state "Select at least one session to view in parallel" when `?ids=` is empty or all ids are unchecked
 - [x] 6.8 Tests: `/pinned?ids=sid1,sid2` renders exactly two columns in that order and omits other pinned sessions; `/pinned?ids=` (empty) renders the selection-required empty state
 
@@ -60,6 +64,6 @@
 - [x] 7.1 Confirm no CSP/X-Frame-Options header is added that would block same-origin iframes (or add `frame-ancestors 'self'` if hardening is desired)
 - [x] 7.2 Verify auth cookies flow into same-origin iframes without additional config
 - [x] 7.3 Add help-tooltip entries (`data-help-id`) for the pin checkbox, `[≡]` button, "View selected in parallel" action, and active-column indicator
-- [ ] 7.4 Manual smoke: pin 5 sessions, toggle selection checkboxes, open `/pinned?ids=...`, confirm only the checked sessions load as iframes, focus indicator works, each iframe's chat/edit/file-tree operate independently
+- [x] 7.4 Manual smoke: pin 5 sessions, toggle selection checkboxes, open `/pinned?ids=...`, confirm only the checked sessions load as iframes, the `[≡]` button reopens the drawer from `/pinned`, each iframe's right frame shows only Files/Impact/Notes, focus indicator works, and each iframe's chat/edit/file-tree operate independently
 - [x] 7.5 Update orientation/help system (`orientation-help-system` change) if it references the top-nav layout
 - [x] 7.6 Run `bun test` and `bun run test.full` in both `mimo-platform` and `mimo-agent` packages

@@ -109,6 +109,12 @@ The drawer SHALL provide a "View selected in parallel" action that navigates to 
 - **THEN** each column contains an `<iframe>` whose `src` is `/projects/:projectId/sessions/:sessionId?embed=1`
 - **AND** the iframes are same-origin and share the user's auth cookie
 
+#### Scenario: Side-menu button is visible on the parallel view
+
+- **WHEN** the `/pinned` page renders with at least one selected pinned session
+- **THEN** system renders the pinned-sessions side-menu (`[≡]`) button in the top-left
+- **AND** clicking it opens the pinned-sessions drawer, identical to every other authenticated page
+
 #### Scenario: Empty parallel view
 
 - **WHEN** the user navigates to `/pinned` with no pinned sessions (or with no entries selected)

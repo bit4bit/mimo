@@ -130,6 +130,7 @@ export const Layout: FC<LayoutProps> = ({
           {sessionId && <script src="/js/chat.js" defer></script>}
           {sessionId && <script src="/js/chat-threads.js" defer></script>}
           {sessionId && <script src="/js/commit-buffer.js" defer></script>}
+          {sessionId && <script src="/js/review-buffer.js" defer></script>}
           {sessionId && <script src="/js/session-clone.js" defer></script>}
           {sessionId && <script src="/js/notes.js" defer></script>}
           {sessionId && <script src="/js/file-tree.js" defer></script>}

@@ -45,6 +45,18 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
     <div class="chat-threads-container buffer-container">
       {/* Thread Tabs */}
       <div class="chat-threads-tabs">
+        {/* Delete active thread button (sits left of '+' so the two
+            +/- controls are colocated in the tab strip) */}
+        <button
+          type="button"
+          id="delete-thread-btn"
+          class="chat-thread-action-btn"
+          title="Delete active chat thread"
+          style="color: #ff6b6b;"
+        >
+          -
+        </button>
+
         {/* Create thread button */}
         <button
           type="button"
@@ -147,18 +159,8 @@ export const ChatThreadsBuffer: FC<ChatThreadsBufferProps> = ({
               </select>
             </div>
 
-            {/* Spacer to push delete button to the right */}
+            {/* Spacer */}
             <div class="flex-grow"></div>
-
-            <button
-              type="button"
-              id="delete-thread-btn"
-              data-thread-id={activeThread.id}
-              class="thread-delete-btn"
-              title="Delete this thread"
-            >
-              Delete
-            </button>
           </>
         )}
         {!activeThread && (

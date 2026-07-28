@@ -1,4 +1,10 @@
-## ADDED Requirements
+# user-auth Specification
+
+## Purpose
+
+Manage user identity, credentials, and authentication state for the MIMO platform. Users register with a username/password, authenticate via JWT, and persist personal data (such as pinned sessions) under their own data directory.
+
+## Requirements
 
 ### Requirement: User can register with username and password
 

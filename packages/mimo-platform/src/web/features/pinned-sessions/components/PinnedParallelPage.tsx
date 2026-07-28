@@ -58,7 +58,7 @@ export const PinnedParallelPage: FC<PinnedParallelPageProps> = ({
   }
 
   return (
-    <Layout title="Pinned Sessions" showPinnedMenuButton={false}>
+    <Layout title="Pinned Sessions">
       <div class="pinned-parallel-container">
         <div class="pinned-parallel-toolbar">
           <span class="pinned-parallel-title">Pinned Sessions</span>

@@ -1793,6 +1793,21 @@ export class VCS {
   // session's upstream repository type.
 
   /**
+   * Resolve the root commit (the commit with no parents) of the git history
+   * reachable from HEAD. This is the seeded base commit the session was cloned
+   * from; it never advances. Implemented as `git rev-list --max-parents=0 HEAD`.
+   * Returns null when the workspace has no commits.
+   */
+  async resolveRootCommit(workDir: string): Promise<string | null> {
+    const result = await this.execCommand(
+      ["git", "rev-list", "--max-parents=0", "HEAD"],
+      workDir,
+    );
+    const sha = result.output.trim().split(/\s+/)[0];
+    return result.success && sha.length > 0 ? sha : null;
+  }
+
+  /**
    * Resolve a ref/expression to a commit SHA in the given git checkout.
    * Returns null when the ref cannot be resolved.
    */

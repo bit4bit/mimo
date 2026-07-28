@@ -3302,5 +3302,84 @@ export function createSessionsRoutes(
     }
   });
 
+  // ── Review buffer endpoints ──────────────────────────────────────────────
+  //
+  // GET /sessions/:id/review and GET /sessions/:id/review/files/*path expose
+  // the git root-commit..HEAD diff for the Review buffer. The root commit is
+  // resolved on demand via `vcs.resolveRootCommit` — independent of
+  // `session.baseline`. Auth + ownership are enforced via the same
+  // `getAuthUsername` + Internal API client pattern as the `/files` routes.
+  router.get("/:id/review", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+    const sessionId = c.req.param("id");
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+    const session = sessionResult.data.session;
+    if (!session || session.owner !== username) {
+      return c.json({ error: "Session not found" }, 404);
+    }
+    const workspacePath = session.agentWorkspacePath;
+    const rootCommit = await vcs.resolveRootCommit(workspacePath);
+    if (!rootCommit) {
+      return c.json({
+        files: [],
+        summary: { added: 0, modified: 0, deleted: 0 },
+      });
+    }
+    const result = await vcs.diffNameStatus(workspacePath, rootCommit);
+    return c.json({
+      files: result.files.map((f) => ({ path: f.path, status: f.status })),
+      summary: result.summary,
+    });
+  });
+
+  // GET /sessions/:id/review/files/*path — per-file diff hunks.
+  // The path is the URL suffix after `/review/files/` (may contain slashes).
+  router.get("/:id/review/files/*", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+    const sessionId = c.req.param("id");
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+    const session = sessionResult.data.session;
+    if (!session || session.owner !== username) {
+      return c.json({ error: "Session not found" }, 404);
+    }
+    const workspacePath = session.agentWorkspacePath;
+    const prefix = `/sessions/${sessionId}/review/files/`;
+    const filePath = c.req.path.startsWith(prefix)
+      ? decodeURIComponent(c.req.path.slice(prefix.length))
+      : "";
+    if (!filePath) {
+      return c.json({ error: "path required" }, 400);
+    }
+    const rootCommit = await vcs.resolveRootCommit(workspacePath);
+    if (!rootCommit) {
+      return c.json({ error: "File not found in review diff" }, 404);
+    }
+    const result = await vcs.diffFileRange(workspacePath, rootCommit, filePath);
+    if (!result.isBinary && result.hunks.length === 0) {
+      return c.json({ error: "File not found in review diff" }, 404);
+    }
+    return c.json({ hunks: result.hunks, isBinary: result.isBinary });
+  });
+
   return router;
 }

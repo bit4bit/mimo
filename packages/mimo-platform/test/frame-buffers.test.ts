@@ -228,6 +228,45 @@ describe("Frame buffers integration", () => {
     expect(html).toContain('src="/js/file-tree.js"');
   });
 
+  it("renders the Review tab in the left frame positioned after Commit", async () => {
+    const { app, project, token, sessionId } = await createSessionAppAndAuth();
+
+    const res = await app.request(
+      `/projects/${project.id}/sessions/${sessionId}`,
+      {
+        method: "GET",
+        headers: { Cookie: `token=${token}` },
+      },
+    );
+
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain('data-buffer-id="review"');
+    expect(html).toContain('data-buffer-panel="review"');
+
+    // The Review tab is positioned after the Commit tab in the left frame.
+    const commitIndex = html.indexOf('data-buffer-id="commit"');
+    const reviewIndex = html.indexOf('data-buffer-id="review"');
+    expect(commitIndex).toBeGreaterThan(-1);
+    expect(reviewIndex).toBeGreaterThan(commitIndex);
+  });
+
+  it("renders the Review buffer client script tag", async () => {
+    const { app, project, token, sessionId } = await createSessionAppAndAuth();
+
+    const res = await app.request(
+      `/projects/${project.id}/sessions/${sessionId}`,
+      {
+        method: "GET",
+        headers: { Cookie: `token=${token}` },
+      },
+    );
+
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain('src="/js/review-buffer.js"');
+  });
+
   it("renders chat input styles that keep Send compact and status aligned", async () => {
     const { app, project, token, sessionId } = await createSessionAppAndAuth();
 

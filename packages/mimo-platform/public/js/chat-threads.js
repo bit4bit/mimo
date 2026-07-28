@@ -341,15 +341,20 @@ function updateThreadTabsUI() {
   const tabsContainer = document.querySelector(".chat-threads-tabs");
   if (!tabsContainer) return;
 
-  // Remove existing thread tabs (keep the create button)
+  // Remove existing thread tabs (keep the +/- action buttons).
   tabsContainer
     .querySelectorAll(".chat-thread-tab")
     .forEach((tab) => tab.remove());
 
-  // Ensure create button stays on the left
+  // Ensure the delete (-) and create (+) buttons stay on the left, in that
+  // order: delete first, then create.
   const createBtn = tabsContainer.querySelector("#create-thread-btn");
+  const deleteBtn = tabsContainer.querySelector("#delete-thread-btn");
   if (createBtn) {
     tabsContainer.prepend(createBtn);
+  }
+  if (deleteBtn) {
+    tabsContainer.prepend(deleteBtn);
   }
 
   ChatThreadsState.threads.forEach((thread) => {
@@ -546,20 +551,6 @@ async function updateThreadContextUI() {
     " title="Clear context for this thread only">Clear</button>
   `;
 
-  html += `
-    <button type="button" id="delete-thread-btn" data-thread-id="${activeThread.id}" style="
-      padding: 4px 8px;
-      background: transparent;
-      border: 1px solid #555;
-      color: #888;
-      font-family: monospace;
-      font-size: 10px;
-      cursor: pointer;
-      border-radius: 3px;
-      white-space: nowrap;
-    ">Delete</button>
-  `;
-
   container.innerHTML = html;
 
   // Re-attach event listeners
@@ -629,7 +620,7 @@ function attachThreadContextListeners() {
     });
   }
 
-  // Delete button
+  // Clear button
   const clearBtn = document.querySelector("#clear-thread-btn");
   if (clearBtn) {
     clearBtn.addEventListener("click", () => {
@@ -638,28 +629,6 @@ function attachThreadContextListeners() {
         typeof window.MIMO_CHAT.clearSession === "function"
       ) {
         window.MIMO_CHAT.clearSession();
-      }
-    });
-  }
-
-  // Delete button
-  const deleteBtn = document.querySelector("#delete-thread-btn");
-  if (deleteBtn) {
-    deleteBtn.addEventListener("click", async () => {
-      const threadId = deleteBtn.dataset.threadId;
-      if (!confirm("Delete this thread? This cannot be undone.")) return;
-
-      const success = await deleteThread(threadId);
-      if (success) {
-        if (ChatThreadsState.threads.length > 0) {
-          switchToThread(ChatThreadsState.threads[0].id);
-          updateSummaryBufferSelects();
-        } else {
-          ChatThreadsState.activeThreadId = null;
-          updateThreadTabsUI();
-          updateThreadContextUI();
-          updateSummaryBufferSelects();
-        }
       }
     });
   }
@@ -1152,6 +1121,31 @@ async function initChatThreads(sessionId) {
   const createBtn = document.querySelector("#create-thread-btn");
   if (createBtn) {
     createBtn.addEventListener("click", showCreateThreadDialog);
+  }
+
+  // The '-' button deletes the currently active thread. It lives in the
+  // thread tab strip (left of '+') and is rendered once by the server, so we
+  // attach a single listener here rather than in attachThreadContextListeners.
+  const deleteActiveBtn = document.querySelector("#delete-thread-btn");
+  if (deleteActiveBtn) {
+    deleteActiveBtn.addEventListener("click", async () => {
+      const activeThread = getActiveThread();
+      if (!activeThread) return;
+      if (!confirm("Delete this thread? This cannot be undone.")) return;
+
+      const success = await deleteThread(activeThread.id);
+      if (success) {
+        if (ChatThreadsState.threads.length > 0) {
+          switchToThread(ChatThreadsState.threads[0].id);
+          updateSummaryBufferSelects();
+        } else {
+          ChatThreadsState.activeThreadId = null;
+          updateThreadTabsUI();
+          updateThreadContextUI();
+          updateSummaryBufferSelects();
+        }
+      }
+    });
   }
 
   // Initial UI render
