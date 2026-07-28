@@ -30,6 +30,34 @@
     return container?.dataset?.sessionId || "";
   }
 
+  function activeStorageKey() {
+    return `mimo.terminal.active.${getSessionId()}`;
+  }
+
+  function getStoredActiveTerminalId() {
+    try {
+      return window.localStorage.getItem(activeStorageKey()) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function setStoredActiveTerminalId(terminalId) {
+    try {
+      window.localStorage.setItem(activeStorageKey(), terminalId);
+    } catch {
+      // storage unavailable; re-attach falls back to first active terminal
+    }
+  }
+
+  function clearStoredActiveTerminalId() {
+    try {
+      window.localStorage.removeItem(activeStorageKey());
+    } catch {
+      // ignore
+    }
+  }
+
   function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = str;
@@ -353,6 +381,7 @@
     disposeXterm();
 
     activeTerminalId = terminalId;
+    setStoredActiveTerminalId(terminalId);
     const terminal = terminalState.terminals.find((t) => t.id === terminalId);
     if (!terminal) return;
 
@@ -478,16 +507,40 @@
     if (activeTerminalId === terminalId) {
       disposeXterm();
     }
+    if (getStoredActiveTerminalId() === terminalId) {
+      clearStoredActiveTerminalId();
+    }
     await refreshTerminals();
   }
 
-  function init() {
+  function resolveReattachTargetId() {
+    const terminals = terminalState.terminals;
+    if (terminals.length === 0) return null;
+
+    const storedId = getStoredActiveTerminalId();
+    if (storedId) {
+      const stored = terminals.find(
+        (t) => t.id === storedId && t.state !== "dead",
+      );
+      if (stored) return stored.id;
+    }
+
+    const firstActive = terminals.find((t) => t.state === "active");
+    return firstActive ? firstActive.id : null;
+  }
+
+  async function init() {
     const createBtn = document.getElementById("create-terminal-btn");
     if (createBtn) {
       createBtn.addEventListener("click", showCreateTerminalDialog);
     }
 
-    refreshTerminals();
+    await refreshTerminals();
+
+    const targetId = resolveReattachTargetId();
+    if (targetId) {
+      await switchToTerminal(targetId);
+    }
   }
 
   if (document.readyState === "loading") {

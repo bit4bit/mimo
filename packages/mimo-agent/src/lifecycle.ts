@@ -39,6 +39,12 @@ export interface SessionLifecycleCallbacks {
   ) => Promise<AcpClient | null>;
   /** Terminate the ACP process for a specific thread. */
   onTerminateThread: (sessionId: string, chatThreadId: string) => Promise<void>;
+  /**
+   * Optional: returns true while the session has live terminal processes.
+   * When true at idle-timer fire time, parking is skipped and the timer
+   * is restarted — terminals keep the session busy.
+   */
+  hasLiveTerminals?: (sessionId: string) => boolean;
 }
 
 // Composite key helpers
@@ -224,6 +230,11 @@ export class SessionLifecycleManager {
     if (existing) clearTimeout(existing);
 
     const timer = setTimeout(() => {
+      if (this.callbacks.hasLiveTerminals?.(sessionId)) {
+        // Live terminals keep the session busy: skip parking, restart timer.
+        this.startSessionIdleTimer(sessionId, idleTimeoutMs);
+        return;
+      }
       this.parkAllSessionThreads(sessionId);
     }, idleTimeoutMs);
 

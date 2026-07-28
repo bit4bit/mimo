@@ -10,6 +10,7 @@ interface RetentionSession {
   sessionTtlDays: number;
   lastActivityAt: string | null;
   assignedAgentId?: string;
+  terminals?: Array<{ id: string; state: string }>;
 }
 
 interface SessionListRepositoryLike {
@@ -43,6 +44,11 @@ export async function sweepExpiredInactiveSessions(
     const expired = isSessionExpired(session, now);
     const inactive = isSessionInactive(session.lastActivityAt, now);
     if (!expired || !inactive) {
+      continue;
+    }
+
+    // Live terminals keep the session busy: never auto-delete underneath them.
+    if (session.terminals?.some((t) => t.state === "active")) {
       continue;
     }
 

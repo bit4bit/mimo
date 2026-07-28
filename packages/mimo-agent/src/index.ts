@@ -2314,6 +2314,14 @@ export class MimoAgent {
     }
   }
 
+  /** Returns true while any terminal process belonging to the session is live. */
+  hasLiveTerminalsForSession(sessionId: string): boolean {
+    for (const entry of this.terminalProcesses.values()) {
+      if (entry.sessionId === sessionId) return true;
+    }
+    return false;
+  }
+
   private async handleTerminalSpawn(message: any): Promise<void> {
     const { sessionId, terminalId, subpath, command, cols, rows } = message;
     logger.debug(
@@ -2395,12 +2403,14 @@ export class MimoAgent {
     });
 
     this.terminalProcesses.set(terminalId, { process: proc, sessionId });
+    this.lifecycleManager.recordActivity(sessionId);
     logger.debug(
       `[terminal_spawn] Process spawned, pid=${proc.pid}, waiting for output...`,
     );
 
     proc.stdout?.on("data", (data: Buffer) => {
       logger.debug(`[terminal_output] ${terminalId}: ${data.length} bytes`);
+      this.lifecycleManager.recordActivity(sessionId);
       this.send({
         type: "terminal_output",
         sessionId,
@@ -2453,6 +2463,7 @@ export class MimoAgent {
     logger.debug(
       `[terminal_input] terminalId=${terminalId} ${buffer.length} bytes`,
     );
+    this.lifecycleManager.recordActivity(sessionId);
     entry.process.stdin?.write(buffer);
   }
 
@@ -2772,6 +2783,9 @@ export function createMimoAgent(): MimoAgent {
     }
     await (agent as any).closeAcpClientByKey(key);
   };
+
+  lifecycleCallbacks.hasLiveTerminals = (sessionId: string) =>
+    agent.hasLiveTerminalsForSession(sessionId);
 
   return agent;
 }
