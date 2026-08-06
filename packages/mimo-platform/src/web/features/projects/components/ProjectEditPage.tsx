@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import { Layout } from "../../../shared/components/Layout.js";
-import type { Credential } from "../../../../domain/credentials/repository";
+import {
+  RepositoryPicker,
+  type PickerRepository,
+  type PickerExistingEntry,
+} from "./RepositoryPicker.js";
 
 interface Project {
   id: string;
@@ -10,6 +14,7 @@ interface Project {
   repoType: "git" | "fossil";
   owner: string;
   createdAt: Date;
+  repositories?: PickerExistingEntry[];
   description?: string;
   credentialId?: string;
   instructions?: string;
@@ -19,13 +24,13 @@ interface Project {
 
 interface ProjectEditProps {
   project: Project;
-  credentials?: Credential[];
+  repositories?: PickerRepository[];
   error?: string;
 }
 
 export const ProjectEditPage: FC<ProjectEditProps> = ({
   project,
-  credentials = [],
+  repositories = [],
   error,
 }) => {
   return (
@@ -83,61 +88,10 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({
             </small>
           </div>
 
-          <div class="form-group">
-            <label>Repository URL</label>
-            <input
-              type="text"
-              name="repoUrl"
-              required
-              value={project.repoUrl}
-              data-help-id="project-edit-page-repo-url-input"
-            />
-            <small>
-              Git or Fossil repository URL. Supports HTTPS and SSH formats.
-            </small>
-          </div>
-
-          <div class="form-group">
-            <label>Repository Type</label>
-            <select
-              name="repoType"
-              data-help-id="project-edit-page-repo-type-select"
-            >
-              <option value="git" selected={project.repoType === "git"}>
-                Git
-              </option>
-              <option value="fossil" selected={project.repoType === "fossil"}>
-                Fossil
-              </option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>Credential (optional)</label>
-            <select
-              name="credentialId"
-              id="credentialSelect"
-              data-help-id="project-edit-page-credential-select-select"
-            >
-              <option value="" selected={!project.credentialId}>
-                None (public repository)
-              </option>
-              {credentials.map((cred) => (
-                <option
-                  key={cred.id}
-                  value={cred.id}
-                  data-type={cred.type}
-                  selected={project.credentialId === cred.id}
-                >
-                  {cred.name} ({cred.type.toUpperCase()})
-                </option>
-              ))}
-            </select>
-            <small>
-              Select a credential for private repositories. Type must match URL
-              (HTTPS for https://, SSH for git@).
-            </small>
-          </div>
+          <RepositoryPicker
+            repositories={repositories}
+            existing={project.repositories ?? []}
+          />
 
           <div class="actions">
             <button

@@ -99,13 +99,19 @@ function makeMocks() {
     fs: {
       exists: mock(() => true),
     },
+    path: {
+      join: (...segs: string[]) => segs.join("/"),
+    },
   };
 
   const autoCommitService = {
     triggerAutoCommit: mock(async () => ({ success: true })),
   };
   const sccService = { isStale: mock(() => false) };
-  const vcs = { gitPull: mock(async () => ({ success: true })) };
+  const vcs = {
+    gitPull: mock(async () => ({ success: true })),
+    clonePlatformCheckout: mock(async () => ({ success: true })),
+  };
 
   const mimoContext = {
     services: {
@@ -390,11 +396,25 @@ describe("AgentMessageRouter", () => {
       deps.sharedVcsServer.getUrl = mock(
         (sid: string) => `http://platform:8000/${sid}.git/`,
       );
+      const mockSession = {
+        id: "sess-1",
+        name: "s",
+        status: "active",
+        upstreamPath: "/fake/upstream",
+        agentWorkspacePath: "/fake/agent-workspace",
+        repos: [
+          {
+            projectRepoId: "default",
+            upstreamPath: "/fake/upstream",
+            workspacePath: "/fake/agent-workspace",
+          },
+        ],
+      };
       deps.sessionRepository.findByAssignedAgentId = mock(async () => [
-        { id: "sess-1", name: "s", status: "active" },
+        mockSession,
       ]);
       deps.sessionRepository.findById = mock(async () => ({
-        id: "sess-1",
+        ...mockSession,
         agentWorkspaceUser: "u",
         agentWorkspacePassword: "p",
       }));
@@ -718,6 +738,14 @@ describe("AgentMessageRouter", () => {
         status: "active",
         upstreamPath: "/fake/upstream",
         agentWorkspacePath: "/fake/agent-workspace",
+        repos: [
+          {
+            projectRepoId: "default",
+            upstreamPath: "/fake/upstream",
+            workspacePath: "/fake/agent-workspace",
+            branch: "feature/test",
+          },
+        ],
         branch: "feature/test",
         agentSubpath: null,
         agentWorkspaceUser: "dev",
@@ -765,6 +793,13 @@ describe("AgentMessageRouter", () => {
         status: "active",
         upstreamPath: "/fake/upstream",
         agentWorkspacePath: "/fake/agent-workspace",
+        repos: [
+          {
+            projectRepoId: "default",
+            upstreamPath: "/fake/upstream",
+            workspacePath: "/fake/agent-workspace",
+          },
+        ],
         agentSubpath: null,
         agentWorkspaceUser: "dev",
         agentWorkspacePassword: "pw",
@@ -928,6 +963,82 @@ describe("AgentMessageRouter", () => {
         "sess-1",
         "thread-1",
       );
+    });
+  });
+
+  describe("file_changed preserves repoId for multi-repo sessions", () => {
+    it("forwards repoId from the agent notification to fileSync.handleFileChanges", async () => {
+      const deps = makeMocks();
+      const session = {
+        id: "sess-1",
+        agentWorkspacePath: "/work/sess-1/agent-workspace",
+        repos: [
+          {
+            projectRepoId: "second",
+            upstreamPath: "/work/sess-1/upstream/second",
+            workspacePath: "/work/sess-1/agent-workspace/second",
+          },
+          {
+            projectRepoId: "third",
+            upstreamPath: "/work/sess-1/upstream/third",
+            workspacePath: "/work/sess-1/agent-workspace/third",
+          },
+        ],
+      };
+      deps.sessionRepository.findById = mock(async () => session);
+      const router = makeRouter(deps);
+      const ws = { data: { agentId: "agent-1" } };
+
+      await router.handle("agent-1", ws, {
+        type: "file_changed",
+        sessionId: "sess-1",
+        files: [
+          { repoId: "second", path: "test.md", isNew: true, deleted: false },
+        ],
+      });
+
+      expect(
+        deps.mimoContext.services.fileSync.handleFileChanges,
+      ).toHaveBeenCalledTimes(1);
+      const [, changes] =
+        deps.mimoContext.services.fileSync.handleFileChanges.mock.calls[0];
+      expect(changes).toEqual([
+        { repoId: "second", path: "test.md", isNew: true, deleted: false },
+      ]);
+    });
+
+    it("runs gitPull against each affected repo workspace, not only the root agentWorkspacePath", async () => {
+      const deps = makeMocks();
+      const session = {
+        id: "sess-1",
+        agentWorkspacePath: "/work/sess-1/agent-workspace",
+        repos: [
+          {
+            projectRepoId: "second",
+            upstreamPath: "/work/sess-1/upstream/second",
+            workspacePath: "/work/sess-1/agent-workspace/second",
+          },
+          {
+            projectRepoId: "third",
+            upstreamPath: "/work/sess-1/upstream/third",
+            workspacePath: "/work/sess-1/agent-workspace/third",
+          },
+        ],
+      };
+      deps.sessionRepository.findById = mock(async () => session);
+      const router = makeRouter(deps);
+      const ws = { data: { agentId: "agent-1" } };
+
+      await router.handle("agent-1", ws, {
+        type: "file_changed",
+        sessionId: "sess-1",
+        files: [
+          { repoId: "second", path: "test.md", isNew: true, deleted: false },
+        ],
+      });
+
+      const pulledPaths = deps.vcs.gitPull.mock.calls.map((c: any[]) => c[0]);
+      expect(pulledPaths).toContain("/work/sess-1/agent-workspace/second");
     });
   });
 });

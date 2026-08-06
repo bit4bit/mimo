@@ -32,6 +32,10 @@ export interface VcsServiceLike {
   gitPull: (
     workspacePath: string,
   ) => Promise<{ success: boolean; error?: string }>;
+  clonePlatformCheckout: (
+    repoPath: string,
+    targetPath: string,
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 export type AutoSyncReason =
@@ -333,12 +337,22 @@ export class AgentMessageRouter {
             sessionId,
           });
 
-          if (!this.deps.os.fs.exists(vcsPath)) {
+          const vcsPaths = session.repos.map((repo) =>
+            this.deps.sessionRepository.getSessionRepoPath(
+              sessionId,
+              repo.projectRepoId,
+            ),
+          );
+          const missingRepoPath = vcsPaths.find(
+            (repoPath) => !this.deps.os.fs.exists(repoPath),
+          );
+
+          if (missingRepoPath) {
             logger.warn(
               "[agent] Skipping session_ready for missing repo:",
               sessionId,
               "path:",
-              vcsPath,
+              missingRepoPath,
               "url:",
               cloneUrl,
             );
@@ -399,6 +413,28 @@ export class AgentMessageRouter {
             brainWash: thread.brainWash ?? false,
           }));
 
+          const sessionRepos = (sessionWithCreds?.repos ?? []).map((repo) => {
+            const repoCloneUrl = this.deps.sharedVcsServer.getUrl(
+              sessionId,
+              repo.projectRepoId,
+            );
+            return {
+              repoId: repo.projectRepoId,
+              upstreamPath: repo.upstreamPath,
+              workspacePath: repo.workspacePath,
+              branch: repo.branch ?? null,
+              baseline: repo.baseline ?? null,
+              cloneUrl: repoCloneUrl,
+              publicCloneUrl: buildPublicCloneUrl({
+                internalUrl: repoCloneUrl,
+                platformUrl: this.deps.platformUrl,
+                publicVcsUrl: this.deps.mimoContext.env?.MIMO_PUBLIC_VCS_URL,
+                sessionId,
+                repoId: repo.projectRepoId,
+              }),
+            };
+          });
+
           sessionsReady.push({
             sessionId,
             name: session.name,
@@ -406,11 +442,16 @@ export class AgentMessageRouter {
             agentWorkspacePath: session.agentWorkspacePath,
             cloneUrl,
             publicCloneUrl,
+            repos: sessionRepos.length > 0 ? sessionRepos : undefined,
             agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
             agentWorkspacePassword: sessionWithCreds?.agentWorkspacePassword,
             modelState: sessionWithCreds?.modelState ?? null,
             modeState: sessionWithCreds?.modeState ?? null,
             agentSubpath: sessionWithCreds?.agentSubpath ?? null,
+            relativeDir:
+              sessionWithCreds?.relativeDir ??
+              sessionWithCreds?.agentSubpath ??
+              null,
             branch: sessionWithCreds?.branch ?? null,
             idleTimeoutMs: sessionWithCreds?.idleTimeoutMs ?? 600000,
             mcpServers: mcpServers.length > 0 ? mcpServers : undefined,
@@ -660,24 +701,78 @@ export class AgentMessageRouter {
       return;
     }
 
-    const pullResult = await this.deps.vcs.gitPull(session.agentWorkspacePath);
-    if (!pullResult.success) {
-      logger.error(
-        `[file_changed] fossil up failed for session ${sessionId}: ${pullResult.error || "unknown error"}`,
+    // Each repository is its own git checkout mounted under the session
+    // agent-workspace. Pull each affected repository so the platform workspace
+    // reflects the agent's committed changes. Only repos referenced by the
+    // incoming changes are pulled; the rest are left untouched.
+    const affectedRepoIds = new Set(
+      (data.files ?? [])
+        .map((file: any) => file?.repoId)
+        .filter((id: any) => typeof id === "string" && id.length > 0),
+    );
+    const reposToPull =
+      Array.isArray(session.repos) && session.repos.length > 0
+        ? session.repos.filter(
+            (repo: any) =>
+              !affectedRepoIds.size || affectedRepoIds.has(repo.projectRepoId),
+          )
+        : [
+            {
+              projectRepoId: "default",
+              workspacePath: session.agentWorkspacePath,
+            },
+          ];
+
+    for (const repo of reposToPull) {
+      // Ensure the platform-side checkout exists before pulling; non-default
+      // repos may never have been cloned into their workspace yet.
+      let repoPath = this.deps.sessionRepository.getSessionRepoPath(
+        sessionId,
+        repo.projectRepoId === "default" && !session.repos?.length
+          ? undefined
+          : repo.projectRepoId,
       );
+      // Legacy single-repo sessions seed the bare repo without a repoId
+      // suffix, even though their repos entry uses projectRepoId "default".
+      if (
+        !this.deps.os.fs.exists(repoPath) &&
+        repo.projectRepoId === "default"
+      ) {
+        repoPath = this.deps.sessionRepository.getSessionRepoPath(sessionId);
+      }
+      const gitDirPath = this.deps.os.path.join(repo.workspacePath, ".git");
+      if (
+        this.deps.os.fs.exists(repoPath) &&
+        !this.deps.os.fs.exists(gitDirPath)
+      ) {
+        const cloneResult = await this.deps.vcs.clonePlatformCheckout(
+          repoPath,
+          repo.workspacePath,
+        );
+        if (!cloneResult.success) {
+          logger.error(
+            `[file_changed] git clone failed for session ${sessionId} repo ${repo.projectRepoId}: ${cloneResult.error || "unknown error"}`,
+          );
+          continue;
+        }
+      }
+      const pullResult = await this.deps.vcs.gitPull(repo.workspacePath);
+      if (!pullResult.success) {
+        logger.error(
+          `[file_changed] git pull failed for session ${sessionId} repo ${repo.projectRepoId}: ${pullResult.error || "unknown error"}`,
+        );
+      }
     }
 
     const changes = data.files.map((file: any) => ({
+      ...(file.repoId && { repoId: file.repoId }),
       path: file.path,
       isNew: file.isNew,
       deleted: file.deleted,
     }));
 
-    await this.deps.mimoContext.services.fileSync.initializeSession(
-      sessionId,
-      "",
-      "",
-    );
+    // handleFileChanges initializes session sync state lazily when missing;
+    // re-initializing here would wipe previously tracked per-repo changes.
     await this.deps.mimoContext.services.fileSync.handleFileChanges(
       sessionId,
       changes,
@@ -1233,7 +1328,9 @@ export class AgentMessageRouter {
       logger.debug("[terminal_output] Missing sessionId or terminalId");
       return;
     }
-    logger.debug(`[terminal_output] router received: terminalId=${terminalId} dataLen=${data.data?.length ?? 0}`);
+    logger.debug(
+      `[terminal_output] router received: terminalId=${terminalId} dataLen=${data.data?.length ?? 0}`,
+    );
     this.deps.broadcast(sessionId, {
       type: "terminal_output",
       terminalId,

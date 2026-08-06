@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { Hono } from "hono";
-import { Credential } from "../../../../domain/credentials/repository";
 import { createAuthMiddleware } from "../../../../auth/middleware";
 import { ProjectsSessionsPage } from "../components/ProjectsSessionsPage";
 import { ProjectCreatePage } from "../components/ProjectCreatePage";
@@ -23,9 +22,37 @@ interface ProjectsRoutesDeps {
   fetchFn?: typeof fetch;
 }
 
-// Helper to detect if URL is SSH
-function isSshUrl(url: string): boolean {
-  return url.startsWith("git@") || url.startsWith("ssh://");
+function asArray(value: unknown): string[] {
+  if (value == null) return [];
+  if (Array.isArray(value)) return value.map(String);
+  return [String(value)];
+}
+
+function buildPickedRepositories(
+  body: Record<string, unknown>,
+  managedRepositories: Array<{ id: string; name: string }>,
+): any[] {
+  const selectedIds = [
+    ...asArray(body["repoSelected[]"]),
+    ...asArray(body.repoSelected),
+  ];
+
+  return selectedIds
+    .map((id) => {
+      const managed = managedRepositories.find((repo) => repo.id === id);
+      if (!managed) return null;
+      return {
+        id: managed.name,
+        name: managed.name,
+        repoId: managed.id,
+        mountPath:
+          (body[`mountPath_${id}`] as string)?.trim() || managed.name,
+        sourceBranch:
+          (body[`sourceBranch_${id}`] as string)?.trim() || undefined,
+        newBranch: (body[`newBranch_${id}`] as string)?.trim() || undefined,
+      };
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 }
 
 export function createProjectsRoutes(
@@ -64,7 +91,11 @@ export function createProjectsRoutes(
     const projectsList = result.data.projects;
 
     let selectedProject = null;
-    let selectedCredential: Credential | null = null;
+    let selectedRepositories: Array<{
+      name: string;
+      mountPath: string;
+      credentialName: string | null;
+    }> = [];
     let selectedProjectSessions: Awaited<
       ReturnType<typeof sessionRepository.listByProject>
     > = [];
@@ -79,12 +110,31 @@ export function createProjectsRoutes(
         selectedProject = selectedResult.data.project;
         selectedProjectSessions =
           await sessionRepository.listByProject(selectedId);
-        if (selectedProject.credentialId) {
-          selectedCredential = await credentialRepository.findById(
-            selectedProject.credentialId,
-            user.username,
-          );
-        }
+        const entries = selectedProject.repositories ?? [];
+        selectedRepositories = await Promise.all(
+          entries.map(async (entry: any) => {
+            const managed = entry.repoId
+              ? await mimoContext.repos.managedRepositories.findById(
+                  entry.repoId,
+                  user.username,
+                )
+              : null;
+            let credentialName: string | null = null;
+            const credentialId = managed?.credentialId ?? entry.credentialId;
+            if (credentialId) {
+              const credential = await credentialRepository.findById(
+                credentialId,
+                user.username,
+              );
+              credentialName = credential?.name ?? null;
+            }
+            return {
+              name: managed?.name ?? entry.name,
+              mountPath: entry.mountPath,
+              credentialName,
+            };
+          }),
+        );
       }
     }
 
@@ -102,13 +152,7 @@ export function createProjectsRoutes(
           sessionTtlDays: s.sessionTtlDays,
           closeReason: s.closeReason,
         }))}
-        selectedCredential={
-          selectedCredential
-            ? {
-                name: selectedCredential.name,
-              }
-            : null
-        }
+        selectedRepositories={selectedRepositories}
       />,
     );
   });
@@ -116,13 +160,14 @@ export function createProjectsRoutes(
   // Show create form (GET /projects/new)
   projects.get("/new", auth, async (c) => {
     const user = c.get("user") as { username: string };
-    const credentials = await credentialRepository.findByOwner(user.username);
+    const managedRepositories =
+      await mimoContext.repos.managedRepositories.findByOwner(user.username);
     const defaultInstructions = mimoContext.services.config.get(
       "defaultProjectInstructions",
     ) as string;
     return c.html(
       <ProjectCreatePage
-        credentials={credentials}
+        repositories={managedRepositories}
         defaultInstructions={defaultInstructions}
       />,
     );
@@ -132,158 +177,48 @@ export function createProjectsRoutes(
   projects.post("/", auth, async (c) => {
     const body = await c.req.parseBody();
     const name = body.name as string;
-    const repoUrl = body.repoUrl as string;
-    const repoType = (body.repoType as string) || "git";
     const description = body.description as string | undefined;
-    const credentialId = body.credentialId as string | undefined;
-    const sourceBranch = body.sourceBranch as string | undefined;
-    const newBranch = body.newBranch as string | undefined;
     const agentSubpath = body.agentSubpath as string | undefined;
     const instructions = body.instructions as string | undefined;
-    const clonePortRaw = body.clonePort as string | undefined;
     const user = c.get("user") as { username: string };
+    const managedRepositories =
+      await mimoContext.repos.managedRepositories.findByOwner(user.username);
 
-    let clonePortValue: number | undefined;
-    if (clonePortRaw) {
-      const parsed = parseInt(clonePortRaw, 10);
-      if (
-        isNaN(parsed) ||
-        !Number.isInteger(parsed) ||
-        parsed < 1 ||
-        parsed > 65535
-      ) {
-        const credentials = await credentialRepository.findByOwner(
-          user.username,
-        );
-        return c.html(
-          <ProjectCreatePage
-            credentials={credentials}
-            error="SSH port must be an integer between 1 and 65535"
-            defaultInstructions={instructions}
-          />,
-          400,
-        );
-      }
-      clonePortValue = parsed;
-    }
-
-    // Pre-validate before calling internal API
-    if (!name || !repoUrl) {
-      const credentials = await credentialRepository.findByOwner(user.username);
-      return c.html(
+    const renderError = (error: string, status = 400) =>
+      c.html(
         <ProjectCreatePage
-          credentials={credentials}
-          error="Name and repository URL are required"
+          repositories={managedRepositories}
+          error={error}
           defaultInstructions={instructions}
         />,
-        400,
+        status,
       );
-    }
 
-    // Validate URL format
-    try {
-      new URL(repoUrl);
-    } catch {
-      if (!isSshUrl(repoUrl)) {
-        const credentials = await credentialRepository.findByOwner(
-          user.username,
-        );
-        return c.html(
-          <ProjectCreatePage
-            credentials={credentials}
-            error="Invalid repository URL"
-            defaultInstructions={instructions}
-          />,
-          400,
-        );
-      }
-    }
+    const repositories = buildPickedRepositories(body, managedRepositories);
 
-    // Validate repo type
-    if (repoType !== "git" && repoType !== "fossil") {
-      const credentials = await credentialRepository.findByOwner(user.username);
-      return c.html(
-        <ProjectCreatePage
-          credentials={credentials}
-          error="Repository type must be 'git' or 'fossil'"
-          defaultInstructions={instructions}
-        />,
-        400,
-      );
+    if (!name) {
+      return renderError("Project name is required");
     }
-
-    // Validate description length
+    if (repositories.length === 0) {
+      return renderError("Pick at least one repository for the project");
+    }
     if (description && description.length > 500) {
-      const credentials = await credentialRepository.findByOwner(user.username);
-      return c.html(
-        <ProjectCreatePage
-          credentials={credentials}
-          error="Description must be 500 characters or less"
-          defaultInstructions={instructions}
-        />,
-        400,
-      );
-    }
-
-    // Validate credential if provided
-    if (credentialId) {
-      const credential = await credentialRepository.findById(
-        credentialId,
-        user.username,
-      );
-      if (!credential) {
-        const credentials = await credentialRepository.findByOwner(
-          user.username,
-        );
-        return c.html(
-          <ProjectCreatePage
-            credentials={credentials}
-            error="Selected credential not found"
-            defaultInstructions={instructions}
-          />,
-          400,
-        );
-      }
-
-      const expectedType = isSshUrl(repoUrl) ? "ssh" : "https";
-      if (credential.type !== expectedType) {
-        const credentials = await credentialRepository.findByOwner(
-          user.username,
-        );
-        return c.html(
-          <ProjectCreatePage
-            credentials={credentials}
-            error={`Credential type does not match repository URL type. Expected ${expectedType.toUpperCase()} but got ${credential.type.toUpperCase()}`}
-            defaultInstructions={instructions}
-          />,
-          400,
-        );
-      }
+      return renderError("Description must be 500 characters or less");
     }
 
     // Use internal API client to create project
     const apiClient = createApiClient(c);
     const result = await apiClient.post<CreateProjectResponse>("/projects", {
       name,
-      repoUrl,
-      repoType,
+      repositories,
       description,
-      credentialId,
-      sourceBranch,
-      newBranch,
       agentSubpath,
       ...(instructions && { instructions }),
-      ...(clonePortValue != null && { clonePort: clonePortValue }),
     });
 
     if (!result.success) {
-      const credentials = await credentialRepository.findByOwner(user.username);
-      return c.html(
-        <ProjectCreatePage
-          credentials={credentials}
-          error={result.error}
-          defaultInstructions={instructions}
-        />,
+      return renderError(
+        result.error,
         result.status >= 400 && result.status < 500 ? result.status : 500,
       );
     }
@@ -321,11 +256,12 @@ export function createProjectsRoutes(
       return c.text(`Failed to load project: ${result.error}`, result.status);
     }
 
-    const credentials = await credentialRepository.findByOwner(user.username);
+    const managedRepositories =
+      await mimoContext.repos.managedRepositories.findByOwner(user.username);
     return c.html(
       <ProjectEditPage
         project={result.data.project}
-        credentials={credentials}
+        repositories={managedRepositories}
       />,
     );
   });
@@ -355,104 +291,31 @@ export function createProjectsRoutes(
 
     const body = await c.req.parseBody();
     const name = body.name as string;
-    const repoUrl = body.repoUrl as string;
-    const repoType = (body.repoType as string) || "git";
     const description = body.description as string | undefined;
-    const credentialId = body.credentialId as string | undefined;
     const instructions = body.instructions as string | undefined;
+    const managedRepositories =
+      await mimoContext.repos.managedRepositories.findByOwner(user.username);
 
-    // Pre-validation
-    if (!name || !repoUrl) {
-      const credentials = await credentialRepository.findByOwner(user.username);
-      return c.html(
+    const renderError = (error: string, status = 400) =>
+      c.html(
         <ProjectEditPage
           project={currentProject}
-          credentials={credentials}
-          error="Name and repository URL are required"
+          repositories={managedRepositories}
+          error={error}
         />,
-        400,
+        status,
       );
-    }
 
-    // Validate URL format
-    try {
-      new URL(repoUrl);
-    } catch {
-      if (!isSshUrl(repoUrl)) {
-        const credentials = await credentialRepository.findByOwner(
-          user.username,
-        );
-        return c.html(
-          <ProjectEditPage
-            project={currentProject}
-            credentials={credentials}
-            error="Invalid repository URL"
-          />,
-          400,
-        );
-      }
-    }
+    const repositories = buildPickedRepositories(body, managedRepositories);
 
-    // Validate repo type
-    if (repoType !== "git" && repoType !== "fossil") {
-      const credentials = await credentialRepository.findByOwner(user.username);
-      return c.html(
-        <ProjectEditPage
-          project={currentProject}
-          credentials={credentials}
-          error="Repository type must be 'git' or 'fossil'"
-        />,
-        400,
-      );
+    if (!name) {
+      return renderError("Project name is required");
     }
-
-    // Validate description length
+    if (repositories.length === 0) {
+      return renderError("Pick at least one repository for the project");
+    }
     if (description && description.length > 500) {
-      const credentials = await credentialRepository.findByOwner(user.username);
-      return c.html(
-        <ProjectEditPage
-          project={currentProject}
-          credentials={credentials}
-          error="Description must be 500 characters or less"
-        />,
-        400,
-      );
-    }
-
-    // Validate credential if provided
-    if (credentialId) {
-      const credential = await credentialRepository.findById(
-        credentialId,
-        user.username,
-      );
-      if (!credential) {
-        const credentials = await credentialRepository.findByOwner(
-          user.username,
-        );
-        return c.html(
-          <ProjectEditPage
-            project={currentProject}
-            credentials={credentials}
-            error="Selected credential not found"
-          />,
-          400,
-        );
-      }
-
-      const expectedType = isSshUrl(repoUrl) ? "ssh" : "https";
-      if (credential.type !== expectedType) {
-        const credentials = await credentialRepository.findByOwner(
-          user.username,
-        );
-        return c.html(
-          <ProjectEditPage
-            project={currentProject}
-            credentials={credentials}
-            error={`Credential type does not match repository URL type. Expected ${expectedType.toUpperCase()} but got ${credential.type.toUpperCase()}`}
-          />,
-          400,
-        );
-      }
+      return renderError("Description must be 500 characters or less");
     }
 
     // Use internal API client to update project
@@ -460,22 +323,15 @@ export function createProjectsRoutes(
       `/projects/${id}`,
       {
         name,
-        repoUrl,
-        repoType,
+        repositories,
         description,
-        credentialId,
         ...(instructions !== undefined && { instructions }),
       },
     );
 
     if (!result.success) {
-      const credentials = await credentialRepository.findByOwner(user.username);
-      return c.html(
-        <ProjectEditPage
-          project={currentProject}
-          credentials={credentials}
-          error={result.error}
-        />,
+      return renderError(
+        result.error,
         result.status >= 400 && result.status < 500 ? result.status : 500,
       );
     }

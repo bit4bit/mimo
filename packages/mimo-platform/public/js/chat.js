@@ -78,6 +78,8 @@ const ChatState = {
     calculating: false,
     metrics: null,
     trends: null,
+    repos: [],
+    repoId: "",
   },
 
   frames: {
@@ -1430,6 +1432,14 @@ function handleWebSocketMessage(data) {
       ) {
         window.EditBuffer.invalidateFileList();
       }
+      if (
+        window.MIMO_FILE_TREE_CONTROLLER &&
+        typeof window.MIMO_FILE_TREE_CONTROLLER.refresh === "function" &&
+        typeof window.MIMO_FILE_TREE_CONTROLLER.isActive === "function" &&
+        window.MIMO_FILE_TREE_CONTROLLER.isActive()
+      ) {
+        window.MIMO_FILE_TREE_CONTROLLER.refresh();
+      }
       break;
     case "chat_thread_created":
       handleChatThreadCreated(data);
@@ -2568,13 +2578,35 @@ function refreshImpact() {
     JSON.stringify({
       type: "refresh_impact",
       sessionId: ChatState.sessionId,
+      ...(ChatState.impact.repoId && { repoId: ChatState.impact.repoId }),
     }),
   );
 }
 
 async function loadInitialImpact() {
   try {
-    const response = await fetch(`/sessions/${ChatState.sessionId}/impact`);
+    if (!(ChatState.impact.repos || []).length) {
+      try {
+        const reposRes = await fetch(
+          `/sessions/${ChatState.sessionId}/repos`,
+        );
+        if (reposRes.ok) {
+          const reposData = await reposRes.json();
+          ChatState.impact.repos = (reposData.repos || []).map(function (r) {
+            return { repoId: r.repoId };
+          });
+          populateImpactRepoSelect();
+        }
+      } catch (e) {
+        /* repo list unavailable — select stays at "All repositories" */
+      }
+    }
+    const repoQuery = ChatState.impact.repoId
+      ? `?repoId=${encodeURIComponent(ChatState.impact.repoId)}`
+      : "";
+    const response = await fetch(
+      `/sessions/${ChatState.sessionId}/impact${repoQuery}`,
+    );
     if (!response.ok) {
       return;
     }
@@ -2587,11 +2619,51 @@ async function loadInitialImpact() {
 
     ChatState.impact.metrics = metrics;
     ChatState.impact.trends = data.trends || null;
+    ChatState.impact.repos = data.repos || [];
+    populateImpactRepoSelect();
     renderImpactMetrics(metrics, ChatState.impact.trends);
+    renderImpactRepoBreakdown(ChatState.impact.repos);
     updateImpactUiState();
   } catch (error) {
     console.error("[impact] Initial load failed:", error);
   }
+}
+
+function populateImpactRepoSelect() {
+  if (typeof document === "undefined" || !document.getElementById) return;
+  const select = document.getElementById("impact-repo-select");
+  if (!select) return;
+  const repos = ChatState.impact.repos || [];
+  select.innerHTML =
+    '<option value="">All repositories</option>' +
+    repos
+      .map((repo) => `<option value="${repo.repoId}">${repo.repoId}</option>`)
+      .join("");
+  select.value = ChatState.impact.repoId;
+  select.onchange = () => {
+    ChatState.impact.repoId = select.value;
+    loadInitialImpact();
+  };
+}
+
+function renderImpactRepoBreakdown(repos) {
+  const content = document.querySelector("#impact-content");
+  if (!content) return;
+  content.querySelectorAll(".impact-repo-breakdown").forEach(function (el) {
+    el.remove();
+  });
+  if (!repos?.length) return;
+  const breakdown = document.createElement("div");
+  breakdown.className = "impact-section impact-repo-breakdown";
+  breakdown.innerHTML =
+    '<div class="impact-section-title">Repositories</div>' +
+    repos
+      .map((repo) => {
+        const files = repo.metrics?.files || repo.files || {};
+        return `<div class="impact-metric"><span>${repo.repoId}</span><span>+${files.new ?? 0} ~${files.changed ?? 0} -${files.deleted ?? 0}</span></div>`;
+      })
+      .join("");
+  content.prepend(breakdown);
 }
 
 function handleImpactStale(data) {
@@ -2599,25 +2671,76 @@ function handleImpactStale(data) {
   updateImpactUiState();
 }
 
+var impactCalculatingWatchdog = null;
+var IMPACT_CALC_WATCHDOG_MS = 150000;
+
+function armImpactCalculatingWatchdog() {
+  if (impactCalculatingWatchdog) clearTimeout(impactCalculatingWatchdog);
+  impactCalculatingWatchdog = setTimeout(function () {
+    // Server sends impact_updated/impact_error to clear this; the watchdog is
+    // only a recovery path if that broadcast is missed or the run wedges.
+    if (ChatState.impact.calculating) {
+      ChatState.impact.calculating = false;
+      updateImpactUiState();
+      insertError("Impact calculation timed out");
+    }
+  }, IMPACT_CALC_WATCHDOG_MS);
+}
+
+function disarmImpactCalculatingWatchdog() {
+  if (impactCalculatingWatchdog) {
+    clearTimeout(impactCalculatingWatchdog);
+    impactCalculatingWatchdog = null;
+  }
+}
+
 function handleImpactCalculating() {
   ChatState.impact.calculating = true;
+  armImpactCalculatingWatchdog();
   updateImpactUiState();
 }
 
 function handleImpactUpdated(data) {
+  // Ignore broadcasts computed for a different repository filter than the one
+  // currently selected (e.g. the unfiltered page-load run finishing after the
+  // user picked a specific repo).
+  if ((data.repoId || "") !== (ChatState.impact.repoId || "")) {
+    return;
+  }
   ChatState.impact.calculating = false;
+  disarmImpactCalculatingWatchdog();
   ChatState.impact.stale = false;
   ChatState.impact.metrics = data.metrics || null;
   ChatState.impact.trends = data.trends || null;
+  if (Array.isArray(data.repos) && data.repos.length) {
+    // Merge by repoId: a filtered (single-repo) refresh must not shrink the
+    // repository select options.
+    var byId = {};
+    (ChatState.impact.repos || []).forEach(function (r) {
+      byId[r.repoId] = r;
+    });
+    data.repos.forEach(function (r) {
+      byId[r.repoId] = r;
+    });
+    ChatState.impact.repos = Object.keys(byId).map(function (id) {
+      return byId[id];
+    });
+  }
+  populateImpactRepoSelect();
 
   if (ChatState.impact.metrics) {
     renderImpactMetrics(ChatState.impact.metrics, ChatState.impact.trends);
   }
+  renderImpactRepoBreakdown(ChatState.impact.repos);
   updateImpactUiState();
 }
 
 function handleImpactError(data) {
+  if ((data.repoId || "") !== (ChatState.impact.repoId || "")) {
+    return;
+  }
   ChatState.impact.calculating = false;
+  disarmImpactCalculatingWatchdog();
   updateImpactUiState();
   insertError(data.error || "Impact calculation failed");
 }
@@ -3407,7 +3530,7 @@ function renderImpactMetrics(metrics, trends) {
       <div class="impact-section-title">Complexity</div>
       <div class="impact-metric"><span class="impact-metric-label">Cyclomatic:</span><span class="impact-metric-value">${cyclomaticDisplay}</span><span class="impact-trend">${complexityTrend.cyclomatic || "→"}</span></div>
       <div class="impact-metric"><span class="impact-metric-label">Cognitive:</span><span class="impact-metric-value">${cognitiveDisplay}</span><span class="impact-trend">${complexityTrend.cognitive || "→"}</span></div>
-      <div class="impact-metric"><span class="impact-metric-label">Est. Time:</span><span class="impact-metric-value">~${metrics.complexity.estimatedMinutes} min</span></div>
+      <div class="impact-metric"><span class="impact-metric-label">Est. Time:</span><span class="impact-metric-value">~${metrics.complexity?.estimatedMinutes ?? 0} min</span></div>
     </div>
     ${dependencyHtml}
     ${duplicationHtml}
@@ -3429,6 +3552,8 @@ function renderImpactMetrics(metrics, trends) {
       const row = renderChangedFileRow(file, {
         sessionId,
         sourceBufferId: "impact",
+        // The repo prefix is redundant once the user filters to one repo.
+        hideRepoId: !!ChatState.impact.repoId,
       });
       // Map classes to impact buffer classes for CSS compatibility
       row.className = row.className.replace(

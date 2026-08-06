@@ -145,18 +145,17 @@ Browser ←→ Platform WebSocket ←→ Agent WebSocket
 │
 ├── projects/
 │   └── {uuid}/
-│       ├── project.yaml     # Project metadata
-│       ├── repo.fossil     # Fossil repository
-│       ├── original/        # Original repo worktree
-│       │   ├── .fslckout
-│       │   └── [source files]
+│       ├── project.yaml     # Project metadata with repositories[]
+│       ├── cache-{repo}.git # Per-project-repository VCS caches
 │       └── sessions/
 │           └── {uuid}/
-│               ├── session.yaml
-│               ├── chat.jsonl    # Chat history
-│               └── worktree/     # Session worktree
-│                   ├── .fslckout
-│                   └── [source files]
+│               ├── session.yaml      # Session metadata with repos[]
+│               ├── upstream/         # Original repo worktrees by mountPath
+│               │   ├── backend/
+│               │   └── frontend/
+│               └── agent-workspace/  # Agent repo checkouts by mountPath
+│                   ├── backend/
+│                   └── frontend/
 │
 └── agents/
     └── {uuid}/

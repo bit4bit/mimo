@@ -45,16 +45,25 @@ export type McpServerConfig =
       headers?: Array<{ name: string; value: string }>;
     };
 
+export interface SessionRepoInfo {
+  repoId: string;
+  checkoutPath: string;
+  cloneUrl: string;
+  branch?: string;
+}
+
 export interface SessionInfo {
   sessionId: string;
   checkoutPath: string;
   cloneUrl: string;
+  repos: SessionRepoInfo[];
   vcsUser?: string;
   vcsPassword?: string;
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   acpProcess: import("./acp/types").AcpProcessHandle | null;
   fileWatcher: import("./os/types").FileWatcher | null;
+  repoWatchers?: import("./os/types").FileWatcher[];
   currentThoughtBuffer?: string;
   modelState?: ModelState;
   modeState?: ModeState;
@@ -64,6 +73,7 @@ export interface SessionInfo {
 }
 
 export interface FileChange {
+  repoId?: string;
   path: string;
   isNew?: boolean;
   deleted?: boolean;

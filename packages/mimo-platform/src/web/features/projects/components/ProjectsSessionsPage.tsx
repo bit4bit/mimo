@@ -9,10 +9,6 @@ import {
 interface Project {
   id: string;
   name: string;
-  repoUrl: string;
-  repoType: "git" | "fossil";
-  sourceBranch?: string;
-  newBranch?: string;
 }
 
 interface Session {
@@ -25,8 +21,10 @@ interface Session {
   closeReason?: string;
 }
 
-interface SelectedCredential {
+interface SelectedRepository {
   name: string;
+  mountPath: string;
+  credentialName: string | null;
 }
 
 interface ProjectsSessionsPageProps {
@@ -34,7 +32,7 @@ interface ProjectsSessionsPageProps {
   selectedProject: Project | null;
   selectedProjectId?: string;
   selectedProjectSessions: Session[];
-  selectedCredential: SelectedCredential | null;
+  selectedRepositories?: SelectedRepository[];
 }
 
 function expiresInDays(createdAt: Date, sessionTtlDays: number): number {
@@ -68,7 +66,7 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
   selectedProject,
   selectedProjectId,
   selectedProjectSessions,
-  selectedCredential,
+  selectedRepositories = [],
 }) => {
   const priorityWeight: Record<string, number> = { high: 0, medium: 1, low: 2 };
   const sortedSessions = [...selectedProjectSessions].sort((a, b) => {
@@ -80,9 +78,6 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
     if (pw !== 0) return pw;
     return b.createdAt.getTime() - a.createdAt.getTime();
   });
-
-  const selectedProjectBranch =
-    selectedProject?.sourceBranch ?? selectedProject?.newBranch ?? null;
 
   const columns: DataTableColumn<Session>[] = [
     {
@@ -256,16 +251,16 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
               <div class="pane-header sessions-header">
                 <div>
                   <h2>Sessions for {selectedProject.name}</h2>
-                  <div class="project-metadata">
-                    <span>{selectedProject.repoType.toUpperCase()}</span>
-                    <span>{selectedProject.repoUrl}</span>
-                    <span>{selectedProjectBranch || "No branch"}</span>
-                    <span>
-                      {selectedCredential
-                        ? `Credential: ${selectedCredential.name}`
-                        : "Credential: none"}
-                    </span>
-                  </div>
+                  {selectedRepositories.length > 0 && (
+                    <div class="project-metadata project-repositories">
+                      {selectedRepositories.map((repo) => (
+                        <span>
+                          {repo.name} ({repo.mountPath}) —{" "}
+                          {repo.credentialName ?? "Public repository"}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div class="sessions-header-actions">
                   <a

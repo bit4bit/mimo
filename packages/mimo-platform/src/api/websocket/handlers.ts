@@ -473,6 +473,9 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
         break;
 
       case "refresh_impact":
+        logger.debug(
+          `[impact] refresh_impact received: ${sessionId} repoId=${data.repoId ?? "all"}`,
+        );
         void handleRefreshImpact({
           sessionId,
           calculatingSessions,
@@ -481,13 +484,16 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
             broadcastToSession(chatSessions, targetSessionId, message),
           findSessionById: (targetSessionId) =>
             sessionRepository.findById(targetSessionId),
-          calculateImpact: (sid, upstreamPath, workspacePath, forceRefresh) =>
+          calculateImpact: (sid, upstreamPath, workspacePath, forceRefresh, repoId) =>
             impactCalculator.calculateImpact(
               sid,
               upstreamPath,
               workspacePath,
               forceRefresh,
+              undefined,
+              repoId,
             ),
+          repoId: data.repoId,
         }).catch((err) => {
           logger.error("[impact] refresh_impact handler failed:", err);
         });
@@ -685,7 +691,25 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
             break;
           }
 
-          const fullPath = join(session.agentWorkspacePath, filePath);
+          const watchRepoId =
+            typeof data.repoId === "string" && data.repoId.length > 0
+              ? data.repoId
+              : undefined;
+          const watchWorkspacePath = watchRepoId
+            ? session.repos?.find(
+                (repo: any) => repo.projectRepoId === watchRepoId,
+              )?.workspacePath
+            : session.agentWorkspacePath;
+          if (!watchWorkspacePath) {
+            ws.send(
+              JSON.stringify({
+                type: "error",
+                error: "Repository not found",
+              }),
+            );
+            break;
+          }
+          const fullPath = join(watchWorkspacePath, filePath);
 
           logger.debug(
             `[WS Files] Calling watchFile for ${fullPath} with checksum ${currentChecksum}`,
@@ -761,7 +785,17 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
         try {
           const session = await sessionRepository.findById(sessionId);
           if (session) {
-            const fullPath = join(session.agentWorkspacePath, filePath);
+            const unwatchRepoId =
+              typeof data.repoId === "string" && data.repoId.length > 0
+                ? data.repoId
+                : undefined;
+            const unwatchWorkspacePath = unwatchRepoId
+              ? session.repos?.find(
+                  (repo: any) => repo.projectRepoId === unwatchRepoId,
+                )?.workspacePath
+              : session.agentWorkspacePath;
+            if (!unwatchWorkspacePath) break;
+            const fullPath = join(unwatchWorkspacePath, filePath);
             fileWatcher.unwatchFile(sessionId, fullPath);
             logger.debug(
               `[FileWatcher] Stopped watching ${filePath} for session ${sessionId}`,

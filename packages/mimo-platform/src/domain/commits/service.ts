@@ -66,11 +66,38 @@ export interface SelectiveCommitResult extends CommitAndPushResult {
   invalidPaths?: string[];
 }
 
+export interface RepoQualifiedSelectedPath {
+  repoId: string;
+  path: string;
+}
+
+export interface RepoCommitResult {
+  repoId: string;
+  status: "committed" | "skipped" | "failed";
+  message: string;
+  error?: string;
+  step?: "sync" | "copy" | "commit" | "push" | null;
+}
+
+export interface MultiRepoCommitResult {
+  success: boolean;
+  message: string;
+  results: RepoCommitResult[];
+}
+
 export interface CommitServiceDeps {
   sessionRepository: any;
   projectRepository: any;
   credentialRepository: {
     findById: (id: string, owner: string) => Promise<Credential | null>;
+  };
+  managedRepositories?: {
+    findById: (id: string, owner: string) => Promise<{
+      repoUrl: string;
+      repoType: "git" | "fossil";
+      credentialId?: string;
+      clonePort?: number;
+    } | null>;
   };
   impactRepository: any;
   impactCalculator: any;
@@ -137,6 +164,110 @@ export class CommitService {
       await this.manifestStoreFor(upstreamPath).invalidate(upstreamPath);
     }
   }
+
+  private projectReposFor(project: any): any[] {
+    return project.repositories;
+  }
+
+  private async applyRepoContext(session: any, project: any, repoId?: string) {
+    const sessionRepo = repoId
+      ? session.repos.find((repo: any) => repo.projectRepoId === repoId)
+      : session.repos[0];
+    if (!sessionRepo) {
+      throw new Error("Repository not found");
+    }
+    const projectRepo =
+      this.projectReposFor(project).find(
+        (repo) => repo.id === sessionRepo.projectRepoId,
+      ) ?? this.projectReposFor(project)[0];
+
+    const managed =
+      projectRepo?.repoId && this.deps.managedRepositories
+        ? await this.deps.managedRepositories.findById(
+            projectRepo.repoId,
+            project.owner,
+          )
+        : null;
+
+    return {
+      session: {
+        ...session,
+        upstreamPath: sessionRepo.upstreamPath,
+        agentWorkspacePath: sessionRepo.workspacePath,
+        branch: sessionRepo.branch ?? session.branch,
+        baseline: sessionRepo.baseline ?? session.baseline,
+      },
+      project: {
+        ...project,
+        repoUrl: managed?.repoUrl ?? projectRepo?.repoUrl,
+        repoType: managed?.repoType ?? projectRepo?.repoType,
+        credentialId: managed?.credentialId ?? projectRepo?.credentialId,
+        sourceBranch: projectRepo?.sourceBranch,
+        newBranch: projectRepo?.newBranch,
+        clonePort: managed?.clonePort ?? projectRepo?.clonePort,
+      },
+      repoId: sessionRepo.projectRepoId,
+    };
+  }
+
+  private async persistRepoBaseline(
+    session: any,
+    repoId: string | undefined,
+    baseline: string,
+  ): Promise<void> {
+    if (!repoId) {
+      await this.deps.sessionRepository.update(session.id, { baseline });
+      return;
+    }
+    await this.deps.sessionRepository.update(session.id, {
+      ...(repoId === "default" && { baseline }),
+      repos: session.repos.map((repo: any) =>
+        repo.projectRepoId === repoId ? { ...repo, baseline } : repo,
+      ),
+    });
+  }
+  private async getPreviewForRepo(
+    session: any,
+    repoId?: string,
+  ): Promise<CommitPreviewResult> {
+    const baseline = await this.resolveBaseline(session);
+    let detected: ChangedFilesResult;
+    if (baseline) {
+      detected = await this.deps.vcs.diffNameStatus(
+        session.agentWorkspacePath,
+        baseline,
+      );
+    } else {
+      const manifestStore = this.manifestStoreFor(session.agentWorkspacePath);
+      detected = await detectChangedFiles(
+        this.deps.os,
+        session.upstreamPath,
+        session.agentWorkspacePath,
+        undefined,
+        manifestStore,
+      );
+    }
+
+    this.changedFilesCache.set(
+      session.id,
+      session.upstreamPath,
+      session.agentWorkspacePath,
+      detected,
+      repoId,
+    );
+
+    return {
+      success: true,
+      preview: {
+        summary: detected.summary,
+        files: detected.files.map((file) => ({
+          ...file,
+          ...(repoId && { repoId }),
+        })),
+      },
+    };
+  }
+
   /**
    * Get commit preview for a session.
    * Detects changed files by comparing workspace with upstream.
@@ -161,49 +292,29 @@ export class CommitService {
       };
     }
 
-    // Preferred path: the agent workspace is git, so the upstream→workspace
-    // delta is exactly the commit range `<baseline>..HEAD`, answered from git's
-    // object store in O(changed). Falls back to the two-tree filesystem scan for
-    // sessions without a baseline (pre-git-range) — a size-first, VCS-agnostic
-    // walk that avoids the whole-tree `git diff --no-index --binary`.
-    const baseline = await this.resolveBaseline(session);
-    let detected: ChangedFilesResult;
-    if (baseline) {
-      detected = await this.deps.vcs.diffNameStatus(
-        session.agentWorkspacePath,
-        baseline,
-      );
-    } else {
-      const manifestStore = this.manifestStoreFor(session.agentWorkspacePath);
-      detected = await detectChangedFiles(
-        this.deps.os,
-        session.upstreamPath,
-        session.agentWorkspacePath,
-        undefined,
-        manifestStore,
-      );
-    }
-
-    // Share the derived changed-file list with impact analysis.
-    this.changedFilesCache.set(
-      session.id,
-      session.upstreamPath,
-      session.agentWorkspacePath,
-      detected,
-    );
-
-    // Do not include hunks in the initial preview response. For large diffs
-    // sending every hunk makes the response huge and slow, often causing
-    // browser/network timeouts. Hunks are fetched on demand via getFileHunks().
-    const files: PreviewFile[] = detected.files.map((file) => ({ ...file }));
-
-    return {
-      success: true,
-      preview: {
-        summary: detected.summary,
-        files,
-      },
+    const aggregate: NonNullable<CommitPreviewResult["preview"]> = {
+      summary: { added: 0, modified: 0, deleted: 0 },
+      files: [],
     };
+    for (const repo of session.repos) {
+      const context = await this.applyRepoContext(
+        session,
+        project,
+        repo.projectRepoId,
+      );
+      const result = await this.getPreviewForRepo(
+        context.session,
+        context.repoId,
+      );
+      if (!result.success || !result.preview) {
+        return result;
+      }
+      aggregate.files.push(...result.preview.files);
+      aggregate.summary.added += result.preview.summary.added;
+      aggregate.summary.modified += result.preview.summary.modified;
+      aggregate.summary.deleted += result.preview.summary.deleted;
+    }
+    return { success: true, preview: aggregate };
   }
 
   /**
@@ -215,11 +326,17 @@ export class CommitService {
   async getFileHunks(
     sessionId: string,
     filePath: string,
+    repoId?: string,
   ): Promise<FileHunksResult> {
-    const session = await this.deps.sessionRepository.findById(sessionId);
+    let session = await this.deps.sessionRepository.findById(sessionId);
     if (!session) {
       return { success: false, error: "Session not found" };
     }
+    const project = await this.deps.projectRepository.findById(session.projectId);
+    if (!project) {
+      return { success: false, error: "Project not found" };
+    }
+    session = (await this.applyRepoContext(session, project, repoId)).session;
 
     const { os, vcs } = this.deps;
 
@@ -282,8 +399,9 @@ export class CommitService {
     commitMessage: string,
     selectedPaths?: string[],
     applyStatuses?: { added: boolean; modified: boolean; deleted: boolean },
+    repoId?: string,
   ): Promise<SelectiveCommitResult> {
-    const session = await this.deps.sessionRepository.findById(sessionId);
+    let session = await this.deps.sessionRepository.findById(sessionId);
     if (!session) {
       return {
         success: false,
@@ -293,7 +411,7 @@ export class CommitService {
       };
     }
 
-    const project = await this.deps.projectRepository.findById(
+    let project = await this.deps.projectRepository.findById(
       session.projectId,
     );
     if (!project) {
@@ -301,6 +419,20 @@ export class CommitService {
         success: false,
         message: "Project not found",
         error: "Project not found",
+        step: null,
+      };
+    }
+
+    try {
+      const context = await this.applyRepoContext(session, project, repoId);
+      session = context.session;
+      project = context.project;
+      repoId = context.repoId;
+    } catch (error) {
+      return {
+        success: false,
+        message: "Repository not found",
+        error: error instanceof Error ? error.message : "Repository not found",
         step: null,
       };
     }
@@ -327,6 +459,7 @@ export class CommitService {
       session.id,
       session.upstreamPath,
       session.agentWorkspacePath,
+      repoId,
     );
     if (!changes) {
       changes = baseline
@@ -350,6 +483,7 @@ export class CommitService {
       session.upstreamPath,
       session.agentWorkspacePath,
       changes,
+      repoId,
     );
 
     if (changes.files.length === 0) {
@@ -555,9 +689,7 @@ export class CommitService {
         pathsToApply,
       );
       if (newBaseline && newBaseline !== baseline) {
-        await this.deps.sessionRepository.update(session.id, {
-          baseline: newBaseline,
-        });
+        await this.persistRepoBaseline(session, repoId, newBaseline);
       } else if (!newBaseline) {
         logger.error(
           `[commit] Failed to advance baseline for session ${session.id}; committed files may reappear in the next preview`,
@@ -576,12 +708,83 @@ export class CommitService {
     };
   }
 
+  async commitAndPushAcrossRepos(
+    sessionId: string,
+    commitMessage: string,
+    selectedPaths?: Array<string | RepoQualifiedSelectedPath>,
+    applyStatuses?: { added: boolean; modified: boolean; deleted: boolean },
+  ): Promise<MultiRepoCommitResult> {
+    const session = await this.deps.sessionRepository.findById(sessionId);
+    if (!session) {
+      return {
+        success: false,
+        message: "Session not found",
+        results: [],
+      };
+    }
+    const project = await this.deps.projectRepository.findById(session.projectId);
+    if (!project) {
+      return {
+        success: false,
+        message: "Project not found",
+        results: [],
+      };
+    }
+    const selectedByRepo = new Map<string, string[]>();
+    for (const selected of selectedPaths ?? []) {
+      if (typeof selected === "string") continue;
+      const paths = selectedByRepo.get(selected.repoId) ?? [];
+      paths.push(selected.path);
+      selectedByRepo.set(selected.repoId, paths);
+    }
+
+    const results: RepoCommitResult[] = [];
+    for (const repo of session.repos) {
+      const result = await this.commitAndPushSelective(
+        sessionId,
+        commitMessage,
+        selectedByRepo.has(repo.projectRepoId)
+          ? selectedByRepo.get(repo.projectRepoId)
+          : undefined,
+        applyStatuses,
+        repo.projectRepoId,
+      );
+      results.push({
+        repoId: repo.projectRepoId,
+        status: result.success
+          ? result.message.includes("No changes")
+            ? "skipped"
+            : "committed"
+          : "failed",
+        message: result.message,
+        error: result.error,
+        step: result.step,
+      });
+    }
+
+    const failed = results.filter((result) => result.status === "failed");
+    const committed = results.filter((result) => result.status === "committed");
+    return {
+      success: failed.length === 0,
+      message:
+        failed.length > 0
+          ? `${failed.length} repository commit(s) failed`
+          : committed.length === 0
+            ? "No changes to commit"
+            : "Changes committed and pushed successfully",
+      results,
+    };
+  }
+
   /**
    * Force push upstream commits to remote.
    * This is a destructive operation that overwrites remote history.
    */
-  async forcePush(sessionId: string): Promise<CommitAndPushResult> {
-    const session = await this.deps.sessionRepository.findById(sessionId);
+  async forcePush(
+    sessionId: string,
+    repoId?: string,
+  ): Promise<CommitAndPushResult> {
+    let session = await this.deps.sessionRepository.findById(sessionId);
     if (!session) {
       return {
         success: false,
@@ -591,7 +794,7 @@ export class CommitService {
       };
     }
 
-    const project = await this.deps.projectRepository.findById(
+    let project = await this.deps.projectRepository.findById(
       session.projectId,
     );
     if (!project) {
@@ -599,6 +802,19 @@ export class CommitService {
         success: false,
         message: "Project not found",
         error: "Project not found",
+        step: null,
+      };
+    }
+
+    try {
+      const context = await this.applyRepoContext(session, project, repoId);
+      session = context.session;
+      project = context.project;
+    } catch (error) {
+      return {
+        success: false,
+        message: "Repository not found",
+        error: error instanceof Error ? error.message : "Repository not found",
         step: null,
       };
     }
@@ -674,6 +890,16 @@ export class CommitService {
     // Generate default message if none provided
     const message =
       commitMessage?.trim() || `Mimo commit at ${new Date().toISOString()}`;
+    const session = await this.deps.sessionRepository.findById(sessionId);
+    if (session?.repos?.length) {
+      const result = await this.commitAndPushAcrossRepos(sessionId, message);
+      return {
+        success: result.success,
+        message: result.message,
+        error: result.success ? undefined : result.message,
+        step: null,
+      };
+    }
     return this.commitAndPushSelective(
       sessionId,
       message,

@@ -157,13 +157,13 @@ Default data directory: `~/.mimo/`
 │       └── credentials.yaml # User auth data
 ├── projects/
 │   └── {uuid}/
-│       ├── project.yaml     # Project metadata
-│       ├── repo.fossil     # Fossil repository
-│       ├── original/        # Original repo checkout
+│       ├── project.yaml     # Project metadata with repositories[]
+│       ├── cache-{repo}.git # Per-project-repository VCS caches
 │       └── sessions/
 │           └── {uuid}/
-│               ├── session.yaml
-│               └── chat.jsonl
+│               ├── session.yaml      # Session metadata with repos[]
+│               ├── upstream/         # Original repo checkouts by mountPath
+│               └── agent-workspace/  # Agent repo checkouts by mountPath
 └── agents/
     └── {uuid}/
         └── agent.yaml

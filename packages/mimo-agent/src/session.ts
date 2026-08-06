@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import {
   SessionInfo,
+  SessionRepoInfo,
   FileChange,
   ModelState,
   ModeState,
@@ -44,6 +45,7 @@ export class SessionManager {
     vcsUser?: string,
     vcsPassword?: string,
     branch?: string,
+    repos?: SessionRepoInfo[],
   ): Promise<SessionInfo> {
     const checkoutPath = this.os.path.join(this.workDir, sessionId);
 
@@ -60,10 +62,22 @@ export class SessionManager {
       await this.os.fs.mkdir(checkoutPath, { recursive: true });
     }
 
+    const normalizedRepos = repos?.length
+      ? repos
+      : [
+          {
+            repoId: "default",
+            checkoutPath,
+            cloneUrl,
+            ...(branch ? { branch } : {}),
+          },
+        ];
+
     const sessionInfo: SessionInfo = {
       sessionId,
       checkoutPath,
       cloneUrl,
+      repos: normalizedRepos,
       vcsUser,
       vcsPassword,
       acpProcess: null,
@@ -73,8 +87,27 @@ export class SessionManager {
 
     this.sessions.set(sessionId, sessionInfo);
 
-    // Start file watcher and wait until it is ready before returning
-    await this.startFileWatcher(sessionId, checkoutPath);
+    // Start file watchers and wait until they are ready before returning
+    sessionInfo.repoWatchers = [];
+    for (const repo of normalizedRepos) {
+      // Other repos may be checked out inside this repo's checkout (nested
+      // mounts); exclude those paths so files are reported once, under the
+      // owning repoId.
+      const nestedCheckoutPaths = normalizedRepos
+        .filter(
+          (other) =>
+            other !== repo &&
+            other.checkoutPath.startsWith(repo.checkoutPath + "/"),
+        )
+        .map((other) => other.checkoutPath);
+      const watcher = await this.startFileWatcher(
+        sessionId,
+        repo.checkoutPath,
+        repo.repoId,
+        nestedCheckoutPaths,
+      );
+      sessionInfo.repoWatchers.push(watcher);
+    }
 
     return sessionInfo;
   }
@@ -115,7 +148,9 @@ export class SessionManager {
   private async startFileWatcher(
     sessionId: string,
     checkoutPath: string,
-  ): Promise<void> {
+    repoId?: string,
+    excludedPaths: string[] = [],
+  ): Promise<import("./os/types").FileWatcher> {
     logger.debug(`[mimo-agent] Starting file watcher for session ${sessionId}`);
 
     const VCS_INTERNALS = new Set([
@@ -135,6 +170,11 @@ export class SessionManager {
     }
 
     const ignored = (watchPath: string): boolean => {
+      for (const excluded of excludedPaths) {
+        if (watchPath === excluded || watchPath.startsWith(excluded + "/")) {
+          return true;
+        }
+      }
       const relativePath = relative(checkoutPath, watchPath).replaceAll(
         "\\",
         "/",
@@ -164,6 +204,7 @@ export class SessionManager {
               const fileExists = await this.os.fs.exists(srcPath);
 
               const change: FileChange = {
+                ...(repoId && { repoId }),
                 path: filename,
                 isNew: isRenameEvent && fileExists,
                 deleted: isRenameEvent && !fileExists,
@@ -198,10 +239,10 @@ export class SessionManager {
         throw err;
       });
 
-      watcher.on("ready", resolve);
+      watcher.on("ready", () => resolve(watcher));
 
       const session = this.sessions.get(sessionId);
-      if (session) {
+      if (session && !repoId) {
         session.fileWatcher = watcher;
       }
     }); // end Promise
@@ -217,7 +258,7 @@ export class SessionManager {
     // Deduplicate changes
     const uniqueChanges = new Map<string, FileChange>();
     for (const change of changes) {
-      uniqueChanges.set(change.path, change);
+      uniqueChanges.set(`${change.repoId ?? ""}:${change.path}`, change);
     }
 
     this.callbacks.onFileChange(sessionId, Array.from(uniqueChanges.values()));
@@ -253,6 +294,12 @@ export class SessionManager {
     if (session.fileWatcher) {
       session.fileWatcher.close();
       session.fileWatcher = null;
+    }
+    if (session.repoWatchers) {
+      for (const watcher of session.repoWatchers) {
+        watcher.close();
+      }
+      session.repoWatchers = [];
     }
 
     // Clear any pending changes

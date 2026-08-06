@@ -17,6 +17,7 @@ import { createSyncRoutes } from "../../api/rest/sync.js";
 import { createCommitRoutes } from "../../api/rest/commits.js";
 import { createConfigRoutes } from "../../web/features/config/pages/config.js";
 import { createCredentialsRoutes } from "../../web/features/credentials/pages/credentials.js";
+import { createRepositoriesRoutes } from "../../web/features/repositories/pages/repositories.js";
 import { createMcpServerRoutes } from "../../web/features/mcp-servers/pages/mcp-servers.js";
 import { createSummaryRoutes } from "../../web/features/summary/pages/summary.js";
 import {
@@ -325,6 +326,9 @@ export async function bootstrapMimoServer(deps: BootstrapDeps) {
 
   // Credentials routes (protected)
   app.route("/credentials", createCredentialsRoutes(mimoContext));
+
+  // Repositories routes (protected)
+  app.route("/repositories", createRepositoriesRoutes(mimoContext));
 
   // MCP Server routes (protected)
   app.route("/mcp-servers", createMcpServerRoutes(mimoContext));

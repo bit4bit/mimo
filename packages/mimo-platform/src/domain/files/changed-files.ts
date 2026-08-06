@@ -8,6 +8,7 @@ import { hashContent } from "./tree-manifest.js";
 export type FileChangeStatus = "added" | "modified" | "deleted";
 
 export interface FileChange {
+  repoId?: string;
   path: string;
   status: FileChangeStatus;
   size: number;
@@ -165,4 +166,42 @@ export async function detectChangedFiles(
     files,
     summary: { added, modified, deleted },
   };
+}
+
+export interface RepoChangedFilesInput {
+  repoId: string;
+  upstreamPath: string;
+  workspacePath: string;
+}
+
+export async function detectChangedFilesForRepos(
+  os: OS,
+  repos: RepoChangedFilesInput[],
+  options?: {
+    fileFilter?: (relPath: string) => boolean;
+  },
+  manifestStore?: ManifestStore,
+): Promise<ChangedFilesResult> {
+  const aggregate: ChangedFilesResult = {
+    files: [],
+    summary: { added: 0, modified: 0, deleted: 0 },
+  };
+
+  for (const repo of repos) {
+    const result = await detectChangedFiles(
+      os,
+      repo.upstreamPath,
+      repo.workspacePath,
+      options,
+      manifestStore,
+    );
+    aggregate.files.push(
+      ...result.files.map((file) => ({ ...file, repoId: repo.repoId })),
+    );
+    aggregate.summary.added += result.summary.added;
+    aggregate.summary.modified += result.summary.modified;
+    aggregate.summary.deleted += result.summary.deleted;
+  }
+
+  return aggregate;
 }

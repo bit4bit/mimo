@@ -72,6 +72,28 @@ function makeAuthRequest(
   });
 }
 
+
+async function createManagedRepoForTest(owner: string) {
+  return mimoContext.repos.managedRepositories.create({
+    name: "main-repo",
+    repoUrl: reachableRepoUrl,
+    repoType: "git",
+    owner,
+  });
+}
+
+function appendRepoPicker(
+  formData: URLSearchParams,
+  repo: { id: string },
+  opts: { sourceBranch?: string; newBranch?: string } = {},
+) {
+  formData.append("repoSelected[]", repo.id);
+  formData.append(`mountPath_${repo.id}`, ".");
+  if (opts.sourceBranch)
+    formData.append(`sourceBranch_${repo.id}`, opts.sourceBranch);
+  if (opts.newBranch) formData.append(`newBranch_${repo.id}`, opts.newBranch);
+}
+
 describe("Project Management Integration Tests", () => {
   beforeEach(async () => {
     // Create unique test home for each test
@@ -100,7 +122,7 @@ describe("Project Management Integration Tests", () => {
     const upstreamRepo = join(testHome, "upstream-src");
     const bareRepo = join(testHome, "upstream.git");
     mkdirSync(upstreamRepo, { recursive: true });
-    execSync("git init -q", { cwd: upstreamRepo });
+    execSync("git init -q -b main", { cwd: upstreamRepo });
     execSync('git config user.email "test@example.com"', { cwd: upstreamRepo });
     execSync('git config user.name "test"', { cwd: upstreamRepo });
     writeFileSync(join(upstreamRepo, "README.md"), "# test\n");
@@ -133,11 +155,11 @@ describe("Project Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const token = await mimoContext.services.auth.generateToken("testuser");
+      const managedRepo = await createManagedRepoForTest("testuser");
 
       const formData = new URLSearchParams();
+      appendRepoPicker(formData, managedRepo);
       formData.append("name", "My Test Project");
-      formData.append("repoUrl", reachableRepoUrl);
-      formData.append("repoType", "git");
 
       const res = await app.request("/projects", {
         method: "POST",
@@ -224,6 +246,58 @@ describe("Project Management Integration Tests", () => {
     });
   });
 
+  describe("Project Creation with multiple picked repositories", () => {
+    it("should create a project with all checked repositories", async () => {
+      const app = createTestApp(mimoContext, projectRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const token = await mimoContext.services.auth.generateToken("testuser");
+
+      const repoA = await mimoContext.repos.managedRepositories.create({
+        name: "repo-a",
+        repoUrl: reachableRepoUrl,
+        repoType: "git",
+        owner: "testuser",
+      });
+      const repoB = await mimoContext.repos.managedRepositories.create({
+        name: "repo-b",
+        repoUrl: reachableRepoUrl,
+        repoType: "git",
+        owner: "testuser",
+      });
+
+      const formData = new URLSearchParams();
+      formData.append("name", "Two Repo Project");
+      formData.append("repoSelected[]", repoA.id);
+      formData.append("repoSelected[]", repoB.id);
+      formData.append(`mountPath_${repoA.id}`, "repo-a");
+      formData.append(`mountPath_${repoB.id}`, "repo-b");
+
+      const res = await app.request("/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: formData.toString(),
+      });
+
+      expect(res.status).toBe(302);
+
+      const projects = await projectRepository.listAll();
+      expect(projects.length).toBe(1);
+      const entries = projects[0].repositories;
+      expect(entries.length).toBe(2);
+      expect(entries.map((entry: any) => entry.repoId).sort()).toEqual(
+        [repoA.id, repoB.id].sort(),
+      );
+      expect(entries[0].repoId).toBe(repoA.id);
+    });
+  });
+
   describe("Project Listing", () => {
     it("should list all projects for authenticated user", async () => {
       const app = createTestApp(mimoContext, projectRoutes);
@@ -236,16 +310,16 @@ describe("Project Management Integration Tests", () => {
 
       // Create some projects
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo1.git", repoType: "git", mountPath: "." }],
+
         name: "Project 1",
-        repoUrl: "https://github.com/user/repo1.git",
-        repoType: "git",
         owner: "testuser",
       });
 
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo2.git", repoType: "git", mountPath: "." }],
+
         name: "Project 2",
-        repoUrl: "https://github.com/user/repo2.git",
-        repoType: "git",
         owner: "testuser",
       });
 
@@ -271,15 +345,15 @@ describe("Project Management Integration Tests", () => {
       const token = await mimoContext.services.auth.generateToken("testuser");
 
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo1.git", repoType: "git", mountPath: "." }],
+
         name: "Project 1",
-        repoUrl: "https://github.com/user/repo1.git",
-        repoType: "git",
         owner: "testuser",
       });
       const project2 = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo2.git", repoType: "git", mountPath: "." }],
+
         name: "Project 2",
-        repoUrl: "https://github.com/user/repo2.git",
-        repoType: "git",
         owner: "testuser",
       });
 
@@ -334,9 +408,9 @@ describe("Project Management Integration Tests", () => {
       const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
 
@@ -378,9 +452,9 @@ describe("Project Management Integration Tests", () => {
       const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Project To Delete",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
 
@@ -434,11 +508,11 @@ describe("Project Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const token = await mimoContext.services.auth.generateToken("testuser");
+      const managedRepo = await createManagedRepoForTest("testuser");
 
       const formData = new URLSearchParams();
+      appendRepoPicker(formData, managedRepo);
       formData.append("name", "Project with Description");
-      formData.append("repoUrl", reachableRepoUrl);
-      formData.append("repoType", "git");
       formData.append("description", "A test project description");
 
       const res = await app.request("/projects", {
@@ -466,11 +540,11 @@ describe("Project Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const token = await mimoContext.services.auth.generateToken("testuser");
+      const managedRepo = await createManagedRepoForTest("testuser");
 
       const formData = new URLSearchParams();
+      appendRepoPicker(formData, managedRepo);
       formData.append("name", "Project Without Description");
-      formData.append("repoUrl", reachableRepoUrl);
-      formData.append("repoType", "git");
 
       const res = await app.request("/projects", {
         method: "POST",
@@ -497,12 +571,12 @@ describe("Project Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const token = await mimoContext.services.auth.generateToken("testuser");
+      const managedRepo = await createManagedRepoForTest("testuser");
 
       const longDescription = "a".repeat(501);
       const formData = new URLSearchParams();
+      appendRepoPicker(formData, managedRepo);
       formData.append("name", "Test Project");
-      formData.append("repoUrl", reachableRepoUrl);
-      formData.append("repoType", "git");
       formData.append("description", longDescription);
 
       const res = await app.request("/projects", {
@@ -529,11 +603,11 @@ describe("Project Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const token = await mimoContext.services.auth.generateToken("testuser");
+      const managedRepo = await createManagedRepoForTest("testuser");
 
       const formData = new URLSearchParams();
+      appendRepoPicker(formData, managedRepo);
       formData.append("name", "Project with Agent Subpath");
-      formData.append("repoUrl", reachableRepoUrl);
-      formData.append("repoType", "git");
       formData.append("agentSubpath", "packages/backend");
 
       const res = await app.request("/projects", {
@@ -561,11 +635,11 @@ describe("Project Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const token = await mimoContext.services.auth.generateToken("testuser");
+      const managedRepo = await createManagedRepoForTest("testuser");
 
       const formData = new URLSearchParams();
+      appendRepoPicker(formData, managedRepo);
       formData.append("name", "Project Without Agent Subpath");
-      formData.append("repoUrl", reachableRepoUrl);
-      formData.append("repoType", "git");
 
       const res = await app.request("/projects", {
         method: "POST",
@@ -586,9 +660,9 @@ describe("Project Management Integration Tests", () => {
 
     it("should retrieve project with agentSubpath", async () => {
       const created = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Agent Subpath Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
         agentSubpath: "packages/api",
       });
@@ -600,17 +674,17 @@ describe("Project Management Integration Tests", () => {
 
     it("should list projects with agentSubpath", async () => {
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo1.git", repoType: "git", mountPath: "." }],
+
         name: "List Agent Subpath Project 1",
-        repoUrl: "https://github.com/user/repo1.git",
-        repoType: "git",
         owner: "testuser",
         agentSubpath: "packages/web",
       });
 
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo2.git", repoType: "git", mountPath: "." }],
+
         name: "List Agent Subpath Project 2",
-        repoUrl: "https://github.com/user/repo2.git",
-        repoType: "git",
         owner: "testuser",
         agentSubpath: "packages/cli",
       });
@@ -629,9 +703,9 @@ describe("Project Management Integration Tests", () => {
 
     it("should store agentSubpath on session when provided explicitly", async () => {
       const project = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Project for Session Test",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
 
@@ -647,9 +721,9 @@ describe("Project Management Integration Tests", () => {
 
     it("should resolve effective agentSubpath following the design spec", async () => {
       const project = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Project for Resolution Test",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
         agentSubpath: "packages/backend",
       });
@@ -685,12 +759,11 @@ describe("Project Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const token = await mimoContext.services.auth.generateToken("testuser");
+      const managedRepo = await createManagedRepoForTest("testuser");
 
       const formData = new URLSearchParams();
+      appendRepoPicker(formData, managedRepo, { sourceBranch: "main" });
       formData.append("name", "Project with Source Branch");
-      formData.append("repoUrl", reachableRepoUrl);
-      formData.append("repoType", "git");
-      formData.append("sourceBranch", "feature/v2");
 
       const res = await app.request("/projects", {
         method: "POST",
@@ -706,8 +779,8 @@ describe("Project Management Integration Tests", () => {
       const projects = await projectRepository.listAll();
       expect(projects.length).toBe(1);
       expect(projects[0].name).toBe("Project with Source Branch");
-      expect(projects[0].sourceBranch).toBe("feature/v2");
-      expect(projects[0].newBranch).toBeUndefined();
+      expect(projects[0].repositories[0].sourceBranch).toBe("main");
+      expect(projects[0].repositories[0].newBranch).toBeUndefined();
     });
 
     it("should create project with newBranch only", async () => {
@@ -718,12 +791,11 @@ describe("Project Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const token = await mimoContext.services.auth.generateToken("testuser");
+      const managedRepo = await createManagedRepoForTest("testuser");
 
       const formData = new URLSearchParams();
+      appendRepoPicker(formData, managedRepo, { newBranch: "ai-session-my-feature" });
       formData.append("name", "Project with New Branch");
-      formData.append("repoUrl", reachableRepoUrl);
-      formData.append("repoType", "git");
-      formData.append("newBranch", "ai-session-my-feature");
 
       const res = await app.request("/projects", {
         method: "POST",
@@ -739,8 +811,8 @@ describe("Project Management Integration Tests", () => {
       const projects = await projectRepository.listAll();
       expect(projects.length).toBe(1);
       expect(projects[0].name).toBe("Project with New Branch");
-      expect(projects[0].sourceBranch).toBeUndefined();
-      expect(projects[0].newBranch).toBe("ai-session-my-feature");
+      expect(projects[0].repositories[0].sourceBranch).toBeUndefined();
+      expect(projects[0].repositories[0].newBranch).toBe("ai-session-my-feature");
     });
 
     it("should create project with both branch fields", async () => {
@@ -751,13 +823,11 @@ describe("Project Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const token = await mimoContext.services.auth.generateToken("testuser");
+      const managedRepo = await createManagedRepoForTest("testuser");
 
       const formData = new URLSearchParams();
+      appendRepoPicker(formData, managedRepo, { sourceBranch: "main", newBranch: "ai-session-feature-x" });
       formData.append("name", "Project with Both Branches");
-      formData.append("repoUrl", reachableRepoUrl);
-      formData.append("repoType", "git");
-      formData.append("sourceBranch", "main");
-      formData.append("newBranch", "ai-session-feature-x");
 
       const res = await app.request("/projects", {
         method: "POST",
@@ -773,8 +843,8 @@ describe("Project Management Integration Tests", () => {
       const projects = await projectRepository.listAll();
       expect(projects.length).toBe(1);
       expect(projects[0].name).toBe("Project with Both Branches");
-      expect(projects[0].sourceBranch).toBe("main");
-      expect(projects[0].newBranch).toBe("ai-session-feature-x");
+      expect(projects[0].repositories[0].sourceBranch).toBe("main");
+      expect(projects[0].repositories[0].newBranch).toBe("ai-session-feature-x");
     });
 
     it("should create project without branch fields (backwards compatible)", async () => {
@@ -785,11 +855,11 @@ describe("Project Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const token = await mimoContext.services.auth.generateToken("testuser");
+      const managedRepo = await createManagedRepoForTest("testuser");
 
       const formData = new URLSearchParams();
+      appendRepoPicker(formData, managedRepo);
       formData.append("name", "Project Without Branches");
-      formData.append("repoUrl", reachableRepoUrl);
-      formData.append("repoType", "git");
 
       const res = await app.request("/projects", {
         method: "POST",
@@ -805,52 +875,48 @@ describe("Project Management Integration Tests", () => {
       const projects = await projectRepository.listAll();
       expect(projects.length).toBe(1);
       expect(projects[0].name).toBe("Project Without Branches");
-      expect(projects[0].sourceBranch).toBeUndefined();
-      expect(projects[0].newBranch).toBeUndefined();
+      expect(projects[0].repositories[0].sourceBranch).toBeUndefined();
+      expect(projects[0].repositories[0].newBranch).toBeUndefined();
     });
 
     it("should retrieve project with branch fields", async () => {
       const created = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", sourceBranch: "develop", newBranch: "ai-feature", mountPath: "." }],
+
         name: "Branch Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
-        sourceBranch: "develop",
-        newBranch: "ai-feature",
       });
 
       const found = await projectRepository.findById(created.id);
       expect(found).not.toBeNull();
-      expect(found!.sourceBranch).toBe("develop");
-      expect(found!.newBranch).toBe("ai-feature");
+      expect(found!.repositories[0]!.sourceBranch).toBe("develop");
+      expect(found!.repositories[0]!.newBranch).toBe("ai-feature");
     });
 
     it("should list projects with branch fields", async () => {
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo1.git", repoType: "git", sourceBranch: "main", mountPath: "." }],
+
         name: "List Branch Project 1",
-        repoUrl: "https://github.com/user/repo1.git",
-        repoType: "git",
         owner: "testuser",
-        sourceBranch: "main",
       });
 
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo2.git", repoType: "git", newBranch: "ai-branch", mountPath: "." }],
+
         name: "List Branch Project 2",
-        repoUrl: "https://github.com/user/repo2.git",
-        repoType: "git",
         owner: "testuser",
-        newBranch: "ai-branch",
       });
 
       const projects = await projectRepository.listByOwner("testuser");
       expect(projects.length).toBe(2);
       expect(
         projects.find((p: any) => p.name === "List Branch Project 1")
-          ?.sourceBranch,
+          ?.repositories[0]?.sourceBranch,
       ).toBe("main");
       expect(
         projects.find((p: any) => p.name === "List Branch Project 2")
-          ?.newBranch,
+          ?.repositories[0]?.newBranch,
       ).toBe("ai-branch");
     });
   });
@@ -858,21 +924,21 @@ describe("Project Management Integration Tests", () => {
   describe("Project List Ordering", () => {
     it("should list projects sorted alphabetically by name for an owner", async () => {
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Zebra Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Alpha Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Mango Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
 
@@ -886,21 +952,21 @@ describe("Project Management Integration Tests", () => {
 
     it("should list all projects sorted alphabetically by name", async () => {
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Zulu",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Apple",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Banana",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "otheruser",
       });
 
@@ -914,21 +980,21 @@ describe("Project Management Integration Tests", () => {
 
     it("should keep stable order across repeated fetches", async () => {
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Delta",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Alpha",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
       await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Charlie",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
 

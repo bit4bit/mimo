@@ -102,6 +102,34 @@ describe("GitHttpServer Integration", () => {
     expect(os.fs.exists(join(dest, "f.txt"))).toBe(true);
   });
 
+  it("routes git HTTP requests by session and repository", async () => {
+    const { os, reposDir, home, port, server } = await makeServer();
+    const sid = "sess-multi-777";
+    const repoId = "backend";
+    const work = join(reposDir, `_seed-${sid}-${repoId}`);
+    const run = (cmd: string[], cwd: string) =>
+      os.command.run(cmd, { cwd, timeoutMs: 30000 });
+    mkdirSync(work, { recursive: true });
+    await run(["git", "init", "-q"], work);
+    await run(["git", "config", "user.email", "a@b.c"], work);
+    await run(["git", "config", "user.name", "a"], work);
+    os.fs.writeFile(join(work, "backend.txt"), "backend\n");
+    await run(["git", "add", "-A"], work);
+    await run(["git", "commit", "-qm", "seed"], work);
+    const bare = join(reposDir, `${sid}-${repoId}.git`);
+    await run(["git", "clone", "-q", "--bare", work, bare], reposDir);
+    await run(["git", "config", "http.receivepack", "true"], bare);
+    rmSync(work, { recursive: true, force: true });
+
+    const dest = join(home, "clone-backend");
+    const result = await os.command.run(
+      ["git", "clone", "-q", `http://${USER}:${PASS}@localhost:${port}${new URL(server.getUrl(sid, repoId)).pathname}`, dest],
+      { timeoutMs: 30000 },
+    );
+    expect(result.success).toBe(true);
+    expect(os.fs.exists(join(dest, "backend.txt"))).toBe(true);
+  });
+
   it("clones a larger multi-commit repo over protocol v2", async () => {
     const { os, reposDir, home, port } = await makeServer();
     const sid = "sess-v2-555";

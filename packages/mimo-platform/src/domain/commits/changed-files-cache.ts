@@ -28,8 +28,9 @@ export class ChangedFilesCache {
     sessionId: string,
     upstreamPath: string,
     workspacePath: string,
+    repoId?: string,
   ): ChangedFilesResult | undefined {
-    const entry = this.entries.get(sessionId);
+    const entry = this.entries.get(`${sessionId}:${repoId ?? ""}`);
     if (!entry) {
       return undefined;
     }
@@ -42,7 +43,7 @@ export class ChangedFilesCache {
     }
 
     if (Date.now() - entry.cachedAt > this.ttlMs) {
-      this.entries.delete(sessionId);
+      this.entries.delete(`${sessionId}:${repoId ?? ""}`);
       return undefined;
     }
 
@@ -54,8 +55,9 @@ export class ChangedFilesCache {
     upstreamPath: string,
     workspacePath: string,
     changedFiles: ChangedFilesResult,
+    repoId?: string,
   ): void {
-    this.entries.set(sessionId, {
+    this.entries.set(`${sessionId}:${repoId ?? ""}`, {
       upstreamPath,
       workspacePath,
       changedFiles,
@@ -65,7 +67,11 @@ export class ChangedFilesCache {
 
   invalidate(sessionId?: string): void {
     if (sessionId) {
-      this.entries.delete(sessionId);
+      for (const key of this.entries.keys()) {
+        if (key.startsWith(`${sessionId}:`)) {
+          this.entries.delete(key);
+        }
+      }
     } else {
       this.entries.clear();
     }

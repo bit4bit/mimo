@@ -174,12 +174,18 @@ export class ImpactCalculator {
     agentWorkspacePath: string,
     forceRefresh = false,
     providedChangedFiles?: ChangedFilesResult,
+    repoId?: string,
   ): Promise<{ metrics: ImpactMetrics; trends: ImpactTrend }> {
+    const calcStart = Date.now();
+    const tag = `[impact] calculateImpact ${sessionId}/${repoId ?? "default"}`;
+    logger.debug(`${tag} start upstream=${upstreamPath} workspace=${agentWorkspacePath}`);
     const sccService = await this.getSccService();
 
     // Ensure scc is installed
     if (!sccService.isInstalled()) {
+      logger.debug(`${tag} scc not installed, installing...`);
       await sccService.install();
+      logger.debug(`${tag} scc install finished in ${Date.now() - calcStart}ms installed=${sccService.isInstalled()}`);
     }
 
     // Detect changed files first. When the caller already knows the changed
@@ -196,6 +202,7 @@ export class ImpactCalculator {
         sessionId,
         upstreamPath,
         agentWorkspacePath,
+        repoId ?? "default",
       );
     }
 
@@ -216,6 +223,9 @@ export class ImpactCalculator {
         { fileFilter: shouldIncludeImpactPath },
         manifestStore,
       );
+      logger.debug(
+        `${tag} detectChangedFiles done in ${Date.now() - calcStart}ms files=${changedFilesResult.files.length}`,
+      );
 
       // Update the shared cache with the freshly scanned result so the commit
       // preview and subsequent impact refreshes stay in sync.
@@ -224,6 +234,7 @@ export class ImpactCalculator {
         upstreamPath,
         agentWorkspacePath,
         changedFilesResult,
+        repoId ?? "default",
       );
     }
 
@@ -265,6 +276,9 @@ export class ImpactCalculator {
     let workspaceMetrics: SccMetrics | null = null;
 
     try {
+      logger.debug(
+        `${tag} scc start upstreamFiles=${upstreamPaths.length} workspaceFiles=${workspacePaths.length}`,
+      );
       [upstreamMetrics, workspaceMetrics] = await Promise.all([
         sccService.runSccOnFiles(upstreamPath, upstreamPaths, forceRefresh),
         sccService.runSccOnFiles(
@@ -273,6 +287,7 @@ export class ImpactCalculator {
           forceRefresh,
         ),
       ]);
+      logger.debug(`${tag} scc done in ${Date.now() - calcStart}ms`);
     } catch (error) {
       logger.error(`[impact] Failed to get scc metrics:`, error);
     }
@@ -459,17 +474,20 @@ export class ImpactCalculator {
       (_, i) => changedPathExists[i],
     );
 
+    logger.debug(`${tag} duplication start files=${changedFilePaths.length}`);
     const duplication = await this.calculateDuplication(
       changedFilePaths,
       agentWorkspacePath,
       linesAdded + linesRemoved,
     );
+    logger.debug(`${tag} duplication done in ${Date.now() - calcStart}ms`);
 
     const dependencies = await this.calculateDependencyChanges(
       changedFilesResult.files,
       upstreamPath,
       agentWorkspacePath,
     );
+    logger.debug(`${tag} dependencies done in ${Date.now() - calcStart}ms`);
 
     const metrics: ImpactMetrics = {
       files,

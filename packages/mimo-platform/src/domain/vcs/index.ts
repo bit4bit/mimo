@@ -7,6 +7,12 @@
  */
 import type { OS } from "../../infrastructure/os/types.js";
 import type { Credential } from "../credentials/repository";
+import {
+  buildGitSshCommand as buildSharedGitSshCommand,
+  injectHttpsCredentials as injectSharedHttpsCredentials,
+  isSshRepoUrl,
+  normalizeSshPrivateKey,
+} from "./credential-injection.js";
 import { logger } from "../../logger.js";
 import { EXCLUDED_PATHS, isExcluded } from "../files/path-policy.js";
 import { parsePatchPreview, type DiffHunk } from "../commits/patch-preview.js";
@@ -114,25 +120,7 @@ export class VCS {
   // ── SSH key helpers (now use injected fs/path) ──────────────────────────
 
   private createTempSshKeyFile(privateKey: string): string {
-    let normalizedPrivateKey = privateKey.trim();
-    if (
-      (normalizedPrivateKey.startsWith('"') &&
-        normalizedPrivateKey.endsWith('"')) ||
-      (normalizedPrivateKey.startsWith("'") &&
-        normalizedPrivateKey.endsWith("'"))
-    ) {
-      normalizedPrivateKey = normalizedPrivateKey.slice(1, -1);
-    }
-    normalizedPrivateKey = normalizedPrivateKey
-      .replace(/^\uFEFF/, "")
-      .replace(/\r\n/g, "\n")
-      .replace(/\r/g, "\n")
-      .replace(/\\r\\n/g, "\n")
-      .replace(/\\r/g, "\n")
-      .replace(/\\n/g, "\n");
-    if (!normalizedPrivateKey.endsWith("\n")) {
-      normalizedPrivateKey += "\n";
-    }
+    const normalizedPrivateKey = normalizeSshPrivateKey(privateKey);
     const tempDir = this.os.path.tempDir();
     const keyFile = this.os.path.join(
       tempDir,
@@ -145,26 +133,16 @@ export class VCS {
 
   private async deleteTempSshKeyFile(keyPath: string): Promise<void> {
     try {
-      await this.os.fs.unlinkAsync(keyPath);
+      if (this.os.fs.exists(keyPath)) {
+        this.os.fs.unlink(keyPath);
+      }
     } catch {
       // Ignore errors during cleanup
     }
   }
 
   private buildGitSshCommand(keyPath?: string, clonePort?: number): string {
-    const parts = ["ssh"];
-    if (keyPath) {
-      parts.push(`-i "${keyPath}"`, "-o IdentitiesOnly=yes");
-    }
-    parts.push(
-      "-o StrictHostKeyChecking=no",
-      "-o UserKnownHostsFile=/dev/null",
-      "-o BatchMode=yes",
-    );
-    if (clonePort != null) {
-      parts.push(`-p ${clonePort}`);
-    }
-    return parts.join(" ");
+    return buildSharedGitSshCommand(keyPath, clonePort);
   }
 
   private sanitizeGitUrl(repoUrl: string): string {
@@ -181,22 +159,14 @@ export class VCS {
   // ── URL / auth helpers (pure functions, unchanged) ───────────────────────
 
   private isSshUrl(url: string): boolean {
-    return url.startsWith("git@") || url.startsWith("ssh://");
+    return isSshRepoUrl(url);
   }
 
   private injectHttpsCredentials(
     repoUrl: string,
     credential: Extract<Credential, { type: "https" }>,
   ): string {
-    try {
-      const url = new URL(repoUrl);
-      url.username = encodeURIComponent(credential.username);
-      url.password = encodeURIComponent(credential.password);
-      return url.toString();
-    } catch {
-      // If URL parsing fails, assume it's SSH format and return as-is
-      return repoUrl;
-    }
+    return injectSharedHttpsCredentials(repoUrl, credential);
   }
 
   private isAuthError(error: string, type: "https" | "ssh"): boolean {

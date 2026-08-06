@@ -17,6 +17,7 @@ import type { MimoContext } from "../../../../infrastructure/context/mimo-contex
 import { findFiles } from "../../../../domain/files/service.js";
 import {
   detectChangedFiles as detectChangedFilesImpl,
+  detectChangedFilesForRepos as detectChangedFilesForReposImpl,
   type ChangedFilesResult,
 } from "../../../../domain/files/changed-files.js";
 import { createManifestStore as createManifestStoreImpl } from "../../../../domain/files/tree-manifest.js";
@@ -30,6 +31,7 @@ import {
 import { SearchServiceError } from "../../../../domain/files/search-service.js";
 import { canDeleteSessionNow } from "../../../../domain/sessions/session-retention.js";
 import { createSessionDeletionUseCase } from "../../../../domain/sessions/session-deletion.js";
+import { validateWorkspaceRelativeDir } from "../../../../domain/sessions/workspace-paths.js";
 import { isExcluded } from "../../../../domain/files/path-policy.js";
 import { mcpTokenStore } from "../../../../mcp/token-store.js";
 import { createPlatformMcpServerConfig } from "../../../../mcp/platform-config.js";
@@ -75,6 +77,8 @@ export interface ChangedFilesDeps {
    * Injected so tests can stub it without touching the filesystem.
    */
   detectChangedFiles: typeof detectChangedFilesImpl;
+  /** Detects repo-qualified changed-file deltas across session repositories. */
+  detectChangedFilesForRepos?: typeof detectChangedFilesForReposImpl;
   /** Builds the per-tree manifest store used by `detectChangedFiles`. */
   createManifestStore: typeof createManifestStoreImpl;
 }
@@ -149,11 +153,17 @@ export function createSessionsRoutes(
   // route. Tests can inject stubs via `deps.changedFiles`; production reads
   // the shared instances from `mimoContext.services`.
   function deps_changedFiles(_c: Context): ChangedFilesDeps {
-    if (deps.changedFiles) return deps.changedFiles;
+    if (deps.changedFiles) {
+      return {
+        detectChangedFilesForRepos: detectChangedFilesForReposImpl,
+        ...deps.changedFiles,
+      };
+    }
     return {
       changedFilesCache: mimoContext.services.changedFilesCache,
       os: mimoContext.services.os,
       detectChangedFiles: detectChangedFilesImpl,
+      detectChangedFilesForRepos: detectChangedFilesForReposImpl,
       createManifestStore: createManifestStoreImpl,
     };
   }
@@ -173,6 +183,70 @@ export function createSessionsRoutes(
     const sub = (session.agentSubpath ?? "").trim();
     if (!sub) return session.agentWorkspacePath;
     return os.path.join(session.agentWorkspacePath, sub);
+  }
+
+  // Scope each session repository's upstream/workspace paths by the session
+  // relativeDir/agentSubpath when that subpath resolves into the repository.
+  // `relativeDir` is workspace-relative and resolves to exactly one repository
+  // by longest matching mountPath; only that repository is scoped, so the
+  // FileTree and changed-file detection reflect what the agent actually sees
+  // without mis-scoping other mounted repositories.
+  function scopeReposByRelativeDir(
+    session: {
+      agentWorkspacePath: string;
+      relativeDir?: string | null;
+      agentSubpath?: string | null;
+      repos: Array<{
+        projectRepoId: string;
+        upstreamPath: string;
+        workspacePath: string;
+      }>;
+    },
+    os: { path: { join: (...segs: string[]) => string } },
+  ): Array<{
+    projectRepoId: string;
+    upstreamPath: string;
+    workspacePath: string;
+  }> {
+    const sub = (session.relativeDir ?? session.agentSubpath ?? "").trim();
+    if (!sub) return session.repos;
+
+    // Derive each repo's mountPath from its workspacePath, which is
+    // <agentWorkspacePath>/<mountPath> (or equal to agentWorkspacePath when
+    // the repo is mounted at the workspace root "."). String-prefix derivation
+    // avoids relying on os.path.relative so the helper works with any OS stub.
+    const root = session.agentWorkspacePath.replace(/\\/g, "/");
+    const mountPaths = session.repos.map((repo) => {
+      let ws = repo.workspacePath.replace(/\\/g, "/");
+      if (ws === root || ws === `${root}/`) return ".";
+      if (ws.startsWith(`${root}/`)) {
+        const mount = ws.slice(root.length + 1).replace(/\/+$/, "");
+        return mount === "" ? "." : mount;
+      }
+      return ".";
+    });
+
+    // Pick the repository whose mountPath is the longest prefix of `sub`.
+    let bestIdx = -1;
+    let bestMount = "";
+    for (let i = 0; i < mountPaths.length; i++) {
+      const mount = mountPaths[i];
+      const matches =
+        mount === "." || sub === mount || sub.startsWith(`${mount}/`);
+      if (matches && mount.length > bestMount.length) {
+        bestIdx = i;
+        bestMount = mount;
+      }
+    }
+
+    return session.repos.map((repo, i) => {
+      if (i !== bestIdx) return repo;
+      return {
+        ...repo,
+        upstreamPath: os.path.join(repo.upstreamPath, sub),
+        workspacePath: os.path.join(repo.workspacePath, sub),
+      };
+    });
   }
 
   // Helper to get authenticated username from cookie
@@ -304,6 +378,7 @@ export function createSessionsRoutes(
     const name = body.name as string;
     const projectId = (body.projectId as string) || getProjectId(c);
     const agentSubpathRaw = (body.agentSubpath as string) || null;
+    const relativeDirRaw = (body.relativeDir as string) || null;
     const branchName = (body.branchName as string) || null;
     const sessionTtlDaysRaw = (body.sessionTtlDays as string) || "180";
     const sessionTtlDays = parseInt(sessionTtlDaysRaw, 10);
@@ -377,14 +452,39 @@ export function createSessionsRoutes(
       return c.text("Project not found", 404);
     }
 
+    const projectRepositories = project.repositories;
+    const managedReposByEntryId = new Map<
+      string,
+      import("../../../../domain/repositories/repository.js").ManagedRepository
+    >();
+    for (const repo of projectRepositories) {
+      if (!repo.repoId) continue;
+      const managed = await mimoContext.repos.managedRepositories.findById(
+        repo.repoId,
+        username,
+      );
+      if (!managed) {
+        return c.text(
+          `Managed repository referenced by '${repo.name}' was not found. Update the project repositories and try again.`,
+          400,
+        );
+      }
+      managedReposByEntryId.set(repo.id, managed);
+    }
+
     let projectCredential:
       | import("../../../../domain/credentials/repository.js").Credential
       | undefined;
-    if (project.credentialId) {
-      projectCredential = await mimoContext.repos.credentials.findById(
-        project.credentialId,
-        username,
-      );
+    const firstEntryCredentialId = projectRepositories[0]
+      ? (managedReposByEntryId.get(projectRepositories[0].id)?.credentialId ??
+        projectRepositories[0].credentialId)
+      : undefined;
+    if (firstEntryCredentialId) {
+      projectCredential =
+        (await mimoContext.repos.credentials.findById(
+          firstEntryCredentialId,
+          username,
+        )) ?? undefined;
       if (!projectCredential) {
         return c.text(
           "Project credential not found. Update project credentials and try again.",
@@ -393,10 +493,45 @@ export function createSessionsRoutes(
       }
     }
 
+    const repositoryCredentials = new Map<
+      string,
+      import("../../../../domain/credentials/repository.js").Credential
+    >();
+    for (const repo of projectRepositories) {
+      const credentialId =
+        managedReposByEntryId.get(repo.id)?.credentialId ?? repo.credentialId;
+      if (!credentialId) continue;
+      const credential = await mimoContext.repos.credentials.findById(
+        credentialId,
+        username,
+      );
+      if (!credential) {
+        return c.text(
+          `Project credential not found for repository '${repo.name}'. Update project credentials and try again.`,
+          400,
+        );
+      }
+      repositoryCredentials.set(repo.id, credential);
+    }
+
     const effectiveSubpath =
       (agentSubpathRaw?.trim() || undefined) ??
       project.agentSubpath ??
       undefined;
+    let effectiveRelativeDir: string | undefined;
+    try {
+      effectiveRelativeDir =
+        (relativeDirRaw?.trim() || undefined) ?? effectiveSubpath ?? undefined;
+      if (effectiveRelativeDir) {
+        effectiveRelativeDir =
+          validateWorkspaceRelativeDir(effectiveRelativeDir);
+      }
+    } catch (error) {
+      return c.text(
+        error instanceof Error ? error.message : "Invalid relativeDir",
+        400,
+      );
+    }
 
     if (branchMode === "sync" && !branchName) {
       return c.text(
@@ -404,7 +539,14 @@ export function createSessionsRoutes(
         400,
       );
     }
-    if (branchMode === "sync" && project.repoType !== "git") {
+    if (
+      branchMode === "sync" &&
+      projectRepositories.some(
+        (repo) =>
+          (managedReposByEntryId.get(repo.id)?.repoType ?? repo.repoType) !==
+          "git",
+      )
+    ) {
       return c.text("Sync mode is only supported for git repositories", 400);
     }
 
@@ -461,6 +603,7 @@ export function createSessionsRoutes(
         name,
         projectId,
         agentSubpath: effectiveSubpath,
+        relativeDir: effectiveRelativeDir,
         branchName,
         mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
         sessionTtlDays,
@@ -489,136 +632,159 @@ export function createSessionsRoutes(
     }
     const fullSession = getSessionResult.data.session;
 
-    // Initialize repository: clone → import to fossil
-    // Note: checkout is created by agent when it receives session_ready
+    // Initialize repositories: clone every project repository to its mounted
+    // upstream path, seed one bare session repo per repository, then clone each
+    // platform checkout into the mounted agent-workspace path.
     try {
-      // Step 1: Clone repository to upstream/
-      // In sync mode, clone the existing remote branch directly; otherwise use
-      // the project's configured sourceBranch.
-      const cloneBranch =
-        branchMode === "sync" ? branchName! : project.sourceBranch;
-      const effectiveClonePort = clonePort ?? project.clonePort;
-      const cloneResult = await projectVcsCache.clone({
-        projectId: project.id,
-        repoUrl: project.repoUrl,
-        repoType: project.repoType,
-        targetPath: session.upstreamPath,
-        credential: projectCredential,
-        branch: cloneBranch,
-        ...(effectiveClonePort != null && { clonePort: effectiveClonePort }),
-      });
+      const sessionRepos = fullSession.repos;
+      const projectRepoById = new Map(
+        projectRepositories.map((repo) => [repo.id, repo]),
+      );
+      const updatedSessionRepos: NonNullable<typeof fullSession.repos> = [];
 
-      if (!cloneResult.success) {
-        // Cleanup: delete session via Internal API Client
-        await apiClient.delete(`/sessions/${session.id}`);
-        return c.text(`Failed to clone repository: ${cloneResult.error}`, 500);
-      }
-
-      // Step 2: Resolve the desired branch and align upstream.
-      // The branch session is only for upstream; fossil import always lands
-      // on trunk so that agent-workspace and mimo-agent checkout work with a
-      // clean main branch.
-      let desiredBranch: string | null;
-      if (branchMode === "sync") {
-        // clone --branch should have left upstream HEAD on branchName.
-        // Verify before persisting so we never record a branch that doesn't
-        // match the working tree (which would later cause a new branch to be
-        // created on push).
-        const headResult = await vcs.getCurrentBranch(
-          project.repoType,
-          session.upstreamPath,
-        );
-        if (!headResult.success || headResult.branch !== branchName) {
+      for (const sessionRepo of sessionRepos) {
+        const projectRepo =
+          projectRepoById.get(sessionRepo.projectRepoId) ??
+          projectRepositories[0];
+        if (!projectRepo) {
+          await apiClient.delete(`/sessions/${session.id}`);
+          return c.text("Project repository configuration not found", 500);
+        }
+        const credential =
+          repositoryCredentials.get(projectRepo.id) ?? projectCredential;
+        const managedRepo = managedReposByEntryId.get(projectRepo.id);
+        const resolvedRepoUrl = managedRepo?.repoUrl ?? projectRepo.repoUrl;
+        const resolvedRepoType =
+          managedRepo?.repoType ?? projectRepo.repoType ?? "git";
+        if (!resolvedRepoUrl) {
           await apiClient.delete(`/sessions/${session.id}`);
           return c.text(
-            `Sync failed: expected branch '${branchName}' but checkout is on '${headResult.branch ?? "unknown"}'. Verify the branch exists on the remote.`,
+            `Repository '${projectRepo.name}' has no URL. Update the project repositories and try again.`,
             500,
           );
         }
-        desiredBranch = branchName!;
-      } else {
-        desiredBranch = branchName || project.newBranch || null;
-        if (desiredBranch) {
-          const branchResult = await vcs.createBranch(
-            desiredBranch,
-            project.repoType,
-            session.upstreamPath,
+
+        const cloneBranch =
+          branchMode === "sync" ? branchName! : projectRepo.sourceBranch;
+        const effectiveClonePort =
+          clonePort ?? managedRepo?.clonePort ?? projectRepo.clonePort;
+        const cloneResult = await projectVcsCache.clone({
+          projectId: project.id,
+          repoId: projectRepo.id,
+          repoUrl: resolvedRepoUrl,
+          repoType: resolvedRepoType,
+          targetPath: sessionRepo.upstreamPath,
+          credential,
+          branch: cloneBranch,
+          ...(effectiveClonePort != null && { clonePort: effectiveClonePort }),
+        });
+
+        if (!cloneResult.success) {
+          await apiClient.delete(`/sessions/${session.id}`);
+          return c.text(
+            `Failed to clone repository '${projectRepo.name}': ${cloneResult.error}`,
+            500,
           );
-          if (!branchResult.success) {
+        }
+
+        let desiredBranch: string | null;
+        if (branchMode === "sync") {
+          const headResult = await vcs.getCurrentBranch(
+            resolvedRepoType,
+            sessionRepo.upstreamPath,
+          );
+          if (!headResult.success || headResult.branch !== branchName) {
             await apiClient.delete(`/sessions/${session.id}`);
             return c.text(
-              `Failed to create branch '${desiredBranch}': ${branchResult.error}`,
+              `Sync failed for repository '${projectRepo.name}': expected branch '${branchName}' but checkout is on '${headResult.branch ?? "unknown"}'. Verify the branch exists on the remote.`,
               500,
             );
           }
+          desiredBranch = branchName!;
+        } else {
+          desiredBranch = branchName || projectRepo.newBranch || null;
+          if (desiredBranch) {
+            const branchResult = await vcs.createBranch(
+              desiredBranch,
+              resolvedRepoType,
+              sessionRepo.upstreamPath,
+            );
+            if (!branchResult.success) {
+              await apiClient.delete(`/sessions/${session.id}`);
+              return c.text(
+                `Failed to create branch '${desiredBranch}' in repository '${projectRepo.name}': ${branchResult.error}`,
+                500,
+              );
+            }
+          }
         }
-      }
 
-      // Step 3: Seed the bare Git session repo served to the agent.
-      const repoPath = sessionRepository.getSessionRepoPath(session.id);
-      const seedResult = await vcs.seedSessionRepo(
-        session.upstreamPath,
-        project.repoType,
-        repoPath,
-        desiredBranch ?? undefined,
-      );
-
-      if (!seedResult.success) {
-        await apiClient.delete(`/sessions/${session.id}`);
-        return c.text(
-          `Failed to seed session repository: ${seedResult.error}`,
-          500,
+        const repoPath = sessionRepository.getSessionRepoPath(
+          session.id,
+          projectRepo.id,
         );
-      }
+        const seedResult = await vcs.seedSessionRepo(
+          sessionRepo.upstreamPath,
+          resolvedRepoType,
+          repoPath,
+          desiredBranch ?? undefined,
+        );
 
-      if (desiredBranch) {
-        await apiClient.put(`/sessions/${session.id}`, {
-          branch: desiredBranch,
+        if (!seedResult.success) {
+          await apiClient.delete(`/sessions/${session.id}`);
+          return c.text(
+            `Failed to seed session repository '${projectRepo.name}': ${seedResult.error}`,
+            500,
+          );
+        }
+
+        const checkoutResult = await vcs.clonePlatformCheckout(
+          repoPath,
+          sessionRepo.workspacePath,
+          desiredBranch ?? undefined,
+        );
+        if (!checkoutResult.success) {
+          logger.error(
+            "[session] Failed to clone platform checkout:",
+            checkoutResult.error,
+          );
+          await apiClient.delete(`/sessions/${session.id}`);
+          return c.text("Failed to clone session checkout", 500);
+        }
+
+        const ignoreResult = await vcs.syncIgnoresToGit(
+          sessionRepo.upstreamPath,
+          sessionRepo.workspacePath,
+        );
+        if (!ignoreResult.success) {
+          logger.warn(
+            "[session] Failed to sync ignores to .git/info/exclude:",
+            ignoreResult.error,
+          );
+        }
+
+        updatedSessionRepos.push({
+          ...sessionRepo,
+          branch: desiredBranch ?? undefined,
+          baseline: seedResult.commitHash,
         });
       }
 
-      // Step 4: Generate agent credentials. Auth is enforced by the
-      // GitHttpServer basic-auth verifier against these session-stored
-      // credentials, so no repo-side user is created.
       const agentWorkspaceUser = "dev";
       const agentWorkspacePassword = crypto
         .randomUUID()
         .replace(/-/g, "")
         .slice(0, 16);
 
-      // Save credentials to session via Internal API Client
       await apiClient.put(`/sessions/${session.id}`, {
         agentWorkspaceUser,
         agentWorkspacePassword,
+        repos: updatedSessionRepos,
+        ...(updatedSessionRepos.length === 1 && {
+          branch: updatedSessionRepos[0]!.branch,
+          baseline: updatedSessionRepos[0]!.baseline,
+        }),
       });
-
-      // Step 5: Clone the platform's own checkout from the bare repo.
-      const checkoutResult = await vcs.clonePlatformCheckout(
-        repoPath,
-        session.agentWorkspacePath,
-        desiredBranch ?? undefined,
-      );
-      if (!checkoutResult.success) {
-        logger.error(
-          "[session] Failed to clone platform checkout:",
-          checkoutResult.error,
-        );
-        await apiClient.delete(`/sessions/${session.id}`);
-        return c.text("Failed to clone session checkout", 500);
-      }
-
-      // Step 5.5: Write .git/info/exclude from .gitignore and .mimoignore.
-      const ignoreResult = await vcs.syncIgnoresToGit(
-        session.upstreamPath,
-        session.agentWorkspacePath,
-      );
-      if (!ignoreResult.success) {
-        logger.warn(
-          "[session] Failed to sync ignores to .git/info/exclude:",
-          ignoreResult.error,
-        );
-        // Non-fatal: continue session creation
-      }
 
       // Step 6: Resolve MCP servers if attached via Internal API Client
       let mcpServers: any[] = [];
@@ -1323,6 +1489,34 @@ export function createSessionsRoutes(
   });
 
   // GET /sessions/:id/files - Get file tree for a session
+  router.get("/:id/repos", async (c: Context) => {
+    const username = await getAuthUsername(c);
+    if (!username) return c.json({ error: "Unauthorized" }, 401);
+    const sessionId = c.req.param("id");
+
+    const apiClient = createApiClient(c);
+    const sessionResult = await apiClient.get<GetSessionResponse>(
+      `/sessions/${sessionId}`,
+    );
+    if (!sessionResult.success) {
+      return c.json(
+        { error: "Session not found" },
+        sessionResult.status === 404 ? 404 : 500,
+      );
+    }
+    const session = sessionResult.data.session;
+    if (!session || session.owner !== username) {
+      return c.json({ error: "Session not found" }, 404);
+    }
+
+    return c.json({
+      repos: (session.repos ?? []).map((repo: any) => ({
+        repoId: repo.projectRepoId,
+        branch: repo.branch ?? null,
+      })),
+    });
+  });
+
   router.get("/:id/files", async (c: Context) => {
     const username = await getAuthUsername(c);
     if (!username) return c.json({ error: "Unauthorized" }, 401);
@@ -1347,14 +1541,28 @@ export function createSessionsRoutes(
     if (!session || session.owner !== username)
       return c.json({ error: "Session not found" }, 404);
     try {
-      // Scope the listing to the agent's working subdirectory when set, so the
-      // FileTree shows what the agent actually sees (mirrors mimo-agent cwd).
-      const filesDeps = deps_changedFiles(c);
-      const sub = (session.agentSubpath ?? "").trim();
-      const listRoot = sub
-        ? filesDeps.os.path.join(session.agentWorkspacePath, sub)
-        : session.agentWorkspacePath;
-      const allFiles = await fileService.listFiles(listRoot);
+      const repoId = c.req.query("repoId");
+      const scopedRepos = scopeReposByRelativeDir(
+        session,
+        deps_changedFiles(c).os,
+      );
+      const visibleRepos = scopedRepos.filter((r) =>
+        repoId ? r.projectRepoId === repoId : true,
+      );
+      if (visibleRepos.length === 0) {
+        return c.json({ error: "Repository not found" }, 404);
+      }
+      const allFiles = (
+        await Promise.all(
+          visibleRepos.map(async (repo) => {
+            const files = await fileService.listFiles(repo.workspacePath);
+            return files.map((file) => ({
+              ...file,
+              repoId: repo.projectRepoId,
+            }));
+          }),
+        )
+      ).flat();
       return c.json(findFiles(pattern, allFiles));
     } catch (err) {
       logger.error("[files] listFiles error:", err);
@@ -1392,50 +1600,80 @@ export function createSessionsRoutes(
     }
 
     const deps = deps_changedFiles(c);
-    // Scope both trees to the agent's working subdirectory when the session
-    // sets `agentSubpath`, mirroring `mimo-agent:index.ts`. Relative paths then
-    // align between upstream and workspace so changes are detected within the
-    // subdirectory the agent actually operates in.
-    const sub = (session.agentSubpath ?? "").trim();
-    const upstreamPath = sub
-      ? deps.os.path.join(session.upstreamPath, sub)
-      : session.upstreamPath;
-    const workspacePath = sub
-      ? deps.os.path.join(session.agentWorkspacePath, sub)
-      : session.agentWorkspacePath;
-
-    const cached = deps.changedFilesCache.get(
-      sessionId,
-      upstreamPath,
-      workspacePath,
-    );
-    if (cached) {
-      return c.json(cached);
-    }
-
-    try {
-      const manifestsDir = deps.os.path.join(
-        deps.os.path.dirname(workspacePath),
-        ".manifests",
+    const repoId = c.req.query("repoId");
+    if (session.repos.length) {
+      const scopedAll = scopeReposByRelativeDir(session, deps.os);
+      const scopedRepos = scopedAll.filter((r) =>
+        repoId ? r.projectRepoId === repoId : true,
       );
-      const manifestStore = deps.createManifestStore(deps.os, manifestsDir);
-      const result: ChangedFilesResult = await deps.detectChangedFiles(
-        deps.os,
-        upstreamPath,
-        workspacePath,
-        { fileFilter: shouldIncludeImpactPath },
-        manifestStore,
-      );
-      deps.changedFilesCache.set(
-        sessionId,
-        upstreamPath,
-        workspacePath,
-        result,
-      );
-      return c.json(result);
-    } catch (err) {
-      logger.error("[changed-files] detectChangedFiles error:", err);
-      return c.json({ error: "Failed to detect changed files" }, 500);
+      if (scopedRepos.length === 0) {
+        return c.json({ error: "Repository not found" }, 404);
+      }
+      try {
+        const cachedRepos = scopedRepos.map((repo) =>
+          deps.changedFilesCache.get(
+            sessionId,
+            repo.upstreamPath,
+            repo.workspacePath,
+            repo.projectRepoId,
+          ),
+        );
+        if (cachedRepos.every(Boolean)) {
+          const files = cachedRepos.flatMap((result) => result!.files);
+          return c.json({
+            files,
+            summary: {
+              added: cachedRepos.reduce(
+                (sum, result) => sum + result!.summary.added,
+                0,
+              ),
+              modified: cachedRepos.reduce(
+                (sum, result) => sum + result!.summary.modified,
+                0,
+              ),
+              deleted: cachedRepos.reduce(
+                (sum, result) => sum + result!.summary.deleted,
+                0,
+              ),
+            },
+          });
+        }
+        const result = await deps.detectChangedFilesForRepos!(
+          deps.os,
+          scopedRepos.map((repo) => ({
+            repoId: repo.projectRepoId,
+            upstreamPath: repo.upstreamPath,
+            workspacePath: repo.workspacePath,
+          })),
+          { fileFilter: shouldIncludeImpactPath },
+        );
+        for (const repo of scopedRepos) {
+          const repoFiles = result.files.filter(
+            (file) => file.repoId === repo.projectRepoId,
+          );
+          deps.changedFilesCache.set(
+            sessionId,
+            repo.upstreamPath,
+            repo.workspacePath,
+            {
+              files: repoFiles,
+              summary: {
+                added: repoFiles.filter((file) => file.status === "added")
+                  .length,
+                modified: repoFiles.filter((file) => file.status === "modified")
+                  .length,
+                deleted: repoFiles.filter((file) => file.status === "deleted")
+                  .length,
+              },
+            },
+            repo.projectRepoId,
+          );
+        }
+        return c.json(result);
+      } catch (err) {
+        logger.error("[changed-files] detectChangedFilesForRepos error:", err);
+        return c.json({ error: "Failed to detect changed files" }, 500);
+      }
     }
   });
 
@@ -1558,25 +1796,61 @@ export function createSessionsRoutes(
 
       void (async () => {
         try {
-          const repoPath = sessionRepository.getSessionRepoPath(sessionId);
           const { existsSync } = await import("fs");
           const { join } = await import("path");
-          const gitDirPath = join(session.agentWorkspacePath, ".git");
+          const selectedRepoId = c.req.query("repoId");
+          const sessionRepos = (session.repos ?? []).filter(
+            (repo: any) =>
+              !selectedRepoId || repo.projectRepoId === selectedRepoId,
+          );
 
-          if (existsSync(repoPath)) {
-            if (!existsSync(gitDirPath)) {
-              logger.debug(
-                `[impact] Initializing git checkout in agent-workspace...`,
+          if (sessionRepos.length > 0) {
+            for (const repo of sessionRepos) {
+              const repoPrepStart = Date.now();
+              const repoPath = sessionRepository.getSessionRepoPath(
+                sessionId,
+                repo.projectRepoId,
               );
-              await vcs.clonePlatformCheckout(
-                repoPath,
-                session.agentWorkspacePath,
-              );
+              const gitDirPath = join(repo.workspacePath, ".git");
+              if (existsSync(repoPath)) {
+                if (!existsSync(gitDirPath)) {
+                  logger.debug(
+                    `[impact] Initializing git checkout for repo ${repo.projectRepoId}...`,
+                  );
+                  await vcs.clonePlatformCheckout(repoPath, repo.workspacePath);
+                }
+                logger.debug(
+                  `[impact] Refreshing workspace for repo ${repo.projectRepoId}...`,
+                );
+                const pullResult = await vcs.gitPull(repo.workspacePath);
+                logger.debug(
+                  `[impact] repo prep done for ${repo.projectRepoId} in ${Date.now() - repoPrepStart}ms pull=${pullResult.success ? "ok" : pullResult.error || "failed"}`,
+                );
+              } else {
+                logger.debug(
+                  `[impact] bare repo missing for ${repo.projectRepoId}: ${repoPath} — skipping clone/pull prep`,
+                );
+              }
             }
-            logger.debug(
-              `[impact] Refreshing agent-workspace from session repo...`,
-            );
-            await vcs.gitPull(session.agentWorkspacePath);
+          } else {
+            const repoPath = sessionRepository.getSessionRepoPath(sessionId);
+            const gitDirPath = join(session.agentWorkspacePath, ".git");
+
+            if (existsSync(repoPath)) {
+              if (!existsSync(gitDirPath)) {
+                logger.debug(
+                  `[impact] Initializing git checkout in agent-workspace...`,
+                );
+                await vcs.clonePlatformCheckout(
+                  repoPath,
+                  session.agentWorkspacePath,
+                );
+              }
+              logger.debug(
+                `[impact] Refreshing agent-workspace from session repo...`,
+              );
+              await vcs.gitPull(session.agentWorkspacePath);
+            }
           }
 
           await handleRefreshImpact({
@@ -1589,13 +1863,22 @@ export function createSessionsRoutes(
             broadcast,
             findSessionById: (targetSessionId) =>
               sessionRepository.findById(targetSessionId),
-            calculateImpact: (sid, upstreamPath, workspacePath, forceRefresh) =>
+            calculateImpact: (
+              sid,
+              upstreamPath,
+              workspacePath,
+              forceRefresh,
+              repoId,
+            ) =>
               mimoContext.services.impactCalculator.calculateImpact(
                 sid,
                 upstreamPath,
                 workspacePath,
                 forceRefresh,
+                undefined,
+                repoId,
               ),
+            repoId: selectedRepoId,
           });
         } catch (error) {
           logger.error(
@@ -1619,6 +1902,51 @@ export function createSessionsRoutes(
 
     try {
       const impactCalculator = mimoContext.services.impactCalculator;
+      const selectedRepoId = c.req.query("repoId");
+      if (session.repos.length) {
+        const scopedAll = scopeReposByRelativeDir(
+          session,
+          mimoContext.services.os,
+        );
+        const repos = scopedAll.filter((r) =>
+          selectedRepoId ? r.projectRepoId === selectedRepoId : true,
+        );
+        if (repos.length === 0) {
+          return c.json({ error: "Repository not found" }, 404);
+        }
+        const perRepo: Array<Record<string, unknown>> = [];
+        const aggregate = {
+          files: { new: 0, changed: 0, deleted: 0 },
+          linesOfCode: { added: 0, removed: 0, net: 0 },
+        };
+        for (const repo of repos) {
+          const result = await impactCalculator.calculateImpact(
+            sessionId,
+            repo.upstreamPath,
+            repo.workspacePath,
+            false,
+            undefined,
+            repo.projectRepoId,
+          );
+          perRepo.push({ repoId: repo.projectRepoId, ...result });
+          aggregate.files.new += result.metrics?.files?.new ?? 0;
+          aggregate.files.changed += result.metrics?.files?.changed ?? 0;
+          aggregate.files.deleted += result.metrics?.files?.deleted ?? 0;
+          aggregate.linesOfCode.added +=
+            result.metrics?.linesOfCode?.added ?? 0;
+          aggregate.linesOfCode.removed +=
+            result.metrics?.linesOfCode?.removed ?? 0;
+          aggregate.linesOfCode.net += result.metrics?.linesOfCode?.net ?? 0;
+        }
+        return c.json({
+          repos: perRepo,
+          metrics: aggregate,
+          files: aggregate.files,
+          linesOfCode: aggregate.linesOfCode,
+          sccInstalled: true,
+        });
+      }
+
       // Refresh agent-workspace from the session repo before calculating impact
       const repoPath = sessionRepository.getSessionRepoPath(sessionId);
       const { existsSync } = await import("fs");
@@ -2378,6 +2706,29 @@ export function createSessionsRoutes(
           : null;
 
         const cloneUrl = sharedVcsServer.getUrl(sessionId);
+        const sessionRepos = (sessionWithCreds?.repos ?? []).map(
+          (repo: any) => {
+            const repoCloneUrl = sharedVcsServer.getUrl(
+              sessionId,
+              repo.projectRepoId,
+            );
+            return {
+              repoId: repo.projectRepoId,
+              upstreamPath: repo.upstreamPath,
+              workspacePath: repo.workspacePath,
+              branch: repo.branch ?? null,
+              baseline: repo.baseline ?? null,
+              cloneUrl: repoCloneUrl,
+              publicCloneUrl: buildPublicCloneUrl({
+                internalUrl: repoCloneUrl,
+                platformUrl,
+                publicVcsUrl,
+                sessionId,
+                repoId: repo.projectRepoId,
+              }),
+            };
+          },
+        );
         let mcpServers: any[] = [];
         if (
           sessionWithCreds?.mcpServerIds &&
@@ -2419,11 +2770,18 @@ export function createSessionsRoutes(
                 upstreamPath: session.upstreamPath,
                 agentWorkspacePath: session.agentWorkspacePath,
                 cloneUrl,
+                publicCloneUrl: buildPublicCloneUrl({
+                  internalUrl: cloneUrl,
+                  platformUrl,
+                  publicVcsUrl,
+                  sessionId,
+                }),
                 agentWorkspaceUser: sessionWithCreds?.agentWorkspaceUser,
                 agentWorkspacePassword:
                   sessionWithCreds?.agentWorkspacePassword,
                 agentSubpath: sessionWithCreds?.agentSubpath ?? null,
                 branch: sessionWithCreds?.branch ?? null,
+                repos: sessionRepos.length > 0 ? sessionRepos : undefined,
                 idleTimeoutMs: sessionWithCreds?.idleTimeoutMs ?? 600000,
                 modelState: sessionWithCreds?.modelState ?? null,
                 modeState: sessionWithCreds?.modeState ?? null,
@@ -2882,7 +3240,13 @@ export function createSessionsRoutes(
       return c.json({ error: "Session not found" }, 404);
     let raw: string;
     try {
-      raw = await fileService.readFile(session.agentWorkspacePath, filePath);
+      const repoId = c.req.query("repoId");
+      const workspacePath = repoId
+        ? session.repos.find((repo) => repo.projectRepoId === repoId)
+            ?.workspacePath
+        : session.agentWorkspacePath;
+      if (!workspacePath) return c.json({ error: "Repository not found" }, 404);
+      raw = await fileService.readFile(workspacePath, filePath);
     } catch (err: any) {
       if (err?.message?.includes("Access denied"))
         return c.json({ error: "Access denied" }, 403);
@@ -2927,7 +3291,13 @@ export function createSessionsRoutes(
       return c.json({ error: "Session not found" }, 404);
     let raw: string;
     try {
-      raw = await fileService.readFile(session.upstreamPath, filePath);
+      const repoId = c.req.query("repoId");
+      const upstreamPath = repoId
+        ? session.repos.find((repo) => repo.projectRepoId === repoId)
+            ?.upstreamPath
+        : session.upstreamPath;
+      if (!upstreamPath) return c.json({ error: "Repository not found" }, 404);
+      raw = await fileService.readFile(upstreamPath, filePath);
     } catch (err: any) {
       if (err?.message?.includes("Access denied"))
         return c.json({ error: "Access denied" }, 403);
@@ -3117,9 +3487,18 @@ export function createSessionsRoutes(
       return c.json({ error: "Session not found" }, 404);
 
     try {
-      const patches = await expertService.listPatchFiles(
-        session.agentWorkspacePath,
-      );
+      const patches = session.repos.length
+        ? (
+            await Promise.all(
+              session.repos.map(async (repo) =>
+                expertService.listPatchFiles(
+                  repo.workspacePath,
+                  repo.projectRepoId,
+                ),
+              ),
+            )
+          ).flat()
+        : await expertService.listPatchFiles(session.agentWorkspacePath);
       return c.json({ patches });
     } catch (err: any) {
       logger.error("[patches] listPatchFiles error:", err);
@@ -3153,18 +3532,26 @@ export function createSessionsRoutes(
 
     const body = await c.req.json().catch(() => null);
     const originalPath = body?.originalPath;
+    const repoId = body?.repoId;
     const content = body?.content;
     if (!originalPath || content === undefined) {
       return c.json({ error: "originalPath and content required" }, 400);
     }
+    const workspacePath = repoId
+      ? session.repos.find((repo) => repo.projectRepoId === repoId)
+          ?.workspacePath
+      : session.agentWorkspacePath;
+    if (!workspacePath) {
+      return c.json({ error: "Repository not found" }, 404);
+    }
 
     try {
       const result = await expertService.writePatchFile(
-        session.agentWorkspacePath,
+        workspacePath,
         originalPath,
         content,
       );
-      return c.json(result);
+      return c.json({ ...result, ...(repoId && { repoId }) });
     } catch (err: any) {
       logger.error("[patches] writePatchFile error:", err);
       return c.json({ error: err.message }, 400);
@@ -3197,17 +3584,22 @@ export function createSessionsRoutes(
 
     const body = await c.req.json().catch(() => null);
     const originalPath = body?.originalPath;
+    const repoId = body?.repoId;
     if (!originalPath) return c.json({ error: "originalPath required" }, 400);
+    const workspacePath = repoId
+      ? session.repos.find((repo) => repo.projectRepoId === repoId)
+          ?.workspacePath
+      : session.agentWorkspacePath;
+    if (!workspacePath) {
+      return c.json({ error: "Repository not found" }, 404);
+    }
 
     try {
       // Read the patch file content
       const { readFileSync, existsSync, unlinkSync } = await import("fs");
       const { join } = await import("path");
       const patchPath = join(".mimo-patches", originalPath).replace(/\\/g, "/");
-      const fullPatchPath = join(session.agentWorkspacePath, patchPath).replace(
-        /\\/g,
-        "/",
-      );
+      const fullPatchPath = join(workspacePath, patchPath).replace(/\\/g, "/");
 
       if (!existsSync(fullPatchPath)) {
         return c.json({ error: `Patch file not found: ${patchPath}` }, 404);
@@ -3247,6 +3639,7 @@ export function createSessionsRoutes(
         sessionId,
         originalPath,
         content,
+        repoId,
       );
 
       if (!sent) {
@@ -3289,13 +3682,18 @@ export function createSessionsRoutes(
 
     const body = await c.req.json().catch(() => null);
     const patchPath = body?.patchPath;
+    const repoId = body?.repoId;
     if (!patchPath) return c.json({ error: "patchPath required" }, 400);
+    const workspacePath = repoId
+      ? session.repos.find((repo) => repo.projectRepoId === repoId)
+          ?.workspacePath
+      : session.agentWorkspacePath;
+    if (!workspacePath) {
+      return c.json({ error: "Repository not found" }, 404);
+    }
 
     try {
-      const result = await expertService.declinePatch(
-        session.agentWorkspacePath,
-        patchPath,
-      );
+      const result = await expertService.declinePatch(workspacePath, patchPath);
       return c.json(result);
     } catch (err: any) {
       if (err.message.includes("must start with")) {
@@ -3331,6 +3729,36 @@ export function createSessionsRoutes(
     if (!session || session.owner !== username) {
       return c.json({ error: "Session not found" }, 404);
     }
+    const selectedRepoId = c.req.query("repoId");
+    if (session.repos.length) {
+      const repos = selectedRepoId
+        ? session.repos.filter((repo) => repo.projectRepoId === selectedRepoId)
+        : session.repos;
+      if (repos.length === 0) {
+        return c.json({ error: "Repository not found" }, 404);
+      }
+      const aggregate = {
+        files: [] as Array<{ repoId: string; path: string; status: string }>,
+        summary: { added: 0, modified: 0, deleted: 0 },
+      };
+      for (const repo of repos) {
+        const rootCommit = await vcs.resolveRootCommit(repo.workspacePath);
+        if (!rootCommit) continue;
+        const result = await vcs.diffNameStatus(repo.workspacePath, rootCommit);
+        aggregate.files.push(
+          ...result.files.map((file) => ({
+            repoId: repo.projectRepoId,
+            path: file.path,
+            status: file.status,
+          })),
+        );
+        aggregate.summary.added += result.summary.added;
+        aggregate.summary.modified += result.summary.modified;
+        aggregate.summary.deleted += result.summary.deleted;
+      }
+      return c.json(aggregate);
+    }
+
     const workspacePath = session.agentWorkspacePath;
     const rootCommit = await vcs.resolveRootCommit(workspacePath);
     if (!rootCommit) {
@@ -3366,11 +3794,22 @@ export function createSessionsRoutes(
     if (!session || session.owner !== username) {
       return c.json({ error: "Session not found" }, 404);
     }
-    const workspacePath = session.agentWorkspacePath;
     const prefix = `/sessions/${sessionId}/review/files/`;
-    const filePath = c.req.path.startsWith(prefix)
+    let filePath = c.req.path.startsWith(prefix)
       ? decodeURIComponent(c.req.path.slice(prefix.length))
       : "";
+    let workspacePath = session.agentWorkspacePath;
+    if (session.repos.length) {
+      const [maybeRepoId, ...rest] = filePath.split("/");
+      const repo = session.repos.find(
+        (entry) => entry.projectRepoId === maybeRepoId,
+      );
+      if (!repo || rest.length === 0) {
+        return c.json({ error: "Repository not found" }, 404);
+      }
+      workspacePath = repo.workspacePath;
+      filePath = rest.join("/");
+    }
     if (!filePath) {
       return c.json({ error: "path required" }, 400);
     }

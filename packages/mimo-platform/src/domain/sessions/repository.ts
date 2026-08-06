@@ -49,6 +49,20 @@ export interface Terminal {
 
 export type SessionPriority = "high" | "medium" | "low";
 
+export interface SessionRepositoryEntry {
+  projectRepoId: string;
+  upstreamPath: string;
+  workspacePath: string;
+  branch?: string;
+  baseline?: string;
+}
+
+export interface SessionRepoMountInput {
+  projectRepoId: string;
+  mountPath: string;
+  branch?: string;
+}
+
 export interface Session {
   id: string;
   name: string;
@@ -56,6 +70,7 @@ export interface Session {
   owner: string;
   upstreamPath: string;
   agentWorkspacePath: string;
+  repos: SessionRepositoryEntry[];
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
   port: number | null;
@@ -63,6 +78,7 @@ export interface Session {
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   agentSubpath?: string;
+  relativeDir?: string;
   branch?: string;
   clonePort?: number;
   /**
@@ -107,6 +123,7 @@ export interface SessionData {
   owner: string;
   upstreamPath: string;
   agentWorkspacePath: string;
+  repos: SessionRepositoryEntry[];
   assignedAgentId?: string;
   status: "active" | "paused" | "closed";
   port: number | null;
@@ -114,6 +131,7 @@ export interface SessionData {
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   agentSubpath?: string;
+  relativeDir?: string;
   branch?: string;
   clonePort?: number;
   baseline?: string;
@@ -148,8 +166,11 @@ export interface CreateSessionInput {
   name: string;
   projectId: string;
   owner: string;
+  repos?: SessionRepositoryEntry[];
+  repoMounts?: SessionRepoMountInput[];
   assignedAgentId?: string;
   agentSubpath?: string;
+  relativeDir?: string;
   branchName?: string;
   mcpServerIds?: string[];
   sessionTtlDays?: number;
@@ -188,6 +209,42 @@ interface SessionRepositoryDeps {
     data: string;
   };
   vcsReposDir?: string;
+}
+
+function normalizeSessionMountPath(mountPath: string): string {
+  const trimmed = mountPath.trim().replace(/\\/g, "/");
+  if (trimmed === "." || trimmed === "./") return ".";
+  const normalized = trimmed.replace(/^\.\//, "").replace(/\/+$/, "");
+  if (
+    !normalized ||
+    normalized.startsWith("/") ||
+    /^[A-Za-z]:\//.test(normalized) ||
+    normalized.split("/").includes("..") ||
+    normalized.split("/").includes(".git")
+  ) {
+    throw new Error(`Invalid repository mountPath: ${mountPath}`);
+  }
+  return normalized;
+}
+
+function mountedPath(root: string, mountPath: string): string {
+  const normalized = normalizeSessionMountPath(mountPath);
+  return normalized === "." ? root : `${root}/${normalized}`;
+}
+
+function normalizeSessionRepos(data: SessionData): SessionRepositoryEntry[] {
+  if (Array.isArray(data.repos) && data.repos.length > 0) {
+    return data.repos;
+  }
+  return [
+    {
+      projectRepoId: "default",
+      upstreamPath: data.upstreamPath,
+      workspacePath: data.agentWorkspacePath || (data as any).checkoutPath,
+      ...(data.branch && { branch: data.branch }),
+      ...(data.baseline && { baseline: data.baseline }),
+    },
+  ];
 }
 
 export class SessionRepository {
@@ -261,8 +318,12 @@ export class SessionRepository {
    * @param sessionId The session ID (e.g., "abc123-def456-ghi789")
    * @returns The full path to the bare repo (e.g., "~/.mimo/session-repos/abc123-def456-ghi789.git")
    */
-  getSessionRepoPath(sessionId: string): string {
-    return this.os.path.join(this.getVcsReposDir(), `${sessionId}.git`);
+  getSessionRepoPath(sessionId: string, repoId?: string): string {
+    const suffix = repoId ? `-${repoId.replace(/[^a-zA-Z0-9._-]+/g, "-")}` : "";
+    return this.os.path.join(
+      this.getVcsReposDir(),
+      `${sessionId}${suffix}.git`,
+    );
   }
 
   private generateId(): string {
@@ -334,6 +395,41 @@ export class SessionRepository {
       this.os.fs.mkdir(patchesPath, { recursive: true });
     }
 
+    const repoInputs: SessionRepositoryEntry[] =
+      input.repos ??
+      input.repoMounts?.map((repo) => ({
+        projectRepoId: repo.projectRepoId,
+        upstreamPath: mountedPath(upstreamPath, repo.mountPath),
+        workspacePath: mountedPath(agentWorkspacePath, repo.mountPath),
+        ...(repo.branch && { branch: repo.branch }),
+      })) ??
+      [
+        {
+          projectRepoId: "default",
+          upstreamPath,
+          workspacePath: agentWorkspacePath,
+          ...(input.branchName && { branch: input.branchName }),
+        },
+      ];
+
+    const repos = repoInputs.map((repo) => {
+      if (!repo.projectRepoId?.trim()) {
+        throw new Error("Session repository projectRepoId is required");
+      }
+      if (!repo.upstreamPath?.trim() || !repo.workspacePath?.trim()) {
+        throw new Error(
+          "Session repository upstreamPath and workspacePath are required",
+        );
+      }
+      if (!this.os.fs.exists(repo.upstreamPath)) {
+        this.os.fs.mkdir(repo.upstreamPath, { recursive: true });
+      }
+      if (!this.os.fs.exists(repo.workspacePath)) {
+        this.os.fs.mkdir(repo.workspacePath, { recursive: true });
+      }
+      return { ...repo, projectRepoId: repo.projectRepoId.trim() };
+    });
+
     const now = new Date().toISOString();
     const mcpToken = crypto.randomUUID();
     const sessionData: SessionData = {
@@ -343,6 +439,7 @@ export class SessionRepository {
       owner: input.owner,
       upstreamPath,
       agentWorkspacePath,
+      repos,
       assignedAgentId: input.assignedAgentId,
       status: "active",
       port: null,
@@ -365,6 +462,7 @@ export class SessionRepository {
       createdAt: now,
       updatedAt: now,
       ...(input.agentSubpath && { agentSubpath: input.agentSubpath }),
+      ...(input.relativeDir && { relativeDir: input.relativeDir }),
       ...(input.branchName && { branch: input.branchName }),
       ...(input.instructions && { instructions: input.instructions }),
       ...(input.clonePort != null && { clonePort: input.clonePort }),
@@ -435,6 +533,7 @@ export class SessionRepository {
               syncState: data.syncState ?? "idle",
               mcpServerIds: data.mcpServerIds ?? [],
               priority: data.priority ?? "medium",
+              repos: normalizeSessionRepos(data),
               frameState: normalizeFrameState(data.frameState),
               chatThreads,
               activeChatThreadId,
@@ -482,6 +581,7 @@ export class SessionRepository {
       acpStatus: data.acpStatus ?? "active",
       syncState: data.syncState ?? "idle",
       priority: data.priority ?? "medium",
+      repos: normalizeSessionRepos(data),
       frameState: normalizeFrameState(data.frameState),
       chatThreads,
       activeChatThreadId,
@@ -538,6 +638,7 @@ export class SessionRepository {
             acpStatus: data.acpStatus ?? "active",
             syncState: data.syncState ?? "idle",
             priority: data.priority ?? "medium",
+            repos: normalizeSessionRepos(data),
             frameState: normalizeFrameState(data.frameState),
             chatThreads,
             activeChatThreadId,
@@ -632,6 +733,7 @@ export class SessionRepository {
                   acpStatus: data.acpStatus ?? "active",
                   syncState: data.syncState ?? "idle",
                   priority: data.priority ?? "medium",
+                  repos: normalizeSessionRepos(data),
                   frameState: normalizeFrameState(data.frameState),
                   chatThreads,
                   activeChatThreadId,
@@ -709,6 +811,7 @@ export class SessionRepository {
           syncState: data.syncState ?? "idle",
           mcpServerIds: data.mcpServerIds ?? [],
           priority: data.priority ?? "medium",
+          repos: normalizeSessionRepos(data),
           frameState: normalizeFrameState(data.frameState),
           chatThreads,
           activeChatThreadId,

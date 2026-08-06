@@ -137,4 +137,57 @@ describe("SessionManager file watcher — hidden files", () => {
     expect(paths.some((p) => p.endsWith(".tmp"))).toBe(false);
     expect(paths.some((p) => p.endsWith("~"))).toBe(false);
   });
+
+  it("emits repo-qualified change events for multi-repo sessions", async () => {
+    const sessionId = "test-multi-repo";
+    const backendPath = join(workDir, sessionId, "backend");
+    const frontendPath = join(workDir, sessionId, "frontend");
+    mkdirSync(backendPath, { recursive: true });
+    mkdirSync(frontendPath, { recursive: true });
+
+    await manager.createSession(
+      sessionId,
+      "http://localhost/root",
+      undefined,
+      undefined,
+      undefined,
+      [
+        {
+          repoId: "backend",
+          checkoutPath: backendPath,
+          cloneUrl: "http://localhost/backend",
+        },
+        {
+          repoId: "frontend",
+          checkoutPath: frontendPath,
+          cloneUrl: "http://localhost/frontend",
+        },
+      ],
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    writeFileSync(join(backendPath, "backend.ts"), "backend");
+    writeFileSync(join(frontendPath, "frontend.ts"), "frontend");
+
+    await waitFor(
+      () =>
+        receivedChanges.some(
+          (change) =>
+            change.repoId === "backend" && change.path === "backend.ts",
+        ) &&
+        receivedChanges.some(
+          (change) =>
+            change.repoId === "frontend" && change.path === "frontend.ts",
+        ),
+      { timeout: 12000, interval: 100 },
+    );
+
+    expect(receivedChanges).toContainEqual(
+      expect.objectContaining({ repoId: "backend", path: "backend.ts" }),
+    );
+    expect(receivedChanges).toContainEqual(
+      expect.objectContaining({ repoId: "frontend", path: "frontend.ts" }),
+    );
+  }, 20000);
 });

@@ -248,7 +248,9 @@ describe("ProjectVcsCache unit", () => {
     expect(bareClone?.command).toContain("--quiet");
     expect(bareClone?.command).toContain("--branch");
     expect(bareClone?.command).toContain("main");
-    expect(bareClone?.options?.stdio).toBe("ignore");
+    // stderr is captured (not ignored) so cache clone failures surface git's
+    // actual error message instead of a generic "Failed to create git cache".
+    expect(bareClone?.options?.stdio).not.toBe("ignore");
 
     // No local cache clone should happen; we go straight to the remote.
     expect(

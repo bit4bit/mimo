@@ -14,6 +14,9 @@ export const FileTreeBuffer: FC<FileTreeBufferProps> = ({ sessionId }) => {
       <div class="buffer-header">
         <span>Files</span>
         <div class="inline-flex-row file-tree-header-actions">
+          <select id="file-tree-repo-select" class="repo-select">
+            <option value="">All repositories</option>
+          </select>
           <button
             id="file-tree-refresh-btn"
             type="button"

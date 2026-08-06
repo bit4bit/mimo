@@ -28,6 +28,7 @@ function renderChangedFileRow(file, options = {}) {
     checked = false,
     onChange = null,
     sessionId = null,
+    hideRepoId = false,
   } = options;
   const meta = FILE_STATUS_META[file.status] || {
     badge: "?",
@@ -66,8 +67,12 @@ function renderChangedFileRow(file, options = {}) {
   // File path
   const pathSpan = document.createElement("span");
   pathSpan.className = "changed-file-path";
-  pathSpan.textContent = shortPath(file.path);
-  pathSpan.title = file.path;
+  pathSpan.textContent =
+    file.repoId && !hideRepoId
+      ? `${file.repoId}:${shortPath(file.path)}`
+      : shortPath(file.path);
+  pathSpan.title =
+    file.repoId && !hideRepoId ? `${file.repoId}:${file.path}` : file.path;
   row.appendChild(pathSpan);
 
   // Click handler
@@ -81,11 +86,12 @@ function renderChangedFileRow(file, options = {}) {
         options.onClick(e, file);
       } else if (isNew) {
         if (window.EditBuffer && window.EditBuffer.openFile) {
-          window.EditBuffer.openFile(file.path);
+          window.EditBuffer.openFile(file.path, file.repoId);
         }
       } else if (isModified) {
         openFileInPatchBuffer(file.path, sessionId, {
           sourceBufferId: options.sourceBufferId,
+          repoId: file.repoId,
         });
       }
     });
@@ -99,6 +105,7 @@ function openFileInPatchBuffer(path, sessionId, opts = {}) {
 
   window.MIMO_PATCH_BUFFER.addPatch({
     sessionId,
+    repoId: opts.repoId,
     originalPath: path,
     patchPath: path,
     originalEndpoint: "files/upstream-content",

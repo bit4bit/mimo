@@ -115,8 +115,15 @@ describe("repository deletes do not block the event loop", () => {
 
     const project = await repo.create({
       name: "Block Test Project",
-      repoUrl: "https://github.com/user/repo.git",
-      repoType: "git",
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/user/repo.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
       owner: "testuser",
     });
 

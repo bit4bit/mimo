@@ -46,7 +46,7 @@ So `C-M-<right>` means **Mod+Alt+Right Arrow**.
 | `Mod+Shift+N`          | New Thread         | Open the create-thread dialog              |
 | `Mod+Shift+ArrowRight` | Next Thread        | Activate the next chat thread              |
 | `Mod+Shift+ArrowLeft`  | Previous Thread    | Activate the previous chat thread          |
-| `Mod+Shift+M`          | Commit             | Open the commit dialog                     |
+| `Mod+Shift+M`          | Commit             | Open the Commit buffer                 |
 | `Mod+Shift+,`          | Project Notes      | Focus the Project Notes textarea           |
 | `Mod+Shift+.`          | Session Notes      | Focus the Session Notes textarea           |
 | `Mod+Shift+/`          | Shortcuts Help     | Toggle the shortcuts help overlay          |
@@ -101,4 +101,5 @@ sessionKeybindings:
 ## Notes
 
 - Session shortcuts are active even while focus is inside text inputs and editable chat content.
-- When the commit dialog is open, `closeModal` (default: `Escape`) closes it.
+- File, Impact, Review, and Commit buffers include repository selectors for multi-repository sessions; file actions and commit results are repo-qualified.
+- When the Commit buffer is open, `closeModal` (default: `Escape`) switches back to the previous buffer.

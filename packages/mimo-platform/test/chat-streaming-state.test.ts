@@ -37,9 +37,9 @@ describe("Chat Streaming State on Reconnect", () => {
     );
 
     const project = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
       name: "Test Project",
-      repoUrl: "https://github.com/user/repo.git",
-      repoType: "git",
       owner: "testuser",
     });
 

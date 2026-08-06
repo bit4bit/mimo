@@ -73,7 +73,7 @@ export function toDashboardProject(project: {
   id: string;
   name: string;
   description?: string;
-  repoUrl?: string;
+  repositories?: Array<{ repoUrl?: string }>;
   owner: string;
   isPublic?: boolean;
 }): DashboardProject {
@@ -81,7 +81,7 @@ export function toDashboardProject(project: {
     id: project.id,
     name: project.name,
     description: project.description,
-    repoUrl: project.repoUrl ?? "",
+    repoUrl: project.repositories?.[0]?.repoUrl ?? "",
     owner: project.owner,
     isPublic: project.isPublic ?? false,
   };

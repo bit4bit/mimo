@@ -101,9 +101,9 @@ describe("GET /sessions/:id/changed-files", () => {
       await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
     );
     const project = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
       name: "Changed Files Project",
-      repoUrl: "https://github.com/user/repo.git",
-      repoType: "git",
       owner: "testuser",
     });
     const token = await authService.generateToken("testuser");
@@ -132,19 +132,20 @@ describe("GET /sessions/:id/changed-files", () => {
 
     const cached: ChangedFilesResult = {
       files: [
-        { path: "src/a.ts", status: "added", size: 10 },
-        { path: "src/b.ts", status: "modified", size: 20 },
+        { repoId: "default", path: "src/a.ts", status: "added", size: 10 },
+        { repoId: "default", path: "src/b.ts", status: "modified", size: 20 },
       ],
       summary: { added: 1, modified: 1, deleted: 0 },
     };
     const cache = new ChangedFilesCache();
-    cache.set(sessionId, upstreamPath, workspacePath, cached);
+    cache.set(sessionId, upstreamPath, workspacePath, cached, "default");
 
     const detectSpy = mock(() => Promise.resolve(cached));
     const changedFilesDeps = {
       changedFilesCache: cache,
       os: mimoContext.services.os as OS,
       detectChangedFiles: detectSpy as any,
+      detectChangedFilesForRepos: detectSpy as any,
       createManifestStore: () => ({}) as any,
     };
 
@@ -172,7 +173,7 @@ describe("GET /sessions/:id/changed-files", () => {
     const workspacePath = session.agentWorkspacePath;
 
     const detected: ChangedFilesResult = {
-      files: [{ path: "lib/x.ts", status: "added", size: 42 }],
+      files: [{ repoId: "default", path: "lib/x.ts", status: "added", size: 42 }],
       summary: { added: 1, modified: 0, deleted: 0 },
     };
 
@@ -197,6 +198,7 @@ describe("GET /sessions/:id/changed-files", () => {
       changedFilesCache: cache,
       os: osSpy,
       detectChangedFiles: detectSpy as any,
+      detectChangedFilesForRepos: detectSpy as any,
       createManifestStore: createManifestStoreSpy as any,
     };
 
@@ -212,12 +214,12 @@ describe("GET /sessions/:id/changed-files", () => {
 
     expect(detectSpy).toHaveBeenCalledTimes(1);
     const calls = detectSpy.mock.calls as any[];
-    expect(calls[0][1]).toBe(upstreamPath);
-    expect(calls[0][2]).toBe(workspacePath);
-    expect(createManifestStoreSpy).toHaveBeenCalledTimes(1);
+    expect(calls[0][1][0].upstreamPath).toBe(upstreamPath);
+    expect(calls[0][1][0].workspacePath).toBe(workspacePath);
+    expect(createManifestStoreSpy).toHaveBeenCalledTimes(0);
 
     // The result is stored in the cache so a subsequent hit avoids detection.
-    const cachedHit = cache.get(sessionId, upstreamPath, workspacePath);
+    const cachedHit = cache.get(sessionId, upstreamPath, workspacePath, "default");
     expect(cachedHit).toEqual(detected);
   });
 
@@ -228,6 +230,7 @@ describe("GET /sessions/:id/changed-files", () => {
       changedFilesCache: cache,
       os: mimoContext.services.os as OS,
       detectChangedFiles: detectSpy as any,
+      detectChangedFilesForRepos: detectSpy as any,
       createManifestStore: () => ({}) as any,
     };
 
@@ -259,7 +262,7 @@ describe("GET /sessions/:id/changed-files", () => {
     const session = await mimoContext.repos.sessions.findById(sessionId);
 
     const detected: ChangedFilesResult = {
-      files: [{ path: "a.ts", status: "added", size: 1 }],
+      files: [{ repoId: "default", path: "a.ts", status: "added", size: 1 }],
       summary: { added: 1, modified: 0, deleted: 0 },
     };
 
@@ -284,6 +287,7 @@ describe("GET /sessions/:id/changed-files", () => {
       changedFilesCache: cache,
       os: osSpy,
       detectChangedFiles: detectSpy as any,
+      detectChangedFilesForRepos: detectSpy as any,
       createManifestStore: createManifestStoreSpy as any,
     };
 
@@ -302,11 +306,16 @@ describe("GET /sessions/:id/changed-files", () => {
     const calls = detectSpy.mock.calls as any[];
     const expectedUpstream = [session.upstreamPath, "src"].join("/");
     const expectedWorkspace = [session.agentWorkspacePath, "src"].join("/");
-    expect(calls[0][1]).toBe(expectedUpstream);
-    expect(calls[0][2]).toBe(expectedWorkspace);
+    expect(calls[0][1][0].upstreamPath).toBe(expectedUpstream);
+    expect(calls[0][1][0].workspacePath).toBe(expectedWorkspace);
 
     // The cached entry uses the subpath-scoped workspace path.
-    const cachedHit = cache.get(sessionId, expectedUpstream, expectedWorkspace);
+    const cachedHit = cache.get(
+      sessionId,
+      expectedUpstream,
+      expectedWorkspace,
+      "default",
+    );
     expect(cachedHit).toEqual(detected);
   });
 });

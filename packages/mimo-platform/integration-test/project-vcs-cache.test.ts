@@ -176,4 +176,65 @@ describe("ProjectVcsCache integration", () => {
     expect(existsSync(join(rebuiltTarget, "A.md"))).toBe(true);
     expect(readFileSync(headPath, "utf-8")).toContain("refs/");
   }, 30000);
+
+  it("uses separate caches per project repository and clears all of them", async () => {
+    const os = createOS({ ...process.env });
+    const vcs = new VCS({ os });
+    const cache = createProjectVcsCache({ os, projectsPath, vcs });
+
+    const makeRemote = (name: string, fileName: string): string => {
+      const worktree = join(testHome, `${name}-worktree`);
+      const bare = join(testHome, `${name}.git`);
+      mkdirSync(worktree, { recursive: true });
+      execSync("git init -q", { cwd: worktree });
+      execSync('git config user.email "test@example.com"', { cwd: worktree });
+      execSync('git config user.name "test"', { cwd: worktree });
+      writeFileSync(join(worktree, fileName), `${fileName}\n`);
+      execSync(`git add ${fileName}`, { cwd: worktree });
+      execSync('git commit -qm "initial"', { cwd: worktree });
+      execSync(`git clone --bare ${worktree} ${bare}`);
+      return bare;
+    };
+
+    const backendRemote = makeRemote("backend", "backend.md");
+    const frontendRemote = makeRemote("frontend", "frontend.md");
+    const projectId = "multi-repo-project";
+    mkdirSync(join(projectsPath, projectId), { recursive: true });
+
+    const backendTarget = join(testHome, "backend-session");
+    const frontendTarget = join(testHome, "frontend-session");
+    const backend = await cache.clone({
+      projectId,
+      repoId: "backend",
+      repoUrl: backendRemote,
+      repoType: "git",
+      targetPath: backendTarget,
+    });
+    const frontend = await cache.clone({
+      projectId,
+      repoId: "frontend",
+      repoUrl: frontendRemote,
+      repoType: "git",
+      targetPath: frontendTarget,
+    });
+
+    expect(backend.success).toBe(true);
+    expect(frontend.success).toBe(true);
+    expect(existsSync(join(projectsPath, projectId, "cache-backend.git"))).toBe(
+      true,
+    );
+    expect(existsSync(join(projectsPath, projectId, "cache-frontend.git"))).toBe(
+      true,
+    );
+    expect(existsSync(join(backendTarget, "backend.md"))).toBe(true);
+    expect(existsSync(join(frontendTarget, "frontend.md"))).toBe(true);
+
+    await cache.clear(projectId, "git");
+    expect(existsSync(join(projectsPath, projectId, "cache-backend.git"))).toBe(
+      false,
+    );
+    expect(existsSync(join(projectsPath, projectId, "cache-frontend.git"))).toBe(
+      false,
+    );
+  }, 30000);
 });

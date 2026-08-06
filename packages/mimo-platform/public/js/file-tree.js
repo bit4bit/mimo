@@ -36,7 +36,9 @@
 
     for (var i = 0; i < flatFiles.length; i++) {
       var file = flatFiles[i];
-      var segments = file.path.split("/");
+      var segments = file.repoId
+        ? [file.repoId].concat(file.path.split("/"))
+        : file.path.split("/");
       var node = root;
       var acc = "";
       for (var s = 0; s < segments.length; s++) {
@@ -52,6 +54,10 @@
             children: isLeaf ? undefined : [],
           };
           node.children.push(child);
+        }
+        if (isLeaf) {
+          child.repoId = file.repoId;
+          child.filePath = file.path;
         }
         node = child;
       }
@@ -111,7 +117,9 @@
     /** @type {Record<string, string>} */
     var byPath = {};
     for (var i = 0; i < changedFiles.length; i++) {
-      byPath[changedFiles[i].path] = changedFiles[i].status;
+      var change = changedFiles[i];
+      byPath[change.repoId ? change.repoId + ":" + change.path : change.path] =
+        change.status;
     }
     return filterAndMark(tree, byPath);
 
@@ -120,11 +128,17 @@
       for (var k = 0; k < nodes.length; k++) {
         var node = nodes[k];
         if (!node.isDir) {
-          var status = statuses[node.path];
+          // Key on the raw file path (node.filePath) rather than the display
+          // path so status merging works with or without the repoId prefix.
+          var rawPath = node.filePath !== undefined ? node.filePath : node.path;
+          var key = node.repoId ? node.repoId + ":" + rawPath : rawPath;
+          var status = statuses[key];
           if (status === "deleted") continue; // deleted files produce no node
           out.push({
             name: node.name,
             path: node.path,
+            filePath: node.filePath,
+            repoId: node.repoId,
             isDir: false,
             status: status,
           });
@@ -181,17 +195,17 @@
    * Default click handler: opens the file via the existing entry points and
    * switches the left frame, matching `utils.js:renderChangedFileRow`.
    */
-  function defaultFileClick(path, status, sessionId) {
+  function defaultFileClick(path, status, sessionId, repoId) {
     if (status === "added" || status === undefined) {
       if (window.EditBuffer && window.EditBuffer.openFile) {
-        window.EditBuffer.openFile(path);
+        window.EditBuffer.openFile(path, repoId);
       }
       if (window.switchFrameBuffer) {
         window.switchFrameBuffer("left", "edit");
       }
     } else if (status === "modified") {
       if (typeof openFileInPatchBuffer === "function") {
-        openFileInPatchBuffer(path, sessionId);
+        openFileInPatchBuffer(path, sessionId, { repoId: repoId });
       }
       // openFileInPatchBuffer already switches to the patches buffer.
     }
@@ -302,10 +316,11 @@
 
     row.addEventListener("click", function (e) {
       e.stopPropagation();
+      var clickPath = node.filePath || node.path;
       if (opts.onFileClick) {
-        opts.onFileClick(node.path, node.status);
+        opts.onFileClick(clickPath, node.status, node.repoId);
       } else {
-        defaultFileClick(node.path, node.status, opts.sessionId);
+        defaultFileClick(clickPath, node.status, opts.sessionId, node.repoId);
       }
     });
 
@@ -333,27 +348,69 @@
     var active = false;
     var expandedPaths = new Set();
     var lastTree = [];
+    var currentRepoId = "";
+
+    function populateRepoSelect(sessionRepos, files, changedFiles) {
+      var select =
+        typeof document !== "undefined" && document.getElementById
+          ? document.getElementById("file-tree-repo-select")
+          : null;
+      if (!select) return;
+      var repoIds = {};
+      (sessionRepos || []).forEach(function (repo) {
+        if (repo.repoId) repoIds[repo.repoId] = true;
+      });
+      files.concat(changedFiles).forEach(function (file) {
+        if (file.repoId) repoIds[file.repoId] = true;
+      });
+      var ids = Object.keys(repoIds).sort();
+      select.innerHTML =
+        '<option value="">All repositories</option>' +
+        ids
+          .map(function (repoId) {
+            return '<option value="' + repoId + '">' + repoId + "</option>";
+          })
+          .join("");
+      select.value = ids.indexOf(currentRepoId) >= 0 ? currentRepoId : "";
+      select.onchange = function () {
+        currentRepoId = select.value;
+        load();
+      };
+    }
 
     function urls() {
       return {
         files: "/sessions/" + sessionId + "/files",
         changed: "/sessions/" + sessionId + "/changed-files",
+        repos: "/sessions/" + sessionId + "/repos",
       };
     }
 
     async function load() {
       if (!fetchFn) return;
       var u = urls();
-      var _a, _b;
       var _f = fetchFn(u.files);
       var _c = fetchFn(u.changed);
-      var _r = await Promise.all([_f, _c]);
-      var filesRes = _r[0];
-      var changedRes = _r[1];
+      var _r = fetchFn(u.repos);
+      var _res = await Promise.all([_f, _c, _r]);
+      var filesRes = _res[0];
+      var changedRes = _res[1];
+      var reposRes = _res[2];
       var files = filesRes.ok ? await filesRes.json() : [];
       var changed = changedRes.ok ? await changedRes.json() : { files: [] };
+      var reposData = reposRes.ok ? await reposRes.json() : { repos: [] };
       var flat = files || [];
       var changedFiles = (changed && changed.files) || [];
+      var sessionRepos = (reposData && reposData.repos) || [];
+      populateRepoSelect(sessionRepos, flat, changedFiles);
+      if (currentRepoId) {
+        flat = flat.filter(function (file) {
+          return file.repoId === currentRepoId;
+        });
+        changedFiles = changedFiles.filter(function (file) {
+          return file.repoId === currentRepoId;
+        });
+      }
       var tree = buildTree(flat);
       var merged = mergeChangedStatus(tree, changedFiles);
       expandedPaths = computeExpandedPaths(

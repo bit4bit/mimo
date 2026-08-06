@@ -1,4 +1,11 @@
-import { describe, it, expect, afterAll, beforeEach } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  afterAll,
+  afterEach,
+  beforeEach,
+} from "bun:test";
 import {
   FileSyncService,
   FileChange,
@@ -305,5 +312,101 @@ describe("File Sync API Routes", () => {
     expect(changeSet).toHaveProperty("sessionId");
     expect(changeSet).toHaveProperty("files");
     expect(changeSet).toHaveProperty("hasConflicts");
+  });
+});
+
+describe("File Sync multi-repo (repo-qualified file changes)", () => {
+  let workspaceRoot: string;
+  let upstreamRoot: string;
+  let fileSyncService: FileSyncService;
+  const sessionId = "multi-repo-session";
+
+  beforeEach(async () => {
+    workspaceRoot = mkdtempSync(join(tmpdir(), "mimo-ws-"));
+    upstreamRoot = mkdtempSync(join(tmpdir(), "mimo-up-"));
+
+    // Two mounted repos: "second" and "third".
+    mkdirSync(join(workspaceRoot, "second"), { recursive: true });
+    mkdirSync(join(workspaceRoot, "third"), { recursive: true });
+    mkdirSync(join(upstreamRoot, "second"), { recursive: true });
+    mkdirSync(join(upstreamRoot, "third"), { recursive: true });
+
+    const os = createOS({ ...process.env });
+    fileSyncService = new FileSyncService({
+      sessionRepository: {
+        findById: async () => ({
+          id: sessionId,
+          agentWorkspacePath: workspaceRoot,
+          upstreamPath: upstreamRoot,
+          repos: [
+            {
+              projectRepoId: "second",
+              upstreamPath: join(upstreamRoot, "second"),
+              workspacePath: join(workspaceRoot, "second"),
+            },
+            {
+              projectRepoId: "third",
+              upstreamPath: join(upstreamRoot, "third"),
+              workspacePath: join(workspaceRoot, "third"),
+            },
+          ],
+        }),
+      } as any,
+      sccService: { invalidateCache: () => {} } as any,
+      os,
+    });
+
+    await fileSyncService.initializeSession(
+      sessionId,
+      workspaceRoot,
+      upstreamRoot,
+    );
+  });
+
+  afterEach(() => {
+    try {
+      rmSync(workspaceRoot, { recursive: true, force: true });
+      rmSync(upstreamRoot, { recursive: true, force: true });
+    } catch {}
+    fileSyncService.cleanupSession(sessionId);
+  });
+
+  it("records a new file in the 'second' repo with repo-qualified identity and reads its info from the correct workspace", async () => {
+    // Agent creates second/test.md
+    writeFileSync(join(workspaceRoot, "second", "test.md"), "# hello");
+
+    const result = await fileSyncService.handleFileChanges(sessionId, [
+      { repoId: "second", path: "test.md", isNew: true, deleted: false },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].repoId).toBe("second");
+    expect(result[0].path).toBe("test.md");
+    expect(result[0].status).toBe("new");
+    // getFileInfo must read from the 'second' workspace, so size > 0.
+    expect(result[0].size).toBeGreaterThan(0);
+
+    // getFileStatus must be retrievable by repoId + path.
+    const status = await fileSyncService.getFileStatus(
+      sessionId,
+      "test.md",
+      "second",
+    );
+    expect(status).toBe("new");
+  });
+
+  it("keeps changes from different repos with the same path separate", async () => {
+    writeFileSync(join(workspaceRoot, "second", "dup.md"), "a");
+    writeFileSync(join(workspaceRoot, "third", "dup.md"), "bb");
+
+    await fileSyncService.handleFileChanges(sessionId, [
+      { repoId: "second", path: "dup.md", isNew: true, deleted: false },
+      { repoId: "third", path: "dup.md", isNew: true, deleted: false },
+    ]);
+
+    const changeSet = await fileSyncService.getChangeSet(sessionId);
+    const dupFiles = changeSet.files.filter((f) => f.path === "dup.md");
+    expect(dupFiles).toHaveLength(2);
+    expect(dupFiles.map((f) => f.repoId).sort()).toEqual(["second", "third"]);
   });
 });

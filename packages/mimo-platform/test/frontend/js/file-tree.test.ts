@@ -151,4 +151,18 @@ describe("mergeChangedStatus", () => {
     expect(FT.findNode(merged, "src/a.ts").status).toBe("added");
     expect(FT.findNode(merged, "src/b.ts").status).toBeUndefined();
   });
+
+  it("merges statuses on repoId-prefixed trees via the raw filePath key", () => {
+    const flat = [
+      { path: "src/a.ts", name: "a.ts", size: 1, repoId: "backend" },
+      { path: "src/b.ts", name: "b.ts", size: 1, repoId: "backend" },
+    ];
+    const tree = FT.buildTree(flat);
+    const merged = FT.mergeChangedStatus(tree, [
+      { path: "src/a.ts", status: "modified", size: 1, repoId: "backend" },
+    ]);
+
+    expect(FT.findNode(merged, "backend/src/a.ts").status).toBe("modified");
+    expect(FT.findNode(merged, "backend/src/b.ts").status).toBeUndefined();
+  });
 });

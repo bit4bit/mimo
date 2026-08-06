@@ -15,6 +15,9 @@ export const CommitBuffer: FC<CommitBufferProps> = ({ sessionId }) => {
       <div class="commit-buffer-header">
         <span class="commit-buffer-title">Commit Changes</span>
         <div class="inline-flex-row commit-buffer-actions">
+          <select id="commit-repo-select" class="repo-select">
+            <option value="">All repositories</option>
+          </select>
           <button
             type="button"
             id="commit-refresh-btn"
@@ -117,6 +120,7 @@ export const CommitBuffer: FC<CommitBufferProps> = ({ sessionId }) => {
         <span id="commit-status" class="text-small"></span>
         <span id="sync-status" class="text-muted text-small"></span>
       </div>
+      <div id="commit-repo-results" class="commit-repo-results"></div>
     </div>
   );
 };

@@ -7,9 +7,11 @@ export interface ExpertFileResult {
 
 export interface ExpertWriteResult {
   success: boolean;
+  content?: string;
 }
 
 export interface PatchInfo {
+  repoId?: string;
   originalPath: string;
   patchPath: string;
 }
@@ -161,7 +163,10 @@ export class ExpertService {
   /**
    * List all pending patch files in .mimo-patches/
    */
-  async listPatchFiles(workspacePath: string): Promise<PatchInfo[]> {
+  async listPatchFiles(
+    workspacePath: string,
+    repoId?: string,
+  ): Promise<PatchInfo[]> {
     const patchesDir = this.os.path
       .join(workspacePath, ".mimo-patches")
       .replace(/\\/g, "/");
@@ -188,6 +193,7 @@ export class ExpertService {
           await scanDir(fullPath, relPath);
         } else {
           patches.push({
+            ...(repoId && { repoId }),
             originalPath: relPath,
             patchPath: `.mimo-patches/${relPath}`,
           });

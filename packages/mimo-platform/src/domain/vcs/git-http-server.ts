@@ -31,6 +31,10 @@ export interface GitHttpServerConfig {
   verifyCredentials: CredentialVerifier;
 }
 
+function sanitizeRepoId(repoId: string): string {
+  return repoId.replace(/[^a-zA-Z0-9._-]+/g, "-");
+}
+
 /**
  * GitHttpServer serves the bare session repositories over Git smart-HTTP by
  * spawning the native `git http-backend` CGI per request. It is the shared VCS
@@ -112,12 +116,32 @@ export class GitHttpServer {
   }
 
   /**
-   * Extract the session id from a request path like `/<sid>.git/info/refs`.
-   * Returns null if the path does not target a `<sid>.git` repository.
+   * Extract the session/repository target from request paths like
+   * `/<sid>.git/info/refs` or `/<sid>/<repoId>.git/info/refs`.
    */
-  private sessionIdFromPath(pathname: string): string | null {
-    const match = pathname.match(/^\/([^/]+)\.git(?:\/|$)/);
-    return match ? match[1] : null;
+  private repoTargetFromPath(
+    pathname: string,
+  ): { sessionId: string; repoId?: string; repoName: string; rest: string } | null {
+    const legacy = pathname.match(/^\/([^/]+)\.git(\/.*)?$/);
+    if (legacy) {
+      return {
+        sessionId: legacy[1]!,
+        repoName: legacy[1]!,
+        rest: legacy[2] ?? "",
+      };
+    }
+    const multi = pathname.match(/^\/([^/]+)\/([^/]+)\.git(\/.*)?$/);
+    if (!multi) {
+      return null;
+    }
+    const sessionId = multi[1]!;
+    const repoId = multi[2]!;
+    return {
+      sessionId,
+      repoId,
+      repoName: `${sessionId}-${sanitizeRepoId(repoId)}`,
+      rest: multi[3] ?? "",
+    };
   }
 
   private parseBasicAuth(
@@ -147,9 +171,9 @@ export class GitHttpServer {
     res: ServerResponse,
   ): Promise<void> {
     const url = new URL(req.url ?? "/", `http://${this._host}`);
-    const sessionId = this.sessionIdFromPath(url.pathname);
+    const target = this.repoTargetFromPath(url.pathname);
 
-    if (!sessionId) {
+    if (!target) {
       res.writeHead(404, { "Content-Type": "text/plain" });
       res.end("Not found");
       return;
@@ -163,7 +187,7 @@ export class GitHttpServer {
 
     let authorized = false;
     try {
-      authorized = await this.verify(sessionId, creds.user, creds.password);
+      authorized = await this.verify(target.sessionId, creds.user, creds.password);
     } catch (err) {
       logger.error("[GitHttpServer] Credential verifier threw:", err);
       authorized = false;
@@ -174,7 +198,7 @@ export class GitHttpServer {
     }
 
     const body = await this.readBody(req);
-    await this.runCgi(req, res, url, creds.user, body);
+    await this.runCgi(req, res, url, creds.user, body, target);
   }
 
   private readBody(req: IncomingMessage): Promise<Uint8Array> {
@@ -192,12 +216,13 @@ export class GitHttpServer {
     url: URL,
     remoteUser: string,
     body: Uint8Array,
+    target: { repoName: string; rest: string },
   ): Promise<void> {
     const env: Record<string, string> = {
       ...this.os.env.getAll(),
       GIT_PROJECT_ROOT: this.reposDir,
       GIT_HTTP_EXPORT_ALL: "1",
-      PATH_INFO: url.pathname,
+      PATH_INFO: `/${target.repoName}.git${target.rest}`,
       QUERY_STRING: url.search.replace(/^\?/, ""),
       REQUEST_METHOD: req.method ?? "GET",
       CONTENT_TYPE: (req.headers["content-type"] as string) ?? "",
@@ -388,17 +413,23 @@ export class GitHttpServer {
   }
 
   /**
-   * URL for a session's repository, e.g. `http://localhost:8000/<sid>.git/`.
+   * URL for a session repository, e.g. `http://localhost:8000/<sid>.git/` or
+   * `http://localhost:8000/<sid>/<repoId>.git/`.
    */
-  getUrl(sessionId: string): string {
-    return `http://${this._host}:${this.port}/${sessionId}.git/`;
+  getUrl(sessionId: string, repoId?: string): string {
+    return repoId
+      ? `http://${this._host}:${this.port}/${sessionId}/${repoId}.git/`
+      : `http://${this._host}:${this.port}/${sessionId}.git/`;
   }
 
   /**
    * Filesystem path of a session's bare repository.
    */
-  getSessionRepoPath(sessionId: string): string {
-    return this.os.path.join(this.reposDir, `${sessionId}.git`);
+  getSessionRepoPath(sessionId: string, repoId?: string): string {
+    const repoName = repoId
+      ? `${sessionId}-${sanitizeRepoId(repoId)}`
+      : sessionId;
+    return this.os.path.join(this.reposDir, `${repoName}.git`);
   }
 
   getReposDir(): string {
@@ -438,11 +469,16 @@ export class DummyGitHttpServer {
   async ensureRunning(): Promise<boolean> {
     return true;
   }
-  getUrl(sessionId: string): string {
-    return `http://${this._host}:${this._port}/${sessionId}.git/`;
+  getUrl(sessionId: string, repoId?: string): string {
+    return repoId
+      ? `http://${this._host}:${this._port}/${sessionId}/${repoId}.git/`
+      : `http://${this._host}:${this._port}/${sessionId}.git/`;
   }
-  getSessionRepoPath(sessionId: string): string {
-    return `${this._reposDir}/${sessionId}.git`;
+  getSessionRepoPath(sessionId: string, repoId?: string): string {
+    const repoName = repoId
+      ? `${sessionId}-${sanitizeRepoId(repoId)}`
+      : sessionId;
+    return `${this._reposDir}/${repoName}.git`;
   }
   getReposDir(): string {
     return this._reposDir;

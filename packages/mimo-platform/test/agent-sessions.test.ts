@@ -81,9 +81,9 @@ describe("Agent Sessions API Integration Tests", () => {
         provider: "opencode",
       });
       const project = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
       const session = await sessionRepository.create({
@@ -106,9 +106,9 @@ describe("Agent Sessions API Integration Tests", () => {
         provider: "opencode",
       });
       const project = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
       const session1 = await sessionRepository.create({
@@ -138,9 +138,9 @@ describe("Agent Sessions API Integration Tests", () => {
         provider: "opencode",
       });
       const project = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
       const session = await sessionRepository.create({
@@ -168,9 +168,9 @@ describe("Agent Sessions API Integration Tests", () => {
         provider: "opencode",
       });
       const project = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
       const session = await sessionRepository.create({
@@ -259,9 +259,9 @@ describe("Agent Sessions API Integration Tests", () => {
         provider: "opencode",
       });
       const project = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Test Project",
-        repoUrl: "https://github.com/user/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
       const session = await sessionRepository.create({

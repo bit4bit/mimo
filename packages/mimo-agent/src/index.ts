@@ -307,7 +307,9 @@ export class MimoAgent {
         modelState,
         modeState,
         agentSubpath,
+        relativeDir,
         branch,
+        repos,
         mcpServers,
         chatThreads,
         idleTimeoutMs,
@@ -335,40 +337,61 @@ export class MimoAgent {
 
       try {
         const checkoutPath = this.os.path.join(this.config.workDir, sessionId);
+        const sessionRepos =
+          Array.isArray(repos) && repos.length > 0
+            ? repos
+            : [
+                {
+                  repoId: "default",
+                  cloneUrl,
+                  publicCloneUrl,
+                  branch,
+                },
+              ];
 
-        if (!cloneUrl) {
+        if (sessionRepos.some((repo: any) => !repo.cloneUrl)) {
           throw new Error("No cloneUrl provided in session data");
         }
 
-        // An external agent (run outside the deployment) cannot reach the
-        // internal cloneUrl.  Prefer publicCloneUrl when MIMO_PUBLIC_VCS_URL was
-        // configured on the platform (detected by a different hostname).
-        // Otherwise derive from the --platform WebSocket host — the address the
-        // agent is already successfully connecting to.
-        const effectiveCloneUrl = this.config.external
-          ? this.resolveExternalCloneUrl(cloneUrl, publicCloneUrl)
-          : cloneUrl;
+        logger.debug(`[mimo-agent] Preparing ${sessionRepos.length} repository checkout(s)`);
 
-        logger.debug(`[mimo-agent] Using clone URL: ${effectiveCloneUrl}`);
-
-        // Setup checkout directory with credentials.
-        // The branch session is only for upstream; mimo-agent checkout should
-        // work with a clean trunk.
-        await this.setupCheckout(
-          sessionId,
-          checkoutPath,
-          effectiveCloneUrl,
-          agentWorkspaceUser,
-          agentWorkspacePassword,
-        );
+        const repoInfos: Array<{
+          repoId: string;
+          checkoutPath: string;
+          cloneUrl: string;
+          branch?: string;
+        }> = [];
+        for (const repo of sessionRepos) {
+          const repoCloneUrl = this.config.external
+            ? this.resolveExternalCloneUrl(repo.cloneUrl, repo.publicCloneUrl)
+            : repo.cloneUrl;
+          const repoCheckoutPath =
+            repo.repoId === "default"
+              ? checkoutPath
+              : this.os.path.join(checkoutPath, repo.repoId);
+          await this.setupCheckout(
+            sessionId,
+            repoCheckoutPath,
+            repoCloneUrl,
+            agentWorkspaceUser,
+            agentWorkspacePassword,
+          );
+          repoInfos.push({
+            repoId: repo.repoId,
+            checkoutPath: repoCheckoutPath,
+            cloneUrl: repoCloneUrl,
+            branch: repo.branch ?? undefined,
+          });
+        }
 
         // Create session with credentials
         const sessionInfo = await this.sessionManager.createSession(
           sessionId,
-          effectiveCloneUrl,
+          repoInfos[0]!.cloneUrl,
           agentWorkspaceUser,
           agentWorkspacePassword,
           branch ?? undefined,
+          repoInfos,
         );
 
         // Store cached model/mode so it can be restored after ACP initialization
@@ -386,9 +409,10 @@ export class MimoAgent {
           );
         }
 
-        // Store agentSubpath so all ACP spawn paths use the correct cwd
-        if (agentSubpath) {
-          this.sessionManager.setSessionAgentSubpath(sessionId, agentSubpath);
+        // Store the workspace-relative directory so all ACP spawn paths use the correct cwd
+        const effectiveRelativeDir = relativeDir ?? agentSubpath;
+        if (effectiveRelativeDir) {
+          this.sessionManager.setSessionAgentSubpath(sessionId, effectiveRelativeDir);
         }
 
         // Store thread bootstrap data for lazy recovery (restart scenario)
@@ -1283,105 +1307,117 @@ export class MimoAgent {
       return;
     }
 
-    const runGit = async (args: string[]) => {
+    const runGit = async (args: string[], cwd: string) => {
       return this.os.command.run(["git", ...args], {
-        cwd: session.checkoutPath,
+        cwd,
         timeoutMs: 60000,
       });
     };
 
     try {
-      const addResult = await runGit(["add", "-A"]);
-      if (!addResult.success) {
-        this.send({
-          type: "sync_now_result",
-          sessionId,
-          requestId,
-          success: false,
-          message: "Failed to stage changes in git checkout",
-          error: addResult.error || addResult.output || "git add failed",
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      const statusResult = await runGit(["status", "--porcelain"]);
-      if (!statusResult.success) {
-        this.send({
-          type: "sync_now_result",
-          sessionId,
-          requestId,
-          success: false,
-          message: "Failed to inspect git changes",
-          error:
-            statusResult.error || statusResult.output || "git status failed",
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      if (!statusResult.output || statusResult.output.trim().length === 0) {
-        this.send({
-          type: "sync_now_result",
-          sessionId,
-          requestId,
-          success: true,
-          noChanges: true,
-          message: "No changes to sync from mimo-agent git checkout",
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
+      // Each repository is its own git checkout (setupCheckout clones per
+      // repo at checkoutPath/<repoId>). Sync must run add/commit/push in every
+      // repository checkout, not only the session root, otherwise changes in
+      // non-default repos are never published and the platform never pulls
+      // them.
+      const repos =
+        Array.isArray(session.repos) && session.repos.length > 0
+          ? session.repos
+          : [
+              {
+                repoId: "default",
+                checkoutPath: session.checkoutPath,
+              },
+            ];
 
       const commitMessage = `agent-sync(${sessionId}): sync git changes ${new Date().toISOString()}`;
-      const commitResult = await runGit(["commit", "-m", commitMessage]);
-      if (!commitResult.success) {
-        const combined = `${commitResult.output}\n${commitResult.error}`;
-        if (combined.includes("nothing to commit")) {
-          this.send({
-            type: "sync_now_result",
-            sessionId,
-            requestId,
-            success: true,
-            noChanges: true,
-            message: "No changes to sync from mimo-agent git checkout",
-            timestamp: new Date().toISOString(),
+      const repoResults: Array<{
+        repoId: string;
+        status: "committed" | "skipped" | "failed";
+        error?: string;
+      }> = [];
+      let anyFailed = false;
+
+      for (const repo of repos) {
+        const repoCwd = repo.checkoutPath;
+        const addResult = await runGit(["add", "-A"], repoCwd);
+        if (!addResult.success) {
+          repoResults.push({
+            repoId: repo.repoId,
+            status: "failed",
+            error:
+              addResult.error || addResult.output || "git add failed",
           });
-          return;
+          anyFailed = true;
+          continue;
         }
-        this.send({
-          type: "sync_now_result",
-          sessionId,
-          requestId,
-          success: false,
-          message: "Failed to commit git changes",
-          error:
-            commitResult.error || commitResult.output || "git commit failed",
-          timestamp: new Date().toISOString(),
-        });
-        return;
+
+        const statusResult = await runGit(["status", "--porcelain"], repoCwd);
+        if (!statusResult.success) {
+          repoResults.push({
+            repoId: repo.repoId,
+            status: "failed",
+            error:
+              statusResult.error ||
+              statusResult.output ||
+              "git status failed",
+          });
+          anyFailed = true;
+          continue;
+        }
+
+        if (!statusResult.output || statusResult.output.trim().length === 0) {
+          repoResults.push({ repoId: repo.repoId, status: "skipped" });
+          continue;
+        }
+
+        const commitResult = await runGit(["commit", "-m", commitMessage], repoCwd);
+        if (!commitResult.success) {
+          const combined = `${commitResult.output}\n${commitResult.error}`;
+          if (combined.includes("nothing to commit")) {
+            repoResults.push({ repoId: repo.repoId, status: "skipped" });
+            continue;
+          }
+          repoResults.push({
+            repoId: repo.repoId,
+            status: "failed",
+            error:
+              commitResult.error ||
+              commitResult.output ||
+              "git commit failed",
+          });
+          anyFailed = true;
+          continue;
+        }
+
+        const pushResult = await runGit(["push", "origin", "HEAD"], repoCwd);
+        if (!pushResult.success) {
+          repoResults.push({
+            repoId: repo.repoId,
+            status: "failed",
+            error:
+              pushResult.error || pushResult.output || "git push failed",
+          });
+          anyFailed = true;
+          continue;
+        }
+
+        repoResults.push({ repoId: repo.repoId, status: "committed" });
       }
 
-      const pushResult = await runGit(["push", "origin", "HEAD"]);
-      if (!pushResult.success) {
-        this.send({
-          type: "sync_now_result",
-          sessionId,
-          requestId,
-          success: false,
-          message: "Git committed but push failed",
-          error: pushResult.error || pushResult.output || "git push failed",
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
+      const allSkipped = repoResults.every((r) => r.status === "skipped");
       this.send({
         type: "sync_now_result",
         sessionId,
         requestId,
-        success: true,
-        message: "mimo-agent git commit and push completed",
+        success: !anyFailed,
+        noChanges: allSkipped,
+        message: allSkipped
+          ? "No changes to sync from mimo-agent git checkout"
+          : anyFailed
+            ? "mimo-agent git commit and push completed with failures"
+            : "mimo-agent git commit and push completed",
+        repos: repoResults,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
@@ -2263,7 +2299,7 @@ export class MimoAgent {
   }
 
   private async handleWriteFile(message: any): Promise<void> {
-    const { sessionId, filePath, content } = message;
+    const { sessionId, repoId, filePath, content } = message;
     if (!sessionId || !filePath || content === undefined) {
       logger.debug("[mimo-agent] Missing fields in write_file message");
       return;
@@ -2275,7 +2311,13 @@ export class MimoAgent {
       return;
     }
 
-    const fullPath = this.os.path.join(session.checkoutPath, filePath);
+    const repoCheckoutPath = repoId
+      ? session.repos.find((repo) => repo.repoId === repoId)?.checkoutPath
+      : undefined;
+    const fullPath = this.os.path.join(
+      repoCheckoutPath ?? session.checkoutPath,
+      filePath,
+    );
     const dir = this.os.path.join(fullPath, "..").replace(/\\/g, "/");
 
     try {
@@ -2294,13 +2336,14 @@ export class MimoAgent {
       this.send({
         type: "file_written",
         sessionId,
+        ...(repoId && { repoId }),
         filePath,
         timestamp: new Date().toISOString(),
       });
       this.send({
         type: "file_changed",
         sessionId,
-        files: [{ path: filePath, isNew, deleted: false }],
+        files: [{ ...(repoId && { repoId }), path: filePath, isNew, deleted: false }],
         timestamp: new Date().toISOString(),
       });
     } catch (err) {

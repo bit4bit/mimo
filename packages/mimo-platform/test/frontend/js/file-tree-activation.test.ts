@@ -151,18 +151,18 @@ describe("FileTree activation refresh", () => {
     await controller.setActive(false);
     expect(fetchedUrls.length).toBe(0);
 
-    // One transition to active: exactly two fetches (one per endpoint).
+    // One transition to active: exactly three fetches (one per endpoint).
     await controller.setActive(true);
-    expect(fetchedUrls.length).toBe(2);
+    expect(fetchedUrls.length).toBe(3);
 
     // Staying active does NOT trigger additional fetches (no polling).
     await controller.setActive(true);
     await controller.setActive(true);
-    expect(fetchedUrls.length).toBe(2);
+    expect(fetchedUrls.length).toBe(3);
 
     // Going back to inactive: no new fetches.
     await controller.setActive(false);
-    expect(fetchedUrls.length).toBe(2);
+    expect(fetchedUrls.length).toBe(3);
   });
 
   it("exposes a manual refresh() that reuses the same load path", async () => {

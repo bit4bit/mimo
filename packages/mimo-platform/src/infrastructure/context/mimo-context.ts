@@ -7,6 +7,7 @@ import { UserRepository } from "../../domain/auth/user.js";
 import { ProjectRepository } from "../../domain/projects/repository.js";
 import { McpServerRepository } from "../../domain/mcp-servers/repository.js";
 import { CredentialRepository } from "../../domain/credentials/repository.js";
+import { ManagedRepositoryRepository } from "../../domain/repositories/repository.js";
 import { ImpactRepository } from "../../domain/impact/repository.js";
 import {
   FilePinnedSessionsRepository,
@@ -96,6 +97,7 @@ export interface MimoContext {
     mcpServers: McpServerRepository;
     sessions: SessionRepository;
     credentials: CredentialRepository;
+    managedRepositories: ManagedRepositoryRepository;
     impacts: ImpactRepository;
     pinnedSessions: PinnedSessionsRepository;
   };
@@ -253,6 +255,9 @@ export function createMimoContext(
     credentials:
       overrides.repos?.credentials ??
       new CredentialRepository({ usersPath: paths.users, os }),
+    managedRepositories:
+      overrides.repos?.managedRepositories ??
+      new ManagedRepositoryRepository({ usersPath: paths.users, os }),
     impacts:
       overrides.repos?.impacts ??
       new ImpactRepository({ projectsPath: paths.projects, os }),
@@ -312,6 +317,7 @@ export function createMimoContext(
         sessionRepository: repos.sessions,
         projectRepository: repos.projects,
         credentialRepository: repos.credentials,
+        managedRepositories: repos.managedRepositories,
         impactRepository: repos.impacts,
         impactCalculator,
         vcs,
@@ -334,6 +340,7 @@ export function createMimoContext(
             sessionRepository: repos.sessions,
             projectRepository: repos.projects,
             credentialRepository: repos.credentials,
+            managedRepositories: repos.managedRepositories,
             impactRepository: repos.impacts,
             impactCalculator,
             vcs,

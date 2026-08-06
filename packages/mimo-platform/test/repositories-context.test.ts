@@ -38,10 +38,10 @@ describe("Repositories with mimoContext paths", () => {
     const mimoContext = createMimoContext({ env: { MIMO_HOME: homeA } });
 
     const project = await mimoContext.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/example/repo.git", repoType: "git", mountPath: "." }],
+
       name: "context-project",
       owner: "ctx-user",
-      repoType: "git",
-      repoUrl: "https://github.com/example/repo.git",
     });
 
     expect(

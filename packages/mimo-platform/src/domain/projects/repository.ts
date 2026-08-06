@@ -3,20 +3,28 @@ import type { OS } from "../../infrastructure/os/types.js";
 import { dump, load } from "js-yaml";
 import crypto from "crypto";
 
-export interface Project {
+export interface ProjectRepositoryEntry {
   id: string;
   name: string;
-  repoUrl: string;
-  repoType: "git" | "fossil";
-  owner: string;
-  createdAt: Date;
-  description?: string;
+  repoId?: string;
+  repoUrl?: string;
+  repoType?: "git" | "fossil";
   credentialId?: string;
   sourceBranch?: string;
   newBranch?: string;
+  clonePort?: number;
+  mountPath: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  owner: string;
+  createdAt: Date;
+  repositories: ProjectRepositoryEntry[];
+  description?: string;
   agentSubpath?: string;
   instructions?: string;
-  clonePort?: number;
   color?: string;
   iconGlyph?: string;
 }
@@ -28,8 +36,6 @@ export interface PublicProject {
   repoType: "git" | "fossil";
   owner: string;
   createdAt: string;
-  sourceBranch?: string;
-  newBranch?: string;
   agentSubpath?: string;
   instructions?: string;
   color?: string;
@@ -39,33 +45,23 @@ export interface PublicProject {
 export interface ProjectData {
   id: string;
   name: string;
-  repoUrl: string;
-  repoType: "git" | "fossil";
   owner: string;
   createdAt: string;
+  repositories: ProjectRepositoryEntry[];
   description?: string;
-  credentialId?: string;
-  sourceBranch?: string;
-  newBranch?: string;
   agentSubpath?: string;
   instructions?: string;
-  clonePort?: number;
   color?: string;
   iconGlyph?: string;
 }
 
 export interface CreateProjectInput {
   name: string;
-  repoUrl: string;
-  repoType: "git" | "fossil";
   owner: string;
+  repositories: ProjectRepositoryEntry[];
   description?: string;
-  credentialId?: string;
-  sourceBranch?: string;
-  newBranch?: string;
   agentSubpath?: string;
   instructions?: string;
-  clonePort?: number;
   color?: string;
   iconGlyph?: string;
 }
@@ -73,6 +69,110 @@ export interface CreateProjectInput {
 interface ProjectRepositoryDeps {
   os: OS;
   projectsPath?: string;
+}
+
+function normalizeMountPath(mountPath: string): string {
+  const trimmed = mountPath.trim().replace(/\\/g, "/");
+  if (trimmed === "." || trimmed === "./") {
+    return ".";
+  }
+  return trimmed.replace(/^\.\//, "").replace(/\/+$/, "");
+}
+
+function validateMountPath(mountPath: string): string {
+  if (!mountPath || !mountPath.trim()) {
+    throw new Error("Repository mountPath is required");
+  }
+  const normalized = normalizeMountPath(mountPath);
+  if (
+    normalized.startsWith("/") ||
+    /^[A-Za-z]:\//.test(normalized) ||
+    normalized.split("/").includes("..") ||
+    normalized.split("/").includes(".git")
+  ) {
+    throw new Error(`Invalid repository mountPath: ${mountPath}`);
+  }
+  return normalized;
+}
+
+export function validateProjectRepositories(
+  repositories: ProjectRepositoryEntry[] | undefined,
+): ProjectRepositoryEntry[] | undefined {
+  if (!repositories) {
+    return undefined;
+  }
+  if (!Array.isArray(repositories) || repositories.length === 0) {
+    throw new Error("Project repositories must be a non-empty array");
+  }
+
+  const seenIds = new Set<string>();
+  const normalizedMounts: string[] = [];
+  const normalized = repositories.map((repo) => {
+    if (!repo.id?.trim() || !repo.name?.trim()) {
+      throw new Error("Repository id and name are required");
+    }
+    if (!repo.repoId?.trim() && !repo.repoUrl?.trim()) {
+      throw new Error(
+        "Repository must reference a managed repository (repoId) or provide a repoUrl",
+      );
+    }
+    if (
+      repo.repoType !== undefined &&
+      repo.repoType !== "git" &&
+      repo.repoType !== "fossil"
+    ) {
+      throw new Error("Repository type must be 'git' or 'fossil'");
+    }
+    if (seenIds.has(repo.id)) {
+      throw new Error(`Duplicate repository id: ${repo.id}`);
+    }
+    seenIds.add(repo.id);
+    const mountPath = validateMountPath(repo.mountPath);
+    normalizedMounts.push(mountPath);
+    // Strip legacy per-entry fields that no longer have meaning.
+    const { primary: _primary, ...rest } = repo as ProjectRepositoryEntry & {
+      primary?: boolean;
+    };
+    return { ...rest, id: repo.id.trim(), name: repo.name.trim(), mountPath };
+  });
+
+  for (let i = 0; i < normalizedMounts.length; i++) {
+    for (let j = i + 1; j < normalizedMounts.length; j++) {
+      const a = normalizedMounts[i]!;
+      const b = normalizedMounts[j]!;
+      if (a === b) {
+        throw new Error(`Duplicate repository mountPath: ${a}`);
+      }
+      if (a.startsWith(`${b}/`) || b.startsWith(`${a}/`)) {
+        throw new Error(`Nested repository mountPath: ${a} and ${b}`);
+      }
+    }
+  }
+
+  return normalized;
+}
+
+function normalizeProjectData(data: ProjectData): ProjectData {
+  const { repositories, ...rest } = data;
+  // Drop legacy flat mirror fields (repoUrl, repoType, credentialId,
+  // sourceBranch, newBranch, clonePort) that may still exist in older YAML.
+  const cleaned: Record<string, unknown> = { ...rest };
+  for (const legacy of [
+    "repoUrl",
+    "repoType",
+    "credentialId",
+    "sourceBranch",
+    "newBranch",
+    "clonePort",
+  ]) {
+    delete cleaned[legacy];
+  }
+  return {
+    ...(cleaned as Omit<ProjectData, "repositories">),
+    repositories: Array.isArray(repositories)
+      ? validateProjectRepositories(repositories)!
+      : [],
+  };
 }
 
 export class ProjectRepository {
@@ -110,6 +210,11 @@ export class ProjectRepository {
       throw new Error("Description must be 500 characters or less");
     }
 
+    const repositories = validateProjectRepositories(input.repositories);
+    if (!repositories) {
+      throw new Error("Project repositories must be a non-empty array");
+    }
+
     const id = this.generateId();
     const projectPath = this.getProjectPath(id);
 
@@ -120,17 +225,12 @@ export class ProjectRepository {
     const projectData: ProjectData = {
       id,
       name: input.name,
-      repoUrl: input.repoUrl,
-      repoType: input.repoType,
       owner: input.owner,
       createdAt: new Date().toISOString(),
+      repositories,
       ...(input.description && { description: input.description }),
-      ...(input.credentialId && { credentialId: input.credentialId }),
-      ...(input.sourceBranch && { sourceBranch: input.sourceBranch }),
-      ...(input.newBranch && { newBranch: input.newBranch }),
       ...(input.agentSubpath && { agentSubpath: input.agentSubpath }),
       ...(input.instructions && { instructions: input.instructions }),
-      ...(input.clonePort != null && { clonePort: input.clonePort }),
       ...(input.color && { color: input.color }),
       ...(input.iconGlyph && { iconGlyph: input.iconGlyph }),
     };
@@ -156,7 +256,7 @@ export class ProjectRepository {
     }
 
     const content = await this.os.fs.readFileAsync(filePath, "utf-8");
-    const data = load(content) as ProjectData;
+    const data = normalizeProjectData(load(content) as ProjectData);
 
     return {
       ...data,
@@ -188,7 +288,7 @@ export class ProjectRepository {
               projectFile,
               "utf-8",
             );
-            const data = load(content) as ProjectData;
+            const data = normalizeProjectData(load(content) as ProjectData);
             if (data.owner === owner) {
               projects.push({
                 ...data,
@@ -230,7 +330,7 @@ export class ProjectRepository {
               projectFile,
               "utf-8",
             );
-            const data = load(content) as ProjectData;
+            const data = normalizeProjectData(load(content) as ProjectData);
             projects.push({
               ...data,
               createdAt: new Date(data.createdAt),
@@ -252,11 +352,9 @@ export class ProjectRepository {
       id: project.id,
       name: project.name,
       description: project.description,
-      repoType: project.repoType,
+      repoType: project.repositories[0]?.repoType ?? "git",
       owner: project.owner,
       createdAt: project.createdAt.toISOString(),
-      sourceBranch: project.sourceBranch,
-      newBranch: project.newBranch,
       agentSubpath: project.agentSubpath,
       instructions: project.instructions,
       color: project.color,
@@ -301,12 +399,9 @@ export class ProjectRepository {
     id: string,
     updates: {
       name?: string;
-      repoUrl?: string;
-      repoType?: "git" | "fossil";
+      repositories?: ProjectRepositoryEntry[];
       description?: string;
-      credentialId?: string;
       instructions?: string;
-      clonePort?: number | null;
       color?: string;
       iconGlyph?: string;
     },
@@ -320,16 +415,15 @@ export class ProjectRepository {
       throw new Error("Description must be 500 characters or less");
     }
 
+    const repositories = validateProjectRepositories(updates.repositories);
+
     const updatedData: ProjectData = {
       id: project.id,
       name: updates.name || project.name,
-      repoUrl: updates.repoUrl || project.repoUrl,
-      repoType: updates.repoType || project.repoType,
       owner: project.owner,
       createdAt: project.createdAt.toISOString(),
       description: updates.description,
-      sourceBranch: project.sourceBranch,
-      newBranch: project.newBranch,
+      repositories: repositories ?? project.repositories,
     };
 
     // Preserve color/iconGlyph from existing project unless overridden
@@ -349,13 +443,8 @@ export class ProjectRepository {
       updatedData.iconGlyph = project.iconGlyph;
     }
 
-    // Handle credentialId specially - if undefined, keep existing; if null, remove; if string, set
-    if ("credentialId" in updates) {
-      if (updates.credentialId !== undefined) {
-        updatedData.credentialId = updates.credentialId;
-      }
-    } else if (project.credentialId) {
-      updatedData.credentialId = project.credentialId;
+    if (project.agentSubpath) {
+      updatedData.agentSubpath = project.agentSubpath;
     }
 
     // Handle instructions specially - if undefined, keep existing; if null, remove; if string, set
@@ -365,15 +454,6 @@ export class ProjectRepository {
       }
     } else if (project.instructions) {
       updatedData.instructions = project.instructions;
-    }
-
-    // Handle clonePort: undefined = keep existing; null = remove; number = set
-    if ("clonePort" in updates) {
-      if (updates.clonePort != null) {
-        updatedData.clonePort = updates.clonePort;
-      }
-    } else if (project.clonePort != null) {
-      updatedData.clonePort = project.clonePort;
     }
 
     await this.os.fs.writeFileAsync(

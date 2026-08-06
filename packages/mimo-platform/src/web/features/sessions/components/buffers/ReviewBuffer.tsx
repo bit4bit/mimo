@@ -22,6 +22,9 @@ export const ReviewBuffer: FC<ReviewBufferProps> = ({
       <div class="review-buffer-header">
         <span class="review-buffer-title">Review</span>
         <div class="inline-flex-row review-buffer-actions">
+          <select id="review-repo-select" class="repo-select">
+            <option value="">All repositories</option>
+          </select>
           <button
             type="button"
             id="review-refresh-btn"

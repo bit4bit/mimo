@@ -1645,12 +1645,13 @@
     });
   }
 
-  function fetchAndAddFile(sessionId, path, callback) {
+  function fetchAndAddFile(sessionId, path, callback, repoId) {
     fetch(
       "/sessions/" +
         sessionId +
         "/files/content?path=" +
-        encodeURIComponent(path),
+        encodeURIComponent(path) +
+        (repoId ? "&repoId=" + encodeURIComponent(repoId) : ""),
     )
       .then(function (r) {
         if (!r.ok) throw new Error("not found");
@@ -1665,12 +1666,14 @@
             lineCount: data.lineCount,
             content: data.content,
             scrollPosition: 0,
+            ...(repoId && { repoId: repoId }),
           },
           sessionId,
         );
         // Notify server to watch this file
         notifyWatchFile(sessionId, {
           path: data.path,
+          ...(repoId && { repoId: repoId }),
           contentChecksum: EditBufferState.getChecksum(data.path),
         });
         if (callback) callback();
@@ -1684,17 +1687,22 @@
     closeFileFinder();
     const sessionId = getSessionId();
     if (!sessionId) return;
-    fetchAndAddFile(sessionId, fileInfo.path, function () {
-      renderEditBuffer();
-      // Switch to the Files buffer so the opened file is visible
-      var filesTab = document.querySelector(
-        '.frame-tab[data-frame-id="left"][data-buffer-id="edit"]',
-      );
-      if (filesTab) filesTab.click();
-      // Focus the edit buffer content area so scrolling works immediately
-      var contentEl = document.getElementById("edit-buffer-content");
-      if (contentEl) contentEl.focus();
-    });
+    fetchAndAddFile(
+      sessionId,
+      fileInfo.path,
+      function () {
+        renderEditBuffer();
+        // Switch to the Files buffer so the opened file is visible
+        var filesTab = document.querySelector(
+          '.frame-tab[data-frame-id="left"][data-buffer-id="edit"]',
+        );
+        if (filesTab) filesTab.click();
+        // Focus the edit buffer content area so scrolling works immediately
+        var contentEl = document.getElementById("edit-buffer-content");
+        if (contentEl) contentEl.focus();
+      },
+      fileInfo.repoId,
+    );
   }
 
   // ── Edit Buffer Rendering ────────────────────────────────────────────────────
@@ -1836,7 +1844,7 @@
     if (!active) return false;
     const sessionId = getSessionId();
     // Unwatch the file before closing
-    notifyUnwatchFile(sessionId, active.path);
+    notifyUnwatchFile(sessionId, active.path, active.repoId);
     EditBufferState.remove(active.path, sessionId);
     renderEditBuffer();
     return true;
@@ -1918,7 +1926,8 @@
       "/sessions/" +
         sessionId +
         "/files/content?path=" +
-        encodeURIComponent(active.path),
+        encodeURIComponent(active.path) +
+        (active.repoId ? "&repoId=" + encodeURIComponent(active.repoId) : ""),
     )
       .then(function (r) {
         if (!r.ok) throw new Error("Failed to reload file");
@@ -1932,6 +1941,7 @@
         // Notify server of new checksum
         notifyWatchFile(sessionId, {
           path: active.path,
+          ...(active.repoId && { repoId: active.repoId }),
           contentChecksum: EditBufferState.getChecksum(active.path),
         });
       })
@@ -2066,17 +2076,19 @@
       JSON.stringify({
         type: "watch_file",
         path: file.path,
+        ...(file.repoId && { repoId: file.repoId }),
         checksum: checksum,
       }),
     );
   }
 
-  function notifyUnwatchFile(sessionId, filePath) {
+  function notifyUnwatchFile(sessionId, filePath, repoId) {
     if (fileWatchSocket && fileWatchSocket.readyState === WebSocket.OPEN) {
       fileWatchSocket.send(
         JSON.stringify({
           type: "unwatch_file",
           path: filePath,
+          ...(repoId && { repoId: repoId }),
         }),
       );
     }
@@ -2098,18 +2110,23 @@
       switchFile: switchFile,
       scrollContent: scrollContent,
       reloadCurrentFile: reloadCurrentFile,
-      openFile: function (path) {
+      openFile: function (path, repoId) {
         var sessionId = getSessionId();
         if (!sessionId) return;
-        fetchAndAddFile(sessionId, path, function () {
-          renderEditBuffer();
-          var filesTab = document.querySelector(
-            '.frame-tab[data-frame-id="left"][data-buffer-id="edit"]',
-          );
-          if (filesTab) filesTab.click();
-          var contentEl = document.getElementById("edit-buffer-content");
-          if (contentEl) contentEl.focus();
-        });
+        fetchAndAddFile(
+          sessionId,
+          path,
+          function () {
+            renderEditBuffer();
+            var filesTab = document.querySelector(
+              '.frame-tab[data-frame-id="left"][data-buffer-id="edit"]',
+            );
+            if (filesTab) filesTab.click();
+            var contentEl = document.getElementById("edit-buffer-content");
+            if (contentEl) contentEl.focus();
+          },
+          repoId,
+        );
       },
       ws: null,
       toggleExpertMode: function () {

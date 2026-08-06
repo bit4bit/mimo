@@ -10,6 +10,8 @@ import type {
   Session,
   SessionPriority,
   ChatThread,
+  SessionRepositoryEntry,
+  SessionRepoMountInput,
 } from "../../../domain/sessions/repository.js";
 
 /**
@@ -29,6 +31,7 @@ export interface SessionResponse {
   closeReason?: string;
   assignedAgentId?: string;
   agentSubpath?: string;
+  relativeDir?: string;
   branch?: string;
   acpStatus: "active" | "parked";
   syncState: "idle" | "syncing" | "error";
@@ -38,6 +41,7 @@ export interface SessionResponse {
   // Workspace paths (required for VCS operations)
   upstreamPath: string;
   agentWorkspacePath: string;
+  repos: SessionRepositoryEntry[];
   vcsPath: string;
   // Credentials
   agentWorkspaceUser?: string;
@@ -93,7 +97,9 @@ export interface CreateSessionRequest {
   projectId: string;
   assignedAgentId?: string;
   agentSubpath?: string;
+  relativeDir?: string;
   branchName?: string;
+  repoMounts?: SessionRepoMountInput[];
   mcpServerIds?: string[];
   sessionTtlDays?: number;
   idleTimeoutMs?: number;
@@ -114,6 +120,9 @@ export interface UpdateSessionRequest {
   sessionTtlDays?: number;
   idleTimeoutMs?: number;
   branch?: string;
+  relativeDir?: string;
+  baseline?: string;
+  repos?: SessionRepositoryEntry[];
   agentWorkspaceUser?: string;
   agentWorkspacePassword?: string;
   frameState?: import("../../../domain/sessions/frame-state.js").FrameState;
@@ -178,6 +187,7 @@ export function toSessionResponse(session: Session): SessionResponse {
       assignedAgentId: session.assignedAgentId,
     }),
     ...(session.agentSubpath && { agentSubpath: session.agentSubpath }),
+    ...(session.relativeDir && { relativeDir: session.relativeDir }),
     ...(session.branch && { branch: session.branch }),
     acpStatus: session.acpStatus,
     syncState: session.syncState,
@@ -187,7 +197,8 @@ export function toSessionResponse(session: Session): SessionResponse {
     // Workspace paths
     upstreamPath: session.upstreamPath,
     agentWorkspacePath: session.agentWorkspacePath,
-    vcsPath: session.vcsPath,
+    repos: session.repos,
+    vcsPath: session.vcsPath ?? "",
     // Credentials
     ...(session.agentWorkspaceUser && {
       agentWorkspaceUser: session.agentWorkspaceUser,

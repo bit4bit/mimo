@@ -163,10 +163,13 @@ class NodeCommandRunner implements CommandRunner {
       child.stdin.end();
     }
 
-    return this.wrapChildProcess(child);
+    return this.wrapChildProcess(child, options.timeoutMs);
   }
 
-  private wrapChildProcess(child: ChildProcess): SpawnedProcess {
+  private wrapChildProcess(
+    child: ChildProcess,
+    timeoutMs?: number,
+  ): SpawnedProcess {
     const wrapStream = (
       stream: NodeJS.ReadableStream | null,
     ): ReadableStream<Uint8Array> => {
@@ -211,6 +214,12 @@ class NodeCommandRunner implements CommandRunner {
       });
     };
 
+    const timer = timeoutMs
+      ? setTimeout(() => {
+          child.kill();
+        }, timeoutMs)
+      : null;
+
     return {
       stdout: wrapStream(child.stdout),
       stderr: wrapStream(child.stderr),
@@ -219,7 +228,10 @@ class NodeCommandRunner implements CommandRunner {
         child.kill(signal as NodeJS.Signals);
       },
       exited: new Promise((resolve) => {
-        child.on("close", (code) => resolve(code ?? -1));
+        child.on("close", (code) => {
+          if (timer) clearTimeout(timer);
+          resolve(code ?? -1);
+        });
       }),
     };
   }

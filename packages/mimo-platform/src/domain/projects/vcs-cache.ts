@@ -3,11 +3,18 @@ import type { Credential } from "../credentials/repository.js";
 import type { OS } from "../../infrastructure/os/types.js";
 import { logger } from "../../logger.js";
 import type { VCS } from "../vcs/index.js";
+import {
+  buildGitSshCommand,
+  injectHttpsCredentials,
+  isSshRepoUrl,
+  normalizeSshPrivateKey,
+} from "../vcs/credential-injection.js";
 
 type RepoType = "git" | "fossil";
 
 export interface CloneParams {
   projectId: string;
+  repoId?: string;
   repoUrl: string;
   repoType: RepoType;
   targetPath: string;
@@ -18,6 +25,7 @@ export interface CloneParams {
 
 export interface RefreshParams {
   projectId: string;
+  repoId?: string;
   repoUrl: string;
   repoType: RepoType;
   credential?: Credential;
@@ -28,7 +36,7 @@ export interface RefreshParams {
 export interface ProjectVcsCache {
   clone(params: CloneParams): Promise<{ success: boolean; error?: string }>;
   refresh(params: RefreshParams): Promise<{ success: boolean; error?: string }>;
-  clear(projectId: string, repoType: RepoType): Promise<void>;
+  clear(projectId: string, repoType: RepoType, repoId?: string): Promise<void>;
 }
 
 interface CacheEngine {
@@ -36,8 +44,8 @@ interface CacheEngine {
   cloneFromCache(
     params: CloneParams,
   ): Promise<{ success: boolean; error?: string }>;
-  clear(projectId: string): Promise<void>;
-  isCorrupted(projectId: string): Promise<boolean>;
+  clear(projectId: string, repoId?: string): Promise<void>;
+  isCorrupted(projectId: string, repoId?: string): Promise<boolean>;
 }
 
 function gitBranchArgs(branch?: string): string[] {
@@ -75,61 +83,8 @@ async function withProjectLock<T>(
   }
 }
 
-function buildGitSshCommand(sshKeyPath?: string, clonePort?: number): string {
-  const parts = ["ssh"];
-  if (sshKeyPath) {
-    parts.push(`-i "${sshKeyPath}"`, "-o IdentitiesOnly=yes");
-  }
-  parts.push(
-    "-o StrictHostKeyChecking=no",
-    "-o UserKnownHostsFile=/dev/null",
-    "-o BatchMode=yes",
-  );
-  if (clonePort != null) {
-    parts.push(`-p ${clonePort}`);
-  }
-  return parts.join(" ");
-}
-
-function normalizePrivateKey(privateKey: string): string {
-  let normalizedPrivateKey = privateKey.trim();
-  if (
-    (normalizedPrivateKey.startsWith('"') &&
-      normalizedPrivateKey.endsWith('"')) ||
-    (normalizedPrivateKey.startsWith("'") && normalizedPrivateKey.endsWith("'"))
-  ) {
-    normalizedPrivateKey = normalizedPrivateKey.slice(1, -1);
-  }
-  normalizedPrivateKey = normalizedPrivateKey
-    .replace(/^\uFEFF/, "")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .replace(/\\r\\n/g, "\n")
-    .replace(/\\r/g, "\n")
-    .replace(/\\n/g, "\n");
-
-  if (!normalizedPrivateKey.endsWith("\n")) {
-    normalizedPrivateKey += "\n";
-  }
-
-  return normalizedPrivateKey;
-}
-
-function isSshUrl(url: string): boolean {
-  return /^(git@|ssh:\/\/)/.test(url);
-}
-
-function injectHttpsCredentials(url: string, credential: Credential): string {
-  if (credential.type !== "https") {
-    return url;
-  }
-
-  const encodedUsername = encodeURIComponent(credential.username);
-  const encodedPassword = encodeURIComponent(credential.password);
-  return url.replace(
-    /^(https:\/\/)(.*)$/,
-    `$1${encodedUsername}:${encodedPassword}@$2`,
-  );
+function sanitizeRepoId(repoId: string): string {
+  return repoId.replace(/[^a-zA-Z0-9._-]+/g, "-");
 }
 
 function cachePathFor(
@@ -137,11 +92,48 @@ function cachePathFor(
   projectsPath: string,
   projectId: string,
   repoType: RepoType,
+  repoId?: string,
 ): string {
   const projectPath = os.path.join(projectsPath, projectId);
-  return repoType === "git"
-    ? os.path.join(projectPath, "cache.git")
-    : os.path.join(projectPath, "cache.fossil");
+  const extension = repoType === "git" ? "git" : "fossil";
+  return os.path.join(
+    projectPath,
+    repoId ? `cache-${sanitizeRepoId(repoId)}.${extension}` : `cache.${extension}`,
+  );
+}
+
+function clearCacheArtifacts(
+  os: OS,
+  projectsPath: string,
+  projectId: string,
+  repoType: RepoType,
+  repoId?: string,
+): void {
+  const projectPath = os.path.join(projectsPath, projectId);
+  if (repoId) {
+    const cachePath = cachePathFor(os, projectsPath, projectId, repoType, repoId);
+    if (os.fs.exists(cachePath)) {
+      os.fs.rm(cachePath, { recursive: true, force: true });
+    }
+    return;
+  }
+
+  const legacyPath = cachePathFor(os, projectsPath, projectId, repoType);
+  if (os.fs.exists(legacyPath)) {
+    os.fs.rm(legacyPath, { recursive: true, force: true });
+  }
+  if (!os.fs.exists(projectPath)) {
+    return;
+  }
+  const extension = repoType === "git" ? ".git" : ".fossil";
+  for (const entry of os.fs.readdir(projectPath) as string[]) {
+    if (entry.startsWith("cache-") && entry.endsWith(extension)) {
+      os.fs.rm(os.path.join(projectPath, entry), {
+        recursive: true,
+        force: true,
+      });
+    }
+  }
 }
 
 function normalizeAuthError(error?: string): string | undefined {
@@ -181,7 +173,7 @@ class GitCacheEngine implements CacheEngine {
       );
       this.os.fs.writeFile(
         sshKeyPath,
-        normalizePrivateKey(credential.privateKey),
+        normalizeSshPrivateKey(credential.privateKey),
         { mode: 0o600, encoding: "utf-8" },
       );
       this.os.fs.chmod(sshKeyPath, 0o600);
@@ -213,12 +205,13 @@ class GitCacheEngine implements CacheEngine {
       this.projectsPath,
       params.projectId,
       "git",
+      params.repoId,
     );
     const projectPath = this.os.path.dirname(cachePath);
 
     return withProjectLock(this.os, projectPath, async () => {
       let url = params.repoUrl;
-      if (params.credential?.type === "https" && !isSshUrl(params.repoUrl)) {
+      if (params.credential?.type === "https" && !isSshRepoUrl(params.repoUrl)) {
         url = injectHttpsCredentials(params.repoUrl, params.credential);
       }
 
@@ -246,7 +239,7 @@ class GitCacheEngine implements CacheEngine {
                 url,
                 cachePath,
               ],
-              { env, timeoutMs: 300000, stdio: "ignore" },
+              { env, timeoutMs: 300000 },
             );
             logger.info("[cache] git cache clone finished", {
               projectId: params.projectId,
@@ -295,7 +288,7 @@ class GitCacheEngine implements CacheEngine {
                 url,
                 cachePath,
               ],
-              { env, timeoutMs: 300000, stdio: "ignore" },
+              { env, timeoutMs: 300000 },
             );
             logger.info("[cache] git cache reclone finished", {
               projectId: params.projectId,
@@ -380,6 +373,7 @@ class GitCacheEngine implements CacheEngine {
       this.projectsPath,
       params.projectId,
       "git",
+      params.repoId,
     );
 
     return this.withSshEnv(
@@ -460,25 +454,18 @@ class GitCacheEngine implements CacheEngine {
     );
   }
 
-  async clear(projectId: string): Promise<void> {
-    const cachePath = cachePathFor(
-      this.os,
-      this.projectsPath,
-      projectId,
-      "git",
-    );
-    if (this.os.fs.exists(cachePath)) {
-      logger.info("[cache] clearing git cache", { projectId });
-      this.os.fs.rm(cachePath, { recursive: true, force: true });
-    }
+  async clear(projectId: string, repoId?: string): Promise<void> {
+    logger.info("[cache] clearing git cache", { projectId, repoId });
+    clearCacheArtifacts(this.os, this.projectsPath, projectId, "git", repoId);
   }
 
-  async isCorrupted(projectId: string): Promise<boolean> {
+  async isCorrupted(projectId: string, repoId?: string): Promise<boolean> {
     const cachePath = cachePathFor(
       this.os,
       this.projectsPath,
       projectId,
       "git",
+      repoId,
     );
     if (!this.os.fs.exists(cachePath)) {
       return false;
@@ -505,6 +492,7 @@ class FossilCacheEngine implements CacheEngine {
       this.projectsPath,
       params.projectId,
       "fossil",
+      params.repoId,
     );
     const projectPath = this.os.path.dirname(cachePath);
 
@@ -605,7 +593,7 @@ class FossilCacheEngine implements CacheEngine {
     const open = await this.os.command.run([
       "fossil",
       "open",
-      cachePathFor(this.os, this.projectsPath, params.projectId, "fossil"),
+      cachePathFor(this.os, this.projectsPath, params.projectId, "fossil", params.repoId),
       "--workdir",
       params.targetPath,
       "--nested",
@@ -637,25 +625,18 @@ class FossilCacheEngine implements CacheEngine {
         };
   }
 
-  async clear(projectId: string): Promise<void> {
-    const cachePath = cachePathFor(
-      this.os,
-      this.projectsPath,
-      projectId,
-      "fossil",
-    );
-    if (this.os.fs.exists(cachePath)) {
-      logger.info("[cache] clearing fossil cache", { projectId });
-      this.os.fs.unlink(cachePath);
-    }
+  async clear(projectId: string, repoId?: string): Promise<void> {
+    logger.info("[cache] clearing fossil cache", { projectId, repoId });
+    clearCacheArtifacts(this.os, this.projectsPath, projectId, "fossil", repoId);
   }
 
-  async isCorrupted(projectId: string): Promise<boolean> {
+  async isCorrupted(projectId: string, repoId?: string): Promise<boolean> {
     const cachePath = cachePathFor(
       this.os,
       this.projectsPath,
       projectId,
       "fossil",
+      repoId,
     );
     if (!this.os.fs.exists(cachePath)) {
       return false;
@@ -756,7 +737,7 @@ export function createProjectVcsCache(deps: {
             error: cloneResult.error,
           },
         );
-        await engine.clear(params.projectId);
+        await engine.clear(params.projectId, params.repoId);
         const retryClone = await deps.vcs.cloneRepository(
           params.repoUrl,
           params.repoType,
@@ -792,7 +773,7 @@ export function createProjectVcsCache(deps: {
           error: cloneResult.error,
         },
       );
-      await engine.clear(params.projectId);
+      await engine.clear(params.projectId, params.repoId);
       const retryRefresh = await engine.refresh(params);
       if (retryRefresh.success) {
         const retryClone = await engine.cloneFromCache(params);
@@ -826,8 +807,12 @@ export function createProjectVcsCache(deps: {
     ): Promise<{ success: boolean; error?: string }> {
       return engineFor(params.repoType).refresh(params);
     },
-    async clear(projectId: string, repoType: RepoType): Promise<void> {
-      await engineFor(repoType).clear(projectId);
+    async clear(
+      projectId: string,
+      repoType: RepoType,
+      repoId?: string,
+    ): Promise<void> {
+      await engineFor(repoType).clear(projectId, repoId);
     },
   };
 }

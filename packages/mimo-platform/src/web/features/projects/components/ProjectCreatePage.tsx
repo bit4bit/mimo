@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import { Layout } from "../../../shared/components/Layout.js";
-import type { Credential } from "../../../../domain/credentials/repository";
+import {
+  RepositoryPicker,
+  type PickerRepository,
+} from "./RepositoryPicker.js";
 
 interface ProjectCreateProps {
   error?: string;
-  credentials?: Credential[];
+  repositories?: PickerRepository[];
   defaultInstructions?: string;
 }
 
 export const ProjectCreatePage: FC<ProjectCreateProps> = ({
   error,
-  credentials = [],
+  repositories = [],
   defaultInstructions = "Before performing any task, try to locate and read the file `AGENTS.md` if not found inform the user and continue.",
 }) => {
   return (
@@ -61,92 +64,7 @@ export const ProjectCreatePage: FC<ProjectCreateProps> = ({
             </small>
           </div>
 
-          <div class="form-group">
-            <label>Repository URL</label>
-            <input
-              type="text"
-              name="repoUrl"
-              required
-              placeholder="https://github.com/user/repo.git or git@github.com:user/repo.git"
-              data-help-id="project-create-page-repo-url-input"
-            />
-            <small>
-              Git or Fossil repository URL. Supports HTTPS and SSH formats.
-            </small>
-          </div>
-
-          <div class="form-group">
-            <label>Repository Type</label>
-            <select
-              name="repoType"
-              data-help-id="project-create-page-repo-type-select"
-            >
-              <option value="git">Git</option>
-              <option value="fossil">Fossil</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>Credential (optional)</label>
-            <select
-              name="credentialId"
-              id="credentialSelect"
-              data-help-id="project-create-page-credential-select-select"
-            >
-              <option value="">None (public repository)</option>
-              {credentials.map((cred) => (
-                <option key={cred.id} value={cred.id} data-type={cred.type}>
-                  {cred.name} ({cred.type.toUpperCase()})
-                </option>
-              ))}
-            </select>
-            <small>
-              Select a credential for private repositories. Type must match URL
-              (HTTPS for https://, SSH for git@).
-            </small>
-          </div>
-
-          <div class="form-group">
-            <label>Clone Port (optional)</label>
-            <input
-              type="number"
-              name="clonePort"
-              placeholder="22"
-              min="1"
-              max="65535"
-              data-help-id="project-create-page-clone-port-input"
-            />
-            <small class="form-help">
-              Port the remote Git server listens on (default: 22). Set when the
-              server uses a non-standard port, e.g. 3022.
-            </small>
-          </div>
-
-          <div class="form-group">
-            <label>Source Branch (optional)</label>
-            <input
-              type="text"
-              name="sourceBranch"
-              placeholder="main"
-              data-help-id="project-create-page-source-branch-input"
-            />
-            <small class="form-help">
-              Leave empty to use repository default branch
-            </small>
-          </div>
-
-          <div class="form-group">
-            <label>New Branch (optional)</label>
-            <input
-              type="text"
-              name="newBranch"
-              placeholder="ai-session-my-feature"
-              data-help-id="project-create-page-new-branch-input"
-            />
-            <small class="form-help">
-              Create a dedicated branch for AI sessions
-            </small>
-          </div>
+          <RepositoryPicker repositories={repositories} />
 
           <div class="form-group">
             <label>Agent Working Directory (optional)</label>

@@ -109,7 +109,11 @@ describe("SessionManager with MCP Servers", () => {
       expect(session.vcsUser).toBe("fossil-user");
       expect(session.vcsPassword).toBe("fossil-pass");
       expect(session.acpProcess).toBeNull();
-      expect(session.fileWatcher).not.toBeNull();
+      expect(session.repoWatchers).toHaveLength(1);
+      expect(session.repos[0]).toMatchObject({
+        repoId: "default",
+        checkoutPath: session.checkoutPath,
+      });
     });
   });
 

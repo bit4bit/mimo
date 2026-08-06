@@ -18,6 +18,7 @@ import { toSessionResponse, toChatThreadResponse } from "./types.js";
 import { authorizeUse } from "../../../domain/agents/sharing.js";
 import type { MimoContext } from "../../../infrastructure/context/mimo-context.js";
 import type { Session } from "../../../domain/sessions/repository.js";
+import { validateWorkspaceRelativeDir } from "../../../domain/sessions/workspace-paths.js";
 
 // ─── Shared handler helpers ──────────────────────────────────────────────────
 
@@ -64,16 +65,13 @@ async function resolveOwnedSession(
   if (!session) {
     return {
       ok: false,
-      response: c.json(
-        errorResponse("Session not found in repository", 404),
-        404,
-      ),
+      response: c.json(errorResponse("Session not found", 404), 404),
     };
   }
   if (session.owner !== user.username) {
     return {
       ok: false,
-      response: c.json(errorResponse("Session not owned by user", 404), 404),
+      response: c.json(errorResponse("Session not found", 404), 404),
     };
   }
 
@@ -280,6 +278,15 @@ export async function createSessionHandler(
     return c.json(errorResponse(portError, 400), 400);
   }
 
+  let relativeDir: string | undefined;
+  try {
+    relativeDir = body.relativeDir
+      ? validateWorkspaceRelativeDir(body.relativeDir)
+      : undefined;
+  } catch (error) {
+    return c.json(errorResponse(errorMessage(error, "Invalid relativeDir"), 400), 400);
+  }
+
   // Verify project exists and belongs to user
   const project = await mimoContext.repos.projects.findById(body.projectId);
   if (!project || project.owner !== user.username) {
@@ -296,12 +303,22 @@ export async function createSessionHandler(
   }
 
   try {
+    const repoMounts =
+      body.repoMounts ??
+      project.repositories.map((repo: any) => ({
+        projectRepoId: repo.id,
+        mountPath: repo.mountPath,
+        ...(repo.sourceBranch && { branch: repo.sourceBranch }),
+      }));
+
     const session = await mimoContext.repos.sessions.create({
       name: body.name,
       projectId: body.projectId,
       owner: user.username,
+      ...(repoMounts && { repoMounts }),
       assignedAgentId: body.assignedAgentId,
       agentSubpath: body.agentSubpath,
+      relativeDir,
       branchName: body.branchName,
       mcpServerIds: body.mcpServerIds,
       sessionTtlDays: body.sessionTtlDays,
@@ -392,6 +409,15 @@ export async function updateSessionHandler(
     return c.json(errorResponse(configError, 400), 400);
   }
 
+  let relativeDir: string | undefined;
+  try {
+    relativeDir = body.relativeDir
+      ? validateWorkspaceRelativeDir(body.relativeDir)
+      : undefined;
+  } catch (error) {
+    return c.json(errorResponse(errorMessage(error, "Invalid relativeDir"), 400), 400);
+  }
+
   try {
     const updates: Parameters<typeof mimoContext.repos.sessions.update>[1] = {};
     if (body.name !== undefined) updates.name = body.name;
@@ -401,6 +427,9 @@ export async function updateSessionHandler(
     if (body.idleTimeoutMs !== undefined)
       updates.idleTimeoutMs = body.idleTimeoutMs;
     if (body.branch !== undefined) updates.branch = body.branch;
+    if (body.relativeDir !== undefined) updates.relativeDir = relativeDir;
+    if (body.baseline !== undefined) updates.baseline = body.baseline;
+    if (body.repos !== undefined) updates.repos = body.repos;
     if (body.agentWorkspaceUser !== undefined)
       updates.agentWorkspaceUser = body.agentWorkspaceUser;
     if (body.agentWorkspacePassword !== undefined)
@@ -594,8 +623,6 @@ export async function getSessionDetailsHandler(
         ? {
             id: project.id,
             name: project.name,
-            repoUrl: project.repoUrl,
-            repoType: project.repoType,
           }
         : null,
       agent: agent

@@ -30,6 +30,13 @@ function makeService(overrides: {
         name: "DupSession",
         upstreamPath: "/tmp/upstream",
         agentWorkspacePath: "/tmp/work",
+        repos: [
+          {
+            projectRepoId: "default",
+            upstreamPath: "/tmp/upstream",
+            workspacePath: "/tmp/work",
+          },
+        ],
       }),
       update: async () => null,
     },
@@ -71,6 +78,13 @@ describe("AutoCommitService", () => {
           name: "AuthSession",
           upstreamPath: "/tmp/upstream",
           agentWorkspacePath: "/tmp/work",
+        repos: [
+          {
+            projectRepoId: "default",
+            upstreamPath: "/tmp/upstream",
+            workspacePath: "/tmp/work",
+          },
+        ],
         }),
         update: async (_sessionId: string, update: Record<string, unknown>) => {
           statuses.push(update);
@@ -163,6 +177,13 @@ describe("AutoCommitService", () => {
           name: "NoChanges",
           upstreamPath: "/tmp/upstream",
           agentWorkspacePath: "/tmp/work",
+        repos: [
+          {
+            projectRepoId: "default",
+            upstreamPath: "/tmp/upstream",
+            workspacePath: "/tmp/work",
+          },
+        ],
         }),
         update: async () => null,
       },

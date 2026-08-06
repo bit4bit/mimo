@@ -278,9 +278,9 @@ describe("Agent Sharing", () => {
   describe("Chat-thread agent assignment (gate 2)", () => {
     async function bobSessionId() {
       const project = await mimoContext.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://example.com/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Bob Project",
-        repoUrl: "https://example.com/repo.git",
-        repoType: "git",
         owner: "bob",
       });
       const session = await mimoContext.repos.sessions.create({

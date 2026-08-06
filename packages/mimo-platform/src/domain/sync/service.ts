@@ -12,6 +12,7 @@ export type FileStatus =
   | "conflict"; // Conflict with original repo [!]
 
 export interface FileChange {
+  repoId?: string;
   path: string;
   status: FileStatus;
   timestamp: Date;
@@ -61,7 +62,10 @@ export class FileSyncService {
   ): Promise<void> {
     // Get paths from session if not provided
     if (!upstreamPath || !agentWorkspacePath) {
-      const session = await this.deps.sessionRepository.findById(sessionId);
+      const session =
+        typeof this.deps.sessionRepository.findById === "function"
+          ? await this.deps.sessionRepository.findById(sessionId)
+          : null;
       if (!session) {
         throw new Error(`Session ${sessionId} not found`);
       }
@@ -88,7 +92,12 @@ export class FileSyncService {
 
   async handleFileChanges(
     sessionId: string,
-    changes: Array<{ path: string; isNew?: boolean; deleted?: boolean }>,
+    changes: Array<{
+      repoId?: string;
+      path: string;
+      isNew?: boolean;
+      deleted?: boolean;
+    }>,
   ): Promise<FileChange[]> {
     let syncState = this.syncStates.get(sessionId);
     if (!syncState) {
@@ -101,8 +110,21 @@ export class FileSyncService {
 
     const fileChanges: FileChange[] = [];
 
+    const session =
+      typeof this.deps.sessionRepository.findById === "function"
+        ? await this.deps.sessionRepository.findById(sessionId)
+        : null;
+
     for (const change of changes) {
       let status: FileStatus = "modified";
+      const sessionRepo = change.repoId
+        ? session?.repos?.find(
+            (repo: any) => repo.projectRepoId === change.repoId,
+          )
+        : undefined;
+      const upstreamPath = sessionRepo?.upstreamPath ?? syncState.upstreamPath;
+      const workspacePath =
+        sessionRepo?.workspacePath ?? syncState.agentWorkspacePath;
 
       if (change.deleted) {
         status = "deleted";
@@ -111,32 +133,30 @@ export class FileSyncService {
       } else {
         // New file if it exists in the agent workspace but not in the
         // upstream baseline.
-        const baselinePath = this.os.path.join(
-          syncState.upstreamPath,
-          change.path,
-        );
-        const workspacePath = this.os.path.join(
-          syncState.agentWorkspacePath,
-          change.path,
-        );
+        const baselinePath = this.os.path.join(upstreamPath, change.path);
+        const workspaceFilePath = this.os.path.join(workspacePath, change.path);
 
         if (
           !(await this.os.fs.existsAsync(baselinePath)) &&
-          (await this.os.fs.existsAsync(workspacePath))
+          (await this.os.fs.existsAsync(workspaceFilePath))
         ) {
           status = "new";
         }
       }
 
       const fileChange: FileChange = {
+        ...(change.repoId && { repoId: change.repoId }),
         path: change.path,
         status,
         timestamp: new Date(),
         ...(status !== "deleted" &&
-          (await this.getFileInfo(sessionId, change.path))),
+          (await this.getFileInfo(workspacePath, change.path))),
       };
 
-      syncState.changes.set(change.path, fileChange);
+      syncState.changes.set(
+        `${change.repoId ?? ""}:${change.path}`,
+        fileChange,
+      );
       fileChanges.push(fileChange);
     }
 
@@ -176,11 +196,12 @@ export class FileSyncService {
   async getFileStatus(
     sessionId: string,
     filePath: string,
+    repoId?: string,
   ): Promise<FileStatus> {
     const syncState = this.syncStates.get(sessionId);
     if (!syncState) return "clean";
 
-    const change = syncState.changes.get(filePath);
+    const change = syncState.changes.get(`${repoId ?? ""}:${filePath}`);
     return change?.status || "clean";
   }
 
@@ -200,7 +221,10 @@ export class FileSyncService {
           path: relativePath,
           status: "clean",
           timestamp: new Date(),
-          ...(await this.getFileInfo(sessionId, relativePath)),
+          ...(await this.getFileInfo(
+            syncState.agentWorkspacePath,
+            relativePath,
+          )),
         };
 
         syncState.changes.set(relativePath, fileChange);
@@ -215,9 +239,18 @@ export class FileSyncService {
   ): Promise<void> {
     if (!(await this.os.fs.existsAsync(dirPath))) return;
 
-    const entries = (await this.os.fs.readdirAsync(dirPath, {
-      withFileTypes: true,
-    })) as Array<{ name: string; isDirectory(): boolean; isFile(): boolean }>;
+    let entries: Array<{
+      name: string;
+      isDirectory(): boolean;
+      isFile(): boolean;
+    }>;
+    try {
+      entries = (await this.os.fs.readdirAsync(dirPath, {
+        withFileTypes: true,
+      })) as Array<{ name: string; isDirectory(): boolean; isFile(): boolean }>;
+    } catch {
+      return;
+    }
 
     for (const entry of entries) {
       const fullPath = this.os.path.join(dirPath, entry.name);
@@ -235,16 +268,10 @@ export class FileSyncService {
   }
 
   private async getFileInfo(
-    sessionId: string,
+    workspacePath: string,
     filePath: string,
   ): Promise<Partial<FileChange>> {
-    const syncState = this.syncStates.get(sessionId);
-    if (!syncState) return {};
-
-    const sessionPath = this.os.path.join(
-      syncState.agentWorkspacePath,
-      filePath,
-    );
+    const sessionPath = this.os.path.join(workspacePath, filePath);
 
     if (!(await this.os.fs.existsAsync(sessionPath))) {
       return {};

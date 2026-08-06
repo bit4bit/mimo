@@ -27,6 +27,7 @@ export function createSyncRoutes(mimoContext: MimoContext): Hono {
   router.post("/:sessionId/files", async (c: Context) => {
     const sessionId = c.req.param("sessionId");
     const changes = (await c.req.json()) as Array<{
+      repoId?: string;
       path: string;
       isNew?: boolean;
       deleted?: boolean;
@@ -40,9 +41,10 @@ export function createSyncRoutes(mimoContext: MimoContext): Hono {
   router.get("/:sessionId/file/:path/status", async (c: Context) => {
     const sessionId = c.req.param("sessionId");
     const filePath = c.req.param("path");
+    const repoId = c.req.query("repoId");
 
-    const status = await service.getFileStatus(sessionId, filePath);
-    return c.json({ path: filePath, status });
+    const status = await service.getFileStatus(sessionId, filePath, repoId);
+    return c.json({ ...(repoId && { repoId }), path: filePath, status });
   });
 
   // POST /sync/:sessionId/init - Initialize session sync

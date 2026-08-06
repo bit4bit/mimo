@@ -14,6 +14,9 @@ export const ImpactBuffer: FC<ImpactBufferProps> = ({ sessionId }) => {
       <div class="buffer-header">
         <span>Impact</span>
         <div class="inline-flex-row impact-header-actions">
+          <select id="impact-repo-select" class="repo-select">
+            <option value="">All repositories</option>
+          </select>
           <span id="impact-stale-badge" class="impact-stale-badge hidden">
             ⚠ Outdated
           </span>

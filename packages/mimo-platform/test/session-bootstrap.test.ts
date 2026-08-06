@@ -74,6 +74,10 @@ describe("Session Bootstrap Integration Tests", () => {
       // Create a simple git repo
       mkdirSync(upstreamPath, { recursive: true });
       execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@example.com"', {
+        cwd: upstreamPath,
+      });
+      execSync('git config user.name "test"', { cwd: upstreamPath });
       writeFileSync(join(upstreamPath, "README.md"), "# Test");
       execSync("git add .", { cwd: upstreamPath });
       execSync('git commit -m "Initial commit"', { cwd: upstreamPath });
@@ -94,6 +98,10 @@ describe("Session Bootstrap Integration Tests", () => {
       // Create a simple git repo
       mkdirSync(upstreamPath, { recursive: true });
       execSync("git init", { cwd: upstreamPath });
+      execSync('git config user.email "test@example.com"', {
+        cwd: upstreamPath,
+      });
+      execSync('git config user.name "test"', { cwd: upstreamPath });
       writeFileSync(join(upstreamPath, "README.md"), "# Test");
       execSync("git add .", { cwd: upstreamPath });
       execSync('git commit -m "Initial commit"', { cwd: upstreamPath });
@@ -222,6 +230,78 @@ describe("Session Bootstrap Integration Tests", () => {
       // Load the session again
       const loaded = await sessionRepository.findById(session.id);
       expect(loaded?.port).toBeNull();
+    });
+
+    it("should store per-repository session state", async () => {
+      const session = await sessionRepository.create({
+        name: "Multi Repo Session",
+        projectId: "test-project",
+        owner: "testuser",
+        repos: [
+          {
+            projectRepoId: "backend",
+            upstreamPath: join(testHome, "upstream", "backend"),
+            workspacePath: join(testHome, "agent-workspace", "backend"),
+            branch: "main",
+            baseline: "base-backend",
+          },
+          {
+            projectRepoId: "frontend",
+            upstreamPath: join(testHome, "upstream", "frontend"),
+            workspacePath: join(testHome, "agent-workspace", "frontend"),
+            branch: "main",
+            baseline: "base-frontend",
+          },
+        ],
+      });
+
+      expect(session.repos).toHaveLength(2);
+      expect(session.repos?.[0]).toMatchObject({
+        projectRepoId: "backend",
+        branch: "main",
+        baseline: "base-backend",
+      });
+
+      const loaded = await sessionRepository.findById(session.id);
+      expect(loaded?.repos).toHaveLength(2);
+      expect(loaded?.repos?.map((repo) => repo.projectRepoId)).toEqual([
+        "backend",
+        "frontend",
+      ]);
+    });
+
+    it("should materialize mounted repository paths for a multi-repo session", async () => {
+      const session = await sessionRepository.create({
+        name: "Mounted Multi Repo Session",
+        projectId: "test-project",
+        owner: "testuser",
+        repoMounts: [
+          { projectRepoId: "backend", mountPath: "backend" },
+          { projectRepoId: "frontend", mountPath: "frontend" },
+        ],
+      });
+
+      expect(session.repos).toHaveLength(2);
+      const backend = session.repos?.find(
+        (repo) => repo.projectRepoId === "backend",
+      );
+      const frontend = session.repos?.find(
+        (repo) => repo.projectRepoId === "frontend",
+      );
+      expect(backend?.upstreamPath).toBe(join(session.upstreamPath, "backend"));
+      expect(backend?.workspacePath).toBe(
+        join(session.agentWorkspacePath, "backend"),
+      );
+      expect(frontend?.upstreamPath).toBe(
+        join(session.upstreamPath, "frontend"),
+      );
+      expect(frontend?.workspacePath).toBe(
+        join(session.agentWorkspacePath, "frontend"),
+      );
+      expect(existsSync(backend!.upstreamPath)).toBe(true);
+      expect(existsSync(backend!.workspacePath)).toBe(true);
+      expect(existsSync(frontend!.upstreamPath)).toBe(true);
+      expect(existsSync(frontend!.workspacePath)).toBe(true);
     });
 
     it("should delete session directory including upstream and checkout", async () => {

@@ -112,6 +112,16 @@
     }
   }
 
+  function fileKey(file) {
+    return file.repoId ? `${file.repoId}:${file.path}` : file.path;
+  }
+
+  function parseFileKey(key) {
+    const idx = key.indexOf(":");
+    if (idx <= 0) return { path: key };
+    return { repoId: key.slice(0, idx), path: key.slice(idx + 1) };
+  }
+
   async function fetchPreview() {
     if (!sessionId) return;
     const commitTree = getCommitTree();
@@ -121,8 +131,9 @@
       const result = await response.json();
       if (result.success && result.preview) {
         previewData = result.preview;
+        populateRepoSelect();
         // Preserve selection across refreshes: drop paths no longer present.
-        const known = new Set((previewData.files || []).map((f) => f.path));
+        const known = new Set((previewData.files || []).map(fileKey));
         selectedPaths = new Set(
           Array.from(selectedPaths).filter((p) => known.has(p)),
         );
@@ -140,9 +151,27 @@
     }
   }
 
+  function populateRepoSelect() {
+    if (typeof document === "undefined" || !document.getElementById) return;
+    const select = el("commit-repo-select");
+    if (!select) return;
+    const current = select.value;
+    const repoIds = Array.from(
+      new Set((previewData?.files || []).map((file) => file.repoId).filter(Boolean)),
+    ).sort();
+    select.innerHTML =
+      '<option value="">All repositories</option>' +
+      repoIds
+        .map((repoId) => `<option value="${repoId}">${repoId}</option>`)
+        .join("");
+    select.value = repoIds.includes(current) ? current : "";
+  }
+
   function getVisibleFiles() {
     if (!previewData || !previewData.files) return [];
+    const repoFilter = el("commit-repo-select")?.value || "";
     return previewData.files.filter((f) => {
+      if (repoFilter && f.repoId !== repoFilter) return false;
       if (f.status === "added" && !statusFilters.added) return false;
       if (f.status === "modified" && !statusFilters.modified) return false;
       if (f.status === "deleted" && !statusFilters.deleted) return false;
@@ -153,11 +182,13 @@
   function buildTree(files) {
     const root = {};
     files.forEach((file) => {
-      const parts = file.path.split("/");
+      const parts = file.repoId
+        ? [file.repoId, ...file.path.split("/")]
+        : file.path.split("/");
       let current = root;
       parts.forEach((part, index) => {
         const isLast = index === parts.length - 1;
-        const pathSoFar = parts.slice(0, index + 1).join("/");
+        const pathSoFar = isLast ? fileKey(file) : parts.slice(0, index + 1).join("/");
         if (!current[part]) {
           current[part] = {
             name: part,
@@ -332,6 +363,7 @@
           // Cross-nav to Patches buffer for diff inspection.
           openFileInPatchBuffer(node.file.path, sessionId, {
             sourceBufferId: "commit",
+            repoId: node.file.repoId,
           });
         });
       }
@@ -351,26 +383,30 @@
   }
 
   async function loadFileHunks(file, diffEl) {
-    if (pendingHunkRequests.has(file.path)) return;
-    const cached = fileHunkCache.get(file.path);
+    const key = fileKey(file);
+    if (pendingHunkRequests.has(key)) return;
+    const cached = fileHunkCache.get(key);
     if (cached) {
       file.hunks = cached.hunks;
       file.isBinary = cached.isBinary;
       updateUI();
       return;
     }
-    pendingHunkRequests.set(file.path, true);
+    pendingHunkRequests.set(key, true);
     setDiffLoading(diffEl, true);
     try {
+      const repoQuery = file.repoId
+        ? `?repoId=${encodeURIComponent(file.repoId)}`
+        : "";
       const response = await fetch(
-        `/commits/${sessionId}/files/${encodeURIComponent(file.path)}/hunks`,
+        `/commits/${sessionId}/files/${encodeURIComponent(file.path)}/hunks${repoQuery}`,
       );
       if (!response.ok) throw new Error("Failed to fetch diff");
       const result = await response.json();
       if (result.success) {
         file.hunks = result.hunks || [];
         file.isBinary = result.isBinary || false;
-        fileHunkCache.set(file.path, {
+        fileHunkCache.set(key, {
           hunks: file.hunks,
           isBinary: file.isBinary,
         });
@@ -381,7 +417,7 @@
     } catch (error) {
       setDiffError(diffEl, error.message || "Failed to load diff");
     } finally {
-      pendingHunkRequests.delete(file.path);
+      pendingHunkRequests.delete(key);
     }
   }
 
@@ -537,7 +573,7 @@
 
     const visibleFiles = getVisibleFiles();
     const selectedVisible = visibleFiles.filter((f) =>
-      selectedPaths.has(f.path),
+      selectedPaths.has(fileKey(f)),
     );
     if (selectedCount) selectedCount.textContent = selectedVisible.length;
     if (totalCount) totalCount.textContent = visibleFiles.length;
@@ -612,6 +648,8 @@
         statusFilters.deleted = e.target.checked;
         updateUI();
       };
+    const repoSelect = el("commit-repo-select");
+    if (repoSelect) repoSelect.onchange = () => updateUI();
   }
 
   async function refresh() {
@@ -687,6 +725,28 @@
     return tabs[0].getAttribute("data-buffer-id");
   }
 
+  function renderRepoResults(results) {
+    const container = el("commit-repo-results");
+    if (!container) return;
+    container.innerHTML = "";
+    (results || []).forEach((result) => {
+      const row = document.createElement("div");
+      row.className = `commit-repo-result commit-repo-result--${result.status}`;
+      row.textContent = `${result.repoId}: ${result.status}${
+        result.error ? ` — ${result.error}` : ""
+      }`;
+      if (result.status === "failed") {
+        const retry = document.createElement("button");
+        retry.type = "button";
+        retry.className = "btn-small";
+        retry.textContent = "Force Push";
+        retry.addEventListener("click", () => forcePush(result.repoId));
+        row.appendChild(retry);
+      }
+      container.appendChild(row);
+    });
+  }
+
   async function submit() {
     const message = (getCommitMessage()?.value || commitMessage).trim();
     if (!message) {
@@ -695,7 +755,7 @@
     }
     const visibleFiles = getVisibleFiles();
     const selectedVisible = visibleFiles.filter((f) =>
-      selectedPaths.has(f.path),
+      selectedPaths.has(fileKey(f)),
     );
     if (selectedVisible.length === 0) {
       showError("Please select at least one file to commit");
@@ -713,11 +773,14 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message,
-          selectedPaths: selectedVisible.map((f) => f.path),
+          selectedPaths: selectedVisible.map((f) =>
+            f.repoId ? { repoId: f.repoId, path: f.path } : f.path,
+          ),
           applyStatuses: statusFilters,
         }),
       });
       const result = await response.json();
+      renderRepoResults(result.results);
       if (result.success) {
         const status = getCommitStatus();
         if (status) {
@@ -804,9 +867,10 @@
     }
   }
 
-  async function forcePush() {
+  async function forcePush(repoId) {
     const forceBtn = el("force-push-btn");
     if (!sessionId) return;
+    const selectedRepoId = repoId || el("commit-repo-select")?.value || undefined;
     if (forceBtn) {
       forceBtn.disabled = true;
       forceBtn.textContent = "Force pushing...";
@@ -817,6 +881,9 @@
       const response = await fetch(`/commits/${sessionId}/push-force`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(selectedRepoId && { repoId: selectedRepoId }),
+        }),
       });
       const result = await response.json();
       if (result.success) {
@@ -856,6 +923,7 @@
     if (!window.MIMO_PATCH_BUFFER) return;
     window.MIMO_PATCH_BUFFER.addPatch({
       sessionId: sid,
+      repoId: opts && opts.repoId,
       originalPath: path,
       patchPath: path,
       originalEndpoint: "files/upstream-content",

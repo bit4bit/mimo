@@ -47,7 +47,9 @@
 
     for (var i = 0; i < changedFiles.length; i++) {
       var file = changedFiles[i];
-      var segments = file.path.split("/");
+      var segments = file.repoId
+        ? [file.repoId].concat(file.path.split("/"))
+        : file.path.split("/");
       var node = root;
       var acc = "";
       for (var s = 0; s < segments.length; s++) {
@@ -63,6 +65,10 @@
             children: isLeaf ? undefined : [],
           };
           node.children.push(child);
+        }
+        if (isLeaf) {
+          child.repoId = file.repoId;
+          child.filePath = file.path;
         }
         node = child;
       }
@@ -222,7 +228,8 @@
 
     row.addEventListener("click", function (e) {
       e.stopPropagation();
-      if (opts.onFileSelect) opts.onFileSelect(node.path, node.status);
+      if (opts.onFileSelect)
+        opts.onFileSelect(node.filePath || node.path, node.status, node.repoId);
     });
 
     el.appendChild(row);
@@ -299,6 +306,7 @@
   var tree = [];
   var expandedPaths = new Set();
   var selectedPath = null;
+  var currentRepoId = "";
   var overviewControllers = [];
 
   function el(id) {
@@ -313,9 +321,13 @@
   }
 
   async function fetchReview() {
-    var res = await fetch("/sessions/" + sessionId + "/review");
+    var repoQuery = currentRepoId
+      ? "?repoId=" + encodeURIComponent(currentRepoId)
+      : "";
+    var res = await fetch("/sessions/" + sessionId + "/review" + repoQuery);
     if (!res.ok) return;
     reviewData = await res.json();
+    populateRepoSelect();
     tree = buildChangedTree(reviewData.files || []);
     expandedPaths = computeExpandedPaths(
       (reviewData.files || []).map(function (f) {
@@ -325,6 +337,31 @@
     selectedPath = null;
     updateSummary();
     render();
+  }
+
+  function populateRepoSelect() {
+    var select =
+      typeof document !== "undefined" && document.getElementById
+        ? el("review-repo-select")
+        : null;
+    if (!select) return;
+    var repoIds = {};
+    (reviewData.files || []).forEach(function (file) {
+      if (file.repoId) repoIds[file.repoId] = true;
+    });
+    var ids = Object.keys(repoIds).sort();
+    select.innerHTML =
+      '<option value="">All repositories</option>' +
+      ids
+        .map(function (repoId) {
+          return '<option value="' + repoId + '">' + repoId + "</option>";
+        })
+        .join("");
+    select.value = ids.indexOf(currentRepoId) >= 0 ? currentRepoId : "";
+    select.onchange = function () {
+      currentRepoId = select.value;
+      fetchReview();
+    };
   }
 
   function updateSummary() {
@@ -354,8 +391,8 @@
       } else {
         var root = renderTree(tree, {
           expandedPaths: expandedPaths,
-          onFileSelect: function (path, status) {
-            selectFile(path, status);
+          onFileSelect: function (path, status, repoId) {
+            selectFile(path, status, repoId);
           },
           onToggleExpand: function (next) {
             expandedPaths = next;
@@ -372,14 +409,17 @@
     }
   }
 
-  async function selectFile(path, status) {
-    selectedPath = path;
+  async function selectFile(path, status, repoId) {
+    selectedPath = repoId ? repoId + ":" + path : path;
     var dc = getDiffContainer();
     if (!dc) return;
     // Loading placeholder.
     renderDiff(dc, { hunks: [], isBinary: false });
+    var reviewPath = repoId
+      ? encodePath(repoId + "/" + path)
+      : encodePath(path);
     var res = await fetch(
-      "/sessions/" + sessionId + "/review/files/" + encodePath(path),
+      "/sessions/" + sessionId + "/review/files/" + reviewPath,
     );
     if (!res.ok) {
       if (res.status === 404) {

@@ -22,12 +22,15 @@ export function buildPublicCloneUrl(opts: {
   /** Public-facing VCS base URL (`MIMO_PUBLIC_VCS_URL`), if configured. */
   publicVcsUrl?: string;
   sessionId: string;
+  repoId?: string;
 }): string {
-  const { internalUrl, platformUrl, publicVcsUrl, sessionId } = opts;
+  const { internalUrl, platformUrl, publicVcsUrl, sessionId, repoId } = opts;
 
   if (publicVcsUrl) {
     const base = publicVcsUrl.replace(/\/+$/, "");
-    return `${base}/${sessionId}.git/`;
+    return repoId
+      ? `${base}/${sessionId}/${repoId}.git/`
+      : `${base}/${sessionId}.git/`;
   }
 
   try {

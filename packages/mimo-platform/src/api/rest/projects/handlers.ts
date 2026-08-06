@@ -10,7 +10,85 @@ import { successResponse, errorResponse } from "../shared/response.js";
 import type { InternalApiContext } from "../shared/types.js";
 import type { CreateProjectRequest, UpdateProjectRequest } from "./types.js";
 import { toProjectResponse, toSessionResponse } from "./types.js";
+import {
+  validateProjectRepositories,
+  type ProjectRepositoryEntry,
+} from "../../../domain/projects/repository.js";
 import { logger } from "../../../logger.js";
+import type { MimoContext } from "../../../infrastructure/context/mimo-context.js";
+import type { Credential } from "../../../domain/credentials/repository.js";
+import type { ManagedRepository } from "../../../domain/repositories/repository.js";
+
+function isSshRepoUrl(repoUrl: string): boolean {
+  return repoUrl.startsWith("git@") || repoUrl.startsWith("ssh://");
+}
+
+/**
+ * Validates that project repository entries reference managed repositories.
+ * Inline connection fields (repoUrl, repoType, credentialId, clonePort) are
+ * rejected; entries must carry a repoId pointing to a managed repository
+ * owned by the user.
+ */
+async function validateRepositoryReferences(
+  mimoContext: MimoContext,
+  repositories: ProjectRepositoryEntry[] | undefined,
+  owner: string,
+): Promise<{ error: string } | { resolved: Map<string, ManagedRepository> }> {
+  const resolved = new Map<string, ManagedRepository>();
+  for (const repo of repositories ?? []) {
+    if (
+      repo.repoUrl !== undefined ||
+      repo.repoType !== undefined ||
+      repo.credentialId !== undefined ||
+      repo.clonePort !== undefined
+    ) {
+      return {
+        error:
+          "Project repositories must reference a managed repository by repoId; inline repoUrl/repoType/credentialId/clonePort are no longer accepted",
+      };
+    }
+    if (!repo.repoId) {
+      return {
+        error: `Project repository "${repo.name}" must reference a managed repository by repoId`,
+      };
+    }
+    const managed = await mimoContext.repos.managedRepositories.findById(
+      repo.repoId,
+      owner,
+    );
+    if (!managed) {
+      return {
+        error: `Referenced repository not found for "${repo.name}"`,
+      };
+    }
+    resolved.set(repo.id, managed);
+  }
+  return { resolved };
+}
+
+async function validateRepositoryCredentials(
+  mimoContext: MimoContext,
+  repositories: ProjectRepositoryEntry[] | undefined,
+  owner: string,
+): Promise<string | null> {
+  for (const repo of repositories ?? []) {
+    if (!repo.credentialId) {
+      continue;
+    }
+    const credential = await mimoContext.repos.credentials.findById(
+      repo.credentialId,
+      owner,
+    );
+    if (!credential) {
+      return "Selected credential not found";
+    }
+    const expectedType = isSshRepoUrl(repo.repoUrl ?? "") ? "ssh" : "https";
+    if (credential.type !== expectedType) {
+      return `Credential type does not match repository URL type. Expected ${expectedType.toUpperCase()} but got ${credential.type.toUpperCase()}`;
+    }
+  }
+  return null;
+}
 
 /**
  * List all projects for the authenticated user.
@@ -84,22 +162,38 @@ export async function createProjectHandler(
   const mimoContext = c.get("mimoContext");
   const body = (await c.req.json()) as CreateProjectRequest;
 
-  // Validate required fields
-  if (!body.name || !body.repoUrl) {
+  let repositories: ProjectRepositoryEntry[] | undefined;
+  try {
+    repositories = validateProjectRepositories(body.repositories);
+  } catch (error) {
     return c.json(
-      errorResponse("Name and repository URL are required", 400),
+      errorResponse(
+        error instanceof Error ? error.message : "Invalid repositories",
+        400,
+      ),
+      400,
+    );
+  }
+  if (!body.name) {
+    return c.json(errorResponse("Project name is required", 400), 400);
+  }
+
+  if (!repositories) {
+    return c.json(
+      errorResponse("Project repositories must be a non-empty array", 400),
       400,
     );
   }
 
-  // Validate repo type
-  const repoType = body.repoType ?? "git";
-  if (repoType !== "git" && repoType !== "fossil") {
-    return c.json(
-      errorResponse("Repository type must be 'git' or 'fossil'", 400),
-      400,
-    );
+  const referenceResult = await validateRepositoryReferences(
+    mimoContext,
+    repositories,
+    user.username,
+  );
+  if ("error" in referenceResult) {
+    return c.json(errorResponse(referenceResult.error, 400), 400);
   }
+  const resolvedRepositories = referenceResult.resolved;
 
   // Validate description length
   if (body.description && body.description.length > 500) {
@@ -109,68 +203,40 @@ export async function createProjectHandler(
     );
   }
 
-  // Validate clonePort if provided
-  if (body.clonePort !== undefined && body.clonePort !== null) {
-    if (
-      !Number.isInteger(body.clonePort) ||
-      body.clonePort < 1 ||
-      body.clonePort > 65535
-    ) {
-      return c.json(
-        errorResponse("SSH port must be an integer between 1 and 65535", 400),
-        400,
-      );
-    }
-  }
-
-  // Validate credential if provided
-  if (body.credentialId) {
-    const credential = await mimoContext.repos.credentials.findById(
-      body.credentialId,
-      user.username,
-    );
-    if (!credential) {
-      return c.json(errorResponse("Selected credential not found", 400), 400);
-    }
-
-    // Validate credential type matches URL type
-    const isSshUrl =
-      body.repoUrl.startsWith("git@") || body.repoUrl.startsWith("ssh://");
-    const expectedType = isSshUrl ? "ssh" : "https";
-    if (credential.type !== expectedType) {
-      return c.json(
-        errorResponse(
-          `Credential type does not match repository URL type. Expected ${expectedType.toUpperCase()} but got ${credential.type.toUpperCase()}`,
-          400,
-        ),
-        400,
-      );
-    }
+  const repositoriesCredentialError = await validateRepositoryCredentials(
+    mimoContext,
+    repositories.filter((repo) => !repo.repoId),
+    user.username,
+  );
+  if (repositoriesCredentialError) {
+    return c.json(errorResponse(repositoriesCredentialError, 400), 400);
   }
 
   try {
     const project = await mimoContext.repos.projects.create({
       name: body.name,
-      repoUrl: body.repoUrl,
-      repoType: repoType as "git" | "fossil",
       owner: user.username,
+      repositories,
       description: body.description,
-      credentialId: body.credentialId,
-      sourceBranch: body.sourceBranch,
-      newBranch: body.newBranch,
       agentSubpath: body.agentSubpath?.trim() || undefined,
       ...(body.instructions !== undefined && {
         instructions: body.instructions,
       }),
-      ...(body.clonePort != null && { clonePort: body.clonePort }),
     });
 
-    const credential = project.credentialId
-      ? await mimoContext.repos.credentials.findById(
-          project.credentialId,
-          project.owner,
-        )
-      : undefined;
+    const repositoryCredentials = new Map<string, Credential>();
+    for (const repo of project.repositories) {
+      const managed = resolvedRepositories.get(repo.id);
+      const credentialId = managed?.credentialId ?? repo.credentialId;
+      if (!credentialId) continue;
+      const credential = await mimoContext.repos.credentials.findById(
+        credentialId,
+        project.owner,
+      );
+      if (credential) {
+        repositoryCredentials.set(repo.id, credential);
+      }
+    }
 
     // By default, block project creation on cache pre-warm so first session
     // creation does not pay full clone cost for large repositories.
@@ -180,38 +246,53 @@ export async function createProjectHandler(
       success: boolean;
       error?: string;
     }> => {
-      logger.info("[projects] starting cache pre-warm", {
-        projectId: project.id,
-        repoUrl: project.repoUrl,
-        repoType: project.repoType,
-        branch: project.sourceBranch ?? "default",
-        sync: warmCacheSync,
-      });
-      const start = Date.now();
-      const refreshResult = await mimoContext.services.projectVcsCache.refresh({
-        projectId: project.id,
-        repoUrl: project.repoUrl,
-        repoType: project.repoType,
-        credential: credential ?? undefined,
-        clonePort: project.clonePort ?? undefined,
-        branch: project.sourceBranch ?? undefined,
-      });
-      const durationMs = Date.now() - start;
-      if (refreshResult.success) {
+      for (const repo of project.repositories) {
+        const managed = resolvedRepositories.get(repo.id);
+        const repoUrl = managed?.repoUrl ?? repo.repoUrl;
+        const repoType = managed?.repoType ?? repo.repoType ?? "git";
+        if (!repoUrl) {
+          return {
+            success: false,
+            error: `Repository "${repo.name}" has no URL (missing managed repository reference)`,
+          };
+        }
+        logger.info("[projects] starting cache pre-warm", {
+          projectId: project.id,
+          repoId: repo.id,
+          repoUrl,
+          repoType,
+          branch: repo.sourceBranch ?? "default",
+          sync: warmCacheSync,
+        });
+        const start = Date.now();
+        const refreshResult = await mimoContext.services.projectVcsCache.refresh({
+          projectId: project.id,
+          repoId: repo.id,
+          repoUrl,
+          repoType,
+          credential: repositoryCredentials.get(repo.id),
+          clonePort: managed?.clonePort ?? repo.clonePort ?? undefined,
+          branch: repo.sourceBranch ?? undefined,
+        });
+        const durationMs = Date.now() - start;
+        if (!refreshResult.success) {
+          logger.warn("[projects] cache pre-warm failed", {
+            projectId: project.id,
+            repoId: repo.id,
+            branch: repo.sourceBranch ?? "default",
+            durationMs,
+            error: refreshResult.error,
+          });
+          return refreshResult;
+        }
         logger.info("[projects] cache pre-warm finished", {
           projectId: project.id,
-          branch: project.sourceBranch ?? "default",
+          repoId: repo.id,
+          branch: repo.sourceBranch ?? "default",
           durationMs,
-        });
-      } else {
-        logger.warn("[projects] cache pre-warm failed", {
-          projectId: project.id,
-          branch: project.sourceBranch ?? "default",
-          durationMs,
-          error: refreshResult.error,
         });
       }
-      return refreshResult;
+      return { success: true };
     };
 
     if (warmCacheSync) {
@@ -283,26 +364,37 @@ export async function updateProjectHandler(
 
   const body = (await c.req.json()) as UpdateProjectRequest;
 
-  // Validate clonePort if provided
-  if (body.clonePort !== undefined && body.clonePort !== null) {
-    if (
-      !Number.isInteger(body.clonePort) ||
-      body.clonePort < 1 ||
-      body.clonePort > 65535
-    ) {
-      return c.json(
-        errorResponse("SSH port must be an integer between 1 and 65535", 400),
+  let repositories: ProjectRepositoryEntry[] | undefined;
+  try {
+    repositories = validateProjectRepositories(body.repositories);
+  } catch (error) {
+    return c.json(
+      errorResponse(
+        error instanceof Error ? error.message : "Invalid repositories",
         400,
-      );
+      ),
+      400,
+    );
+  }
+
+  if (body.repositories) {
+    const referenceResult = await validateRepositoryReferences(
+      mimoContext,
+      repositories,
+      user.username,
+    );
+    if ("error" in referenceResult) {
+      return c.json(errorResponse(referenceResult.error, 400), 400);
     }
   }
 
-  // Validate repo type if provided
-  if (body.repoType && body.repoType !== "git" && body.repoType !== "fossil") {
-    return c.json(
-      errorResponse("Repository type must be 'git' or 'fossil'", 400),
-      400,
-    );
+  const repositoriesCredentialError = await validateRepositoryCredentials(
+    mimoContext,
+    repositories?.filter((repo) => !repo.repoId),
+    user.username,
+  );
+  if (repositoriesCredentialError) {
+    return c.json(errorResponse(repositoriesCredentialError, 400), 400);
   }
 
   // Validate description length
@@ -313,42 +405,14 @@ export async function updateProjectHandler(
     );
   }
 
-  // Validate credential if provided
-  if (body.credentialId) {
-    const credential = await mimoContext.repos.credentials.findById(
-      body.credentialId,
-      user.username,
-    );
-    if (!credential) {
-      return c.json(errorResponse("Selected credential not found", 400), 400);
-    }
-
-    // Get the URL to validate against (use existing or new)
-    const repoUrl = body.repoUrl ?? project.repoUrl;
-    const isSshUrl = repoUrl.startsWith("git@") || repoUrl.startsWith("ssh://");
-    const expectedType = isSshUrl ? "ssh" : "https";
-    if (credential.type !== expectedType) {
-      return c.json(
-        errorResponse(
-          `Credential type does not match repository URL type. Expected ${expectedType.toUpperCase()} but got ${credential.type.toUpperCase()}`,
-          400,
-        ),
-        400,
-      );
-    }
-  }
-
   try {
     const updated = await mimoContext.repos.projects.update(id, {
       name: body.name,
-      repoUrl: body.repoUrl,
-      repoType: body.repoType,
+      ...(repositories && { repositories }),
       description: body.description,
-      credentialId: body.credentialId,
       ...(body.instructions !== undefined && {
         instructions: body.instructions,
       }),
-      ...("clonePort" in body && { clonePort: body.clonePort }),
     });
 
     return c.json(
@@ -391,10 +455,8 @@ export async function deleteProjectHandler(
     return c.json(errorResponse("Project not found", 404), 404);
   }
 
-  await mimoContext.services.projectVcsCache.clear(
-    project.id,
-    project.repoType,
-  );
+  await mimoContext.services.projectVcsCache.clear(project.id, "git");
+  await mimoContext.services.projectVcsCache.clear(project.id, "fossil");
   await mimoContext.repos.projects.delete(id);
 
   return c.json(successResponse({ success: true }));

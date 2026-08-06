@@ -65,9 +65,9 @@ describe("Pinned Sessions Web Routes", () => {
     user1Token = await mimoContext.services.auth.generateToken("user1");
 
     const project = await mimoContext.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/pinned-web", repoType: "git", mountPath: "." }],
+
       name: "Pinned Web Project",
-      repoUrl: "https://github.com/test/pinned-web",
-      repoType: "git",
       owner: "user1",
     });
     testProjectId = project.id;
@@ -426,9 +426,9 @@ describe("Session page embed mode", () => {
     });
     user1Token = await mimoContext.services.auth.generateToken("user1");
     const project = await mimoContext.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/embed", repoType: "git", mountPath: "." }],
+
       name: "Embed Project",
-      repoUrl: "https://github.com/test/embed",
-      repoType: "git",
       owner: "user1",
     });
     testProjectId = project.id;

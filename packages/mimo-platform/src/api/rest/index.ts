@@ -16,6 +16,7 @@ import { createAgentsInternalRouter } from "./agents.js";
 import { createUsersInternalRouter } from "./users.js";
 import { createDashboardInternalRouter } from "./dashboard.js";
 import { createCredentialsInternalRouter } from "./credentials.js";
+import { createRepositoriesInternalRouter } from "./repositories.js";
 import { createConfigInternalRouter } from "./config.js";
 import { createMcpServersInternalRouter } from "./mcp-servers.js";
 import { createSummaryInternalRouter } from "./summary.js";
@@ -83,6 +84,9 @@ export function createInternalApiRouter(mimoContext: MimoContext): Hono {
 
   // Mount credentials internal API
   router.route("/credentials", createCredentialsInternalRouter(mimoContext));
+
+  // Mount managed repositories internal API
+  router.route("/repositories", createRepositoriesInternalRouter(mimoContext));
 
   // Mount config internal API
   router.route("/config", createConfigInternalRouter(mimoContext));

@@ -314,7 +314,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
                 agentWorkspacePath,
               },
               review: {
-                baseBranch: project.sourceBranch,
+                baseBranch: project.repositories?.[0]?.sourceBranch,
                 headBranch: session.branch,
               },
             }}

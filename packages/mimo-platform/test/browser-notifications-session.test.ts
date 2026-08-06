@@ -58,9 +58,9 @@ describe("Browser Notification Session Config", () => {
       await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
     );
     const project = await ctx.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
       name: "Test Project",
-      repoUrl: "https://github.com/user/repo.git",
-      repoType: "git",
       owner: "testuser",
     });
 
@@ -80,9 +80,9 @@ describe("Browser Notification Session Config", () => {
       await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
     );
     const project = await ctx.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
       name: "Test Project",
-      repoUrl: "https://github.com/user/repo.git",
-      repoType: "git",
       owner: "testuser",
     });
 
@@ -107,9 +107,9 @@ describe("Browser Notification Session Config", () => {
       await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
     );
     const project = await ctx.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
       name: "Test Project",
-      repoUrl: "https://github.com/user/repo.git",
-      repoType: "git",
       owner: "testuser",
     });
 
@@ -132,9 +132,9 @@ describe("Browser Notification Session Config", () => {
       await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
     );
     const project = await ctx.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
       name: "Test Project",
-      repoUrl: "https://github.com/user/repo.git",
-      repoType: "git",
       owner: "testuser",
     });
 
@@ -171,9 +171,9 @@ describe("Browser Notification Session Config", () => {
       await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
     );
     const project = await ctx.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+
       name: "Test Project",
-      repoUrl: "https://github.com/user/repo.git",
-      repoType: "git",
       owner: "testuser",
     });
 

@@ -39,6 +39,122 @@ describe("impact refresh handler", () => {
     expect(calculatingSessions.has("s1")).toBe(false);
   });
 
+  it("fans out per session repository and aggregates metrics", async () => {
+    const calculatingSessions = new Set<string>();
+    const sent: Array<Record<string, unknown>> = [];
+    const calls: Array<{ upstream: string; workspace: string; repoId?: string }> =
+      [];
+
+    const metricsFor = (added: number) => ({
+      metrics: {
+        files: { new: added, changed: 0, deleted: 0, unchanged: 0 },
+        linesOfCode: { added, removed: 0, net: added },
+        complexity: { cyclomatic: 0, cognitive: 0, estimatedMinutes: 0 },
+        byLanguage: [],
+        byFile: [],
+      },
+      trends: {
+        files: { new: "↑", changed: "→", deleted: "→" },
+        linesOfCode: { added: "↑", removed: "→", net: "↑" },
+        complexity: { cyclomatic: "→", cognitive: "→" },
+      },
+    });
+
+    await handleRefreshImpact({
+      sessionId: "s1",
+      calculatingSessions,
+      sendToRequester: (message) => sent.push(message),
+      broadcast: (_sessionId, message) => sent.push(message),
+      findSessionById: async () => ({
+        id: "s1",
+        upstreamPath: "/u",
+        agentWorkspacePath: "/w",
+        repos: [
+          {
+            projectRepoId: "backend",
+            upstreamPath: "/u/backend",
+            workspacePath: "/w/backend",
+          },
+          {
+            projectRepoId: "frontend",
+            upstreamPath: "/u/frontend",
+            workspacePath: "/w/frontend",
+          },
+        ],
+      }),
+      calculateImpact: async (_sid, upstream, workspace, _force, repoId) => {
+        calls.push({ upstream, workspace, repoId });
+        return metricsFor(repoId === "backend" ? 1 : 2) as any;
+      },
+      now: () => "2026-04-12T10:00:00.000Z",
+    });
+
+    expect(calls).toEqual([
+      { upstream: "/u/backend", workspace: "/w/backend", repoId: "backend" },
+      {
+        upstream: "/u/frontend",
+        workspace: "/w/frontend",
+        repoId: "frontend",
+      },
+    ]);
+    const updated = sent.find((message) => message.type === "impact_updated");
+    expect(updated).toBeDefined();
+    expect((updated as any).metrics.files.new).toBe(3);
+    expect((updated as any).metrics.linesOfCode.added).toBe(3);
+    expect((updated as any).repos).toHaveLength(2);
+    expect((updated as any).repos[0].repoId).toBe("backend");
+  });
+
+  it("filters to the requested repository when repoId is given", async () => {
+    const calculatingSessions = new Set<string>();
+    const sent: Array<Record<string, unknown>> = [];
+    const calls: Array<string | undefined> = [];
+
+    await handleRefreshImpact({
+      sessionId: "s1",
+      calculatingSessions,
+      sendToRequester: (message) => sent.push(message),
+      broadcast: (_sessionId, message) => sent.push(message),
+      findSessionById: async () => ({
+        id: "s1",
+        upstreamPath: "/u",
+        agentWorkspacePath: "/w",
+        repos: [
+          {
+            projectRepoId: "backend",
+            upstreamPath: "/u/backend",
+            workspacePath: "/w/backend",
+          },
+          {
+            projectRepoId: "frontend",
+            upstreamPath: "/u/frontend",
+            workspacePath: "/w/frontend",
+          },
+        ],
+      }),
+      calculateImpact: async (_sid, _u, _w, _force, repoId) => {
+        calls.push(repoId);
+        return {
+          metrics: {
+            files: { new: 1, changed: 0, deleted: 0, unchanged: 0 },
+            linesOfCode: { added: 1, removed: 0, net: 1 },
+            complexity: { cyclomatic: 0, cognitive: 0, estimatedMinutes: 0 },
+            byLanguage: [],
+            byFile: [],
+          },
+          trends: {} as any,
+        };
+      },
+      repoId: "frontend",
+      now: () => "2026-04-12T10:00:00.000Z",
+    });
+
+    expect(calls).toEqual(["frontend"]);
+    const updated = sent.find((message) => message.type === "impact_updated");
+    expect((updated as any).repos).toHaveLength(1);
+    expect((updated as any).repos[0].repoId).toBe("frontend");
+  });
+
   it("rejects duplicate refresh while one is already running", async () => {
     const calculatingSessions = new Set<string>(["s1"]);
     const requester: Array<Record<string, unknown>> = [];

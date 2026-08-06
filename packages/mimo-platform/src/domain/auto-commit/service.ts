@@ -145,30 +145,42 @@ export class AutoCommitService {
     name: string;
     upstreamPath: string;
     agentWorkspacePath: string;
+    repos: Array<{ upstreamPath: string; workspacePath: string }>;
   }): Promise<{
     commitMessage: string | null;
     blocked: boolean;
     blockReason?: string;
   }> {
-    const { metrics } = await this.deps.impactCalculator.calculateImpact(
-      session.id,
-      session.upstreamPath,
-      session.agentWorkspacePath,
-    );
+    const targets = session.repos.map((repo) => ({
+      upstreamPath: repo.upstreamPath,
+      agentWorkspacePath: repo.workspacePath,
+    }));
 
-    const fileCount =
-      (metrics.files?.new || 0) +
-      (metrics.files?.changed || 0) +
-      (metrics.files?.deleted || 0);
+    let fileCount = 0;
+    let added = 0;
+    let removed = 0;
+    let duplication: any;
+    for (const target of targets) {
+      const { metrics } = await this.deps.impactCalculator.calculateImpact(
+        session.id,
+        target.upstreamPath,
+        target.agentWorkspacePath,
+      );
+      fileCount +=
+        (metrics.files?.new || 0) +
+        (metrics.files?.changed || 0) +
+        (metrics.files?.deleted || 0);
+      added += metrics.linesOfCode?.added || 0;
+      removed += metrics.linesOfCode?.removed || 0;
+      duplication ??= metrics.duplication;
+    }
+
     if (fileCount === 0) {
       return { commitMessage: null, blocked: false };
     }
 
-    const added = metrics.linesOfCode?.added || 0;
-    const removed = metrics.linesOfCode?.removed || 0;
     let baseMessage = `[${session.name}] - ${fileCount} files changed (+${added}/-${removed} lines)`;
 
-    const duplication = metrics.duplication;
     const blockThreshold = this.deps.duplicationBlockThreshold ?? 30;
     const warnThreshold = this.deps.duplicationWarningThreshold ?? 15;
 

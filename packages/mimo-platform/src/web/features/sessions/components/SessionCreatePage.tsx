@@ -7,6 +7,7 @@ interface Project {
   name: string;
   newBranch?: string;
   agentSubpath?: string;
+  repositories: Array<{ id: string; name: string; mountPath: string }>;
   instructions?: string;
   color?: string;
   iconGlyph?: string;
@@ -166,6 +167,28 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
           </div>
 
           <div class="form-group">
+            <label>Workspace directory (optional)</label>
+            <input
+              type="text"
+              name="relativeDir"
+              placeholder={
+                project.repositories.length
+                  ? `${project.repositories[0]!.mountPath}/packages/app`
+                  : "packages/backend"
+              }
+              data-help-id="session-create-page-relative-dir-input"
+            />
+            <p class="session-create-help">
+              Workspace-relative directory where the agent will start. For
+              multi-repository projects, include the repository mount path
+              {project.repositories.length
+                ? ` (available: ${project.repositories.map((repo) => repo.mountPath).join(", ")})`
+                : ""}
+              .
+            </p>
+          </div>
+
+          <div class="form-group">
             <label>Clone Port override (optional)</label>
             <input
               type="number"
@@ -193,7 +216,7 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
             <p class="session-create-help">
               Defaults to the session name (slugified). Edit to override, or
               clear to use the project default
-              {project.newBranch ? ` (${project.newBranch})` : " (none)"}.
+              {project.repositories?.[0]?.newBranch ? ` (${project.repositories[0].newBranch})` : " (none)"}.
             </p>
 
             <div class="branch-mode-group">

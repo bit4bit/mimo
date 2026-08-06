@@ -41,8 +41,9 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
   router.get("/:sessionId/files/:filePath/hunks", async (c: Context) => {
     const sessionId = c.req.param("sessionId");
     const filePath = c.req.param("filePath");
+    const repoId = c.req.query("repoId");
 
-    const result = await service.getFileHunks(sessionId, filePath);
+    const result = await service.getFileHunks(sessionId, filePath, repoId);
 
     if (!result.success) {
       return c.json(
@@ -66,7 +67,9 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
     const sessionId = c.req.param("sessionId");
 
     let message: string | undefined;
-    let selectedPaths: string[] | undefined;
+    let selectedPaths:
+      | Array<string | { repoId: string; path: string }>
+      | undefined;
     let applyStatuses:
       | { added: boolean; modified: boolean; deleted: boolean }
       | undefined;
@@ -90,7 +93,7 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
       message = undefined;
     }
 
-    const result = await service.commitAndPushSelective(
+    const result = await service.commitAndPushAcrossRepos(
       sessionId,
       message || "",
       selectedPaths,
@@ -101,13 +104,8 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
     const body: Record<string, unknown> = {
       success: result.success,
       message: result.message,
-      error: result.error,
-      step: result.step,
+      results: result.results,
     };
-
-    if (result.invalidPaths) {
-      body.invalidPaths = result.invalidPaths;
-    }
 
     return c.json(body, status);
   });
@@ -117,7 +115,9 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
     const sessionId = c.req.param("sessionId");
 
     let message: string | undefined;
-    let selectedPaths: string[] | undefined;
+    let selectedPaths:
+      | Array<string | { repoId: string; path: string }>
+      | undefined;
     let applyStatuses:
       | { added: boolean; modified: boolean; deleted: boolean }
       | undefined;
@@ -141,7 +141,7 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
       message = undefined;
     }
 
-    const result = await service.commitAndPushSelective(
+    const result = await service.commitAndPushAcrossRepos(
       sessionId,
       message || "",
       selectedPaths,
@@ -152,13 +152,8 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
     const body: Record<string, unknown> = {
       success: result.success,
       message: result.message,
-      error: result.error,
-      step: result.step,
+      results: result.results,
     };
-
-    if (result.invalidPaths) {
-      body.invalidPaths = result.invalidPaths;
-    }
 
     return c.json(body, status);
   });
@@ -166,18 +161,20 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
   // POST /commits/:sessionId/push-force - Force push to remote
   router.post("/:sessionId/push-force", async (c: Context) => {
     const sessionId = c.req.param("sessionId");
+    const requestBody = await c.req.json().catch(() => ({}));
+    const repoId = c.req.query("repoId") ?? requestBody?.repoId;
 
-    const result = await service.forcePush(sessionId);
+    const result = await service.forcePush(sessionId, repoId);
 
     const status = result.success ? 200 : 400;
-    const body: Record<string, unknown> = {
+    const responseBody: Record<string, unknown> = {
       success: result.success,
       message: result.message,
       error: result.error,
       step: result.step,
     };
 
-    return c.json(body, status);
+    return c.json(responseBody, status);
   });
 
   return router;

@@ -235,6 +235,7 @@ export class AgentService {
     sessionId: string,
     filePath: string,
     content: string,
+    repoId?: string,
   ): Promise<boolean> {
     const ws = this.activeConnections.get(agentId);
     if (!ws || ws.readyState !== 1) return false;
@@ -244,6 +245,7 @@ export class AgentService {
         JSON.stringify({
           type: "write_file",
           sessionId,
+          ...(repoId && { repoId }),
           filePath,
           content,
         }),

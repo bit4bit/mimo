@@ -557,8 +557,15 @@ echo '[]'`;
 
       const project = await projectRepo.create({
         name: "Force Refresh Project",
-        repoUrl: "https://github.com/test/repo.git",
-        repoType: "git",
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
         owner: "testuser",
       });
 

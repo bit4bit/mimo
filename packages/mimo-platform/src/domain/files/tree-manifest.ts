@@ -56,11 +56,19 @@ export function createManifestStore(
     if (!(await os.fs.existsAsync(dir))) {
       await os.fs.mkdirAsync(dir, { recursive: true });
     }
-    const tmpPath = `${path}.tmp`;
-    await os.fs.writeFileAsync(tmpPath, JSON.stringify(manifest), {
-      encoding: "utf8",
-    });
-    await os.fs.renameAsync(tmpPath, path);
+    // Unique tmp name: concurrent scans for the same tree must not clobber
+    // each other's tmp file; the last rename wins.
+    const tmpPath = `${path}.${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`;
+    try {
+      await os.fs.writeFileAsync(tmpPath, JSON.stringify(manifest), {
+        encoding: "utf8",
+      });
+      await os.fs.renameAsync(tmpPath, path);
+    } finally {
+      if (await os.fs.existsAsync(tmpPath)) {
+        await os.fs.unlinkAsync(tmpPath);
+      }
+    }
   }
 
   async function invalidate(treePath: string): Promise<void> {

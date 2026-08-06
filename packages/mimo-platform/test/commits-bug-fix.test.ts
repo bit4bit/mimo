@@ -57,9 +57,9 @@ describe("Commit Service Bug Fix - Untracked Files Preservation", () => {
 
       // Create a project
       const project = await projectRepo.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+
         name: "Test Project",
-        repoUrl: "https://github.com/test/repo.git",
-        repoType: "git",
         owner: "testuser",
       });
 
@@ -276,6 +276,13 @@ describe("Commit Service — impact record creation", () => {
       agentWorkspacePath: "/tmp/workspace",
       branch: null,
       clonePort: null,
+      repos: [
+        {
+          projectRepoId: "default",
+          upstreamPath: "/tmp/upstream",
+          workspacePath: "/tmp/workspace",
+        },
+      ],
     };
 
     const project = {
@@ -284,6 +291,16 @@ describe("Commit Service — impact record creation", () => {
       newBranch: null,
       credentialId: null,
       owner: "testuser",
+      repositories: [
+        {
+          id: "default",
+          name: "Test Project",
+          repoUrl: "http://repo.fossil",
+          repoType: "fossil",
+          mountPath: ".",
+          primary: true,
+        },
+      ],
     };
 
     const sessionRepository = {

@@ -40,7 +40,7 @@ export interface AutoCommitRouterContext {
       sessionId: string,
       updates: Record<string, unknown>,
     ) => Promise<any | null>;
-    getSessionRepoPath: (sessionId: string) => string;
+    getSessionRepoPath: (sessionId: string, repoId?: string) => string;
   };
   agentService: {
     getAgentConnection: (agentId: string) => any;
@@ -174,31 +174,82 @@ export async function syncSessionViaAssignedAgent(
 
     if (agentResult.success) {
       if (!agentResult.noChanges) {
-        const repoPath =
-          context.sessionRepository.getSessionRepoPath(sessionId);
-        const checkoutMarkerPath = context.os.path.join(
-          session.agentWorkspacePath,
-          ".git",
-        );
+        const sessionRepos = Array.isArray(session.repos)
+          ? session.repos
+          : [];
 
-        if (!context.os.fs.exists(checkoutMarkerPath)) {
-          const cloneResult = await context.vcs.clonePlatformCheckout(
-            repoPath,
+        if (sessionRepos.length > 0) {
+          // Fan out per repository: ensure each platform-side checkout exists,
+          // then pull it so every repo's workspace reflects the agent's push.
+          for (const repo of sessionRepos) {
+            let repoPath = context.sessionRepository.getSessionRepoPath(
+              sessionId,
+              repo.projectRepoId,
+            );
+            // Legacy single-repo sessions seed the bare repo without a repoId
+            // suffix, even though their repos entry uses projectRepoId
+            // "default".
+            if (
+              !context.os.fs.exists(repoPath) &&
+              repo.projectRepoId === "default"
+            ) {
+              repoPath = context.sessionRepository.getSessionRepoPath(sessionId);
+            }
+            const gitDirPath = context.os.path.join(
+              repo.workspacePath,
+              ".git",
+            );
+
+            if (context.os.fs.exists(repoPath)) {
+              if (!context.os.fs.exists(gitDirPath)) {
+                const cloneResult = await context.vcs.clonePlatformCheckout(
+                  repoPath,
+                  repo.workspacePath,
+                );
+                if (!cloneResult.success) {
+                  throw new Error(
+                    cloneResult.error ||
+                      `Failed to clone local git checkout for repo ${repo.projectRepoId}`,
+                  );
+                }
+              }
+
+              const upResult = await context.vcs.gitPull(repo.workspacePath);
+              if (!upResult.success) {
+                throw new Error(
+                  upResult.error ||
+                    `Failed to refresh workspace for repo ${repo.projectRepoId}`,
+                );
+              }
+            }
+          }
+        } else {
+          const repoPath =
+            context.sessionRepository.getSessionRepoPath(sessionId);
+          const checkoutMarkerPath = context.os.path.join(
             session.agentWorkspacePath,
+            ".git",
           );
-          if (!cloneResult.success) {
+
+          if (!context.os.fs.exists(checkoutMarkerPath)) {
+            const cloneResult = await context.vcs.clonePlatformCheckout(
+              repoPath,
+              session.agentWorkspacePath,
+            );
+            if (!cloneResult.success) {
+              throw new Error(
+                cloneResult.error || "Failed to clone local git checkout",
+              );
+            }
+          }
+
+          const upResult = await context.vcs.gitPull(session.agentWorkspacePath);
+          if (!upResult.success) {
             throw new Error(
-              cloneResult.error || "Failed to clone local git checkout",
+              upResult.error ||
+                "Failed to refresh local agent workspace from git",
             );
           }
-        }
-
-        const upResult = await context.vcs.gitPull(session.agentWorkspacePath);
-        if (!upResult.success) {
-          throw new Error(
-            upResult.error ||
-              "Failed to refresh local agent workspace from git",
-          );
         }
 
         context.sccService.invalidateCache(session.agentWorkspacePath);

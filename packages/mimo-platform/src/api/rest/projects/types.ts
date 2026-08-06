@@ -6,7 +6,11 @@
  * endpoints in the internal API.
  */
 
-import type { Project, Session } from "../../../domain/projects/repository.js";
+import type {
+  Project,
+  ProjectRepositoryEntry,
+} from "../../../domain/projects/repository.js";
+import type { Session } from "../../../domain/sessions/repository.js";
 
 /**
  * Project response format for API serialization.
@@ -15,17 +19,12 @@ import type { Project, Session } from "../../../domain/projects/repository.js";
 export interface ProjectResponse {
   id: string;
   name: string;
-  repoUrl: string;
-  repoType: "git" | "fossil";
   owner: string;
   createdAt: string;
+  repositories: ProjectRepositoryEntry[];
   description?: string;
-  credentialId?: string;
-  sourceBranch?: string;
-  newBranch?: string;
   agentSubpath?: string;
   instructions?: string;
-  clonePort?: number;
 }
 
 /**
@@ -51,16 +50,11 @@ export interface SessionResponse {
  */
 export interface CreateProjectRequest {
   name: string;
-  repoUrl: string;
-  repoType?: "git" | "fossil";
+  repositories?: ProjectRepositoryEntry[];
   description?: string;
-  credentialId?: string;
-  sourceBranch?: string;
-  newBranch?: string;
   agentSubpath?: string;
   instructions?: string;
   warmCacheSync?: boolean;
-  clonePort?: number;
 }
 
 /**
@@ -68,12 +62,9 @@ export interface CreateProjectRequest {
  */
 export interface UpdateProjectRequest {
   name?: string;
-  repoUrl?: string;
-  repoType?: "git" | "fossil";
+  repositories?: ProjectRepositoryEntry[];
   description?: string;
-  credentialId?: string;
   instructions?: string;
-  clonePort?: number | null;
 }
 
 /**
@@ -104,17 +95,12 @@ export function toProjectResponse(project: Project): ProjectResponse {
   return {
     id: project.id,
     name: project.name,
-    repoUrl: project.repoUrl,
-    repoType: project.repoType,
     owner: project.owner,
     createdAt: project.createdAt.toISOString(),
+    repositories: project.repositories,
     ...(project.description && { description: project.description }),
-    ...(project.credentialId && { credentialId: project.credentialId }),
-    ...(project.sourceBranch && { sourceBranch: project.sourceBranch }),
-    ...(project.newBranch && { newBranch: project.newBranch }),
     ...(project.agentSubpath && { agentSubpath: project.agentSubpath }),
     ...(project.instructions && { instructions: project.instructions }),
-    ...(project.clonePort != null && { clonePort: project.clonePort }),
   };
 }
 

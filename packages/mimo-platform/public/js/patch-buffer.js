@@ -17,9 +17,12 @@
     }
 
     function addTab(tab) {
-      // Check if a tab for this originalPath already exists
+      // Check if a tab for this repository file already exists
       const existingIndex = tabs.findIndex(function (t) {
-        return t.originalPath === tab.originalPath;
+        return (
+          t.originalPath === tab.originalPath &&
+          (t.repoId || null) === (tab.repoId || null)
+        );
       });
 
       if (existingIndex !== -1) {
@@ -232,6 +235,7 @@
     tabs.forEach(function (tab, index) {
       const isActive = index === activeIndex;
       const fileName = tab.originalPath.split("/").pop() || tab.originalPath;
+      const displayName = tab.repoId ? `${tab.repoId}:${fileName}` : fileName;
       const readOnly = tab.readOnly || false;
       const approveBtn = readOnly
         ? ""
@@ -252,7 +256,7 @@
         (isActive ? "#d4d4d4" : "#888") +
         ';font-family:monospace;font-size:12px;">' +
         "<span>" +
-        fileName +
+        displayName +
         "</span>" +
         approveBtn +
         declineBtn +
@@ -303,7 +307,10 @@
 
     if (ctxBar) {
       ctxBar.style.display = "flex";
-      if (pathEl) pathEl.textContent = activeTab.originalPath;
+      if (pathEl)
+        pathEl.textContent = activeTab.repoId
+          ? `${activeTab.repoId}:${activeTab.originalPath}`
+          : activeTab.originalPath;
     }
 
     if (diffContainer) {
@@ -370,13 +377,17 @@
     try {
       // Fetch original file content
       const originalEndpoint = tab.originalEndpoint || "files/content";
+      const repoQuery = tab.repoId
+        ? "&repoId=" + encodeURIComponent(tab.repoId)
+        : "";
       const originalRes = await fetch(
         "/sessions/" +
           sessionId +
           "/" +
           originalEndpoint +
           "?path=" +
-          encodeURIComponent(tab.originalPath),
+          encodeURIComponent(tab.originalPath) +
+          repoQuery,
       );
       if (!originalRes.ok) throw new Error("Failed to load original file");
       const originalData = await originalRes.json();
@@ -387,7 +398,8 @@
         "/sessions/" +
           sessionId +
           "/files/content?path=" +
-          encodeURIComponent(tab.patchPath),
+          encodeURIComponent(tab.patchPath) +
+          repoQuery,
       );
       if (!patchedRes.ok) throw new Error("Failed to load patch file");
       const patchedData = await patchedRes.json();
@@ -438,6 +450,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           originalPath: activeTab.originalPath,
+          ...(activeTab.repoId && { repoId: activeTab.repoId }),
         }),
       });
 
@@ -494,7 +507,10 @@
       const res = await fetch("/sessions/" + sessionId + "/patches", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patchPath: tab.patchPath }),
+        body: JSON.stringify({
+          patchPath: tab.patchPath,
+          ...(tab.repoId && { repoId: tab.repoId }),
+        }),
       });
 
       if (!res.ok) throw new Error("Failed to decline patch");
@@ -535,6 +551,7 @@
 
   function addPatch({
     sessionId,
+    repoId,
     originalPath,
     patchPath,
     sourceBufferId,
@@ -549,6 +566,7 @@
     // Add or update tab
     PatchBufferState.addTab({
       sessionId,
+      repoId,
       originalPath,
       patchPath,
       sourceBufferId: sourceBufferId || null,

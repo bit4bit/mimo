@@ -99,9 +99,9 @@ describe("Chat thread delete button render", () => {
     );
     const token = await mimoContext.services.auth.generateToken("owner");
     const project = await mimoContext.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/x/y.git", repoType: "git", mountPath: "." }],
+
       name: "P",
-      repoUrl: "https://github.com/x/y.git",
-      repoType: "git",
       owner: "owner",
     });
     const session = await mimoContext.repos.sessions.create({

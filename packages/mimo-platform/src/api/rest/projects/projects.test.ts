@@ -100,17 +100,17 @@ describe("Projects Internal API", () => {
     it("should return only projects owned by the user", async () => {
       // Create a project for user1
       await mimoContext.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user1/project", repoType: "git", mountPath: "." }],
+
         name: "User1 Project",
-        repoUrl: "https://github.com/user1/project",
-        repoType: "git",
         owner: "user1",
       });
 
       // Create a project for user2
       await mimoContext.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user2/project", repoType: "git", mountPath: "." }],
+
         name: "User2 Project",
-        repoUrl: "https://github.com/user2/project",
-        repoType: "git",
         owner: "user2",
       });
 
@@ -164,9 +164,9 @@ describe("Projects Internal API", () => {
     it("should return 404 for project owned by different user", async () => {
       // Create a project for user1
       const project = await mimoContext.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user1/project", repoType: "git", mountPath: "." }],
+
         name: "User1 Project",
-        repoUrl: "https://github.com/user1/project",
-        repoType: "git",
         owner: "user1",
       });
 
@@ -190,9 +190,9 @@ describe("Projects Internal API", () => {
 
     it("should return project with correct structure", async () => {
       const project = await mimoContext.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/project", repoType: "git", mountPath: "." }],
+
         name: "Test Project",
-        repoUrl: "https://github.com/test/project",
-        repoType: "git",
         owner: "user1",
         description: "A test project",
       });
@@ -213,8 +213,9 @@ describe("Projects Internal API", () => {
       expect(json.success).toBe(true);
       expect(json.data.project.id).toBe(project.id);
       expect(json.data.project.name).toBe("Test Project");
-      expect(json.data.project.repoUrl).toBe("https://github.com/test/project");
-      expect(json.data.project.repoType).toBe("git");
+      expect(json.data.project.repositories[0].repoUrl).toBe(
+        "https://github.com/test/project",
+      );
       expect(json.data.project.owner).toBe("user1");
       expect(json.data.project.description).toBe("A test project");
       expect(json.data.project.createdAt).toBeDefined();
@@ -249,7 +250,7 @@ describe("Projects Internal API", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          description: "Missing name and repoUrl",
+          description: "Missing name and repositories",
         }),
       });
 
@@ -258,7 +259,27 @@ describe("Projects Internal API", () => {
 
       expect(res.status).toBe(400);
       expect(json.success).toBe(false);
-      expect(json.error).toBe("Name and repository URL are required");
+      expect(json.error).toBe("Project name is required");
+    });
+
+    it("should require repositories", async () => {
+      const req = new Request("http://localhost:3000/api/internal/projects", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${validToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "No Repos Project",
+        }),
+      });
+
+      const res = await app.fetch(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.success).toBe(false);
+      expect(json.error).toBe("Project repositories must be a non-empty array");
     });
 
     it("should validate repo type", async () => {
@@ -270,8 +291,15 @@ describe("Projects Internal API", () => {
         },
         body: JSON.stringify({
           name: "Test Project",
-          repoUrl: "https://github.com/test/project",
-          repoType: "invalid",
+          repositories: [
+            {
+              id: "main",
+              name: "main",
+              repoId: "some-repo",
+              repoType: "invalid",
+              mountPath: ".",
+            },
+          ],
         }),
       });
 
@@ -284,6 +312,12 @@ describe("Projects Internal API", () => {
     });
 
     it("should validate description length", async () => {
+      const managedRepo = await mimoContext.repos.managedRepositories.create({
+        name: "desc-repo",
+        repoUrl: "https://github.com/test/desc",
+        repoType: "git",
+        owner: "user1",
+      });
       const longDescription = "a".repeat(501);
       const req = new Request("http://localhost:3000/api/internal/projects", {
         method: "POST",
@@ -293,7 +327,14 @@ describe("Projects Internal API", () => {
         },
         body: JSON.stringify({
           name: "Test Project",
-          repoUrl: "https://github.com/test/project",
+          repositories: [
+            {
+              id: "desc-repo",
+              name: "desc-repo",
+              repoId: managedRepo.id,
+              mountPath: ".",
+            },
+          ],
           description: longDescription,
         }),
       });
@@ -306,7 +347,13 @@ describe("Projects Internal API", () => {
       expect(json.error).toBe("Description must be 500 characters or less");
     });
 
-    it("should create project with default repo type", async () => {
+    it("should create project with a managed repository reference", async () => {
+      const managedRepo = await mimoContext.repos.managedRepositories.create({
+        name: "simple-repo",
+        repoUrl: "https://github.com/test/simple",
+        repoType: "git",
+        owner: "user1",
+      });
       const req = new Request("http://localhost:3000/api/internal/projects", {
         method: "POST",
         headers: {
@@ -315,7 +362,15 @@ describe("Projects Internal API", () => {
         },
         body: JSON.stringify({
           name: "Test Project",
-          repoUrl: "https://github.com/test/project",
+          warmCacheSync: false,
+          repositories: [
+            {
+              id: "simple-repo",
+              name: "simple-repo",
+              repoId: managedRepo.id,
+              mountPath: ".",
+            },
+          ],
         }),
       });
 
@@ -325,11 +380,17 @@ describe("Projects Internal API", () => {
       expect(res.status).toBe(201);
       expect(json.success).toBe(true);
       expect(json.data.project.name).toBe("Test Project");
-      expect(json.data.project.repoType).toBe("git");
       expect(json.data.project.owner).toBe("user1");
+      expect(json.data.project.repositories[0].repoId).toBe(managedRepo.id);
     });
 
     it("should create project with all fields", async () => {
+      const managedRepo = await mimoContext.repos.managedRepositories.create({
+        name: "complete-repo",
+        repoUrl: "https://github.com/test/complete",
+        repoType: "fossil",
+        owner: "user1",
+      });
       const req = new Request("http://localhost:3000/api/internal/projects", {
         method: "POST",
         headers: {
@@ -338,12 +399,19 @@ describe("Projects Internal API", () => {
         },
         body: JSON.stringify({
           name: "Complete Project",
-          repoUrl: "https://github.com/test/complete",
-          repoType: "fossil",
           description: "A complete test project",
-          sourceBranch: "main",
-          newBranch: "feature",
           agentSubpath: "/src",
+          warmCacheSync: false,
+          repositories: [
+            {
+              id: "complete-repo",
+              name: "complete-repo",
+              repoId: managedRepo.id,
+              mountPath: ".",
+              sourceBranch: "main",
+              newBranch: "feature",
+            },
+          ],
         }),
       });
 
@@ -353,11 +421,232 @@ describe("Projects Internal API", () => {
       expect(res.status).toBe(201);
       expect(json.success).toBe(true);
       expect(json.data.project.name).toBe("Complete Project");
-      expect(json.data.project.repoType).toBe("fossil");
       expect(json.data.project.description).toBe("A complete test project");
-      expect(json.data.project.sourceBranch).toBe("main");
-      expect(json.data.project.newBranch).toBe("feature");
       expect(json.data.project.agentSubpath).toBe("/src");
+      expect(json.data.project.repositories[0].sourceBranch).toBe("main");
+      expect(json.data.project.repositories[0].newBranch).toBe("feature");
+    });
+
+    it("should create and persist a project with multiple repositories", async () => {
+      const backendRepo = await mimoContext.repos.managedRepositories.create({
+        name: "backend",
+        repoUrl: "https://github.com/test/backend",
+        repoType: "git",
+        owner: "user1",
+      });
+      const frontendRepo = await mimoContext.repos.managedRepositories.create({
+        name: "frontend",
+        repoUrl: "https://github.com/test/frontend",
+        repoType: "git",
+        owner: "user1",
+      });
+
+      const req = new Request("http://localhost:3000/api/internal/projects", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${validToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Multi Repo Project",
+          warmCacheSync: false,
+          repositories: [
+            {
+              id: "backend",
+              name: "Backend",
+              repoId: backendRepo.id,
+              mountPath: "backend",
+              sourceBranch: "main",
+            },
+            {
+              id: "frontend",
+              name: "Frontend",
+              repoId: frontendRepo.id,
+              mountPath: "frontend",
+              sourceBranch: "main",
+            },
+          ],
+        }),
+      });
+
+      const res = await app.fetch(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(201);
+      expect(json.success).toBe(true);
+      expect(json.data.project.repositories).toHaveLength(2);
+      expect(json.data.project.repositories[0]).toMatchObject({
+        id: "backend",
+        repoId: backendRepo.id,
+        mountPath: "backend",
+      });
+
+      const persisted = await mimoContext.repos.projects.findById(
+        json.data.project.id,
+      );
+      expect(persisted?.repositories).toHaveLength(2);
+      expect(persisted?.repositories?.map((repo) => repo.mountPath)).toEqual([
+        "backend",
+        "frontend",
+      ]);
+    });
+
+    it("should reject legacy inline repository payloads", async () => {
+      const req = new Request("http://localhost:3000/api/internal/projects", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${validToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Legacy Inline Project",
+          warmCacheSync: false,
+          repositories: [
+            {
+              id: "backend",
+              name: "Backend",
+              repoUrl: "https://github.com/test/backend",
+              repoType: "git",
+              mountPath: "backend",
+            },
+          ],
+        }),
+      });
+
+      const res = await app.fetch(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.success).toBe(false);
+      expect(json.error).toContain("repoId");
+    });
+
+    it("should reject repository references that do not exist", async () => {
+      const req = new Request("http://localhost:3000/api/internal/projects", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${validToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Unknown Repo Project",
+          warmCacheSync: false,
+          repositories: [
+            {
+              id: "backend",
+              name: "Backend",
+              repoId: "nonexistent-repo-id",
+              mountPath: "backend",
+            },
+          ],
+        }),
+      });
+
+      const res = await app.fetch(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.success).toBe(false);
+      expect(json.error).toContain("not found");
+    });
+
+    it("should reject invalid repository mount paths", async () => {
+      const backendRepo = await mimoContext.repos.managedRepositories.create({
+        name: "mount-backend",
+        repoUrl: "https://github.com/test/backend",
+        repoType: "git",
+        owner: "user1",
+      });
+      const otherRepo = await mimoContext.repos.managedRepositories.create({
+        name: "mount-other",
+        repoUrl: "https://github.com/test/other",
+        repoType: "git",
+        owner: "user1",
+      });
+
+      const invalidMounts = [
+        "/absolute",
+        "../outside",
+        "repo/../outside",
+        ".git",
+        "backend/.git",
+        "backend",
+        "backend/nested",
+      ];
+
+      for (const mountPath of invalidMounts) {
+        const req = new Request("http://localhost:3000/api/internal/projects", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${validToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: `Invalid Mount ${mountPath}`,
+            warmCacheSync: false,
+            repositories: [
+              {
+                id: "backend",
+                name: "Backend",
+                repoId: backendRepo.id,
+                mountPath: "backend",
+              },
+              {
+                id: "other",
+                name: "Other",
+                repoId: otherRepo.id,
+                mountPath,
+              },
+            ],
+          }),
+        });
+
+        const res = await app.fetch(req);
+        const json = await res.json();
+
+        expect(res.status).toBe(400);
+        expect(json.success).toBe(false);
+        expect(json.error).toContain("mountPath");
+      }
+    });
+
+    it("should reject repository credentials owned by another user", async () => {
+      const credential = await mimoContext.repos.credentials.create({
+        name: "User2 credential",
+        type: "https",
+        username: "user2",
+        password: "secret",
+        owner: "user2",
+      });
+
+      const req = new Request("http://localhost:3000/api/internal/projects", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${user1Token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Invalid Credential Project",
+          warmCacheSync: false,
+          repositories: [
+            {
+              id: "backend",
+              name: "Backend",
+              repoUrl: "https://github.com/test/backend",
+              repoType: "git",
+              mountPath: "backend",
+              credentialId: credential.id,
+            },
+          ],
+        }),
+      });
+
+      const res = await app.fetch(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.success).toBe(false);
+      expect(json.error).toContain("repoId");
     });
   });
 
@@ -404,9 +693,9 @@ describe("Projects Internal API", () => {
 
     it("should return 404 for project owned by different user", async () => {
       const project = await mimoContext.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user1/project", repoType: "git", mountPath: "." }],
+
         name: "User1 Project",
-        repoUrl: "https://github.com/user1/project",
-        repoType: "git",
         owner: "user1",
       });
 
@@ -432,9 +721,9 @@ describe("Projects Internal API", () => {
 
     it("should update project fields", async () => {
       const project = await mimoContext.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/original", repoType: "git", mountPath: "." }],
+
         name: "Original Name",
-        repoUrl: "https://github.com/test/original",
-        repoType: "git",
         owner: "user1",
       });
 
@@ -460,7 +749,7 @@ describe("Projects Internal API", () => {
       expect(json.success).toBe(true);
       expect(json.data.project.name).toBe("Updated Name");
       expect(json.data.project.description).toBe("Updated description");
-      expect(json.data.project.repoUrl).toBe(
+      expect(json.data.project.repositories[0].repoUrl).toBe(
         "https://github.com/test/original",
       );
     });
@@ -502,9 +791,9 @@ describe("Projects Internal API", () => {
 
     it("should return 404 for project owned by different user", async () => {
       const project = await mimoContext.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user1/project", repoType: "git", mountPath: "." }],
+
         name: "User1 Project",
-        repoUrl: "https://github.com/user1/project",
-        repoType: "git",
         owner: "user1",
       });
 
@@ -565,9 +854,9 @@ describe("Projects Internal API", () => {
 
     it("should return 404 for project owned by different user", async () => {
       const project = await mimoContext.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user1/project", repoType: "git", mountPath: "." }],
+
         name: "User1 Project",
-        repoUrl: "https://github.com/user1/project",
-        repoType: "git",
         owner: "user1",
       });
 
@@ -589,9 +878,9 @@ describe("Projects Internal API", () => {
 
     it("should return empty sessions list", async () => {
       const project = await mimoContext.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/no-sessions", repoType: "git", mountPath: "." }],
+
         name: "No Sessions Project",
-        repoUrl: "https://github.com/test/no-sessions",
-        repoType: "git",
         owner: "user1",
       });
 

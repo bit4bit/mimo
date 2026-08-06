@@ -163,17 +163,16 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
     describe("11.4 Test project creation with HTTPS credential selection", () => {
       it("should create project with HTTPS credential", async () => {
         const project = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", credentialId: testCredentialId, mountPath: "." }],
+
           name: "Test Project HTTPS",
-          repoUrl: "https://github.com/user/repo.git",
-          repoType: "git",
           owner: testProjectUser,
-          credentialId: testCredentialId,
         });
 
-        expect(project.credentialId).toBe(testCredentialId);
+        expect(project.repositories[0]!.credentialId).toBe(testCredentialId);
 
         const found = await projectRepository.findById(project.id);
-        expect(found?.credentialId).toBe(testCredentialId);
+        expect(found?.repositories[0]?.credentialId).toBe(testCredentialId);
       });
     });
 
@@ -193,14 +192,13 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
         });
 
         const project = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "git@github.com:user/repo.git", repoType: "git", credentialId: sshCredential.id, mountPath: "." }],
+
           name: "Test Project SSH",
-          repoUrl: "git@github.com:user/repo.git",
-          repoType: "git",
           owner: testProjectUser,
-          credentialId: sshCredential.id,
         });
 
-        expect(project.credentialId).toBe(sshCredential.id);
+        expect(project.repositories[0]!.credentialId).toBe(sshCredential.id);
       });
     });
 
@@ -266,9 +264,9 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
     describe("11.12 Test project works without credential (public repo behavior)", () => {
       it("should create project without credential", async () => {
         const project = await projectRepository.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/public-repo.git", repoType: "git", mountPath: "." }],
+
           name: "Public Repo Project",
-          repoUrl: "https://github.com/user/public-repo.git",
-          repoType: "git",
           owner: testProjectUser,
         });
 

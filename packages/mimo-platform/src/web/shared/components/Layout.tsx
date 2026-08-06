@@ -1721,6 +1721,9 @@ export const Layout: FC<LayoutProps> = ({
                 <a href="/credentials" data-help-id="layout-a">
                   Credentials
                 </a>
+                <a href="/repositories" data-help-id="layout-a">
+                  Repositories
+                </a>
                 <a href="/agents" data-help-id="layout-a">
                   Agents
                 </a>

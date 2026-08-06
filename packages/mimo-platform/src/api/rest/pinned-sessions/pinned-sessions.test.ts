@@ -69,9 +69,9 @@ describe("Pinned Sessions Internal API", () => {
     user2Token = await mimoContext.services.auth.generateToken("user2");
 
     const project = await mimoContext.repos.projects.create({
+      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/pin", repoType: "git", mountPath: "." }],
+
       name: "Pin Test Project",
-      repoUrl: "https://github.com/test/pin",
-      repoType: "git",
       owner: "user1",
     });
     testProjectId = project.id;
