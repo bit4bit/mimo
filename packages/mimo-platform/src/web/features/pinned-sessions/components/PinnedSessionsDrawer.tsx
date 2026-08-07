@@ -16,11 +16,7 @@ import type { FC } from "hono/jsx";
  */
 export const PinnedSessionsDrawer: FC = () => {
   return (
-    <div
-      id="pinned-drawer-root"
-      hidden={true}
-      aria-hidden="true"
-    >
+    <div id="pinned-drawer-root" hidden={true} aria-hidden="true">
       <div
         id="pinned-drawer-overlay"
         class="pinned-drawer-overlay"
@@ -45,10 +41,7 @@ export const PinnedSessionsDrawer: FC = () => {
             &times;
           </button>
         </div>
-        <div
-          id="pinned-drawer-list"
-          class="pinned-drawer-list"
-        >
+        <div id="pinned-drawer-list" class="pinned-drawer-list">
           <div class="pinned-drawer-empty" id="pinned-drawer-empty">
             No pinned sessions yet
           </div>

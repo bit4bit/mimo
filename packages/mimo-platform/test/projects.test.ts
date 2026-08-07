@@ -371,11 +371,18 @@ describe("Project Management Integration Tests", () => {
       const html = await res.text();
       expect(html).toContain("Project 1");
       expect(html).toContain("Project 2");
-      expect(html).toContain("Sessions for Project 2");
       expect(html).toContain("Session A");
       expect(html).toContain(`/projects?selected=${project2.id}`);
       expect(html).toContain(`/projects/${project2.id}/sessions/new`);
       expect(html).not.toContain("Select a project");
+      // Tab switch (default Sessions) is present with both tabs.
+      // Hono JSX escapes `&` in href attributes as `&amp;`.
+      expect(html).toContain(
+        `/projects?selected=${project2.id}&amp;tab=sessions`,
+      );
+      expect(html).toContain(
+        `/projects?selected=${project2.id}&amp;tab=features`,
+      );
     });
 
     it("should show empty state when no projects", async () => {

@@ -27,12 +27,22 @@ interface SelectedRepository {
   credentialName: string | null;
 }
 
+interface Feature {
+  id: string;
+  branchName: string;
+  description: string;
+  done: boolean;
+  createdAt: string;
+}
+
 interface ProjectsSessionsPageProps {
   projects: Project[];
   selectedProject: Project | null;
   selectedProjectId?: string;
   selectedProjectSessions: Session[];
   selectedRepositories?: SelectedRepository[];
+  activeTab?: "sessions" | "features";
+  features?: Feature[];
 }
 
 function expiresInDays(createdAt: Date, sessionTtlDays: number): number {
@@ -67,6 +77,8 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
   selectedProjectId,
   selectedProjectSessions,
   selectedRepositories = [],
+  activeTab = "sessions",
+  features = [],
 }) => {
   const priorityWeight: Record<string, number> = { high: 0, medium: 1, low: 2 };
   const sortedSessions = [...selectedProjectSessions].sort((a, b) => {
@@ -277,31 +289,155 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
                   >
                     📊
                   </a>
-                  <a
-                    href={`/projects/${selectedProject.id}/sessions/new`}
-                    class="btn-secondary pane-btn"
-                    data-help-id="projects-sessions-page-pane-btn-a"
-                  >
-                    + New Session
-                  </a>
+                  {activeTab === "sessions" && (
+                    <a
+                      href={`/projects/${selectedProject.id}/sessions/new`}
+                      class="btn-secondary pane-btn"
+                      data-help-id="projects-sessions-page-pane-btn-a"
+                    >
+                      + New Session
+                    </a>
+                  )}
                 </div>
               </div>
 
-              <DataTable
-                rows={sortedSessions}
-                columns={columns}
-                searchFields={["name"]}
-                pageSize={10}
-                emptyMessage="No sessions yet."
-                emptyAction={
-                  <a
-                    href={`/projects/${selectedProject.id}/sessions/new`}
-                    class="btn-secondary pane-btn"
-                  >
-                    Create your first session
-                  </a>
-                }
-              />
+              <div class="pane-tabs">
+                <a
+                  href={`/projects?selected=${selectedProject.id}&tab=sessions`}
+                  class={`pane-tab ${activeTab === "sessions" ? "active" : ""}`}
+                  data-help-id="projects-sessions-page-a"
+                >
+                  Sessions
+                </a>
+                <a
+                  href={`/projects?selected=${selectedProject.id}&tab=features`}
+                  class={`pane-tab ${activeTab === "features" ? "active" : ""}`}
+                  data-help-id="projects-sessions-page-a"
+                >
+                  Features
+                </a>
+              </div>
+
+              {activeTab === "features" ? (
+                <div
+                  id="features-tab"
+                  data-project-id={selectedProject.id}
+                  class="features-list-pane"
+                >
+                  {features.length === 0 ? (
+                    <div class="empty-state">
+                      <p>No features yet.</p>
+                    </div>
+                  ) : (
+                    <div class="feature-rows">
+                      {features.map((feature) => {
+                        const createSessionHref =
+                          `/projects/${selectedProject.id}/sessions/new` +
+                          `?name=${encodeURIComponent(feature.branchName)}` +
+                          `&branchName=${encodeURIComponent(feature.branchName)}` +
+                          `&notes=${encodeURIComponent(feature.description)}`;
+                        return (
+                          <div
+                            class={`feature-row ${feature.done ? "done" : ""}`}
+                            data-feature-id={feature.id}
+                          >
+                            <label class="feature-done-label">
+                              <input
+                                type="checkbox"
+                                class="feature-done-checkbox"
+                                checked={feature.done}
+                                data-help-id="projects-sessions-page-input"
+                              />
+                            </label>
+                            <div class="feature-row-main">
+                              <input
+                                type="text"
+                                class="feature-edit-branch"
+                                value={feature.branchName}
+                                placeholder="branch name"
+                                data-help-id="projects-sessions-page-input"
+                              />
+                              <input
+                                type="text"
+                                class="feature-edit-desc"
+                                value={feature.description}
+                                placeholder="description"
+                                data-help-id="projects-sessions-page-input"
+                              />
+                            </div>
+                            <div class="feature-row-actions">
+                              <button
+                                type="button"
+                                class="btn-secondary btn-sm feature-edit-btn"
+                                data-help-id="projects-sessions-page-button"
+                              >
+                                Save
+                              </button>
+                              <a
+                                href={createSessionHref}
+                                class="btn-secondary btn-sm no-underline"
+                                title="Create a session from this feature"
+                                data-help-id="projects-sessions-page-a"
+                              >
+                                Create session
+                              </a>
+                              <button
+                                type="button"
+                                class="btn-danger btn-sm feature-delete-btn"
+                                data-help-id="projects-sessions-page-button"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <form id="feature-add-form" class="feature-add-form">
+                    <input
+                      type="text"
+                      name="branchName"
+                      placeholder="branch name"
+                      required
+                      data-help-id="projects-sessions-page-input"
+                    />
+                    <input
+                      type="text"
+                      name="description"
+                      placeholder="description"
+                      required
+                      data-help-id="projects-sessions-page-input"
+                    />
+                    <button
+                      type="submit"
+                      class="btn-secondary pane-btn"
+                      data-help-id="projects-sessions-page-button"
+                    >
+                      + Add Feature
+                    </button>
+                  </form>
+
+                  <script src="/js/features.js" defer></script>
+                </div>
+              ) : (
+                <DataTable
+                  rows={sortedSessions}
+                  columns={columns}
+                  searchFields={["name"]}
+                  pageSize={10}
+                  emptyMessage="No sessions yet."
+                  emptyAction={
+                    <a
+                      href={`/projects/${selectedProject.id}/sessions/new`}
+                      class="btn-secondary pane-btn"
+                    >
+                      Create your first session
+                    </a>
+                  }
+                />
+              )}
             </>
           )}
         </section>
@@ -431,6 +567,99 @@ export const ProjectsSessionsPage: FC<ProjectsSessionsPageProps> = ({
         .session-actions-row { display: flex; gap: 6px; }
         .no-underline { text-decoration: none; }
         .inline-form { display: inline; }
+        .pane-tabs {
+          display: flex;
+          gap: 0;
+          margin-bottom: 12px;
+          border-bottom: 1px solid #3a3a3a;
+        }
+        .pane-tab {
+          padding: 6px 16px;
+          font-size: 13px;
+          color: #888;
+          text-decoration: none;
+          border-bottom: 2px solid transparent;
+          cursor: pointer;
+        }
+        .pane-tab:hover { color: #d4d4d4; }
+        .pane-tab.active {
+          color: #74c0fc;
+          border-bottom-color: #74c0fc;
+        }
+        .features-list-pane {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          overflow-y: auto;
+          padding-right: 4px;
+        }
+        .feature-rows {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .feature-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 9px 10px;
+          border: 1px solid #3a3a3a;
+          border-radius: 4px;
+          background: #262626;
+        }
+        .feature-row.done {
+          opacity: 0.6;
+        }
+        .feature-row.done .feature-edit-branch,
+        .feature-row.done .feature-edit-desc {
+          text-decoration: line-through;
+        }
+        .feature-done-label {
+          display: flex;
+          align-items: center;
+          cursor: pointer;
+        }
+        .feature-row-main {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-width: 0;
+        }
+        .feature-edit-branch,
+        .feature-edit-desc {
+          background: #1a1a1a;
+          border: 1px solid #444;
+          color: #d4d4d4;
+          padding: 5px 8px;
+          font-family: monospace;
+          font-size: 13px;
+          width: 100%;
+        }
+        .feature-edit-branch { font-weight: bold; color: #74c0fc; }
+        .feature-row-actions {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
+        }
+        .feature-add-form {
+          display: flex;
+          gap: 8px;
+          padding: 10px;
+          border: 1px dashed #3a3a3a;
+          border-radius: 4px;
+          background: #202020;
+        }
+        .feature-add-form input {
+          flex: 1;
+          background: #1a1a1a;
+          border: 1px solid #444;
+          color: #d4d4d4;
+          padding: 6px 8px;
+          font-family: monospace;
+          font-size: 13px;
+        }
       `}</style>
     </Layout>
   );

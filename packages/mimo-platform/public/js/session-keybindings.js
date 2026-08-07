@@ -576,7 +576,9 @@
     } else if (bindingMatches(event, keybindings.newThread)) {
       if (isActiveLeftBuffer("chat")) handled = openCreateThreadDialog();
     } else if (bindingMatches(event, keybindings.commit)) {
-      handled = isCommitBufferActive() ? leaveCommitBuffer() : openCommitBuffer();
+      handled = isCommitBufferActive()
+        ? leaveCommitBuffer()
+        : openCommitBuffer();
     } else if (bindingMatches(event, keybindings.projectNotes)) {
       handled = focusNotesInput("#project-notes-input");
     } else if (bindingMatches(event, keybindings.sessionNotes)) {

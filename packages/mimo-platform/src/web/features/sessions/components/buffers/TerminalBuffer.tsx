@@ -49,8 +49,7 @@ export const TerminalBuffer: FC<TerminalBufferProps> = ({
         </button>
 
         {terminals.map((terminal) => {
-          const icon =
-            terminal.state === "dead" ? "🔴" : "🟢";
+          const icon = terminal.state === "dead" ? "🔴" : "🟢";
           const title =
             terminal.state === "dead"
               ? "Terminal process has exited"
@@ -84,17 +83,20 @@ export const TerminalBuffer: FC<TerminalBufferProps> = ({
             </div>
 
             <div class="terminal-context-item text-muted">
-              Command: <span class="text-primary">{activeTerminal.command}</span>
+              Command:{" "}
+              <span class="text-primary">{activeTerminal.command}</span>
             </div>
 
             {activeTerminal.subpath && (
               <div class="terminal-context-item text-muted">
-                Folder: <span class="text-primary">{activeTerminal.subpath}</span>
+                Folder:{" "}
+                <span class="text-primary">{activeTerminal.subpath}</span>
               </div>
             )}
 
             <div class="terminal-context-item text-muted">
-              Scrollback: <span class="text-primary">{activeTerminal.scrollback}</span>
+              Scrollback:{" "}
+              <span class="text-primary">{activeTerminal.scrollback}</span>
             </div>
 
             {/* Spacer to push delete button to the right */}
@@ -134,8 +136,7 @@ export const TerminalBuffer: FC<TerminalBufferProps> = ({
           id="terminal-xterm-container"
           class="terminal-xterm-container"
           style={terminals.length === 0 ? "display:none;" : ""}
-        >
-        </div>
+        ></div>
       </div>
 
       <style>{`

@@ -121,7 +121,10 @@ describe("Terminal Internal API", () => {
   }
 
   function authHeaders(token: string) {
-    return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+    return {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
   }
 
   describe("POST /sessions/:id/terminals", () => {
@@ -196,7 +199,8 @@ describe("Terminal Internal API", () => {
       const { app, session, token } = await createUserProjectSession();
 
       seedAgent(testHome, "agent-offline", "owner");
-      agentService.isAgentOnline = (agentId: string) => agentId !== "agent-offline";
+      agentService.isAgentOnline = (agentId: string) =>
+        agentId !== "agent-offline";
 
       const res = await app.request(
         `/api/internal/sessions/${session.id}/terminals`,
@@ -243,18 +247,15 @@ describe("Terminal Internal API", () => {
     it("returns the terminal list", async () => {
       const { app, session, token } = await createUserProjectSession();
 
-      await app.request(
-        `/api/internal/sessions/${session.id}/terminals`,
-        {
-          method: "POST",
-          headers: authHeaders(token),
-          body: JSON.stringify({
-            name: "term-1",
-            assignedAgentId: "agent-01",
-            scrollback: 1000,
-          }),
-        },
-      );
+      await app.request(`/api/internal/sessions/${session.id}/terminals`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({
+          name: "term-1",
+          assignedAgentId: "agent-01",
+          scrollback: 1000,
+        }),
+      });
 
       const res = await app.request(
         `/api/internal/sessions/${session.id}/terminals`,

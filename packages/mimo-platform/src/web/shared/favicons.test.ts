@@ -92,7 +92,7 @@ describe("favicon helper", () => {
       const svg = buildFaviconSvg({ id: "p-1", name: "alpha" });
       expect(svg).toContain("<svg");
       expect(svg).toContain("<rect");
-      expect(svg).toContain("rx=\"7\"");
+      expect(svg).toContain('rx="7"');
       expect(svg).toContain("<text");
       expect(svg).toContain(">A</text>");
     });
@@ -104,7 +104,11 @@ describe("favicon helper", () => {
     });
 
     it("uses an explicit color override instead of the derived hue", () => {
-      const svg = buildFaviconSvg({ id: "p-1", name: "alpha", color: "#ff5500" });
+      const svg = buildFaviconSvg({
+        id: "p-1",
+        name: "alpha",
+        color: "#ff5500",
+      });
       expect(svg).toContain("#ff5500");
       expect(svg).not.toContain("hsl(");
     });
@@ -150,7 +154,9 @@ describe("favicon helper", () => {
 
   describe("buildDefaultFaviconDataUri", () => {
     it("returns a data:image/svg+xml URI", () => {
-      expect(buildDefaultFaviconDataUri().startsWith("data:image/svg+xml,")).toBe(true);
+      expect(
+        buildDefaultFaviconDataUri().startsWith("data:image/svg+xml,"),
+      ).toBe(true);
     });
 
     it("is deterministic", () => {
@@ -158,7 +164,9 @@ describe("favicon helper", () => {
     });
 
     it("does not reference any project id or name", () => {
-      const svg = decodeURIComponent(buildDefaultFaviconDataUri().slice("data:image/svg+xml,".length));
+      const svg = decodeURIComponent(
+        buildDefaultFaviconDataUri().slice("data:image/svg+xml,".length),
+      );
       expect(svg).not.toContain("hsl(");
       expect(svg).toContain(">M</text>");
     });

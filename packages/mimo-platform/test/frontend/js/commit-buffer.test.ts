@@ -1,5 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -203,7 +210,9 @@ describe("commit-buffer.js behavior", () => {
 
   it("exposes window.MIMO_COMMIT_BUFFER with navigateChange, isActive, refresh", () => {
     expect(typeof fakeWindow.MIMO_COMMIT_BUFFER).toBe("object");
-    expect(typeof fakeWindow.MIMO_COMMIT_BUFFER.navigateChange).toBe("function");
+    expect(typeof fakeWindow.MIMO_COMMIT_BUFFER.navigateChange).toBe(
+      "function",
+    );
     expect(typeof fakeWindow.MIMO_COMMIT_BUFFER.isActive).toBe("function");
     expect(typeof fakeWindow.MIMO_COMMIT_BUFFER.refresh).toBe("function");
   });

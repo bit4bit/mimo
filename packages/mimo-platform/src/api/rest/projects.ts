@@ -16,6 +16,12 @@ import {
   deleteProjectHandler,
   listProjectSessionsHandler,
 } from "./projects/handlers.js";
+import {
+  listFeaturesHandler,
+  createFeatureHandler,
+  updateFeatureHandler,
+  deleteFeatureHandler,
+} from "./projects/features-handlers.js";
 
 /**
  * Creates the projects internal API router.
@@ -46,6 +52,18 @@ export function createProjectsInternalRouter(_mimoContext: MimoContext): Hono {
 
   // List project sessions
   router.get("/:id/sessions", listProjectSessionsHandler);
+
+  // List features for a project
+  router.get("/:id/features", listFeaturesHandler);
+
+  // Create a feature for a project
+  router.post("/:id/features", createFeatureHandler);
+
+  // Update a feature (branchName/description/done)
+  router.put("/:id/features/:featureId", updateFeatureHandler);
+
+  // Delete a feature
+  router.delete("/:id/features/:featureId", deleteFeatureHandler);
 
   return router;
 }

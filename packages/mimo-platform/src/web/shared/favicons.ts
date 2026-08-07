@@ -34,9 +34,14 @@ export function glyphFromName(name: string): string {
     return FALLBACK_GLYPH;
   }
   let firstGrapheme = name.charAt(0);
-  if (typeof Intl !== "undefined" && typeof (Intl as any).Segmenter === "function") {
+  if (
+    typeof Intl !== "undefined" &&
+    typeof (Intl as any).Segmenter === "function"
+  ) {
     try {
-      const segmenter = new (Intl as any).Segmenter(undefined, { granularity: "grapheme" });
+      const segmenter = new (Intl as any).Segmenter(undefined, {
+        granularity: "grapheme",
+      });
       const iter = segmenter.segment(name)[Symbol.iterator]();
       const first = iter.next();
       if (!first.done && first.value && first.value.segment) {
@@ -70,8 +75,11 @@ export function textColorForColor(color: string): string {
 
 export function buildFaviconSvg(input: FaviconInput): string {
   const glyph = input.iconGlyph ?? glyphFromName(input.name);
-  const hasOverrideColor = typeof input.color === "string" && input.color.length > 0;
-  const background = hasOverrideColor ? (input.color as string) : `hsl(${hueFromId(input.id)}, 65%, 52%)`;
+  const hasOverrideColor =
+    typeof input.color === "string" && input.color.length > 0;
+  const background = hasOverrideColor
+    ? (input.color as string)
+    : `hsl(${hueFromId(input.id)}, 65%, 52%)`;
   const foreground = hasOverrideColor
     ? textColorForColor(input.color as string)
     : textColorForHue(hueFromId(input.id));
@@ -116,13 +124,34 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   const c = (1 - Math.abs(2 * l - 1)) * s;
   const hp = h / 60;
   const x = c * (1 - Math.abs((hp % 2) - 1));
-  let r1 = 0, g1 = 0, b1 = 0;
-  if (hp >= 0 && hp < 1) { r1 = c; g1 = x; b1 = 0; }
-  else if (hp >= 1 && hp < 2) { r1 = x; g1 = c; b1 = 0; }
-  else if (hp >= 2 && hp < 3) { r1 = 0; g1 = c; b1 = x; }
-  else if (hp >= 3 && hp < 4) { r1 = 0; g1 = x; b1 = c; }
-  else if (hp >= 4 && hp < 5) { r1 = x; g1 = 0; b1 = c; }
-  else if (hp >= 5 && hp < 6) { r1 = c; g1 = 0; b1 = x; }
+  let r1 = 0,
+    g1 = 0,
+    b1 = 0;
+  if (hp >= 0 && hp < 1) {
+    r1 = c;
+    g1 = x;
+    b1 = 0;
+  } else if (hp >= 1 && hp < 2) {
+    r1 = x;
+    g1 = c;
+    b1 = 0;
+  } else if (hp >= 2 && hp < 3) {
+    r1 = 0;
+    g1 = c;
+    b1 = x;
+  } else if (hp >= 3 && hp < 4) {
+    r1 = 0;
+    g1 = x;
+    b1 = c;
+  } else if (hp >= 4 && hp < 5) {
+    r1 = x;
+    g1 = 0;
+    b1 = c;
+  } else if (hp >= 5 && hp < 6) {
+    r1 = c;
+    g1 = 0;
+    b1 = x;
+  }
   const m = l - c / 2;
   return [
     Math.round((r1 + m) * 255),
@@ -150,17 +179,30 @@ function parseCssColor(color: string): [number, number, number] | null {
       parseInt(hex[2] + hex[2], 16),
     ];
   }
-  const rgbMatch = color.trim().match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
+  const rgbMatch = color
+    .trim()
+    .match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
   if (rgbMatch) {
-    return [parseInt(rgbMatch[1], 10), parseInt(rgbMatch[2], 10), parseInt(rgbMatch[3], 10)];
+    return [
+      parseInt(rgbMatch[1], 10),
+      parseInt(rgbMatch[2], 10),
+      parseInt(rgbMatch[3], 10),
+    ];
   }
   return null;
 }
 
 function escapeXmlAttribute(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function escapeXmlText(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }

@@ -184,9 +184,7 @@ describe("Pinned Sessions Internal API", () => {
       const json = await res.json();
       expect(res.status).toBe(200);
       expect(
-        json.data.pins
-          .map((p: { sessionId: string }) => p.sessionId)
-          .sort(),
+        json.data.pins.map((p: { sessionId: string }) => p.sessionId).sort(),
       ).toEqual([s1.id, s2.id].sort());
       // Also confirm case-insensitive matching.
       const upper = await app.fetch(
@@ -407,7 +405,8 @@ describe("Pinned Sessions Internal API", () => {
     });
 
     it("defaults the group to 'Ungrouped' when omitted", async () => {
-      const token = await mimoContext.services.auth.generateToken("defaultuser");
+      const token =
+        await mimoContext.services.auth.generateToken("defaultuser");
       const s = await mimoContext.repos.sessions.create({
         name: "Default Group Session",
         projectId: testProjectId,
@@ -428,7 +427,8 @@ describe("Pinned Sessions Internal API", () => {
     });
 
     it("rejects a non-string or empty group with 400", async () => {
-      const token = await mimoContext.services.auth.generateToken("invalidgroup");
+      const token =
+        await mimoContext.services.auth.generateToken("invalidgroup");
       const res = await app.fetch(
         new Request(`${BASE}/invalidgroup/pinned-sessions`, {
           method: "POST",
@@ -444,7 +444,8 @@ describe("Pinned Sessions Internal API", () => {
     });
 
     it("allows the same session in two different groups", async () => {
-      const token = await mimoContext.services.auth.generateToken("twogroupuser");
+      const token =
+        await mimoContext.services.auth.generateToken("twogroupuser");
       const s = await mimoContext.repos.sessions.create({
         name: "Two Group Session",
         projectId: testProjectId,
@@ -480,9 +481,7 @@ describe("Pinned Sessions Internal API", () => {
         (p: { sessionId: string }) => p.sessionId === s.id,
       );
       expect(entries).toHaveLength(2);
-      const groups = entries
-        .map((e: { group: string }) => e.group)
-        .sort();
+      const groups = entries.map((e: { group: string }) => e.group).sort();
       expect(groups).toEqual(["client-x", "docs"]);
     });
   });
@@ -523,7 +522,8 @@ describe("Pinned Sessions Internal API", () => {
     });
 
     it("removes only the matching (sessionId, group) when ?group= is supplied", async () => {
-      const token = await mimoContext.services.auth.generateToken("delgroupuser");
+      const token =
+        await mimoContext.services.auth.generateToken("delgroupuser");
       const s = await mimoContext.repos.sessions.create({
         name: "GroupDelete Session",
         projectId: testProjectId,
@@ -662,10 +662,9 @@ describe("Pinned Sessions Internal API", () => {
       );
       const json = await res.json();
       expect(res.status).toBe(200);
-      expect(json.data.pins.map((p: { sessionId: string }) => p.sessionId)).toEqual([
-        s1.id,
-        s2.id,
-      ]);
+      expect(
+        json.data.pins.map((p: { sessionId: string }) => p.sessionId),
+      ).toEqual([s1.id, s2.id]);
     });
   });
 

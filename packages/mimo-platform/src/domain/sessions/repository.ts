@@ -971,10 +971,7 @@ export class SessionRepository {
     return newTerminal;
   }
 
-  async removeTerminal(
-    sessionId: string,
-    terminalId: string,
-  ): Promise<void> {
+  async removeTerminal(sessionId: string, terminalId: string): Promise<void> {
     const session = await this.findById(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
 

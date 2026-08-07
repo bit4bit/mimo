@@ -358,11 +358,23 @@ export function createSessionsRoutes(
       agents = agentsResult.data.agents;
     }
 
+    // Optional prefill query params (used by the feature → "Create session"
+    // hand-off). branchName is prefilled verbatim (the form slugifies on
+    // submit); notes is plain text placed into a hidden field persisted to
+    // the new session's notes.txt. name pre-fills the session name field so
+    // the user does not have to retype the branch name.
+    const prefillName = c.req.query("name") || undefined;
+    const prefillBranchName = c.req.query("branchName") || undefined;
+    const prefillNotes = c.req.query("notes") || undefined;
+
     return c.html(
       <SessionCreatePage
         project={project}
         mcpServers={mcpServers}
         agents={agents}
+        prefillName={prefillName}
+        prefillBranchName={prefillBranchName}
+        prefillNotes={prefillNotes}
       />,
     );
   });
@@ -380,6 +392,7 @@ export function createSessionsRoutes(
     const agentSubpathRaw = (body.agentSubpath as string) || null;
     const relativeDirRaw = (body.relativeDir as string) || null;
     const branchName = (body.branchName as string) || null;
+    const notes = (body.notes as string) || null;
     const sessionTtlDaysRaw = (body.sessionTtlDays as string) || "180";
     const sessionTtlDays = parseInt(sessionTtlDaysRaw, 10);
     const idleTimeoutMsRaw = (body.idleTimeoutMs as string) || "600000";
@@ -809,6 +822,12 @@ export function createSessionsRoutes(
       logger.error("Failed to setup session:", error);
       await apiClient.delete(`/sessions/${session.id}`);
       return c.text("Failed to setup session repository", 500);
+    }
+
+    // Persist prefill notes (from a feature's "Create session" hand-off) to
+    // the new session's notes.txt as plain text.
+    if (notes) {
+      await frameStateService.saveNotes(session.id, notes);
     }
 
     return c.redirect(`/projects/${projectId}/sessions/${session.id}`);

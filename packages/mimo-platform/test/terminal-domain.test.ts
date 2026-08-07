@@ -14,9 +14,8 @@ beforeEach(async () => {
 
   const { createMimoContext } =
     await import("../src/infrastructure/context/mimo-context.ts");
-  const { DummyGitHttpServer } = await import(
-    "../src/domain/vcs/git-http-server.js"
-  );
+  const { DummyGitHttpServer } =
+    await import("../src/domain/vcs/git-http-server.js");
 
   const ctx = createMimoContext({
     env: {

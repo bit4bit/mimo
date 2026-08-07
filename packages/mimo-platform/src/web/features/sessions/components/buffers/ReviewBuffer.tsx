@@ -65,18 +65,14 @@ export const ReviewBuffer: FC<ReviewBufferProps> = ({
           class="review-tree-pane"
           data-help-id="review-buffer-tree-pane"
         >
-          <div class="review-empty-state">
-            Click Refresh to load changes.
-          </div>
+          <div class="review-empty-state">Click Refresh to load changes.</div>
         </div>
         <div
           id="review-diff"
           class="review-diff-pane"
           data-help-id="review-buffer-diff-pane"
         >
-          <div class="review-diff-empty">
-            Select a file to view its diff
-          </div>
+          <div class="review-diff-empty">Select a file to view its diff</div>
         </div>
       </div>
     </div>

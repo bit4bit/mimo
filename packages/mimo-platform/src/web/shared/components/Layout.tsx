@@ -7,7 +7,10 @@ import type {
 } from "../../../domain/config/service.js";
 import { SessionFinderDialog } from "../../features/sessions/components/SessionFinderDialog.js";
 import { PinnedSessionsDrawer } from "../../features/pinned-sessions/components/PinnedSessionsDrawer.js";
-import { buildFaviconDataUri, buildDefaultFaviconDataUri } from "../favicons.js";
+import {
+  buildFaviconDataUri,
+  buildDefaultFaviconDataUri,
+} from "../favicons.js";
 
 interface LayoutProps {
   title: string;
@@ -112,9 +115,7 @@ export const Layout: FC<LayoutProps> = ({
           {sessionId && (
             <link rel="stylesheet" href="/vendor/xterm/xterm.css" />
           )}
-          {sessionId && (
-            <script src="/vendor/xterm/xterm.js" defer></script>
-          )}
+          {sessionId && <script src="/vendor/xterm/xterm.js" defer></script>}
           {sessionId && (
             <script src="/vendor/xterm/addon-fit.js" defer></script>
           )}
@@ -1740,7 +1741,9 @@ export const Layout: FC<LayoutProps> = ({
             </div>
           )}
           {showSessionFinder && !embed && <SessionFinderDialog />}
-          {!embed && <script src="/js/pinned-sessions-drawer.js" defer></script>}
+          {!embed && (
+            <script src="/js/pinned-sessions-drawer.js" defer></script>
+          )}
         </body>
       </html>
     </>

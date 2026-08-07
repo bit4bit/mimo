@@ -1,5 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -189,7 +196,12 @@ function makeWindow(panelActive: boolean): any {
     },
     MIMO_DIFF_OVERVIEW: {
       collectHunks: () => [],
-      attach: () => ({ next: () => {}, prev: () => {}, count: () => 0, destroy: () => {} }),
+      attach: () => ({
+        next: () => {},
+        prev: () => {},
+        count: () => 0,
+        destroy: () => {},
+      }),
     },
     _fetchCalls: fetchCalls,
   };
@@ -241,7 +253,8 @@ describe("review-buffer.js pure helpers", () => {
       const tree = RB.buildChangedTree([
         { path: "src/gone.ts", status: "deleted" },
       ]);
-      const gone = tree[0].children?.[0] ?? tree.find((n: any) => n.name === "gone.ts");
+      const gone =
+        tree[0].children?.[0] ?? tree.find((n: any) => n.name === "gone.ts");
       expect(gone).toBeDefined();
       expect(gone.isDir).toBe(false);
       expect(gone.status).toBe("deleted");
@@ -383,9 +396,15 @@ describe("review-buffer.js renderDiff", () => {
       isBinary: false,
     });
     const lineClasses = container._lineClasses || [];
-    expect(lineClasses.some((c: string) => c.includes("diff-line--context"))).toBe(true);
-    expect(lineClasses.some((c: string) => c.includes("diff-line--added"))).toBe(true);
-    expect(lineClasses.some((c: string) => c.includes("diff-line--removed"))).toBe(true);
+    expect(
+      lineClasses.some((c: string) => c.includes("diff-line--context")),
+    ).toBe(true);
+    expect(
+      lineClasses.some((c: string) => c.includes("diff-line--added")),
+    ).toBe(true);
+    expect(
+      lineClasses.some((c: string) => c.includes("diff-line--removed")),
+    ).toBe(true);
   });
 
   it("renders 'Binary file changed' placeholder when isBinary is true", () => {
@@ -399,7 +418,9 @@ describe("review-buffer.js renderDiff", () => {
     const RB = fakeWindow.MIMO_REVIEW_BUFFER;
     const container = fakeWindow.document.createElement("div");
     RB.renderDiff(container, { hunks: [], isBinary: false });
-    expect(container._placeholderText).toContain("Select a file to view its diff");
+    expect(container._placeholderText).toContain(
+      "Select a file to view its diff",
+    );
   });
 });
 
@@ -424,8 +445,8 @@ describe("review-buffer.js manual refresh and file selection", () => {
     await RB.activate();
     fakeWindow._fetchCalls.length = 0;
     await RB.refresh();
-    const reviewCalls = fakeWindow._fetchCalls.filter(
-      (c: any) => c.url.endsWith("/review"),
+    const reviewCalls = fakeWindow._fetchCalls.filter((c: any) =>
+      c.url.endsWith("/review"),
     );
     expect(reviewCalls.length).toBe(1);
     expect(reviewCalls[0].method).toBe("GET");
@@ -440,15 +461,17 @@ describe("review-buffer.js manual refresh and file selection", () => {
       c.url.includes("/review/files/"),
     );
     expect(fileCalls.length).toBe(1);
-    expect(fileCalls[0].url).toContain("/sessions/session-1/review/files/src/a.ts");
+    expect(fileCalls[0].url).toContain(
+      "/sessions/session-1/review/files/src/a.ts",
+    );
   });
 
   it("no fetches occur on activation (no lazy refresh)", async () => {
     const RB = fakeWindow.MIMO_REVIEW_BUFFER;
     fakeWindow._fetchCalls.length = 0;
     await RB.activate();
-    const reviewCalls = fakeWindow._fetchCalls.filter(
-      (c: any) => c.url.endsWith("/review"),
+    const reviewCalls = fakeWindow._fetchCalls.filter((c: any) =>
+      c.url.endsWith("/review"),
     );
     expect(reviewCalls.length).toBe(0);
   });
@@ -459,8 +482,8 @@ describe("review-buffer.js manual refresh and file selection", () => {
     fakeWindow._fetchCalls.length = 0;
     // Simulate time passing — no setInterval-based fetch should occur.
     // We assert zero review-list fetches after activation without refresh.
-    const reviewCalls = fakeWindow._fetchCalls.filter(
-      (c: any) => c.url.endsWith("/review"),
+    const reviewCalls = fakeWindow._fetchCalls.filter((c: any) =>
+      c.url.endsWith("/review"),
     );
     expect(reviewCalls.length).toBe(0);
   });

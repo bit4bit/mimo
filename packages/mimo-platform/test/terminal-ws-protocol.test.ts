@@ -141,11 +141,15 @@ describe("Terminal platform↔agent protocol", () => {
   }
 
   function authHeaders(token: string) {
-    return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+    return {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
   }
 
   it("creating a terminal sends terminal_spawn message to the assigned agent", async () => {
-    const { app, session, token, sentMessages } = await createUserProjectSession();
+    const { app, session, token, sentMessages } =
+      await createUserProjectSession();
 
     const res = await app.request(
       `/api/internal/sessions/${session.id}/terminals`,
@@ -174,7 +178,8 @@ describe("Terminal platform↔agent protocol", () => {
   });
 
   it("creating a terminal with cols/rows includes them in terminal_spawn", async () => {
-    const { app, session, token, sentMessages } = await createUserProjectSession();
+    const { app, session, token, sentMessages } =
+      await createUserProjectSession();
 
     const res = await app.request(
       `/api/internal/sessions/${session.id}/terminals`,
@@ -203,7 +208,8 @@ describe("Terminal platform↔agent protocol", () => {
   });
 
   it("creating a terminal without cols/rows defaults to 80x24 in terminal_spawn", async () => {
-    const { app, session, token, sentMessages } = await createUserProjectSession();
+    const { app, session, token, sentMessages } =
+      await createUserProjectSession();
 
     const res = await app.request(
       `/api/internal/sessions/${session.id}/terminals`,
@@ -248,7 +254,8 @@ describe("Terminal platform↔agent protocol", () => {
   });
 
   it("deleting a terminal sends terminal_kill message to the assigned agent", async () => {
-    const { app, session, token, sentMessages } = await createUserProjectSession();
+    const { app, session, token, sentMessages } =
+      await createUserProjectSession();
 
     const createRes = await app.request(
       `/api/internal/sessions/${session.id}/terminals`,
@@ -282,9 +289,8 @@ describe("Terminal platform↔agent protocol", () => {
   });
 
   it("message-router handles terminal_output", async () => {
-    const { AgentMessageRouter } = await import(
-      "../src/domain/agents/message-router.ts"
-    );
+    const { AgentMessageRouter } =
+      await import("../src/domain/agents/message-router.ts");
 
     const broadcastMessages: any[] = [];
     const router = new AgentMessageRouter({
@@ -326,9 +332,8 @@ describe("Terminal platform↔agent protocol", () => {
       scrollback: 1000,
     });
 
-    const { AgentMessageRouter } = await import(
-      "../src/domain/agents/message-router.ts"
-    );
+    const { AgentMessageRouter } =
+      await import("../src/domain/agents/message-router.ts");
 
     const broadcastMessages: any[] = [];
     const router = new AgentMessageRouter({

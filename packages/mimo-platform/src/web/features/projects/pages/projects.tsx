@@ -13,6 +13,10 @@ import type {
   GetProjectResponse,
   CreateProjectResponse,
 } from "../../../../api/rest/projects/types.js";
+import type {
+  ListFeaturesResponse,
+  FeatureResponse,
+} from "../../../../api/rest/projects/features-types.js";
 import type { Context } from "hono";
 
 type ProjectsRoutesContext = Pick<MimoContext, "services" | "repos" | "env">;
@@ -79,6 +83,7 @@ export function createProjectsRoutes(
   projects.get("/", auth, async (c) => {
     const user = c.get("user") as { username: string };
     const selectedId = c.req.query("selected");
+    const tab = c.req.query("tab") === "features" ? "features" : "sessions";
     const apiClient = createApiClient(c);
 
     // Call internal API for projects list
@@ -99,6 +104,7 @@ export function createProjectsRoutes(
     let selectedProjectSessions: Awaited<
       ReturnType<typeof sessionRepository.listByProject>
     > = [];
+    let selectedProjectFeatures: FeatureResponse[] = [];
 
     if (selectedId) {
       // Call internal API for selected project
@@ -135,6 +141,13 @@ export function createProjectsRoutes(
             };
           }),
         );
+        // Load features for the Features tab (best-effort).
+        const featuresResult = await apiClient.get<ListFeaturesResponse>(
+          `/projects/${selectedId}/features`,
+        );
+        if (featuresResult.success) {
+          selectedProjectFeatures = featuresResult.data.features;
+        }
       }
     }
 
@@ -153,6 +166,8 @@ export function createProjectsRoutes(
           closeReason: s.closeReason,
         }))}
         selectedRepositories={selectedRepositories}
+        activeTab={tab}
+        features={selectedProjectFeatures}
       />,
     );
   });
@@ -434,6 +449,115 @@ export function createProjectsRoutes(
     const frameStateService = mimoContext.services.frameState;
     await frameStateService.saveProjectNotes(id, content);
 
+    return c.json({ success: true });
+  });
+
+  // GET /projects/:id/features - List project features (JSON)
+  projects.get("/:id/features", auth, async (c) => {
+    const id = c.req.param("id");
+    const apiClient = createApiClient(c);
+    const projectResult = await apiClient.get<GetProjectResponse>(
+      `/projects/${id}`,
+    );
+    if (!projectResult.success) {
+      if (projectResult.status === 404) {
+        return c.json({ error: "Project not found" }, 404);
+      }
+      return c.text(
+        `Failed to load project: ${projectResult.error}`,
+        projectResult.status,
+      );
+    }
+    const result = await apiClient.get<ListFeaturesResponse>(
+      `/projects/${id}/features`,
+    );
+    if (!result.success) {
+      return c.json({ error: result.error }, result.status);
+    }
+    return c.json({ features: result.data.features });
+  });
+
+  // POST /projects/:id/features - Create a feature (JSON)
+  projects.post("/:id/features", auth, async (c) => {
+    const id = c.req.param("id");
+    const apiClient = createApiClient(c);
+    const projectResult = await apiClient.get<GetProjectResponse>(
+      `/projects/${id}`,
+    );
+    if (!projectResult.success) {
+      if (projectResult.status === 404) {
+        return c.json({ error: "Project not found" }, 404);
+      }
+      return c.text(
+        `Failed to load project: ${projectResult.error}`,
+        projectResult.status,
+      );
+    }
+    const body = await c.req.json();
+    const result = await apiClient.post<{ feature: FeatureResponse }>(
+      `/projects/${id}/features`,
+      {
+        branchName: body.branchName,
+        description: body.description,
+      },
+    );
+    if (!result.success) {
+      return c.json({ error: result.error }, result.status);
+    }
+    return c.json({ feature: result.data.feature }, 201);
+  });
+
+  // PUT /projects/:id/features/:featureId - Update a feature (JSON)
+  projects.put("/:id/features/:featureId", auth, async (c) => {
+    const id = c.req.param("id");
+    const featureId = c.req.param("featureId");
+    const apiClient = createApiClient(c);
+    const projectResult = await apiClient.get<GetProjectResponse>(
+      `/projects/${id}`,
+    );
+    if (!projectResult.success) {
+      if (projectResult.status === 404) {
+        return c.json({ error: "Project not found" }, 404);
+      }
+      return c.text(
+        `Failed to load project: ${projectResult.error}`,
+        projectResult.status,
+      );
+    }
+    const body = await c.req.json();
+    const result = await apiClient.put<{ feature: FeatureResponse }>(
+      `/projects/${id}/features/${featureId}`,
+      body,
+    );
+    if (!result.success) {
+      return c.json({ error: result.error }, result.status);
+    }
+    return c.json({ feature: result.data.feature });
+  });
+
+  // DELETE /projects/:id/features/:featureId - Delete a feature (JSON)
+  projects.delete("/:id/features/:featureId", auth, async (c) => {
+    const id = c.req.param("id");
+    const featureId = c.req.param("featureId");
+    const apiClient = createApiClient(c);
+    const projectResult = await apiClient.get<GetProjectResponse>(
+      `/projects/${id}`,
+    );
+    if (!projectResult.success) {
+      if (projectResult.status === 404) {
+        return c.json({ error: "Project not found" }, 404);
+      }
+      return c.text(
+        `Failed to load project: ${projectResult.error}`,
+        projectResult.status,
+      );
+    }
+    const result = await apiClient.delete<{ success: true }>(
+      `/projects/${id}/features/${featureId}`,
+    );
+    if (!result.success) {
+      return c.json({ error: result.error }, result.status);
+    }
     return c.json({ success: true });
   });
 

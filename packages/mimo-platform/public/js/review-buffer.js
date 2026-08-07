@@ -155,7 +155,8 @@
   function renderDir(node, opts) {
     var expanded = opts.expandedPaths && opts.expandedPaths.has(node.path);
     var el = document.createElement("div");
-    el.className = "tree-node tree-node--directory" +
+    el.className =
+      "tree-node tree-node--directory" +
       (expanded ? " tree-dir--expanded" : "");
     el.setAttribute("data-path", node.path);
     el.setAttribute("data-help-id", "review-tree-dir");
@@ -277,8 +278,15 @@
       var header = document.createElement("div");
       header.className = "diff-hunk-header";
       header.textContent =
-        "@@ -" + hunk.oldStart + "," + hunk.oldCount + " +" +
-        hunk.newStart + "," + hunk.newCount + " @@";
+        "@@ -" +
+        hunk.oldStart +
+        "," +
+        hunk.oldCount +
+        " +" +
+        hunk.newStart +
+        "," +
+        hunk.newCount +
+        " @@";
       hunkEl.appendChild(header);
 
       hunk.lines.slice(1).forEach(function (line) {
@@ -467,10 +475,11 @@
     active = true;
     if (!sessionId) {
       sessionId =
-        (window.MIMO_SESSION_ID ||
-          (window.location && window.location.pathname
-            ? window.location.pathname.split("/").pop()
-            : "")) || "";
+        window.MIMO_SESSION_ID ||
+        (window.location && window.location.pathname
+          ? window.location.pathname.split("/").pop()
+          : "") ||
+        "";
     }
     // No lazy refresh on activation — render the previously fetched state only.
     render();
@@ -511,16 +520,14 @@
 
   function initReviewBuffer() {
     if (typeof document === "undefined" || !document.querySelector) return;
-    var shell = document.querySelector(
-      ".review-buffer[data-session-id]",
-    );
+    var shell = document.querySelector(".review-buffer[data-session-id]");
     if (!shell) return;
     sessionId =
       shell.getAttribute("data-session-id") ||
-      (window.MIMO_SESSION_ID ||
-        (window.location && window.location.pathname
-          ? window.location.pathname.split("/").pop()
-          : ""));
+      window.MIMO_SESSION_ID ||
+      (window.location && window.location.pathname
+        ? window.location.pathname.split("/").pop()
+        : "");
     if (!sessionId) return;
     wireRefreshButton();
     setupActivationObserver();
@@ -545,10 +552,7 @@
     module.exports = MIMO_REVIEW_BUFFER;
   }
 
-  if (
-    typeof document !== "undefined" &&
-    document.readyState === "loading"
-  ) {
+  if (typeof document !== "undefined" && document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initReviewBuffer);
   } else if (typeof document !== "undefined") {
     setTimeout(initReviewBuffer, 0);

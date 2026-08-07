@@ -902,7 +902,9 @@ export async function setActiveExpertThreadHandler(
   }
 }
 
-export function toTerminalResponse(terminal: import("../../../domain/sessions/repository.js").Terminal) {
+export function toTerminalResponse(
+  terminal: import("../../../domain/sessions/repository.js").Terminal,
+) {
   return {
     id: terminal.id,
     name: terminal.name,
@@ -942,10 +944,7 @@ export async function addTerminalHandler(
   }
 
   if (!mimoContext.services.agents.isAgentOnline(body.assignedAgentId)) {
-    return c.json(
-      errorResponse("Agent is not online", 400),
-      400,
-    );
+    return c.json(errorResponse("Agent is not online", 400), 400);
   }
 
   if (
@@ -1029,10 +1028,7 @@ export async function deleteTerminalHandler(
 ): Promise<Response> {
   const terminalId = c.req.param("terminalId");
   if (!terminalId) {
-    return c.json(
-      errorResponse("Terminal ID is required", 400),
-      400,
-    );
+    return c.json(errorResponse("Terminal ID is required", 400), 400);
   }
 
   const guard = await resolveOwnedSession(c);

@@ -1,5 +1,9 @@
 import { describe, it, expect } from "bun:test";
-import { ensureDefaultBuffersRegistered, getBuffersForFrame, getBufferById } from "../src/web/features/sessions/components/buffers/index.js";
+import {
+  ensureDefaultBuffersRegistered,
+  getBuffersForFrame,
+  getBufferById,
+} from "../src/web/features/sessions/components/buffers/index.js";
 
 describe("Terminal buffer registration", () => {
   it("the Terminal tab appears in the left frame after Chat and before Edit", () => {

@@ -13,8 +13,12 @@ let testSessionId: string;
 
 function createTestApp(ctx: any): Hono {
   const { createInternalApiRouter } = require("../src/api/rest/index.ts");
-  const { createPinnedRoutes } = require("../src/web/features/pinned-sessions/pages/pinned.tsx");
-  const { createSessionsRoutes } = require("../src/web/features/sessions/pages/sessions.tsx");
+  const {
+    createPinnedRoutes,
+  } = require("../src/web/features/pinned-sessions/pages/pinned.tsx");
+  const {
+    createSessionsRoutes,
+  } = require("../src/web/features/sessions/pages/sessions.tsx");
 
   const router = new Hono();
 
@@ -54,9 +58,8 @@ describe("Pinned Sessions Web Routes", () => {
       tmpdir(),
       `mimo-pinned-web-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     );
-    const { createMimoContext } = await import(
-      "../src/infrastructure/context/mimo-context.ts"
-    );
+    const { createMimoContext } =
+      await import("../src/infrastructure/context/mimo-context.ts");
     mimoContext = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-pinned-web" },
       services: { sharedVcs: new DummyGitHttpServer() },
@@ -156,9 +159,7 @@ describe("Pinned Sessions Web Routes", () => {
     const res = await app.fetch(authed("http://localhost/pinned?ids="));
     const html = await res.text();
     expect(res.status).toBe(200);
-    expect(html).toContain(
-      "Select at least one session to view in parallel",
-    );
+    expect(html).toContain("Select at least one session to view in parallel");
     expect(html).not.toContain("<iframe");
   });
 
@@ -175,9 +176,7 @@ describe("Pinned Sessions Web Routes", () => {
     });
 
     // Ask for only s3 in the parallel view.
-    const res = await app.fetch(
-      authed(`http://localhost/pinned?ids=${s3.id}`),
-    );
+    const res = await app.fetch(authed(`http://localhost/pinned?ids=${s3.id}`));
     const html = await res.text();
     expect(res.status).toBe(200);
     expect(html).toContain(
@@ -191,9 +190,7 @@ describe("Pinned Sessions Web Routes", () => {
 
   it("ignores ?ids= entries that aren't in the user's pin store", async () => {
     const res = await app.fetch(
-      authed(
-        `http://localhost/pinned?ids=${testSessionId},not-a-real-pin-id`,
-      ),
+      authed(`http://localhost/pinned?ids=${testSessionId},not-a-real-pin-id`),
     );
     const html = await res.text();
     expect(html).toContain(
@@ -202,7 +199,7 @@ describe("Pinned Sessions Web Routes", () => {
     expect(html).not.toContain("not-a-real-pin-id");
   });
 
-  it("renders the drawer's parallel action labeled \"View selected in parallel\"", async () => {
+  it('renders the drawer\'s parallel action labeled "View selected in parallel"', async () => {
     // Any authenticated page renders the drawer shell via Layout. Hit /pinned
     // to get a Layout-wrapped response.
     const res = await app.fetch(authed("http://localhost/pinned?ids="));
@@ -233,7 +230,9 @@ describe("Pinned Sessions Web Routes", () => {
     // The drawer shell exposes the link the script updates on toggle.
     expect(html).toContain('id="pinned-drawer-parallel-link"');
     // Default href (before JS runs) still targets /pinned.
-    expect(html).toMatch(/id="pinned-drawer-parallel-link"[^>]*href="\/pinned"/);
+    expect(html).toMatch(
+      /id="pinned-drawer-parallel-link"[^>]*href="\/pinned"/,
+    );
   });
 
   it("renders the parallel group chip toolbar with the user's groups", async () => {
@@ -316,15 +315,11 @@ describe("Pinned Sessions Web Routes", () => {
       `/projects/${testProjectId}/sessions/${sDocs.id}?embed=1`,
     );
     // The client-x chip is active.
-    const cxChip = html.match(
-      /<a[^>]*data-group-chip="client-x"[^>]*>/,
-    );
+    const cxChip = html.match(/<a[^>]*data-group-chip="client-x"[^>]*>/);
     expect(cxChip).not.toBeNull();
     expect(cxChip![0]).toMatch(/class="[^"]*\bactive\b/);
     // The All chip is no longer active.
-    const allChip = html.match(
-      /<a[^>]*data-group-chip="all"[^>]*>/,
-    );
+    const allChip = html.match(/<a[^>]*data-group-chip="all"[^>]*>/);
     expect(allChip).not.toBeNull();
     expect(allChip![0]).not.toMatch(/\bactive\b/);
   });
@@ -332,9 +327,8 @@ describe("Pinned Sessions Web Routes", () => {
   it("clicking a group chip from /pinned?ids= shows the group's pins (not the empty state)", async () => {
     // Regression: previously, chips composed with ?ids= and the empty
     // state fired when the drawer selection didn't intersect the group.
-    const token = await mimoContext.services.auth.generateToken(
-      "chipfromdrawer",
-    );
+    const token =
+      await mimoContext.services.auth.generateToken("chipfromdrawer");
     const sCx = await mimoContext.repos.sessions.create({
       name: "Chip From Drawer Session",
       projectId: testProjectId,
@@ -358,10 +352,9 @@ describe("Pinned Sessions Web Routes", () => {
 
     // The drawer sends the user here with only the docs session selected.
     const res = await app.fetch(
-      new Request(
-        `http://localhost/pinned?ids=${sDocs.id}&group=client-x`,
-        { headers: { Cookie: `token=${token}` } },
-      ),
+      new Request(`http://localhost/pinned?ids=${sDocs.id}&group=client-x`, {
+        headers: { Cookie: `token=${token}` },
+      }),
     );
     const html = await res.text();
     expect(res.status).toBe(200);
@@ -387,23 +380,22 @@ describe("Pinned Sessions Web Routes", () => {
     });
 
     const res = await app.fetch(
-      new Request(
-        `http://localhost/pinned?ids=${sCx.id}`,
-        { headers: { Cookie: `token=${token}` } },
-      ),
+      new Request(`http://localhost/pinned?ids=${sCx.id}`, {
+        headers: { Cookie: `token=${token}` },
+      }),
     );
     const html = await res.text();
     // Every chip href is just the group (or /pinned for All), with no ids=.
     // Extract hrefs from chip <a> tags regardless of attribute order.
     const chipHrefs = Array.from(
-      html.matchAll(
-        /<a\s+([^>]*\bdata-group-chip="[^"]+")[^>]*>/g,
-      ),
-    ).map((m) => {
-      const attrs = m[1];
-      const hrefMatch = attrs.match(/\bhref="([^"]+)"/);
-      return hrefMatch ? hrefMatch[1] : null;
-    }).filter((h): h is string => h !== null);
+      html.matchAll(/<a\s+([^>]*\bdata-group-chip="[^"]+")[^>]*>/g),
+    )
+      .map((m) => {
+        const attrs = m[1];
+        const hrefMatch = attrs.match(/\bhref="([^"]+)"/);
+        return hrefMatch ? hrefMatch[1] : null;
+      })
+      .filter((h): h is string => h !== null);
     expect(chipHrefs.length).toBeGreaterThan(0);
     for (const href of chipHrefs) {
       expect(href).not.toContain("ids=");
@@ -417,9 +409,8 @@ describe("Session page embed mode", () => {
       tmpdir(),
       `mimo-embed-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     );
-    const { createMimoContext } = await import(
-      "../src/infrastructure/context/mimo-context.ts"
-    );
+    const { createMimoContext } =
+      await import("../src/infrastructure/context/mimo-context.ts");
     mimoContext = createMimoContext({
       env: { MIMO_HOME: testHome, JWT_SECRET: "test-secret-embed" },
       services: { sharedVcs: new DummyGitHttpServer() },

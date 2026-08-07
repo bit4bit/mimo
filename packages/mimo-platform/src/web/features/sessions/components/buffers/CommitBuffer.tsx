@@ -67,8 +67,8 @@ export const CommitBuffer: FC<CommitBufferProps> = ({ sessionId }) => {
             </span>
           </label>
           <span class="status-counter-pill">
-            <span id="selected-count">0</span> /{" "}
-            <span id="total-count">0</span> selected
+            <span id="selected-count">0</span> / <span id="total-count">0</span>{" "}
+            selected
           </span>
         </div>
         <div id="commit-tree" class="commit-tree" tabindex="-1">

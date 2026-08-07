@@ -4,7 +4,16 @@ import { join } from "path";
 
 describe("SessionDetailPage terminal wiring", () => {
   const source = readFileSync(
-    join(import.meta.dir, "..", "src", "web", "features", "sessions", "components", "SessionDetailPage.tsx"),
+    join(
+      import.meta.dir,
+      "..",
+      "src",
+      "web",
+      "features",
+      "sessions",
+      "components",
+      "SessionDetailPage.tsx",
+    ),
     "utf-8",
   );
 

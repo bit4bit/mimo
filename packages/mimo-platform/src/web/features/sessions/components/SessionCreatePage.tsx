@@ -30,6 +30,12 @@ interface SessionCreateProps {
   mcpServers: McpServer[];
   agents: AgentOption[];
   error?: string;
+  /** Optional verbatim session name prefill (from ?name=). */
+  prefillName?: string;
+  /** Optional verbatim branch name prefill (from ?branchName=). */
+  prefillBranchName?: string;
+  /** Optional plain-text notes prefill (from ?notes=). */
+  prefillNotes?: string;
 }
 
 export const SessionCreatePage: FC<SessionCreateProps> = ({
@@ -37,6 +43,9 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
   mcpServers,
   agents,
   error,
+  prefillName,
+  prefillBranchName,
+  prefillNotes,
 }) => {
   return (
     <Layout
@@ -59,6 +68,7 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
               name="name"
               required
               placeholder="Feature implementation"
+              value={prefillName ?? ""}
               data-help-id="session-create-page-session-name-input-input"
             />
           </div>
@@ -211,6 +221,7 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
               id="branch-name-input"
               name="branchName"
               placeholder="auto: uses session name"
+              value={prefillBranchName ?? ""}
               data-help-id="session-create-page-branch-name-input-input"
             />
             <p class="session-create-help">
@@ -218,6 +229,10 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
               clear to use the project default
               {project.repositories?.[0]?.newBranch ? ` (${project.repositories[0].newBranch})` : " (none)"}.
             </p>
+
+            {prefillNotes !== undefined && (
+              <input type="hidden" name="notes" value={prefillNotes} />
+            )}
 
             <div class="branch-mode-group">
               <label class="branch-mode-option mb-4">
@@ -350,6 +365,13 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
 
   if (nameInput) {
     nameInput.focus();
+  }
+
+  // When the branch name is prefilled (e.g. from a feature's "Create
+  // session" hand-off), treat it as manually edited so typing a session
+  // name does not clobber the prefill.
+  if (branchInput && branchInput.value) {
+    branchManuallyEdited = true;
   }
 
   function slugify(str) {

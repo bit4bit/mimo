@@ -153,7 +153,7 @@ export const defaultHelpContent: HelpContent = {
   "layout-pinned-menu-btn": {
     title: "Pinned Sessions",
     content:
-      "Click to open the pinned-sessions drawer. The drawer lists every session you've pinned (up to 5), showing the session title and branch. Click an entry to jump to that session, or click \"View all in parallel\" to open the /pinned page with one iframe per pinned session.",
+      'Click to open the pinned-sessions drawer. The drawer lists every session you\'ve pinned (up to 5), showing the session title and branch. Click an entry to jump to that session, or click "View all in parallel" to open the /pinned page with one iframe per pinned session.',
   },
   "pinned-sessions-drawer-close": {
     title: "Close Drawer",

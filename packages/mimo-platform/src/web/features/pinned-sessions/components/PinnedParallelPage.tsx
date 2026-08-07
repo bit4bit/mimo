@@ -68,12 +68,11 @@ export const PinnedParallelPage: FC<PinnedParallelPageProps> = ({
   activeGroup = null,
 }) => {
   if (pins.length === 0) {
-    const message =
-      !hasPins
-        ? "Pin a session first"
-        : selectionProvided
-          ? "Select at least one session to view in parallel"
-          : "Pin a session first";
+    const message = !hasPins
+      ? "Pin a session first"
+      : selectionProvided
+        ? "Select at least one session to view in parallel"
+        : "Pin a session first";
     return (
       <Layout title="Pinned Sessions">
         <div class="pinned-parallel-empty">

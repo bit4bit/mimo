@@ -44,7 +44,9 @@
 
   function pinUrl() {
     return (
-      "/api/internal/users/" + encodeURIComponent(username()) + "/pinned-sessions"
+      "/api/internal/users/" +
+      encodeURIComponent(username()) +
+      "/pinned-sessions"
     );
   }
 
@@ -68,9 +70,11 @@
     var raw = root.getAttribute("data-pin-groups") || "[]";
     try {
       var parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.filter(function (s) {
-        return typeof s === "string";
-      }) : [];
+      return Array.isArray(parsed)
+        ? parsed.filter(function (s) {
+            return typeof s === "string";
+          })
+        : [];
     } catch (e) {
       return [];
     }
@@ -79,11 +83,16 @@
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       switch (c) {
-        case "&": return "&amp;";
-        case "<": return "&lt;";
-        case ">": return "&gt;";
-        case '"': return "&quot;";
-        case "'": return "&#39;";
+        case "&":
+          return "&amp;";
+        case "<":
+          return "&lt;";
+        case ">":
+          return "&gt;";
+        case '"':
+          return "&quot;";
+        case "'":
+          return "&#39;";
       }
       return c;
     });
@@ -101,10 +110,14 @@
     chip.innerHTML =
       '<span class="pin-group-chip-label">' +
       escapeHtml(group) +
-      '</span>' +
+      "</span>" +
       '<button type="button" class="pin-group-chip-remove" ' +
-      'data-remove-group="' + escapeHtml(group) + '" ' +
-      'aria-label="Remove group ' + escapeHtml(group) + '">&times;</button>';
+      'data-remove-group="' +
+      escapeHtml(group) +
+      '" ' +
+      'aria-label="Remove group ' +
+      escapeHtml(group) +
+      '">&times;</button>';
     return chip;
   }
 
@@ -128,8 +141,12 @@
   function groupsForCurrentSession(pins) {
     var sessionId = currentSessionId();
     return pins
-      .filter(function (p) { return p.sessionId === sessionId; })
-      .map(function (p) { return p.group; });
+      .filter(function (p) {
+        return p.sessionId === sessionId;
+      })
+      .map(function (p) {
+        return p.group;
+      });
   }
 
   function distinctGroups(pins) {
@@ -182,8 +199,10 @@
     if (groups.length === 0) {
       // When the checkbox is checked but no chips exist, show a hint
       // pointing the user at the "+ add group" affordance.
-      if (document.getElementById("session-pin-checkbox") &&
-          document.getElementById("session-pin-checkbox").checked) {
+      if (
+        document.getElementById("session-pin-checkbox") &&
+        document.getElementById("session-pin-checkbox").checked
+      ) {
         root.appendChild(renderEmptyHint());
         root.appendChild(renderAddControl());
       }
@@ -218,7 +237,9 @@
       return false;
     }
     if (res.status === 409) {
-      var data = await res.json().catch(function () { return {}; });
+      var data = await res.json().catch(function () {
+        return {};
+      });
       setError("Pin limit reached (" + (data.limit || 5) + ")");
       return false;
     }
@@ -277,7 +298,9 @@
       list.innerHTML = "";
       var f = (filter || "").toLowerCase();
       distinct
-        .filter(function (g) { return g.toLowerCase().indexOf(f) !== -1; })
+        .filter(function (g) {
+          return g.toLowerCase().indexOf(f) !== -1;
+        })
         .forEach(function (g) {
           var opt = document.createElement("button");
           opt.type = "button";
@@ -293,17 +316,24 @@
       // If the typed text doesn't match any existing group, show a "create
       // new" option row. We commit on Enter only; clicking isn't a thing for
       // a synthetic option, so this is just a hint.
-      if (filter && filter.trim().length > 0 &&
-          distinct.every(function (g) { return g.toLowerCase() !== f; })) {
+      if (
+        filter &&
+        filter.trim().length > 0 &&
+        distinct.every(function (g) {
+          return g.toLowerCase() !== f;
+        })
+      ) {
         var create = document.createElement("div");
         create.className = "pin-group-typeahead-create-hint";
-        create.textContent = "press Enter to create \"" + filter.trim() + "\"";
+        create.textContent = 'press Enter to create "' + filter.trim() + '"';
         list.appendChild(create);
       }
     }
     paintList("");
 
-    input.addEventListener("input", function () { paintList(input.value); });
+    input.addEventListener("input", function () {
+      paintList(input.value);
+    });
 
     async function commit(value) {
       var name = (value || input.value || "").trim();
@@ -347,9 +377,8 @@
     if (!root) return;
 
     root.addEventListener("click", async function (e) {
-      var removeBtn = e.target.closest && e.target.closest(
-        ".pin-group-chip-remove"
-      );
+      var removeBtn =
+        e.target.closest && e.target.closest(".pin-group-chip-remove");
       if (removeBtn) {
         e.preventDefault();
         var group = removeBtn.getAttribute("data-remove-group") || "";
@@ -358,9 +387,7 @@
         await refreshPicker();
         return;
       }
-      var addBtn = e.target.closest && e.target.closest(
-        ".pin-group-add-btn"
-      );
+      var addBtn = e.target.closest && e.target.closest(".pin-group-add-btn");
       if (addBtn) {
         e.preventDefault();
         var pins = await fetchPins();

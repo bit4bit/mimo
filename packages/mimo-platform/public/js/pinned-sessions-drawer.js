@@ -52,11 +52,16 @@
   function escapeHtml(s) {
     return s.replace(/[&<>"']/g, function (c) {
       switch (c) {
-        case "&": return "&amp;";
-        case "<": return "&lt;";
-        case ">": return "&gt;";
-        case '"': return "&quot;";
-        case "'": return "&#39;";
+        case "&":
+          return "&amp;";
+        case "<":
+          return "&lt;";
+        case ">":
+          return "&gt;";
+        case '"':
+          return "&quot;";
+        case "'":
+          return "&#39;";
       }
       return c;
     });
@@ -72,8 +77,7 @@
       parallelLink.textContent = "View selected in parallel (0)";
       parallelLink.setAttribute("href", "/pinned?ids=");
     } else {
-      parallelLink.textContent =
-        "View selected in parallel (" + count + ")";
+      parallelLink.textContent = "View selected in parallel (" + count + ")";
       parallelLink.setAttribute(
         "href",
         "/pinned?ids=" + checkedIds.map(encodeURIComponent).join(","),
@@ -133,8 +137,10 @@
 
     function navigateToSession() {
       window.location.href =
-        "/projects/" + encodeURIComponent(pin.projectId) +
-        "/sessions/" + encodeURIComponent(pin.sessionId);
+        "/projects/" +
+        encodeURIComponent(pin.projectId) +
+        "/sessions/" +
+        encodeURIComponent(pin.sessionId);
       close();
     }
 
@@ -169,7 +175,9 @@
 
   async function load() {
     var res = await fetch(
-      "/api/internal/users/" + encodeURIComponent(username()) + "/pinned-sessions",
+      "/api/internal/users/" +
+        encodeURIComponent(username()) +
+        "/pinned-sessions",
       { credentials: "same-origin" },
     );
     if (!res.ok) {
@@ -206,7 +214,11 @@
     if (root.hidden) return;
     // Close on outside-click (clicks not inside the drawer).
     var drawer = document.getElementById("pinned-drawer");
-    if (drawer && !drawer.contains(e.target) && e.target.id !== "pinned-menu-btn") {
+    if (
+      drawer &&
+      !drawer.contains(e.target) &&
+      e.target.id !== "pinned-menu-btn"
+    ) {
       close();
     }
   });

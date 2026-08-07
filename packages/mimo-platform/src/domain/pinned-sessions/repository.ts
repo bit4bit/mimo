@@ -49,10 +49,7 @@ export interface PinnedSessionsRepository {
    * Returns the subset of `username`'s pins whose `group` matches `group`
    * (case-insensitive). When `group` is `null` or empty, returns all pins.
    */
-  listByGroup(
-    username: string,
-    group: string,
-  ): Promise<PinnedSessionEntry[]>;
+  listByGroup(username: string, group: string): Promise<PinnedSessionEntry[]>;
   /**
    * Adds `{sessionId, projectId, group}` at the front of `username`'s list.
    * The dedup key is `(sessionId, group)` (case-insensitive on group); if
@@ -264,10 +261,7 @@ export class FilePinnedSessionsRepository implements PinnedSessionsRepository {
     const { entries: current, dirty } = await this.read(username);
     const byId = new Map(current.map((e) => [e.sessionId, e] as const));
     // Reject if the supplied order doesn't match the current set exactly.
-    if (
-      order.length !== current.length ||
-      order.some((id) => !byId.has(id))
-    ) {
+    if (order.length !== current.length || order.some((id) => !byId.has(id))) {
       throw new Error("reorder: supplied order does not match current pins");
     }
     const next = order.map((id) => byId.get(id)!);

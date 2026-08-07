@@ -10,7 +10,11 @@ interface VcsLike {
     workDir: string,
     baseRef: string,
   ): Promise<{
-    files: { path: string; status: "added" | "modified" | "deleted"; size: number }[];
+    files: {
+      path: string;
+      status: "added" | "modified" | "deleted";
+      size: number;
+    }[];
     summary: { added: number; modified: number; deleted: number };
   }>;
   diffFileRange(
@@ -162,9 +166,7 @@ describe("GET /sessions/:sessionId/review/files/*path", () => {
     const app = makeApp(vcs);
 
     // Empty hunks means the file isn't in the diff.
-    const res = await app.request(
-      "/sessions/abc/review/files/not/in/diff.ts",
-    );
+    const res = await app.request("/sessions/abc/review/files/not/in/diff.ts");
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({
       error: "File not found in review diff",

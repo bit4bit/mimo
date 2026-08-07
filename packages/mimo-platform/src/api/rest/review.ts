@@ -59,10 +59,7 @@ export function createReviewRoutes(ctx: ReviewRoutesContext) {
 
     const rootCommit = await ctx.vcs.resolveRootCommit(workspacePath);
     if (!rootCommit) {
-      return c.json(
-        { error: "File not found in review diff" },
-        404,
-      );
+      return c.json({ error: "File not found in review diff" }, 404);
     }
 
     const result = await ctx.vcs.diffFileRange(

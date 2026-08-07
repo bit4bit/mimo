@@ -120,7 +120,8 @@ describe("Project Sessions Link Integration Tests", () => {
 
       expect(res.status).toBe(200);
       const html = await res.text();
-      expect(html).toContain(`Sessions for ${project.name}`);
+      // The project name is in the header; the "Sessions" label is now a tab.
+      expect(html).toContain(project.name);
       expect(html).toContain("Feature Implementation");
       expect(html).toContain("Bug Fix");
     });

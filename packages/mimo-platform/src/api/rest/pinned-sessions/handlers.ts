@@ -29,9 +29,9 @@ async function resolveEntry(
   ctx: InternalApiContext,
   entry: PinnedSessionEntry,
 ): Promise<PinListEntryResponse> {
-  const session = await ctx.get("mimoContext").repos.sessions.findById(
-    entry.sessionId,
-  );
+  const session = await ctx
+    .get("mimoContext")
+    .repos.sessions.findById(entry.sessionId);
   if (!session) {
     return {
       sessionId: entry.sessionId,
@@ -68,7 +68,9 @@ export async function listPinsHandler(
   const entries = group
     ? await ctx.repos.pinnedSessions.listByGroup(user.username, group)
     : await ctx.repos.pinnedSessions.list(user.username);
-  const pins = await Promise.all(entries.map((e: PinnedSessionEntry) => resolveEntry(c, e)));
+  const pins = await Promise.all(
+    entries.map((e: PinnedSessionEntry) => resolveEntry(c, e)),
+  );
   const body: PinListResponse = { pins };
   return c.json(successResponse(body));
 }
@@ -92,7 +94,10 @@ export async function createPinHandler(
       400,
     );
   }
-  if (body.group !== undefined && (typeof body.group !== "string" || body.group.trim().length === 0)) {
+  if (
+    body.group !== undefined &&
+    (typeof body.group !== "string" || body.group.trim().length === 0)
+  ) {
     return c.json(
       errorResponse("group must be a non-empty string when provided", 400),
       400,
@@ -104,7 +109,9 @@ export async function createPinHandler(
       projectId: body.projectId,
       group: body.group,
     });
-    const pins = await Promise.all(entries.map((e: PinnedSessionEntry) => resolveEntry(c, e)));
+    const pins = await Promise.all(
+      entries.map((e: PinnedSessionEntry) => resolveEntry(c, e)),
+    );
     return c.json(successResponse({ pins }), 201);
   } catch (err) {
     if (err instanceof PinLimitReachedError) {
@@ -118,8 +125,7 @@ export async function createPinHandler(
         409,
       );
     }
-    const message =
-      err instanceof Error ? err.message : "Failed to create pin";
+    const message = err instanceof Error ? err.message : "Failed to create pin";
     return c.json(errorResponse(message, 400), 400);
   }
 }
@@ -141,7 +147,10 @@ export async function deletePinHandler(
   }
   const ctx = c.get("mimoContext");
   const group = c.req.query("group");
-  if (group !== undefined && (typeof group !== "string" || group.trim().length === 0)) {
+  if (
+    group !== undefined &&
+    (typeof group !== "string" || group.trim().length === 0)
+  ) {
     return c.json(
       errorResponse("group must be a non-empty string when provided", 400),
       400,
@@ -172,7 +181,9 @@ export async function reorderPinsHandler(
       user.username,
       body.order,
     );
-    const pins = await Promise.all(entries.map((e: PinnedSessionEntry) => resolveEntry(c, e)));
+    const pins = await Promise.all(
+      entries.map((e: PinnedSessionEntry) => resolveEntry(c, e)),
+    );
     return c.json(successResponse({ pins }));
   } catch (err) {
     const message =

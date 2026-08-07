@@ -48,7 +48,11 @@ describe("VCS resolveRootCommit", () => {
     expect(rootSha!.length).toBe(40);
 
     // The root commit has no parents.
-    const parents = await run(os, ["git", "rev-list", "--parents", "-n", "1", rootSha!], repo);
+    const parents = await run(
+      os,
+      ["git", "rev-list", "--parents", "-n", "1", rootSha!],
+      repo,
+    );
     const parts = parents.output.trim().split(/\s+/);
     expect(parts.length).toBe(1);
   });

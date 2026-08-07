@@ -77,26 +77,38 @@
   async function fetchTerminals() {
     const sessionId = getSessionId();
     if (!sessionId) return [];
-    const res = await fetch(
-      `/projects/any/sessions/${sessionId}/terminals`,
-      { credentials: "same-origin" },
-    ).catch(() => null);
+    const res = await fetch(`/projects/any/sessions/${sessionId}/terminals`, {
+      credentials: "same-origin",
+    }).catch(() => null);
     if (!res || !res.ok) return [];
     const data = await res.json();
     return data.terminals || [];
   }
 
-  async function createTerminal(name, assignedAgentId, command, subpath, scrollback, cols, rows) {
+  async function createTerminal(
+    name,
+    assignedAgentId,
+    command,
+    subpath,
+    scrollback,
+    cols,
+    rows,
+  ) {
     const sessionId = getSessionId();
-    const res = await fetch(
-      `/projects/any/sessions/${sessionId}/terminals`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ name, assignedAgentId, command, subpath, scrollback, cols, rows }),
-      },
-    );
+    const res = await fetch(`/projects/any/sessions/${sessionId}/terminals`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        name,
+        assignedAgentId,
+        command,
+        subpath,
+        scrollback,
+        cols,
+        rows,
+      }),
+    });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || "Failed to create terminal");
@@ -214,45 +226,62 @@
       err.style.display = "block";
     }
 
-    dialog.querySelector("#terminal-cancel-btn").addEventListener("click", closeDialog);
+    dialog
+      .querySelector("#terminal-cancel-btn")
+      .addEventListener("click", closeDialog);
 
-    dialog.querySelector("#terminal-create-btn").addEventListener("click", async () => {
-      const name = dialog.querySelector("#terminal-name-input").value.trim();
-      const agentId = dialog.querySelector("#terminal-agent-select").value;
-      const command = dialog.querySelector("#terminal-command-input").value.trim();
-      const subpath = dialog.querySelector("#terminal-subpath-input").value.trim();
-      const scrollback = parseInt(dialog.querySelector("#terminal-scrollback-input").value, 10);
-      const cols = parseInt(dialog.querySelector("#terminal-cols-input").value, 10);
-      const rows = parseInt(dialog.querySelector("#terminal-rows-input").value, 10);
-
-      if (!name) {
-        showError("Name is required");
-        return;
-      }
-      if (!agentId) {
-        showError("Agent is required");
-        return;
-      }
-
-      try {
-        const terminal = await createTerminal(
-          name,
-          agentId,
-          command || "/bin/sh",
-          subpath || undefined,
-          scrollback || 1000,
-          cols || 80,
-          rows || 24,
+    dialog
+      .querySelector("#terminal-create-btn")
+      .addEventListener("click", async () => {
+        const name = dialog.querySelector("#terminal-name-input").value.trim();
+        const agentId = dialog.querySelector("#terminal-agent-select").value;
+        const command = dialog
+          .querySelector("#terminal-command-input")
+          .value.trim();
+        const subpath = dialog
+          .querySelector("#terminal-subpath-input")
+          .value.trim();
+        const scrollback = parseInt(
+          dialog.querySelector("#terminal-scrollback-input").value,
+          10,
         );
-        closeDialog();
-        await refreshTerminals();
-        if (terminal && terminal.id) {
-          await switchToTerminal(terminal.id);
+        const cols = parseInt(
+          dialog.querySelector("#terminal-cols-input").value,
+          10,
+        );
+        const rows = parseInt(
+          dialog.querySelector("#terminal-rows-input").value,
+          10,
+        );
+
+        if (!name) {
+          showError("Name is required");
+          return;
         }
-      } catch (err) {
-        showError(err.message || "Failed to create terminal");
-      }
-    });
+        if (!agentId) {
+          showError("Agent is required");
+          return;
+        }
+
+        try {
+          const terminal = await createTerminal(
+            name,
+            agentId,
+            command || "/bin/sh",
+            subpath || undefined,
+            scrollback || 1000,
+            cols || 80,
+            rows || 24,
+          );
+          closeDialog();
+          await refreshTerminals();
+          if (terminal && terminal.id) {
+            await switchToTerminal(terminal.id);
+          }
+        } catch (err) {
+          showError(err.message || "Failed to create terminal");
+        }
+      });
   }
 
   async function refreshTerminals() {
@@ -438,13 +467,19 @@
 
     terminalWs.onmessage = (event) => {
       if (event.data instanceof ArrayBuffer) {
-        console.log("[terminal] received binary:", event.data.byteLength, "bytes");
+        console.log(
+          "[terminal] received binary:",
+          event.data.byteLength,
+          "bytes",
+        );
         xtermInstance.write(new Uint8Array(event.data));
       } else {
         console.log("[terminal] received text:", event.data);
         const msg = JSON.parse(event.data);
         if (msg.type === "terminal_exited") {
-          xtermInstance.write(`\r\n[Process exited with code ${msg.exitCode}]\r\n`);
+          xtermInstance.write(
+            `\r\n[Process exited with code ${msg.exitCode}]\r\n`,
+          );
           wsClosedByExit = true;
           if (terminalWs) {
             terminalWs.close();

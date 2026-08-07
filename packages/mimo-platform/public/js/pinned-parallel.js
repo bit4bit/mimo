@@ -19,7 +19,9 @@
     var iframe = col.querySelector(".pinned-parallel-column-iframe");
     if (!iframe) return;
     iframe.addEventListener("focus", function () {
-      columns.forEach(function (c) { c.classList.remove("focused"); });
+      columns.forEach(function (c) {
+        c.classList.remove("focused");
+      });
       col.classList.add("focused");
     });
     iframe.addEventListener("blur", function () {
@@ -44,6 +46,6 @@
   });
 
   function cssEscape(s) {
-    return (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/"/g, '\\"');
+    return window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/"/g, '\\"');
   }
 })();

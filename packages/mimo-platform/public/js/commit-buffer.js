@@ -106,7 +106,8 @@
       if (!response.ok) return;
       const status = await response.json();
       syncStatus.textContent = formatSyncStatus(status);
-      syncStatus.style.color = status.syncState === "error" ? "#ff6b6b" : "#888";
+      syncStatus.style.color =
+        status.syncState === "error" ? "#ff6b6b" : "#888";
     } catch {
       // Ignore polling errors
     }
@@ -282,8 +283,7 @@
 
         checkbox.addEventListener("change", (e) => {
           const files = getDescendantFiles(node);
-          if (e.target.checked)
-            files.forEach((p) => selectedPaths.add(p));
+          if (e.target.checked) files.forEach((p) => selectedPaths.add(p));
           else files.forEach((p) => selectedPaths.delete(p));
           updateUI();
         });
@@ -569,7 +569,8 @@
     if (countAdded) countAdded.textContent = previewData.summary.added || 0;
     if (countModified)
       countModified.textContent = previewData.summary.modified || 0;
-    if (countDeleted) countDeleted.textContent = previewData.summary.deleted || 0;
+    if (countDeleted)
+      countDeleted.textContent = previewData.summary.deleted || 0;
 
     const visibleFiles = getVisibleFiles();
     const selectedVisible = visibleFiles.filter((f) =>
@@ -658,24 +659,28 @@
 
   function wireRefreshButton() {
     const btn = el("commit-refresh-btn");
-    if (btn) btn.onclick = () => {
-      refresh();
-    };
+    if (btn)
+      btn.onclick = () => {
+        refresh();
+      };
   }
 
   function wireActionButtons() {
     const confirm = getCommitConfirm();
-    if (confirm) confirm.onclick = () => {
-      submit();
-    };
+    if (confirm)
+      confirm.onclick = () => {
+        submit();
+      };
     const syncBtn = el("sync-now-btn");
-    if (syncBtn) syncBtn.onclick = () => {
-      syncNow();
-    };
+    if (syncBtn)
+      syncBtn.onclick = () => {
+        syncNow();
+      };
     const forceBtn = el("force-push-btn");
-    if (forceBtn) forceBtn.onclick = () => {
-      forcePush();
-    };
+    if (forceBtn)
+      forceBtn.onclick = () => {
+        forcePush();
+      };
   }
 
   function isEscapeKey(e) {
@@ -686,8 +691,7 @@
     const isEnter =
       e.key === "Enter" || e.code === "Enter" || e.code === "NumpadEnter";
     const isMetaShiftEnter = e.metaKey && e.shiftKey && isEnter;
-    const isCtrlEnter =
-      (e.ctrlKey || e.metaKey) && isEnter && !e.shiftKey;
+    const isCtrlEnter = (e.ctrlKey || e.metaKey) && isEnter && !e.shiftKey;
     if (isMetaShiftEnter || isCtrlEnter) {
       const confirm = getCommitConfirm();
       if (active && confirm && !confirm.disabled) {
@@ -717,9 +721,7 @@
     // the tab before the active one, then to patches, then to chat.
     const candidates = ["patches", "chat"];
     for (const c of candidates) {
-      const idx = tabs.findIndex(
-        (t) => t.getAttribute("data-buffer-id") === c,
-      );
+      const idx = tabs.findIndex((t) => t.getAttribute("data-buffer-id") === c);
       if (idx !== -1) return c;
     }
     return tabs[0].getAttribute("data-buffer-id");
@@ -842,8 +844,7 @@
         }
       } else {
         if (status) {
-          status.textContent =
-            result.error || result.message || "Sync failed";
+          status.textContent = result.error || result.message || "Sync failed";
           status.style.color = "#ff6b6b";
         }
       }
