@@ -72,7 +72,6 @@ function makeAuthRequest(
   });
 }
 
-
 async function createManagedRepoForTest(owner: string) {
   return mimoContext.repos.managedRepositories.create({
     name: "main-repo",
@@ -310,14 +309,30 @@ describe("Project Management Integration Tests", () => {
 
       // Create some projects
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo1.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo1.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Project 1",
         owner: "testuser",
       });
 
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo2.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo2.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Project 2",
         owner: "testuser",
@@ -345,13 +360,29 @@ describe("Project Management Integration Tests", () => {
       const token = await mimoContext.services.auth.generateToken("testuser");
 
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo1.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo1.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Project 1",
         owner: "testuser",
       });
       const project2 = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo2.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo2.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Project 2",
         owner: "testuser",
@@ -415,7 +446,15 @@ describe("Project Management Integration Tests", () => {
       const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -459,7 +498,15 @@ describe("Project Management Integration Tests", () => {
       const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Project To Delete",
         owner: "testuser",
@@ -667,7 +714,15 @@ describe("Project Management Integration Tests", () => {
 
     it("should retrieve project with agentSubpath", async () => {
       const created = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Agent Subpath Test Project",
         owner: "testuser",
@@ -681,7 +736,15 @@ describe("Project Management Integration Tests", () => {
 
     it("should list projects with agentSubpath", async () => {
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo1.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo1.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "List Agent Subpath Project 1",
         owner: "testuser",
@@ -689,7 +752,15 @@ describe("Project Management Integration Tests", () => {
       });
 
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo2.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo2.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "List Agent Subpath Project 2",
         owner: "testuser",
@@ -710,7 +781,15 @@ describe("Project Management Integration Tests", () => {
 
     it("should store agentSubpath on session when provided explicitly", async () => {
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Project for Session Test",
         owner: "testuser",
@@ -728,7 +807,15 @@ describe("Project Management Integration Tests", () => {
 
     it("should resolve effective agentSubpath following the design spec", async () => {
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Project for Resolution Test",
         owner: "testuser",
@@ -801,7 +888,9 @@ describe("Project Management Integration Tests", () => {
       const managedRepo = await createManagedRepoForTest("testuser");
 
       const formData = new URLSearchParams();
-      appendRepoPicker(formData, managedRepo, { newBranch: "ai-session-my-feature" });
+      appendRepoPicker(formData, managedRepo, {
+        newBranch: "ai-session-my-feature",
+      });
       formData.append("name", "Project with New Branch");
 
       const res = await app.request("/projects", {
@@ -819,7 +908,9 @@ describe("Project Management Integration Tests", () => {
       expect(projects.length).toBe(1);
       expect(projects[0].name).toBe("Project with New Branch");
       expect(projects[0].repositories[0].sourceBranch).toBeUndefined();
-      expect(projects[0].repositories[0].newBranch).toBe("ai-session-my-feature");
+      expect(projects[0].repositories[0].newBranch).toBe(
+        "ai-session-my-feature",
+      );
     });
 
     it("should create project with both branch fields", async () => {
@@ -833,7 +924,10 @@ describe("Project Management Integration Tests", () => {
       const managedRepo = await createManagedRepoForTest("testuser");
 
       const formData = new URLSearchParams();
-      appendRepoPicker(formData, managedRepo, { sourceBranch: "main", newBranch: "ai-session-feature-x" });
+      appendRepoPicker(formData, managedRepo, {
+        sourceBranch: "main",
+        newBranch: "ai-session-feature-x",
+      });
       formData.append("name", "Project with Both Branches");
 
       const res = await app.request("/projects", {
@@ -851,7 +945,9 @@ describe("Project Management Integration Tests", () => {
       expect(projects.length).toBe(1);
       expect(projects[0].name).toBe("Project with Both Branches");
       expect(projects[0].repositories[0].sourceBranch).toBe("main");
-      expect(projects[0].repositories[0].newBranch).toBe("ai-session-feature-x");
+      expect(projects[0].repositories[0].newBranch).toBe(
+        "ai-session-feature-x",
+      );
     });
 
     it("should create project without branch fields (backwards compatible)", async () => {
@@ -888,7 +984,17 @@ describe("Project Management Integration Tests", () => {
 
     it("should retrieve project with branch fields", async () => {
       const created = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", sourceBranch: "develop", newBranch: "ai-feature", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            sourceBranch: "develop",
+            newBranch: "ai-feature",
+            mountPath: ".",
+          },
+        ],
 
         name: "Branch Test Project",
         owner: "testuser",
@@ -902,14 +1008,32 @@ describe("Project Management Integration Tests", () => {
 
     it("should list projects with branch fields", async () => {
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo1.git", repoType: "git", sourceBranch: "main", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo1.git",
+            repoType: "git",
+            sourceBranch: "main",
+            mountPath: ".",
+          },
+        ],
 
         name: "List Branch Project 1",
         owner: "testuser",
       });
 
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo2.git", repoType: "git", newBranch: "ai-branch", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo2.git",
+            repoType: "git",
+            newBranch: "ai-branch",
+            mountPath: ".",
+          },
+        ],
 
         name: "List Branch Project 2",
         owner: "testuser",
@@ -931,19 +1055,43 @@ describe("Project Management Integration Tests", () => {
   describe("Project List Ordering", () => {
     it("should list projects sorted alphabetically by name for an owner", async () => {
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Zebra Project",
         owner: "testuser",
       });
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Alpha Project",
         owner: "testuser",
       });
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Mango Project",
         owner: "testuser",
@@ -959,19 +1107,43 @@ describe("Project Management Integration Tests", () => {
 
     it("should list all projects sorted alphabetically by name", async () => {
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Zulu",
         owner: "testuser",
       });
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Apple",
         owner: "testuser",
       });
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Banana",
         owner: "otheruser",
@@ -987,19 +1159,43 @@ describe("Project Management Integration Tests", () => {
 
     it("should keep stable order across repeated fetches", async () => {
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Delta",
         owner: "testuser",
       });
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Alpha",
         owner: "testuser",
       });
       await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Charlie",
         owner: "testuser",

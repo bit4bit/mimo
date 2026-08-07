@@ -100,6 +100,57 @@ function renderChangedFileRow(file, options = {}) {
   return row;
 }
 
+/**
+ * Shared repository-select helpers.
+ *
+ * Every buffer (commit, impact, file-tree, review) needs to populate a
+ * `<select>` with the session's repositories so the user can scope an action
+ * to a single repo. Previously each buffer reimplemented this — and several
+ * derived the list from changed-file previews only, hiding repositories
+ * without changes. These helpers provide a single source: the
+ * `/sessions/:sessionId/repos` endpoint returns every repository in the
+ * session regardless of whether it has changes.
+ *
+ *   - fetchSessionRepoIds(sessionId): async, returns sorted unique repo IDs.
+ *   - buildRepoOptions(repoIds): pure, returns the HTML for the option list
+ *     (without the leading "All repositories" entry so callers control the
+ *     label).
+ *   - populateRepoSelect(selectEl, repoIds, currentValue?): builds the option
+ *     list (with "All repositories" first), restores the previous selection
+ *     when still present, else falls back to "".
+ */
+
+async function fetchSessionRepoIds(sessionId) {
+  if (!sessionId) return [];
+  try {
+    const res = await fetch(`/sessions/${sessionId}/repos`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const repos = (data && data.repos) || [];
+    const ids = repos
+      .map((repo) => repo.repoId)
+      .filter(Boolean)
+      .sort();
+    return Array.from(new Set(ids));
+  } catch {
+    return [];
+  }
+}
+
+function buildRepoOptions(repoIds) {
+  return (repoIds || [])
+    .map((repoId) => `<option value="${repoId}">${repoId}</option>`)
+    .join("");
+}
+
+function populateRepoSelectOptions(selectEl, repoIds, currentValue) {
+  if (!selectEl) return;
+  const ids = Array.from(new Set((repoIds || []).filter(Boolean))).sort();
+  selectEl.innerHTML =
+    '<option value="">All repositories</option>' + buildRepoOptions(ids);
+  selectEl.value = ids.includes(currentValue) ? currentValue : "";
+}
+
 function openFileInPatchBuffer(path, sessionId, opts = {}) {
   if (!window.MIMO_PATCH_BUFFER) return;
 

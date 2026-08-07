@@ -72,8 +72,9 @@ export async function listRepositoriesHandler(
   }
 
   const mimoContext = c.get("mimoContext");
-  const repositories =
-    await mimoContext.repos.managedRepositories.findByOwner(user.username);
+  const repositories = await mimoContext.repos.managedRepositories.findByOwner(
+    user.username,
+  );
 
   return c.json(
     successResponse({
@@ -193,7 +194,11 @@ export async function updateRepositoryHandler(
 
   const body = (await c.req.json()) as UpdateRepositoryRequest;
 
-  if (body.repoType !== undefined && body.repoType !== "git" && body.repoType !== "fossil") {
+  if (
+    body.repoType !== undefined &&
+    body.repoType !== "git" &&
+    body.repoType !== "fossil"
+  ) {
     return c.json(
       errorResponse("Repository type must be 'git' or 'fossil'", 400),
       400,

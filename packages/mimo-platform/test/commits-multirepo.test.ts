@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync } from "fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+  readFileSync,
+} from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { createOS } from "../src/infrastructure/os/node-adapter.js";
@@ -53,8 +59,16 @@ describe("multi-repo commit fan-out", () => {
         id: "project-1",
         owner: "owner",
         repositories: [
-          { id: "backend", repoUrl: "https://example/backend", repoType: "git" },
-          { id: "frontend", repoUrl: "https://example/frontend", repoType: "git" },
+          {
+            id: "backend",
+            repoUrl: "https://example/backend",
+            repoType: "git",
+          },
+          {
+            id: "frontend",
+            repoUrl: "https://example/frontend",
+            repoType: "git",
+          },
         ],
       };
 

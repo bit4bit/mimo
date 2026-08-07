@@ -89,7 +89,15 @@ describe("GET /sessions/:id/files/content", () => {
     );
 
     const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/user/repo.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "Test Project",
       owner: username,
@@ -199,7 +207,15 @@ describe("GET /sessions/:id/search", () => {
     );
 
     const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/user/repo.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "Test Project",
       owner: username,
@@ -319,7 +335,15 @@ describe("GET /sessions/:id/search", () => {
       await Bun.password.hash("pass", { algorithm: "bcrypt", cost: 10 }),
     );
     const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/user/repo.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "Search DI Project",
       owner: "search-di-user",
@@ -394,7 +418,15 @@ describe("POST /sessions/:id/files/write", () => {
     );
 
     const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/user/repo.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "Test Project",
       owner: username,

@@ -284,7 +284,10 @@ export async function createSessionHandler(
       ? validateWorkspaceRelativeDir(body.relativeDir)
       : undefined;
   } catch (error) {
-    return c.json(errorResponse(errorMessage(error, "Invalid relativeDir"), 400), 400);
+    return c.json(
+      errorResponse(errorMessage(error, "Invalid relativeDir"), 400),
+      400,
+    );
   }
 
   // Verify project exists and belongs to user
@@ -415,7 +418,10 @@ export async function updateSessionHandler(
       ? validateWorkspaceRelativeDir(body.relativeDir)
       : undefined;
   } catch (error) {
-    return c.json(errorResponse(errorMessage(error, "Invalid relativeDir"), 400), 400);
+    return c.json(
+      errorResponse(errorMessage(error, "Invalid relativeDir"), 400),
+      400,
+    );
   }
 
   try {

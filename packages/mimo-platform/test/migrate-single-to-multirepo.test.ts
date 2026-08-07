@@ -24,7 +24,17 @@ describe("migrate-single-to-multirepo script", () => {
     });
 
     const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/legacy", repoType: "git", credentialId: "cred-1", sourceBranch: "main", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/test/legacy",
+          repoType: "git",
+          credentialId: "cred-1",
+          sourceBranch: "main",
+          mountPath: ".",
+        },
+      ],
 
       name: "Legacy Project",
       owner: "owner",
@@ -51,7 +61,9 @@ describe("migrate-single-to-multirepo script", () => {
       "session.yaml",
     );
 
-    const legacyProjectData = load(readFileSync(projectYamlPath, "utf-8")) as any;
+    const legacyProjectData = load(
+      readFileSync(projectYamlPath, "utf-8"),
+    ) as any;
     delete legacyProjectData.repositories;
     // Simulate pre-multirepo YAML: flat fields instead of a repositories array
     legacyProjectData.repoUrl = "https://github.com/test/legacy";
@@ -59,14 +71,12 @@ describe("migrate-single-to-multirepo script", () => {
     legacyProjectData.credentialId = "cred-1";
     legacyProjectData.sourceBranch = "main";
     writeFileSync(projectYamlPath, dump(legacyProjectData), "utf-8");
-    const legacySessionData = load(readFileSync(sessionYamlPath, "utf-8")) as any;
+    const legacySessionData = load(
+      readFileSync(sessionYamlPath, "utf-8"),
+    ) as any;
     delete legacySessionData.repos;
     writeFileSync(sessionYamlPath, dump(legacySessionData), "utf-8");
-    const legacyBareRepo = join(
-      testHome,
-      "session-repos",
-      `${session.id}.git`,
-    );
+    const legacyBareRepo = join(testHome, "session-repos", `${session.id}.git`);
     mkdirSync(legacyBareRepo, { recursive: true });
 
     const first = migrateSingleToMultiRepo(testHome);
@@ -119,7 +129,15 @@ describe("migrate-single-to-multirepo script", () => {
     });
 
     const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/broken", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/test/broken",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "Broken Project",
       owner: "owner",

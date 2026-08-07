@@ -178,14 +178,18 @@ export class ImpactCalculator {
   ): Promise<{ metrics: ImpactMetrics; trends: ImpactTrend }> {
     const calcStart = Date.now();
     const tag = `[impact] calculateImpact ${sessionId}/${repoId ?? "default"}`;
-    logger.debug(`${tag} start upstream=${upstreamPath} workspace=${agentWorkspacePath}`);
+    logger.debug(
+      `${tag} start upstream=${upstreamPath} workspace=${agentWorkspacePath}`,
+    );
     const sccService = await this.getSccService();
 
     // Ensure scc is installed
     if (!sccService.isInstalled()) {
       logger.debug(`${tag} scc not installed, installing...`);
       await sccService.install();
-      logger.debug(`${tag} scc install finished in ${Date.now() - calcStart}ms installed=${sccService.isInstalled()}`);
+      logger.debug(
+        `${tag} scc install finished in ${Date.now() - calcStart}ms installed=${sccService.isInstalled()}`,
+      );
     }
 
     // Detect changed files first. When the caller already knows the changed

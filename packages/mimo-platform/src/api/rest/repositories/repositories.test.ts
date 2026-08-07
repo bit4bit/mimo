@@ -304,9 +304,8 @@ describe("Repositories Internal API", () => {
     });
 
     it("should list referencing projects", async () => {
-      const repos = await mimoContext.repos.managedRepositories.findByOwner(
-        "user1",
-      );
+      const repos =
+        await mimoContext.repos.managedRepositories.findByOwner("user1");
       const referenced = repos.find(
         (r: any) => r.name === "referenced-repo",
       ) as any;

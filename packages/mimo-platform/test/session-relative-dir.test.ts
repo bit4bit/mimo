@@ -34,9 +34,9 @@ describe("workspace-relative session paths", () => {
         "backend/packages/api/src/index.ts",
       ),
     ).toEqual({ repoId: "api", path: "src/index.ts" });
-    expect(resolveRepoByLongestMountPath(repositories, "backend/README.md")).toEqual(
-      { repoId: "backend", path: "README.md" },
-    );
+    expect(
+      resolveRepoByLongestMountPath(repositories, "backend/README.md"),
+    ).toEqual({ repoId: "backend", path: "README.md" });
     expect(resolveRepoByLongestMountPath(repositories, "README.md")).toEqual({
       repoId: "root",
       path: "README.md",

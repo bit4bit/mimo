@@ -77,9 +77,10 @@ function loadManagedByName(
     if (!entry.isFile() || !entry.name.endsWith(".yaml")) {
       continue;
     }
-    const data = load(
-      readFileSync(join(dir, entry.name), "utf-8"),
-    ) as Record<string, any>;
+    const data = load(readFileSync(join(dir, entry.name), "utf-8")) as Record<
+      string,
+      any
+    >;
     if (data.name && data.id) {
       byName.set(String(data.name).toLowerCase(), data.id);
     }

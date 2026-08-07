@@ -265,15 +265,16 @@ export async function createProjectHandler(
           sync: warmCacheSync,
         });
         const start = Date.now();
-        const refreshResult = await mimoContext.services.projectVcsCache.refresh({
-          projectId: project.id,
-          repoId: repo.id,
-          repoUrl,
-          repoType,
-          credential: repositoryCredentials.get(repo.id),
-          clonePort: managed?.clonePort ?? repo.clonePort ?? undefined,
-          branch: repo.sourceBranch ?? undefined,
-        });
+        const refreshResult =
+          await mimoContext.services.projectVcsCache.refresh({
+            projectId: project.id,
+            repoId: repo.id,
+            repoUrl,
+            repoType,
+            credential: repositoryCredentials.get(repo.id),
+            clonePort: managed?.clonePort ?? repo.clonePort ?? undefined,
+            branch: repo.sourceBranch ?? undefined,
+          });
         const durationMs = Date.now() - start;
         if (!refreshResult.success) {
           logger.warn("[projects] cache pre-warm failed", {

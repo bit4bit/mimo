@@ -88,7 +88,7 @@ function migrateSessionFile(
     result.sessionsSkipped++;
     return;
   }
-    if (!data.upstreamPath || !data.agentWorkspacePath) {
+  if (!data.upstreamPath || !data.agentWorkspacePath) {
     result.errors.push(`${path}: missing upstreamPath or agentWorkspacePath`);
     return;
   }
@@ -141,7 +141,9 @@ export function migrateSingleToMultiRepo(
     return result;
   }
 
-  for (const projectEntry of readdirSync(projectsDir, { withFileTypes: true })) {
+  for (const projectEntry of readdirSync(projectsDir, {
+    withFileTypes: true,
+  })) {
     if (!projectEntry.isDirectory()) {
       continue;
     }

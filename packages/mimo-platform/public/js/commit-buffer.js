@@ -41,6 +41,17 @@
 
   let syncStatusIntervalId = null;
 
+  // Repository IDs for the whole session (from /sessions/:id/repos), cached so
+  // the repo selector always shows every session repo — not just the ones with
+  // changed files in the current preview.
+  let sessionRepoIds = null;
+
+  async function ensureSessionRepos() {
+    if (sessionRepoIds) return sessionRepoIds;
+    sessionRepoIds = await fetchSessionRepoIds(sessionId);
+    return sessionRepoIds;
+  }
+
   // ── DOM lookups (lazily, since the panel may not exist at load time) ───────
   function el(id) {
     return document.getElementById(id);
@@ -132,7 +143,7 @@
       const result = await response.json();
       if (result.success && result.preview) {
         previewData = result.preview;
-        populateRepoSelect();
+        await populateRepoSelect();
         // Preserve selection across refreshes: drop paths no longer present.
         const known = new Set((previewData.files || []).map(fileKey));
         selectedPaths = new Set(
@@ -152,20 +163,22 @@
     }
   }
 
-  function populateRepoSelect() {
+  async function populateRepoSelect() {
     if (typeof document === "undefined" || !document.getElementById) return;
     const select = el("commit-repo-select");
     if (!select) return;
     const current = select.value;
+    // Merge every session repository (single source, fetched once) with any
+    // repo IDs present in the preview so repositories without changes still
+    // appear in the selector.
+    const sessionRepos = await ensureSessionRepos();
+    const fileRepoIds = (previewData?.files || [])
+      .map((file) => file.repoId)
+      .filter(Boolean);
     const repoIds = Array.from(
-      new Set((previewData?.files || []).map((file) => file.repoId).filter(Boolean)),
+      new Set([...sessionRepos, ...fileRepoIds]),
     ).sort();
-    select.innerHTML =
-      '<option value="">All repositories</option>' +
-      repoIds
-        .map((repoId) => `<option value="${repoId}">${repoId}</option>`)
-        .join("");
-    select.value = repoIds.includes(current) ? current : "";
+    populateRepoSelectOptions(select, repoIds, current);
   }
 
   function getVisibleFiles() {
@@ -189,7 +202,9 @@
       let current = root;
       parts.forEach((part, index) => {
         const isLast = index === parts.length - 1;
-        const pathSoFar = isLast ? fileKey(file) : parts.slice(0, index + 1).join("/");
+        const pathSoFar = isLast
+          ? fileKey(file)
+          : parts.slice(0, index + 1).join("/");
         if (!current[part]) {
           current[part] = {
             name: part,
@@ -676,6 +691,11 @@
       syncBtn.onclick = () => {
         syncNow();
       };
+    const pullBtn = el("pull-force-btn");
+    if (pullBtn)
+      pullBtn.onclick = () => {
+        pullForce();
+      };
     const forceBtn = el("force-push-btn");
     if (forceBtn)
       forceBtn.onclick = () => {
@@ -868,10 +888,91 @@
     }
   }
 
+  /**
+   * Resolve the repos a destructive action affects. When the repository
+   * selector is set to a specific repo, only that repo; otherwise every repo
+   * present in the preview data (the same repo IDs `populateRepoSelect` uses).
+   */
+  function resolveAffectedRepos(repoId) {
+    if (repoId) return [repoId];
+    const selectedRepoId = el("commit-repo-select")?.value || "";
+    if (selectedRepoId) return [selectedRepoId];
+    return Array.from(
+      new Set(
+        (previewData?.files || []).map((file) => file.repoId).filter(Boolean),
+      ),
+    ).sort();
+  }
+
+  async function pullForce(repoId) {
+    const pullBtn = el("pull-force-btn");
+    if (!sessionId) return;
+    const affectedRepos = resolveAffectedRepos(repoId);
+    const status = getCommitStatus();
+    if (affectedRepos.length === 0) {
+      if (status) {
+        status.textContent = "No repositories to pull force";
+        status.style.color = "#ff6b6b";
+      }
+      return;
+    }
+    const confirmed = window.confirm(
+      "Pull force will discard ALL local commits and changes in:\n" +
+        affectedRepos.map((repo) => `  - ${repo}`).join("\n") +
+        "\nContinue?",
+    );
+    if (!confirmed) return;
+    const selectedRepoId =
+      repoId || el("commit-repo-select")?.value || undefined;
+    if (pullBtn) {
+      pullBtn.disabled = true;
+      pullBtn.textContent = "Pulling...";
+    }
+    if (status) status.textContent = "";
+    try {
+      const response = await fetch(`/commits/${sessionId}/pull-force`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(selectedRepoId && { repoId: selectedRepoId }),
+        }),
+      });
+      const result = await response.json();
+      renderRepoResults(result.results);
+      if (result.success) {
+        if (status) {
+          status.textContent =
+            result.message || "Pull force completed successfully!";
+          status.style.color = "#51cf66";
+        }
+        await refresh();
+      } else {
+        if (status) {
+          status.textContent = result.message || "Pull force failed";
+          status.style.color = "#ff6b6b";
+        }
+      }
+    } catch (error) {
+      if (status) {
+        status.textContent = `Pull force failed: ${error.message}`;
+        status.style.color = "#ff6b6b";
+      }
+    } finally {
+      if (pullBtn) {
+        pullBtn.disabled = false;
+        pullBtn.textContent = "Pull Force";
+      }
+      setTimeout(() => {
+        if (status) status.textContent = "";
+      }, 5000);
+    }
+  }
+
   async function forcePush(repoId) {
     const forceBtn = el("force-push-btn");
     if (!sessionId) return;
-    const selectedRepoId = repoId || el("commit-repo-select")?.value || undefined;
+    const selectedRepoId =
+      repoId || el("commit-repo-select")?.value || undefined;
     if (forceBtn) {
       forceBtn.disabled = true;
       forceBtn.textContent = "Force pushing...";
@@ -887,6 +988,7 @@
         }),
       });
       const result = await response.json();
+      renderRepoResults(result.results);
       if (result.success) {
         if (status) {
           status.textContent =
@@ -896,7 +998,7 @@
       } else {
         if (status) {
           status.textContent =
-            result.error || result.message || "Force push failed";
+            result.message || result.error || "Force push failed";
           status.style.color = "#ff6b6b";
         }
       }
@@ -948,6 +1050,7 @@
     deactivate,
     submit,
     syncNow,
+    pullForce,
     forcePush,
     selectFile: (path, selected) => {
       if (selected) selectedPaths.add(path);

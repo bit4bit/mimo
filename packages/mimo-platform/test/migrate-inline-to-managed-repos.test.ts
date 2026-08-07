@@ -25,7 +25,15 @@ describe("migrate-inline-to-managed-repos script", () => {
 
   async function createInlineProject(ctx: any, overrides: any = {}) {
     const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/inline", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/test/inline",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "Inline Project",
       owner: "owner",

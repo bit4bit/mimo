@@ -5,12 +5,22 @@
   const closeBtn = document.getElementById("clone-workspace-close");
   const commandEl = document.getElementById("clone-workspace-command");
   const statusEl = document.getElementById("clone-workspace-copy-status");
+  const selectEl = document.getElementById("clone-repo-select");
 
   if (!openBtn || !dialog || !closeBtn || !commandEl) {
     return;
   }
 
-  const command = commandEl.dataset.command || commandEl.textContent || "";
+  // Per-repo command map (present for multi-repo sessions). Keyed by repoId.
+  const commandsJson = commandEl.dataset.commands;
+  const commandsMap = commandsJson ? JSON.parse(commandsJson) : null;
+
+  function currentCommand() {
+    if (commandsMap && selectEl) {
+      return commandsMap[selectEl.value] || "";
+    }
+    return commandEl.dataset.command || commandEl.textContent || "";
+  }
 
   function setStatus(message, color) {
     if (!statusEl) return;
@@ -19,6 +29,7 @@
   }
 
   async function copyCommand() {
+    const command = currentCommand();
     if (!command.trim()) {
       setStatus("No command available", "#ff6b6b");
       return;
@@ -49,6 +60,12 @@
       dialog.style.display = "none";
     }
   });
+
+  if (selectEl && commandsMap) {
+    selectEl.addEventListener("change", function () {
+      commandEl.textContent = currentCommand();
+    });
+  }
 
   commandEl.addEventListener("click", copyCommand);
 })();

@@ -136,7 +136,9 @@ describe("Managed Repositories", () => {
       });
 
       await managedRepositories.delete(created.id, testUser);
-      expect(await managedRepositories.findById(created.id, testUser)).toBeNull();
+      expect(
+        await managedRepositories.findById(created.id, testUser),
+      ).toBeNull();
     });
   });
 
@@ -175,7 +177,11 @@ describe("Managed Repositories", () => {
       });
       expect(other.id).toBeDefined();
 
-      const otherDir = join(ctx.paths.users, "other-user-repositories", "repositories");
+      const otherDir = join(
+        ctx.paths.users,
+        "other-user-repositories",
+        "repositories",
+      );
       if (existsSync(otherDir)) {
         rmdirSync(otherDir, { recursive: true });
       }

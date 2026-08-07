@@ -98,6 +98,15 @@ export const CommitBuffer: FC<CommitBufferProps> = ({ sessionId }) => {
         </button>
         <button
           type="button"
+          id="pull-force-btn"
+          class="btn-danger"
+          title="Pull force discards ALL local commits and changes and resets to remote HEAD"
+          data-help-id="commit-buffer-pull-force-btn-button"
+        >
+          Pull Force
+        </button>
+        <button
+          type="button"
           id="force-push-btn"
           class="btn-danger"
           title="Force push committed changes to upstream (overwrites remote history)"

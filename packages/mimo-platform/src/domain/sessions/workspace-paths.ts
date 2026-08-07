@@ -54,7 +54,9 @@ export function resolveRepoByLongestMountPath(
   }
 
   if (!best) {
-    throw new Error(`No repository found for workspace path: ${workspaceRelativePath}`);
+    throw new Error(
+      `No repository found for workspace path: ${workspaceRelativePath}`,
+    );
   }
   if (best.mountPath === ".") {
     return { repoId: best.repoId, path: normalizedPath };

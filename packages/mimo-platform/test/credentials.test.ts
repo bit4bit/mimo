@@ -163,7 +163,16 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
     describe("11.4 Test project creation with HTTPS credential selection", () => {
       it("should create project with HTTPS credential", async () => {
         const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", credentialId: testCredentialId, mountPath: "." }],
+          repositories: [
+            {
+              id: "default",
+              name: "default",
+              repoUrl: "https://github.com/user/repo.git",
+              repoType: "git",
+              credentialId: testCredentialId,
+              mountPath: ".",
+            },
+          ],
 
           name: "Test Project HTTPS",
           owner: testProjectUser,
@@ -192,7 +201,16 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
         });
 
         const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "git@github.com:user/repo.git", repoType: "git", credentialId: sshCredential.id, mountPath: "." }],
+          repositories: [
+            {
+              id: "default",
+              name: "default",
+              repoUrl: "git@github.com:user/repo.git",
+              repoType: "git",
+              credentialId: sshCredential.id,
+              mountPath: ".",
+            },
+          ],
 
           name: "Test Project SSH",
           owner: testProjectUser,
@@ -264,7 +282,15 @@ C6dK+YdP2Xy4K8vY0cWqZrFg3kH8AAAAFGZvcmNlLWF0LWxhU3QtdGVzdC1rZXk=
     describe("11.12 Test project works without credential (public repo behavior)", () => {
       it("should create project without credential", async () => {
         const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/public-repo.git", repoType: "git", mountPath: "." }],
+          repositories: [
+            {
+              id: "default",
+              name: "default",
+              repoUrl: "https://github.com/user/public-repo.git",
+              repoType: "git",
+              mountPath: ".",
+            },
+          ],
 
           name: "Public Repo Project",
           owner: testProjectUser,

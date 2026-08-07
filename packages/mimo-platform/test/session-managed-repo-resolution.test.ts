@@ -229,14 +229,15 @@ describe("Session creation managed repository resolution", () => {
       "repo-b",
     ]);
 
-    const filesRes = await app.request(`/projects/${project.id}/sessions/${session.id}/files`, {
-      headers: { Cookie: `token=${token}` },
-    });
+    const filesRes = await app.request(
+      `/projects/${project.id}/sessions/${session.id}/files`,
+      {
+        headers: { Cookie: `token=${token}` },
+      },
+    );
     expect(filesRes.status).toBe(200);
     const files = await filesRes.json();
-    const repoIds = [
-      ...new Set(files.map((f: any) => f.repoId)),
-    ].sort();
+    const repoIds = [...new Set(files.map((f: any) => f.repoId))].sort();
     expect(repoIds).toEqual(["repo-a", "repo-b"]);
   }, 30000);
 });

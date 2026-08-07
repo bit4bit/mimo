@@ -88,7 +88,15 @@ describe("Session Search API", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -124,13 +132,29 @@ describe("Session Search API", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project1 = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/frontend.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/frontend.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Frontend App",
         owner: "testuser",
       });
       const project2 = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/backend.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/backend.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Backend API",
         owner: "testuser",
@@ -166,7 +190,15 @@ describe("Session Search API", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -216,7 +248,15 @@ describe("Session Search API", () => {
       );
 
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "user1",
@@ -252,7 +292,15 @@ describe("Session Search API", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -284,7 +332,15 @@ describe("Session Search API", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",

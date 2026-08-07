@@ -100,7 +100,15 @@ describe("Projects Internal API", () => {
     it("should return only projects owned by the user", async () => {
       // Create a project for user1
       await mimoContext.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user1/project", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user1/project",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "User1 Project",
         owner: "user1",
@@ -108,7 +116,15 @@ describe("Projects Internal API", () => {
 
       // Create a project for user2
       await mimoContext.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user2/project", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user2/project",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "User2 Project",
         owner: "user2",
@@ -164,7 +180,15 @@ describe("Projects Internal API", () => {
     it("should return 404 for project owned by different user", async () => {
       // Create a project for user1
       const project = await mimoContext.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user1/project", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user1/project",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "User1 Project",
         owner: "user1",
@@ -190,7 +214,15 @@ describe("Projects Internal API", () => {
 
     it("should return project with correct structure", async () => {
       const project = await mimoContext.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/project", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/project",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "user1",
@@ -693,7 +725,15 @@ describe("Projects Internal API", () => {
 
     it("should return 404 for project owned by different user", async () => {
       const project = await mimoContext.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user1/project", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user1/project",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "User1 Project",
         owner: "user1",
@@ -721,7 +761,15 @@ describe("Projects Internal API", () => {
 
     it("should update project fields", async () => {
       const project = await mimoContext.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/original", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/original",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Original Name",
         owner: "user1",
@@ -791,7 +839,15 @@ describe("Projects Internal API", () => {
 
     it("should return 404 for project owned by different user", async () => {
       const project = await mimoContext.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user1/project", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user1/project",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "User1 Project",
         owner: "user1",
@@ -854,7 +910,15 @@ describe("Projects Internal API", () => {
 
     it("should return 404 for project owned by different user", async () => {
       const project = await mimoContext.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user1/project", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user1/project",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "User1 Project",
         owner: "user1",
@@ -878,7 +942,15 @@ describe("Projects Internal API", () => {
 
     it("should return empty sessions list", async () => {
       const project = await mimoContext.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/no-sessions", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/no-sessions",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "No Sessions Project",
         owner: "user1",

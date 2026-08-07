@@ -122,7 +122,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -152,7 +160,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -188,7 +204,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -227,7 +251,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -265,7 +297,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -315,7 +355,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -354,7 +402,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -403,7 +459,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -447,7 +511,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -489,7 +561,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -534,7 +614,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -567,7 +655,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -613,7 +709,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -659,7 +763,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -706,7 +818,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -744,7 +864,15 @@ describe("Session Management Integration Tests", () => {
       const app = createTestApp(mimoContext, sessionRoutes);
 
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -771,7 +899,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -804,7 +940,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -843,7 +987,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -871,7 +1023,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -910,7 +1070,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -936,7 +1104,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -968,6 +1144,12 @@ describe("Session Management Integration Tests", () => {
       expect(html).toContain("git clone");
       expect(html).toContain("dev:p%40ss%20word@localhost:8000");
       expect(html).toContain("Fix-login-flow");
+      // Per-repo URL: <sid>/default.git/ (not legacy <sid>.git/)
+      expect(html).toContain(`${session.id}/default.git/`);
+      // The clone command must not target the legacy per-session URL. The nav
+      // timeline link still references <sid>.git/timeline, so scope this to the
+      // clone command form: "git clone \"...<sid>.git/\""
+      expect(html).not.toContain(`${session.id}.git/"`);
     });
 
     it("uses MIMO_PUBLIC_VCS_URL for the clone command when configured", async () => {
@@ -982,7 +1164,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -1011,9 +1201,137 @@ describe("Session Management Integration Tests", () => {
       const html = await res.text();
       // Public base + path, correct scheme, no raw :8000 internal port.
       expect(html).toContain(
-        `https://dev:secret@yourdomain.com/git/${session.id}.git/`,
+        `https://dev:secret@yourdomain.com/git/${session.id}/default.git/`,
       );
       expect(html).not.toContain("localhost:8000");
+      expect(html).not.toContain(`${session.id}.git/"`);
+    });
+
+    it("renders a repository selector for multi-repo sessions with per-repo clone commands", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        repositories: [
+          {
+            id: "backend",
+            name: "backend",
+            repoUrl: "https://github.com/user/backend.git",
+            repoType: "git",
+            mountPath: "backend",
+          },
+          {
+            id: "frontend",
+            name: "frontend",
+            repoUrl: "https://github.com/user/frontend.git",
+            repoType: "git",
+            mountPath: "frontend",
+          },
+        ],
+        name: "Multi Repo Project",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Fix login flow",
+        projectId: project.id,
+        owner: "testuser",
+        repoMounts: [
+          { projectRepoId: "backend", mountPath: "backend" },
+          { projectRepoId: "frontend", mountPath: "frontend" },
+        ],
+      });
+      await sessionRepository.update(session.id, {
+        agentWorkspaceUser: "dev",
+        agentWorkspacePassword: "secret",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}`,
+        {
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      // Selector with both repositories
+      expect(html).toContain('id="clone-repo-select"');
+      expect(html).toContain('value="backend"');
+      expect(html).toContain('value="frontend"');
+      // Per-repo clone URLs
+      expect(html).toContain(`${session.id}/backend.git/`);
+      expect(html).toContain(`${session.id}/frontend.git/`);
+      // Suggested target dirs mirror mount layout
+      expect(html).toContain("Fix login flow/backend");
+      expect(html).toContain("Fix login flow/frontend");
+      // No legacy single-session URL in the clone command
+      expect(html).not.toContain(`${session.id}.git/"`);
+    });
+
+    it("does not emit a legacy per-session clone URL for single or multi repo sessions", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        repositories: [
+          {
+            id: "backend",
+            name: "backend",
+            repoUrl: "https://github.com/user/backend.git",
+            repoType: "git",
+            mountPath: "backend",
+          },
+          {
+            id: "frontend",
+            name: "frontend",
+            repoUrl: "https://github.com/user/frontend.git",
+            repoType: "git",
+            mountPath: "frontend",
+          },
+        ],
+        name: "Legacy Check Project",
+        owner: "testuser",
+      });
+
+      const session = await sessionRepository.create({
+        name: "Session One",
+        projectId: project.id,
+        owner: "testuser",
+        repoMounts: [
+          { projectRepoId: "backend", mountPath: "backend" },
+          { projectRepoId: "frontend", mountPath: "frontend" },
+        ],
+      });
+      await sessionRepository.update(session.id, {
+        agentWorkspaceUser: "dev",
+        agentWorkspacePassword: "secret",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}`,
+        {
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      // The clone commands must use per-repo URLs (<sid>/<repoId>.git/),
+      // never the bare per-session URL (<sid>.git/) in the command form.
+      expect(html).not.toContain(`${session.id}.git/"`);
+      expect(html).toContain(`${session.id}/backend.git/`);
+      expect(html).toContain(`${session.id}/frontend.git/`);
     });
   });
 
@@ -1025,7 +1343,17 @@ describe("Session Management Integration Tests", () => {
       );
       const { newBranch, sourceBranch, repoType, ...projectExtra } = extra;
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: (repoType as "git" | "fossil") ?? "git", ...(newBranch ? { newBranch } : {}), ...(sourceBranch ? { sourceBranch } : {}), mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: (repoType as "git" | "fossil") ?? "git",
+            ...(newBranch ? { newBranch } : {}),
+            ...(sourceBranch ? { sourceBranch } : {}),
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -1169,7 +1497,17 @@ describe("Session Management Integration Tests", () => {
       );
       const { newBranch, sourceBranch, repoType, ...projectExtra } = extra;
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: (repoType as "git" | "fossil") ?? "git", ...(newBranch ? { newBranch } : {}), ...(sourceBranch ? { sourceBranch } : {}), mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: (repoType as "git" | "fossil") ?? "git",
+            ...(newBranch ? { newBranch } : {}),
+            ...(sourceBranch ? { sourceBranch } : {}),
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -1251,7 +1589,16 @@ describe("Session Management Integration Tests", () => {
           "-----BEGIN OPENSSH PRIVATE KEY-----\nmock\n-----END OPENSSH PRIVATE KEY-----",
       });
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "git@codeberg.org:user/repo.git", repoType: "git", credentialId: credential.id, mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "git@codeberg.org:user/repo.git",
+            repoType: "git",
+            credentialId: credential.id,
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -1431,7 +1778,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -1469,7 +1824,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -1525,7 +1888,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -1561,7 +1932,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -1598,7 +1977,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -1807,7 +2194,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -1876,7 +2271,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -1935,7 +2338,15 @@ describe("Session Management Integration Tests", () => {
         await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
       );
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",

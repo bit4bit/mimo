@@ -74,12 +74,18 @@ function accumulateMetrics(
     metrics.absoluteComplexity?.upstream ?? 0;
   aggregate.absoluteComplexity.workspace +=
     metrics.absoluteComplexity?.workspace ?? 0;
-  aggregate.absoluteLoc.total.upstream += metrics.absoluteLoc?.total?.upstream ?? 0;
-  aggregate.absoluteLoc.total.workspace += metrics.absoluteLoc?.total?.workspace ?? 0;
-  aggregate.absoluteLoc.added.upstream += metrics.absoluteLoc?.added?.upstream ?? 0;
-  aggregate.absoluteLoc.added.workspace += metrics.absoluteLoc?.added?.workspace ?? 0;
-  aggregate.absoluteLoc.removed.upstream += metrics.absoluteLoc?.removed?.upstream ?? 0;
-  aggregate.absoluteLoc.removed.workspace += metrics.absoluteLoc?.removed?.workspace ?? 0;
+  aggregate.absoluteLoc.total.upstream +=
+    metrics.absoluteLoc?.total?.upstream ?? 0;
+  aggregate.absoluteLoc.total.workspace +=
+    metrics.absoluteLoc?.total?.workspace ?? 0;
+  aggregate.absoluteLoc.added.upstream +=
+    metrics.absoluteLoc?.added?.upstream ?? 0;
+  aggregate.absoluteLoc.added.workspace +=
+    metrics.absoluteLoc?.added?.workspace ?? 0;
+  aggregate.absoluteLoc.removed.upstream +=
+    metrics.absoluteLoc?.removed?.upstream ?? 0;
+  aggregate.absoluteLoc.removed.workspace +=
+    metrics.absoluteLoc?.removed?.workspace ?? 0;
   if (Array.isArray(metrics.byLanguage)) {
     aggregate.byLanguage.push(...metrics.byLanguage);
   }
@@ -118,7 +124,9 @@ export async function handleRefreshImpact(
     return;
   }
 
-  logger.debug(`[impact] refresh start: ${sessionId} repoId=${repoId ?? "all"}`);
+  logger.debug(
+    `[impact] refresh start: ${sessionId} repoId=${repoId ?? "all"}`,
+  );
   const refreshStart = Date.now();
 
   const session = await findSessionById(sessionId);

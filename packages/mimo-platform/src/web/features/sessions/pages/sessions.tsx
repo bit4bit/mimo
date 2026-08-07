@@ -974,10 +974,53 @@ export function createSessionsRoutes(
       // Always generate the session repo URL - the git server should be running.
       // If it's not running yet, the URL is still valid but the server won't respond.
       const cloneUrl = getBrowserCloneUrl(sessionId);
-      const cloneWorkspaceCommand =
+      // Build a per-repo clone command for every session repository. After
+      // multi-repo-projects each session repo is served at <sid>/<repoId>.git/,
+      // so the browser clone command must include the repoId (the legacy
+      // <sid>.git/ URL has no bare repo on disk and 404s). mountPath is derived
+      // from workspacePath relative to agentWorkspacePath.
+      const sanitizedSessionName = sanitizeSessionNameForWorkdir(session.name);
+      const wsRoot = (session.agentWorkspacePath ?? "").replace(/\\/g, "/");
+      const cloneCommands =
         session.agentWorkspaceUser && session.agentWorkspacePassword
-          ? `git clone ${shellDoubleQuote(buildAuthenticatedUrl(cloneUrl, session.agentWorkspaceUser, session.agentWorkspacePassword))} ${shellDoubleQuote(sanitizeSessionNameForWorkdir(session.name))}`
-          : null;
+          ? (session.repos ?? []).map((repo: any) => {
+              const repoCloneUrl = buildPublicCloneUrl({
+                internalUrl: sharedVcsServer.getUrl(
+                  sessionId,
+                  repo.projectRepoId,
+                ),
+                platformUrl,
+                publicVcsUrl,
+                sessionId,
+                repoId: repo.projectRepoId,
+              });
+              const authUrl = buildAuthenticatedUrl(
+                repoCloneUrl,
+                session.agentWorkspaceUser!,
+                session.agentWorkspacePassword!,
+              );
+              const ws = (repo.workspacePath ?? "").replace(/\\/g, "/");
+              let mountPath = ".";
+              if (
+                ws !== wsRoot &&
+                ws !== `${wsRoot}/` &&
+                ws.startsWith(`${wsRoot}/`)
+              ) {
+                const m = ws.slice(wsRoot.length + 1).replace(/\/+$/, "");
+                mountPath = m === "" ? "." : m;
+              }
+              const targetDir =
+                mountPath === "."
+                  ? sanitizedSessionName
+                  : `${sanitizedSessionName}/${mountPath}`;
+              return {
+                repoId: repo.projectRepoId,
+                name: repo.projectRepoId,
+                mountPath,
+                command: `git clone ${shellDoubleQuote(authUrl)} ${shellDoubleQuote(targetDir)}`,
+              };
+            })
+          : [];
 
       // Resolve attached MCP servers for display via Internal API Client
       const mcpServers: any[] = [];
@@ -1061,7 +1104,7 @@ export function createSessionsRoutes(
           modelState={modelState}
           modeState={modeState}
           cloneUrl={cloneUrl}
-          cloneWorkspaceCommand={cloneWorkspaceCommand ?? undefined}
+          cloneCommands={cloneCommands.length > 0 ? cloneCommands : undefined}
           acpStatus={session.acpStatus}
           mcpServers={mcpServers}
           streamingTimeoutMs={streamingTimeoutMs}

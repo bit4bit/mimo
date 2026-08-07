@@ -101,7 +101,15 @@ describe("GET /sessions/:id/changed-files", () => {
       await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
     );
     const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/user/repo.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "Changed Files Project",
       owner: "testuser",
@@ -173,7 +181,9 @@ describe("GET /sessions/:id/changed-files", () => {
     const workspacePath = session.agentWorkspacePath;
 
     const detected: ChangedFilesResult = {
-      files: [{ repoId: "default", path: "lib/x.ts", status: "added", size: 42 }],
+      files: [
+        { repoId: "default", path: "lib/x.ts", status: "added", size: 42 },
+      ],
       summary: { added: 1, modified: 0, deleted: 0 },
     };
 
@@ -219,7 +229,12 @@ describe("GET /sessions/:id/changed-files", () => {
     expect(createManifestStoreSpy).toHaveBeenCalledTimes(0);
 
     // The result is stored in the cache so a subsequent hit avoids detection.
-    const cachedHit = cache.get(sessionId, upstreamPath, workspacePath, "default");
+    const cachedHit = cache.get(
+      sessionId,
+      upstreamPath,
+      workspacePath,
+      "default",
+    );
     expect(cachedHit).toEqual(detected);
   });
 

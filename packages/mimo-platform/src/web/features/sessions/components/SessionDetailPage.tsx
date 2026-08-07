@@ -77,7 +77,12 @@ interface SessionDetailProps {
   modelState?: ModelState;
   modeState?: ModeState;
   cloneUrl?: string;
-  cloneWorkspaceCommand?: string;
+  cloneCommands?: Array<{
+    repoId: string;
+    name: string;
+    mountPath: string;
+    command: string;
+  }>;
   acpStatus?: "active" | "parked" | "waking";
   frameState: FrameState;
   notesContent?: string;
@@ -168,7 +173,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
   modelState,
   modeState,
   cloneUrl,
-  cloneWorkspaceCommand,
+  cloneCommands,
   acpStatus = "active",
   frameState,
   notesContent = "",
@@ -263,7 +268,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       agentId={agent?.id}
       agentName={agent?.name}
       cloneWorkspaceHtml={
-        cloneWorkspaceCommand ? (
+        cloneCommands && cloneCommands.length > 0 ? (
           <button
             type="button"
             id="clone-workspace-btn"
@@ -676,7 +681,7 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
       <ContentFinderDialog sessionId={session.id} />
 
       {/* Clone workspace command dialog */}
-      {cloneWorkspaceCommand && (
+      {cloneCommands && cloneCommands.length > 0 && (
         <div id="clone-workspace-dialog" class="modal hidden">
           <div class="modal-content clone-workspace-modal">
             <h3 class="modal-title mb-10">Clone Workspace Command</h3>
@@ -687,16 +692,40 @@ export const SessionDetailPage: FC<SessionDetailProps> = ({
             </p>
             <p class="clone-workspace-help">
               Copy and paste this command into your terminal to clone the
-              repository. Later, you can resync changes by running 'fossil
-              update'.
+              repository. Later, you can resync changes by running 'git pull'.
             </p>
+            {cloneCommands.length > 1 && (
+              <div class="clone-workspace-selector">
+                <label
+                  for="clone-repo-select"
+                  class="clone-workspace-selector-label"
+                >
+                  Repository:
+                </label>
+                <select
+                  id="clone-repo-select"
+                  class="clone-workspace-selector-select"
+                >
+                  {cloneCommands.map((repo) => (
+                    <option value={repo.repoId}>
+                      {repo.name} ({repo.mountPath})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <pre
               id="clone-workspace-command"
               class="clone-workspace-command"
-              data-command={cloneWorkspaceCommand}
+              data-command={cloneCommands[0]!.command}
+              data-commands={JSON.stringify(
+                Object.fromEntries(
+                  cloneCommands.map((repo) => [repo.repoId, repo.command]),
+                ),
+              )}
               title="Click to copy"
             >
-              {cloneWorkspaceCommand}
+              {cloneCommands[0]!.command}
             </pre>
             <div class="clone-workspace-actions">
               <span id="clone-workspace-copy-status" aria-live="polite"></span>

@@ -395,15 +395,13 @@ export class SessionRepository {
       this.os.fs.mkdir(patchesPath, { recursive: true });
     }
 
-    const repoInputs: SessionRepositoryEntry[] =
-      input.repos ??
+    const repoInputs: SessionRepositoryEntry[] = input.repos ??
       input.repoMounts?.map((repo) => ({
         projectRepoId: repo.projectRepoId,
         upstreamPath: mountedPath(upstreamPath, repo.mountPath),
         workspacePath: mountedPath(agentWorkspacePath, repo.mountPath),
         ...(repo.branch && { branch: repo.branch }),
-      })) ??
-      [
+      })) ?? [
         {
           projectRepoId: "default",
           upstreamPath,

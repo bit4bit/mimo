@@ -98,7 +98,9 @@ function cachePathFor(
   const extension = repoType === "git" ? "git" : "fossil";
   return os.path.join(
     projectPath,
-    repoId ? `cache-${sanitizeRepoId(repoId)}.${extension}` : `cache.${extension}`,
+    repoId
+      ? `cache-${sanitizeRepoId(repoId)}.${extension}`
+      : `cache.${extension}`,
   );
 }
 
@@ -111,7 +113,13 @@ function clearCacheArtifacts(
 ): void {
   const projectPath = os.path.join(projectsPath, projectId);
   if (repoId) {
-    const cachePath = cachePathFor(os, projectsPath, projectId, repoType, repoId);
+    const cachePath = cachePathFor(
+      os,
+      projectsPath,
+      projectId,
+      repoType,
+      repoId,
+    );
     if (os.fs.exists(cachePath)) {
       os.fs.rm(cachePath, { recursive: true, force: true });
     }
@@ -211,7 +219,10 @@ class GitCacheEngine implements CacheEngine {
 
     return withProjectLock(this.os, projectPath, async () => {
       let url = params.repoUrl;
-      if (params.credential?.type === "https" && !isSshRepoUrl(params.repoUrl)) {
+      if (
+        params.credential?.type === "https" &&
+        !isSshRepoUrl(params.repoUrl)
+      ) {
         url = injectHttpsCredentials(params.repoUrl, params.credential);
       }
 
@@ -593,7 +604,13 @@ class FossilCacheEngine implements CacheEngine {
     const open = await this.os.command.run([
       "fossil",
       "open",
-      cachePathFor(this.os, this.projectsPath, params.projectId, "fossil", params.repoId),
+      cachePathFor(
+        this.os,
+        this.projectsPath,
+        params.projectId,
+        "fossil",
+        params.repoId,
+      ),
       "--workdir",
       params.targetPath,
       "--nested",
@@ -627,7 +644,13 @@ class FossilCacheEngine implements CacheEngine {
 
   async clear(projectId: string, repoId?: string): Promise<void> {
     logger.info("[cache] clearing fossil cache", { projectId, repoId });
-    clearCacheArtifacts(this.os, this.projectsPath, projectId, "fossil", repoId);
+    clearCacheArtifacts(
+      this.os,
+      this.projectsPath,
+      projectId,
+      "fossil",
+      repoId,
+    );
   }
 
   async isCorrupted(projectId: string, repoId?: string): Promise<boolean> {

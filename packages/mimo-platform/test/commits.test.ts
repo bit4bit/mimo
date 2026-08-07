@@ -57,7 +57,15 @@ describe("Commit Service Tests", () => {
 
       // Create a project
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -113,7 +121,16 @@ describe("Commit Service Tests", () => {
 
       // Create a project with newBranch
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: remotePath, repoType: "git", newBranch: "ai-session-feature-x", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: remotePath,
+            repoType: "git",
+            newBranch: "ai-session-feature-x",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -209,7 +226,15 @@ describe("Commit Service Tests", () => {
 
       // Create a project
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -252,7 +277,15 @@ describe("Commit Service Tests", () => {
       const projectRepo = ctx.repos.projects;
 
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -306,7 +339,15 @@ describe("Commit Service Tests", () => {
       const projectRepo = ctx.repos.projects;
 
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -373,7 +414,15 @@ describe("Commit Service Tests", () => {
       const projectRepo = ctx.repos.projects;
 
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -434,7 +483,15 @@ describe("Commit Service Tests", () => {
       const projectRepo = ctx.repos.projects;
 
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -485,7 +542,15 @@ describe("Commit Service Tests", () => {
       const projectRepo = ctx.repos.projects;
 
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -514,7 +579,15 @@ describe("Commit Service Tests", () => {
       const projectRepo = ctx.repos.projects;
 
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -563,7 +636,15 @@ describe("Commit Service Tests", () => {
       const projectRepo = ctx.repos.projects;
 
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -616,7 +697,15 @@ describe("Commit Service Tests", () => {
       const projectRepo = ctx.repos.projects;
 
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -705,7 +794,16 @@ describe("Commit Service Tests", () => {
       });
 
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "git@github.com:test/repo.git", repoType: "git", credentialId: credential.id, mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "git@github.com:test/repo.git",
+            repoType: "git",
+            credentialId: credential.id,
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -775,7 +873,16 @@ describe("Commit Service Tests", () => {
       const projectRepo = ctx.repos.projects;
 
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "git@github.com:test/repo.git", repoType: "git", credentialId: "missing-credential-id", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "git@github.com:test/repo.git",
+            repoType: "git",
+            credentialId: "missing-credential-id",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -834,7 +941,16 @@ describe("Commit Service Tests", () => {
       });
 
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "git@github.com:test/repo.git", repoType: "git", credentialId: credential.id, mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "git@github.com:test/repo.git",
+            repoType: "git",
+            credentialId: credential.id,
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -885,7 +1001,16 @@ describe("Commit Service Tests", () => {
       const projectRepo = ctx.repos.projects;
 
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "git@github.com:test/repo.git", repoType: "git", credentialId: "missing-credential-id", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "git@github.com:test/repo.git",
+            repoType: "git",
+            credentialId: "missing-credential-id",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -922,7 +1047,15 @@ describe("Commit Service Tests", () => {
 
       // Create a project
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: remotePath, repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: remotePath,
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -981,7 +1114,15 @@ describe("Commit Service Tests", () => {
 
       // Create a project
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",

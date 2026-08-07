@@ -555,6 +555,259 @@ describe("VCS Integration Tests", () => {
       }, 15000);
     });
 
+    describe("pullForce", () => {
+      it("fetches, hard-resets, cleans, and returns the new remote HEAD", async () => {
+        const captured: Array<{ cmd: string[]; opts?: any }> = [];
+        const mockOs = {
+          ...os,
+          env: { ...os.env, getAll: () => ({}) },
+          fs: os.fs,
+          command: {
+            run: async (args: string[], opts?: any) => {
+              captured.push({ cmd: args, opts });
+              if (args[1] === "rev-parse") {
+                return { success: true, output: "abc123\n", error: "" };
+              }
+              return { success: true, output: "", error: "" };
+            },
+          },
+          path: os.path,
+        };
+        const vcs = new VCS({ os: mockOs as any });
+
+        const result = await vcs.pullForce(
+          "/tmp/workdir",
+          "git",
+          undefined,
+          "main",
+        );
+
+        expect(captured.map((c) => c.cmd[1])).toEqual([
+          "fetch",
+          "reset",
+          "clean",
+          "rev-parse",
+        ]);
+        expect(captured[0].cmd).toEqual(["git", "fetch", "origin", "main"]);
+        expect(captured[1].cmd).toEqual([
+          "git",
+          "reset",
+          "--hard",
+          "origin/main",
+        ]);
+        expect(captured[2].cmd).toEqual(["git", "clean", "-fd"]);
+        expect(captured[3].cmd).toEqual(["git", "rev-parse", "origin/main"]);
+        expect(result).toEqual({ success: true, output: "abc123" });
+      });
+
+      it("fetches all refs and resets to origin/HEAD when no branch is given", async () => {
+        const captured: Array<{ cmd: string[] }> = [];
+        const mockOs = {
+          ...os,
+          env: { ...os.env, getAll: () => ({}) },
+          fs: os.fs,
+          command: {
+            run: async (args: string[]) => {
+              captured.push({ cmd: args });
+              if (args[1] === "rev-parse") {
+                return { success: true, output: "def456\n", error: "" };
+              }
+              return { success: true, output: "", error: "" };
+            },
+          },
+          path: os.path,
+        };
+        const vcs = new VCS({ os: mockOs as any });
+
+        const result = await vcs.pullForce("/tmp/workdir", "git");
+
+        expect(captured[0].cmd).toEqual(["git", "fetch", "origin"]);
+        expect(captured[1].cmd).toEqual([
+          "git",
+          "reset",
+          "--hard",
+          "origin/HEAD",
+        ]);
+        expect(captured[3].cmd).toEqual(["git", "rev-parse", "origin/HEAD"]);
+        expect(result).toEqual({ success: true, output: "def456" });
+      });
+
+      it("falls back to fetching all refs and resetting to origin/HEAD when the named branch does not exist on the remote", async () => {
+        const captured: Array<{ cmd: string[] }> = [];
+        const mockOs = {
+          ...os,
+          env: { ...os.env, getAll: () => ({}) },
+          fs: os.fs,
+          command: {
+            run: async (args: string[]) => {
+              captured.push({ cmd: args });
+              // The branch-specific fetch fails ("couldn't find remote ref"),
+              // the fallback fetch-all succeeds, and rev-parse resolves HEAD.
+              if (args[1] === "fetch" && args[3] === "feature-branch") {
+                return {
+                  success: false,
+                  output: "",
+                  error: "fatal: couldn't find remote ref feature-branch",
+                };
+              }
+              if (args[1] === "rev-parse") {
+                return { success: true, output: "def456\n", error: "" };
+              }
+              return { success: true, output: "", error: "" };
+            },
+          },
+          path: os.path,
+        };
+        const vcs = new VCS({ os: mockOs as any });
+
+        const result = await vcs.pullForce(
+          "/tmp/workdir",
+          "git",
+          undefined,
+          "feature-branch",
+        );
+
+        expect(result).toEqual({ success: true, output: "def456" });
+        // First attempt fetches the named branch; fallback fetches all refs.
+        expect(captured[0].cmd).toEqual([
+          "git",
+          "fetch",
+          "origin",
+          "feature-branch",
+        ]);
+        expect(captured[1].cmd).toEqual(["git", "fetch", "origin"]);
+        // Reset and rev-parse target origin/HEAD (the fallback remote ref).
+        expect(captured[2].cmd).toEqual([
+          "git",
+          "reset",
+          "--hard",
+          "origin/HEAD",
+        ]);
+        expect(captured[4].cmd).toEqual(["git", "rev-parse", "origin/HEAD"]);
+      });
+
+      it("returns failure when git fetch fails and runs no destructive commands", async () => {
+        const captured: Array<{ cmd: string[] }> = [];
+        const mockOs = {
+          ...os,
+          env: { ...os.env, getAll: () => ({}) },
+          fs: os.fs,
+          command: {
+            run: async (args: string[]) => {
+              captured.push({ cmd: args });
+              if (args[1] === "fetch") {
+                return {
+                  success: false,
+                  output: "",
+                  error: "fatal: could not read Username",
+                };
+              }
+              return { success: true, output: "", error: "" };
+            },
+          },
+          path: os.path,
+        };
+        const vcs = new VCS({ os: mockOs as any });
+
+        const result = await vcs.pullForce(
+          "/tmp/workdir",
+          "git",
+          undefined,
+          "main",
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toContain("could not read Username");
+        // Only fetches ran (branch fetch + all-refs fallback); no destructive
+        // commands (reset/clean) executed.
+        expect(captured.map((c) => c.cmd[1])).toEqual(["fetch", "fetch"]);
+      });
+
+      it("returns an explicit error for fossil repos without running any command", async () => {
+        let ran = false;
+        const mockOs = {
+          ...os,
+          env: { ...os.env, getAll: () => ({}) },
+          fs: os.fs,
+          command: {
+            run: async () => {
+              ran = true;
+              return { success: true, output: "", error: "" };
+            },
+          },
+          path: os.path,
+        };
+        const vcs = new VCS({ os: mockOs as any });
+
+        const result = await vcs.pullForce("/tmp/workdir", "fossil");
+
+        expect(ran).toBe(false);
+        expect(result.success).toBe(false);
+        expect(result.error).toBe(
+          "Pull force is not supported for Fossil repositories",
+        );
+      });
+
+      it("applies GIT_SSH_COMMAND to fetch when credential is ssh", async () => {
+        const capturedEnvs: Array<Record<string, string> | undefined> = [];
+        const mockOs = {
+          ...os,
+          env: { ...os.env, getAll: () => ({}) },
+          fs: os.fs,
+          command: {
+            run: async (_args: string[], opts?: any) => {
+              capturedEnvs.push(opts?.env);
+              if (_args[1] === "rev-parse") {
+                return { success: true, output: "abc123\n", error: "" };
+              }
+              return { success: true, output: "", error: "" };
+            },
+          },
+          path: os.path,
+        };
+        const vcs = new VCS({ os: mockOs as any });
+
+        await vcs.pullForce(
+          "/tmp/workdir",
+          "git",
+          { type: "ssh", privateKey: "test-key" },
+          "main",
+        );
+
+        const sshEnv = capturedEnvs.find((e) => e?.GIT_SSH_COMMAND);
+        expect(sshEnv?.GIT_SSH_COMMAND).toBeDefined();
+        expect(sshEnv?.GIT_SSH_COMMAND).toContain("-i ");
+        expect(sshEnv?.GIT_SSH_COMMAND).toContain("-o IdentitiesOnly=yes");
+      });
+
+      it("applies GIT_SSH_COMMAND with -p when clonePort set and no SSH credential", async () => {
+        const capturedEnvs: Array<Record<string, string> | undefined> = [];
+        const mockOs = {
+          ...os,
+          env: { ...os.env, getAll: () => ({}) },
+          fs: os.fs,
+          command: {
+            run: async (_args: string[], opts?: any) => {
+              capturedEnvs.push(opts?.env);
+              if (_args[1] === "rev-parse") {
+                return { success: true, output: "abc123\n", error: "" };
+              }
+              return { success: true, output: "", error: "" };
+            },
+          },
+          path: os.path,
+        };
+        const vcs = new VCS({ os: mockOs as any });
+
+        await vcs.pullForce("/tmp/workdir", "git", undefined, "main", 3022);
+
+        const sshEnv = capturedEnvs.find((e) => e?.GIT_SSH_COMMAND);
+        expect(sshEnv?.GIT_SSH_COMMAND).toBeDefined();
+        expect(sshEnv?.GIT_SSH_COMMAND).toContain("-p 3022");
+        expect(sshEnv?.GIT_SSH_COMMAND).not.toContain("-i ");
+      });
+    });
+
     describe("Branch Operations", () => {
       describe("createBranch", () => {
         it("should create a new branch in Git repository", async () => {

@@ -134,7 +134,15 @@ describe("Commit Preview Performance", () => {
       });
 
       const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Perf Project",
         owner: "testuser",
@@ -215,7 +223,15 @@ describe("Commit Preview Performance", () => {
       });
 
       const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Perf Project",
         owner: "testuser",
@@ -277,7 +293,15 @@ describe("Commit Preview Performance", () => {
       });
 
       const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Exclude Project",
         owner: "testuser",
@@ -328,7 +352,15 @@ describe("Commit Preview Performance", () => {
       });
 
       const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Two Endpoint Project",
         owner: "testuser",
@@ -387,7 +419,15 @@ describe("Commit Preview Performance", () => {
       });
 
       const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Cache Project",
         owner: "testuser",
@@ -452,7 +492,15 @@ describe("Commit Preview Performance", () => {
       });
 
       const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Shared Cache Project",
         owner: "testuser",
@@ -551,7 +599,15 @@ describe("Commit Preview Performance", () => {
     it("derives changed files without a whole-repo patch or reading .git, copying only the selected file", async () => {
       const ctx = await newCtx();
       const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "No-Patch Project",
         owner: "testuser",
@@ -629,7 +685,15 @@ describe("Commit Preview Performance", () => {
     it("commits only the selected file, leaving the others pending", async () => {
       const ctx = await newCtx();
       const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Selective Project",
         owner: "testuser",
@@ -675,7 +739,15 @@ describe("Commit Preview Performance", () => {
     it("honors applyStatuses, committing only files with selected statuses", async () => {
       const ctx = await newCtx();
       const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Status Project",
         owner: "testuser",
@@ -735,7 +807,15 @@ describe("Commit Preview Performance", () => {
     it("rejects selected paths that are not part of the changed set", async () => {
       const ctx = await newCtx();
       const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Validation Project",
         owner: "testuser",
@@ -783,7 +863,15 @@ describe("Commit Preview Performance", () => {
         label: string,
       ): Promise<{ upstreamPath: string; sessionId: string }> {
         const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType, mountPath: "." }],
+          repositories: [
+            {
+              id: "default",
+              name: "default",
+              repoUrl: "https://github.com/test/repo.git",
+              repoType,
+              mountPath: ".",
+            },
+          ],
 
           name: `Parity ${label}`,
           owner: "testuser",
@@ -882,7 +970,15 @@ describe("Commit Preview Performance", () => {
       });
 
       const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Cache Project",
         owner: "testuser",
@@ -989,7 +1085,15 @@ describe("Commit Preview Performance", () => {
       });
 
       const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Post-commit Preview Project",
         owner: "testuser",

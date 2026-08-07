@@ -782,6 +782,120 @@ export class VCS {
   }
 
   /**
+   * Hard-reset a git worktree to remote HEAD, discarding ALL local commits and
+   * untracked files. Runs `git fetch origin <branch>` (with SSH env when the
+   * credential/clonePort require it, mirroring `pushUpstream`), `git reset
+   * --hard origin/<branch>`, and `git clean -fd` so the worktree truly matches
+   * the remote. Returns the new remote HEAD SHA as `output` so callers can
+   * persist it as the baseline.
+   *
+   * Fossil is intentionally unsupported (the platform is migrating off Fossil);
+   * it returns an explicit error so multi-repo fan-out stays observable instead
+   * of silently skipping the repo.
+   */
+  async pullForce(
+    workDir: string,
+    repoType: "git" | "fossil",
+    credential?: Credential,
+    branch?: string,
+    clonePort?: number,
+  ): Promise<VCSResult> {
+    if (repoType === "fossil") {
+      return {
+        success: false,
+        error: "Pull force is not supported for Fossil repositories",
+      };
+    }
+
+    let sshKeyPath: string | null = null;
+    let env: Record<string, string> | undefined = undefined;
+
+    if (credential?.type === "ssh" || clonePort != null) {
+      if (credential?.type === "ssh") {
+        sshKeyPath = this.createTempSshKeyFile(credential.privateKey);
+      }
+      env = {
+        GIT_SSH_COMMAND: this.buildGitSshCommand(
+          sshKeyPath ?? undefined,
+          clonePort,
+        ),
+      };
+    }
+
+    try {
+      let remoteRef = branch || "HEAD";
+      const fetchArgs = branch
+        ? ["git", "fetch", "origin", branch]
+        : ["git", "fetch", "origin"];
+      let fetchResult = await this.execCommand(fetchArgs, workDir, env);
+      if (!fetchResult.success && branch) {
+        // The named branch may not exist on the remote (e.g. a local-only
+        // feature branch). Fall back to fetching all refs and resetting to
+        // the remote's default branch — pull force means "discard everything
+        // and return to remote state", so this is the correct behavior.
+        const fallbackResult = await this.execCommand(
+          ["git", "fetch", "origin"],
+          workDir,
+          env,
+        );
+        if (fallbackResult.success) {
+          fetchResult = fallbackResult;
+          remoteRef = "HEAD";
+        }
+      }
+      if (!fetchResult.success) {
+        return {
+          success: false,
+          output: fetchResult.output,
+          error: fetchResult.error || "git fetch failed",
+        };
+      }
+
+      const resetResult = await this.execCommand(
+        ["git", "reset", "--hard", `origin/${remoteRef}`],
+        workDir,
+      );
+      if (!resetResult.success) {
+        return {
+          success: false,
+          output: resetResult.output,
+          error: resetResult.error || "git reset --hard failed",
+        };
+      }
+
+      const cleanResult = await this.execCommand(
+        ["git", "clean", "-fd"],
+        workDir,
+      );
+      if (!cleanResult.success) {
+        return {
+          success: false,
+          output: cleanResult.output,
+          error: cleanResult.error || "git clean -fd failed",
+        };
+      }
+
+      const revResult = await this.execCommand(
+        ["git", "rev-parse", `origin/${remoteRef}`],
+        workDir,
+      );
+      if (!revResult.success) {
+        return {
+          success: false,
+          output: revResult.output,
+          error: revResult.error || "git rev-parse failed",
+        };
+      }
+
+      return { success: true, output: revResult.output.trim() };
+    } finally {
+      if (sshKeyPath) {
+        await this.deleteTempSshKeyFile(sshKeyPath);
+      }
+    }
+  }
+
+  /**
    * Write the platform checkout's `.git/info/exclude` from EXCLUDED_PATHS plus
    * the upstream `.gitignore`/`.mimoignore`. Replaces `syncIgnoresToFossil`.
    * (The remote agent writes its own exclude at clone time.)

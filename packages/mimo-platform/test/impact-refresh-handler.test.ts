@@ -42,8 +42,11 @@ describe("impact refresh handler", () => {
   it("fans out per session repository and aggregates metrics", async () => {
     const calculatingSessions = new Set<string>();
     const sent: Array<Record<string, unknown>> = [];
-    const calls: Array<{ upstream: string; workspace: string; repoId?: string }> =
-      [];
+    const calls: Array<{
+      upstream: string;
+      workspace: string;
+      repoId?: string;
+    }> = [];
 
     const metricsFor = (added: number) => ({
       metrics: {

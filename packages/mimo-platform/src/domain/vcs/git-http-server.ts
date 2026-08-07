@@ -121,7 +121,12 @@ export class GitHttpServer {
    */
   private repoTargetFromPath(
     pathname: string,
-  ): { sessionId: string; repoId?: string; repoName: string; rest: string } | null {
+  ): {
+    sessionId: string;
+    repoId?: string;
+    repoName: string;
+    rest: string;
+  } | null {
     const legacy = pathname.match(/^\/([^/]+)\.git(\/.*)?$/);
     if (legacy) {
       return {
@@ -187,7 +192,11 @@ export class GitHttpServer {
 
     let authorized = false;
     try {
-      authorized = await this.verify(target.sessionId, creds.user, creds.password);
+      authorized = await this.verify(
+        target.sessionId,
+        creds.user,
+        creds.password,
+      );
     } catch (err) {
       logger.error("[GitHttpServer] Credential verifier threw:", err);
       authorized = false;

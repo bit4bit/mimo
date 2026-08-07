@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { FC } from "hono/jsx";
 import { Layout } from "../../../shared/components/Layout.js";
-import {
-  RepositoryPicker,
-  type PickerRepository,
-} from "./RepositoryPicker.js";
+import { RepositoryPicker, type PickerRepository } from "./RepositoryPicker.js";
 
 interface ProjectCreateProps {
   error?: string;

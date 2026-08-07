@@ -29,7 +29,15 @@ describe("Projects nested sessions with mimoContext", () => {
     });
 
     const project = await mimoContext.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/example/repo.git", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/example/repo.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "Nested Sessions Context Project",
       owner: "tester",

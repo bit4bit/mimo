@@ -31,7 +31,15 @@ describe("Session findByThreadAgentId", () => {
 
   it("returns sessions that have at least one thread assigned to the agent", async () => {
     const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/user/repo.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "Test Project",
       owner: "testuser",
@@ -60,7 +68,15 @@ describe("Session findByThreadAgentId", () => {
 
   it("returns empty array when no threads are assigned to that agent", async () => {
     const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/user/repo.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "Empty Project",
       owner: "testuser",
@@ -87,7 +103,15 @@ describe("Session findByThreadAgentId", () => {
 
   it("does not return sessions with threads assigned to a different agent", async () => {
     const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/user/repo.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "Multi-agent Project",
       owner: "testuser",
@@ -114,7 +138,15 @@ describe("Session findByThreadAgentId", () => {
 
   it("persists and reloads brainWash field via updateChatThread", async () => {
     const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/user/repo.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "BrainWash Project",
       owner: "testuser",
@@ -149,7 +181,15 @@ describe("Session findByThreadAgentId", () => {
 
   it("brainWash defaults to false for threads loaded from YAML without the field", async () => {
     const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/user/repo.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "BackCompat Project",
       owner: "testuser",
@@ -212,7 +252,15 @@ describe("Session creation without agent assignment", () => {
 
   it("creates session without assignedAgentId even when provided in body", async () => {
     const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/user/repo.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "No Agent Project",
       owner: "testuser",

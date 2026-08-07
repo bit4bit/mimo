@@ -158,20 +158,37 @@ export function createCommitRoutes(mimoContext: MimoContext): Hono {
     return c.json(body, status);
   });
 
+  // POST /commits/:sessionId/pull-force - Hard-reset repo(s) to remote HEAD
+  router.post("/:sessionId/pull-force", async (c: Context) => {
+    const sessionId = c.req.param("sessionId");
+    const requestBody = await c.req.json().catch(() => ({}));
+    const repoId = c.req.query("repoId") ?? requestBody?.repoId;
+
+    const result = await service.pullForceAcrossRepos(sessionId, repoId);
+
+    const status = result.success ? 200 : 400;
+    const responseBody: Record<string, unknown> = {
+      success: result.success,
+      message: result.message,
+      results: result.results,
+    };
+
+    return c.json(responseBody, status);
+  });
+
   // POST /commits/:sessionId/push-force - Force push to remote
   router.post("/:sessionId/push-force", async (c: Context) => {
     const sessionId = c.req.param("sessionId");
     const requestBody = await c.req.json().catch(() => ({}));
     const repoId = c.req.query("repoId") ?? requestBody?.repoId;
 
-    const result = await service.forcePush(sessionId, repoId);
+    const result = await service.forcePushAcrossRepos(sessionId, repoId);
 
     const status = result.success ? 200 : 400;
     const responseBody: Record<string, unknown> = {
       success: result.success,
       message: result.message,
-      error: result.error,
-      step: result.step,
+      results: result.results,
     };
 
     return c.json(responseBody, status);

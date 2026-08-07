@@ -123,7 +123,13 @@ describe("GitHttpServer Integration", () => {
 
     const dest = join(home, "clone-backend");
     const result = await os.command.run(
-      ["git", "clone", "-q", `http://${USER}:${PASS}@localhost:${port}${new URL(server.getUrl(sid, repoId)).pathname}`, dest],
+      [
+        "git",
+        "clone",
+        "-q",
+        `http://${USER}:${PASS}@localhost:${port}${new URL(server.getUrl(sid, repoId)).pathname}`,
+        dest,
+      ],
       { timeoutMs: 30000 },
     );
     expect(result.success).toBe(true);

@@ -223,9 +223,9 @@ describe("ProjectVcsCache integration", () => {
     expect(existsSync(join(projectsPath, projectId, "cache-backend.git"))).toBe(
       true,
     );
-    expect(existsSync(join(projectsPath, projectId, "cache-frontend.git"))).toBe(
-      true,
-    );
+    expect(
+      existsSync(join(projectsPath, projectId, "cache-frontend.git")),
+    ).toBe(true);
     expect(existsSync(join(backendTarget, "backend.md"))).toBe(true);
     expect(existsSync(join(frontendTarget, "frontend.md"))).toBe(true);
 
@@ -233,8 +233,8 @@ describe("ProjectVcsCache integration", () => {
     expect(existsSync(join(projectsPath, projectId, "cache-backend.git"))).toBe(
       false,
     );
-    expect(existsSync(join(projectsPath, projectId, "cache-frontend.git"))).toBe(
-      false,
-    );
+    expect(
+      existsSync(join(projectsPath, projectId, "cache-frontend.git")),
+    ).toBe(false);
   }, 30000);
 });

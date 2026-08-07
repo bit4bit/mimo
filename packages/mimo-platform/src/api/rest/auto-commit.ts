@@ -174,9 +174,7 @@ export async function syncSessionViaAssignedAgent(
 
     if (agentResult.success) {
       if (!agentResult.noChanges) {
-        const sessionRepos = Array.isArray(session.repos)
-          ? session.repos
-          : [];
+        const sessionRepos = Array.isArray(session.repos) ? session.repos : [];
 
         if (sessionRepos.length > 0) {
           // Fan out per repository: ensure each platform-side checkout exists,
@@ -193,12 +191,10 @@ export async function syncSessionViaAssignedAgent(
               !context.os.fs.exists(repoPath) &&
               repo.projectRepoId === "default"
             ) {
-              repoPath = context.sessionRepository.getSessionRepoPath(sessionId);
+              repoPath =
+                context.sessionRepository.getSessionRepoPath(sessionId);
             }
-            const gitDirPath = context.os.path.join(
-              repo.workspacePath,
-              ".git",
-            );
+            const gitDirPath = context.os.path.join(repo.workspacePath, ".git");
 
             if (context.os.fs.exists(repoPath)) {
               if (!context.os.fs.exists(gitDirPath)) {
@@ -243,7 +239,9 @@ export async function syncSessionViaAssignedAgent(
             }
           }
 
-          const upResult = await context.vcs.gitPull(session.agentWorkspacePath);
+          const upResult = await context.vcs.gitPull(
+            session.agentWorkspacePath,
+          );
           if (!upResult.success) {
             throw new Error(
               upResult.error ||

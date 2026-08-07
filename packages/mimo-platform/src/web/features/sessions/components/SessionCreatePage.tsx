@@ -227,7 +227,10 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
             <p class="session-create-help">
               Defaults to the session name (slugified). Edit to override, or
               clear to use the project default
-              {project.repositories?.[0]?.newBranch ? ` (${project.repositories[0].newBranch})` : " (none)"}.
+              {project.repositories?.[0]?.newBranch
+                ? ` (${project.repositories[0].newBranch})`
+                : " (none)"}
+              .
             </p>
 
             {prefillNotes !== undefined && (

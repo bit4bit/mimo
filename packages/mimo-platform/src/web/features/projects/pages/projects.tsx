@@ -49,8 +49,7 @@ function buildPickedRepositories(
         id: managed.name,
         name: managed.name,
         repoId: managed.id,
-        mountPath:
-          (body[`mountPath_${id}`] as string)?.trim() || managed.name,
+        mountPath: (body[`mountPath_${id}`] as string)?.trim() || managed.name,
         sourceBranch:
           (body[`sourceBranch_${id}`] as string)?.trim() || undefined,
         newBranch: (body[`newBranch_${id}`] as string)?.trim() || undefined,

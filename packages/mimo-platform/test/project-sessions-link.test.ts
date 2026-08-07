@@ -96,7 +96,15 @@ describe("Project Sessions Link Integration Tests", () => {
       const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -136,7 +144,15 @@ describe("Project Sessions Link Integration Tests", () => {
       const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Empty Project",
         owner: "testuser",
@@ -161,7 +177,15 @@ describe("Project Sessions Link Integration Tests", () => {
       const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -187,7 +211,15 @@ describe("Project Sessions Link Integration Tests", () => {
       const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",
@@ -218,7 +250,15 @@ describe("Project Sessions Link Integration Tests", () => {
       const token = await mimoContext.services.auth.generateToken("testuser");
 
       const project = await projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",

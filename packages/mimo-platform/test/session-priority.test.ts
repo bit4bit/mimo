@@ -85,7 +85,15 @@ describe("Session Priority", () => {
 
   async function createProject(owner = "testuser") {
     return projectRepository.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user/repo.git", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/user/repo.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "Test Project",
       owner,

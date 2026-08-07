@@ -190,4 +190,9 @@ export const defaultHelpContent: HelpContent = {
     content:
       "When the session is pinned, each chip is a group this session belongs to. Click × to remove the session from that group. Click '+ add group' to pin this session under another group, typing either a new name or selecting one of your existing groups. Removing the last chip unpins the session. The 5-entry pin cap counts all group rows for the session.",
   },
+  "commit-buffer-pull-force-btn-button": {
+    title: "Pull Force",
+    content:
+      "Destructive: discards ALL local commits and changes and resets the repository to the remote HEAD. If a specific repository is selected, only that repository is affected; with 'All repositories' selected, every repository in the session is reset. A confirmation dialog lists the affected repositories before anything is changed.",
+  },
 };

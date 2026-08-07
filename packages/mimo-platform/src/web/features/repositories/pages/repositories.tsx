@@ -91,7 +91,10 @@ export function createRepositoriesRoutes(mimoContext: MimoContext): Hono {
         400,
       );
     }
-    if (clonePort !== undefined && (!Number.isInteger(clonePort) || clonePort < 1 || clonePort > 65535)) {
+    if (
+      clonePort !== undefined &&
+      (!Number.isInteger(clonePort) || clonePort < 1 || clonePort > 65535)
+    ) {
       return c.html(
         <RepositoryCreatePage
           credentials={credentials}

@@ -85,6 +85,19 @@ export interface MultiRepoCommitResult {
   results: RepoCommitResult[];
 }
 
+export interface RepoActionResult {
+  repoId: string;
+  status: "succeeded" | "failed";
+  message: string;
+  error?: string;
+}
+
+export interface MultiRepoActionResult {
+  success: boolean;
+  message: string;
+  results: RepoActionResult[];
+}
+
 export interface CommitServiceDeps {
   sessionRepository: any;
   projectRepository: any;
@@ -92,7 +105,10 @@ export interface CommitServiceDeps {
     findById: (id: string, owner: string) => Promise<Credential | null>;
   };
   managedRepositories?: {
-    findById: (id: string, owner: string) => Promise<{
+    findById: (
+      id: string,
+      owner: string,
+    ) => Promise<{
       repoUrl: string;
       repoType: "git" | "fossil";
       credentialId?: string;
@@ -226,6 +242,19 @@ export class CommitService {
       ),
     });
   }
+
+  /**
+   * Best-effort recursive removal of a directory. Swallows errors so a missing
+   * or locked path doesn't abort the re-seed chain (the subsequent clone
+   * command will surface a real failure).
+   */
+  private async removePath(path: string): Promise<void> {
+    try {
+      await this.deps.os.fs.rmAsync(path, { recursive: true, force: true });
+    } catch {
+      // ignore — re-seed clone will report a genuine failure if needed
+    }
+  }
   private async getPreviewForRepo(
     session: any,
     repoId?: string,
@@ -332,7 +361,9 @@ export class CommitService {
     if (!session) {
       return { success: false, error: "Session not found" };
     }
-    const project = await this.deps.projectRepository.findById(session.projectId);
+    const project = await this.deps.projectRepository.findById(
+      session.projectId,
+    );
     if (!project) {
       return { success: false, error: "Project not found" };
     }
@@ -411,9 +442,7 @@ export class CommitService {
       };
     }
 
-    let project = await this.deps.projectRepository.findById(
-      session.projectId,
-    );
+    let project = await this.deps.projectRepository.findById(session.projectId);
     if (!project) {
       return {
         success: false,
@@ -722,7 +751,9 @@ export class CommitService {
         results: [],
       };
     }
-    const project = await this.deps.projectRepository.findById(session.projectId);
+    const project = await this.deps.projectRepository.findById(
+      session.projectId,
+    );
     if (!project) {
       return {
         success: false,
@@ -794,9 +825,7 @@ export class CommitService {
       };
     }
 
-    let project = await this.deps.projectRepository.findById(
-      session.projectId,
-    );
+    let project = await this.deps.projectRepository.findById(session.projectId);
     if (!project) {
       return {
         success: false,
@@ -876,6 +905,277 @@ export class CommitService {
       success: true,
       message: "Force push completed successfully",
       step: null,
+    };
+  }
+
+  /**
+   * Hard-reset one repository to remote HEAD, discarding all local commits and
+   * changes. Unlike a plain `git fetch + reset`, this reaches the real remote
+   * by first refreshing the project VCS cache (which uses the project
+   * credential — HTTPS creds injected into the URL, SSH via `GIT_SSH_COMMAND`),
+   * then resetting the platform upstream checkout to the fetched remote HEAD,
+   * then re-seeding the bare session mirror and re-cloning the agent workspace
+   * from that fresh mirror so every layer is consistent. The new remote HEAD is
+   * persisted as the per-repo baseline so the next commit preview is empty.
+   */
+  async pullForce(
+    sessionId: string,
+    repoId?: string,
+  ): Promise<RepoActionResult> {
+    let session = await this.deps.sessionRepository.findById(sessionId);
+    if (!session) {
+      return {
+        repoId: repoId ?? "default",
+        status: "failed",
+        message: "Session not found",
+        error: "Session not found",
+      };
+    }
+
+    let project = await this.deps.projectRepository.findById(session.projectId);
+    if (!project) {
+      return {
+        repoId: repoId ?? "default",
+        status: "failed",
+        message: "Project not found",
+        error: "Project not found",
+      };
+    }
+
+    let context: { session: any; project: any; repoId: string };
+    try {
+      context = await this.applyRepoContext(session, project, repoId);
+    } catch (error) {
+      return {
+        repoId: repoId ?? "default",
+        status: "failed",
+        message: "Repository not found",
+        error: error instanceof Error ? error.message : "Repository not found",
+      };
+    }
+
+    session = context.session;
+    project = context.project;
+    const resolvedRepoId = context.repoId;
+    const repoType = project.repoType;
+    const pullBranch = session.branch || project.newBranch || undefined;
+    let pullCredential: Credential | undefined;
+
+    if (project.credentialId) {
+      const credential = await this.deps.credentialRepository.findById(
+        project.credentialId,
+        project.owner,
+      );
+      if (!credential) {
+        return {
+          repoId: resolvedRepoId,
+          status: "failed",
+          message: "Pull force failed",
+          error: "Project credential not found",
+        };
+      }
+      pullCredential = credential;
+    }
+
+    const effectiveClonePort = session.clonePort ?? project.clonePort;
+
+    // 1. Reset the platform upstream checkout to remote HEAD. Its `origin`
+    //    points at the real remote (HTTPS credentials are baked into the URL at
+    //    clone time; SSH key is supplied via GIT_SSH_COMMAND by `pullForce`),
+    //    so this genuinely fetches new remote commits with the project
+    //    credential — no separate cache refresh needed.
+    const upstreamResult = await this.deps.vcs.pullForce(
+      session.upstreamPath,
+      repoType,
+      pullCredential,
+      pullBranch,
+      effectiveClonePort,
+    );
+
+    if (!upstreamResult.success) {
+      return {
+        repoId: resolvedRepoId,
+        status: "failed",
+        message: "Pull force failed",
+        error: upstreamResult.error || "Pull force failed",
+      };
+    }
+
+    // Fossil is intentionally unsupported beyond the upstream reset; the
+    // platform is migrating off Fossil and the re-seed chain below is git-only.
+    if (repoType === "fossil") {
+      return {
+        repoId: resolvedRepoId,
+        status: "succeeded",
+        message: "Pull force completed successfully",
+      };
+    }
+
+    // 2. Re-seed the bare session mirror from the reset upstream. The mirror's
+    //    `origin` points at the (now-stale) upstream, so it must be rebuilt
+    //    from the fresh upstream HEAD before the workspace can be re-cloned.
+    const bareMirrorPath =
+      typeof this.deps.sessionRepository.getSessionRepoPath === "function"
+        ? this.deps.sessionRepository.getSessionRepoPath(
+            session.id,
+            resolvedRepoId === "default" && !(session.repos?.length > 1)
+              ? undefined
+              : resolvedRepoId,
+          )
+        : undefined;
+
+    if (bareMirrorPath) {
+      await this.removePath(bareMirrorPath);
+    }
+    const seedResult = await this.deps.vcs.seedSessionRepo(
+      session.upstreamPath,
+      repoType,
+      bareMirrorPath ?? session.upstreamPath,
+      pullBranch,
+    );
+    if (!seedResult.success) {
+      // The upstream is reset but the mirror/workspace are stale; do NOT
+      // advance the baseline so the commit preview keeps flagging divergence.
+      return {
+        repoId: resolvedRepoId,
+        status: "failed",
+        message: "Pull force failed",
+        error: seedResult.error || "Failed to re-seed session repository",
+      };
+    }
+
+    // 3. Re-clone the agent workspace from the fresh bare mirror so it matches
+    //    the new remote HEAD exactly.
+    await this.removePath(session.agentWorkspacePath);
+    const checkoutResult = await this.deps.vcs.clonePlatformCheckout(
+      bareMirrorPath ?? session.upstreamPath,
+      session.agentWorkspacePath,
+      pullBranch,
+    );
+    if (!checkoutResult.success) {
+      return {
+        repoId: resolvedRepoId,
+        status: "failed",
+        message: "Agent workspace not aligned",
+        error: checkoutResult.error || "Agent workspace not aligned",
+      };
+    }
+
+    // 4. Persist the new remote HEAD as the per-repo baseline and invalidate
+    //    caches so the next preview reflects the reset state.
+    const newHead = seedResult.commitHash || upstreamResult.output;
+    if (newHead) {
+      await this.persistRepoBaseline(session, resolvedRepoId, newHead);
+    }
+    await this.invalidateCaches(session.id, session.upstreamPath);
+
+    return {
+      repoId: resolvedRepoId,
+      status: "succeeded",
+      message: "Pull force completed successfully",
+    };
+  }
+
+  /**
+   * Fan-out variant of `pullForce`. When `repoId` is falsy ("All repositories")
+   * every repo in the session is hard-reset and the per-repo results are
+   * aggregated, mirroring `commitAndPushAcrossRepos`.
+   */
+  async pullForceAcrossRepos(
+    sessionId: string,
+    repoId?: string,
+  ): Promise<MultiRepoActionResult> {
+    const session = await this.deps.sessionRepository.findById(sessionId);
+    if (!session) {
+      return { success: false, message: "Session not found", results: [] };
+    }
+    const project = await this.deps.projectRepository.findById(
+      session.projectId,
+    );
+    if (!project) {
+      return { success: false, message: "Project not found", results: [] };
+    }
+
+    const targets = repoId
+      ? session.repos.filter((repo: any) => repo.projectRepoId === repoId)
+      : session.repos;
+
+    if (targets.length === 0) {
+      return {
+        success: false,
+        message: "Repository not found",
+        results: [],
+      };
+    }
+
+    const results: RepoActionResult[] = [];
+    for (const repo of targets) {
+      results.push(await this.pullForce(sessionId, repo.projectRepoId));
+    }
+
+    const failed = results.filter((result) => result.status === "failed");
+    return {
+      success: failed.length === 0,
+      message:
+        failed.length > 0
+          ? `${failed.length} repository pull force(s) failed`
+          : "Pull force completed successfully",
+      results,
+    };
+  }
+
+  /**
+   * Fan-out variant of `forcePush`. When `repoId` is falsy ("All repositories")
+   * every repo in the session is force-pushed and per-repo results are
+   * aggregated. Previously the route called `forcePush(sessionId)` directly,
+   * which collapsed "All repositories" to the first repo via `applyRepoContext`.
+   */
+  async forcePushAcrossRepos(
+    sessionId: string,
+    repoId?: string,
+  ): Promise<MultiRepoActionResult> {
+    const session = await this.deps.sessionRepository.findById(sessionId);
+    if (!session) {
+      return { success: false, message: "Session not found", results: [] };
+    }
+    const project = await this.deps.projectRepository.findById(
+      session.projectId,
+    );
+    if (!project) {
+      return { success: false, message: "Project not found", results: [] };
+    }
+
+    const targets = repoId
+      ? session.repos.filter((repo: any) => repo.projectRepoId === repoId)
+      : session.repos;
+
+    if (targets.length === 0) {
+      return {
+        success: false,
+        message: "Repository not found",
+        results: [],
+      };
+    }
+
+    const results: RepoActionResult[] = [];
+    for (const repo of targets) {
+      const result = await this.forcePush(sessionId, repo.projectRepoId);
+      results.push({
+        repoId: repo.projectRepoId,
+        status: result.success ? "succeeded" : "failed",
+        message: result.message,
+        error: result.error,
+      });
+    }
+
+    const failed = results.filter((result) => result.status === "failed");
+    return {
+      success: failed.length === 0,
+      message:
+        failed.length > 0
+          ? `${failed.length} repository force push(es) failed`
+          : "Force push completed successfully",
+      results,
     };
   }
 

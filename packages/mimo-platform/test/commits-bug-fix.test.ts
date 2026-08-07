@@ -57,7 +57,15 @@ describe("Commit Service Bug Fix - Untracked Files Preservation", () => {
 
       // Create a project
       const project = await projectRepo.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/test/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Test Project",
         owner: "testuser",

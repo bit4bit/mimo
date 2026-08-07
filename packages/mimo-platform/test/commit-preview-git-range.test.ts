@@ -51,7 +51,15 @@ describe("CommitService git-range preview", () => {
   async function buildGitRangeSession(ctx: any) {
     const vcs = new VCS({ os });
     const project = await ctx.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/test/repo.git", repoType: "git", mountPath: "." }],
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/test/repo.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ],
 
       name: "Range Project",
       owner: "testuser",

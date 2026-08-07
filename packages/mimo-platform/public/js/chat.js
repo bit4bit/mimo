@@ -2587,9 +2587,7 @@ async function loadInitialImpact() {
   try {
     if (!(ChatState.impact.repos || []).length) {
       try {
-        const reposRes = await fetch(
-          `/sessions/${ChatState.sessionId}/repos`,
-        );
+        const reposRes = await fetch(`/sessions/${ChatState.sessionId}/repos`);
         if (reposRes.ok) {
           const reposData = await reposRes.json();
           ChatState.impact.repos = (reposData.repos || []).map(function (r) {

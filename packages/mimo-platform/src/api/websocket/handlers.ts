@@ -484,7 +484,13 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
             broadcastToSession(chatSessions, targetSessionId, message),
           findSessionById: (targetSessionId) =>
             sessionRepository.findById(targetSessionId),
-          calculateImpact: (sid, upstreamPath, workspacePath, forceRefresh, repoId) =>
+          calculateImpact: (
+            sid,
+            upstreamPath,
+            workspacePath,
+            forceRefresh,
+            repoId,
+          ) =>
             impactCalculator.calculateImpact(
               sid,
               upstreamPath,

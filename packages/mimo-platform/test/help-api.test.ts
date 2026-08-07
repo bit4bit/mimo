@@ -45,4 +45,17 @@ describe("GET /api/help", () => {
     expect(body["file-tree-leaf"]).toBeDefined();
     expect(body["file-tree-leaf"].content).toContain("Edit");
   });
+
+  it("contains the CommitBuffer Pull Force help entry", async () => {
+    const app = new Hono();
+    registerHelpRoutes(app);
+
+    const res = await app.request("/api/help");
+    const body = await res.json();
+
+    const entry = body["commit-buffer-pull-force-btn-button"];
+    expect(entry).toBeDefined();
+    expect(entry.title).toBe("Pull Force");
+    expect(entry.content).toContain("discards ALL local commits");
+  });
 });

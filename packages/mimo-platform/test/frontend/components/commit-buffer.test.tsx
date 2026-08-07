@@ -19,6 +19,24 @@ describe("CommitBuffer", () => {
     expect(html).toContain('id="force-push-btn"');
   });
 
+  it("renders the pull-force button to the left of the force-push button", async () => {
+    const { CommitBuffer } =
+      await import("../../../src/web/features/sessions/components/buffers/CommitBuffer.tsx");
+
+    const html = await renderToString(
+      jsx(CommitBuffer, { sessionId: "test-session" }),
+    );
+
+    expect(html).toContain('id="pull-force-btn"');
+    expect(html).toContain(
+      'data-help-id="commit-buffer-pull-force-btn-button"',
+    );
+    const pullForceIdx = html.indexOf('id="pull-force-btn"');
+    const forcePushIdx = html.indexOf('id="force-push-btn"');
+    expect(pullForceIdx).toBeGreaterThan(-1);
+    expect(forcePushIdx).toBeGreaterThan(pullForceIdx);
+  });
+
   it("does not render the former commit dialog modal", async () => {
     const { CommitBuffer } =
       await import("../../../src/web/features/sessions/components/buffers/CommitBuffer.tsx");

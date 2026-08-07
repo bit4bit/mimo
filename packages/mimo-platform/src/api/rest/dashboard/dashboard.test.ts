@@ -116,7 +116,15 @@ describe("Dashboard Internal API", () => {
     it("should return only user's projects", async () => {
       // Create a project for user1
       await mimoContext.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user1/project", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user1/project",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "User1 Project",
         owner: "user1",
@@ -124,7 +132,15 @@ describe("Dashboard Internal API", () => {
 
       // Create a project for user2
       await mimoContext.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user2/project", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user2/project",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "User2 Project",
         owner: "user2",
@@ -217,7 +233,15 @@ describe("Dashboard Internal API", () => {
 
       // Create a project with an active session
       const project = await mimoContext.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user1/stats-project", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user1/stats-project",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Stats Test Project",
         owner: "user1",
@@ -254,7 +278,15 @@ describe("Dashboard Internal API", () => {
     it("should return sessions sorted by creation date descending", async () => {
       // Create a project for sessions
       const project = await mimoContext.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user1/sort-project", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user1/sort-project",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "Session Sort Project",
         owner: "user1",
@@ -303,7 +335,15 @@ describe("Dashboard Internal API", () => {
     it("should only return user's sessions", async () => {
       // Create a project for user2
       const user2Project = await mimoContext.repos.projects.create({
-      repositories: [{ id: "default", name: "default", repoUrl: "https://github.com/user2/session-project", repoType: "git", mountPath: "." }],
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user2/session-project",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
 
         name: "User2 Session Project",
         owner: "user2",

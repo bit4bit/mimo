@@ -117,9 +117,7 @@ export class ManagedRepositoryRepository {
       repoUrl: input.repoUrl,
       repoType: input.repoType,
       ...(input.credentialId ? { credentialId: input.credentialId } : {}),
-      ...(input.clonePort !== undefined
-        ? { clonePort: input.clonePort }
-        : {}),
+      ...(input.clonePort !== undefined ? { clonePort: input.clonePort } : {}),
       owner: input.owner,
       createdAt: new Date().toISOString(),
     };
@@ -132,10 +130,7 @@ export class ManagedRepositoryRepository {
     return this.toEntity(data);
   }
 
-  async findById(
-    id: string,
-    owner: string,
-  ): Promise<ManagedRepository | null> {
+  async findById(id: string, owner: string): Promise<ManagedRepository | null> {
     const filePath = this.getRepositoryFilePath(owner, id);
     if (!(await this.os.fs.existsAsync(filePath))) {
       return null;

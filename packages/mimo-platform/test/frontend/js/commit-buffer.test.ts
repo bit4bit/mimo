@@ -31,6 +31,27 @@ function loadCommitBuffer(fakeWindow: any, fakeDocument: any) {
   (globalThis as any).AbortController = class {
     abort() {}
   };
+  // Shared repo-select helpers from public/js/utils.js (loaded globally in the
+  // browser via a <script> tag before commit-buffer.js).
+  (globalThis as any).fetchSessionRepoIds = async (sid: string) => {
+    const res = await fakeWindow.fetch(`/sessions/${sid}/repos`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.from(
+      new Set((data.repos || []).map((r: any) => r.repoId).filter(Boolean)),
+    ).sort();
+  };
+  (globalThis as any).populateRepoSelectOptions = (
+    selectEl: any,
+    repoIds: string[],
+    current?: string,
+  ) => {
+    const ids = Array.from(new Set((repoIds || []).filter(Boolean))).sort();
+    selectEl.innerHTML =
+      '<option value="">All repositories</option>' +
+      ids.map((id) => `<option value="${id}">${id}</option>`).join("");
+    selectEl.value = ids.includes(current) ? current : "";
+  };
   // eslint-disable-next-line @typescript-eslint/no-implied-eval
   (0, eval)(code);
 }
@@ -107,12 +128,22 @@ function makeDocument(panelActive: boolean): any {
     "total-count",
     "commit-refresh-btn",
     "sync-now-btn",
+    "pull-force-btn",
     "force-push-btn",
+    "commit-repo-select",
+    "commit-repo-results",
     "sync-status",
   ];
   const els: Record<string, any> = {};
   for (const id of ids) els[id] = makeEl(id);
   els["commit-panel"] = panel;
+  // Track rendered per-repo result rows.
+  const resultsEl = makeEl("commit-repo-results");
+  resultsEl._children = [];
+  resultsEl.appendChild = (child: any) => {
+    resultsEl._children.push(child);
+  };
+  els["commit-repo-results"] = resultsEl;
   // Default filter checkbox states
   els["filter-added"].checked = true;
   els["filter-modified"].checked = true;
@@ -137,11 +168,27 @@ function makeDocument(panelActive: boolean): any {
   };
 }
 
-function makeWindow(panelActive: boolean): any {
+function makeWindow(
+  panelActive: boolean,
+  options: {
+    previewFiles?: any[];
+    confirmResponse?: boolean;
+    pullForceResult?: any;
+    pushForceResult?: any;
+    sessionRepos?: string[];
+  } = {},
+): any {
   const fetchCalls: { url: string; method: string; body?: any }[] = [];
+  const confirmMessages: string[] = [];
   const w: any = {
     MIMO_SESSION_ID: "session-1",
     location: { pathname: "/projects/p/sessions/session-1", reload: () => {} },
+    confirm: (msg: string) => {
+      confirmMessages.push(msg);
+      return options.confirmResponse !== undefined
+        ? options.confirmResponse
+        : true;
+    },
     fetch: async (url: string, opts: any = {}) => {
       fetchCalls.push({
         url,
@@ -155,11 +202,21 @@ function makeWindow(panelActive: boolean): any {
             success: true,
             preview: {
               summary: { added: 1, modified: 1, deleted: 0 },
-              files: [
+              files: options.previewFiles || [
                 { path: "src/a.ts", status: "added" },
                 { path: "src/b.ts", status: "modified" },
               ],
             },
+          }),
+        };
+      }
+      if (/\/sessions\/[^/]+\/repos$/.test(url)) {
+        return {
+          ok: true,
+          json: async () => ({
+            repos: (options.sessionRepos || ["repo-a", "repo-b"]).map(
+              (repoId: string) => ({ repoId, branch: null }),
+            ),
           }),
         };
       }
@@ -169,8 +226,22 @@ function makeWindow(panelActive: boolean): any {
       if (url.endsWith("/sync")) {
         return { ok: true, json: async () => ({ success: true }) };
       }
+      if (url.endsWith("/pull-force")) {
+        return {
+          ok: true,
+          json: async () =>
+            options.pullForceResult || {
+              success: true,
+              message: "Pull force completed successfully",
+              results: [],
+            },
+        };
+      }
       if (url.endsWith("/push-force")) {
-        return { ok: true, json: async () => ({ success: true }) };
+        return {
+          ok: true,
+          json: async () => options.pushForceResult || { success: true },
+        };
       }
       if (url.endsWith("/sync-status")) {
         return {
@@ -183,6 +254,7 @@ function makeWindow(panelActive: boolean): any {
     switchFrameBuffer: async () => {},
     MIMO_PATCH_BUFFER: { addPatch: () => {}, focusDiffPane: () => {} },
     _fetchCalls: fetchCalls,
+    _confirmMessages: confirmMessages,
   };
   w.document = makeDocument(panelActive);
   return w;
@@ -201,6 +273,8 @@ describe("commit-buffer.js behavior", () => {
     delete (globalThis as any).MutationObserver;
     delete (globalThis as any).setInterval;
     delete (globalThis as any).clearInterval;
+    delete (globalThis as any).fetchSessionRepoIds;
+    delete (globalThis as any).populateRepoSelectOptions;
   });
 
   beforeEach(() => {
@@ -290,11 +364,212 @@ describe("commit-buffer.js behavior", () => {
     expect(fpCalls[0].method).toBe("POST");
   });
 
+  it("Force Push with All repositories renders per-repo results", async () => {
+    fakeWindow = makeWindow(false, {
+      previewFiles: [
+        { path: "src/a.ts", status: "added", repoId: "repo-a" },
+        { path: "src/b.ts", status: "modified", repoId: "repo-b" },
+      ],
+      pushForceResult: {
+        success: false,
+        message: "1 repository force push(es) failed",
+        results: [
+          { repoId: "repo-a", status: "succeeded", message: "pushed" },
+          {
+            repoId: "repo-b",
+            status: "failed",
+            message: "fail",
+            error: "boom",
+          },
+        ],
+      },
+    });
+    loadCommitBuffer(fakeWindow, fakeWindow.document);
+    await fakeWindow.MIMO_COMMIT_BUFFER.activate();
+
+    await fakeWindow.MIMO_COMMIT_BUFFER.forcePush();
+
+    const resultsEl = fakeWindow.document.getElementById("commit-repo-results");
+    expect(resultsEl._children.length).toBe(2);
+    expect(resultsEl._children[0].textContent).toContain("repo-a");
+    expect(resultsEl._children[1].textContent).toContain("repo-b");
+    expect(resultsEl._children[1].textContent).toContain("failed");
+  });
+
+  it("Pull Force confirmation lists every repository in the session", async () => {
+    fakeWindow = makeWindow(false, {
+      previewFiles: [
+        { path: "src/a.ts", status: "added", repoId: "repo-a" },
+        { path: "src/b.ts", status: "modified", repoId: "repo-b" },
+      ],
+    });
+    loadCommitBuffer(fakeWindow, fakeWindow.document);
+    await fakeWindow.MIMO_COMMIT_BUFFER.activate();
+
+    await fakeWindow.MIMO_COMMIT_BUFFER.pullForce();
+
+    expect(fakeWindow._confirmMessages.length).toBe(1);
+    const message = fakeWindow._confirmMessages[0];
+    expect(message).toContain("Pull force will discard ALL local commits");
+    expect(message).toContain("repo-a");
+    expect(message).toContain("repo-b");
+  });
+
+  it("Pull Force with a specific repository selected lists only that repo", async () => {
+    fakeWindow = makeWindow(false, {
+      previewFiles: [
+        { path: "src/a.ts", status: "added", repoId: "repo-a" },
+        { path: "src/b.ts", status: "modified", repoId: "repo-b" },
+      ],
+    });
+    loadCommitBuffer(fakeWindow, fakeWindow.document);
+    await fakeWindow.MIMO_COMMIT_BUFFER.activate();
+    const select = fakeWindow.document.getElementById("commit-repo-select");
+    select.value = "repo-a";
+
+    await fakeWindow.MIMO_COMMIT_BUFFER.pullForce();
+
+    const message = fakeWindow._confirmMessages[0];
+    expect(message).toContain("repo-a");
+    expect(message).not.toContain("repo-b");
+    const pfCalls = fakeWindow._fetchCalls.filter(
+      (c: any) => c.url === "/commits/session-1/pull-force",
+    );
+    expect(JSON.parse(pfCalls[0].body)).toEqual({ repoId: "repo-a" });
+  });
+
+  it("Pull Force cancelled issues no request", async () => {
+    fakeWindow = makeWindow(false, {
+      previewFiles: [
+        { path: "src/a.ts", status: "added", repoId: "repo-a" },
+        { path: "src/b.ts", status: "modified", repoId: "repo-b" },
+      ],
+      confirmResponse: false,
+    });
+    loadCommitBuffer(fakeWindow, fakeWindow.document);
+    await fakeWindow.MIMO_COMMIT_BUFFER.activate();
+    fakeWindow._fetchCalls.length = 0;
+
+    await fakeWindow.MIMO_COMMIT_BUFFER.pullForce();
+
+    const pfCalls = fakeWindow._fetchCalls.filter(
+      (c: any) => c.url === "/commits/session-1/pull-force",
+    );
+    expect(pfCalls.length).toBe(0);
+  });
+
+  it("Pull Force accept posts to /commits/:sessionId/pull-force without a repoId for All", async () => {
+    fakeWindow = makeWindow(false, {
+      previewFiles: [
+        { path: "src/a.ts", status: "added", repoId: "repo-a" },
+        { path: "src/b.ts", status: "modified", repoId: "repo-b" },
+      ],
+    });
+    loadCommitBuffer(fakeWindow, fakeWindow.document);
+    await fakeWindow.MIMO_COMMIT_BUFFER.activate();
+    fakeWindow._fetchCalls.length = 0;
+
+    await fakeWindow.MIMO_COMMIT_BUFFER.pullForce();
+
+    const pfCalls = fakeWindow._fetchCalls.filter(
+      (c: any) => c.url === "/commits/session-1/pull-force",
+    );
+    expect(pfCalls.length).toBe(1);
+    expect(pfCalls[0].method).toBe("POST");
+    expect(JSON.parse(pfCalls[0].body)).toEqual({});
+  });
+
+  it("Pull Force success renders per-repo results and re-enables the button", async () => {
+    fakeWindow = makeWindow(false, {
+      previewFiles: [
+        { path: "src/a.ts", status: "added", repoId: "repo-a" },
+        { path: "src/b.ts", status: "modified", repoId: "repo-b" },
+      ],
+      pullForceResult: {
+        success: true,
+        message: "Pull force completed successfully",
+        results: [
+          { repoId: "repo-a", status: "succeeded", message: "ok" },
+          { repoId: "repo-b", status: "succeeded", message: "ok" },
+        ],
+      },
+    });
+    loadCommitBuffer(fakeWindow, fakeWindow.document);
+    await fakeWindow.MIMO_COMMIT_BUFFER.activate();
+
+    const pullBtn = fakeWindow.document.getElementById("pull-force-btn");
+    await fakeWindow.MIMO_COMMIT_BUFFER.pullForce();
+
+    const resultsEl = fakeWindow.document.getElementById("commit-repo-results");
+    expect(resultsEl._children.length).toBe(2);
+    expect(resultsEl._children[0].textContent).toContain("repo-a");
+    const statusEl = fakeWindow.document.getElementById("commit-status");
+    expect(statusEl.textContent).toContain("Pull force completed successfully");
+    expect(pullBtn.disabled).toBe(false);
+    expect(pullBtn.textContent).toBe("Pull Force");
+  });
+
   it("isActive reports whether the buffer is active", async () => {
     expect(fakeWindow.MIMO_COMMIT_BUFFER.isActive()).toBe(false);
     await fakeWindow.MIMO_COMMIT_BUFFER.activate();
     expect(fakeWindow.MIMO_COMMIT_BUFFER.isActive()).toBe(true);
     await fakeWindow.MIMO_COMMIT_BUFFER.deactivate();
     expect(fakeWindow.MIMO_COMMIT_BUFFER.isActive()).toBe(false);
+  });
+
+  it("repo selector shows all session repos even with no changed files", async () => {
+    fakeWindow = makeWindow(false, {
+      previewFiles: [],
+      sessionRepos: ["repo-a", "repo-b", "repo-c"],
+    });
+    loadCommitBuffer(fakeWindow, fakeWindow.document);
+    await fakeWindow.MIMO_COMMIT_BUFFER.activate();
+
+    const select = fakeWindow.document.getElementById("commit-repo-select");
+    expect(select.innerHTML).toContain(
+      '<option value="">All repositories</option>',
+    );
+    expect(select.innerHTML).toContain(
+      '<option value="repo-a">repo-a</option>',
+    );
+    expect(select.innerHTML).toContain(
+      '<option value="repo-b">repo-b</option>',
+    );
+    expect(select.innerHTML).toContain(
+      '<option value="repo-c">repo-c</option>',
+    );
+  });
+
+  it("repo selector fetches /sessions/:sessionId/repos once on first activation", async () => {
+    fakeWindow = makeWindow(false, { sessionRepos: ["repo-a", "repo-b"] });
+    loadCommitBuffer(fakeWindow, fakeWindow.document);
+    await fakeWindow.MIMO_COMMIT_BUFFER.activate();
+    fakeWindow._fetchCalls.length = 0;
+
+    await fakeWindow.MIMO_COMMIT_BUFFER.refresh();
+    const reposCalls = fakeWindow._fetchCalls.filter((c: any) =>
+      /\/sessions\/[^/]+\/repos$/.test(c.url),
+    );
+    expect(reposCalls.length).toBe(0);
+  });
+
+  it("repo selector merges session repos with changed-file repos", async () => {
+    fakeWindow = makeWindow(false, {
+      previewFiles: [{ path: "src/a.ts", status: "added", repoId: "repo-d" }],
+      sessionRepos: ["repo-a", "repo-b"],
+    });
+    loadCommitBuffer(fakeWindow, fakeWindow.document);
+    await fakeWindow.MIMO_COMMIT_BUFFER.activate();
+
+    const select = fakeWindow.document.getElementById("commit-repo-select");
+    expect(select.innerHTML).toContain(
+      '<option value="repo-a">repo-a</option>',
+    );
+    expect(select.innerHTML).toContain(
+      '<option value="repo-b">repo-b</option>',
+    );
+    expect(select.innerHTML).toContain(
+      '<option value="repo-d">repo-d</option>',
+    );
   });
 });
