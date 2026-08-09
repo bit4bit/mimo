@@ -272,10 +272,29 @@ export function createProjectsRoutes(
 
     const managedRepositories =
       await mimoContext.repos.managedRepositories.findByOwner(user.username);
+
+    const projectSessions = await sessionRepository.listByProject(
+      result.data.project.id,
+    );
+    const agentIds = new Set<string>();
+    for (const s of projectSessions) {
+      if (s.assignedAgentId) agentIds.add(s.assignedAgentId);
+      for (const t of s.chatThreads ?? []) {
+        if (t.assignedAgentId) agentIds.add(t.assignedAgentId);
+      }
+    }
+    let activeAgentCount = 0;
+    for (const agentId of agentIds) {
+      if (mimoContext.services.agents.isAgentOnline(agentId))
+        activeAgentCount++;
+    }
+
     return c.html(
       <ProjectEditPage
         project={result.data.project}
         repositories={managedRepositories}
+        sessionCount={projectSessions.length}
+        activeAgentCount={activeAgentCount}
       />,
     );
   });

@@ -904,7 +904,9 @@ describe("AgentMessageRouter", () => {
         .find((m: any) => m.type === "session_ready");
       expect(sent).toBeDefined();
       const threads = sent.sessions[0].chatThreads;
-      const withRd = threads.find((t: any) => t.chatThreadId === "thread-with-rd");
+      const withRd = threads.find(
+        (t: any) => t.chatThreadId === "thread-with-rd",
+      );
       const withoutRd = threads.find(
         (t: any) => t.chatThreadId === "thread-without-rd",
       );

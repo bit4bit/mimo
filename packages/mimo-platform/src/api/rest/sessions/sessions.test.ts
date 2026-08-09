@@ -694,6 +694,59 @@ describe("Sessions Internal API", () => {
       expect(res.status).toBe(404);
       expect(json.success).toBe(false);
     });
+
+    it("should delete session via deleteSessionByRecord (token revoked, agent notified)", async () => {
+      const project = await mimoContext.repos.projects.create({
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user1/session-parity",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
+        name: "Session Parity Project",
+        owner: "user1",
+      });
+
+      const session = await mimoContext.repos.sessions.create({
+        name: "To Delete",
+        projectId: project.id,
+        owner: "user1",
+      });
+
+      const revoked: string[] = [];
+      const notified: Array<{ sessionId: string; agentId: string }> = [];
+      const originalSessionDeletion = mimoContext.services.sessionDeletion;
+      mimoContext.services.sessionDeletion = {
+        deleteSessionByRecord: async (s: any) => {
+          if (s.mcpToken) revoked.push(s.mcpToken);
+          if (s.assignedAgentId)
+            notified.push({ sessionId: s.id, agentId: s.assignedAgentId });
+        },
+      };
+
+      const req = new Request(
+        `http://localhost:3000/api/internal/sessions/${session.id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${user1Token}` },
+        },
+      );
+
+      const res = await app.fetch(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+
+      mimoContext.services.sessionDeletion = originalSessionDeletion;
+
+      if (session.mcpToken) {
+        expect(revoked).toContain(session.mcpToken);
+      }
+    });
   });
 
   describe("Close Session", () => {

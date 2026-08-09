@@ -870,10 +870,124 @@ describe("Projects Internal API", () => {
       expect(json.success).toBe(false);
     });
 
-    it("should delete project successfully (skipped - mock OS rm limitation)", async () => {
-      // Skip this test due to mock OS rm implementation not supporting recursive deletion
-      // The handler is tested in integration tests against real OS
-      expect(true).toBe(true);
+    it("should delete project with no sessions and return success", async () => {
+      const project = await mimoContext.repos.projects.create({
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user1/delete-empty",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
+        name: "Empty Delete Project",
+        owner: "user1",
+      });
+
+      const req = new Request(
+        `http://localhost:3000/api/internal/projects/${project.id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${user1Token}` },
+        },
+      );
+
+      const res = await app.fetch(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.data.success).toBe(true);
+
+      const after = await mimoContext.repos.projects.findById(project.id);
+      expect(after).toBeNull();
+    });
+
+    it("should cascade-delete all sessions when deleting a project", async () => {
+      const project = await mimoContext.repos.projects.create({
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user1/cascade-test",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
+        name: "Cascade Project",
+        owner: "user1",
+      });
+
+      const session1 = await mimoContext.repos.sessions.create({
+        name: "s1",
+        projectId: project.id,
+        owner: "user1",
+      });
+      const session2 = await mimoContext.repos.sessions.create({
+        name: "s2",
+        projectId: project.id,
+        owner: "user1",
+      });
+
+      const before = await mimoContext.repos.sessions.listByProject(project.id);
+      expect(before).toHaveLength(2);
+
+      const req = new Request(
+        `http://localhost:3000/api/internal/projects/${project.id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${user1Token}` },
+        },
+      );
+
+      const res = await app.fetch(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+
+      expect(await mimoContext.repos.projects.findById(project.id)).toBeNull();
+      const after = await mimoContext.repos.sessions.listByProject(project.id);
+      expect(after).toHaveLength(0);
+    });
+
+    it("should return JSON 500 (not HTML) when cascade throws", async () => {
+      const project = await mimoContext.repos.projects.create({
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user1/throw-test",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
+        name: "Throw Project",
+        owner: "user1",
+      });
+
+      mimoContext.services.projectDeletion = {
+        deleteProjectCascade: async () => {
+          throw new Error("boom");
+        },
+      };
+
+      const req = new Request(
+        `http://localhost:3000/api/internal/projects/${project.id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${user1Token}` },
+        },
+      );
+
+      const res = await app.fetch(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.success).toBe(false);
+      expect(json.error).toBe("boom");
+      expect(res.headers.get("content-type")).toContain("application/json");
     });
   });
 

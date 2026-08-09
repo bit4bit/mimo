@@ -456,9 +456,26 @@ export async function deleteProjectHandler(
     return c.json(errorResponse("Project not found", 404), 404);
   }
 
-  await mimoContext.services.projectVcsCache.clear(project.id, "git");
-  await mimoContext.services.projectVcsCache.clear(project.id, "fossil");
-  await mimoContext.repos.projects.delete(id);
+  try {
+    await mimoContext.services.projectDeletion.deleteProjectCascade({
+      id: project.id,
+      owner: project.owner,
+    });
+  } catch (error) {
+    logger.error("[projects] delete cascade failed", {
+      projectId: project.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return c.json(
+      errorResponse(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete project",
+        500,
+      ),
+      500,
+    );
+  }
 
   return c.json(successResponse({ success: true }));
 }
