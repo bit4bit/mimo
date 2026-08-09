@@ -674,6 +674,18 @@ export async function addChatThreadHandler(
     return c.json(errorResponse("assignedAgentId is required", 400), 400);
   }
 
+  let relativeDir: string | undefined;
+  if (body.relativeDir !== undefined && body.relativeDir !== null) {
+    try {
+      relativeDir = validateWorkspaceRelativeDir(body.relativeDir);
+    } catch (error) {
+      return c.json(
+        errorResponse(errorMessage(error, "Invalid relativeDir"), 400),
+        400,
+      );
+    }
+  }
+
   // The user may only assign agents they own or that are shared with them.
   if (
     !(await userMayUseAgent(mimoContext, body.assignedAgentId, user.username))
@@ -706,6 +718,7 @@ export async function addChatThreadHandler(
       state: body.state || "active",
       brainWash: body.brainWash ?? false,
       ...(instructions !== undefined && { instructions }),
+      ...(relativeDir !== undefined && { relativeDir }),
     });
   } catch (error) {
     return c.json(

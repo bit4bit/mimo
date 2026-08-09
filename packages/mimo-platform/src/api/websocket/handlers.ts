@@ -372,6 +372,9 @@ export function createWebSocketHandlers(deps: WebSocketHandlerDeps) {
                   acpSessionId: stateThread.acpSessionId,
                 }),
                 brainWash: stateThread?.brainWash ?? false,
+                ...(stateThread?.relativeDir && {
+                  relativeDir: stateThread.relativeDir,
+                }),
               }),
             );
           }

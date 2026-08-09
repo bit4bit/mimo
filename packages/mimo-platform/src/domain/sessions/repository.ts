@@ -31,6 +31,7 @@ export interface ChatThread {
   state: "active" | "parked" | "waking" | "disconnected";
   instructions?: string;
   brainWash: boolean;
+  relativeDir?: string;
   createdAt: string;
 }
 

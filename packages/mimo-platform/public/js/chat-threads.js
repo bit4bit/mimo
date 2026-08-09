@@ -54,7 +54,14 @@ async function throwIfNotOk(response) {
   }
 }
 
-async function createThread(name, model, mode, assignedAgentId, instructions) {
+async function createThread(
+  name,
+  model,
+  mode,
+  assignedAgentId,
+  instructions,
+  relativeDir,
+) {
   if (!ChatThreadsState.sessionId) return null;
 
   try {
@@ -69,6 +76,7 @@ async function createThread(name, model, mode, assignedAgentId, instructions) {
           mode,
           assignedAgentId,
           ...(instructions && { instructions }),
+          ...(relativeDir && { relativeDir }),
         }),
       },
     );
@@ -820,6 +828,22 @@ async function showCreateThreadDialog() {
         ">${window.MIMO_DEFAULT_INSTRUCTIONS || ""}</textarea>
         <small style="color: #888; font-size: 11px;">Overrides project/session instructions for this thread</small>
       </div>
+
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Working directory (optional)</label>
+        <input type="text" id="new-thread-relative-dir" placeholder="(session default)" style="
+          width: 100%;
+          padding: 8px;
+          background: #1a1a1a;
+          border: 1px solid #444;
+          color: #d4d4d4;
+          font-family: monospace;
+          font-size: 13px;
+          border-radius: 3px;
+          box-sizing: border-box;
+        ">
+        <small style="color: #888; font-size: 11px;">Subdirectory the agent starts in (overrides session/project default)</small>
+      </div>
       
       <div style="display: flex; gap: 10px; justify-content: flex-end;">
         <button type="button" id="cancel-create-thread" class="btn-secondary" style="
@@ -989,6 +1013,10 @@ async function showCreateThreadDialog() {
         }
 
         const instructions = instructionsInput?.value.trim() || "";
+        const relativeDirInput = document.querySelector(
+          "#new-thread-relative-dir",
+        );
+        const relativeDir = relativeDirInput?.value.trim() || "";
 
         const newThread = await createThread(
           name,
@@ -996,6 +1024,7 @@ async function showCreateThreadDialog() {
           mode,
           assignedAgentId,
           instructions,
+          relativeDir,
         );
         if (newThread) {
           dialog.remove();

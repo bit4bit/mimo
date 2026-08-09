@@ -831,6 +831,86 @@ describe("AgentMessageRouter", () => {
       expect(sent).toBeDefined();
       expect(sent.sessions[0].branch).toBeNull();
     });
+
+    it("includes each thread's relativeDir in the bootstrap payload", async () => {
+      expect(AgentMessageRouter).not.toBeNull();
+      const deps = makeMocks();
+
+      const session = {
+        id: "sess-rd",
+        name: "relativeDir session",
+        status: "active",
+        upstreamPath: "/fake/upstream",
+        agentWorkspacePath: "/fake/agent-workspace",
+        repos: [
+          {
+            projectRepoId: "default",
+            upstreamPath: "/fake/upstream",
+            workspacePath: "/fake/agent-workspace",
+          },
+        ],
+        agentSubpath: null,
+        relativeDir: null,
+        agentWorkspaceUser: "dev",
+        agentWorkspacePassword: "pw",
+        modelState: null,
+        modeState: null,
+        chatThreads: [
+          {
+            id: "thread-with-rd",
+            name: "Backend",
+            model: "claude-3",
+            mode: "code",
+            acpSessionId: "acp-1",
+            assignedAgentId: "agent-1",
+            state: "active",
+            brainWash: false,
+            relativeDir: "packages/backend",
+          },
+          {
+            id: "thread-without-rd",
+            name: "Root",
+            model: "claude-3",
+            mode: "code",
+            acpSessionId: "acp-2",
+            assignedAgentId: "agent-1",
+            state: "active",
+            brainWash: false,
+          },
+        ],
+        activeChatThreadId: "thread-with-rd",
+        mcpServerIds: [],
+      };
+
+      deps.sessionRepository.findByAssignedAgentId = mock(async () => [
+        session,
+      ]);
+      deps.sessionRepository.findByThreadAgentId = mock(async () => []);
+      deps.sessionRepository.findById = mock(async (id: string) =>
+        id === "sess-rd" ? session : null,
+      );
+
+      const router = makeRouter(deps);
+      const agentWs = { readyState: 1, send: mock(() => {}) };
+
+      await router.handle("agent-1", agentWs, {
+        type: "agent_ready",
+        agentId: "agent-1",
+        workdir: "/fake/workdir",
+      });
+
+      const sent = (agentWs.send as any).mock.calls
+        .map((c: any[]) => JSON.parse(c[0]))
+        .find((m: any) => m.type === "session_ready");
+      expect(sent).toBeDefined();
+      const threads = sent.sessions[0].chatThreads;
+      const withRd = threads.find((t: any) => t.chatThreadId === "thread-with-rd");
+      const withoutRd = threads.find(
+        (t: any) => t.chatThreadId === "thread-without-rd",
+      );
+      expect(withRd.relativeDir).toBe("packages/backend");
+      expect(withoutRd.relativeDir).toBeUndefined();
+    });
   });
 
   describe("session activity debounce", () => {

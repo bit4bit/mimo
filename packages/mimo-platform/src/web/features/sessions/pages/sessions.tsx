@@ -2711,6 +2711,9 @@ export function createSessionsRoutes(
         ...(body.instructions !== undefined && {
           instructions: body.instructions,
         }),
+        ...(body.relativeDir !== undefined && {
+          relativeDir: body.relativeDir,
+        }),
       },
     );
 
@@ -2855,6 +2858,10 @@ export function createSessionsRoutes(
                     mode: thread.mode,
                     acpSessionId: thread.acpSessionId,
                     state: thread.state,
+                    brainWash: thread.brainWash ?? false,
+                    ...(thread.relativeDir && {
+                      relativeDir: thread.relativeDir,
+                    }),
                   },
                 ],
                 activeChatThreadId: thread.id,

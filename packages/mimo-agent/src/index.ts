@@ -84,6 +84,7 @@ export class MimoAgent {
       mode?: string;
       acpSessionId?: string;
       brainWash?: boolean;
+      relativeDir?: string;
     }
   > = new Map();
   // Latest command inventory per session (thread fallback)
@@ -427,6 +428,7 @@ export class MimoAgent {
                 ...(thread.model && { model: thread.model }),
                 ...(thread.mode && { mode: thread.mode }),
                 brainWash: thread.brainWash ?? false,
+                ...(thread.relativeDir && { relativeDir: thread.relativeDir }),
               });
               logger.debug(
                 `[mimo-agent] Stored bootstrap config for thread ${thread.chatThreadId}: acpSessionId=${thread.acpSessionId}, model=${thread.model}, mode=${thread.mode}`,
@@ -876,9 +878,14 @@ export class MimoAgent {
       sessionInfo.acpProcess = null;
     }
 
-    const acpCwd = session.agentSubpath
-      ? this.os.path.join(sessionInfo.checkoutPath, session.agentSubpath)
-      : sessionInfo.checkoutPath;
+    const acpCwd = (() => {
+      const threadConfig = this.threadConfigs.get(key);
+      const effectiveSubpath =
+        threadConfig?.relativeDir ?? session.agentSubpath;
+      return effectiveSubpath
+        ? this.os.path.join(sessionInfo.checkoutPath, effectiveSubpath)
+        : sessionInfo.checkoutPath;
+    })();
 
     let spawnResult: Awaited<ReturnType<typeof this.provider.spawn>>;
     try {
@@ -1033,8 +1040,11 @@ export class MimoAgent {
       `[mimo-agent] Respawning ACP for ${sessionId}/${chatThreadId}`,
     );
 
-    const acpCwd = sessionInfo.agentSubpath
-      ? this.os.path.join(sessionInfo.checkoutPath, sessionInfo.agentSubpath)
+    const threadConfig = this.threadConfigs.get(key);
+    const effectiveSubpath =
+      threadConfig?.relativeDir ?? sessionInfo.agentSubpath;
+    const acpCwd = effectiveSubpath
+      ? this.os.path.join(sessionInfo.checkoutPath, effectiveSubpath)
       : sessionInfo.checkoutPath;
 
     let spawnResult: Awaited<ReturnType<typeof this.provider.spawn>>;
@@ -1986,7 +1996,8 @@ export class MimoAgent {
       message.model ||
       message.mode ||
       message.acpSessionId ||
-      message.brainWash !== undefined
+      message.brainWash !== undefined ||
+      message.relativeDir
     ) {
       const existing = this.threadConfigs.get(key);
       this.threadConfigs.set(key, {
@@ -1995,6 +2006,7 @@ export class MimoAgent {
         ...(message.mode && { mode: message.mode }),
         ...(message.acpSessionId && { acpSessionId: message.acpSessionId }),
         brainWash: message.brainWash ?? existing?.brainWash ?? false,
+        ...(message.relativeDir && { relativeDir: message.relativeDir }),
       });
       logger.debug(
         `[mimo-agent] Stored thread config for ${sessionId}/${chatThreadId}: model=${message.model}, mode=${message.mode}, acpSessionId=${message.acpSessionId}`,

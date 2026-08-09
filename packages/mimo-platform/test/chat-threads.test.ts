@@ -271,6 +271,85 @@ describe("Chat Threads API", () => {
     });
   });
 
+  describe("Thread working directory override", () => {
+    it("POST /sessions/:id/chat-threads stores relativeDir on the thread", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Backend Thread",
+            model: "claude-3",
+            mode: "code",
+            assignedAgentId: "agent-xyz",
+            relativeDir: "packages/backend",
+          }),
+        },
+      );
+
+      expect(res.status).toBe(201);
+      const thread = await res.json();
+      expect(thread.relativeDir).toBe("packages/backend");
+    });
+
+    it("POST /sessions/:id/chat-threads omits relativeDir when not provided", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Root Thread",
+            model: "claude-3",
+            mode: "code",
+            assignedAgentId: "agent-xyz",
+          }),
+        },
+      );
+
+      expect(res.status).toBe(201);
+      const thread = await res.json();
+      expect(thread.relativeDir).toBeUndefined();
+    });
+
+    it("POST /sessions/:id/chat-threads rejects invalid relativeDir with 400", async () => {
+      const { app, project, session, token } = await createUserProjectSession();
+
+      const res = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Bad Thread",
+            model: "claude-3",
+            mode: "code",
+            assignedAgentId: "agent-xyz",
+            relativeDir: "../escape",
+          }),
+        },
+      );
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toContain("relativeDir");
+    });
+  });
+
   // Task 1.3: model/mode isolation
   describe("Per-thread model and mode isolation", () => {
     it("PATCH /sessions/:id/chat-threads/:threadId updates one thread without affecting siblings", async () => {

@@ -75,6 +75,7 @@ export interface ChatThreadResponse {
   state: "active" | "parked" | "waking" | "disconnected";
   brainWash: boolean;
   instructions?: string;
+  relativeDir?: string;
   createdAt: string;
 }
 
@@ -236,6 +237,7 @@ export function toChatThreadResponse(thread: ChatThread): ChatThreadResponse {
     state: thread.state,
     brainWash: thread.brainWash,
     ...(thread.instructions && { instructions: thread.instructions }),
+    ...(thread.relativeDir && { relativeDir: thread.relativeDir }),
     createdAt: thread.createdAt,
   };
 }

@@ -411,6 +411,7 @@ export class AgentMessageRouter {
             acpSessionId: thread.acpSessionId,
             state: thread.state,
             brainWash: thread.brainWash ?? false,
+            ...(thread.relativeDir && { relativeDir: thread.relativeDir }),
           }));
 
           const sessionRepos = (sessionWithCreds?.repos ?? []).map((repo) => {
