@@ -26,12 +26,16 @@ interface ProjectEditProps {
   project: Project;
   repositories?: PickerRepository[];
   error?: string;
+  sessionCount?: number;
+  activeAgentCount?: number;
 }
 
 export const ProjectEditPage: FC<ProjectEditProps> = ({
   project,
   repositories = [],
   error,
+  sessionCount = 0,
+  activeAgentCount = 0,
 }) => {
   return (
     <Layout
@@ -112,6 +116,34 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({
 
           {error && <div class="error">{error}</div>}
         </form>
+
+        <div class="danger-zone">
+          <h2 class="danger-zone-title">Danger Zone</h2>
+          <div class="danger-zone-row">
+            <div class="danger-zone-info">
+              <strong>Delete this project</strong>
+              <p>
+                Removes the project, all {sessionCount} session(s), and
+                disconnects {activeAgentCount} active agent(s). This cannot be
+                undone.
+              </p>
+            </div>
+            <form
+              method="POST"
+              action={`/projects/${project.id}/delete`}
+              onsubmit={`return confirm("Delete project \\"${project.name}"?\n\nThis will remove ${sessionCount} session(s) and disconnect ${activeAgentCount} active agent(s).\nThis action cannot be undone.");`}
+            >
+              <button
+                type="submit"
+                class="btn-danger"
+                data-help-id="project-edit-page-delete-button"
+              >
+                Delete project
+              </button>
+            </form>
+          </div>
+        </div>
+
         <style>{`
           .project-textarea {
             background: #2d2d2d;
@@ -120,6 +152,41 @@ export const ProjectEditPage: FC<ProjectEditProps> = ({
             padding: 10px;
             font-family: monospace;
             width: 100%;
+          }
+          .danger-zone {
+            margin-top: 32px;
+            padding: 16px;
+            border: 1px solid #ff4444;
+            border-radius: 6px;
+            background: rgba(255, 68, 68, 0.05);
+          }
+          .danger-zone-title {
+            margin: 0 0 12px 0;
+            color: #ff6b6b;
+            font-size: 1.1em;
+          }
+          .danger-zone-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+          }
+          .danger-zone-info p {
+            margin: 4px 0 0 0;
+            color: #999;
+            font-size: 0.9em;
+          }
+          .btn-danger {
+            background: #ff4444;
+            color: #fff;
+            border: 1px solid #ff4444;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+          }
+          .btn-danger:hover {
+            background: #cc3333;
           }
         `}</style>
       </div>

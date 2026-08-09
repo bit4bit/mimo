@@ -476,10 +476,10 @@ export async function deleteSessionHandler(
 ): Promise<Response> {
   const guard = await resolveOwnedSession(c);
   if (!guard.ok) return guard.response;
-  const { user, mimoContext, session } = guard.value;
+  const { mimoContext, session } = guard.value;
   const id = session.id;
 
-  await mimoContext.repos.sessions.delete(session.projectId, id);
+  await mimoContext.services.sessionDeletion.deleteSessionByRecord(session);
 
   return c.json(successResponse({ success: true }));
 }

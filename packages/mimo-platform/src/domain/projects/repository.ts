@@ -372,16 +372,8 @@ export class ProjectRepository {
         await this.os.fs.unlinkAsync(projectFile);
       }
 
-      // Delete any other files in the directory
-      const entries = (await this.os.fs.readdirAsync(projectPath)) as string[];
-      for (const entry of entries) {
-        const entryPath = this.os.path.join(projectPath, entry);
-        if (await this.os.fs.existsAsync(entryPath)) {
-          await this.os.fs.unlinkAsync(entryPath);
-        }
-      }
-
-      // Delete the directory
+      // Recursively remove the project directory (handles sessions/,
+      // impacts/, cache.git, features.json, etc.)
       await this.os.fs.rmAsync(projectPath, { recursive: true, force: true });
     }
   }

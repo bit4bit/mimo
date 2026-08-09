@@ -119,9 +119,7 @@ export class GitHttpServer {
    * Extract the session/repository target from request paths like
    * `/<sid>.git/info/refs` or `/<sid>/<repoId>.git/info/refs`.
    */
-  private repoTargetFromPath(
-    pathname: string,
-  ): {
+  private repoTargetFromPath(pathname: string): {
     sessionId: string;
     repoId?: string;
     repoName: string;

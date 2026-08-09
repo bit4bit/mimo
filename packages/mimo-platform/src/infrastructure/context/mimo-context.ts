@@ -55,6 +55,15 @@ import {
   createProjectVcsCache,
   type ProjectVcsCache,
 } from "../../domain/projects/vcs-cache.js";
+import {
+  createProjectDeletionUseCase,
+  type ProjectDeletionLike,
+} from "../../domain/projects/project-deletion.js";
+import {
+  createSessionDeletionUseCase,
+  type SessionDeletionLike,
+} from "../../domain/sessions/session-deletion.js";
+import { mcpTokenStore } from "../../mcp/token-store.js";
 import { createOS } from "../os/node-adapter.js";
 import type { OS } from "../os/types.js";
 
@@ -128,6 +137,8 @@ export interface MimoContext {
     fileService: FileService;
     projectVcsCache: ProjectVcsCache;
     changedFilesCache: ChangedFilesCache;
+    projectDeletion: ProjectDeletionLike;
+    sessionDeletion: SessionDeletionLike;
     os: OS;
   };
 }
@@ -309,6 +320,41 @@ export function createMimoContext(
 
   const expertService = overrides.services?.expert ?? createExpertService(os);
 
+  const sessionDeletion =
+    overrides.services?.sessionDeletion ??
+    createSessionDeletionUseCase({
+      sessionRepository: repos.sessions,
+      sessionStateService,
+      fileSyncService:
+        overrides.services?.fileSync ??
+        new FileSyncService({
+          sessionRepository: repos.sessions,
+          sccService,
+          os,
+        }),
+      impactCalculator,
+      agentService:
+        overrides.services?.agents ??
+        new AgentService(repos.agents, env.JWT_SECRET),
+      mcpTokenStore,
+    });
+
+  const projectDeletion =
+    overrides.services?.projectDeletion ??
+    createProjectDeletionUseCase({
+      sessions: repos.sessions,
+      sessionDeletion,
+      pinnedSessions: repos.pinnedSessions,
+      projectVcsCache:
+        overrides.services?.projectVcsCache ??
+        createProjectVcsCache({
+          os,
+          projectsPath: paths.projects,
+          vcs,
+        }),
+      projects: repos.projects,
+    });
+
   const services: MimoContext["services"] = {
     auth: overrides.services?.auth ?? new JwtService(env.JWT_SECRET),
     agents:
@@ -378,6 +424,8 @@ export function createMimoContext(
         vcs,
       }),
     changedFilesCache: changedFilesCache,
+    sessionDeletion,
+    projectDeletion,
     os,
   };
 
