@@ -171,7 +171,13 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
                   ? `${project.repositories[0]!.mountPath}/packages/app`
                   : "packages/backend"
               }
-              value={project.agentSubpath ?? ""}
+              value={
+                project.agentSubpath ??
+                (project.repositories.length === 1
+                  ? project.repositories[0]!.name
+                  : "") ??
+                ""
+              }
               data-help-id="session-create-page-working-directory-input"
             />
             <p class="session-create-help">

@@ -965,6 +965,8 @@ describe("Session Management Integration Tests", () => {
       // Single unified field
       expect(html).toContain("Working directory (optional)");
       expect(html).toContain('name="workingDirectory"');
+      // Single-repo project pre-fills with the repo directory name
+      expect(html).toContain('value="default"');
       // Legacy separate fields are gone
       expect(html).not.toContain('name="agentSubpath"');
       expect(html).not.toContain('name="relativeDir"');
