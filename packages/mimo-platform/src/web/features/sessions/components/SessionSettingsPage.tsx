@@ -22,6 +22,7 @@ interface SessionSettingsPageProps {
     sessionName: string;
     assignedAgentName: string | null;
     agentSubpath: string | null;
+    relativeDir?: string | null;
     branch: string | null;
     mcpServerNames: string[];
     sessionType: string;
@@ -79,9 +80,11 @@ export const SessionSettingsPage: FC<SessionSettingsPageProps> = ({
                 </div>
               </div>
               <div class="settings-row">
-                <span class="settings-label">Agent working directory</span>
+                <span class="settings-label">Working directory</span>
                 <div class="settings-value">
-                  {creationSettings.agentSubpath || "Repository root"}
+                  {creationSettings.relativeDir ||
+                    creationSettings.agentSubpath ||
+                    "Repository root"}
                 </div>
               </div>
               <div class="settings-row">

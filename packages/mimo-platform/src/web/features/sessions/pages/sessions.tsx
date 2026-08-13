@@ -389,6 +389,7 @@ export function createSessionsRoutes(
     const body = await c.req.parseBody({ all: true });
     const name = body.name as string;
     const projectId = (body.projectId as string) || getProjectId(c);
+    const workingDirectoryRaw = (body.workingDirectory as string) || null;
     const agentSubpathRaw = (body.agentSubpath as string) || null;
     const relativeDirRaw = (body.relativeDir as string) || null;
     const branchName = (body.branchName as string) || null;
@@ -527,21 +528,31 @@ export function createSessionsRoutes(
       repositoryCredentials.set(repo.id, credential);
     }
 
-    const effectiveSubpath =
+    // Resolve the unified "workingDirectory" form field into the two
+    // internal storage fields. Legacy form field names (`agentSubpath`,
+    // `relativeDir`) are still accepted as fallbacks for back-compat.
+    //
+    // This preserves the pre-unification behavior: the value is stored
+    // as-is into both `agentSubpath` and `relativeDir` (the agent uses
+    // `relativeDir ?? agentSubpath` for cwd). No mount-path stripping is
+    // performed — the value is workspace-relative and the agent resolves
+    // it against the checkout root.
+    const workingDirectoryValue =
+      (workingDirectoryRaw?.trim() || undefined) ??
       (agentSubpathRaw?.trim() || undefined) ??
+      (relativeDirRaw?.trim() || undefined) ??
       project.agentSubpath ??
       undefined;
+
+    const effectiveSubpath = workingDirectoryValue;
     let effectiveRelativeDir: string | undefined;
     try {
-      effectiveRelativeDir =
-        (relativeDirRaw?.trim() || undefined) ?? effectiveSubpath ?? undefined;
-      if (effectiveRelativeDir) {
-        effectiveRelativeDir =
-          validateWorkspaceRelativeDir(effectiveRelativeDir);
-      }
+      effectiveRelativeDir = workingDirectoryValue
+        ? validateWorkspaceRelativeDir(workingDirectoryValue)
+        : undefined;
     } catch (error) {
       return c.text(
-        error instanceof Error ? error.message : "Invalid relativeDir",
+        error instanceof Error ? error.message : "Invalid workingDirectory",
         400,
       );
     }
@@ -2389,6 +2400,7 @@ export function createSessionsRoutes(
           sessionName: session.name,
           assignedAgentName: assignedAgentName,
           agentSubpath: session.agentSubpath,
+          relativeDir: session.relativeDir,
           branch: session.branch,
           mcpServerNames: mcpServerNames,
           sessionType: "standard",

@@ -931,6 +931,371 @@ describe("Session Management Integration Tests", () => {
     });
   });
 
+  describe("Unified Working Directory Field", () => {
+    it("renders a single Working directory input and no separate Agent/Workspace directory inputs", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
+        name: "Test Project",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions/new`, {
+        headers: { Cookie: `token=${token}` },
+      });
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+
+      // Single unified field
+      expect(html).toContain("Working directory (optional)");
+      expect(html).toContain('name="workingDirectory"');
+      // Single-repo project pre-fills with the repo directory name
+      expect(html).toContain('value="default"');
+      // Legacy separate fields are gone
+      expect(html).not.toContain('name="agentSubpath"');
+      expect(html).not.toContain('name="relativeDir"');
+      expect(html).not.toContain("Agent working directory");
+      expect(html).not.toContain("Workspace directory");
+    });
+
+    it("single-repo project placeholder is packages/backend", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
+        name: "Test Project",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions/new`, {
+        headers: { Cookie: `token=${token}` },
+      });
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain('placeholder="packages/backend"');
+      expect(html).toContain("Relative path within the repository");
+    });
+
+    it("multi-repo project placeholder includes a mount path and lists mount paths", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        repositories: [
+          {
+            id: "repob",
+            name: "repo-b",
+            repoUrl: "https://github.com/user/repo-b.git",
+            repoType: "git",
+            mountPath: "repo-b",
+          },
+          {
+            id: "repoa",
+            name: "repo-a",
+            repoUrl: "https://github.com/user/repo-a.git",
+            repoType: "git",
+            mountPath: "repo-a",
+          },
+        ],
+        name: "Multi Project",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions/new`, {
+        headers: { Cookie: `token=${token}` },
+      });
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      // Placeholder includes a mount path prefix (first repo)
+      expect(html).toContain('placeholder="repo-b/packages/app"');
+      // Help text lists available mount paths
+      expect(html).toContain("repo-a");
+      expect(html).toContain("repo-b");
+    });
+
+    it("pre-fills the input with project agentSubpath default", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
+        name: "Test Project",
+        owner: "testuser",
+        agentSubpath: "packages/api",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const res = await app.request(`/projects/${project.id}/sessions/new`, {
+        headers: { Cookie: `token=${token}` },
+      });
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain('value="packages/api"');
+    });
+
+    it("POST with workingDirectory stores agentSubpath and relativeDir for single-repo", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
+        name: "Test Project",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const createRes = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "WD Session",
+          workingDirectory: "packages/backend",
+        }).toString(),
+      });
+
+      expect(createRes.status).toBe(302);
+      const location = createRes.headers.get("location") || "";
+      const sessionId = location.split("/").pop();
+
+      const session = await sessionRepository.findById(sessionId);
+      expect(session.agentSubpath).toBe("packages/backend");
+      expect(session.relativeDir).toBe("packages/backend");
+    });
+
+    it("POST with workingDirectory including mount path stores both fields as-is", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        repositories: [
+          {
+            id: "repoa",
+            name: "repo-a",
+            repoUrl: "https://github.com/user/repo-a.git",
+            repoType: "git",
+            mountPath: "repo-a",
+          },
+        ],
+        name: "Multi Project",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const createRes = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "WD Multi Session",
+          workingDirectory: "repo-a/packages/app",
+        }).toString(),
+      });
+
+      expect(createRes.status).toBe(302);
+      const location = createRes.headers.get("location") || "";
+      const sessionId = location.split("/").pop();
+
+      const session = await sessionRepository.findById(sessionId);
+      expect(session.relativeDir).toBe("repo-a/packages/app");
+      expect(session.agentSubpath).toBe("repo-a/packages/app");
+    });
+
+    it("POST with empty workingDirectory inherits project agentSubpath default", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
+        name: "Test Project",
+        owner: "testuser",
+        agentSubpath: "packages/backend",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const createRes = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "Inherited WD Session",
+        }).toString(),
+      });
+
+      expect(createRes.status).toBe(302);
+      const location = createRes.headers.get("location") || "";
+      const sessionId = location.split("/").pop();
+
+      const session = await sessionRepository.findById(sessionId);
+      expect(session.agentSubpath).toBe("packages/backend");
+    });
+
+    it("POST with legacy agentSubpath field still accepted when workingDirectory absent", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
+        name: "Test Project",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const createRes = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "Legacy Field Session",
+          agentSubpath: "src/legacy",
+        }).toString(),
+      });
+
+      expect(createRes.status).toBe(302);
+      const location = createRes.headers.get("location") || "";
+      const sessionId = location.split("/").pop();
+
+      const session = await sessionRepository.findById(sessionId);
+      expect(session.agentSubpath).toBe("src/legacy");
+    });
+
+    it("POST with workingDirectory escaping workspace is rejected", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
+        name: "Test Project",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const createRes = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "Escape Session",
+          workingDirectory: "../escape",
+        }).toString(),
+      });
+
+      expect(createRes.status).toBe(400);
+    });
+  });
+
   describe("Session Listing", () => {
     it("should list all sessions for a project", async () => {
       const app = createTestApp(mimoContext, sessionRoutes);
@@ -2226,7 +2591,7 @@ describe("Session Management Integration Tests", () => {
         },
         body: new URLSearchParams({
           name: "Feature Branch Session",
-          agentSubpath: "src/backend",
+          workingDirectory: "src/backend",
           branchName: "feature/test",
         }).toString(),
       });
@@ -2255,7 +2620,7 @@ describe("Session Management Integration Tests", () => {
       expect(html).toContain("Feature Branch Session");
       expect(html).toContain("Assigned Agent");
       expect(html).toContain("myagent"); // agent name
-      expect(html).toContain("Agent working directory");
+      expect(html).toContain("Working directory");
       expect(html).toContain("src/backend");
       expect(html).not.toContain("Local Development Mirror");
       expect(html).not.toContain("/dev/mirror");
@@ -2320,7 +2685,7 @@ describe("Session Management Integration Tests", () => {
       expect(html).toContain("Simple Session");
       expect(html).toContain("Assigned Agent");
       expect(html).toContain("None"); // fallback for no agent
-      expect(html).toContain("Agent working directory");
+      expect(html).toContain("Working directory");
       expect(html).toContain("Repository root"); // fallback
       expect(html).not.toContain("Local Development Mirror");
       expect(html).not.toContain("Disabled");
@@ -2328,6 +2693,117 @@ describe("Session Management Integration Tests", () => {
       expect(html).toContain("Not set"); // fallback
       expect(html).toContain("MCP Servers");
       expect(html).toContain("None attached"); // fallback
+    });
+
+    it("shows a single Working directory row with effective value", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
+        name: "Test Project",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const createRes = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "WD Settings Session",
+          workingDirectory: "src/backend",
+        }).toString(),
+      });
+
+      expect(createRes.status).toBe(302);
+      const location = createRes.headers.get("location") || "";
+      const sessionId = location.split("/").pop();
+
+      const settingsRes = await app.request(
+        `/projects/${project.id}/sessions/${sessionId}/settings`,
+        {
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+
+      expect(settingsRes.status).toBe(200);
+      const html = await settingsRes.text();
+
+      // Single unified row
+      expect(html).toContain("Working directory");
+      expect(html).toContain("src/backend");
+      // Legacy separate labels are gone
+      expect(html).not.toContain("Agent working directory");
+      expect(html).not.toContain("Workspace directory");
+    });
+
+    it("shows Repository root fallback when no working directory is set", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        repositories: [
+          {
+            id: "default",
+            name: "default",
+            repoUrl: "https://github.com/user/repo.git",
+            repoType: "git",
+            mountPath: ".",
+          },
+        ],
+        name: "Test Project",
+        owner: "testuser",
+      });
+
+      const token = await authService.generateToken("testuser");
+
+      const createRes = await app.request(`/projects/${project.id}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({
+          name: "No WD Session",
+        }).toString(),
+      });
+
+      expect(createRes.status).toBe(302);
+      const location = createRes.headers.get("location") || "";
+      const sessionId = location.split("/").pop();
+
+      const settingsRes = await app.request(
+        `/projects/${project.id}/sessions/${sessionId}/settings`,
+        {
+          headers: { Cookie: `token=${token}` },
+        },
+      );
+
+      expect(settingsRes.status).toBe(200);
+      const html = await settingsRes.text();
+
+      expect(html).toContain("Working directory");
+      expect(html).toContain("Repository root");
+      expect(html).not.toContain("Agent working directory");
+      expect(html).not.toContain("Workspace directory");
     });
 
     it("should keep runtime settings (idle timeout) editable", async () => {

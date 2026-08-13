@@ -62,7 +62,7 @@ describe("Debug", () => {
       },
       body: new URLSearchParams({
         name: "Feature Branch Session",
-        agentSubpath: "src/backend",
+        workingDirectory: "src/backend",
         branchName: "feature/test",
       }).toString(),
     });
