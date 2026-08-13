@@ -255,4 +255,112 @@ describe("Multi-repo session files + changed-files routes", () => {
     // The new file in 'second' should be counted.
     expect(body.files?.new ?? body.metrics?.files?.new ?? 0).toBeGreaterThan(0);
   });
+
+  async function createSingleRepoSessionWithRelativeDir(relativeDir: string) {
+    const app = createTestApp(mimoContext);
+    await userRepository.create(
+      "testuser",
+      await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+    );
+    const project = await projectRepository.create({
+      name: "Single Repo Project",
+      owner: "testuser",
+      repositories: [
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/test/repo",
+          repoType: "git",
+          mountPath: ".",
+          primary: true,
+        },
+      ],
+    });
+    const token = await authService.generateToken("testuser");
+
+    const formData = new URLSearchParams({
+      name: "Scoped Session",
+      relativeDir,
+    });
+    const createRes = await app.request(`/projects/${project.id}/sessions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: `token=${token}`,
+      },
+      body: formData.toString(),
+    });
+    expect(createRes.status).toBe(302);
+    const location = createRes.headers.get("location") || "";
+    const sessionId = location.split("/").pop() || "";
+    expect(sessionId.length).toBeGreaterThan(0);
+    return { app, project, token, sessionId };
+  }
+
+  it("GET /sessions/:id/files lists files from the full workspace even when relativeDir is set", async () => {
+    const { token, sessionId } =
+      await createSingleRepoSessionWithRelativeDir("packages/backend");
+
+    const session = await mimoContext.repos.sessions.findById(sessionId);
+    const workspacePath = session.agentWorkspacePath;
+
+    // Create a file at the workspace root and one inside the relativeDir subdir.
+    mkdirSync(workspacePath, { recursive: true });
+    writeFileSync(join(workspacePath, "root-file.md"), "# root");
+    mkdirSync(join(workspacePath, "packages", "backend"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(workspacePath, "packages", "backend", "nested-file.md"),
+      "# nested",
+    );
+
+    const app = createTestApp(mimoContext);
+
+    const res = await app.request(`/sessions/${sessionId}/files`, {
+      method: "GET",
+      headers: { Cookie: `token=${token}` },
+    });
+
+    expect(res.status).toBe(200);
+    const files = (await res.json()) as any[];
+    const paths = files.map((f: any) => f.path);
+
+    // The file tree must show the full workspace, including root-file.md
+    // which is outside the relativeDir subdirectory. The agent's starting
+    // directory must not affect the file explorer.
+    expect(paths).toContain("root-file.md");
+    expect(paths).toContain("packages/backend/nested-file.md");
+  });
+
+  it("GET /sessions/:id/files/content reads a root-level file when relativeDir is set to a subdirectory", async () => {
+    const { token, sessionId } =
+      await createSingleRepoSessionWithRelativeDir("packages/backend");
+
+    const session = await mimoContext.repos.sessions.findById(sessionId);
+    const workspacePath = session.agentWorkspacePath;
+
+    mkdirSync(workspacePath, { recursive: true });
+    writeFileSync(join(workspacePath, "root-file.md"), "# root content");
+    mkdirSync(join(workspacePath, "packages", "backend"), {
+      recursive: true,
+    });
+
+    const app = createTestApp(mimoContext);
+
+    // The file tree lists root-file.md (workspace-relative path), so the
+    // content endpoint must resolve it at the workspace root.
+    const res = await app.request(
+      `/sessions/${sessionId}/files/content?path=root-file.md&repoId=default`,
+      {
+        method: "GET",
+        headers: { Cookie: `token=${token}` },
+      },
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as any;
+    expect(body.content).toBeDefined();
+    expect(body.content).toContain("root content");
+  });
 });

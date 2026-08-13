@@ -267,10 +267,12 @@ describe("GET /sessions/:id/changed-files", () => {
     expect(detectSpy).toHaveBeenCalledTimes(0);
   });
 
-  it("scopes both upstream and workspace paths to session.agentSubpath when set", async () => {
+  it("does not scope upstream/workspace paths to session.agentSubpath — file explorer shows the full workspace", async () => {
     const { token, sessionId } = await createSession();
 
     // Set an agentSubpath on the session (the agent runs inside this subdir).
+    // This must NOT affect changed-file detection — the file explorer and
+    // changed-files buffer reflect the entire workspace.
     await mimoContext.repos.sessions.update(sessionId, {
       agentSubpath: "src",
     });
@@ -316,19 +318,18 @@ describe("GET /sessions/:id/changed-files", () => {
     const body = (await res.json()) as ChangedFilesResult;
     expect(body).toEqual(detected);
 
-    // Both trees MUST be rooted at the agentSubpath so relative paths align.
+    // Detection runs against the unscoped workspace paths — agentSubpath
+    // only affects the agent's ACP cwd, not the file explorer.
     expect(detectSpy).toHaveBeenCalledTimes(1);
     const calls = detectSpy.mock.calls as any[];
-    const expectedUpstream = [session.upstreamPath, "src"].join("/");
-    const expectedWorkspace = [session.agentWorkspacePath, "src"].join("/");
-    expect(calls[0][1][0].upstreamPath).toBe(expectedUpstream);
-    expect(calls[0][1][0].workspacePath).toBe(expectedWorkspace);
+    expect(calls[0][1][0].upstreamPath).toBe(session.upstreamPath);
+    expect(calls[0][1][0].workspacePath).toBe(session.agentWorkspacePath);
 
-    // The cached entry uses the subpath-scoped workspace path.
+    // The cached entry uses the unscoped workspace path.
     const cachedHit = cache.get(
       sessionId,
-      expectedUpstream,
-      expectedWorkspace,
+      session.upstreamPath,
+      session.agentWorkspacePath,
       "default",
     );
     expect(cachedHit).toEqual(detected);

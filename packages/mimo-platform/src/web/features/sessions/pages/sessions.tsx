@@ -1604,11 +1604,7 @@ export function createSessionsRoutes(
       return c.json({ error: "Session not found" }, 404);
     try {
       const repoId = c.req.query("repoId");
-      const scopedRepos = scopeReposByRelativeDir(
-        session,
-        deps_changedFiles(c).os,
-      );
-      const visibleRepos = scopedRepos.filter((r) =>
+      const visibleRepos = session.repos.filter((r) =>
         repoId ? r.projectRepoId === repoId : true,
       );
       if (visibleRepos.length === 0) {
@@ -1664,15 +1660,14 @@ export function createSessionsRoutes(
     const deps = deps_changedFiles(c);
     const repoId = c.req.query("repoId");
     if (session.repos.length) {
-      const scopedAll = scopeReposByRelativeDir(session, deps.os);
-      const scopedRepos = scopedAll.filter((r) =>
+      const visibleRepos = session.repos.filter((r) =>
         repoId ? r.projectRepoId === repoId : true,
       );
-      if (scopedRepos.length === 0) {
+      if (visibleRepos.length === 0) {
         return c.json({ error: "Repository not found" }, 404);
       }
       try {
-        const cachedRepos = scopedRepos.map((repo) =>
+        const cachedRepos = visibleRepos.map((repo) =>
           deps.changedFilesCache.get(
             sessionId,
             repo.upstreamPath,
@@ -1702,14 +1697,14 @@ export function createSessionsRoutes(
         }
         const result = await deps.detectChangedFilesForRepos!(
           deps.os,
-          scopedRepos.map((repo) => ({
+          visibleRepos.map((repo) => ({
             repoId: repo.projectRepoId,
             upstreamPath: repo.upstreamPath,
             workspacePath: repo.workspacePath,
           })),
           { fileFilter: shouldIncludeImpactPath },
         );
-        for (const repo of scopedRepos) {
+        for (const repo of visibleRepos) {
           const repoFiles = result.files.filter(
             (file) => file.repoId === repo.projectRepoId,
           );
