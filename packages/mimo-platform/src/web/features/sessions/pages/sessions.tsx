@@ -529,13 +529,14 @@ export function createSessionsRoutes(
     }
 
     // Resolve the unified "workingDirectory" form field into the two
-    // internal storage fields: `agentSubpath` (repo-relative) and
-    // `relativeDir` (workspace-relative). Legacy form field names
-    // (`agentSubpath`, `relativeDir`) are still accepted as fallbacks for
-    // back-compat when `workingDirectory` is not present.
+    // internal storage fields. Legacy form field names (`agentSubpath`,
+    // `relativeDir`) are still accepted as fallbacks for back-compat.
     //
-    // Resolution priority for the raw working-directory value:
-    //   workingDirectory (form) → agentSubpath (legacy form) → relativeDir (legacy form) → project.agentSubpath
+    // This preserves the pre-unification behavior: the value is stored
+    // as-is into both `agentSubpath` and `relativeDir` (the agent uses
+    // `relativeDir ?? agentSubpath` for cwd). No mount-path stripping is
+    // performed — the value is workspace-relative and the agent resolves
+    // it against the checkout root.
     const workingDirectoryValue =
       (workingDirectoryRaw?.trim() || undefined) ??
       (agentSubpathRaw?.trim() || undefined) ??
@@ -543,46 +544,12 @@ export function createSessionsRoutes(
       project.agentSubpath ??
       undefined;
 
-    let effectiveSubpath: string | undefined;
+    const effectiveSubpath = workingDirectoryValue;
     let effectiveRelativeDir: string | undefined;
     try {
-      if (workingDirectoryValue) {
-        effectiveRelativeDir = validateWorkspaceRelativeDir(
-          workingDirectoryValue,
-        );
-        // Derive agentSubpath by stripping the matched repository mount
-        // path prefix (longest match). For single-repo projects mounted at
-        // ".", the full path is the subpath.
-        const repoMounts = projectRepositories.map((r) => ({
-          id: r.id,
-          mountPath: r.mountPath,
-        }));
-        let mountPrefix: string | null = null;
-        for (const repo of repoMounts) {
-          const mount = (repo.mountPath || ".").trim();
-          if (
-            mount === "." ||
-            effectiveRelativeDir === mount ||
-            effectiveRelativeDir.startsWith(`${mount}/`)
-          ) {
-            if (mountPrefix === null || mount.length > mountPrefix.length) {
-              mountPrefix = mount;
-            }
-          }
-        }
-        if (mountPrefix === null) {
-          // No mount matched — treat the full value as a repo-relative
-          // subpath within the (single) repo.
-          effectiveSubpath = effectiveRelativeDir;
-        } else if (mountPrefix === ".") {
-          effectiveSubpath = effectiveRelativeDir;
-        } else {
-          effectiveSubpath = effectiveRelativeDir
-            .slice(mountPrefix.length)
-            .replace(/^\//, "");
-          if (effectiveSubpath === "") effectiveSubpath = undefined;
-        }
-      }
+      effectiveRelativeDir = workingDirectoryValue
+        ? validateWorkspaceRelativeDir(workingDirectoryValue)
+        : undefined;
     } catch (error) {
       return c.text(
         error instanceof Error ? error.message : "Invalid workingDirectory",

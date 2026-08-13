@@ -23,16 +23,15 @@ The POST handler at `sessions.tsx:530-537` resolves them as `effectiveSubpath = 
 
 ## Decisions
 
-### Decision 1: Single form field, dual internal storage
+### Decision 1: Single form field, pass-through storage (no mount-path stripping)
 
-The form posts one field, `workingDirectory`. The POST handler derives both stored fields:
+The form posts one field, `workingDirectory`. The POST handler stores it as-is into both `agentSubpath` and `relativeDir` (validated/normalized). This preserves the exact pre-unification behavior: the agent uses `relativeDir ?? agentSubpath` for cwd, and both fields hold the same workspace-relative value.
 
-- If `workingDirectory` starts with a known repository mount path, set `relativeDir = workingDirectory` and derive `agentSubpath` by stripping the mount prefix (for the matched repo).
-- Otherwise (single-repo, or path not matching a mount), set `agentSubpath = workingDirectory` and `relativeDir = workingDirectory` (they coincide at the workspace root).
+No mount-path prefix stripping is performed. This is intentional — the old `agentSubpath` field was never stripped either, and stripping introduced a regression for multi-repo sessions (the agent cwd resolved against the wrong base path).
 
-**Rationale:** Zero migration, `mimo-agent` unchanged, file-tree scoping behavior unchanged (out of scope here). The form is the only thing that changes.
+**Rationale:** Zero migration, `mimo-agent` unchanged, identical cwd resolution to before. The form is the only thing that changes.
 
-**Alternative considered:** Collapse storage to a single `relativeDir` field and stop writing `agentSubpath`. Rejected — would require a data migration and `mimo-agent` changes, expanding scope significantly.
+**Alternative considered:** Derive `agentSubpath` by stripping the matched mount-path prefix. Rejected — changed the stored `agentSubpath` value for multi-repo projects, breaking the agent's cwd resolution.
 
 ### Decision 2: Placeholder and help text adapt to project shape
 

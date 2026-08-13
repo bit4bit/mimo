@@ -1125,7 +1125,7 @@ describe("Session Management Integration Tests", () => {
       expect(session.relativeDir).toBe("packages/backend");
     });
 
-    it("POST with workingDirectory including mount path stores relativeDir and derives agentSubpath", async () => {
+    it("POST with workingDirectory including mount path stores both fields as-is", async () => {
       const app = createTestApp(mimoContext, sessionRoutes);
 
       await userRepository.create(
@@ -1166,8 +1166,7 @@ describe("Session Management Integration Tests", () => {
 
       const session = await sessionRepository.findById(sessionId);
       expect(session.relativeDir).toBe("repo-a/packages/app");
-      // agentSubpath is the mount-stripped path
-      expect(session.agentSubpath).toBe("packages/app");
+      expect(session.agentSubpath).toBe("repo-a/packages/app");
     });
 
     it("POST with empty workingDirectory inherits project agentSubpath default", async () => {
