@@ -389,6 +389,7 @@ export function createSessionsRoutes(
     const body = await c.req.parseBody({ all: true });
     const name = body.name as string;
     const projectId = (body.projectId as string) || getProjectId(c);
+    const workingDirectoryRaw = (body.workingDirectory as string) || null;
     const agentSubpathRaw = (body.agentSubpath as string) || null;
     const relativeDirRaw = (body.relativeDir as string) || null;
     const branchName = (body.branchName as string) || null;
@@ -527,21 +528,64 @@ export function createSessionsRoutes(
       repositoryCredentials.set(repo.id, credential);
     }
 
-    const effectiveSubpath =
+    // Resolve the unified "workingDirectory" form field into the two
+    // internal storage fields: `agentSubpath` (repo-relative) and
+    // `relativeDir` (workspace-relative). Legacy form field names
+    // (`agentSubpath`, `relativeDir`) are still accepted as fallbacks for
+    // back-compat when `workingDirectory` is not present.
+    //
+    // Resolution priority for the raw working-directory value:
+    //   workingDirectory (form) → agentSubpath (legacy form) → relativeDir (legacy form) → project.agentSubpath
+    const workingDirectoryValue =
+      (workingDirectoryRaw?.trim() || undefined) ??
       (agentSubpathRaw?.trim() || undefined) ??
+      (relativeDirRaw?.trim() || undefined) ??
       project.agentSubpath ??
       undefined;
+
+    let effectiveSubpath: string | undefined;
     let effectiveRelativeDir: string | undefined;
     try {
-      effectiveRelativeDir =
-        (relativeDirRaw?.trim() || undefined) ?? effectiveSubpath ?? undefined;
-      if (effectiveRelativeDir) {
-        effectiveRelativeDir =
-          validateWorkspaceRelativeDir(effectiveRelativeDir);
+      if (workingDirectoryValue) {
+        effectiveRelativeDir = validateWorkspaceRelativeDir(
+          workingDirectoryValue,
+        );
+        // Derive agentSubpath by stripping the matched repository mount
+        // path prefix (longest match). For single-repo projects mounted at
+        // ".", the full path is the subpath.
+        const repoMounts = projectRepositories.map((r) => ({
+          id: r.id,
+          mountPath: r.mountPath,
+        }));
+        let mountPrefix: string | null = null;
+        for (const repo of repoMounts) {
+          const mount = (repo.mountPath || ".").trim();
+          if (
+            mount === "." ||
+            effectiveRelativeDir === mount ||
+            effectiveRelativeDir.startsWith(`${mount}/`)
+          ) {
+            if (mountPrefix === null || mount.length > mountPrefix.length) {
+              mountPrefix = mount;
+            }
+          }
+        }
+        if (mountPrefix === null) {
+          // No mount matched — treat the full value as a repo-relative
+          // subpath within the (single) repo.
+          effectiveSubpath = effectiveRelativeDir;
+        } else if (mountPrefix === ".") {
+          effectiveSubpath = effectiveRelativeDir;
+        } else {
+          effectiveSubpath = effectiveRelativeDir
+            .slice(mountPrefix.length)
+            .replace(/^\//, "");
+          if (effectiveSubpath === "") effectiveSubpath = undefined;
+        }
       }
     } catch (error) {
       return c.text(
-        error instanceof Error ? error.message : "Invalid relativeDir",
+        error instanceof Error ? error.message : "Invalid workingDirectory",
         400,
       );
     }
@@ -2389,6 +2433,7 @@ export function createSessionsRoutes(
           sessionName: session.name,
           assignedAgentName: assignedAgentName,
           agentSubpath: session.agentSubpath,
+          relativeDir: session.relativeDir,
           branch: session.branch,
           mcpServerNames: mcpServerNames,
           sessionType: "standard",

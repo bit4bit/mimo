@@ -160,41 +160,29 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
           </div>
 
           <div class="form-group">
-            <label>Agent working directory (optional)</label>
+            <label>Working directory (optional)</label>
             <input
               type="text"
-              name="agentSubpath"
-              placeholder="packages/backend"
-              value={project.agentSubpath ?? ""}
-              data-help-id="session-create-page-agent-subpath-input"
-            />
-            <p class="session-create-help">
-              Relative path within the repository where the agent will start.
-              {project.agentSubpath
-                ? ` Currently defaults to: ${project.agentSubpath}`
-                : " Useful for monorepos."}
-            </p>
-          </div>
-
-          <div class="form-group">
-            <label>Workspace directory (optional)</label>
-            <input
-              type="text"
-              name="relativeDir"
+              name="workingDirectory"
               placeholder={
-                project.repositories.length
+                project.repositories.length > 1 ||
+                (project.repositories[0] &&
+                  project.repositories[0]!.mountPath !== ".")
                   ? `${project.repositories[0]!.mountPath}/packages/app`
                   : "packages/backend"
               }
-              data-help-id="session-create-page-relative-dir-input"
+              value={project.agentSubpath ?? ""}
+              data-help-id="session-create-page-working-directory-input"
             />
             <p class="session-create-help">
-              Workspace-relative directory where the agent will start. For
-              multi-repository projects, include the repository mount path
-              {project.repositories.length
-                ? ` (available: ${project.repositories.map((repo) => repo.mountPath).join(", ")})`
+              {project.repositories.length > 1 ||
+              (project.repositories[0] &&
+                project.repositories[0]!.mountPath !== ".")
+                ? `Workspace-relative directory where the agent will start. Include the repository mount path (available: ${project.repositories.map((repo) => repo.mountPath).join(", ")}).`
+                : "Relative path within the repository where the agent will start. Useful for monorepos."}
+              {project.agentSubpath
+                ? ` Currently defaults to: ${project.agentSubpath}`
                 : ""}
-              .
             </p>
           </div>
 
