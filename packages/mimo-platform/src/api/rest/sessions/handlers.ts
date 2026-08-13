@@ -15,6 +15,7 @@ import type {
   CloseSessionRequest,
 } from "./types.js";
 import { toSessionResponse, toChatThreadResponse } from "./types.js";
+import { broadcastToSession } from "../../websocket/session-broadcast.js";
 import { authorizeUse } from "../../../domain/agents/sharing.js";
 import type { MimoContext } from "../../../infrastructure/context/mimo-context.js";
 import type { Session } from "../../../domain/sessions/repository.js";
@@ -815,6 +816,18 @@ export async function updateChatThreadHandler(
 
   if (!updated) {
     return c.json(errorResponse("Thread not found", 404), 404);
+  }
+
+  // A name change is visible in every open tab for the session, so broadcast
+  // it so the other clients update without a page reload (this tab updates
+  // locally via the PATCH response).
+  if (body.name !== undefined && mimoContext.chatSessions) {
+    broadcastToSession(mimoContext.chatSessions, sessionId, {
+      type: "chat_thread_renamed",
+      sessionId,
+      threadId,
+      name: updated.name,
+    });
   }
 
   return c.json(

@@ -1444,6 +1444,9 @@ function handleWebSocketMessage(data) {
     case "chat_thread_created":
       handleChatThreadCreated(data);
       break;
+    case "chat_thread_renamed":
+      handleChatThreadRenamed(data);
+      break;
     case "chat_thread_create_failed":
       handleChatThreadCreateFailed(data);
       break;
@@ -1483,6 +1486,49 @@ function handleChatThreadCreated(data) {
   ChatThreadsState.threads.push(thread);
   if (typeof updateThreadTabsUI === "function") {
     updateThreadTabsUI();
+  }
+}
+
+// A thread was renamed in another tab (or via the API). Update the local name
+// and refresh every UI surface that renders the thread name.
+function handleChatThreadRenamed(data) {
+  if (
+    !data ||
+    typeof ChatThreadsState === "undefined" ||
+    !ChatThreadsState ||
+    !Array.isArray(ChatThreadsState.threads)
+  ) {
+    return;
+  }
+  const { threadId, name } = data;
+  if (typeof threadId !== "string" || typeof name !== "string" || !name) {
+    return;
+  }
+
+  const idx = ChatThreadsState.threads.findIndex((t) => t.id === threadId);
+  if (idx === -1) return;
+
+  if (ChatThreadsState.threads[idx].name === name) return;
+
+  ChatThreadsState.threads[idx] = {
+    ...ChatThreadsState.threads[idx],
+    name,
+  };
+
+  if (typeof updateThreadTabsUI === "function") {
+    updateThreadTabsUI();
+  }
+
+  // If the renamed thread is active, update the context bar name display.
+  if (
+    ChatThreadsState.activeThreadId === threadId &&
+    typeof updateThreadContextUI === "function"
+  ) {
+    updateThreadContextUI();
+  }
+
+  if (typeof updateSummaryBufferSelects === "function") {
+    updateSummaryBufferSelects();
   }
 }
 

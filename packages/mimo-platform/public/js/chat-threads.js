@@ -16,6 +16,7 @@ const ChatThreadsState = {
   isLoading: false,
   threadInputs: {}, // Per-thread unsent input content
   threadScroll: {}, // Per-thread scroll position
+  editingThreadId: null, // Thread tab currently in inline rename edit mode
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -110,7 +111,14 @@ async function updateThread(threadId, updates) {
 
     await throwIfNotOk(response);
 
-    const updated = await response.json();
+    const data = await response.json();
+
+    // The web route returns the full session; pull the updated thread out of
+    // it so local state actually reflects the change (e.g. the new name).
+    const sessionThread = data?.session?.chatThreads?.find(
+      (t) => t.id === threadId,
+    );
+    const updated = sessionThread ?? data;
 
     // Update local state
     const idx = ChatThreadsState.threads.findIndex((t) => t.id === threadId);
@@ -124,7 +132,7 @@ async function updateThread(threadId, updates) {
     return updated;
   } catch (error) {
     console.error("[chat-threads] Failed to update thread:", error);
-    return null;
+    throw error;
   }
 }
 
@@ -349,6 +357,10 @@ function updateThreadTabsUI() {
   const tabsContainer = document.querySelector(".chat-threads-tabs");
   if (!tabsContainer) return;
 
+  // Re-rendering destroys any in-flight inline edit input; clear the lock so a
+  // subsequent edit isn't blocked by a stale id.
+  ChatThreadsState.editingThreadId = null;
+
   // Remove existing thread tabs (keep the +/- action buttons).
   tabsContainer
     .querySelectorAll(".chat-thread-tab")
@@ -405,13 +417,169 @@ function updateThreadTabsUI() {
 
     tab.innerHTML = `
       <span class="thread-status-indicator" data-thread-state="${thread.state}" title="${statusTitle}" style="cursor: help;">${statusIcon}</span>
-      ${escapeHtml(thread.name)}
+      <span class="chat-thread-name">${escapeHtml(thread.name)}</span>
     `;
 
     tab.addEventListener("click", () => switchToThread(thread.id));
+    tab.addEventListener("dblclick", () => startInlineRename(thread));
 
     tabsContainer.appendChild(tab);
   });
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// INLINE RENAME (double-click a tab to edit its name)
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Enter inline edit mode for a thread tab: the name span becomes a text input.
+function startInlineRename(thread) {
+  // Only one tab may be edited at a time.
+  if (ChatThreadsState.editingThreadId) return;
+  if (!thread || !thread.id) return;
+
+  const tab = document.querySelector(
+    `.chat-thread-tab[data-thread-id="${thread.id}"]`,
+  );
+  if (!tab) return;
+
+  const nameSpan = tab.querySelector(".chat-thread-name");
+  if (!nameSpan) return;
+
+  ChatThreadsState.editingThreadId = thread.id;
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "chat-thread-name-input";
+  input.maxLength = 60;
+  input.value = thread.name;
+  input.style.cssText = `
+    font-family: monospace;
+    font-size: 12px;
+    background: #2d2d2d;
+    border: 1px solid #555;
+    color: #d4d4d4;
+    padding: 2px 4px;
+    border-radius: 3px;
+    width: 160px;
+    box-sizing: border-box;
+  `;
+
+  // Keep clicks on the input from bubbling to the tab button (which switches
+  // threads and would re-render the tabs out from under the edit).
+  input.addEventListener("mousedown", (e) => e.stopPropagation());
+  input.addEventListener("click", (e) => e.stopPropagation());
+
+  // Re-type: clear any visible inline error.
+  input.addEventListener("input", () => clearInlineRenameError(input));
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commitInlineRename(thread, input);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancelInlineRename(thread);
+    }
+  });
+
+  // Blur commits a changed name and cancels an unchanged one. Guarded by
+  // editingThreadId so the blur fired by tab re-render is a no-op.
+  input.addEventListener("blur", () => {
+    commitInlineRename(thread, input);
+  });
+
+  nameSpan.replaceWith(input);
+
+  // Select all text for quick replacement.
+  input.focus();
+  input.select();
+}
+
+// Commit the inline rename, or cancel when the name is empty/unchanged. Shows
+// inline error feedback (red border + message) when the name is invalid.
+async function commitInlineRename(thread, input) {
+  if (ChatThreadsState.editingThreadId !== thread.id) return;
+
+  const newName = input.value;
+  if (!newName.trim()) {
+    // Empty/whitespace-only name: cancel, no request.
+    cancelInlineRename(thread);
+    return;
+  }
+  if (newName === thread.name) {
+    // Unchanged name: no-op cancel, no request.
+    cancelInlineRename(thread);
+    return;
+  }
+
+  // Client-side duplicate check for instant feedback. The server check is the
+  // source of truth and is still surfaced below on a 400.
+  const duplicate = ChatThreadsState.threads.some(
+    (t) => t.name === newName && t.id !== thread.id,
+  );
+  if (duplicate) {
+    showInlineRenameError(
+      input,
+      "A thread with this name already exists in this session",
+    );
+    return;
+  }
+
+  try {
+    await updateThread(thread.id, { name: newName });
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Failed to rename thread";
+    showInlineRenameError(input, message);
+    return;
+  }
+
+  ChatThreadsState.editingThreadId = null;
+  updateThreadTabsUI();
+
+  // Secondary UI refresh: context bar (if renamed thread is active) and the
+  // summary-buffer thread selects.
+  if (thread.id === ChatThreadsState.activeThreadId) {
+    updateThreadContextUI();
+  }
+  updateSummaryBufferSelects();
+}
+
+// Cancel the inline edit and restore the tab's normal display.
+function cancelInlineRename(thread) {
+  if (ChatThreadsState.editingThreadId !== thread.id) return;
+  ChatThreadsState.editingThreadId = null;
+  updateThreadTabsUI();
+}
+
+// Show a visible error indication on the inline rename input and keep the
+// input in edit mode so the user can correct the name.
+function showInlineRenameError(input, message) {
+  const tab = input.closest(".chat-thread-tab");
+  input.classList.add("rename-error");
+  input.style.border = "1px solid #ff6b6b";
+
+  const existing = tab?.querySelector(".chat-thread-name-error");
+  if (existing) existing.remove();
+
+  const error = document.createElement("span");
+  error.className = "chat-thread-name-error";
+  error.textContent = message;
+  error.style.cssText = "color: #ff6b6b; font-size: 11px; white-space: normal;";
+  tab?.appendChild(error);
+
+  input.focus();
+}
+
+// Clear any inline error indication on the rename input.
+function clearInlineRenameError(input) {
+  const tab = input.closest(".chat-thread-tab");
+  const error = tab?.querySelector(".chat-thread-name-error");
+  if (error) error.remove();
+  input.classList.remove("rename-error");
+  input.style.border = "1px solid #555";
 }
 
 function ensureValueInOptions(options, value) {
@@ -572,7 +740,11 @@ function attachThreadContextListeners() {
     modelSelect.addEventListener("change", async (e) => {
       const threadId = e.target.dataset.threadId;
       const modelId = e.target.value;
-      await updateThread(threadId, { model: modelId });
+      try {
+        await updateThread(threadId, { model: modelId });
+      } catch (error) {
+        console.error("[chat-threads] Failed to update model:", error);
+      }
 
       // Notify via WebSocket if connected
       if (window.MIMO_CHAT_SOCKET?.readyState === WebSocket.OPEN) {
@@ -593,7 +765,11 @@ function attachThreadContextListeners() {
     modeSelect.addEventListener("change", async (e) => {
       const threadId = e.target.dataset.threadId;
       const modeId = e.target.value;
-      await updateThread(threadId, { mode: modeId });
+      try {
+        await updateThread(threadId, { mode: modeId });
+      } catch (error) {
+        console.error("[chat-threads] Failed to update mode:", error);
+      }
 
       // Notify via WebSocket if connected
       if (window.MIMO_CHAT_SOCKET?.readyState === WebSocket.OPEN) {
@@ -614,7 +790,11 @@ function attachThreadContextListeners() {
     brainwashCheckbox.addEventListener("change", async (e) => {
       const threadId = e.target.dataset.threadId;
       const checked = e.target.checked;
-      await updateThread(threadId, { brainWash: checked });
+      try {
+        await updateThread(threadId, { brainWash: checked });
+      } catch (error) {
+        console.error("[chat-threads] Failed to update brain-wash:", error);
+      }
 
       if (window.MIMO_CHAT_SOCKET?.readyState === WebSocket.OPEN) {
         window.MIMO_CHAT_SOCKET.send(
@@ -777,7 +957,7 @@ async function showCreateThreadDialog() {
 
       <div style="margin-bottom: 15px;">
         <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Name</label>
-        <input type="text" id="new-thread-name" placeholder="e.g., Reviewer, Code Analysis" style="
+        <input type="text" id="new-thread-name" maxlength="60" placeholder="e.g., Reviewer, Code Analysis" style="
           width: 100%;
           padding: 8px;
           background: #1a1a1a;
