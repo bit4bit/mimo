@@ -557,21 +557,39 @@ export function createSessionsRoutes(
       );
     }
 
-    if (branchMode === "sync" && !branchName) {
-      return c.text(
-        "Branch name is required when syncing an existing branch",
-        400,
-      );
-    }
-    if (
-      branchMode === "sync" &&
-      projectRepositories.some(
-        (repo) =>
-          (managedReposByEntryId.get(repo.id)?.repoType ?? repo.repoType) !==
-          "git",
-      )
-    ) {
-      return c.text("Sync mode is only supported for git repositories", 400);
+    // Resolve branch mode and name per repository. Suffixed fields
+    // (`branchMode_<repoId>` / `branchName_<repoId>`) take precedence; the
+    // flat session-level fields are the back-compat fallback applied to all
+    // repositories.
+    const repoBranchConfig = new Map<
+      string,
+      { mode: "new" | "sync"; name: string | null }
+    >();
+    for (const repo of projectRepositories) {
+      const repoModeRaw =
+        (body[`branchMode_${repo.id}`] as string) ?? branchModeRaw;
+      const repoMode: "new" | "sync" = repoModeRaw === "sync" ? "sync" : "new";
+      const suffixedName = body[`branchName_${repo.id}`] as string | undefined;
+      const repoBranchName =
+        suffixedName !== undefined
+          ? suffixedName.trim() || null
+          : branchName?.trim() || null;
+
+      const resolvedRepoType =
+        managedReposByEntryId.get(repo.id)?.repoType ?? repo.repoType;
+      if (repoMode === "sync" && !repoBranchName) {
+        return c.text(
+          `Branch name is required when syncing an existing branch (repository '${repo.name}')`,
+          400,
+        );
+      }
+      if (repoMode === "sync" && resolvedRepoType !== "git") {
+        return c.text(
+          `Sync mode is only supported for git repositories (repository '${repo.name}')`,
+          400,
+        );
+      }
+      repoBranchConfig.set(repo.id, { mode: repoMode, name: repoBranchName });
     }
 
     // Validate MCP server IDs if provided via Internal API Client
@@ -688,8 +706,15 @@ export function createSessionsRoutes(
           );
         }
 
+        const repoConfig = repoBranchConfig.get(projectRepo.id) ?? {
+          mode: branchMode,
+          name: branchName,
+        };
+
         const cloneBranch =
-          branchMode === "sync" ? branchName! : projectRepo.sourceBranch;
+          repoConfig.mode === "sync"
+            ? repoConfig.name!
+            : projectRepo.sourceBranch;
         const effectiveClonePort =
           clonePort ?? managedRepo?.clonePort ?? projectRepo.clonePort;
         const cloneResult = await projectVcsCache.clone({
@@ -712,21 +737,21 @@ export function createSessionsRoutes(
         }
 
         let desiredBranch: string | null;
-        if (branchMode === "sync") {
+        if (repoConfig.mode === "sync") {
           const headResult = await vcs.getCurrentBranch(
             resolvedRepoType,
             sessionRepo.upstreamPath,
           );
-          if (!headResult.success || headResult.branch !== branchName) {
+          if (!headResult.success || headResult.branch !== repoConfig.name) {
             await apiClient.delete(`/sessions/${session.id}`);
             return c.text(
-              `Sync failed for repository '${projectRepo.name}': expected branch '${branchName}' but checkout is on '${headResult.branch ?? "unknown"}'. Verify the branch exists on the remote.`,
+              `Sync failed for repository '${projectRepo.name}': expected branch '${repoConfig.name}' but checkout is on '${headResult.branch ?? "unknown"}'. Verify the branch exists on the remote.`,
               500,
             );
           }
-          desiredBranch = branchName!;
+          desiredBranch = repoConfig.name!;
         } else {
-          desiredBranch = branchName || projectRepo.newBranch || null;
+          desiredBranch = repoConfig.name || projectRepo.newBranch || null;
           if (desiredBranch) {
             const branchResult = await vcs.createBranch(
               desiredBranch,

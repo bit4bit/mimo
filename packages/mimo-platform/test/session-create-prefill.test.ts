@@ -136,9 +136,11 @@ describe("Session Creation Prefill", () => {
       );
       expect(res.status).toBe(200);
       const html = await res.text();
-      expect(html).toContain('id="branch-name-input"');
+      expect(html).toContain('name="branchName_default"');
       // The value attribute is prefilled verbatim with "dark-mode".
-      const branchMatch = html.match(/<input[^>]*id="branch-name-input"[^>]*>/);
+      const branchMatch = html.match(
+        /<input[^>]*name="branchName_default"[^>]*>/,
+      );
       expect(branchMatch).not.toBeNull();
       expect(branchMatch![0]).toContain('value="dark-mode"');
     });
@@ -163,7 +165,9 @@ describe("Session Creation Prefill", () => {
       expect(res.status).toBe(200);
       const html = await res.text();
       // Branch field exists with no prefilled value (placeholder remains).
-      const branchMatch = html.match(/<input[^>]*id="branch-name-input"[^>]*>/);
+      const branchMatch = html.match(
+        /<input[^>]*name="branchName_default"[^>]*>/,
+      );
       expect(branchMatch).not.toBeNull();
       expect(branchMatch![0]).not.toMatch(/value="[^"]+"/);
     });

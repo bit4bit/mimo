@@ -146,7 +146,8 @@ describe("Session Management Integration Tests", () => {
       const html = await res.text();
       expect(html).not.toContain("Local Development Mirror");
       expect(html).not.toContain('name="localDevMirrorPath"');
-      expect(html).toContain('name="branchMode"');
+      expect(html).toContain('name="branchMode_default"');
+      expect(html).toContain('name="branchName_default"');
       expect(html).toContain('name="sessionTtlDays"');
       expect(html).toContain('value="new"');
       expect(html).toContain('value="sync"');
@@ -2131,6 +2132,354 @@ describe("Session Management Integration Tests", () => {
       expect(res.status).toBe(500);
       const sessions = await sessionRepository.listByProject(project.id);
       expect(sessions.length).toBe(0);
+    });
+  });
+
+  describe("Session Per-Repo Branch Mode", () => {
+    async function createUserWithRepos(
+      repos: Array<Record<string, unknown>>,
+      projectExtra: Record<string, unknown> = {},
+    ) {
+      await userRepository.create(
+        "testuser",
+        await Bun.password.hash("testpass", { algorithm: "bcrypt", cost: 10 }),
+      );
+      const project = await projectRepository.create({
+        repositories: repos,
+        name: "Test Project",
+        owner: "testuser",
+        ...projectExtra,
+      });
+      const token = await authService.generateToken("testuser");
+      return { project, token };
+    }
+
+    function postSession(
+      app: Hono,
+      projectId: string,
+      token: string,
+      fields: Record<string, string>,
+    ) {
+      return app.request(`/projects/${projectId}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: `token=${token}`,
+        },
+        body: new URLSearchParams({ name: "My Session", ...fields }).toString(),
+      });
+    }
+
+    /** Capture per-repo clone branches and make the sync HEAD check echo
+     *  the branch that was cloned for each upstream path. */
+    function capturePerRepoClones() {
+      const clones: Array<{ repoId: string; branch?: string }> = [];
+      const branchByPath = new Map<string, string | undefined>();
+      mimoContext.services.projectVcsCache.clone = async (args: any) => {
+        clones.push({ repoId: args.repoId, branch: args.branch });
+        branchByPath.set(args.targetPath, args.branch);
+        return { success: true };
+      };
+      mimoContext.services.vcs.getCurrentBranch = async (
+        _repoType: string,
+        workDir: string,
+      ) => ({ success: true, branch: branchByPath.get(workDir) });
+      return clones;
+    }
+
+    it("syncs one repo while creating a new branch in another", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+      const clones = capturePerRepoClones();
+      const createdBranches: string[] = [];
+      mimoContext.services.vcs.createBranch = async (branch: string) => {
+        createdBranches.push(branch);
+        return { success: true };
+      };
+
+      const { project, token } = await createUserWithRepos([
+        {
+          id: "backend",
+          name: "backend",
+          repoUrl: "https://github.com/user/backend.git",
+          repoType: "git",
+          sourceBranch: "main",
+          mountPath: ".",
+        },
+        {
+          id: "docs",
+          name: "docs",
+          repoUrl: "https://github.com/user/docs.git",
+          repoType: "git",
+          sourceBranch: "main",
+          mountPath: "docs",
+        },
+      ]);
+
+      const res = await postSession(app, project.id, token, {
+        branchMode_backend: "new",
+        branchName_backend: "feat/x",
+        branchMode_docs: "sync",
+        branchName_docs: "docs-release",
+      });
+
+      expect(res.status).toBe(302);
+      const backendClone = clones.find((c) => c.repoId === "backend");
+      const docsClone = clones.find((c) => c.repoId === "docs");
+      // new mode clones the repo's sourceBranch; sync mode clones the target
+      expect(backendClone?.branch).toBe("main");
+      expect(docsClone?.branch).toBe("docs-release");
+      // createBranch only for the new-mode repo
+      expect(createdBranches).toEqual(["feat/x"]);
+      // each repo persists its own resolved branch
+      const sessionId = (res.headers.get("location") || "").split("/").pop()!;
+      const session = await sessionRepository.findById(sessionId);
+      const branchByRepo = new Map(
+        (session?.repos ?? []).map((r: any) => [r.projectRepoId, r.branch]),
+      );
+      expect(branchByRepo.get("backend")).toBe("feat/x");
+      expect(branchByRepo.get("docs")).toBe("docs-release");
+    });
+
+    it("clones an existing branch directly for a single repo via suffixed fields", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+      const clones = capturePerRepoClones();
+      let createBranchCalled = false;
+      mimoContext.services.vcs.createBranch = async () => {
+        createBranchCalled = true;
+        return { success: true };
+      };
+
+      const { project, token } = await createUserWithRepos([
+        {
+          id: "default",
+          name: "default",
+          repoUrl: "https://github.com/user/repo.git",
+          repoType: "git",
+          sourceBranch: "main",
+          mountPath: ".",
+        },
+      ]);
+
+      const res = await postSession(app, project.id, token, {
+        branchMode_default: "sync",
+        branchName_default: "feature/existing",
+      });
+
+      expect(res.status).toBe(302);
+      expect(clones[0]?.branch).toBe("feature/existing");
+      expect(createBranchCalled).toBe(false);
+      const sessionId = (res.headers.get("location") || "").split("/").pop()!;
+      const session = await sessionRepository.findById(sessionId);
+      expect(session?.branch).toBe("feature/existing");
+    });
+
+    it("returns 400 naming the repo when per-repo sync has an empty branch name", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+      const { project, token } = await createUserWithRepos([
+        {
+          id: "docs",
+          name: "docs",
+          repoUrl: "https://github.com/user/docs.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ]);
+
+      const res = await postSession(app, project.id, token, {
+        branchMode_docs: "sync",
+      });
+
+      expect(res.status).toBe(400);
+      const body = await res.text();
+      expect(body).toContain("Branch name is required");
+      expect(body).toContain("docs");
+    });
+
+    it("returns 400 naming the repo when per-repo sync targets a fossil repo", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+      const { project, token } = await createUserWithRepos([
+        {
+          id: "default",
+          name: "legacy",
+          repoUrl: "https://example.org/repo.fossil",
+          repoType: "fossil",
+          mountPath: ".",
+        },
+      ]);
+
+      const res = await postSession(app, project.id, token, {
+        branchMode_default: "sync",
+        branchName_default: "trunk",
+      });
+
+      expect(res.status).toBe(400);
+      const body = await res.text();
+      expect(body).toContain("git repositories");
+      expect(body).toContain("legacy");
+    });
+
+    it("returns 500 naming the repo when a per-repo sync clone fails", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+      mimoContext.services.projectVcsCache.clone = async () => ({
+        success: false,
+        error: "Remote branch feature/missing not found in upstream origin",
+      });
+
+      const { project, token } = await createUserWithRepos([
+        {
+          id: "docs",
+          name: "docs",
+          repoUrl: "https://github.com/user/docs.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+      ]);
+
+      const res = await postSession(app, project.id, token, {
+        branchMode_docs: "sync",
+        branchName_docs: "feature/missing",
+      });
+
+      expect(res.status).toBe(500);
+      const body = await res.text();
+      expect(body).toContain("docs");
+      expect(body).toContain("feature/missing");
+      const sessions = await sessionRepository.listByProject(project.id);
+      expect(sessions.length).toBe(0);
+    });
+
+    it("lets a suffixed branch name win over the flat field for the same repo", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+      capturePerRepoClones();
+      const createdBranches: string[] = [];
+      mimoContext.services.vcs.createBranch = async (branch: string) => {
+        createdBranches.push(branch);
+        return { success: true };
+      };
+
+      const { project, token } = await createUserWithRepos([
+        {
+          id: "backend",
+          name: "backend",
+          repoUrl: "https://github.com/user/backend.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+        {
+          id: "docs",
+          name: "docs",
+          repoUrl: "https://github.com/user/docs.git",
+          repoType: "git",
+          mountPath: "docs",
+        },
+      ]);
+
+      const res = await postSession(app, project.id, token, {
+        branchName: "flat-branch",
+        branchName_backend: "specific-branch",
+      });
+
+      expect(res.status).toBe(302);
+      // suffixed value wins for backend; flat value still applies to docs
+      expect(createdBranches.sort()).toEqual([
+        "flat-branch",
+        "specific-branch",
+      ]);
+    });
+
+    it("falls back to the repository's newBranch in new mode when no name is given", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+      capturePerRepoClones();
+      const createdBranches: string[] = [];
+      mimoContext.services.vcs.createBranch = async (branch: string) => {
+        createdBranches.push(branch);
+        return { success: true };
+      };
+
+      const { project, token } = await createUserWithRepos([
+        {
+          id: "backend",
+          name: "backend",
+          repoUrl: "https://github.com/user/backend.git",
+          repoType: "git",
+          newBranch: "repo-default",
+          mountPath: ".",
+        },
+        {
+          id: "docs",
+          name: "docs",
+          repoUrl: "https://github.com/user/docs.git",
+          repoType: "git",
+          mountPath: "docs",
+        },
+      ]);
+
+      const res = await postSession(app, project.id, token, {
+        branchMode_backend: "new",
+        branchMode_docs: "new",
+      });
+
+      expect(res.status).toBe(302);
+      expect(createdBranches).toEqual(["repo-default"]);
+    });
+
+    it("renders one branch card per repository on the new-session page", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+      const { project, token } = await createUserWithRepos([
+        {
+          id: "backend",
+          name: "backend",
+          repoUrl: "https://github.com/user/backend.git",
+          repoType: "git",
+          mountPath: ".",
+        },
+        {
+          id: "docs",
+          name: "docs",
+          repoUrl: "https://github.com/user/docs.git",
+          repoType: "git",
+          mountPath: "docs",
+        },
+      ]);
+
+      const res = await app.request(`/projects/${project.id}/sessions/new`, {
+        headers: { Cookie: `token=${token}` },
+      });
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain('name="branchMode_backend"');
+      expect(html).toContain('name="branchName_backend"');
+      expect(html).toContain('name="branchMode_docs"');
+      expect(html).toContain('name="branchName_docs"');
+      // no session-level branch field remains
+      expect(html).not.toContain('name="branchMode"');
+      expect(html).not.toContain('name="branchName"');
+    });
+
+    it("disables the sync option for fossil repositories on the new-session page", async () => {
+      const app = createTestApp(mimoContext, sessionRoutes);
+      const { project, token } = await createUserWithRepos([
+        {
+          id: "default",
+          name: "legacy",
+          repoUrl: "https://example.org/repo.fossil",
+          repoType: "fossil",
+          mountPath: ".",
+        },
+      ]);
+
+      const res = await app.request(`/projects/${project.id}/sessions/new`, {
+        headers: { Cookie: `token=${token}` },
+      });
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      const syncInput = html.match(
+        /<input[^>]*name="branchMode_default"[^>]*value="sync"[^>]*>/,
+      )?.[0];
+      expect(syncInput).toBeDefined();
+      expect(syncInput).toContain("disabled");
     });
   });
 
