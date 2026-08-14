@@ -19,99 +19,113 @@ function functionBody(source: string, name: string): string {
   return source.slice(start, source.indexOf("\n}\n", start));
 }
 
-describe("chat-threads.js inline rename", () => {
-  describe("double-click enters inline edit mode", () => {
-    it("binds a dblclick handler on each thread tab to startInlineRename", () => {
+describe("chat-threads.js rename modal", () => {
+  describe("double-click opens a rename modal", () => {
+    it("binds a dblclick handler on each thread tab that opens the rename dialog", () => {
       expect(
         chatThreadsSource.includes(
-          'tab.addEventListener("dblclick", () => startInlineRename(thread))',
+          'tab.addEventListener("dblclick"',
         ),
+      ).toBe(true);
+      expect(
+        chatThreadsSource.includes("showRenameThreadDialog(thread)"),
       ).toBe(true);
     });
 
-    it("wraps the tab name in a span so the edit input can replace it", () => {
+    it("wraps the tab name in a span", () => {
       expect(
         chatThreadsSource.includes('<span class="chat-thread-name">'),
       ).toBe(true);
     });
 
-    it("startInlineRename replaces the name span with a pre-filled text input", () => {
-      const body = functionBody(chatThreadsSource, "startInlineRename");
-      expect(body).toContain('document.createElement("input")');
-      expect(body).toContain('input.type = "text"');
-      expect(body).toContain('input.className = "chat-thread-name-input"');
-      expect(body).toContain("input.value = thread.name");
-      expect(body).toContain("input.maxLength = 60");
-      expect(body).toContain("nameSpan.replaceWith(input)");
+    it("showRenameThreadDialog creates a modal overlay with a text input", () => {
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
+      expect(body).toContain('document.createElement("div")');
+      expect(body).toContain('overlay.id = "rename-thread-dialog"');
+      expect(body).toContain('overlay.className = "modal"');
+      expect(body).toContain("document.body.appendChild(overlay)");
     });
 
-    it("selects all text and focuses the input for quick replacement", () => {
-      const body = functionBody(chatThreadsSource, "startInlineRename");
+    it("pre-fills the input with the current thread name and autofocus", () => {
+      expect(
+        chatThreadsSource.includes(
+          'id="rename-thread-input" maxlength="60" autofocus value="${escapeHtml(thread.name)}"',
+        ),
+      ).toBe(true);
+    });
+
+    it("focuses and selects the input text", () => {
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
       expect(body).toContain("input.focus()");
       expect(body).toContain("input.select()");
     });
 
-    it("allows only one tab to be edited at a time", () => {
-      const body = functionBody(chatThreadsSource, "startInlineRename");
-      expect(body).toContain("ChatThreadsState.editingThreadId");
-      expect(body).toContain("if (ChatThreadsState.editingThreadId) return;");
+    it("prevents opening multiple rename dialogs at once", () => {
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
+      expect(body).toContain(
+        'document.querySelector("#rename-thread-dialog")',
+      );
+      expect(body).toContain("return;");
     });
 
-    it("caps the inline rename input at 60 characters", () => {
-      const body = functionBody(chatThreadsSource, "startInlineRename");
-      expect(body).toContain("input.maxLength = 60");
+    it("caps the rename input at 60 characters", () => {
+      expect(chatThreadsSource).toContain(
+        'id="rename-thread-input" maxlength="60"',
+      );
     });
   });
 
-  describe("Enter commits, Escape cancels, blur commits-or-cancels", () => {
-    it("Enter commits via commitInlineRename", () => {
-      const body = functionBody(chatThreadsSource, "startInlineRename");
-      expect(body).toContain('e.key === "Enter"');
-      expect(body).toContain("commitInlineRename(thread, input)");
+  describe("Save commits, Cancel/Escape closes, click-outside closes", () => {
+    it("form submit handler validates and commits via updateThread", () => {
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
+      expect(body).toContain('form.addEventListener("submit"');
+      expect(body).toContain("await updateThread(thread.id, { name: newName })");
     });
 
-    it("Escape cancels via cancelInlineRename", () => {
-      const body = functionBody(chatThreadsSource, "startInlineRename");
+    it("Escape closes the dialog", () => {
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
       expect(body).toContain('e.key === "Escape"');
-      expect(body).toContain("cancelInlineRename(thread)");
+      expect(body).toContain("closeDialog()");
     });
 
-    it("blur commits the inline rename", () => {
-      const body = functionBody(chatThreadsSource, "startInlineRename");
-      expect(body).toContain('input.addEventListener("blur"');
-      expect(body).toContain("commitInlineRename(thread, input)");
+    it("Cancel button closes the dialog", () => {
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
+      expect(body).toContain('cancelBtn.addEventListener("click", closeDialog)');
     });
 
-    it("cancelInlineRename restores the tab via updateThreadTabsUI", () => {
-      const body = functionBody(chatThreadsSource, "cancelInlineRename");
-      expect(body).toContain("ChatThreadsState.editingThreadId = null");
-      expect(body).toContain("updateThreadTabsUI()");
+    it("clicking the overlay outside the form closes the dialog", () => {
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
+      expect(body).toContain('overlay.addEventListener("mousedown"');
+      expect(body).toContain("e.target === overlay");
+      expect(body).toContain("closeDialog()");
     });
   });
 
   describe("client-side pre-validation", () => {
-    it("rejects an empty/whitespace-only name by cancelling without a request", () => {
-      const body = functionBody(chatThreadsSource, "commitInlineRename");
+    it("rejects an empty/whitespace-only name without a request", () => {
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
       const emptyBranch = body.slice(0, body.indexOf("updateThread("));
       expect(emptyBranch).toContain("!newName.trim()");
-      expect(emptyBranch).toContain("cancelInlineRename(thread)");
+      expect(emptyBranch).toContain('showError("Name cannot be empty")');
     });
 
-    it("treats an unchanged name as a no-op cancel", () => {
-      const body = functionBody(chatThreadsSource, "commitInlineRename");
+    it("treats an unchanged name as a no-op close", () => {
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
       const unchangedBranch = body.slice(0, body.indexOf("updateThread("));
       expect(unchangedBranch).toContain("newName === thread.name");
-      expect(unchangedBranch).toContain("cancelInlineRename(thread)");
+      expect(unchangedBranch).toContain("closeDialog()");
     });
 
-    it("detects a duplicate name against ChatThreadsState.threads and shows an inline error", () => {
-      const body = functionBody(chatThreadsSource, "commitInlineRename");
+    it("detects a duplicate name and shows an error without sending a request", () => {
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
       expect(body).toContain(
         "(t) => t.name === newName && t.id !== thread.id",
       );
-      expect(body).toContain("showInlineRenameError(input,");
       const duplicateBranch = body.slice(0, body.indexOf("updateThread("));
       expect(duplicateBranch).not.toContain("updateThread(");
+      expect(body).toContain(
+        'showError("A thread with this name already exists in this session")',
+      );
     });
   });
 
@@ -123,17 +137,22 @@ describe("chat-threads.js inline rename", () => {
       expect(catchBlock).not.toContain("return null");
     });
 
-    it("the rename commit catches the error and shows inline feedback", () => {
-      const body = functionBody(chatThreadsSource, "commitInlineRename");
+    it("the rename dialog catches the error and shows feedback", () => {
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
       expect(body).toContain("await updateThread(thread.id, { name: newName })");
       expect(body).toContain("} catch (error) {");
-      expect(body).toContain("showInlineRenameError(input, message)");
+      expect(body).toContain("showError(message)");
     });
 
-    it("showInlineRenameError marks the input with a red border", () => {
-      const body = functionBody(chatThreadsSource, "showInlineRenameError");
-      expect(body).toContain('input.classList.add("rename-error")');
+    it("showError sets a red border and error text", () => {
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
       expect(body).toContain("1px solid #ff6b6b");
+      expect(body).toContain("errorEl.textContent = message");
+    });
+
+    it("typing clears any visible error", () => {
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
+      expect(body).toContain('input.addEventListener("input", clearError)');
     });
 
     it("existing model/mode/brainwash callers tolerate the thrown error", () => {
@@ -156,15 +175,20 @@ describe("chat-threads.js inline rename", () => {
   });
 
   describe("secondary UI refresh after a successful rename", () => {
-    it("refreshes summary-buffer selects after a successful inline rename", () => {
-      const body = functionBody(chatThreadsSource, "commitInlineRename");
+    it("refreshes summary-buffer selects after a successful rename", () => {
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
       expect(body).toContain("updateSummaryBufferSelects()");
     });
 
     it("updates the context bar when the renamed thread is active", () => {
-      const body = functionBody(chatThreadsSource, "commitInlineRename");
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
       expect(body).toContain("thread.id === ChatThreadsState.activeThreadId");
       expect(body).toContain("updateThreadContextUI()");
+    });
+
+    it("re-renders the tabs after a successful rename", () => {
+      const body = functionBody(chatThreadsSource, "showRenameThreadDialog");
+      expect(body).toContain("updateThreadTabsUI()");
     });
   });
 

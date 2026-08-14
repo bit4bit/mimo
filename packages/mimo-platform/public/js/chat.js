@@ -2901,6 +2901,9 @@ function handleAtMentionKeydown(e, contentEl) {
 
 // DOM: Insert editable bubble
 function insertEditableBubble() {
+  // Don't insert/focus the editable bubble while a modal dialog is open —
+  // it would steal focus from the dialog's input.
+  if (document.querySelector(".modal")) return;
   const container = document.querySelector("#chat-messages");
   if (!container || ChatState.editableBubble) return;
 
@@ -2975,6 +2978,8 @@ function getEditableBubbleContent() {
 
 // DOM: Insert editable bubble with pre-filled content
 function insertEditableBubbleWithContent(prefilledContent) {
+  // Don't insert/focus the editable bubble while a modal dialog is open.
+  if (document.querySelector(".modal")) return;
   const container = document.querySelector("#chat-messages");
   if (!container || ChatState.editableBubble) return;
 

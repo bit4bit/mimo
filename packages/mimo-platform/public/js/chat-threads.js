@@ -220,9 +220,12 @@ function switchToThread(threadId) {
     saveCurrentThreadState(previousThreadId);
   }
 
-  // Update UI immediately for responsiveness
+  // Update UI immediately for responsiveness.
+  // Do NOT call updateThreadTabsUI() here — it destroys and recreates every
+  // tab element, which prevents dblclick from firing (both clicks must land
+  // on the same element). Update active styling in place instead.
   ChatThreadsState.activeThreadId = threadId;
-  updateThreadTabsUI();
+  updateThreadTabActiveStates();
   updateThreadContextUI();
 
   // Persist to server
@@ -353,13 +356,22 @@ function restoreThreadStateAfterLoad(threadId) {
   }, 2000);
 }
 
+// Update only the active styling of existing tabs without rebuilding them.
+// Used by switchToThread so tab elements (and their dblclick listeners) survive
+// the first click of a double-click.
+function updateThreadTabActiveStates() {
+  document.querySelectorAll(".chat-thread-tab").forEach((tab) => {
+    const isActive =
+      tab.dataset.threadId === ChatThreadsState.activeThreadId;
+    tab.classList.toggle("active", isActive);
+    tab.style.background = isActive ? "#1a1a1a" : "transparent";
+    tab.style.color = isActive ? "#d4d4d4" : "#888";
+  });
+}
+
 function updateThreadTabsUI() {
   const tabsContainer = document.querySelector(".chat-threads-tabs");
   if (!tabsContainer) return;
-
-  // Re-rendering destroys any in-flight inline edit input; clear the lock so a
-  // subsequent edit isn't blocked by a stale id.
-  ChatThreadsState.editingThreadId = null;
 
   // Remove existing thread tabs (keep the +/- action buttons).
   tabsContainer
@@ -421,165 +433,188 @@ function updateThreadTabsUI() {
     `;
 
     tab.addEventListener("click", () => switchToThread(thread.id));
-    tab.addEventListener("dblclick", () => startInlineRename(thread));
+    tab.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showRenameThreadDialog(thread);
+    });
 
     tabsContainer.appendChild(tab);
   });
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// INLINE RENAME (double-click a tab to edit its name)
+// RENAME DIALOG (double-click a tab to rename it via a modal)
 // ═════════════════════════════════════════════════════════════════════════════
 
-// Enter inline edit mode for a thread tab: the name span becomes a text input.
-function startInlineRename(thread) {
-  // Only one tab may be edited at a time.
-  if (ChatThreadsState.editingThreadId) return;
+function showRenameThreadDialog(thread) {
   if (!thread || !thread.id) return;
+  if (document.querySelector("#rename-thread-dialog")) return;
 
-  const tab = document.querySelector(
-    `.chat-thread-tab[data-thread-id="${thread.id}"]`,
-  );
-  if (!tab) return;
-
-  const nameSpan = tab.querySelector(".chat-thread-name");
-  if (!nameSpan) return;
-
-  ChatThreadsState.editingThreadId = thread.id;
-
-  const input = document.createElement("input");
-  input.type = "text";
-  input.className = "chat-thread-name-input";
-  input.maxLength = 60;
-  input.value = thread.name;
-  input.style.cssText = `
-    font-family: monospace;
-    font-size: 12px;
-    background: #2d2d2d;
-    border: 1px solid #555;
-    color: #d4d4d4;
-    padding: 2px 4px;
-    border-radius: 3px;
-    width: 160px;
-    box-sizing: border-box;
+  const overlay = document.createElement("div");
+  overlay.id = "rename-thread-dialog";
+  overlay.className = "modal";
+  overlay.style.cssText = `
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
   `;
 
-  // Keep clicks on the input from bubbling to the tab button (which switches
-  // threads and would re-render the tabs out from under the edit).
-  input.addEventListener("mousedown", (e) => e.stopPropagation());
-  input.addEventListener("click", (e) => e.stopPropagation());
+  overlay.innerHTML = `
+    <form id="rename-thread-form" style="
+      background: #2d2d2d;
+      border: 1px solid #444;
+      padding: 20px;
+      width: 90%;
+      max-width: 360px;
+      border-radius: 4px;
+    ">
+      <h3 style="margin: 0 0 15px 0; font-size: 16px;">Rename Thread</h3>
 
-  // Re-type: clear any visible inline error.
-  input.addEventListener("input", () => clearInlineRenameError(input));
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Name</label>
+        <input type="text" id="rename-thread-input" maxlength="60" autofocus value="${escapeHtml(thread.name)}" style="
+          width: 100%;
+          padding: 8px;
+          background: #1a1a1a;
+          border: 1px solid #555;
+          color: #d4d4d4;
+          font-family: monospace;
+          font-size: 13px;
+          border-radius: 3px;
+          box-sizing: border-box;
+          outline: none;
+          transition: border-color 0.15s ease;
+        ">
+      </div>
+
+      <div id="rename-thread-error" style="color: #ff6b6b; font-size: 11px; margin-bottom: 10px; min-height: 14px;"></div>
+
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button type="button" id="cancel-rename-thread" style="
+          padding: 6px 12px;
+          border: none;
+          cursor: pointer;
+          font-family: monospace;
+          font-size: 12px;
+          border-radius: 3px;
+          background: #3d3d3d;
+          color: #d4d4d4;
+        ">Cancel</button>
+        <button type="submit" id="confirm-rename-thread" style="
+          padding: 6px 12px;
+          border: none;
+          cursor: pointer;
+          font-family: monospace;
+          font-size: 12px;
+          border-radius: 3px;
+          background: #74c0fc;
+          color: #1a1a1a;
+        ">Save</button>
+      </div>
+    </form>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const input = overlay.querySelector("#rename-thread-input");
+  const errorEl = overlay.querySelector("#rename-thread-error");
+  const form = overlay.querySelector("#rename-thread-form");
+  const cancelBtn = overlay.querySelector("#cancel-rename-thread");
+
+  // Focus and select the input once the dialog is painted. Use both
+  // requestAnimationFrame and a short timeout to re-assert focus in case
+  // an async handler (e.g. from switchToThread) tries to steal it.
+  const focusInput = () => {
+    input.focus();
+    input.select();
+  };
+  requestAnimationFrame(focusInput);
+  setTimeout(focusInput, 50);
+
+  function closeDialog() {
+    overlay.remove();
+  }
+
+  function showError(message) {
+    errorEl.textContent = message;
+    input.style.border = "1px solid #ff6b6b";
+  }
+
+  function clearError() {
+    errorEl.textContent = "";
+    input.style.border = "1px solid #555";
+  }
+
+    form.addEventListener("focus", () => {
+      input.style.border = "1px solid #74c0fc";
+    }, true);
+    form.addEventListener("blur", () => {
+      if (!input.classList.contains("rename-error")) {
+        input.style.border = "1px solid #555";
+      }
+    }, true);
+
+  input.addEventListener("input", clearError);
 
   input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
+    if (e.key === "Escape") {
       e.preventDefault();
-      commitInlineRename(thread, input);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      cancelInlineRename(thread);
+      closeDialog();
     }
   });
 
-  // Blur commits a changed name and cancels an unchanged one. Guarded by
-  // editingThreadId so the blur fired by tab re-render is a no-op.
-  input.addEventListener("blur", () => {
-    commitInlineRename(thread, input);
+  cancelBtn.addEventListener("click", closeDialog);
+
+  overlay.addEventListener("mousedown", (e) => {
+    if (e.target === overlay) closeDialog();
   });
 
-  nameSpan.replaceWith(input);
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const newName = input.value;
 
-  // Select all text for quick replacement.
-  input.focus();
-  input.select();
-}
-
-// Commit the inline rename, or cancel when the name is empty/unchanged. Shows
-// inline error feedback (red border + message) when the name is invalid.
-async function commitInlineRename(thread, input) {
-  if (ChatThreadsState.editingThreadId !== thread.id) return;
-
-  const newName = input.value;
-  if (!newName.trim()) {
-    // Empty/whitespace-only name: cancel, no request.
-    cancelInlineRename(thread);
-    return;
-  }
-  if (newName === thread.name) {
-    // Unchanged name: no-op cancel, no request.
-    cancelInlineRename(thread);
-    return;
-  }
-
-  // Client-side duplicate check for instant feedback. The server check is the
-  // source of truth and is still surfaced below on a 400.
-  const duplicate = ChatThreadsState.threads.some(
-    (t) => t.name === newName && t.id !== thread.id,
-  );
-  if (duplicate) {
-    showInlineRenameError(
-      input,
-      "A thread with this name already exists in this session",
+    if (!newName.trim()) {
+      showError("Name cannot be empty");
+      return;
+    }
+    if (newName === thread.name) {
+      closeDialog();
+      return;
+    }
+    const duplicate = ChatThreadsState.threads.some(
+      (t) => t.name === newName && t.id !== thread.id,
     );
-    return;
-  }
+    if (duplicate) {
+      showError("A thread with this name already exists in this session");
+      return;
+    }
 
-  try {
-    await updateThread(thread.id, { name: newName });
-  } catch (error) {
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : "Failed to rename thread";
-    showInlineRenameError(input, message);
-    return;
-  }
+    try {
+      await updateThread(thread.id, { name: newName });
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to rename thread";
+      showError(message);
+      return;
+    }
 
-  ChatThreadsState.editingThreadId = null;
-  updateThreadTabsUI();
-
-  // Secondary UI refresh: context bar (if renamed thread is active) and the
-  // summary-buffer thread selects.
-  if (thread.id === ChatThreadsState.activeThreadId) {
-    updateThreadContextUI();
-  }
-  updateSummaryBufferSelects();
-}
-
-// Cancel the inline edit and restore the tab's normal display.
-function cancelInlineRename(thread) {
-  if (ChatThreadsState.editingThreadId !== thread.id) return;
-  ChatThreadsState.editingThreadId = null;
-  updateThreadTabsUI();
-}
-
-// Show a visible error indication on the inline rename input and keep the
-// input in edit mode so the user can correct the name.
-function showInlineRenameError(input, message) {
-  const tab = input.closest(".chat-thread-tab");
-  input.classList.add("rename-error");
-  input.style.border = "1px solid #ff6b6b";
-
-  const existing = tab?.querySelector(".chat-thread-name-error");
-  if (existing) existing.remove();
-
-  const error = document.createElement("span");
-  error.className = "chat-thread-name-error";
-  error.textContent = message;
-  error.style.cssText = "color: #ff6b6b; font-size: 11px; white-space: normal;";
-  tab?.appendChild(error);
-
-  input.focus();
-}
-
-// Clear any inline error indication on the rename input.
-function clearInlineRenameError(input) {
-  const tab = input.closest(".chat-thread-tab");
-  const error = tab?.querySelector(".chat-thread-name-error");
-  if (error) error.remove();
-  input.classList.remove("rename-error");
-  input.style.border = "1px solid #555";
+    updateThreadTabsUI();
+    if (thread.id === ChatThreadsState.activeThreadId) {
+      updateThreadContextUI();
+    }
+    updateSummaryBufferSelects();
+    closeDialog();
+  });
 }
 
 function ensureValueInOptions(options, value) {
