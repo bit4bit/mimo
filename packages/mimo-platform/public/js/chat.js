@@ -1444,6 +1444,9 @@ function handleWebSocketMessage(data) {
     case "chat_thread_created":
       handleChatThreadCreated(data);
       break;
+    case "chat_thread_renamed":
+      handleChatThreadRenamed(data);
+      break;
     case "chat_thread_create_failed":
       handleChatThreadCreateFailed(data);
       break;
@@ -1483,6 +1486,49 @@ function handleChatThreadCreated(data) {
   ChatThreadsState.threads.push(thread);
   if (typeof updateThreadTabsUI === "function") {
     updateThreadTabsUI();
+  }
+}
+
+// A thread was renamed in another tab (or via the API). Update the local name
+// and refresh every UI surface that renders the thread name.
+function handleChatThreadRenamed(data) {
+  if (
+    !data ||
+    typeof ChatThreadsState === "undefined" ||
+    !ChatThreadsState ||
+    !Array.isArray(ChatThreadsState.threads)
+  ) {
+    return;
+  }
+  const { threadId, name } = data;
+  if (typeof threadId !== "string" || typeof name !== "string" || !name) {
+    return;
+  }
+
+  const idx = ChatThreadsState.threads.findIndex((t) => t.id === threadId);
+  if (idx === -1) return;
+
+  if (ChatThreadsState.threads[idx].name === name) return;
+
+  ChatThreadsState.threads[idx] = {
+    ...ChatThreadsState.threads[idx],
+    name,
+  };
+
+  if (typeof updateThreadTabsUI === "function") {
+    updateThreadTabsUI();
+  }
+
+  // If the renamed thread is active, update the context bar name display.
+  if (
+    ChatThreadsState.activeThreadId === threadId &&
+    typeof updateThreadContextUI === "function"
+  ) {
+    updateThreadContextUI();
+  }
+
+  if (typeof updateSummaryBufferSelects === "function") {
+    updateSummaryBufferSelects();
   }
 }
 
@@ -2855,6 +2901,9 @@ function handleAtMentionKeydown(e, contentEl) {
 
 // DOM: Insert editable bubble
 function insertEditableBubble() {
+  // Don't insert/focus the editable bubble while a modal dialog is open —
+  // it would steal focus from the dialog's input.
+  if (document.querySelector(".modal")) return;
   const container = document.querySelector("#chat-messages");
   if (!container || ChatState.editableBubble) return;
 
@@ -2929,6 +2978,8 @@ function getEditableBubbleContent() {
 
 // DOM: Insert editable bubble with pre-filled content
 function insertEditableBubbleWithContent(prefilledContent) {
+  // Don't insert/focus the editable bubble while a modal dialog is open.
+  if (document.querySelector(".modal")) return;
   const container = document.querySelector("#chat-messages");
   if (!container || ChatState.editableBubble) return;
 

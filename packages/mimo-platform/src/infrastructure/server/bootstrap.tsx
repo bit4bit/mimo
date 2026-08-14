@@ -134,6 +134,10 @@ export async function bootstrapMimoServer(deps: BootstrapDeps) {
   const terminalOutputBuffer = new TerminalOutputBuffer();
   const calculatingSessions = new Set<string>();
 
+  // Expose the live session WS subscribers so REST handlers can broadcast
+  // session-scoped events (e.g. chat_thread_renamed).
+  mimoContext.chatSessions = chatSessions;
+
   const pipeline = new ChatStreamingPipeline(
     mimoContext.services.chat,
     (sessionId, message) =>

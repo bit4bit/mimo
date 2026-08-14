@@ -40,6 +40,7 @@ let projectRepository: any;
 let userRepository: any;
 let authService: any;
 let agentService: any;
+let chatSessions: Map<string, Set<any>>;
 
 // Helper to create test app with internal API mounted
 function createTestApp(ctx: any): Hono {
@@ -79,6 +80,7 @@ describe("Chat Threads API", () => {
 
     const { createMimoContext } =
       await import("../src/infrastructure/context/mimo-context.ts");
+    chatSessions = new Map();
     const ctx = createMimoContext({
       env: {
         MIMO_HOME: testHome,
@@ -86,6 +88,7 @@ describe("Chat Threads API", () => {
         PLATFORM_URL: "http://localhost:3000",
       },
       services: { sharedVcs: new DummyGitHttpServer() },
+      chatSessions,
     });
 
     mimoContext = ctx;
@@ -1147,6 +1150,90 @@ describe("Chat Threads API", () => {
         agentService.isAgentOnline = originalIsOnline;
         agentService.getAgentConnection = originalGetConnection;
       }
+    });
+  });
+
+  describe("Thread rename WebSocket broadcast", () => {
+    async function createSessionWithSubscriber() {
+      const { app, project, session, token } = await createUserProjectSession();
+
+      // Register a fake WS subscriber for the session to capture broadcasts.
+      const received: any[] = [];
+      chatSessions.set(session.id, new Set([
+        {
+          readyState: 1,
+          send: (payload: string) => received.push(JSON.parse(payload)),
+        },
+      ]));
+
+      const r = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({
+            name: "Reviewer",
+            model: "claude-3",
+            mode: "review",
+            assignedAgentId: "agent-xyz",
+          }),
+        },
+      );
+      expect(r.status).toBe(201);
+      const thread = await r.json();
+
+      return { app, project, session, token, thread, received };
+    }
+
+    it("broadcasts chat_thread_renamed when a thread name is changed", async () => {
+      const { app, project, session, token, thread, received } =
+        await createSessionWithSubscriber();
+
+      const patch = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads/${thread.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({ name: "Code Reviewer" }),
+        },
+      );
+      expect(patch.status).toBe(200);
+
+      const renamed = received.find(
+        (msg) => msg.type === "chat_thread_renamed",
+      );
+      expect(renamed).toBeDefined();
+      expect(renamed.sessionId).toBe(session.id);
+      expect(renamed.threadId).toBe(thread.id);
+      expect(renamed.name).toBe("Code Reviewer");
+    });
+
+    it("does NOT broadcast chat_thread_renamed when only other fields change", async () => {
+      const { app, project, session, token, thread, received } =
+        await createSessionWithSubscriber();
+
+      const patch = await app.request(
+        `/projects/${project.id}/sessions/${session.id}/chat-threads/${thread.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${token}`,
+          },
+          body: JSON.stringify({ model: "gpt-5" }),
+        },
+      );
+      expect(patch.status).toBe(200);
+
+      expect(
+        received.some((msg) => msg.type === "chat_thread_renamed"),
+      ).toBe(false);
     });
   });
 });

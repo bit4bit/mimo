@@ -66,6 +66,7 @@ import {
 import { mcpTokenStore } from "../../mcp/token-store.js";
 import { createOS } from "../os/node-adapter.js";
 import type { OS } from "../os/types.js";
+import type { SessionWsClient } from "../../api/websocket/session-broadcast.js";
 
 export const DEFAULT_MIMO_HOST = "localhost";
 
@@ -103,6 +104,7 @@ export interface MimoPaths {
 export interface MimoContext {
   env: MimoEnv;
   paths: MimoPaths;
+  chatSessions?: Map<string, Set<SessionWsClient>>;
   repos: {
     users: UserRepository;
     projects: ProjectRepository;
@@ -148,6 +150,7 @@ type CreateMimoContextOverrides = {
   repos?: Partial<MimoContext["repos"]>;
   services?: Partial<MimoContext["services"]>;
   os?: OS;
+  chatSessions?: Map<string, Set<SessionWsClient>>;
 };
 
 function resolvePaths(mimoHome: string, os: OS): MimoPaths {
@@ -434,5 +437,6 @@ export function createMimoContext(
     paths,
     repos,
     services,
+    chatSessions: overrides.chatSessions,
   };
 }

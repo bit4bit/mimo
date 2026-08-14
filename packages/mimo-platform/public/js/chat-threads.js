@@ -16,6 +16,7 @@ const ChatThreadsState = {
   isLoading: false,
   threadInputs: {}, // Per-thread unsent input content
   threadScroll: {}, // Per-thread scroll position
+  editingThreadId: null, // Thread tab currently in inline rename edit mode
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -110,7 +111,14 @@ async function updateThread(threadId, updates) {
 
     await throwIfNotOk(response);
 
-    const updated = await response.json();
+    const data = await response.json();
+
+    // The web route returns the full session; pull the updated thread out of
+    // it so local state actually reflects the change (e.g. the new name).
+    const sessionThread = data?.session?.chatThreads?.find(
+      (t) => t.id === threadId,
+    );
+    const updated = sessionThread ?? data;
 
     // Update local state
     const idx = ChatThreadsState.threads.findIndex((t) => t.id === threadId);
@@ -124,7 +132,7 @@ async function updateThread(threadId, updates) {
     return updated;
   } catch (error) {
     console.error("[chat-threads] Failed to update thread:", error);
-    return null;
+    throw error;
   }
 }
 
@@ -212,9 +220,12 @@ function switchToThread(threadId) {
     saveCurrentThreadState(previousThreadId);
   }
 
-  // Update UI immediately for responsiveness
+  // Update UI immediately for responsiveness.
+  // Do NOT call updateThreadTabsUI() here — it destroys and recreates every
+  // tab element, which prevents dblclick from firing (both clicks must land
+  // on the same element). Update active styling in place instead.
   ChatThreadsState.activeThreadId = threadId;
-  updateThreadTabsUI();
+  updateThreadTabActiveStates();
   updateThreadContextUI();
 
   // Persist to server
@@ -345,6 +356,19 @@ function restoreThreadStateAfterLoad(threadId) {
   }, 2000);
 }
 
+// Update only the active styling of existing tabs without rebuilding them.
+// Used by switchToThread so tab elements (and their dblclick listeners) survive
+// the first click of a double-click.
+function updateThreadTabActiveStates() {
+  document.querySelectorAll(".chat-thread-tab").forEach((tab) => {
+    const isActive =
+      tab.dataset.threadId === ChatThreadsState.activeThreadId;
+    tab.classList.toggle("active", isActive);
+    tab.style.background = isActive ? "#1a1a1a" : "transparent";
+    tab.style.color = isActive ? "#d4d4d4" : "#888";
+  });
+}
+
 function updateThreadTabsUI() {
   const tabsContainer = document.querySelector(".chat-threads-tabs");
   if (!tabsContainer) return;
@@ -405,12 +429,191 @@ function updateThreadTabsUI() {
 
     tab.innerHTML = `
       <span class="thread-status-indicator" data-thread-state="${thread.state}" title="${statusTitle}" style="cursor: help;">${statusIcon}</span>
-      ${escapeHtml(thread.name)}
+      <span class="chat-thread-name">${escapeHtml(thread.name)}</span>
     `;
 
     tab.addEventListener("click", () => switchToThread(thread.id));
+    tab.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showRenameThreadDialog(thread);
+    });
 
     tabsContainer.appendChild(tab);
+  });
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// RENAME DIALOG (double-click a tab to rename it via a modal)
+// ═════════════════════════════════════════════════════════════════════════════
+
+function showRenameThreadDialog(thread) {
+  if (!thread || !thread.id) return;
+  if (document.querySelector("#rename-thread-dialog")) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = "rename-thread-dialog";
+  overlay.className = "modal";
+  overlay.style.cssText = `
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `;
+
+  overlay.innerHTML = `
+    <form id="rename-thread-form" style="
+      background: #2d2d2d;
+      border: 1px solid #444;
+      padding: 20px;
+      width: 90%;
+      max-width: 360px;
+      border-radius: 4px;
+    ">
+      <h3 style="margin: 0 0 15px 0; font-size: 16px;">Rename Thread</h3>
+
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Name</label>
+        <input type="text" id="rename-thread-input" maxlength="60" autofocus value="${escapeHtml(thread.name)}" style="
+          width: 100%;
+          padding: 8px;
+          background: #1a1a1a;
+          border: 1px solid #555;
+          color: #d4d4d4;
+          font-family: monospace;
+          font-size: 13px;
+          border-radius: 3px;
+          box-sizing: border-box;
+          outline: none;
+          transition: border-color 0.15s ease;
+        ">
+      </div>
+
+      <div id="rename-thread-error" style="color: #ff6b6b; font-size: 11px; margin-bottom: 10px; min-height: 14px;"></div>
+
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button type="button" id="cancel-rename-thread" style="
+          padding: 6px 12px;
+          border: none;
+          cursor: pointer;
+          font-family: monospace;
+          font-size: 12px;
+          border-radius: 3px;
+          background: #3d3d3d;
+          color: #d4d4d4;
+        ">Cancel</button>
+        <button type="submit" id="confirm-rename-thread" style="
+          padding: 6px 12px;
+          border: none;
+          cursor: pointer;
+          font-family: monospace;
+          font-size: 12px;
+          border-radius: 3px;
+          background: #74c0fc;
+          color: #1a1a1a;
+        ">Save</button>
+      </div>
+    </form>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const input = overlay.querySelector("#rename-thread-input");
+  const errorEl = overlay.querySelector("#rename-thread-error");
+  const form = overlay.querySelector("#rename-thread-form");
+  const cancelBtn = overlay.querySelector("#cancel-rename-thread");
+
+  // Focus and select the input once the dialog is painted. Use both
+  // requestAnimationFrame and a short timeout to re-assert focus in case
+  // an async handler (e.g. from switchToThread) tries to steal it.
+  const focusInput = () => {
+    input.focus();
+    input.select();
+  };
+  requestAnimationFrame(focusInput);
+  setTimeout(focusInput, 50);
+
+  function closeDialog() {
+    overlay.remove();
+  }
+
+  function showError(message) {
+    errorEl.textContent = message;
+    input.style.border = "1px solid #ff6b6b";
+  }
+
+  function clearError() {
+    errorEl.textContent = "";
+    input.style.border = "1px solid #555";
+  }
+
+    form.addEventListener("focus", () => {
+      input.style.border = "1px solid #74c0fc";
+    }, true);
+    form.addEventListener("blur", () => {
+      if (!input.classList.contains("rename-error")) {
+        input.style.border = "1px solid #555";
+      }
+    }, true);
+
+  input.addEventListener("input", clearError);
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeDialog();
+    }
+  });
+
+  cancelBtn.addEventListener("click", closeDialog);
+
+  overlay.addEventListener("mousedown", (e) => {
+    if (e.target === overlay) closeDialog();
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const newName = input.value;
+
+    if (!newName.trim()) {
+      showError("Name cannot be empty");
+      return;
+    }
+    if (newName === thread.name) {
+      closeDialog();
+      return;
+    }
+    const duplicate = ChatThreadsState.threads.some(
+      (t) => t.name === newName && t.id !== thread.id,
+    );
+    if (duplicate) {
+      showError("A thread with this name already exists in this session");
+      return;
+    }
+
+    try {
+      await updateThread(thread.id, { name: newName });
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to rename thread";
+      showError(message);
+      return;
+    }
+
+    updateThreadTabsUI();
+    if (thread.id === ChatThreadsState.activeThreadId) {
+      updateThreadContextUI();
+    }
+    updateSummaryBufferSelects();
+    closeDialog();
   });
 }
 
@@ -572,7 +775,11 @@ function attachThreadContextListeners() {
     modelSelect.addEventListener("change", async (e) => {
       const threadId = e.target.dataset.threadId;
       const modelId = e.target.value;
-      await updateThread(threadId, { model: modelId });
+      try {
+        await updateThread(threadId, { model: modelId });
+      } catch (error) {
+        console.error("[chat-threads] Failed to update model:", error);
+      }
 
       // Notify via WebSocket if connected
       if (window.MIMO_CHAT_SOCKET?.readyState === WebSocket.OPEN) {
@@ -593,7 +800,11 @@ function attachThreadContextListeners() {
     modeSelect.addEventListener("change", async (e) => {
       const threadId = e.target.dataset.threadId;
       const modeId = e.target.value;
-      await updateThread(threadId, { mode: modeId });
+      try {
+        await updateThread(threadId, { mode: modeId });
+      } catch (error) {
+        console.error("[chat-threads] Failed to update mode:", error);
+      }
 
       // Notify via WebSocket if connected
       if (window.MIMO_CHAT_SOCKET?.readyState === WebSocket.OPEN) {
@@ -614,7 +825,11 @@ function attachThreadContextListeners() {
     brainwashCheckbox.addEventListener("change", async (e) => {
       const threadId = e.target.dataset.threadId;
       const checked = e.target.checked;
-      await updateThread(threadId, { brainWash: checked });
+      try {
+        await updateThread(threadId, { brainWash: checked });
+      } catch (error) {
+        console.error("[chat-threads] Failed to update brain-wash:", error);
+      }
 
       if (window.MIMO_CHAT_SOCKET?.readyState === WebSocket.OPEN) {
         window.MIMO_CHAT_SOCKET.send(
@@ -777,7 +992,7 @@ async function showCreateThreadDialog() {
 
       <div style="margin-bottom: 15px;">
         <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Name</label>
-        <input type="text" id="new-thread-name" placeholder="e.g., Reviewer, Code Analysis" style="
+        <input type="text" id="new-thread-name" maxlength="60" placeholder="e.g., Reviewer, Code Analysis" style="
           width: 100%;
           padding: 8px;
           background: #1a1a1a;
