@@ -7,7 +7,13 @@ interface Project {
   name: string;
   newBranch?: string;
   agentSubpath?: string;
-  repositories: Array<{ id: string; name: string; mountPath: string }>;
+  repositories: Array<{
+    id: string;
+    name: string;
+    mountPath: string;
+    repoType?: "git" | "fossil";
+    newBranch?: string;
+  }>;
   instructions?: string;
   color?: string;
   iconGlyph?: string;
@@ -209,56 +215,79 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
           </div>
 
           <div class="form-group">
-            <label>Branch (optional)</label>
-            <input
-              type="text"
-              id="branch-name-input"
-              name="branchName"
-              placeholder="auto: uses session name"
-              value={prefillBranchName ?? ""}
-              data-help-id="session-create-page-branch-name-input-input"
-            />
+            <label>Branches (optional)</label>
             <p class="session-create-help">
-              Defaults to the session name (slugified). Edit to override, or
-              clear to use the project default
-              {project.repositories?.[0]?.newBranch
-                ? ` (${project.repositories[0].newBranch})`
-                : " (none)"}
-              .
+              Choose per repository whether to create a new branch or sync an
+              existing remote branch. Leave the name empty in "new" mode to use
+              the repository's project default.
             </p>
 
             {prefillNotes !== undefined && (
               <input type="hidden" name="notes" value={prefillNotes} />
             )}
 
-            <div class="branch-mode-group">
-              <label class="branch-mode-option mb-4">
-                <input
-                  type="radio"
-                  name="branchMode"
-                  value="new"
-                  checked
-                  class="mr-6"
-                  data-help-id="session-create-page-branch-mode-input"
-                />
-                Create new branch
-                <span class="text-muted text-small ml-4">
-                  — clone project default, create this branch locally
-                </span>
-              </label>
-              <label class="branch-mode-option">
-                <input
-                  type="radio"
-                  name="branchMode"
-                  value="sync"
-                  class="mr-6"
-                  data-help-id="session-create-page-branch-mode-input"
-                />
-                Sync existing branch
-                <span class="text-muted text-small ml-4">
-                  — branch already exists on remote; clone it directly
-                </span>
-              </label>
+            <div class="repo-branch-list">
+              {project.repositories.map((repo) => {
+                const isFossil = repo.repoType === "fossil";
+                return (
+                  <div
+                    key={repo.id}
+                    class="repo-branch-card"
+                    data-repo-id={repo.id}
+                  >
+                    <div class="repo-branch-header">
+                      <strong>{repo.name}</strong>
+                      <span class="text-muted text-small">
+                        {repo.mountPath}
+                        {repo.repoType ? ` · ${repo.repoType}` : ""}
+                      </span>
+                    </div>
+                    <label class="branch-mode-option mb-4">
+                      <input
+                        type="radio"
+                        name={`branchMode_${repo.id}`}
+                        value="new"
+                        checked
+                        class="mr-6"
+                        data-help-id="session-create-page-branch-mode-input"
+                      />
+                      Create new branch
+                      <span class="text-muted text-small ml-4">
+                        — clone project default, create this branch locally
+                      </span>
+                    </label>
+                    <label class="branch-mode-option">
+                      <input
+                        type="radio"
+                        name={`branchMode_${repo.id}`}
+                        value="sync"
+                        disabled={isFossil}
+                        class="mr-6"
+                        data-help-id="session-create-page-branch-mode-input"
+                      />
+                      Sync existing branch
+                      <span class="text-muted text-small ml-4">
+                        {isFossil
+                          ? "— not yet supported for fossil repositories"
+                          : "— branch already exists on remote; clone it directly"}
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      name={`branchName_${repo.id}`}
+                      class="repo-branch-input"
+                      placeholder="auto: uses session name"
+                      value={prefillBranchName ?? ""}
+                      data-help-id="session-create-page-branch-name-input-input"
+                    />
+                    <p class="session-create-help repo-branch-help">
+                      {repo.newBranch
+                        ? `Defaults to the session name (slugified). Clear to use the project default (${repo.newBranch}).`
+                        : "Defaults to the session name (slugified). Clear to use the project default."}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -357,33 +386,65 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
             __html: `
 (function () {
   var nameInput = document.getElementById('session-name-input');
-  var branchInput = document.getElementById('branch-name-input');
-  var branchManuallyEdited = false;
+  var cards = Array.prototype.slice.call(document.querySelectorAll('.repo-branch-card'));
 
   if (nameInput) {
     nameInput.focus();
-  }
-
-  // When the branch name is prefilled (e.g. from a feature's "Create
-  // session" hand-off), treat it as manually edited so typing a session
-  // name does not clobber the prefill.
-  if (branchInput && branchInput.value) {
-    branchManuallyEdited = true;
   }
 
   function slugify(str) {
     return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   }
 
-  branchInput.addEventListener('input', function () {
-    branchManuallyEdited = true;
+  var HELP_NEW_SUFFIX = 'Defaults to the session name (slugified).';
+  var cardsState = cards.map(function (card) {
+    var input = card.querySelector('.repo-branch-input');
+    var help = card.querySelector('.repo-branch-help');
+    var radios = Array.prototype.slice.call(
+      card.querySelectorAll('input[type="radio"]')
+    );
+    // When the branch name is prefilled (e.g. from a feature's "Create
+    // session" hand-off), treat it as manually edited so typing a session
+    // name does not clobber the prefill.
+    var state = { input: input, manuallyEdited: !!(input && input.value) };
+
+    function currentMode() {
+      var checked = card.querySelector('input[type="radio"]:checked');
+      return checked ? checked.value : 'new';
+    }
+
+    radios.forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        if (!input) return;
+        if (currentMode() === 'sync') {
+          input.placeholder = 'e.g. main';
+          if (help) help.textContent = 'Branch already exists on the remote; it is cloned directly and pushed back to.';
+        } else {
+          input.placeholder = 'auto: uses session name';
+          if (help) help.textContent = HELP_NEW_SUFFIX;
+        }
+      });
+    });
+
+    if (input) {
+      input.addEventListener('input', function () {
+        state.manuallyEdited = true;
+      });
+    }
+    state.currentMode = currentMode;
+    return state;
   });
 
-  nameInput.addEventListener('input', function () {
-    if (!branchManuallyEdited) {
-      branchInput.value = slugify(nameInput.value);
-    }
-  });
+  if (nameInput) {
+    nameInput.addEventListener('input', function () {
+      var slug = slugify(nameInput.value);
+      cardsState.forEach(function (state) {
+        if (state.input && state.currentMode() === 'new' && !state.manuallyEdited) {
+          state.input.value = slug;
+        }
+      });
+    });
+  }
 })();
 `,
           }}
@@ -395,6 +456,10 @@ export const SessionCreatePage: FC<SessionCreateProps> = ({
           .session-create-help { color: #888; font-size: 12px; margin-top: 5px; }
           .branch-mode-group { margin-top: 10px; }
           .branch-mode-option { display: block; font-weight: normal; }
+          .repo-branch-list { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+          .repo-branch-card { border: 1px solid #444; border-radius: 4px; padding: 10px 12px; }
+          .repo-branch-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+          .repo-branch-input { margin-top: 8px; width: 100%; box-sizing: border-box; }
           .mb-4 { margin-bottom: 4px; }
           .mr-6 { margin-right: 6px; }
           .ml-4 { margin-left: 4px; }
