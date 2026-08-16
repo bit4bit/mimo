@@ -1,7 +1,5 @@
 # MIMO Platform
 
-[MOVED TO](https://codeberg.org/bit4bit/mimo)
-
 My opinionated agent development environment. A personal tool for daily development activities and a training dojo for tuning LLM-assisted workflows.
 
 A web-based interface for AI-assisted development with session-based worktrees, structured change management, and multi-provider agent support.
