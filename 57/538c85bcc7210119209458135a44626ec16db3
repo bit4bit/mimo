@@ -1,0 +1,19 @@
+docker-agents/docker-compose.claude.yml
+  s_626ca8529cec70::t_7b2800ea24774c 2-8,18,28-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "57538c85bcc7210119209458135a44626ec16db3",
+  "prompts": {},
+  "sessions": {
+    "s_626ca8529cec70": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_000343fdbffe08gCu3b9XXa5b7",
+        "model": "glm-5.2"
+      },
+      "human_author": "Jovany Leandro G.C <bit4bit@riseup.net>"
+    }
+  }
+}
