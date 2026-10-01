@@ -1324,16 +1324,18 @@ export function createWebSocketSetup(deps: WebSocketSetupDeps) {
               continue;
             }
             seenSessionIds.add(session.id);
-            pipeline.clearPromptInFlight(
-              session.id,
-              session.activeChatThreadId,
-            );
+            const threadIds = new Set<string>();
+            if (session.activeChatThreadId) {
+              threadIds.add(session.activeChatThreadId);
+            }
             if (Array.isArray(session.chatThreads)) {
               for (const thread of session.chatThreads) {
-                if (thread?.id) {
-                  pipeline.clearPromptInFlight(session.id, thread.id);
-                }
+                if (thread?.id) threadIds.add(thread.id);
               }
+            }
+            for (const threadId of threadIds) {
+              await pipeline.flushAsInterrupted(session.id, threadId, session);
+              pipeline.clearPromptInFlight(session.id, threadId);
             }
           }
           logger.debug(`Agent ${agentId} disconnected`);
