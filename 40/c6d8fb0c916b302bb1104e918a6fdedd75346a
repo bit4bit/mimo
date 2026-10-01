@@ -1,0 +1,28 @@
+Dockerfile.mimo
+  s_0d794dd7667588::t_8632d3d7c40a60 36-38
+  s_11a5e5f09c8189::t_064be2e1ed30e2 47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "40c6d8fb0c916b302bb1104e918a6fdedd75346a",
+  "prompts": {},
+  "sessions": {
+    "s_0d794dd7667588": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e69b98eb-d2dd-47c0-8c9a-2ab35f124137",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jovany Leandro G.C <bit4bit@riseup.net>"
+    },
+    "s_11a5e5f09c8189": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f002b010-f624-41fa-ae48-56040633a9c4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jovany Leandro G.C <bit4bit@riseup.net>"
+    }
+  }
+}
