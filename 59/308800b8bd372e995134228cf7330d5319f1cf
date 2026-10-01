@@ -1,0 +1,16 @@
+bun.lock
+  h_51176e4e480a67 19-20,61,63,65,67,69,71,73,75,77,79,81,157,195-196,503,507-508,516-517
+packages/mimo-agent/package.json
+  h_51176e4e480a67 15-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "59308800b8bd372e995134228cf7330d5319f1cf",
+  "prompts": {},
+  "humans": {
+    "h_51176e4e480a67": {
+      "author": "Jovany Leandro G.C <bit4bit@riseup.net>"
+    }
+  }
+}
