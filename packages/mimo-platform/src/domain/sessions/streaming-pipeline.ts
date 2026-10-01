@@ -489,30 +489,79 @@ export class ChatStreamingPipeline {
     const key = effectivePromptId
       ? promptStreamKey(sessionId, threadId, effectivePromptId)
       : streamKey(sessionId, threadId);
-    this.messageStartTimes.delete(key);
 
     const fullContent = this.buildAndClearAssistantContent(key);
-    const historyThreadId = threadId || session.activeChatThreadId;
-    if (historyThreadId) {
-      await this.chat.saveMessage(
-        sessionId,
-        {
-          role: "assistant",
-          content: fullContent ?? "",
-          timestamp: new Date().toISOString(),
-          metadata: {
-            cancelled: true,
-            ...(effectivePromptId ? { promptId: effectivePromptId } : {}),
-          },
-        },
-        historyThreadId,
-      );
-    }
+    await this.savePartialTurn(
+      sessionId,
+      threadId,
+      session,
+      key,
+      fullContent ?? "",
+      { cancelled: true },
+      effectivePromptId,
+    );
 
     // Mark this key so a trailing usage_update from the agent doesn't
     // double-save the same (or partially-overlapping) content.
     this.cancelledKeys.add(key);
+  }
+
+  // Persists whatever was streamed for the thread's current turn when the
+  // agent connection drops mid-response. Turns already handed to
+  // prompt_completed are left to finish on their own.
+  async flushAsInterrupted(
+    sessionId: string,
+    threadId: string,
+    session: { activeChatThreadId?: string },
+  ): Promise<void> {
+    const promptId = this.currentPromptByThread.get(
+      streamKey(sessionId, threadId),
+    );
+    const key = promptId
+      ? promptStreamKey(sessionId, threadId, promptId)
+      : streamKey(sessionId, threadId);
+
+    const fullContent = this.buildAndClearAssistantContent(key);
+    if (fullContent === null) return;
+
+    await this.savePartialTurn(
+      sessionId,
+      threadId,
+      session,
+      key,
+      fullContent,
+      { interrupted: true },
+      promptId,
+    );
+  }
+
+  private async savePartialTurn(
+    sessionId: string,
+    threadId: string,
+    session: { activeChatThreadId?: string },
+    key: string,
+    content: string,
+    reason: { cancelled: true } | { interrupted: true },
+    promptId?: string,
+  ): Promise<void> {
+    this.messageStartTimes.delete(key);
     this.currentPromptByThread.delete(streamKey(sessionId, threadId));
+
+    const historyThreadId = threadId || session.activeChatThreadId;
+    if (!historyThreadId) return;
+    await this.chat.saveMessage(
+      sessionId,
+      {
+        role: "assistant",
+        content,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          ...reason,
+          ...(promptId ? { promptId } : {}),
+        },
+      },
+      historyThreadId,
+    );
   }
 
   handleAvailableCommandsUpdate(
