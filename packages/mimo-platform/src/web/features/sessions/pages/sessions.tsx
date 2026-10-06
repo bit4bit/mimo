@@ -28,7 +28,10 @@ import {
   detectLanguage,
   escapeHtml,
 } from "../../../../domain/files/syntax-highlighter.js";
-import { SearchServiceError } from "../../../../domain/files/search-service.js";
+import {
+  SearchServiceError,
+  parseContextLines,
+} from "../../../../domain/files/search-service.js";
 import { canDeleteSessionNow } from "../../../../domain/sessions/session-retention.js";
 import { createSessionDeletionUseCase } from "../../../../domain/sessions/session-deletion.js";
 import { validateWorkspaceRelativeDir } from "../../../../domain/sessions/workspace-paths.js";
@@ -3422,7 +3425,9 @@ export function createSessionsRoutes(
     if (!username) return c.json({ error: "Unauthorized" }, 401);
     const sessionId = c.req.param("id");
     const query = c.req.query("q");
-    const contextLines = parseInt(c.req.query("context") ?? "2", 10);
+    const context = parseContextLines(c.req.query("context"), 2);
+    const beforeLines = parseContextLines(c.req.query("before"), context);
+    const afterLines = parseContextLines(c.req.query("after"), context);
 
     if (!query) return c.json({ error: "q query param required" }, 400);
 
@@ -3447,10 +3452,11 @@ export function createSessionsRoutes(
     const workspacePath = session.agentWorkspacePath;
 
     try {
-      const results = await searchService.searchContent(workspacePath, query, {
-        contextLines,
-        maxResults: 100,
-      });
+      const { results, truncated } = await searchService.searchContent(
+        workspacePath,
+        query,
+        { beforeLines, afterLines, maxResults: 100 },
+      );
 
       const uniqueFiles = new Set(results.map((r) => r.path)).size;
 
@@ -3458,7 +3464,7 @@ export function createSessionsRoutes(
         results,
         total: results.length,
         uniqueFiles,
-        truncated: results.length >= 100,
+        truncated,
       });
     } catch (err: any) {
       if (err instanceof SearchServiceError) {

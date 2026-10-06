@@ -39,6 +39,14 @@ interface ImpactRecord {
     complexityDelta: number;
   }>;
   cloneUrl: string;
+  tokens?: {
+    input: number;
+    output: number;
+    thought: number;
+    cachedRead: number;
+    cachedWrite: number;
+    total: number;
+  };
 }
 
 interface SessionInfo {
@@ -101,6 +109,7 @@ export const ImpactHistoryPage: FC<ImpactHistoryProps> = ({
                   <th>Lines of Code</th>
                   <th>Complexity</th>
                   <th>Est. Time</th>
+                  <th>Tokens</th>
                   <th>Date</th>
                 </tr>
               </thead>
@@ -180,6 +189,18 @@ export const ImpactHistoryPage: FC<ImpactHistoryProps> = ({
                       <td>
                         {formatEstimatedTime(
                           impact.complexity.estimatedMinutes,
+                        )}
+                      </td>
+                      <td>
+                        {impact.tokens ? (
+                          <span
+                            class="metric-tokens"
+                            title={`Input ${impact.tokens.input} · Output ${impact.tokens.output} · Cache read ${impact.tokens.cachedRead} · Cache write ${impact.tokens.cachedWrite}`}
+                          >
+                            {formatTokens(impact.tokens.total)}
+                          </span>
+                        ) : (
+                          <span class="text-muted">—</span>
                         )}
                       </td>
                       <td>
@@ -323,6 +344,10 @@ export const ImpactHistoryPage: FC<ImpactHistoryProps> = ({
           color: #ff6b6b;
         }
         
+        .metric-tokens {
+          font-family: monospace;
+        }
+
         .date-cell {
           color: #888;
           font-size: 12px;
@@ -342,6 +367,12 @@ function formatEstimatedTime(minutes: number): string {
     return `~${hours} hr${hours !== 1 ? "s" : ""}`;
   }
   return `~${hours} hr${hours !== 1 ? "s" : ""} ${mins} min`;
+}
+
+function formatTokens(count: number): string {
+  if (count < 1000) return String(count);
+  if (count < 1_000_000) return `${(count / 1000).toFixed(1)}k`;
+  return `${(count / 1_000_000).toFixed(1)}M`;
 }
 
 function formatRelativeDate(date: Date): string {

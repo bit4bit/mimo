@@ -8,6 +8,7 @@ import {
   type FrameState,
 } from "./frame-state.js";
 import { mcpTokenStore } from "../../mcp/token-store.js";
+import type { TokenUsage } from "../impact/token-usage.js";
 
 export interface ModelState {
   currentModelId: string;
@@ -101,6 +102,8 @@ export interface Session {
   syncState: "idle" | "syncing" | "error";
   lastSyncAt?: string;
   lastSyncError?: string;
+  // Tokens spent since the session's last commit
+  pendingTokenUsage?: TokenUsage;
   modelState?: ModelState;
   modeState?: ModeState;
   frameState: FrameState;
@@ -147,6 +150,8 @@ export interface SessionData {
   syncState?: "idle" | "syncing" | "error";
   lastSyncAt?: string;
   lastSyncError?: string;
+  // Tokens spent since the session's last commit
+  pendingTokenUsage?: TokenUsage;
   modelState?: ModelState;
   modeState?: ModeState;
   frameState?: FrameState;

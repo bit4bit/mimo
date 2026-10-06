@@ -18,6 +18,14 @@ export const EditBuffer: FC<EditBufferProps> = ({ sessionId }) => {
         {/* Tabs rendered by JS */}
         <button
           type="button"
+          id="content-search-btn"
+          class="chat-thread-action-btn"
+          title="Search content and open file (Alt+Shift+C)"
+        >
+          🔍
+        </button>
+        <button
+          type="button"
           id="open-file-finder-btn"
           class="chat-thread-action-btn"
           title="Open file (Mod+Shift+F)"

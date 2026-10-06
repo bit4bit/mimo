@@ -11,6 +11,7 @@ import {
 import { parsePatchPreview, type DiffHunk } from "./patch-preview.js";
 import type { Credential } from "../credentials/repository.js";
 import { ChangedFilesCache } from "./changed-files-cache.js";
+import type { TokenUsage } from "../impact/token-usage.js";
 import {
   createManifestStore,
   type ManifestStore,
@@ -162,6 +163,103 @@ export class CommitService {
       );
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Impact recording is best-effort: a failure here is logged and the commit
+   * proceeds without an impact record.
+   */
+  private async calculateCommitImpact(
+    session: { id: string; upstreamPath: string; agentWorkspacePath: string },
+    changes: ChangedFilesResult,
+    pathsToApply: string[],
+  ): Promise<any | null> {
+    const selected = new Set(pathsToApply);
+    try {
+      const { metrics } = await this.deps.impactCalculator.calculateImpact(
+        session.id,
+        session.upstreamPath,
+        session.agentWorkspacePath,
+        false,
+        {
+          ...changes,
+          files: changes.files.filter((f) => selected.has(f.path)),
+        },
+      );
+      return metrics;
+    } catch (impactError) {
+      logger.error(
+        `[commit] Failed to calculate impact for session ${session.id}:`,
+        impactError,
+      );
+      return null;
+    }
+  }
+
+  private async saveImpactRecord(
+    session: {
+      id: string;
+      name: string;
+      projectId: string;
+      pendingTokenUsage?: TokenUsage;
+    },
+    metrics: any,
+    commitHash?: string,
+  ): Promise<void> {
+    const complexityByLanguage =
+      metrics.byLanguage?.map((lang: any) => ({
+        language: lang.language,
+        files: lang.files ?? 0,
+        linesAdded: lang.linesAdded ?? 0,
+        linesRemoved: lang.linesRemoved ?? 0,
+        complexityDelta: lang.complexityDelta ?? 0,
+      })) ?? [];
+
+    const impactRecord = {
+      id: `${session.id}-${commitHash || Date.now()}`,
+      sessionId: session.id,
+      sessionName: session.name,
+      projectId: session.projectId,
+      commitHash: commitHash || "unknown",
+      commitDate: new Date(),
+      files: {
+        new: metrics.files?.new ?? 0,
+        changed: metrics.files?.changed ?? 0,
+        deleted: metrics.files?.deleted ?? 0,
+      },
+      linesOfCode: {
+        added: metrics.linesOfCode?.added ?? 0,
+        removed: metrics.linesOfCode?.removed ?? 0,
+        net: metrics.linesOfCode?.net ?? 0,
+      },
+      complexity: {
+        cyclomatic: metrics.complexity?.cyclomatic ?? 0,
+        cognitive: metrics.complexity?.cognitive ?? 0,
+        estimatedMinutes: metrics.complexity?.estimatedMinutes ?? 0,
+      },
+      complexityByLanguage,
+      cloneUrl: "",
+      ...(session.pendingTokenUsage
+        ? { tokens: session.pendingTokenUsage }
+        : {}),
+    };
+
+    try {
+      await this.deps.impactRepository.save(impactRecord);
+      if (session.pendingTokenUsage) {
+        await this.deps.sessionRepository.update(session.id, {
+          pendingTokenUsage: undefined,
+        });
+      }
+      logger.debug(
+        `[commit] Impact record saved for session ${session.id} commit ${impactRecord.commitHash}`,
+      );
+    } catch (impactError) {
+      logger.error(
+        `[commit] Failed to save impact record for session ${session.id}:`,
+        impactError,
+      );
     }
   }
 
@@ -565,6 +663,14 @@ export class CommitService {
       };
     }
 
+    // Impact must be measured before the selected files are copied into
+    // upstream; afterwards both trees are identical and every delta is zero.
+    const impactMetrics = await this.calculateCommitImpact(
+      session,
+      changes,
+      pathsToApply,
+    );
+
     // Apply selected files
     const applyResult = applySelectedFiles(
       this.deps.os,
@@ -609,63 +715,13 @@ export class CommitService {
       };
     }
 
-    // ── Create impact record for successful commit ─────────────────────────
-    try {
-      const { metrics } = await this.deps.impactCalculator.calculateImpact(
-        session.id,
-        session.upstreamPath,
-        session.agentWorkspacePath,
-        false,
-        changes,
-      );
-
-      const complexityByLanguage =
-        metrics.byLanguage?.map((lang: any) => ({
-          language: lang.language,
-          files: lang.files ?? 0,
-          linesAdded: lang.linesAdded ?? 0,
-          linesRemoved: lang.linesRemoved ?? 0,
-          complexityDelta: lang.complexityDelta ?? 0,
-        })) ?? [];
-
-      const impactRecord = {
-        id: `${session.id}-${commitResult.commitHash || Date.now()}`,
-        sessionId: session.id,
-        sessionName: session.name,
-        projectId: session.projectId,
-        commitHash: commitResult.commitHash || "unknown",
-        commitDate: new Date(),
-        files: {
-          new: metrics.files?.new ?? 0,
-          changed: metrics.files?.changed ?? 0,
-          deleted: metrics.files?.deleted ?? 0,
-        },
-        linesOfCode: {
-          added: metrics.linesOfCode?.added ?? 0,
-          removed: metrics.linesOfCode?.removed ?? 0,
-          net: metrics.linesOfCode?.net ?? 0,
-        },
-        complexity: {
-          cyclomatic: metrics.complexity?.cyclomatic ?? 0,
-          cognitive: metrics.complexity?.cognitive ?? 0,
-          estimatedMinutes: metrics.complexity?.estimatedMinutes ?? 0,
-        },
-        complexityByLanguage,
-        cloneUrl: "",
-      };
-
-      this.deps.impactRepository.save(impactRecord);
-      logger.debug(
-        `[commit] Impact record saved for session ${session.id} commit ${impactRecord.commitHash}`,
-      );
-    } catch (impactError) {
-      // Impact recording is best-effort; do not fail the commit if it errors
-      logger.error(
-        `[commit] Failed to save impact record for session ${session.id}:`,
-        impactError,
+    if (impactMetrics) {
+      await this.saveImpactRecord(
+        session,
+        impactMetrics,
+        commitResult.commitHash,
       );
     }
-    // ────────────────────────────────────────────────────────────────────────
 
     let pushCredential: Credential | undefined;
     if (project.credentialId) {

@@ -135,6 +135,9 @@ export const Layout: FC<LayoutProps> = ({
           {sessionId && <script src="/js/session-clone.js" defer></script>}
           {sessionId && <script src="/js/notes.js" defer></script>}
           {sessionId && <script src="/js/file-tree.js" defer></script>}
+          {sessionId && (
+            <script src="/js/content-finder-utils.js" defer></script>
+          )}
           {sessionId && <script src="/js/edit-buffer.js" defer></script>}
           {sessionId && <script src="/js/summary-buffer.js" defer></script>}
           {sessionId && <script src="/js/terminal.js" defer></script>}
@@ -610,6 +613,72 @@ export const Layout: FC<LayoutProps> = ({
 
             .finder-loading {
               padding: 8px 0;
+            }
+
+            .cf-search-row {
+              display: flex;
+              gap: 8px;
+              align-items: center;
+            }
+
+            .cf-search-row label {
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              color: #888;
+              font-size: 12px;
+              white-space: nowrap;
+            }
+
+            .cf-search-row .code-input.cf-context-input {
+              width: 56px;
+            }
+
+            .cf-result {
+              padding: 6px 10px;
+              cursor: pointer;
+              font-family: monospace;
+              font-size: 13px;
+            }
+
+            .cf-result.active {
+              background: #3a3a5a;
+            }
+
+            .cf-path {
+              color: #888;
+              margin-bottom: 2px;
+            }
+
+            .cf-result.active .cf-path {
+              color: #9b9bbb;
+            }
+
+            .cf-line {
+              display: flex;
+              white-space: pre;
+            }
+
+            .cf-gutter {
+              min-width: 4ch;
+              padding-right: 1ch;
+              text-align: right;
+              color: #555;
+              user-select: none;
+            }
+
+            .cf-context .cf-text {
+              color: #6a6a6a;
+            }
+
+            .cf-match .cf-text {
+              color: #d4d4d4;
+            }
+
+            .cf-hit {
+              background: #6b5b1f;
+              color: #fff;
+              border-radius: 2px;
             }
 
             .buffer-container {

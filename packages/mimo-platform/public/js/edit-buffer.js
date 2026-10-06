@@ -1405,6 +1405,45 @@
   let contentSearchController = null;
   let contentSearchTimeout = null;
   let contentLastCompletedQuery = "";
+  let contentContext = { before: 2, after: 2 };
+  const CONTENT_CONTEXT_STORAGE_KEY = "mimo.contentFinder.context";
+
+  function contentFinderUtils() {
+    return window.MIMO_CONTENT_FINDER_UTILS;
+  }
+
+  function loadContentContext() {
+    const utils = contentFinderUtils();
+    let saved = {};
+    try {
+      saved =
+        JSON.parse(localStorage.getItem(CONTENT_CONTEXT_STORAGE_KEY)) || {};
+    } catch (e) {
+      // localStorage unavailable or corrupt — use defaults
+    }
+    contentContext = {
+      before: utils.clampContextValue(saved.before),
+      after: utils.clampContextValue(saved.after),
+    };
+  }
+
+  function saveContentContext() {
+    try {
+      localStorage.setItem(
+        CONTENT_CONTEXT_STORAGE_KEY,
+        JSON.stringify(contentContext),
+      );
+    } catch (e) {
+      // localStorage unavailable — keep in-memory values
+    }
+  }
+
+  function syncContentContextInputs() {
+    const beforeEl = document.getElementById("content-finder-before");
+    const afterEl = document.getElementById("content-finder-after");
+    if (beforeEl) beforeEl.value = String(contentContext.before);
+    if (afterEl) afterEl.value = String(contentContext.after);
+  }
 
   function isContentFinderOpen() {
     const dialog = document.getElementById("content-finder-dialog");
@@ -1416,6 +1455,8 @@
     if (!dialog) return false;
 
     dialog.style.display = "flex";
+    loadContentContext();
+    syncContentContextInputs();
     const input = document.getElementById("content-finder-input");
     if (input) {
       input.value = "";
@@ -1477,12 +1518,12 @@
         '<div style="color: #888; font-size: 12px; padding: 8px 0;">Searching...</div>';
     }
 
-    const url =
-      "/sessions/" +
-      sessionId +
-      "/search?q=" +
-      encodeURIComponent(normalizedQuery) +
-      "&context=2";
+    const url = contentFinderUtils().buildSearchUrl(
+      sessionId,
+      normalizedQuery,
+      contentContext.before,
+      contentContext.after,
+    );
 
     fetch(url, { signal: contentSearchController.signal })
       .then(function (r) {
@@ -1550,32 +1591,16 @@
 
     const MAX = 50;
     const shown = results.slice(0, MAX);
+    const utils = contentFinderUtils();
     resultsEl.innerHTML = shown
       .map(function (r, i) {
-        const active = i === contentSelectedIndex;
-        const path = r.path + ":" + r.line;
-        const text = r.text.trim();
-
-        let html =
-          '<div class="content-finder-result" data-index="' +
+        return (
+          '<div data-index="' +
           i +
-          '" style="padding: 6px 10px; cursor: pointer; font-family: monospace; font-size: 14px; white-space: nowrap; background: ' +
-          (active ? "#3a3a5a" : "transparent") +
-          "; color: " +
-          (active ? "#d4d4d4" : "#aaa") +
-          ';">';
-        html +=
-          '<div style="color: ' +
-          (active ? "#9b9bbb" : "#888") +
-          '; font-size: 13px; margin-bottom: 2px;">' +
-          escapeHtml(path) +
-          "</div>";
-        html +=
-          '<div style="white-space: pre-wrap; word-break: break-all;">' +
-          escapeHtml(text) +
-          "</div>";
-        html += "</div>";
-        return html;
+          '">' +
+          utils.renderResultHtml(r, i === contentSelectedIndex) +
+          "</div>"
+        );
       })
       .join("");
 
@@ -1717,7 +1742,8 @@
     const tabsEl = document.getElementById("edit-buffer-tabs");
     if (!tabsEl) return;
 
-    // Remove existing dynamic tabs (all except the "+" button)
+    // Remove existing dynamic tabs (all except the search and "+" buttons)
+    const searchBtn = document.getElementById("content-search-btn");
     const openBtn = document.getElementById("open-file-finder-btn");
     tabsEl.innerHTML = "";
 
@@ -1758,6 +1784,7 @@
       btn.addEventListener("click", openFileFinder);
       tabsEl.prepend(btn);
     }
+    if (searchBtn) tabsEl.prepend(searchBtn);
   }
 
   function renderContextBar() {
@@ -2163,6 +2190,10 @@
     const openBtn = document.getElementById("open-file-finder-btn");
     if (openBtn) openBtn.addEventListener("click", openFileFinder);
 
+    // Wire "Search content" button
+    const searchBtn = document.getElementById("content-search-btn");
+    if (searchBtn) searchBtn.addEventListener("click", openContentFinder);
+
     // Wire "Reload File" button
     const reloadBtn = document.getElementById("reload-file-btn");
     if (reloadBtn) reloadBtn.addEventListener("click", reloadCurrentFile);
@@ -2262,6 +2293,47 @@
         }
       });
     }
+
+    // Wire content finder context inputs
+    ["before", "after"].forEach(function (side) {
+      const el = document.getElementById("content-finder-" + side);
+      if (!el) return;
+
+      el.addEventListener("input", function () {
+        contentContext[side] = contentFinderUtils().clampContextValue(el.value);
+        saveContentContext();
+
+        const query = contentInput
+          ? String(contentInput.value || "").trim()
+          : "";
+        if (!query || !contentLastCompletedQuery) return;
+
+        if (contentSearchTimeout) clearTimeout(contentSearchTimeout);
+        contentSearchTimeout = setTimeout(function () {
+          performContentSearch(query);
+        }, 300);
+      });
+
+      el.addEventListener("change", syncContentContextInputs);
+
+      el.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const query = contentInput
+            ? String(contentInput.value || "").trim()
+            : "";
+          if (!query) return;
+          if (contentSearchTimeout) {
+            clearTimeout(contentSearchTimeout);
+            contentSearchTimeout = null;
+          }
+          performContentSearch(query);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          closeContentFinder();
+        }
+      });
+    });
 
     // Close dialog when clicking outside modal content
     const dialog = document.getElementById("file-finder-dialog");

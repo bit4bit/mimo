@@ -16,7 +16,7 @@ export interface AcpClientCallbacks {
   onThoughtEnd: (sessionId: string) => void;
   onMessageChunk: (sessionId: string, content: string) => void;
   onUsageUpdate: (sessionId: string, usage: any) => void;
-  onPromptCompleted: (sessionId: string) => void;
+  onPromptCompleted: (sessionId: string, usage?: acp.Usage) => void;
   onGenericUpdate: (sessionId: string, content: string) => void;
   onAvailableCommandsUpdate: (
     sessionId: string,
@@ -407,7 +407,10 @@ export class AcpClient {
       logger.debug(
         `[acp-client] prompt() resolved for session ${this.sessionId}, calling onPromptCompleted`,
       );
-      this.callbacks.onPromptCompleted(this.sessionId);
+      this.callbacks.onPromptCompleted(
+        this.sessionId,
+        response.usage ?? undefined,
+      );
       return response;
     } catch (err) {
       logger.debug(

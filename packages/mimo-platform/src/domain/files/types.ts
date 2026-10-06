@@ -30,8 +30,14 @@ export interface ContentSearchResult {
 }
 
 export interface SearchOptions {
-  contextLines?: number;
+  beforeLines?: number;
+  afterLines?: number;
   maxResults?: number;
+}
+
+export interface ContentSearchResponse {
+  results: ContentSearchResult[];
+  truncated: boolean;
 }
 
 export interface SearchService {
@@ -39,5 +45,5 @@ export interface SearchService {
     workspacePath: string,
     query: string,
     options: SearchOptions,
-  ) => Promise<ContentSearchResult[]>;
+  ) => Promise<ContentSearchResponse>;
 }

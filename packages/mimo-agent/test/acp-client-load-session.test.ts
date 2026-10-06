@@ -2,6 +2,7 @@ import { describe, it, expect, mock } from "bun:test";
 
 const extMethodCalls: Array<{ method: string; params: Record<string, unknown> }> = [];
 const recordedLoadSessionParams: Array<Record<string, unknown>> = [];
+let promptResponse: Record<string, unknown> = {};
 
 mock.module("@agentclientprotocol/sdk", () => {
   class ClientSideConnection {
@@ -48,7 +49,7 @@ mock.module("@agentclientprotocol/sdk", () => {
 
     async prompt(params: Record<string, unknown>) {
       extMethodCalls.push({ method: "session/prompt", params });
-      return {};
+      return promptResponse;
     }
 
     async cancel() {
@@ -183,5 +184,47 @@ describe("AcpClient loadSession preserves acpSessionId", () => {
         prompt: [{ type: "text", text: "Hello world" }],
       },
     });
+  });
+});
+
+describe("AcpClient reports prompt token usage", () => {
+  async function promptWith(response: Record<string, unknown>) {
+    promptResponse = response;
+    const completions: Array<{ sessionId: string; usage: unknown }> = [];
+    const { AcpClient } = await import("../src/acp/client.js");
+    const client = new AcpClient(mockProvider as any, "test-session", {
+      ...mockCallbacks,
+      onPromptCompleted: (sessionId: string, usage?: unknown) =>
+        completions.push({ sessionId, usage }),
+    });
+    await client.initialize(
+      "/tmp/repo",
+      new WritableStream<Uint8Array>(),
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.close();
+        },
+      }),
+      "existing-session-123",
+      [],
+    );
+    await client.prompt("Hello");
+    promptResponse = {};
+    return completions;
+  }
+
+  it("passes the prompt response usage to onPromptCompleted", async () => {
+    const usage = { inputTokens: 120, outputTokens: 30, totalTokens: 150 };
+    const completions = await promptWith({ stopReason: "end_turn", usage });
+
+    expect(completions).toEqual([{ sessionId: "test-session", usage }]);
+  });
+
+  it("completes without usage when the provider reports none", async () => {
+    const completions = await promptWith({ stopReason: "end_turn" });
+
+    expect(completions).toEqual([
+      { sessionId: "test-session", usage: undefined },
+    ]);
   });
 });

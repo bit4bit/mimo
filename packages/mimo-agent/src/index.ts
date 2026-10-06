@@ -713,7 +713,7 @@ export class MimoAgent {
           timestamp: new Date().toISOString(),
         });
       },
-      onPromptCompleted: (sid) => {
+      onPromptCompleted: (sid, usage) => {
         const key = acpKey(sid, chatThreadId);
         const promptId = this.promptIdsByThread.get(key);
         logger.debug(
@@ -724,6 +724,7 @@ export class MimoAgent {
           sessionId: sid,
           chatThreadId,
           ...(promptId ? { promptId } : {}),
+          ...(usage ? { usage } : {}),
           timestamp: new Date().toISOString(),
         });
         logger.debug(

@@ -362,6 +362,7 @@ export class ImpactCalculator {
         } else {
           // Changed file - calculate delta
           const locDelta = workspaceFile.code - upstreamFile.code;
+          estimatedMinutes += Math.abs(locDelta) / 10;
           if (locDelta > 0) {
             linesAdded += locDelta;
           } else {

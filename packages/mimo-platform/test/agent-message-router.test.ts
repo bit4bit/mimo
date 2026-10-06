@@ -383,6 +383,73 @@ describe("AgentMessageRouter", () => {
         "p1",
       );
     });
+
+    it("accumulates token usage of each turn on the session until the next commit", async () => {
+      const deps = makeMocks();
+      let stored: any = { id: "sess-1", activeChatThreadId: "thread-1" };
+      deps.sessionRepository.findById = mock(async () => stored);
+      deps.sessionRepository.update = mock(async (_id: string, u: any) => {
+        stored = { ...stored, ...u };
+        return stored;
+      });
+      const router = makeRouter(deps);
+      const complete = (promptId: string, usage: Record<string, number>) =>
+        router.handle(
+          "agent-1",
+          { data: { agentId: "agent-1" } },
+          {
+            type: "prompt_completed",
+            sessionId: "sess-1",
+            chatThreadId: "thread-1",
+            usage,
+            promptId,
+          },
+        );
+
+      await complete("p1", {
+        inputTokens: 100,
+        outputTokens: 20,
+        totalTokens: 120,
+        cachedReadTokens: 50,
+      });
+      await complete("p2", {
+        inputTokens: 10,
+        outputTokens: 5,
+        totalTokens: 15,
+      });
+
+      expect(stored.pendingTokenUsage).toEqual({
+        input: 110,
+        output: 25,
+        thought: 0,
+        cachedRead: 50,
+        cachedWrite: 0,
+        total: 135,
+      });
+    });
+
+    it("leaves session token usage untouched when the turn reports none", async () => {
+      const deps = makeMocks();
+      deps.sessionRepository.findById = mock(async () => ({
+        id: "sess-1",
+        activeChatThreadId: "thread-1",
+      }));
+      deps.sessionRepository.update = mock(async () => null);
+      const router = makeRouter(deps);
+
+      await router.handle(
+        "agent-1",
+        { data: { agentId: "agent-1" } },
+        {
+          type: "prompt_completed",
+          sessionId: "sess-1",
+          chatThreadId: "thread-1",
+          promptId: "p1",
+        },
+      );
+
+      expect(deps.sessionRepository.update).not.toHaveBeenCalled();
+    });
   });
 
   describe("agent_ready sends internal and public clone URLs", () => {

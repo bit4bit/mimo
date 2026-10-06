@@ -14,6 +14,7 @@ import { logger } from "../../logger.js";
 import { resolveAgentSyncNowResult } from "../../api/rest/auto-commit.js";
 import type { AutoCommitService } from "../auto-commit/service.js";
 import type { OS } from "../../infrastructure/os/types.js";
+import { addTokenUsage } from "../impact/token-usage.js";
 
 // Re-export types for interface
 export type { ChatService };
@@ -1150,6 +1151,11 @@ export class AgentMessageRouter {
     }
     const session = await this.deps.sessionRepository.findById(sessionId);
     const sessionObj = session ? session : { activeChatThreadId: undefined };
+    if (session && data.usage) {
+      await this.deps.sessionRepository.update(sessionId, {
+        pendingTokenUsage: addTokenUsage(session.pendingTokenUsage, data.usage),
+      });
+    }
     await this.deps.pipeline.handlePromptCompleted(
       sessionId,
       threadId,

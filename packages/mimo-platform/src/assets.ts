@@ -18,6 +18,7 @@ import diffJs from "../public/js/diff.js" with { type: "file" };
 import diffOverviewJs from "../public/js/diff-overview.js" with { type: "file" };
 import editBufferJs from "../public/js/edit-buffer.js" with { type: "file" };
 import expertUtilsJs from "../public/js/expert-utils.js" with { type: "file" };
+import contentFinderUtilsJs from "../public/js/content-finder-utils.js" with { type: "file" };
 import featuresJs from "../public/js/features.js" with { type: "file" };
 import fileTreeJs from "../public/js/file-tree.js" with { type: "file" };
 import helpTooltipJs from "../public/js/help-tooltip.js" with { type: "file" };
@@ -50,6 +51,7 @@ const EMBEDDED_ASSET_PATHS: Record<string, string> = {
   "/js/diff-overview.js": diffOverviewJs,
   "/js/edit-buffer.js": editBufferJs,
   "/js/expert-utils.js": expertUtilsJs,
+  "/js/content-finder-utils.js": contentFinderUtilsJs,
   "/js/features.js": featuresJs,
   "/js/file-tree.js": fileTreeJs,
   "/js/help-tooltip.js": helpTooltipJs,

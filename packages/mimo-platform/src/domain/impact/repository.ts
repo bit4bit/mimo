@@ -2,6 +2,7 @@
 import type { OS } from "../../infrastructure/os/types.js";
 import YAML from "yaml";
 import { logger } from "../../logger.js";
+import type { TokenUsage } from "./token-usage.js";
 
 export interface ImpactRecord {
   id: string;
@@ -33,6 +34,7 @@ export interface ImpactRecord {
     complexityDelta: number;
   }>;
   cloneUrl?: string;
+  tokens?: TokenUsage;
 }
 
 interface ImpactRepositoryDeps {

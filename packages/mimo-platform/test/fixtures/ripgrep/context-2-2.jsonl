@@ -1,0 +1,29 @@
+{"type":"begin","data":{"path":{"text":"./a.txt"}}}
+{"type":"context","data":{"path":{"text":"./a.txt"},"lines":{"text":"l3\n"},"line_number":3,"absolute_offset":6,"submatches":[]}}
+{"type":"context","data":{"path":{"text":"./a.txt"},"lines":{"text":"l4\n"},"line_number":4,"absolute_offset":9,"submatches":[]}}
+{"type":"match","data":{"path":{"text":"./a.txt"},"lines":{"text":"foo five\n"},"line_number":5,"absolute_offset":12,"submatches":[{"match":{"text":"foo"},"start":0,"end":3}]}}
+{"type":"context","data":{"path":{"text":"./a.txt"},"lines":{"text":"l6\n"},"line_number":6,"absolute_offset":21,"submatches":[]}}
+{"type":"context","data":{"path":{"text":"./a.txt"},"lines":{"text":"l7\n"},"line_number":7,"absolute_offset":24,"submatches":[]}}
+{"type":"end","data":{"path":{"text":"./a.txt"},"binary_offset":null,"stats":{"elapsed":{"secs":0,"nanos":17125,"human":"0.000017s"},"searches":1,"searches_with_match":1,"bytes_searched":37,"bytes_printed":751,"matched_lines":1,"matches":1}}}
+{"type":"begin","data":{"path":{"text":"./b.txt"}}}
+{"type":"match","data":{"path":{"text":"./b.txt"},"lines":{"text":"foo one\n"},"line_number":1,"absolute_offset":0,"submatches":[{"match":{"text":"foo"},"start":0,"end":3}]}}
+{"type":"context","data":{"path":{"text":"./b.txt"},"lines":{"text":"l2\n"},"line_number":2,"absolute_offset":8,"submatches":[]}}
+{"type":"match","data":{"path":{"text":"./b.txt"},"lines":{"text":"foo three\n"},"line_number":3,"absolute_offset":11,"submatches":[{"match":{"text":"foo"},"start":0,"end":3}]}}
+{"type":"context","data":{"path":{"text":"./b.txt"},"lines":{"text":"l4\n"},"line_number":4,"absolute_offset":21,"submatches":[]}}
+{"type":"context","data":{"path":{"text":"./b.txt"},"lines":{"text":"l5\n"},"line_number":5,"absolute_offset":24,"submatches":[]}}
+{"type":"context","data":{"path":{"text":"./b.txt"},"lines":{"text":"l6\n"},"line_number":6,"absolute_offset":27,"submatches":[]}}
+{"type":"match","data":{"path":{"text":"./b.txt"},"lines":{"text":"foo seven\n"},"line_number":7,"absolute_offset":30,"submatches":[{"match":{"text":"foo"},"start":0,"end":3}]}}
+{"type":"match","data":{"path":{"text":"./b.txt"},"lines":{"text":"foo eight\n"},"line_number":8,"absolute_offset":40,"submatches":[{"match":{"text":"foo"},"start":0,"end":3}]}}
+{"type":"context","data":{"path":{"text":"./b.txt"},"lines":{"text":"l9\n"},"line_number":9,"absolute_offset":50,"submatches":[]}}
+{"type":"end","data":{"path":{"text":"./b.txt"},"binary_offset":null,"stats":{"elapsed":{"secs":0,"nanos":9583,"human":"0.000010s"},"searches":1,"searches_with_match":1,"bytes_searched":53,"bytes_printed":1415,"matched_lines":4,"matches":4}}}
+{"type":"begin","data":{"path":{"text":"./c.txt"}}}
+{"type":"context","data":{"path":{"text":"./c.txt"},"lines":{"text":"l1\n"},"line_number":1,"absolute_offset":0,"submatches":[]}}
+{"type":"match","data":{"path":{"text":"./c.txt"},"lines":{"text":"foo two\n"},"line_number":2,"absolute_offset":3,"submatches":[{"match":{"text":"foo"},"start":0,"end":3}]}}
+{"type":"context","data":{"path":{"text":"./c.txt"},"lines":{"text":"l3\n"},"line_number":3,"absolute_offset":11,"submatches":[]}}
+{"type":"context","data":{"path":{"text":"./c.txt"},"lines":{"text":"l4\n"},"line_number":4,"absolute_offset":14,"submatches":[]}}
+{"type":"context","data":{"path":{"text":"./c.txt"},"lines":{"text":"l8\n"},"line_number":8,"absolute_offset":26,"submatches":[]}}
+{"type":"context","data":{"path":{"text":"./c.txt"},"lines":{"text":"l9\n"},"line_number":9,"absolute_offset":29,"submatches":[]}}
+{"type":"match","data":{"path":{"text":"./c.txt"},"lines":{"text":"const café = foo;\n"},"line_number":10,"absolute_offset":32,"submatches":[{"match":{"text":"foo"},"start":14,"end":17}]}}
+{"type":"context","data":{"path":{"text":"./c.txt"},"lines":{"text":"l11\n"},"line_number":11,"absolute_offset":51,"submatches":[]}}
+{"type":"end","data":{"path":{"text":"./c.txt"},"binary_offset":null,"stats":{"elapsed":{"secs":0,"nanos":8000,"human":"0.000008s"},"searches":1,"searches_with_match":1,"bytes_searched":55,"bytes_printed":1204,"matched_lines":2,"matches":2}}}
+{"data":{"elapsed_total":{"human":"0.001416s","nanos":1415583,"secs":0},"stats":{"bytes_printed":3370,"bytes_searched":145,"elapsed":{"human":"0.000035s","nanos":34708,"secs":0},"matched_lines":7,"matches":7,"searches":3,"searches_with_match":3}},"type":"summary"}

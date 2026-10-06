@@ -298,7 +298,7 @@ describe("GET /sessions/:id/search", () => {
         search: {
           searchContent: async (workspacePath: string, query: string) => {
             searchCalls.push({ workspacePath, query });
-            return [expectedResult];
+            return { results: [expectedResult], truncated: false };
           },
         },
       },

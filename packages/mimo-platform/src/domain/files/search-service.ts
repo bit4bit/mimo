@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { which } from "bun";
-import type { ContentSearchResult } from "./types.js";
+import type { ContentSearchResponse, ContentSearchResult } from "./types.js";
 import type { SearchOptions, SearchService } from "./types.js";
 import type { OS } from "../../infrastructure/os/types.js";
 
@@ -26,10 +26,23 @@ export async function checkRipgrepAvailable(): Promise<boolean> {
   return rgPath !== undefined;
 }
 
+const MAX_CONTEXT_LINES = 10;
+
+/** Parses a context-lines query value, clamped to 0–10; invalid values fall back. */
+export function parseContextLines(
+  value: string | undefined,
+  fallback: number,
+): number {
+  const parsed = parseInt(value ?? "", 10);
+  if (Number.isNaN(parsed)) return fallback;
+  return Math.min(MAX_CONTEXT_LINES, Math.max(0, parsed));
+}
+
 export interface SpawnRipgrepOptions {
   workspacePath: string;
   query: string;
-  contextLines?: number;
+  beforeLines?: number;
+  afterLines?: number;
   maxResults?: number;
 }
 
@@ -49,7 +62,8 @@ export function createSearchService(
         {
           workspacePath,
           query,
-          contextLines: options.contextLines,
+          beforeLines: options.beforeLines,
+          afterLines: options.afterLines,
           maxResults: options.maxResults,
         },
         { os, resolveBinary },
@@ -61,7 +75,7 @@ export function createSearchService(
 export async function spawnRipgrep(
   options: SpawnRipgrepOptions,
   deps: Partial<SearchServiceDeps> = {},
-): Promise<ContentSearchResult[]> {
+): Promise<ContentSearchResponse> {
   const resolveBinary = deps.resolveBinary ?? which;
 
   const rgPath = await resolveBinary("rg");
@@ -72,17 +86,27 @@ export async function spawnRipgrep(
     );
   }
 
-  const { workspacePath, query, contextLines = 2, maxResults = 100 } = options;
+  const {
+    workspacePath,
+    query,
+    beforeLines = 2,
+    afterLines = 2,
+    maxResults = 100,
+  } = options;
   if (query.includes("\0")) {
     throw new SearchServiceError("Invalid search query", "INVALID_REGEX");
   }
 
+  // --max-count is per file; it only guards against one huge file. The total
+  // cap is enforced while parsing.
   const args = [
     "--json",
     "-i",
     "-n",
-    "--context",
-    String(contextLines),
+    "-B",
+    String(beforeLines),
+    "-A",
+    String(afterLines),
     "--max-count",
     String(maxResults),
     "--",
@@ -106,7 +130,7 @@ export async function spawnRipgrep(
   );
 
   if (exitCode === 1 && error.trim().length === 0) {
-    return [];
+    return { results: [], truncated: false };
   }
 
   if (!success) {
@@ -125,7 +149,11 @@ export async function spawnRipgrep(
     );
   }
 
-  return parseRipgrepOutput(output, contextLines, workspacePath);
+  return parseRipgrepOutput(
+    output,
+    { beforeLines, afterLines, maxResults },
+    workspacePath,
+  );
 }
 
 function normalizeResultPath(pathText: string, workspacePath: string): string {
@@ -140,68 +168,99 @@ function normalizeResultPath(pathText: string, workspacePath: string): string {
   return normalized;
 }
 
-function parseRipgrepOutput(
+interface ParseOptions {
+  beforeLines: number;
+  afterLines: number;
+  maxResults: number;
+}
+
+interface NumberedLine {
+  line: number;
+  text: string;
+}
+
+const stripLineEnding = (text: string) => text.replace(/\r?\n$/, "");
+
+/**
+ * Turns `rg --json` output into results whose `before` lines end at `line - 1`
+ * and whose `after` lines start at `line + 1`, both contiguous and from the
+ * same file. Match lines count as context for neighbouring matches.
+ */
+export function parseRipgrepOutput(
   output: string,
-  contextLines: number,
+  { beforeLines, afterLines, maxResults }: ParseOptions,
   workspacePath: string,
-): ContentSearchResult[] {
+): ContentSearchResponse {
   const results: ContentSearchResult[] = [];
-  const lines = output.split("\n").filter((line) => line.trim().length > 0);
-  const contextByFile = new Map<
-    string,
-    { before: string[]; after: string[] }
-  >();
+  let currentPath: string | null = null;
+  // Matches whose after-context window is still open (several when matches
+  // are closer together than `afterLines`).
+  let openMatches: ContentSearchResult[] = [];
+  let recentLines: NumberedLine[] = [];
 
-  for (const line of lines) {
+  for (const raw of output.split("\n")) {
+    if (raw.trim().length === 0) continue;
+    let event: any;
     try {
-      const obj = JSON.parse(line);
-      const type = obj.type;
-      const data = obj.data;
-
-      if (!data || !data.path) continue;
-
-      const path = normalizeResultPath(data.path.text, workspacePath);
-      const lineNum = data.line_number;
-
-      if (type === "context") {
-        const existing = contextByFile.get(path) || { before: [], after: [] };
-        if (data.lines && data.lines.text) {
-          if (lineNum < (results[results.length - 1]?.line ?? 0)) {
-            existing.before.push(data.lines.text);
-          } else {
-            existing.after.push(data.lines.text);
-          }
-        }
-        contextByFile.set(path, existing);
-        continue;
-      }
-
-      if (type === "match") {
-        const text = data.lines?.text ?? "";
-        const submatches = data.submatches ?? [];
-        const matchStart = submatches[0]?.start ?? 0;
-        const matchEnd = submatches[0]?.end ?? text.length;
-        const column = data["data"]?.chunk?.offset ?? matchStart;
-
-        const context = contextByFile.get(path) || { before: [], after: [] };
-
-        results.push({
-          path,
-          line: lineNum,
-          column,
-          text,
-          matchStart,
-          matchEnd,
-          before: context.before.slice(-contextLines),
-          after: context.after.slice(0, contextLines),
-        });
-
-        contextByFile.set(path, { before: [], after: [] });
-      }
+      event = JSON.parse(raw);
     } catch {
-      // skip invalid JSON
+      continue;
     }
+
+    const { type, data } = event;
+    if (type !== "match" && type !== "context") {
+      if (type === "begin" || type === "end") {
+        currentPath = null;
+        openMatches = [];
+        recentLines = [];
+      }
+      continue;
+    }
+    if (!data?.path) continue;
+
+    const path = normalizeResultPath(data.path.text, workspacePath);
+    const lineNum: number = data.line_number;
+    const text = stripLineEnding(data.lines?.text ?? "");
+
+    if (path !== currentPath) {
+      currentPath = path;
+      openMatches = [];
+      recentLines = [];
+    }
+
+    const previous = recentLines[recentLines.length - 1];
+    if (previous && previous.line !== lineNum - 1) recentLines = [];
+
+    openMatches = openMatches.filter((m) => lineNum - m.line <= afterLines);
+    for (const match of openMatches) match.after.push(text);
+
+    if (type === "match") {
+      if (results.length >= maxResults) {
+        return { results, truncated: true };
+      }
+      const matchStart = data.submatches?.[0]?.start ?? 0;
+      const matchEnd = data.submatches?.[0]?.end ?? text.length;
+      const match: ContentSearchResult = {
+        path,
+        line: lineNum,
+        column: matchStart,
+        text,
+        matchStart,
+        matchEnd,
+        before: recentLines
+          .filter((l) => l.line >= lineNum - beforeLines)
+          .map((l) => l.text),
+        after: [],
+      };
+      results.push(match);
+      openMatches.push(match);
+    }
+
+    recentLines =
+      beforeLines > 0
+        ? [...recentLines, { line: lineNum, text }].slice(-beforeLines)
+        : [];
   }
 
-  return results;
+  return { results, truncated: false };
 }
