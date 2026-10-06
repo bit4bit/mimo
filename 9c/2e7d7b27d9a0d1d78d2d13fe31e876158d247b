@@ -1,0 +1,141 @@
+packages/mimo-platform/src/web/shared/components/ContentFinderDialog.tsx
+  s_2e3476b07db09c::t_d8390f25c69c8d 19-49
+packages/mimo-platform/test/fixtures/ripgrep/context-0-0.jsonl
+  s_2e3476b07db09c::t_50b5acab767b4e 1-14
+packages/mimo-platform/test/session-content-search-route.test.ts
+  s_2e3476b07db09c::t_ea0f5ad6587270 1-146
+packages/mimo-agent/src/index.ts
+  s_7cda5cb47c6abb::t_c5bbcadf29a386 716,727
+packages/mimo-platform/src/assets.ts
+  s_2e3476b07db09c::t_8731085fbe9370 21,54
+packages/mimo-platform/src/web/features/projects/components/ImpactHistoryPage.tsx
+  s_7cda5cb47c6abb::t_ea06b57e7044ee 42-49,112,194-205,347-350,372-375
+  s_7cda5cb47c6abb::t_3e5d3e074294fa 376-377
+packages/mimo-platform/public/js/content-finder-utils.js
+  s_2e3476b07db09c::t_ed5b0886e28107 1-134
+openspec/changes/fix-impact-history-metrics/tasks.md
+  s_7cda5cb47c6abb::t_720e3827dc8157 26
+  s_7cda5cb47c6abb::t_1f5c826ecfb299 30-31
+  s_7cda5cb47c6abb::t_0b2e0a7d9494d0 1-2,8-10,14-16,23-25,27-29
+  s_7cda5cb47c6abb::t_341271946065e0 11-13
+  s_7cda5cb47c6abb::t_ea06b57e7044ee 17-22
+  s_7cda5cb47c6abb::t_ba1bea4c581cd6 3-7
+packages/mimo-platform/src/domain/impact/repository.ts
+  s_7cda5cb47c6abb::t_d98f3fb9fd8873 5,37
+packages/mimo-platform/src/domain/files/search-service.ts
+  s_2e3476b07db09c::t_1f76473a7a4b66 196-198,214,227,234-235,243,255-256
+  s_2e3476b07db09c::t_87a5e57b7c900d 3,44-45,65-66,78,89-95,100-101,106-109,133,152-156,171-189,191,193,195,199,201-203,205-213,215,217-226,228-232,237-239,241-242,244-254,258-262,265
+  s_2e3476b07db09c::t_de804d2df18de1 29-40
+  s_2e3476b07db09c::t_7aa9c508540ebf 233
+packages/mimo-platform/test/frontend/js/content-finder-utils.test.ts
+  s_2e3476b07db09c::t_9a0247d683eaad 123-125
+  s_2e3476b07db09c::t_b459e3ea4d6ae3 1-122,126-127
+packages/mimo-platform/test/impact-commit-metrics.test.ts
+  s_7cda5cb47c6abb::t_f76858a28a660f 1-44,46-65,67-88,93-155,188-189
+  s_7cda5cb47c6abb::t_6915dd0fe4af3d 45,66,89-92,156-187
+openspec/changes/fix-impact-history-metrics/design.md
+  s_7cda5cb47c6abb::t_747384cc0334f7 1-66
+packages/mimo-platform/src/domain/sessions/repository.ts
+  s_7cda5cb47c6abb::t_f91b69dba641c2 11,105-106,153-154
+packages/mimo-platform/public/js/edit-buffer.js
+  s_2e3476b07db09c::t_a5b69b7118dcdf 1408-1446,1458-1459,1521-1526,1594,1597-1598,1600-1603,2297-2302,2304-2336
+  s_2e3476b07db09c::t_9a0247d683eaad 2303
+  s_2e3476b07db09c::t_004142f09cbbd0 1745-1746,1787,2193-2195
+  s_2e3476b07db09c::t_450e0828ae0c0d 2196,2337
+packages/mimo-platform/test/frontend/js/content-finder-modal.test.ts
+  s_2e3476b07db09c::t_0a7e512bff816b 1-41,56-69,73-100,109-110,124-163,173-267,292-293
+  s_2e3476b07db09c::t_e6f132bb64d8ef 101-108,164-172
+  s_2e3476b07db09c::t_a5b3217e49f80e 123
+  s_2e3476b07db09c::t_666676df4928b3 42-55,70-72,111-122,268-291
+packages/mimo-platform/src/domain/files/types.ts
+  s_2e3476b07db09c::t_1602145fae042d 33-34,38-42,48
+packages/mimo-platform/src/domain/commits/service.ts
+  s_7cda5cb47c6abb::t_6a62d10fa2dbb5 170-184,189-200,207-242,246-249,255-265
+  s_7cda5cb47c6abb::t_d98f3fb9fd8873 14,201-206,243-245,250-254
+  s_7cda5cb47c6abb::t_1f5c826ecfb299 185-188
+  s_7cda5cb47c6abb::t_36f556c0979b1b 666-673,718-722
+  s_7cda5cb47c6abb::t_e1f842e92e9ae7 169
+packages/mimo-platform/src/web/shared/components/Layout.tsx
+  s_2e3476b07db09c::t_d8390f25c69c8d 618-683
+  s_2e3476b07db09c::t_8731085fbe9370 138-140
+openspec/changes/content-finder-context-lines/.openspec.yaml
+  s_2e3476b07db09c::t_93b75e83600b2b 1-2
+openspec/changes/fix-impact-history-metrics/.openspec.yaml
+  s_7cda5cb47c6abb::t_a1f60acf6d77e1 1-2
+packages/mimo-platform/test/fixtures/ripgrep/context-2-2.jsonl
+  s_2e3476b07db09c::t_50b5acab767b4e 1-29
+openspec/changes/content-finder-context-lines/tasks.md
+  s_2e3476b07db09c::t_1dab671e022ebc 27,29-33,35
+  s_2e3476b07db09c::t_dfb60584b7baca 16-18
+  s_2e3476b07db09c::t_a63d8a11fbe206 1-2,6-8,13-15,19-21,26,28
+  s_2e3476b07db09c::t_669b9a798da925 11-12
+  s_2e3476b07db09c::t_878b1fe990b904 34
+  s_2e3476b07db09c::t_4ce0a6abc7b34d 4,9
+  s_2e3476b07db09c::t_71072b826c1e25 3,5,10
+  s_2e3476b07db09c::t_5e867ae0d1c4b8 22-25
+openspec/changes/content-finder-context-lines/design.md
+  s_2e3476b07db09c::t_9a0247d683eaad 11,37,54,62
+  s_2e3476b07db09c::t_fbaef605e74abd 43,45-46
+  s_2e3476b07db09c::t_1a3a1ab85990f0 1-10,12-36,38-42,44,47-53,55-61,63-96
+packages/mimo-platform/test/search-service-context.test.ts
+  s_2e3476b07db09c::t_9a0247d683eaad 32-36
+  s_2e3476b07db09c::t_da4808ecf45dda 1-31,37-156
+openspec/changes/fix-impact-history-metrics/proposal.md
+  s_7cda5cb47c6abb::t_3549cfe35a4b2c 1-32
+openspec/changes/fix-impact-history-metrics/specs/prompt-token-usage/spec.md
+  s_7cda5cb47c6abb::t_d328f40f720129 1-29
+packages/mimo-agent/src/acp/client.ts
+  s_7cda5cb47c6abb::t_21b5346ec862f6 19
+  s_7cda5cb47c6abb::t_c5bbcadf29a386 410-413
+openspec/changes/content-finder-context-lines/proposal.md
+  s_2e3476b07db09c::t_96ca116434b918 1-30
+packages/mimo-platform/test/agent-message-router.test.ts
+  s_7cda5cb47c6abb::t_1f5c826ecfb299 415-419
+  s_7cda5cb47c6abb::t_265d41829d7414 386-414,420-452
+packages/mimo-platform/src/domain/impact/calculator.ts
+  s_7cda5cb47c6abb::t_82b020e02f8587 365
+packages/mimo-platform/test/expert-mode-api.test.ts
+  s_2e3476b07db09c::t_5f4e29972eb5b3 301
+openspec/changes/content-finder-context-lines/specs/content-search/spec.md
+  s_2e3476b07db09c::t_cb1b7752fb1a81 1-142
+  s_2e3476b07db09c::t_1dab671e022ebc 143-160
+packages/mimo-platform/src/web/features/sessions/components/buffers/EditBuffer.tsx
+  s_2e3476b07db09c::t_004142f09cbbd0 21-26
+  s_2e3476b07db09c::t_b4b1c49840eee2 19-20
+openspec/changes/fix-impact-history-metrics/specs/impact-history/spec.md
+  s_7cda5cb47c6abb::t_8e08cc944d7855 1-87
+packages/mimo-platform/src/domain/agents/message-router.ts
+  s_7cda5cb47c6abb::t_4c976bc667611f 17,1154-1158
+packages/mimo-platform/src/web/features/sessions/pages/sessions.tsx
+  s_2e3476b07db09c::t_1a94529c8e1a6d 31-34
+  s_2e3476b07db09c::t_de804d2df18de1 3428-3430,3455-3459,3467
+packages/mimo-agent/test/acp-client-load-session.test.ts
+  s_7cda5cb47c6abb::t_7d0b539dc98bff 5,52,189-229
+  s_7cda5cb47c6abb::t_8f3834cf724a75 230
+packages/mimo-platform/src/domain/impact/token-usage.ts
+  s_7cda5cb47c6abb::t_9b8cd2c6909a58 1-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9c2e7d7b27d9a0d1d78d2d13fe31e876158d247b",
+  "prompts": {},
+  "sessions": {
+    "s_2e3476b07db09c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d6bfb98-bb0b-4e75-9af9-479198bc6c15",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jovany Leandro G.C <bit4bit@riseup.net>"
+    },
+    "s_7cda5cb47c6abb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f084ba90-8d8f-4f8d-842a-63beccfcf3d1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jovany Leandro G.C <bit4bit@riseup.net>"
+    }
+  }
+}
